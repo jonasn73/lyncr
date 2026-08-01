@@ -998,7 +998,7 @@ export function LyncrAdminDashboard({
               <div>
                 <h2 className="text-sm font-semibold text-slate-100">Business money</h2>
                 <p className="hidden text-xs text-slate-500 md:block">
-                  Tap a shop to see plan, phone cost, card fees, and whether Lyncr is ahead or behind.
+                  Tap a shop for actual Stripe plan cash + card fees, phone cost, and how much Lyncr is ahead or behind.
                 </p>
               </div>
               <div className="relative w-full sm:max-w-xs">

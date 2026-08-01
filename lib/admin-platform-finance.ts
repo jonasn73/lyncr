@@ -89,7 +89,7 @@ function timeZoneOffsetMs(utcMs: number, timeZone: string): number {
 }
 
 /** Unix seconds for local midnight on day 1 of the current month in `timeZone`. */
-function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
+export function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
   const { year, month } = zonedYmd(new Date(), timeZone)
   // Wall-clock Y-M-01 00:00 as if it were UTC, then subtract the zone offset at that instant.
   const asUtcMidnight = Date.UTC(year, month - 1, 1, 0, 0, 0)

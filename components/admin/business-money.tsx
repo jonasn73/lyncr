@@ -1,6 +1,6 @@
 "use client"
 
-// Plain-English per-business P&L breakdown (plan + card fees − est. phone cost).
+// Plain-English per-business P&L — actual Stripe cash + fees − phone cost.
 
 import type { AdminBusinessEconomics } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -10,16 +10,25 @@ function MoneyLine({
   value,
   note,
   tone,
+  badge,
 }: {
   label: string
   value: string
   note?: string
   tone?: "in" | "out" | "net"
+  badge?: string
 }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-2.5 last:border-0">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-200">{label}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-slate-200">{label}</p>
+          {badge ? (
+            <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {badge}
+            </span>
+          ) : null}
+        </div>
         {note ? <p className="mt-0.5 text-xs leading-snug text-slate-500">{note}</p> : null}
       </div>
       <p
@@ -39,6 +48,10 @@ function MoneyLine({
 
 /** Full breakdown rows — used in Home sheet and Businesses drawer. */
 export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics }) {
+  const cardBadge =
+    row.card_fee_source === "stripe" ? "Actual" : row.card_fee_source === "estimate" ? "Est." : undefined
+  const phoneBadge = row.phone_cost_is_estimate ? "Est." : "Actual"
+
   return (
     <div className="space-y-1">
       <div
@@ -57,25 +70,33 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         >
           {row.verdict_label}
         </p>
-        <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{row.net_label}</p>
+        <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{row.net_abs_label}</p>
         <p className="mt-1 text-xs text-slate-400">
-          Est. net for Lyncr this month · {row.month_label}
+          Net for Lyncr this month · {row.month_label}
         </p>
         <p className="mt-1 text-[11px] leading-snug text-slate-500">
-          List-price plan + est. card fees + credit packs − est. phone cost
+          Actual plan cash + card fees + credit packs − phone cost
         </p>
       </div>
 
       <MoneyLine
-        label="Plan (list price)"
+        label="Plan cash (Stripe)"
         value={row.plan_revenue_label}
-        note={`${row.plan_tier_label} · not Stripe invoice cash`}
+        note={row.plan_status_label}
+        badge="Actual"
         tone="in"
       />
       <MoneyLine
-        label="Est. card fees to Lyncr"
+        label="Card fees to Lyncr"
         value={row.card_fee_mtd_label}
-        note="Formula on Collect / Tap / pay links this month (2.9% + $0.30)"
+        note={
+          row.card_fee_source === "stripe"
+            ? "Real Stripe Connect application fees this month"
+            : row.card_fee_source === "estimate"
+              ? "Estimate from Collect / Tap charges (2.9% + $0.30)"
+              : "No Connect card fees this month"
+        }
+        badge={cardBadge}
         tone="in"
       />
       {row.credit_pack_mtd_cents > 0 ? (
@@ -83,16 +104,26 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
           label="Credit packs sold"
           value={row.credit_pack_mtd_label}
           note="Prepaid phone minutes they bought this month"
+          badge="Actual"
           tone="in"
         />
       ) : null}
       <MoneyLine
-        label="Est. phone cost"
+        label={row.phone_cost_is_estimate ? "Phone cost" : "Phone cost (wallet)"}
         value={row.est_phone_cost_mtd_label}
         note={`${row.talk_minutes_mtd} talk min · ${row.call_count_mtd} calls · ${row.sms_count_mtd} SMS · this month only`}
+        badge={phoneBadge}
         tone="out"
       />
-      <MoneyLine label="Est. net for Lyncr" value={row.net_label} tone="net" />
+      <MoneyLine label="Net for Lyncr" value={row.net_label} tone="net" />
+
+      {(row.saas_last_paid_label || row.saas_next_bill_label) && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-500">
+          Last SaaS payment: {row.saas_last_paid_label ?? "never"}
+          {" · "}
+          Next bill: {row.saas_next_bill_label ?? "none"}
+        </p>
+      )}
 
       {row.breakdown_notes.length > 0 ? (
         <ul className="mt-3 space-y-1.5 px-0.5">
@@ -136,7 +167,7 @@ export function BusinessMoneyChip({
             row.ahead ? "text-emerald-300" : "text-amber-300"
           )}
         >
-          {row.net_label}
+          {row.net_abs_label}
         </p>
         <p className={cn("text-[10px] font-medium", row.ahead ? "text-emerald-500/80" : "text-amber-500/80")}>
           {row.verdict_label}

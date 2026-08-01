@@ -4,6 +4,8 @@ import { getStripeClient, getStripeWebhookSecret } from "@/lib/stripe-config"
 import {
   handleStripeInvoicePaymentSucceeded,
   handleStripeSubscriptionCreated,
+  handleStripeSubscriptionDeleted,
+  handleStripeSubscriptionUpdated,
 } from "@/lib/stripe-webhook-sync"
 import { handleStripeCheckoutSessionCompleted } from "@/lib/stripe-billing-sync"
 import { confirmJobPaymentIntent } from "@/lib/job-payments"
@@ -31,6 +33,12 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "customer.subscription.created":
         await handleStripeSubscriptionCreated(event.data.object as Stripe.Subscription)
+        break
+      case "customer.subscription.updated":
+        await handleStripeSubscriptionUpdated(event.data.object as Stripe.Subscription)
+        break
+      case "customer.subscription.deleted":
+        await handleStripeSubscriptionDeleted(event.data.object as Stripe.Subscription)
         break
       case "invoice.payment_succeeded":
         await handleStripeInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)

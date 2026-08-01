@@ -205,9 +205,22 @@ export async function syncStripeSubscriptionToNeon(
       ? subscription.customer
       : subscription.customer?.id ?? opts?.customerId ?? null
 
+  const isLive = subscription.status === "active" || subscription.status === "trialing"
+
+  // Canceled / unpaid / incomplete — clear the Neon “active” flag so Ops doesn’t invent MRR.
+  if (!isLive) {
+    await updateOnboardingProfile(userId, {
+      has_active_subscription: false,
+      billing_cycle_start: periodStart,
+      billing_cycle_end: periodEnd,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+    })
+    return
+  }
+
   const tier =
-    resolveSubscriptionTierFromStripeSubscription(subscription) ??
-    (subscription.status === "active" || subscription.status === "trialing" ? "starter" : "free_trial")
+    resolveSubscriptionTierFromStripeSubscription(subscription) ?? "starter"
 
   if (tier === "free_trial") {
     return
@@ -241,6 +254,32 @@ export async function handleStripeSubscriptionCreated(subscription: Stripe.Subsc
     return
   }
   await syncStripeSubscriptionToNeon(userId, subscription)
+}
+
+/** Keep Neon in sync when Stripe cancels or changes status (payment_failed, etc.). */
+export async function handleStripeSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
+  const userId = resolveUserIdFromStripeObject(subscription)
+  if (!userId) {
+    console.error("[stripe] subscription.updated missing user_id metadata", subscription.id)
+    return
+  }
+  await syncStripeSubscriptionToNeon(userId, subscription)
+}
+
+export async function handleStripeSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
+  const userId = resolveUserIdFromStripeObject(subscription)
+  if (!userId) {
+    console.error("[stripe] subscription.deleted missing user_id metadata", subscription.id)
+    return
+  }
+  await updateOnboardingProfile(userId, {
+    has_active_subscription: false,
+    stripe_customer_id:
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer?.id ?? undefined,
+    stripe_subscription_id: subscription.id,
+  })
 }
 
 export async function handleStripeInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {

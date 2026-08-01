@@ -748,19 +748,35 @@ export interface AdminBusinessEconomics {
   business_name: string
   email: string
   subscription_tier: string
+  /** True only when Stripe says active/trialing (or Neon when no Stripe ids). */
   has_active_subscription: boolean
+  /** Actual SaaS cash collected this month (Stripe paid invoices) — not list price. */
   plan_revenue_cents: number
   plan_revenue_label: string
   plan_tier_label: string
+  /** Plain-English plan status (canceled / last paid / next bill). */
+  plan_status_label: string
+  /** Where plan dollars came from. */
+  plan_cash_source: "stripe" | "none"
+  saas_last_paid_label: string | null
+  saas_next_bill_label: string | null
+  stripe_subscription_status: string | null
   est_phone_cost_mtd_cents: number
   est_phone_cost_mtd_label: string
+  /** True when phone cost is a wholesale proxy, not Telnyx invoice. */
+  phone_cost_is_estimate: boolean
   card_fee_mtd_cents: number
   card_fee_mtd_label: string
+  /** Stripe application fees vs formula fallback. */
+  card_fee_source: "stripe" | "estimate" | "none"
   credit_pack_mtd_cents: number
   credit_pack_mtd_label: string
   net_cents: number
+  /** Absolute dollar amount (always positive display helper). */
+  net_abs_label: string
   net_label: string
   ahead: boolean
+  /** e.g. "We're behind by $12.34" — amount always included. */
   verdict_label: string
   month_label: string
   talk_minutes_mtd: number

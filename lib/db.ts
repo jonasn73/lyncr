@@ -12212,6 +12212,8 @@ export type AdminBusinessEconomicsRawRow = {
   email: string
   business_name: string
   stripe_connect_account_id: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
   subscription_tier: string
   has_active_subscription: boolean
   carrier_credit: number
@@ -12240,6 +12242,8 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
           u.email,
           coalesce(nullif(trim(u.business_name), ''), 'Unnamed business') AS business_name,
           u.stripe_connect_account_id,
+          nullif(trim(op.stripe_customer_id), '') AS stripe_customer_id,
+          nullif(trim(op.stripe_subscription_id), '') AS stripe_subscription_id,
           lower(coalesce(nullif(trim(op.subscription_tier), ''), 'free_trial')) AS subscription_tier,
           coalesce(op.has_active_subscription, false) AS has_active_subscription,
           coalesce(op.carrier_credit, 0)::numeric AS carrier_credit
@@ -12276,6 +12280,8 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
         o.email,
         o.business_name,
         o.stripe_connect_account_id,
+        o.stripe_customer_id,
+        o.stripe_subscription_id,
         o.subscription_tier,
         o.has_active_subscription,
         o.carrier_credit,
@@ -12292,22 +12298,7 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
       ORDER BY o.business_name ASC
     `) as Record<string, unknown>[]
 
-    return rows.map((row) => ({
-      user_id: String(row.user_id),
-      email: String(row.email ?? ""),
-      business_name: String(row.business_name ?? "Unnamed business"),
-      stripe_connect_account_id:
-        row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
-      subscription_tier: String(row.subscription_tier ?? "free_trial"),
-      has_active_subscription: pgBool(row.has_active_subscription),
-      carrier_credit: Number(row.carrier_credit ?? 0),
-      call_count_mtd: Number(row.call_count_mtd ?? 0),
-      talk_seconds_mtd: Number(row.talk_seconds_mtd ?? 0),
-      sms_count_mtd: Number(row.sms_count_mtd ?? 0),
-      wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
-      number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
-      credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
-    }))
+    return rows.map((row) => mapAdminBusinessEconomicsRawRow(row))
   } catch (e) {
     // sms_messages or billing_ledger may be missing on older DBs — retry without them.
     if (
@@ -12325,6 +12316,8 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
             u.email,
             coalesce(nullif(trim(u.business_name), ''), 'Unnamed business') AS business_name,
             u.stripe_connect_account_id,
+            NULL AS stripe_customer_id,
+            NULL AS stripe_subscription_id,
             'free_trial' AS subscription_tier,
             false AS has_active_subscription,
             0::numeric AS carrier_credit,
@@ -12345,22 +12338,7 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
             AND nullif(trim(u.business_name), '') IS NOT NULL
           ORDER BY business_name ASC
         `) as Record<string, unknown>[]
-        return rows.map((row) => ({
-          user_id: String(row.user_id),
-          email: String(row.email ?? ""),
-          business_name: String(row.business_name ?? "Unnamed business"),
-          stripe_connect_account_id:
-            row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
-          subscription_tier: String(row.subscription_tier ?? "free_trial"),
-          has_active_subscription: pgBool(row.has_active_subscription),
-          carrier_credit: Number(row.carrier_credit ?? 0),
-          call_count_mtd: Number(row.call_count_mtd ?? 0),
-          talk_seconds_mtd: Number(row.talk_seconds_mtd ?? 0),
-          sms_count_mtd: Number(row.sms_count_mtd ?? 0),
-          wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
-          number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
-          credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
-        }))
+        return rows.map((row) => mapAdminBusinessEconomicsRawRow(row))
       } catch (e2) {
         console.error("[db] getAdminBusinessEconomicsRawRows fallback:", e2)
         return []
@@ -12368,6 +12346,28 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
     }
     console.error("[db] getAdminBusinessEconomicsRawRows:", e)
     return []
+  }
+}
+
+function mapAdminBusinessEconomicsRawRow(row: Record<string, unknown>): AdminBusinessEconomicsRawRow {
+  return {
+    user_id: String(row.user_id),
+    email: String(row.email ?? ""),
+    business_name: String(row.business_name ?? "Unnamed business"),
+    stripe_connect_account_id:
+      row.stripe_connect_account_id != null ? String(row.stripe_connect_account_id) : null,
+    stripe_customer_id: row.stripe_customer_id != null ? String(row.stripe_customer_id) : null,
+    stripe_subscription_id:
+      row.stripe_subscription_id != null ? String(row.stripe_subscription_id) : null,
+    subscription_tier: String(row.subscription_tier ?? "free_trial"),
+    has_active_subscription: pgBool(row.has_active_subscription),
+    carrier_credit: Number(row.carrier_credit ?? 0),
+    call_count_mtd: Number(row.call_count_mtd ?? 0),
+    talk_seconds_mtd: Number(row.talk_seconds_mtd ?? 0),
+    sms_count_mtd: Number(row.sms_count_mtd ?? 0),
+    wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
+    number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
+    credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
   }
 }
 
