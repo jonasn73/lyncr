@@ -15061,6 +15061,55 @@ export async function cancelTeamInviteForInviter(
   }
 }
 
+/** Load one pending invite owned by this inviter (for resend / copy link). */
+export async function getTeamInviteForInviter(
+  inviteId: string,
+  invitedByUserId: string
+): Promise<TeamInvite | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM team_invites
+      WHERE id = ${inviteId}
+        AND invited_by_user_id = ${invitedByUserId}
+        AND accepted_at IS NULL
+      LIMIT 1
+    `
+    return rows[0] ? parseTeamInviteRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingTeamInvitesTableError(e)) return null
+    throw e
+  }
+}
+
+/**
+ * Rotate token + expiry on a still-pending invite the owner created.
+ * Returns the updated row, or null when the invite is missing / already accepted.
+ */
+export async function refreshTeamInviteTokenForInviter(params: {
+  inviteId: string
+  invitedByUserId: string
+  token: string
+  expiresAt: string
+}): Promise<TeamInvite | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE team_invites
+      SET token = ${params.token},
+          expires_at = ${params.expiresAt}::timestamptz
+      WHERE id = ${params.inviteId}
+        AND invited_by_user_id = ${params.invitedByUserId}
+        AND accepted_at IS NULL
+      RETURNING *
+    `
+    return rows[0] ? parseTeamInviteRow(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingTeamInvitesTableError(e)) return null
+    throw e
+  }
+}
+
 /** Public-safe invite preview (valid + pending only). */
 export async function getTeamInvitePreview(token: string): Promise<TeamInvitePreview | null> {
   const invite = await getTeamInviteByToken(token)

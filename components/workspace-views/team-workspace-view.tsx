@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useState } from "react"
-import { Check, Loader2, Network, Plus, Save, Trash2, Users } from "lucide-react"
+import { Check, Copy, Loader2, Network, Plus, Save, Send, Trash2, Users } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,7 @@ import {
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { TeamInvite } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -191,6 +192,7 @@ function NetworkInstructionsPanel() {
 }
 
 export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
+  const { toast } = useToast()
   const [members, setMembers] = useState<Receptionist[]>([])
   const [pendingInvites, setPendingInvites] = useState<TeamInvite[]>([])
   const [payoutsById, setPayoutsById] = useState<Record<string, ReceptionistPayoutMetrics>>({})
@@ -203,6 +205,14 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   // Confirm-dialog target for removing a phone contact or canceling an invite.
   const [pendingRemove, setPendingRemove] = useState<PendingRemove | null>(null)
   const [removing, setRemoving] = useState(false)
+  // Pending-invite row actions (Copy link / Resend) — match Field Technicians pattern.
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null)
+  const [inviteBusyKind, setInviteBusyKind] = useState<"copy" | "resend" | null>(null)
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
+  const [resentInviteId, setResentInviteId] = useState<string | null>(null)
+  const [inviteActionError, setInviteActionError] = useState<{ id: string; message: string } | null>(
+    null
+  )
 
   const load = useCallback(() => {
     setLoading(true)
@@ -294,6 +304,101 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
       setError("Could not update availability")
     } finally {
       setTogglingId(null)
+    }
+  }
+
+  /** Call resend API; optionally skip email (for Copy link when token may need refresh). */
+  async function callInviteResend(
+    inviteId: string,
+    sendEmail: boolean
+  ): Promise<{ register_url: string; email_sent: boolean; email_error: string | null } | null> {
+    const res = await fetch(`/api/team/invites/${encodeURIComponent(inviteId)}/resend`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ send_email: sendEmail }),
+    })
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: string
+      data?: { register_url?: string; email_sent?: boolean; email_error?: string | null }
+    }
+    if (!res.ok || !json.data?.register_url) {
+      throw new Error(json.error || "Could not get invite link")
+    }
+    return {
+      register_url: json.data.register_url,
+      email_sent: Boolean(json.data.email_sent),
+      email_error: json.data.email_error ?? null,
+    }
+  }
+
+  /** Copy a working register link for a pending invite (refreshes token if near expiry). */
+  async function copyInviteLink(inv: TeamInvite) {
+    setInviteBusyId(inv.id)
+    setInviteBusyKind("copy")
+    setInviteActionError(null)
+    try {
+      // Ask the server for a valid register URL (may refresh an expired token).
+      const data = await callInviteResend(inv.id, false)
+      if (!data) return
+      try {
+        await navigator.clipboard.writeText(data.register_url)
+      } catch {
+        setInviteActionError({
+          id: inv.id,
+          message: "Could not copy — try again, or share the link from a new invite.",
+        })
+        return
+      }
+      setCopiedInviteId(inv.id)
+      toast({ title: "Link copied" })
+      setTimeout(() => setCopiedInviteId((id) => (id === inv.id ? null : id)), 2000)
+    } catch (e) {
+      setInviteActionError({
+        id: inv.id,
+        message: e instanceof Error ? e.message : "Could not copy invite link",
+      })
+    } finally {
+      setInviteBusyId(null)
+      setInviteBusyKind(null)
+    }
+  }
+
+  /** Re-send the invite email (same Resend helper as Create invite). */
+  async function resendInvite(inv: TeamInvite) {
+    const hasEmail = Boolean(inv.email?.includes("@"))
+    // SMS-only invites: no email to resend — nudge Copy link instead.
+    if (!hasEmail) {
+      setInviteActionError({
+        id: inv.id,
+        message: "This invite has no email — use Copy link and share it yourself.",
+      })
+      return
+    }
+    setInviteBusyId(inv.id)
+    setInviteBusyKind("resend")
+    setInviteActionError(null)
+    try {
+      const data = await callInviteResend(inv.id, true)
+      if (!data) return
+      if (data.email_sent) {
+        setResentInviteId(inv.id)
+        toast({ title: "Invite email sent" })
+        setTimeout(() => setResentInviteId((id) => (id === inv.id ? null : id)), 2500)
+      } else {
+        setInviteActionError({
+          id: inv.id,
+          message: data.email_error || "Email was not sent — use Copy link to share it yourself.",
+        })
+      }
+    } catch (e) {
+      setInviteActionError({
+        id: inv.id,
+        message: e instanceof Error ? e.message : "Could not resend invite",
+      })
+    } finally {
+      setInviteBusyId(null)
+      setInviteBusyKind(null)
     }
   }
 
@@ -410,28 +515,72 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           ) : null}
 
           {pendingInvites.length > 0 ? (
-            <div className="mt-3 space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
+            <div className="mt-3 space-y-2 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
                 Waiting to accept ({pendingInvites.length})
               </p>
               {pendingInvites.slice(0, 5).map((inv) => {
                 const inviteLabel = inv.first_name || inv.email || inv.phone || "Invite"
+                const hasEmail = Boolean(inv.email?.includes("@"))
+                const busy = inviteBusyId === inv.id
                 return (
-                  <div key={inv.id} className="flex items-center justify-between gap-2">
+                  <div key={inv.id} className="space-y-1.5 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
                     <p className="min-w-0 truncate text-xs text-zinc-400">
                       {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
-                      }
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`Cancel invite for ${inviteLabel}`}
-                    >
-                      <Trash2 className="h-3 w-3" aria-hidden />
-                      Cancel
-                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void copyInviteLink(inv)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                        aria-label={`Copy invite link for ${inviteLabel}`}
+                      >
+                        {busy && inviteBusyKind === "copy" ? (
+                          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                        ) : copiedInviteId === inv.id ? (
+                          <Check className="h-3 w-3 text-success" aria-hidden />
+                        ) : (
+                          <Copy className="h-3 w-3" aria-hidden />
+                        )}
+                        {copiedInviteId === inv.id ? "Copied" : "Copy link"}
+                      </button>
+                      {hasEmail ? (
+                        <button
+                          type="button"
+                          onClick={() => void resendInvite(inv)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                          aria-label={`Resend invite email to ${inviteLabel}`}
+                        >
+                          {busy && inviteBusyKind === "resend" ? (
+                            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                          ) : resentInviteId === inv.id ? (
+                            <Check className="h-3 w-3 text-success" aria-hidden />
+                          ) : (
+                            <Send className="h-3 w-3" aria-hidden />
+                          )}
+                          {resentInviteId === inv.id ? "Sent" : "Resend"}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
+                        }
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        aria-label={`Cancel invite for ${inviteLabel}`}
+                      >
+                        <Trash2 className="h-3 w-3" aria-hidden />
+                        Cancel
+                      </button>
+                    </div>
+                    {inviteActionError?.id === inv.id ? (
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] leading-snug text-destructive">
+                        {inviteActionError.message}
+                      </p>
+                    ) : null}
                   </div>
                 )
               })}
