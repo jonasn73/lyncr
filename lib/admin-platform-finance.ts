@@ -99,6 +99,102 @@ export function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
   return Math.floor(instant / 1000)
 }
 
+/** Unix seconds for local midnight on day 1 of the previous month in `timeZone`. */
+export function startOfPreviousMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
+  const { year, month } = zonedYmd(new Date(), timeZone)
+  // Go to day 0 of this month = last day of previous month, then take year/month of that day.
+  const prev = new Date(Date.UTC(year, month - 1, 0))
+  const py = prev.getUTCFullYear()
+  const pm = prev.getUTCMonth() + 1
+  const asUtcMidnight = Date.UTC(py, pm - 1, 1, 0, 0, 0)
+  let instant = asUtcMidnight - timeZoneOffsetMs(asUtcMidnight, timeZone)
+  instant = asUtcMidnight - timeZoneOffsetMs(instant, timeZone)
+  return Math.floor(instant / 1000)
+}
+
+/** Business-money window the Ops UI can pick. */
+export type AdminMoneyPeriod = "this_month" | "last_month" | "last_30_days"
+
+/** Inclusive start + exclusive end (null end = open-ended through now). */
+export type AdminMoneyPeriodBounds = {
+  period: AdminMoneyPeriod
+  /** Inclusive lower bound (Unix seconds). */
+  gteUnix: number
+  /** Exclusive upper bound, or null if open-ended. */
+  ltUnix: number | null
+  /** ISO timestamptz for Neon parameterized queries. */
+  gteIso: string
+  /** ISO timestamptz exclusive end, or null. */
+  ltIso: string | null
+  /** Plain-English window, e.g. "July 2026 (US Eastern)". */
+  label: string
+  /** Short chip label: "This month" / "Last month" / "Last 30 days". */
+  chip_label: string
+}
+
+function monthYearLabelFromUnix(unixSeconds: number, timeZone = ADMIN_FINANCE_TZ): string {
+  const label = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    year: "numeric",
+  }).format(new Date(unixSeconds * 1000))
+  return `${label} (US Eastern)`
+}
+
+/** Resolve Ops money window bounds in US Eastern (same clock as Activity “this month”). */
+export function resolveAdminMoneyPeriodBounds(
+  period: AdminMoneyPeriod = "this_month",
+  now = new Date(),
+  timeZone = ADMIN_FINANCE_TZ
+): AdminMoneyPeriodBounds {
+  const thisMonthUnix = startOfMonthUnixSeconds(timeZone)
+  const lastMonthUnix = startOfPreviousMonthUnixSeconds(timeZone)
+
+  if (period === "last_month") {
+    return {
+      period,
+      gteUnix: lastMonthUnix,
+      ltUnix: thisMonthUnix,
+      gteIso: new Date(lastMonthUnix * 1000).toISOString(),
+      ltIso: new Date(thisMonthUnix * 1000).toISOString(),
+      label: monthYearLabelFromUnix(lastMonthUnix, timeZone),
+      chip_label: "Last month",
+    }
+  }
+
+  if (period === "last_30_days") {
+    const gteUnix = Math.floor(now.getTime() / 1000) - 30 * 24 * 60 * 60
+    return {
+      period,
+      gteUnix,
+      ltUnix: null,
+      gteIso: new Date(gteUnix * 1000).toISOString(),
+      ltIso: null,
+      label: "Last 30 days (rolling)",
+      chip_label: "Last 30 days",
+    }
+  }
+
+  // this_month (default)
+  return {
+    period: "this_month",
+    gteUnix: thisMonthUnix,
+    ltUnix: null,
+    gteIso: new Date(thisMonthUnix * 1000).toISOString(),
+    ltIso: null,
+    label: monthYearLabelFromUnix(thisMonthUnix, timeZone),
+    chip_label: "This month",
+  }
+}
+
+/** Parse ?period= from admin APIs — unknown values fall back to this month. */
+export function parseAdminMoneyPeriod(raw: string | null | undefined): AdminMoneyPeriod {
+  const v = (raw ?? "").trim().toLowerCase()
+  if (v === "last_month" || v === "last-month") return "last_month"
+  if (v === "last_30_days" || v === "last-30-days" || v === "30d") return "last_30_days"
+  return "this_month"
+}
+
 function cardFeeMonthLabel(timeZone = ADMIN_FINANCE_TZ): string {
   const label = new Intl.DateTimeFormat("en-US", {
     timeZone,

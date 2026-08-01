@@ -12225,18 +12225,32 @@ export type AdminBusinessEconomicsRawRow = {
   credit_pack_mtd_cents: number
 }
 
+/** Lightweight prior-month usage for “July had X calls” hints on This month. */
+export type AdminBusinessPriorUsageRow = {
+  user_id: string
+  call_count: number
+  talk_seconds: number
+  sms_count: number
+}
+
 /**
- * Owner businesses + this-month usage/ledger rollups (US Eastern month start).
- * Card fees come from wallet_transactions via getAdminBusinessEconomicsWalletCharges.
+ * Owner businesses + usage/ledger rollups for a money period (US Eastern month or rolling 30d).
+ * Card fees come from Stripe (or wallet_transactions via getAdminBusinessEconomicsWalletCharges).
+ * Call/SMS counts match Activity: every call_logs row for that owner in the window (no status filter).
  */
-export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessEconomicsRawRow[]> {
+export async function getAdminBusinessEconomicsRawRows(opts: {
+  /** Inclusive period start (ISO timestamptz). */
+  gteIso: string
+  /** Exclusive period end (ISO), or null for open-ended. */
+  ltIso: string | null
+}): Promise<AdminBusinessEconomicsRawRow[]> {
   const sql = getSql()
+  // Bound strings for Neon parameterized queries (same clock Activity uses).
+  const gteIso = opts.gteIso
+  const ltIso = opts.ltIso
   try {
     const rows = (await sql`
-      WITH month_start AS (
-        SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
-      ),
-      owners AS (
+      WITH owners AS (
         SELECT
           u.id AS user_id,
           u.email,
@@ -12256,14 +12270,16 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
         SELECT cl.user_id,
                count(*)::int AS call_count,
                coalesce(sum(cl.duration_seconds), 0)::bigint AS talk_seconds
-        FROM call_logs cl, month_start m
-        WHERE cl.created_at >= m.ts
+        FROM call_logs cl
+        WHERE cl.created_at >= ${gteIso}::timestamptz
+          AND (${ltIso}::timestamptz IS NULL OR cl.created_at < ${ltIso}::timestamptz)
         GROUP BY cl.user_id
       ),
       sms AS (
         SELECT sm.owner_user_id AS user_id, count(*)::int AS sms_count
-        FROM sms_messages sm, month_start m
-        WHERE sm.created_at >= m.ts
+        FROM sms_messages sm
+        WHERE sm.created_at >= ${gteIso}::timestamptz
+          AND (${ltIso}::timestamptz IS NULL OR sm.created_at < ${ltIso}::timestamptz)
         GROUP BY sm.owner_user_id
       ),
       ledger AS (
@@ -12271,8 +12287,9 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
                coalesce(sum(CASE WHEN bl.delta_cents < 0 THEN -bl.delta_cents ELSE 0 END), 0)::bigint AS wallet_burn_cents,
                coalesce(sum(CASE WHEN bl.reason = 'carrier_number_purchase' AND bl.delta_cents < 0 THEN -bl.delta_cents ELSE 0 END), 0)::bigint AS number_purchase_cents,
                coalesce(sum(CASE WHEN bl.reason IN ('stripe_credit_pack', 'stripe_credit_pack_manual_backfill') AND bl.delta_cents > 0 THEN bl.delta_cents ELSE 0 END), 0)::bigint AS credit_pack_cents
-        FROM billing_ledger bl, month_start m
-        WHERE bl.created_at >= m.ts
+        FROM billing_ledger bl
+        WHERE bl.created_at >= ${gteIso}::timestamptz
+          AND (${ltIso}::timestamptz IS NULL OR bl.created_at < ${ltIso}::timestamptz)
         GROUP BY bl.user_id
       )
       SELECT
@@ -12308,9 +12325,6 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
     ) {
       try {
         const rows = (await sql`
-          WITH month_start AS (
-            SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
-          )
           SELECT
             u.id AS user_id,
             u.email,
@@ -12322,12 +12336,16 @@ export async function getAdminBusinessEconomicsRawRows(): Promise<AdminBusinessE
             false AS has_active_subscription,
             0::numeric AS carrier_credit,
             coalesce((
-              SELECT count(*)::int FROM call_logs cl, month_start m
-              WHERE cl.user_id = u.id AND cl.created_at >= m.ts
+              SELECT count(*)::int FROM call_logs cl
+              WHERE cl.user_id = u.id
+                AND cl.created_at >= ${gteIso}::timestamptz
+                AND (${ltIso}::timestamptz IS NULL OR cl.created_at < ${ltIso}::timestamptz)
             ), 0) AS call_count_mtd,
             coalesce((
-              SELECT coalesce(sum(cl.duration_seconds), 0)::bigint FROM call_logs cl, month_start m
-              WHERE cl.user_id = u.id AND cl.created_at >= m.ts
+              SELECT coalesce(sum(cl.duration_seconds), 0)::bigint FROM call_logs cl
+              WHERE cl.user_id = u.id
+                AND cl.created_at >= ${gteIso}::timestamptz
+                AND (${ltIso}::timestamptz IS NULL OR cl.created_at < ${ltIso}::timestamptz)
             ), 0) AS talk_seconds_mtd,
             0::int AS sms_count_mtd,
             0::bigint AS wallet_burn_mtd_cents,
@@ -12371,19 +12389,20 @@ function mapAdminBusinessEconomicsRawRow(row: Record<string, unknown>): AdminBus
   }
 }
 
-/** Completed Collect/Tap charges this month — used to estimate Lyncr application fees per shop. */
-export async function getAdminBusinessEconomicsWalletCharges(): Promise<
-  { user_id: string; amount_usd: number }[]
-> {
+/** Completed Collect/Tap charges in a period — used to estimate Lyncr application fees per shop. */
+export async function getAdminBusinessEconomicsWalletCharges(opts: {
+  gteIso: string
+  ltIso: string | null
+}): Promise<{ user_id: string; amount_usd: number }[]> {
   const sql = getSql()
+  const gteIso = opts.gteIso
+  const ltIso = opts.ltIso
   try {
     const rows = (await sql`
-      WITH month_start AS (
-        SELECT (date_trunc('month', timezone('America/New_York', now())) AT TIME ZONE 'America/New_York') AS ts
-      )
       SELECT wt.user_id, wt.amount::numeric AS amount_usd
-      FROM wallet_transactions wt, month_start m
-      WHERE wt.created_at >= m.ts
+      FROM wallet_transactions wt
+      WHERE wt.created_at >= ${gteIso}::timestamptz
+        AND (${ltIso}::timestamptz IS NULL OR wt.created_at < ${ltIso}::timestamptz)
         AND upper(wt.status) = 'COMPLETED'
         AND wt.amount > 0
     `) as { user_id?: string; amount_usd?: number | string }[]
@@ -12394,6 +12413,78 @@ export async function getAdminBusinessEconomicsWalletCharges(): Promise<
   } catch (e) {
     if (isUndefinedRelationError(e, "wallet_transactions")) return []
     console.error("[db] getAdminBusinessEconomicsWalletCharges:", e)
+    return []
+  }
+}
+
+/**
+ * Prior calendar month call/SMS usage (US Eastern) — for “Showing August only · July had X calls”.
+ * Same source of truth as Activity (call_logs / sms_messages by owner user_id).
+ */
+export async function getAdminBusinessPriorMonthUsage(opts: {
+  gteIso: string
+  ltIso: string
+}): Promise<AdminBusinessPriorUsageRow[]> {
+  const sql = getSql()
+  const gteIso = opts.gteIso
+  const ltIso = opts.ltIso
+  try {
+    const rows = (await sql`
+      WITH calls AS (
+        SELECT cl.user_id,
+               count(*)::int AS call_count,
+               coalesce(sum(cl.duration_seconds), 0)::bigint AS talk_seconds
+        FROM call_logs cl
+        WHERE cl.created_at >= ${gteIso}::timestamptz
+          AND cl.created_at < ${ltIso}::timestamptz
+        GROUP BY cl.user_id
+      ),
+      sms AS (
+        SELECT sm.owner_user_id AS user_id, count(*)::int AS sms_count
+        FROM sms_messages sm
+        WHERE sm.created_at >= ${gteIso}::timestamptz
+          AND sm.created_at < ${ltIso}::timestamptz
+        GROUP BY sm.owner_user_id
+      )
+      SELECT
+        coalesce(c.user_id, s.user_id) AS user_id,
+        coalesce(c.call_count, 0)::int AS call_count,
+        coalesce(c.talk_seconds, 0)::bigint AS talk_seconds,
+        coalesce(s.sms_count, 0)::int AS sms_count
+      FROM calls c
+      FULL OUTER JOIN sms s ON s.user_id = c.user_id
+    `) as Record<string, unknown>[]
+    return rows.map((row) => ({
+      user_id: String(row.user_id),
+      call_count: Number(row.call_count ?? 0),
+      talk_seconds: Number(row.talk_seconds ?? 0),
+      sms_count: Number(row.sms_count ?? 0),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "sms_messages")) {
+      try {
+        const rows = (await sql`
+          SELECT cl.user_id,
+                 count(*)::int AS call_count,
+                 coalesce(sum(cl.duration_seconds), 0)::bigint AS talk_seconds,
+                 0::int AS sms_count
+          FROM call_logs cl
+          WHERE cl.created_at >= ${gteIso}::timestamptz
+            AND cl.created_at < ${ltIso}::timestamptz
+          GROUP BY cl.user_id
+        `) as Record<string, unknown>[]
+        return rows.map((row) => ({
+          user_id: String(row.user_id),
+          call_count: Number(row.call_count ?? 0),
+          talk_seconds: Number(row.talk_seconds ?? 0),
+          sms_count: 0,
+        }))
+      } catch (e2) {
+        console.error("[db] getAdminBusinessPriorMonthUsage fallback:", e2)
+        return []
+      }
+    }
+    console.error("[db] getAdminBusinessPriorMonthUsage:", e)
     return []
   }
 }

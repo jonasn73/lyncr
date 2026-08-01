@@ -4,10 +4,17 @@ import type Stripe from "stripe"
 import {
   getAdminBusinessEconomicsRawRows,
   getAdminBusinessEconomicsWalletCharges,
+  getAdminBusinessPriorMonthUsage,
   updateOnboardingProfile,
   type AdminBusinessEconomicsRawRow,
+  type AdminBusinessPriorUsageRow,
 } from "@/lib/db"
-import { startOfMonthUnixSeconds } from "@/lib/admin-platform-finance"
+import {
+  parseAdminMoneyPeriod,
+  resolveAdminMoneyPeriodBounds,
+  type AdminMoneyPeriod,
+  type AdminMoneyPeriodBounds,
+} from "@/lib/admin-platform-finance"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 import { computeLyncrApplicationFeeCents } from "@/lib/stripe-connect"
 import type { AdminBusinessEconomics } from "@/lib/types"
@@ -18,6 +25,9 @@ const EST_TELNYX_VOICE_CENTS_PER_MINUTE = 2
 const EST_TELNYX_SMS_CENTS = 1
 
 const ADMIN_FINANCE_TZ = "America/New_York"
+
+export { parseAdminMoneyPeriod, resolveAdminMoneyPeriodBounds }
+export type { AdminMoneyPeriod }
 
 function formatUsdFromCents(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -33,15 +43,6 @@ function formatShortDate(unixSeconds: number): string {
     year: "numeric",
     timeZone: ADMIN_FINANCE_TZ,
   }).format(new Date(unixSeconds * 1000))
-}
-
-function monthLabelEastern(): string {
-  const label = new Intl.DateTimeFormat("en-US", {
-    timeZone: ADMIN_FINANCE_TZ,
-    month: "long",
-    year: "numeric",
-  }).format(new Date())
-  return `${label} (US Eastern)`
 }
 
 /** List-price monthly SaaS in cents — used only for platform MRR estimates elsewhere. */
@@ -124,10 +125,18 @@ type StripeFeeMaps = {
   stripeOk: boolean
 }
 
-/** Pull Connect application fees this month, grouped by connected account id. */
+/** True when `created` Unix seconds falls inside [gte, lt). */
+function inPeriodUnix(created: number, gte: number, lt: number | null): boolean {
+  if (created < gte) return false
+  if (lt != null && created >= lt) return false
+  return true
+}
+
+/** Pull Connect application fees for a period, grouped by connected account id. */
 async function fetchApplicationFeesByConnectAccount(
   stripe: Stripe,
-  gte: number
+  gte: number,
+  lt: number | null
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>()
 
@@ -141,6 +150,7 @@ async function fetchApplicationFeesByConnectAccount(
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       })
       for (const fee of batch.data) {
+        if (!inPeriodUnix(fee.created, gte, lt)) continue
         if ((fee.currency || "").toLowerCase() !== "usd") continue
         const net = Math.max(0, (fee.amount || 0) - (fee.amount_refunded || 0))
         if (net <= 0) continue
@@ -152,6 +162,9 @@ async function fetchApplicationFeesByConnectAccount(
         map.set(acct, (map.get(acct) ?? 0) + net)
       }
       if (!batch.has_more || batch.data.length === 0) break
+      // Stop paging once Stripe returns rows past the exclusive end (list is newest-first).
+      const lastCreated = batch.data[batch.data.length - 1]?.created
+      if (lt != null && lastCreated != null && lastCreated < gte) break
       startingAfter = batch.data[batch.data.length - 1]?.id
       if (!startingAfter) break
     }
@@ -171,6 +184,7 @@ async function fetchApplicationFeesByConnectAccount(
           ...(startingAfter ? { starting_after: startingAfter } : {}),
         })
         for (const tx of batch.data) {
+          if (!inPeriodUnix(tx.created, gte, lt)) continue
           if ((tx.currency || "").toLowerCase() !== "usd" || tx.amount <= 0) continue
           const match = (tx.description || "").match(/acct_[A-Za-z0-9]+/)
           if (!match) continue
@@ -189,12 +203,13 @@ async function fetchApplicationFeesByConnectAccount(
   return map
 }
 
-/** Actual SaaS cash paid this month + subscription status from Stripe. */
+/** Actual SaaS cash paid in the period + subscription status from Stripe. */
 async function fetchSaasCashForCustomer(
   stripe: Stripe,
   customerId: string,
   subscriptionId: string | null,
-  gte: number
+  gte: number,
+  lt: number | null
 ): Promise<StripeSaasCash> {
   let paidMtdCents = 0
   let lastPaidUnix: number | null = null
@@ -203,7 +218,7 @@ async function fetchSaasCashForCustomer(
   let active = false
 
   try {
-    // Paid invoices created this month = cash Lyncr actually collected.
+    // Paid invoices created in window = cash Lyncr actually collected.
     let startingAfter: string | undefined
     for (let page = 0; page < 4; page++) {
       const batch = await stripe.invoices.list({
@@ -214,6 +229,7 @@ async function fetchSaasCashForCustomer(
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       })
       for (const inv of batch.data) {
+        if (!inPeriodUnix(inv.created, gte, lt)) continue
         if ((inv.currency || "").toLowerCase() !== "usd") continue
         const paid = inv.amount_paid ?? 0
         if (paid > 0) paidMtdCents += paid
@@ -227,7 +243,7 @@ async function fetchSaasCashForCustomer(
       if (!startingAfter) break
     }
 
-    // Most recent paid invoice ever (for “last paid” when $0 this month).
+    // Most recent paid invoice ever (for “last paid” when $0 this period).
     if (lastPaidUnix == null) {
       const recent = await stripe.invoices.list({
         customer: customerId,
@@ -347,7 +363,8 @@ function assembleRow(
   saas: StripeSaasCash | null,
   cardFeeMtdCents: number,
   cardFeeSource: AdminBusinessEconomics["card_fee_source"],
-  month: string
+  bounds: AdminMoneyPeriodBounds,
+  priorNote: string | null
 ): AdminBusinessEconomics {
   const hasStripeIds = Boolean(row.stripe_customer_id || row.stripe_subscription_id)
 
@@ -372,25 +389,37 @@ function assembleRow(
     hasStripe: hasStripeIds,
   })
 
+  const periodPhrase =
+    bounds.period === "last_30_days"
+      ? "last 30 days"
+      : bounds.period === "last_month"
+        ? "last month"
+        : "this month"
+
   const notes: string[] = []
   if (hasStripeIds) {
     notes.push(
-      "Plan dollars are what Stripe actually collected this month (paid invoices) — not list price."
+      `Plan dollars are what Stripe actually collected ${periodPhrase} (paid invoices) — not list price.`
     )
   } else {
     notes.push("No Stripe customer on file — plan cash shown as $0 (we do not invent list-price MRR).")
   }
   if (cardFeeSource === "stripe") {
-    notes.push("Card fees are real Stripe Connect application fees for this shop this month.")
+    notes.push(`Card fees are real Stripe Connect application fees for this shop ${periodPhrase}.`)
   } else if (cardFeeSource === "estimate") {
-    notes.push("Card fees estimated from completed Collect/Tap charges (2.9% + $0.30) — Stripe attribution unavailable.")
+    notes.push(
+      "Card fees estimated from completed Collect/Tap charges (2.9% + $0.30) — Stripe attribution unavailable."
+    )
   }
   if (phone.method === "wallet_burn") {
-    notes.push("Phone cost uses prepaid wallet burn this month (billing_ledger).")
+    notes.push(`Phone cost uses prepaid wallet burn ${periodPhrase} (billing_ledger).`)
   } else {
     notes.push(
-      `Est. phone cost ≈ ${minutes} talk min × $${(EST_TELNYX_VOICE_CENTS_PER_MINUTE / 100).toFixed(2)} + SMS + number buys (wholesale proxy, not Telnyx invoice).`
+      `Est. phone cost ≈ ${minutes} talk min × $${(EST_TELNYX_VOICE_CENTS_PER_MINUTE / 100).toFixed(2)} + SMS + number buys (wholesale proxy from call_logs / SMS — not Telnyx invoice).`
     )
+  }
+  if (priorNote) {
+    notes.push(priorNote)
   }
 
   const lastPaidLabel =
@@ -433,7 +462,10 @@ function assembleRow(
     net_label: formatUsdFromCents(netCents),
     ahead: verdict.ahead,
     verdict_label: verdict.verdict_label,
-    month_label: month,
+    month_label: bounds.label,
+    period: bounds.period,
+    period_chip_label: bounds.chip_label,
+    prior_period_note: priorNote,
     talk_minutes_mtd: minutes,
     call_count_mtd: row.call_count_mtd,
     sms_count_mtd: row.sms_count_mtd,
@@ -461,13 +493,16 @@ function cardFeesByUserEstimate(
   return map
 }
 
-async function loadStripeFeeMaps(gte: number): Promise<StripeFeeMaps> {
+async function loadStripeFeeMaps(
+  gte: number,
+  lt: number | null
+): Promise<StripeFeeMaps> {
   if (!isStripeConfigured()) {
     return { byConnectAccount: new Map(), stripeOk: false }
   }
   try {
     const stripe = getStripeClient()
-    const byConnectAccount = await fetchApplicationFeesByConnectAccount(stripe, gte)
+    const byConnectAccount = await fetchApplicationFeesByConnectAccount(stripe, gte, lt)
     return { byConnectAccount, stripeOk: true }
   } catch (e) {
     console.warn("[admin-business-economics] stripe fees:", e)
@@ -477,7 +512,8 @@ async function loadStripeFeeMaps(gte: number): Promise<StripeFeeMaps> {
 
 async function loadSaasByCustomer(
   rows: AdminBusinessEconomicsRawRow[],
-  gte: number
+  gte: number,
+  lt: number | null
 ): Promise<Map<string, StripeSaasCash>> {
   const out = new Map<string, StripeSaasCash>()
   if (!isStripeConfigured()) return out
@@ -498,7 +534,8 @@ async function loadSaasByCustomer(
         stripe,
         customerId,
         row?.stripe_subscription_id ?? null,
-        gte
+        gte,
+        lt
       )
       out.set(customerId, saas)
     })
@@ -506,17 +543,64 @@ async function loadSaasByCustomer(
   return out
 }
 
-/** All owner businesses with this-month P&L (Stripe actuals + Neon usage). */
-export async function listAdminBusinessEconomics(): Promise<AdminBusinessEconomics[]> {
-  const month = monthLabelEastern()
-  const gte = startOfMonthUnixSeconds()
-  const [rows, charges, feeMaps] = await Promise.all([
-    getAdminBusinessEconomicsRawRows(),
-    getAdminBusinessEconomicsWalletCharges(),
-    loadStripeFeeMaps(gte),
+/** Build “Showing August only · July had 550 calls / $23.02 card fees”. */
+export function buildPriorPeriodNote(opts: {
+  currentMonthLabel: string
+  priorMonthLabel: string
+  prior: AdminBusinessPriorUsageRow | null | undefined
+  priorCardFeeCents: number | null
+}): string | null {
+  const prior = opts.prior
+  if (!prior || (prior.call_count <= 0 && prior.sms_count <= 0 && (opts.priorCardFeeCents ?? 0) <= 0)) {
+    return null
+  }
+  const minutes = talkMinutesFromSeconds(prior.talk_seconds)
+  const parts: string[] = []
+  if (prior.call_count > 0) {
+    parts.push(`${prior.call_count} call${prior.call_count === 1 ? "" : "s"}`)
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes} talk min`)
+  }
+  if (prior.sms_count > 0) {
+    parts.push(`${prior.sms_count} SMS`)
+  }
+  if ((opts.priorCardFeeCents ?? 0) > 0) {
+    parts.push(`${formatUsdFromCents(opts.priorCardFeeCents!)} card fees`)
+  }
+  if (parts.length === 0) return null
+  // Strip " (US Eastern)" for a shorter month name in the note.
+  const currentShort = opts.currentMonthLabel.replace(/\s*\(US Eastern\)\s*$/i, "")
+  const priorShort = opts.priorMonthLabel.replace(/\s*\(US Eastern\)\s*$/i, "")
+  return `Showing ${currentShort} only · ${priorShort} had ${parts.join(" / ")} — tap Last month to see that money.`
+}
+
+/** All owner businesses with P&L for the selected period (Stripe actuals + Neon usage). */
+export async function listAdminBusinessEconomics(
+  period: AdminMoneyPeriod = "this_month"
+): Promise<AdminBusinessEconomics[]> {
+  const bounds = resolveAdminMoneyPeriodBounds(period)
+  const priorBounds =
+    period === "this_month" ? resolveAdminMoneyPeriodBounds("last_month") : null
+
+  const [rows, charges, feeMaps, priorUsage, priorFeeMaps] = await Promise.all([
+    getAdminBusinessEconomicsRawRows({ gteIso: bounds.gteIso, ltIso: bounds.ltIso }),
+    getAdminBusinessEconomicsWalletCharges({ gteIso: bounds.gteIso, ltIso: bounds.ltIso }),
+    loadStripeFeeMaps(bounds.gteUnix, bounds.ltUnix),
+    priorBounds
+      ? getAdminBusinessPriorMonthUsage({
+          gteIso: priorBounds.gteIso,
+          ltIso: priorBounds.ltIso!,
+        })
+      : Promise.resolve([] as AdminBusinessPriorUsageRow[]),
+    priorBounds
+      ? loadStripeFeeMaps(priorBounds.gteUnix, priorBounds.ltUnix)
+      : Promise.resolve({ byConnectAccount: new Map<string, number>(), stripeOk: false }),
   ])
-  const saasByCustomer = await loadSaasByCustomer(rows, gte)
+
+  const saasByCustomer = await loadSaasByCustomer(rows, bounds.gteUnix, bounds.ltUnix)
   const estimatedFees = cardFeesByUserEstimate(charges)
+  const priorByUser = new Map(priorUsage.map((p) => [p.user_id, p]))
 
   // Soft-sync Neon flags when Stripe disagrees (best-effort, non-blocking display).
   await Promise.all(
@@ -548,19 +632,43 @@ export async function listAdminBusinessEconomics(): Promise<AdminBusinessEconomi
       cardFee = estimatedFees.get(row.user_id) ?? 0
       cardSource = cardFee > 0 ? "estimate" : "none"
     } else {
-      // Stripe ok but this shop has no Connect account / no fees this month.
+      // Stripe ok but this shop has no Connect account / no fees this period.
       cardFee = 0
       cardSource = connectId ? "stripe" : "none"
     }
 
-    return assembleRow(row, saas, cardFee, cardSource, month)
+    let priorNote: string | null = null
+    if (period === "this_month" && priorBounds) {
+      const prior = priorByUser.get(row.user_id)
+      const priorFee =
+        connectId && priorFeeMaps.stripeOk
+          ? priorFeeMaps.byConnectAccount.get(connectId) ?? 0
+          : null
+      // Only nudge when this month looks empty but last month had real activity.
+      if (
+        row.call_count_mtd === 0 &&
+        row.sms_count_mtd === 0 &&
+        cardFee === 0 &&
+        (prior?.call_count || prior?.sms_count || (priorFee ?? 0) > 0)
+      ) {
+        priorNote = buildPriorPeriodNote({
+          currentMonthLabel: bounds.label,
+          priorMonthLabel: priorBounds.label,
+          prior: prior ?? null,
+          priorCardFeeCents: priorFee,
+        })
+      }
+    }
+
+    return assembleRow(row, saas, cardFee, cardSource, bounds, priorNote)
   })
 }
 
 /** One business P&L — null if not found. */
 export async function getAdminBusinessEconomics(
-  userId: string
+  userId: string,
+  period: AdminMoneyPeriod = "this_month"
 ): Promise<AdminBusinessEconomics | null> {
-  const all = await listAdminBusinessEconomics()
+  const all = await listAdminBusinessEconomics(period)
   return all.find((r) => r.user_id === userId) ?? null
 }

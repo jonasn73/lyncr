@@ -3,6 +3,7 @@
 // Plain-English per-business P&L — actual Stripe cash + fees − phone cost.
 
 import type { AdminBusinessEconomics } from "@/lib/types"
+import type { AdminMoneyPeriodUi } from "@/hooks/use-lyncr-admin-dashboard"
 import { cn } from "@/lib/utils"
 
 function MoneyLine({
@@ -46,11 +47,61 @@ function MoneyLine({
   )
 }
 
+const PERIOD_OPTIONS: { id: AdminMoneyPeriodUi; label: string }[] = [
+  { id: "this_month", label: "This month" },
+  { id: "last_month", label: "Last month" },
+  { id: "last_30_days", label: "Last 30 days" },
+]
+
+/** This month / Last month / Last 30 days chips — reloads call counts + Stripe fees. */
+export function BusinessMoneyPeriodChips({
+  period,
+  onChange,
+  disabled,
+}: {
+  period: AdminMoneyPeriodUi
+  onChange: (period: AdminMoneyPeriodUi) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Money time period">
+      {PERIOD_OPTIONS.map((opt) => {
+        const active = period === opt.id
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(opt.id)}
+            className={cn(
+              "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+              "disabled:opacity-50",
+              active
+                ? "border-violet-500/50 bg-violet-950/50 text-violet-100"
+                : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+            )}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Full breakdown rows — used in Home sheet and Businesses drawer. */
 export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics }) {
   const cardBadge =
     row.card_fee_source === "stripe" ? "Actual" : row.card_fee_source === "estimate" ? "Est." : undefined
   const phoneBadge = row.phone_cost_is_estimate ? "Est." : "Actual"
+  // Plain-English window for “this month only” vs last month / 30 days.
+  const windowNote =
+    row.period === "last_30_days"
+      ? "last 30 days"
+      : row.period === "last_month"
+        ? "last month"
+        : "this month only"
 
   return (
     <div className="space-y-1">
@@ -72,12 +123,18 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-slate-50">{row.net_abs_label}</p>
         <p className="mt-1 text-xs text-slate-400">
-          Net for Lyncr this month · {row.month_label}
+          Net for Lyncr · {row.month_label}
         </p>
         <p className="mt-1 text-[11px] leading-snug text-slate-500">
           Actual plan cash + card fees + credit packs − phone cost
         </p>
       </div>
+
+      {row.prior_period_note ? (
+        <p className="mb-2 rounded-lg border border-amber-500/25 bg-amber-950/30 px-3 py-2 text-xs leading-snug text-amber-100/90">
+          {row.prior_period_note}
+        </p>
+      ) : null}
 
       <MoneyLine
         label="Plan cash (Stripe)"
@@ -91,10 +148,10 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         value={row.card_fee_mtd_label}
         note={
           row.card_fee_source === "stripe"
-            ? "Real Stripe Connect application fees this month"
+            ? `Real Stripe Connect application fees · ${windowNote}`
             : row.card_fee_source === "estimate"
               ? "Estimate from Collect / Tap charges (2.9% + $0.30)"
-              : "No Connect card fees this month"
+              : `No Connect card fees · ${windowNote}`
         }
         badge={cardBadge}
         tone="in"
@@ -103,7 +160,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         <MoneyLine
           label="Credit packs sold"
           value={row.credit_pack_mtd_label}
-          note="Prepaid phone minutes they bought this month"
+          note="Prepaid phone minutes they bought in this window"
           badge="Actual"
           tone="in"
         />
@@ -111,7 +168,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       <MoneyLine
         label={row.phone_cost_is_estimate ? "Phone cost" : "Phone cost (wallet)"}
         value={row.est_phone_cost_mtd_label}
-        note={`${row.talk_minutes_mtd} talk min · ${row.call_count_mtd} calls · ${row.sms_count_mtd} SMS · this month only`}
+        note={`${row.talk_minutes_mtd} talk min · ${row.call_count_mtd} calls · ${row.sms_count_mtd} SMS · ${windowNote}`}
         badge={phoneBadge}
         tone="out"
       />
@@ -158,7 +215,9 @@ export function BusinessMoneyChip({
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-slate-100">{row.business_name}</p>
-        <p className="truncate text-[11px] text-slate-500">{row.email}</p>
+        <p className="truncate text-[11px] text-slate-500">
+          {row.call_count_mtd} calls · {row.talk_minutes_mtd} min · {row.period_chip_label}
+        </p>
       </div>
       <div className="shrink-0 text-right">
         <p

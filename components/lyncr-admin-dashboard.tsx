@@ -69,8 +69,10 @@ import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
 import {
   BusinessMoneyBreakdown,
   BusinessMoneyChip,
+  BusinessMoneyPeriodChips,
 } from "@/components/admin/business-money"
 import type { AdminBusinessEconomics } from "@/lib/types"
+import type { AdminMoneyPeriodUi } from "@/hooks/use-lyncr-admin-dashboard"
 
 type MoneySheetKey = "telnyx" | "saas" | "card_fees" | "credits" | "stripe" | "wallets" | "paying" | null
 
@@ -628,6 +630,8 @@ export function LyncrAdminDashboard({
   metrics,
   users,
   businessEconomics = [],
+  moneyPeriod = "this_month",
+  setMoneyPeriod,
   loading,
   refreshing,
   fetchLatestAdminStats,
@@ -638,6 +642,8 @@ export function LyncrAdminDashboard({
   metrics: LyncrAdminMetrics | null
   users: LyncrAdminDirectoryRow[]
   businessEconomics?: AdminBusinessEconomics[]
+  moneyPeriod?: AdminMoneyPeriodUi
+  setMoneyPeriod?: (period: AdminMoneyPeriodUi) => void
   loading: boolean
   refreshing: boolean
   fetchLatestAdminStats: (silent?: boolean) => Promise<void>
@@ -654,6 +660,12 @@ export function LyncrAdminDashboard({
   const [moneySheet, setMoneySheet] = useState<MoneySheetKey>(null)
   const [bizMoneyQuery, setBizMoneyQuery] = useState("")
   const [selectedBizMoney, setSelectedBizMoney] = useState<AdminBusinessEconomics | null>(null)
+
+  // Keep the open sheet in sync when period chips reload Business money rows.
+  const selectedBizMoneyLive =
+    selectedBizMoney == null
+      ? null
+      : businessEconomics.find((b) => b.user_id === selectedBizMoney.user_id) ?? selectedBizMoney
 
   function handlePhoneSaved(userId: string, phone: string) {
     setPhoneOverrides((prev) => ({ ...prev, [userId]: phone }))
@@ -1013,6 +1025,14 @@ export function LyncrAdminDashboard({
               </div>
             </div>
 
+            {setMoneyPeriod ? (
+              <BusinessMoneyPeriodChips
+                period={moneyPeriod}
+                onChange={setMoneyPeriod}
+                disabled={refreshing}
+              />
+            ) : null}
+
             {filteredBizMoney.length === 0 ? (
               <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-slate-500">
                 No businesses match. Try “Key Squad” or clear the search.
@@ -1045,14 +1065,23 @@ export function LyncrAdminDashboard({
             >
               <SheetHeader>
                 <SheetTitle className="text-slate-50">
-                  {selectedBizMoney?.business_name ?? "Business money"}
+                  {selectedBizMoneyLive?.business_name ?? "Business money"}
                 </SheetTitle>
                 <SheetDescription className="text-slate-400">
-                  {selectedBizMoney?.email ?? "What this shop pays Lyncr vs what it costs."}
+                  {selectedBizMoneyLive?.email ?? "What this shop pays Lyncr vs what it costs."}
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-4 px-1">
-                {selectedBizMoney ? <BusinessMoneyBreakdown row={selectedBizMoney} /> : null}
+              <div className="mt-4 space-y-3 px-1">
+                {setMoneyPeriod ? (
+                  <BusinessMoneyPeriodChips
+                    period={moneyPeriod}
+                    onChange={setMoneyPeriod}
+                    disabled={refreshing}
+                  />
+                ) : null}
+                {selectedBizMoneyLive ? (
+                  <BusinessMoneyBreakdown row={selectedBizMoneyLive} />
+                ) : null}
               </div>
             </SheetContent>
           </Sheet>

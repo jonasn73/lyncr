@@ -750,7 +750,7 @@ export interface AdminBusinessEconomics {
   subscription_tier: string
   /** True only when Stripe says active/trialing (or Neon when no Stripe ids). */
   has_active_subscription: boolean
-  /** Actual SaaS cash collected this month (Stripe paid invoices) — not list price. */
+  /** Actual SaaS cash collected this period (Stripe paid invoices) — not list price. */
   plan_revenue_cents: number
   plan_revenue_label: string
   plan_tier_label: string
@@ -778,7 +778,17 @@ export interface AdminBusinessEconomics {
   ahead: boolean
   /** e.g. "We're behind by $12.34" — amount always included. */
   verdict_label: string
+  /** Human window, e.g. "August 2026 (US Eastern)" or "Last 30 days (rolling)". */
   month_label: string
+  /** Selected Ops money window. */
+  period: "this_month" | "last_month" | "last_30_days"
+  /** Short chip label for the selected period. */
+  period_chip_label: string
+  /**
+   * When This month is empty but last month had activity —
+   * e.g. "Showing August only · July had 550 calls / $23.02 card fees — tap Last month…"
+   */
+  prior_period_note: string | null
   talk_minutes_mtd: number
   call_count_mtd: number
   sms_count_mtd: number

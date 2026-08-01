@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { buildVerdictLabel, planRevenueCentsForTier } from "@/lib/admin-business-economics"
+import {
+  buildPriorPeriodNote,
+  buildVerdictLabel,
+  planRevenueCentsForTier,
+} from "@/lib/admin-business-economics"
+import {
+  parseAdminMoneyPeriod,
+  resolveAdminMoneyPeriodBounds,
+} from "@/lib/admin-platform-finance"
 
 describe("buildVerdictLabel", () => {
   it("shows how much we are behind with the absolute amount", () => {
@@ -26,5 +34,73 @@ describe("buildVerdictLabel", () => {
 describe("planRevenueCentsForTier", () => {
   it("returns 0 when not active — never invents list-price cash", () => {
     expect(planRevenueCentsForTier("professional", false)).toBe(0)
+  })
+})
+
+describe("parseAdminMoneyPeriod", () => {
+  it("defaults unknown values to this_month", () => {
+    expect(parseAdminMoneyPeriod(null)).toBe("this_month")
+    expect(parseAdminMoneyPeriod("nope")).toBe("this_month")
+  })
+
+  it("accepts last_month and last_30_days aliases", () => {
+    expect(parseAdminMoneyPeriod("last_month")).toBe("last_month")
+    expect(parseAdminMoneyPeriod("last-month")).toBe("last_month")
+    expect(parseAdminMoneyPeriod("last_30_days")).toBe("last_30_days")
+    expect(parseAdminMoneyPeriod("30d")).toBe("last_30_days")
+  })
+})
+
+describe("resolveAdminMoneyPeriodBounds", () => {
+  it("gives last_month an exclusive end at this month start", () => {
+    // Fixed “now” so the test does not drift with the calendar.
+    const now = new Date("2026-08-01T04:17:00.000Z")
+    const thisMonth = resolveAdminMoneyPeriodBounds("this_month", now)
+    const lastMonth = resolveAdminMoneyPeriodBounds("last_month", now)
+    expect(lastMonth.ltUnix).toBe(thisMonth.gteUnix)
+    expect(lastMonth.gteUnix).toBeLessThan(thisMonth.gteUnix)
+    expect(lastMonth.label).toMatch(/July 2026/)
+    expect(thisMonth.label).toMatch(/August 2026/)
+  })
+
+  it("uses a rolling 30-day open-ended window", () => {
+    const now = new Date("2026-08-01T04:17:00.000Z")
+    const d30 = resolveAdminMoneyPeriodBounds("last_30_days", now)
+    expect(d30.ltUnix).toBeNull()
+    expect(d30.label).toBe("Last 30 days (rolling)")
+    expect(now.getTime() / 1000 - d30.gteUnix).toBeCloseTo(30 * 24 * 60 * 60, 0)
+  })
+})
+
+describe("buildPriorPeriodNote", () => {
+  it("explains empty this-month when last month had calls and fees", () => {
+    const note = buildPriorPeriodNote({
+      currentMonthLabel: "August 2026 (US Eastern)",
+      priorMonthLabel: "July 2026 (US Eastern)",
+      prior: {
+        user_id: "u1",
+        call_count: 550,
+        talk_seconds: 37163,
+        sms_count: 31,
+      },
+      priorCardFeeCents: 2302,
+    })
+    expect(note).toContain("Showing August 2026 only")
+    expect(note).toContain("550 calls")
+    expect(note).toContain("620 talk min")
+    expect(note).toContain("31 SMS")
+    expect(note).toContain("$23.02 card fees")
+    expect(note).toContain("Last month")
+  })
+
+  it("returns null when prior month had no activity", () => {
+    expect(
+      buildPriorPeriodNote({
+        currentMonthLabel: "August 2026 (US Eastern)",
+        priorMonthLabel: "July 2026 (US Eastern)",
+        prior: { user_id: "u1", call_count: 0, talk_seconds: 0, sms_count: 0 },
+        priorCardFeeCents: 0,
+      })
+    ).toBeNull()
   })
 })
