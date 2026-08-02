@@ -179,6 +179,8 @@ export function JobDetailDrawer({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   /** Complete confirm — optional immediate Thanks + review SMS. */
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false)
+  /** Cancel confirm — More Actions Cancel used to fire with no dialog (felt like a no-op). */
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** Last Thanks+review send failed — overview shows Retry. */
   const [reviewSmsFailed, setReviewSmsFailed] = useState(false)
@@ -649,17 +651,25 @@ export function JobDetailDrawer({
   }
 
   // Cancel / Referred / Complete — write job_status then close the drawer.
-  // Complete may include send_review_sms after the confirm dialog.
+  // Cancel + Complete open confirms first so a busy save cannot swallow the tap.
   async function handleQuickLifecycleAction(
     status: JobLifecycleQuickStatus,
-    options?: { sendReviewSms?: boolean }
+    options?: { sendReviewSms?: boolean; confirmed?: boolean }
   ) {
-    if (!jobId || saving) return
+    // Need a job id before any confirm or PATCH.
+    if (!jobId) return
+    // Open confirms even while saving — otherwise notes blur → setSaving(true) made Cancel a silent no-op.
+    if (status === "cancelled" && !options?.confirmed) {
+      setCancelConfirmOpen(true)
+      return
+    }
     // Complete needs a confirm (review SMS choice); other actions run immediately.
     if (status === "completed" && options?.sendReviewSms === undefined) {
       setCompleteConfirmOpen(true)
       return
     }
+    // Block double-submits once the operator confirmed.
+    if (saving) return
     setSaving(true)
     setError(null)
     try {
@@ -708,6 +718,7 @@ export function JobDetailDrawer({
         onSaved?.(event)
       }
       setCompleteConfirmOpen(false)
+      setCancelConfirmOpen(false)
       // Complete succeeded — surface review SMS failure without losing the close-out.
       const reviewSms = json.data?.review_sms
       if (options?.sendReviewSms && reviewSms && !reviewSms.sent) {
@@ -729,10 +740,22 @@ export function JobDetailDrawer({
       if (options?.sendReviewSms) {
         setReviewSmsFailed(false)
         toast({ title: "Completed + review SMS sent" })
+      } else if (status === "cancelled") {
+        // Confirm the close-out so Cancel never feels like a dead tap.
+        toast({ title: "Job cancelled" })
+      } else if (status === "referred") {
+        toast({ title: "Marked referred" })
       }
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update job status")
+      const msg = e instanceof Error ? e.message : "Could not update job status"
+      setError(msg)
+      // Toast so the failure is visible even when the error line is scrolled off-screen.
+      toast({
+        title: status === "cancelled" ? "Could not cancel job" : "Could not update job",
+        description: msg,
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -932,7 +955,38 @@ export function JobDetailDrawer({
             >
               Complete only
             </Button>
-            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving}>Keep job open</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* More Actions → Cancel: confirm before writing cancelled status. */}
+      <AlertDialog
+        open={cancelConfirmOpen}
+        onOpenChange={(open) => {
+          if (saving) return
+          setCancelConfirmOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This marks the job cancelled and removes it from the In pool / active lists.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Keep job</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleQuickLifecycleAction("cancelled", { confirmed: true })
+              }}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel job"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -22,7 +22,7 @@ import {
   dayKeyLocal,
   dateAtLocalHour,
 } from "@/lib/scheduler-utils"
-import { isActivePipelineFeedJob, isHopperPoolJob } from "@/lib/scheduler-job-status"
+import { isActivePipelineFeedJob, isHopperPoolJob, isTerminalOperatorJobStatus } from "@/lib/scheduler-job-status"
 import { isCrmSalvageOrQuoteDispatch } from "@/lib/job-pool"
 import { schedulerEventToPoolJob } from "@/lib/job-pipeline-status"
 import {
@@ -586,6 +586,40 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
       // Keep the drawer open on the saved salvage row so the operator can close it.
       setDrawerScheduledEvent(event)
       setDrawerPoolJob(null)
+      refreshSchedulerData()
+      return
+    }
+
+    // Cancel / Complete / Referred / Unresolved — leave In pool + active pipeline immediately.
+    if (isTerminalOperatorJobStatus(event.job_status)) {
+      void mutatePool(
+        (current) => (current ?? []).filter((j) => j.id !== event.id),
+        { revalidate: true }
+      )
+      void mutateActivePipeline(
+        (current) => (current ?? []).filter((j) => j.id !== event.id),
+        { revalidate: true }
+      )
+      // Keep real appointments on the day board; drop unscheduled pool close-outs.
+      if (event.scheduled_at && !event.scheduled_tentative) {
+        setEvents((prev) => {
+          const idx = prev.findIndex((ev) => ev.id === event.id)
+          if (idx === -1) {
+            const next = [...prev, event]
+            next.sort(sortEventsByTime)
+            return next
+          }
+          const next = [...prev]
+          next[idx] = event
+          return next
+        })
+        setDrawerScheduledEvent(event)
+        setDrawerPoolJob(null)
+      } else {
+        setEvents((prev) => prev.filter((ev) => ev.id !== event.id))
+        setDrawerScheduledEvent(null)
+        setDrawerPoolJob(null)
+      }
       refreshSchedulerData()
       return
     }

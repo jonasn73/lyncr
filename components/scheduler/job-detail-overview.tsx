@@ -188,6 +188,9 @@ export function JobDetailOverview({
   })
   const statusPill = OPERATOR_JOB_PHASE_LABEL[operatorPhase]
   const isJobDone = operatorPhase === "done"
+  // Already cancelled — hide/disable Cancel so it cannot look broken.
+  const isJobCancelled = operatorPhase === "cancelled"
+  const isJobReferred = operatorPhase === "referred"
   const notesPreview = jobNotes.trim()
     ? jobNotes.trim().replace(/\s+/g, " ")
     : "No notes yet"
@@ -489,31 +492,38 @@ export function JobDetailOverview({
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 <button
                   type="button"
-                  disabled={saving}
+                  // Already cancelled → disabled with clear label (not a dead tap).
+                  disabled={saving || isJobCancelled}
                   onClick={() => onQuickLifecycleAction("cancelled")}
                   className={cn(
                     ACTION_BTN,
-                    "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                    isJobCancelled
+                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
+                      : "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
                   )}
+                  title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
                 >
                   <Ban className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  Cancel
+                  {isJobCancelled ? "Cancelled" : "Cancel"}
                 </button>
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || isJobReferred}
                   onClick={() => onQuickLifecycleAction("referred")}
                   className={cn(
                     ACTION_BTN,
-                    "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
+                    isJobReferred
+                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
+                      : "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
                   )}
+                  title={isJobReferred ? "Already marked referred" : "Mark as referred"}
                 >
                   <Share2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  Referred
+                  {isJobReferred ? "Referred ✓" : "Referred"}
                 </button>
                 <button
                   type="button"
-                  disabled={saving || (jobStatus ?? "").trim().toLowerCase() === "completed"}
+                  disabled={saving || isJobDone}
                   onClick={() => onQuickLifecycleAction("completed")}
                   className={cn(
                     ACTION_BTN,
