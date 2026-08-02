@@ -6279,6 +6279,26 @@ export async function getCollectPayLinkByToken(token: string): Promise<CollectPa
   }
 }
 
+/** Lookup by token even if already expired (cancel / admin). */
+export async function getCollectPayLinkByTokenAny(token: string): Promise<CollectPayLinkRow | null> {
+  const key = token.trim()
+  if (!key) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM collect_pay_links
+      WHERE token = ${key}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) return null
+    return parseCollectPayLinkRow(row)
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return null
+    throw e
+  }
+}
+
 /** Look up a collect pay link by Stripe Checkout session id (includes expired). */
 export async function getCollectPayLinkBySessionId(
   stripeSessionId: string
@@ -6343,6 +6363,25 @@ export async function listCollectPayLinksByJobId(
 }
 
 /** Recent pay links for an owner (all jobs + walk-up). */
+/** Mark a pay link expired locally (after Stripe Checkout expire / cancel). */
+export async function markCollectPayLinkExpired(token: string): Promise<boolean> {
+  const key = token.trim()
+  if (!key) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE collect_pay_links
+      SET expires_at = LEAST(expires_at, now())
+      WHERE token = ${key}
+      RETURNING token
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return false
+    throw e
+  }
+}
+
 export async function listCollectPayLinksForOwner(
   ownerUserId: string,
   limit = 40

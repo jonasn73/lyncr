@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
         paymentStatus: link.paymentStatus,
         walletSettled: link.walletSettled,
         chargeCents: link.chargeCents,
+        businessLabel: link.businessLabel || undefined,
+        customerName: link.customerName || undefined,
       },
     })
   } catch (e) {

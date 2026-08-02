@@ -17,6 +17,8 @@ export const HEADER_MONEY_COOKIE = paintSeedCookieName(HEADER_MONEY_CACHE_SCOPE)
 
 export type HeaderMoneyCache = {
   availableCents: number
+  /** Stripe Connect funds not yet ready to transfer (usually 1–2 business days). */
+  pendingCents: number
   todayCents: number
   weekCents: number
   monthCents: number
@@ -25,7 +27,12 @@ export type HeaderMoneyCache = {
 }
 
 function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached is HeaderMoneyCache {
-  return Boolean(cached && typeof cached.availableCents === "number")
+  if (!cached || typeof cached.availableCents !== "number") return false
+  // Older cookies omitted pendingCents — treat as 0 so we still seed the chip.
+  if (typeof cached.pendingCents !== "number" || !Number.isFinite(cached.pendingCents)) {
+    cached.pendingCents = 0
+  }
+  return true
 }
 
 /**

@@ -125,6 +125,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 120 | `120-customer-vehicles-crm.sql` | **CRM vehicle garage.** Creates **`customer_vehicles`** (year/make/model/VIN/FCC per customer) and optional **`ai_leads.customer_id`**. Powers Customers & Leads CRM profile garage + service history linking. **Required** for Add Vehicle on CRM. |
 | 121 | `121-smart-busy-enabled.sql` | **Smart Busy.** Adds **`account_settings.smart_busy_enabled`**. Lines Presence can auto-set **Busy (ON_JOB)** when confirmed jobs today + unassigned pool exceed **`ivr_capacity_threshold`**. Reuses existing Busy TeXML (booking SMS/IVR). App falls back to localStorage until applied. |
 | 122 | `122-sms-latest-attention.sql` | **Latest activity SMS reminders.** Adds **`onboarding_profiles.sms_latest_enabled`** + **`latest_attention_sms_sent`** dedupe table. When enabled in Settings → Business profile, Telnyx texts the owner’s dispatch/profile phone when Latest needs attention (customer unreplied SMS, or finished job still needing Thanks + review). Rate-limits replies (2h per customer) and sends once per finished job. |
+| 123 | `123-sales-tax-defaults.sql` | **Collect sales tax defaults.** Adds **`account_settings.sales_tax_enabled_default`** (default true) + **`sales_tax_rate_percent`** (default 6). Charge/Collect opens with tax ON unless the owner turns it off in Settings → Sales tax default. **Required** to save tax defaults; app falls back to ON / 6% until applied. |
 
 ## Platform admin (`admin@lyncr.app`)
 

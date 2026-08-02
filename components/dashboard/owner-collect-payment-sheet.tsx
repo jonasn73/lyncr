@@ -282,8 +282,9 @@ export function OwnerCollectPaymentSheet({
   })
   const [adhocAmount, setAdhocAmount] = useState("")
   const [adhocNote, setAdhocNote] = useState("")
-  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [taxEnabled, setTaxEnabled] = useState(true)
   const [taxRatePercent, setTaxRatePercent] = useState("6")
+  const [taxDefaultsReady, setTaxDefaultsReady] = useState(false)
   const [adhocBusy, setAdhocBusy] = useState(false)
   const [tapListening, setTapListening] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -318,8 +319,11 @@ export function OwnerCollectPaymentSheet({
     setListTab("collect")
     setAdhocAmount("")
     setAdhocNote("")
-    setTaxEnabled(false)
-    setTaxRatePercent("6")
+    // Keep business tax defaults when resetting a charge (loaded separately).
+    if (!taxDefaultsReady) {
+      setTaxEnabled(true)
+      setTaxRatePercent("6")
+    }
     setClientSecret(null)
     setPublishableKey(null)
     setAdhocBusy(false)
@@ -344,6 +348,41 @@ export function OwnerCollectPaymentSheet({
     setPayLinkUrl(null)
     setReceiptBusy(false)
   }, [])
+
+  // Load business sales-tax defaults so Charge opens with tax ON (unless Settings says off).
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch("/api/settings/sales-tax", {
+          credentials: "include",
+          cache: "no-store",
+        })
+        const json = (await res.json().catch(() => ({}))) as {
+          data?: { enabledDefault?: boolean; ratePercent?: number }
+        }
+        if (cancelled || !res.ok) return
+        const enabled = json.data?.enabledDefault !== false
+        const rate =
+          typeof json.data?.ratePercent === "number" && Number.isFinite(json.data.ratePercent)
+            ? String(json.data.ratePercent)
+            : "6"
+        setTaxEnabled(enabled)
+        setTaxRatePercent(rate)
+        setTaxDefaultsReady(true)
+      } catch {
+        if (!cancelled) {
+          setTaxEnabled(true)
+          setTaxRatePercent("6")
+          setTaxDefaultsReady(true)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const loadPaymentHistory = useCallback(async () => {
     setHistoryLoading(true)
@@ -397,6 +436,7 @@ export function OwnerCollectPaymentSheet({
           const prev = readHeaderMoneyCache()
           writeHeaderMoneyCache({
             availableCents: prev?.availableCents ?? 0,
+            pendingCents: prev?.pendingCents ?? 0,
             connectReady: prev?.connectReady ?? false,
             todayCents: today,
             weekCents: typeof week === "number" ? week : prev?.weekCents ?? 0,
@@ -558,8 +598,15 @@ export function OwnerCollectPaymentSheet({
       for (const link of links) {
         const jid = (link.jobId || "").trim()
         if (!jid) continue
-        // Newest first from API — keep first (most recent) per job.
-        if (!map[jid]) map[jid] = link
+        const existing = map[jid]
+        const linkPaid = link.paymentStatus === "paid" || link.walletSettled
+        if (!existing) {
+          map[jid] = link
+          continue
+        }
+        const existingPaid = existing.paymentStatus === "paid" || existing.walletSettled
+        // Prefer Paid over Waiting; otherwise keep the first (newest) unpaid row.
+        if (linkPaid && !existingPaid) map[jid] = link
       }
       setLinkByJobId(map)
       const repaired = links.filter((l) => l.fulfilledNow)

@@ -46,6 +46,7 @@ type TipChoice = "none" | "15" | "18" | "20" | "custom"
 type SentPayLink = {
   token: string
   url: string
+  stripeSessionId?: string
   chargeCents: number
   paymentStatus: string
   walletSettled: boolean
@@ -109,7 +110,8 @@ export function TechPaymentModal(props: {
     return ""
   })
   const [amountEdited, setAmountEdited] = useState(false)
-  const [taxEnabled, setTaxEnabled] = useState(false)
+  // Tax defaults to ON (6%) until Settings loads — matches product “tax unless turned off”.
+  const [taxEnabled, setTaxEnabled] = useState(true)
   const [taxRatePercent, setTaxRatePercent] = useState("6")
   const [method, setMethod] = useState<PayMethod | null>(null)
   const [busy, setBusy] = useState(false)
@@ -148,8 +150,20 @@ export function TechPaymentModal(props: {
   const [sentLinks, setSentLinks] = useState<SentPayLink[]>([])
   const [linksLoading, setLinksLoading] = useState(true)
   const [linksSyncing, setLinksSyncing] = useState(false)
+  const [linkCancelBusy, setLinkCancelBusy] = useState<string | null>(null)
   /** Rare: owner wants a second charge after a link already paid. */
   const [forceNewCharge, setForceNewCharge] = useState(false)
+
+  const waitingLinks = useMemo(
+    () =>
+      sentLinks.filter(
+        (l) =>
+          l.paymentStatus !== "paid" &&
+          !l.walletSettled &&
+          l.paymentStatus !== "expired"
+      ),
+    [sentLinks]
+  )
 
   // Latest settled pay link for this job (if any).
   const paidLink = useMemo(
@@ -196,9 +210,50 @@ export function TechPaymentModal(props: {
   useEffect(() => {
     setForceNewCharge(false)
     void refreshSentLinks({ sync: true })
+    // Load business tax defaults (ON + % unless Settings turned them off).
+    void (async () => {
+      try {
+        const res = await fetch("/api/settings/sales-tax", {
+          credentials: "include",
+          cache: "no-store",
+        })
+        const json = (await res.json().catch(() => ({}))) as {
+          data?: { enabledDefault?: boolean; ratePercent?: number }
+        }
+        if (!res.ok) return
+        setTaxEnabled(json.data?.enabledDefault !== false)
+        if (typeof json.data?.ratePercent === "number" && Number.isFinite(json.data.ratePercent)) {
+          setTaxRatePercent(String(json.data.ratePercent))
+        }
+      } catch {
+        /* keep ON / 6% */
+      }
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once when opening this job
   }, [props.job.id])
 
+  async function cancelPayLink(link: SentPayLink) {
+    setLinkCancelBusy(link.token)
+    setError(null)
+    try {
+      const res = await fetch("/api/payments/pay-links", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          token: link.token,
+          sessionId: link.stripeSessionId,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not cancel link")
+      await refreshSentLinks({ sync: true })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not cancel link")
+    } finally {
+      setLinkCancelBusy(null)
+    }
+  }
   // Close nested Card / Link popup and clear in-progress payment UI state.
   function closePayPopup() {
     setActivePopup(null)
@@ -357,6 +412,27 @@ export function TechPaymentModal(props: {
     setActivePopup(null)
     setPostPayStep("tip_sign")
     setError(null)
+    // Card/cash already collected — expire leftover Waiting pay links so they don’t stack.
+    if (waitingLinks.length > 0) {
+      void (async () => {
+        for (const link of waitingLinks) {
+          try {
+            await fetch("/api/payments/pay-links", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                token: link.token,
+                sessionId: link.stripeSessionId,
+              }),
+            })
+          } catch {
+            /* best-effort */
+          }
+        }
+        void refreshSentLinks({ sync: true })
+      })()
+    }
   }
 
   function goToReceipt(nextTip?: TipChargeResult) {
@@ -765,6 +841,13 @@ export function TechPaymentModal(props: {
       setError("Enter an amount of at least $0.50.")
       return
     }
+    // Warn when another unpaid link is still Waiting — offer replace.
+    if (waitingLinks.length > 0) {
+      const ok = window.confirm(
+        `There ${waitingLinks.length === 1 ? "is already 1 unpaid pay link" : `are already ${waitingLinks.length} unpaid pay links`} for this job.\n\nOK = cancel the old Waiting link(s) and send this new amount.\nCancel = go back without sending.`
+      )
+      if (!ok) return
+    }
     setBusy(true)
     setMethod("link")
     try {
@@ -782,6 +865,7 @@ export function TechPaymentModal(props: {
           customerName: linkName.trim() || undefined,
           phone: channel === "sms" ? linkPhone.trim() : undefined,
           email: channel === "email" ? linkEmail.trim() : undefined,
+          cancelWaitingLinks: waitingLinks.length > 0,
           lineItems: lineItemsPayload(),
           note: lineItemsPayload()
             .map((l) => l.label)
@@ -791,7 +875,7 @@ export function TechPaymentModal(props: {
       })
       const json = (await res.json()) as {
         error?: string
-        data?: { url?: string; sent?: boolean }
+        data?: { url?: string; sent?: boolean; canceledWaiting?: number }
       }
       // Always keep the Checkout URL for copy/paste — but only claim "sent" on success.
       if (json.data?.url) setLinkSentUrl(json.data.url)
@@ -1285,22 +1369,50 @@ export function TechPaymentModal(props: {
                     </button>
                   </div>
                   {sentLinks.length > 0 ? (
-                    <ul className="mt-1.5 space-y-1">
+                    <ul className="mt-1.5 space-y-1.5">
                       {sentLinks.map((link) => {
                         const paid = link.paymentStatus === "paid" || link.walletSettled
+                        const expired = link.paymentStatus === "expired"
                         return (
                           <li
                             key={link.token}
                             className="flex items-center justify-between gap-2 text-[11px]"
                           >
-                            <span className="tabular-nums text-sky-100">{fmt(link.chargeCents)}</span>
-                            <span className={paid ? "text-emerald-300" : "text-amber-200/90"}>
-                              {paid ? "Paid" : "Waiting"}
+                            <span className="min-w-0 flex-1 tabular-nums text-sky-100">
+                              {fmt(link.chargeCents)}
+                              <span
+                                className={cn(
+                                  "ml-1.5 font-semibold",
+                                  paid
+                                    ? "text-emerald-300"
+                                    : expired
+                                      ? "text-zinc-500"
+                                      : "text-amber-200/90"
+                                )}
+                              >
+                                {paid ? "Paid" : expired ? "Canceled" : "Waiting"}
+                              </span>
                             </span>
+                            {!paid && !expired ? (
+                              <button
+                                type="button"
+                                disabled={linkCancelBusy === link.token || busy}
+                                onClick={() => void cancelPayLink(link)}
+                                className="shrink-0 rounded border border-amber-500/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-100 disabled:opacity-50"
+                              >
+                                {linkCancelBusy === link.token ? "…" : "Cancel"}
+                              </button>
+                            ) : null}
                           </li>
                         )
                       })}
                     </ul>
+                  ) : null}
+                  {waitingLinks.length > 0 ? (
+                    <p className="mt-1.5 text-[10px] leading-snug text-sky-200/75">
+                      Wrong amount? Cancel the Waiting link, turn Tax on if needed, then send a new
+                      link — or send again and choose Replace when asked.
+                    </p>
                   ) : null}
                 </section>
               )}

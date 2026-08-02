@@ -6,14 +6,27 @@ import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { CustomerPortalShell } from "@/components/customer-portal-shell"
 
+function formatUsd(cents: number): string {
+  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  })
+}
+
 function PayThanksInner() {
   const searchParams = useSearchParams()
   const sessionId = (searchParams.get("session_id") || "").trim()
-  const [note, setNote] = useState<string | null>(null)
+  const [status, setStatus] = useState<"loading" | "paid" | "pending" | "error">("loading")
+  const [amountLabel, setAmountLabel] = useState<string | null>(null)
+  const [businessLabel, setBusinessLabel] = useState<string | null>(null)
 
   // Backup: tell Lyncr the Checkout session finished (in case the Stripe webhook was late).
   useEffect(() => {
-    if (!sessionId.startsWith("cs_")) return
+    if (!sessionId.startsWith("cs_")) {
+      setStatus("paid")
+      return
+    }
     let cancelled = false
     void (async () => {
       try {
@@ -23,21 +36,34 @@ function PayThanksInner() {
           body: JSON.stringify({ sessionId }),
         })
         const json = (await res.json().catch(() => ({}))) as {
-          data?: { paymentStatus?: string; walletSettled?: boolean }
+          data?: {
+            paymentStatus?: string
+            walletSettled?: boolean
+            chargeCents?: number
+            businessLabel?: string
+            customerName?: string
+          }
           error?: string
         }
         if (cancelled) return
         if (!res.ok) {
-          setNote("Payment may still be processing — the business will see it shortly.")
+          setStatus("pending")
           return
         }
+        const cents = json.data?.chargeCents
+        if (typeof cents === "number" && cents > 0) {
+          setAmountLabel(formatUsd(cents))
+        }
+        const biz = (json.data?.businessLabel || "").trim()
+        if (biz) setBusinessLabel(biz)
+
         if (json.data?.walletSettled || json.data?.paymentStatus === "paid") {
-          setNote("Payment confirmed.")
+          setStatus("paid")
+        } else {
+          setStatus("pending")
         }
       } catch {
-        if (!cancelled) {
-          setNote("Payment may still be processing — the business will see it shortly.")
-        }
+        if (!cancelled) setStatus("pending")
       }
     })()
     return () => {
@@ -45,18 +71,43 @@ function PayThanksInner() {
     }
   }, [sessionId])
 
+  const shop = businessLabel || "the shop"
+  const subtitle =
+    status === "loading"
+      ? "One moment — confirming your payment…"
+      : status === "pending"
+        ? "Your payment is processing. You’re all set — you can close this window."
+        : amountLabel
+          ? `Thanks! We received ${amountLabel}. You’re all set.`
+          : "Thanks! Your payment went through. You’re all set."
+
   return (
     <CustomerPortalShell
-      businessName="Payment received"
+      businessName={businessLabel || "Payment received"}
       mode="pay"
       currentStep="done"
-      subtitle="Thanks — your payment went through. You can close this window."
+      subtitle={subtitle}
       centered
     >
       <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-5 text-center">
-        {note ? <p className="text-sm text-emerald-200/90">{note}</p> : null}
-        <p className="mt-2 text-xs text-zinc-400">
-          After the job, watch for a thank-you text with a review link — same lyncr page style.
+        <p className="text-base font-semibold text-emerald-100">
+          {status === "loading"
+            ? "Confirming…"
+            : status === "pending"
+              ? "Payment received — almost confirmed"
+              : "You’re paid up"}
+        </p>
+        {amountLabel ? (
+          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-200">{amountLabel}</p>
+        ) : null}
+        <p className="mt-3 text-sm leading-relaxed text-emerald-200/85">
+          {status === "loading"
+            ? "Hang tight while we confirm with the card network."
+            : `Thank you for choosing ${shop}. A receipt may arrive by email or text if the business sent one.`}
+        </p>
+        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+          After the job, you may get a short thank-you text with a review link. You can close this
+          page anytime.
         </p>
       </div>
     </CustomerPortalShell>

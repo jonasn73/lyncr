@@ -120,6 +120,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
     return cached?.availableCents ?? null
   })
+  // Funds Stripe still holds before they become transferable (often 1–2 days after a card pay).
+  const [pendingCents, setPendingCents] = useState<number>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached?.pendingCents ?? 0
+  })
   const [connectReady, setConnectReady] = useState(
     () => readHeaderMoneyCache(undefined, moneyPaint)?.connectReady === true
   )
@@ -151,6 +156,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
     if (!cached) return
     setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
+    setPendingCents((prev) => (prev === 0 && cached.pendingCents ? cached.pendingCents : prev))
     setConnectReady((prev) => prev || cached.connectReady === true)
     setTodayCents((prev) => (prev == null ? cached.todayCents : prev))
     setWeekCents((prev) => (prev == null ? cached.weekCents : prev))
@@ -170,20 +176,27 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       .then((r) => (r.ok ? r.json() : null))
       .then(
         (j: {
-          data?: { availableCents?: number; ready?: boolean }
+          data?: { availableCents?: number; pendingCents?: number; ready?: boolean }
         } | null) => {
           const avail = j?.data?.availableCents
+          const pend = j?.data?.pendingCents
           const ready = j?.data?.ready === true
           // Missing Connect → treat as $0 in account (empty / not onboarded).
           const cents = typeof avail === "number" && Number.isFinite(avail) ? avail : 0
+          const pending = typeof pend === "number" && Number.isFinite(pend) ? pend : 0
           setAvailableCents(cents)
+          setPendingCents(pending)
           setConnectReady(ready)
-          return { availableCents: cents, connectReady: ready }
+          return { availableCents: cents, pendingCents: pending, connectReady: ready }
         }
       )
       .catch(() => {
         setAvailableCents((prev) => (prev == null ? 0 : prev))
-        return null as { availableCents: number; connectReady: boolean } | null
+        return null as {
+          availableCents: number
+          pendingCents: number
+          connectReady: boolean
+        } | null
       })
 
     const collectedP = fetch("/api/owner/collected", {
@@ -227,6 +240,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       const prev = readHeaderMoneyCache(undefined, moneyPaint)
       writeHeaderMoneyCache({
         availableCents: bal?.availableCents ?? prev?.availableCents ?? 0,
+        pendingCents: bal?.pendingCents ?? prev?.pendingCents ?? 0,
         connectReady: bal?.connectReady ?? prev?.connectReady ?? false,
         todayCents: col?.todayCents ?? prev?.todayCents ?? 0,
         weekCents: col?.weekCents ?? prev?.weekCents ?? 0,
@@ -344,12 +358,16 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
             balanceLabel
-              ? `In account ${balanceLabel}. Tap for collected totals or Collect payment.`
+              ? `In account ${balanceLabel}${
+                  pendingCents > 0 ? `, ${formatMoneyCents(pendingCents)} pending` : ""
+                }. Tap for available, pending, and collected today.`
               : "In account — loading balance"
           }
           title={
             balanceLabel
-              ? `In account ${balanceLabel} — tap for collected this week / month`
+              ? pendingCents > 0
+                ? `In account ${balanceLabel} · ${formatMoneyCents(pendingCents)} pending — tap for details`
+                : `In account ${balanceLabel} — tap for collected this week / month`
               : "Loading account balance"
           }
         >
@@ -364,7 +382,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <span className="inline-block h-3 w-14" aria-hidden />
             )}
             <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/70">
-              in account
+              {pendingCents > 0 && amountReady ? "avail · pending" : "in account"}
             </span>
           </span>
         </Button>
@@ -424,23 +442,47 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                In account
+                Available (ready for bank)
               </p>
               <p className="mt-0.5 text-2xl font-bold tabular-nums text-emerald-100">
                 {availableCents != null ? formatMoneyCents(availableCents) : "—"}
               </p>
               <p className="mt-1 text-xs text-emerald-200/60">
                 {connectReady
-                  ? "Card money ready to send to your bank (after fees). Goes to $0 after you transfer."
+                  ? "This is what you can transfer now. New card payments often sit in Pending for 1–2 days first."
                   : "Finish Get paid setup to hold and transfer card payments."}
               </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-200/80">
+                    Pending
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-amber-100">
+                    {formatMoneyCents(pendingCents)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-amber-200/60">
+                    Processing — not transferable yet
+                  </p>
+                </div>
+                <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-200/80">
+                    Collected today
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-sky-100">
+                    {periodsReady && todayCents != null ? formatMoneyCents(todayCents) : "—"}
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-sky-200/60">
+                    Sales total (not the same as Available)
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setMoneyOpen(false)
                   openGetPaidModal()
                 }}
-                className="mt-2 text-xs font-semibold text-emerald-300 underline-offset-2 hover:underline"
+                className="mt-3 text-xs font-semibold text-emerald-300 underline-offset-2 hover:underline"
               >
                 {connectReady ? "Transfer to bank (Get paid)" : "Set up Get paid"}
               </button>

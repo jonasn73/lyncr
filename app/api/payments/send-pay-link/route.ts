@@ -6,6 +6,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
+  cancelOpenCollectPayLinksForJob,
   createCollectPayLinkCheckout,
   sendCollectPayLink,
 } from "@/lib/job-pay-link"
@@ -25,6 +26,8 @@ type Body = {
   email?: string
   phone?: string
   lineItems?: { label?: string; amountCents?: number }[]
+  /** When true, expire unpaid Waiting links for this job before creating the new one. */
+  cancelWaitingLinks?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -87,6 +90,19 @@ export async function POST(req: NextRequest) {
       : body.note?.trim() || undefined
 
   try {
+    let canceledWaiting = 0
+    if (!wantAdhoc && jobId && body.cancelWaitingLinks === true) {
+      const job = await import("@/lib/job-payments").then((m) => m.getJobPaymentContext(jobId))
+      if (job && (job.ownerUserId === userId || job.assignedTechId === userId)) {
+        const result = await cancelOpenCollectPayLinksForJob({
+          actingUserId: userId,
+          ownerUserId: job.ownerUserId,
+          jobId,
+        })
+        canceledWaiting = result.canceled
+      }
+    }
+
     const checkout = await createCollectPayLinkCheckout({
       actingUserId: userId,
       jobId: wantAdhoc ? null : jobId,
@@ -121,6 +137,7 @@ export async function POST(req: NextRequest) {
             sessionId: checkout.sessionId,
             chargeCents: checkout.chargeCents,
             sent: false,
+            canceledWaiting,
           },
         },
         { status: 400 }
@@ -134,6 +151,7 @@ export async function POST(req: NextRequest) {
         chargeCents: checkout.chargeCents,
         sent: true,
         channel,
+        canceledWaiting,
       },
     })
   } catch (e) {

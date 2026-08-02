@@ -1,11 +1,13 @@
 // GET /api/payments/pay-links?jobId=… — list sent pay links + live Stripe/wallet status
 // POST /api/payments/pay-links — sync one session/token (or all links for a job) into the wallet
+// DELETE /api/payments/pay-links — cancel (expire) an unpaid Waiting link
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser, listCollectPayLinksByJobId, listCollectPayLinksForOwner } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
+  cancelCollectPayLink,
   syncCollectPayLinkStatus,
   syncCollectPayLinksForJob,
   type CollectPayLinkStatus,
@@ -30,6 +32,7 @@ function fmtRow(
     jobId: row.job_id,
     chargeCents: row.charge_cents,
     customerName: row.customer_name,
+    businessLabel: row.business_label,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     paymentStatus: expired ? "expired" : "unknown",
@@ -155,4 +158,46 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ data: { link } })
+}
+
+type DeleteBody = {
+  token?: string
+  sessionId?: string
+}
+
+/** Cancel (expire) an unpaid Waiting pay link so it can no longer be paid. */
+export async function DELETE(req: NextRequest) {
+  const userId = getUserIdFromRequest(req.headers.get("cookie"))
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  const user = await getUser(userId)
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+
+  if (!isStripeConfigured()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 })
+  }
+
+  const body = (await req.json().catch(() => ({}))) as DeleteBody
+  const token = String(body.token ?? "").trim()
+  const sessionId = String(body.sessionId ?? "").trim()
+  if (!token && !sessionId) {
+    return NextResponse.json({ error: "Provide token or sessionId" }, { status: 400 })
+  }
+
+  const result = await cancelCollectPayLink({
+    actingUserId: userId,
+    token,
+    stripeSessionId: sessionId,
+  })
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 })
+  }
+  return NextResponse.json({
+    data: {
+      token: result.token,
+      canceled: !result.alreadyPaid,
+      alreadyPaid: result.alreadyPaid,
+      alreadyExpired: result.alreadyExpired,
+    },
+  })
 }

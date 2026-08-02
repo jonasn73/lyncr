@@ -11,6 +11,7 @@ import {
   MessageSquareText,
   Network,
   Package,
+  Percent,
   Shield,
   ShieldCheck,
   Users,
@@ -28,6 +29,7 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { SettingsMenuRow, SettingsGroupedList } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
+import { SalesTaxSettingsSheet } from "@/components/dashboard/sales-tax-settings-sheet"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
@@ -68,6 +70,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 }) {
   const modals = useSettingsModalActions()
   const router = useRouter()
+  const [salesTaxOpen, setSalesTaxOpen] = useState(false)
   const initials = profile.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -138,8 +141,17 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             subtitle="Bank transfers — send funds or view payout history"
             onClick={modals.openGetPaid}
           />
+          <SettingsMenuRow
+            grouped
+            icon={<Percent className="h-5 w-5 text-emerald-400" aria-hidden />}
+            title="Sales tax default"
+            subtitle="Charge opens with tax on (unless you turn this off)"
+            onClick={() => setSalesTaxOpen(true)}
+          />
         </SettingsGroupedList>
       </section>
+
+      <SalesTaxSettingsSheet open={salesTaxOpen} onOpenChange={setSalesTaxOpen} />
 
       <section className="space-y-2">
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Calls & SMS</p>

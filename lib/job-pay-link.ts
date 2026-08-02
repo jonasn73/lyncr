@@ -322,6 +322,7 @@ export type CollectPayLinkStatus = {
   jobId: string | null
   chargeCents: number
   customerName: string
+  businessLabel: string
   createdAt: string
   expiresAt: string
   /** Stripe Checkout payment_status (or expired). */
@@ -431,6 +432,7 @@ export async function syncCollectPayLinkStatus(params: {
     jobId: row?.job_id ?? ((meta.job_id || "").trim() || null),
     chargeCents,
     customerName: row?.customer_name || (meta.customer_name || "").trim(),
+    businessLabel: row?.business_label || (meta.business_label || "").trim(),
     createdAt: row?.created_at || new Date().toISOString(),
     expiresAt,
     paymentStatus,
@@ -455,6 +457,126 @@ export async function syncCollectPayLinksForJob(
     if (status) out.push(status)
   }
   return out
+}
+
+export type CancelPayLinkResult =
+  | { ok: true; token: string; alreadyPaid: boolean; alreadyExpired: boolean }
+  | { ok: false; error: string }
+
+/**
+ * Expire an unpaid Checkout pay link so the customer cannot pay the wrong amount.
+ * Paid links are left alone.
+ */
+export async function cancelCollectPayLink(params: {
+  actingUserId: string
+  token?: string | null
+  stripeSessionId?: string | null
+}): Promise<CancelPayLinkResult> {
+  if (!isStripeConfigured()) return { ok: false, error: "Stripe is not configured" }
+
+  const token = (params.token ?? "").trim()
+  const sessionId = (params.stripeSessionId ?? "").trim()
+  if (!token && !sessionId) return { ok: false, error: "Missing pay link" }
+
+  const { getCollectPayLinkByTokenAny, getCollectPayLinkBySessionId, markCollectPayLinkExpired, getUserStripeConnect } =
+    await import("@/lib/db")
+
+  const row =
+    (token ? await getCollectPayLinkByTokenAny(token) : null) ||
+    (sessionId ? await getCollectPayLinkBySessionId(sessionId) : null)
+
+  // Fallback: sync first so we can resolve Connect + status from Stripe metadata.
+  const live = await syncCollectPayLinkStatus({
+    token: token || row?.token,
+    stripeSessionId: sessionId || row?.stripe_session_id,
+  })
+  if (!live && !row) return { ok: false, error: "Pay link not found" }
+
+  const ownerUserId = row?.owner_user_id || null
+  if (ownerUserId && ownerUserId !== params.actingUserId) {
+    if (live?.jobId) {
+      const job = await getJobPaymentContext(live.jobId)
+      if (!job || (job.ownerUserId !== params.actingUserId && job.assignedTechId !== params.actingUserId)) {
+        return { ok: false, error: "Not allowed" }
+      }
+    } else if (row?.acting_user_id !== params.actingUserId) {
+      return { ok: false, error: "Not allowed" }
+    }
+  }
+
+  if (live?.paymentStatus === "paid" || live?.walletSettled) {
+    return {
+      ok: true,
+      token: live.token,
+      alreadyPaid: true,
+      alreadyExpired: false,
+    }
+  }
+  if (live?.paymentStatus === "expired") {
+    const t = live.token || row?.token || token
+    if (t) await markCollectPayLinkExpired(t).catch(() => false)
+    return { ok: true, token: t, alreadyPaid: false, alreadyExpired: true }
+  }
+
+  const expireSessionId = live?.stripeSessionId || row?.stripe_session_id || sessionId
+  const expireToken = live?.token || row?.token || token
+  if (!expireSessionId) return { ok: false, error: "Pay link session missing" }
+
+  let connectAccountId: string | null = null
+  if (ownerUserId) {
+    const connect = await getUserStripeConnect(ownerUserId)
+    connectAccountId = connect?.stripe_connect_account_id ?? null
+  }
+
+  const stripe = getStripeClient()
+  try {
+    if (connectAccountId) {
+      await stripe.checkout.sessions.expire(expireSessionId, {}, { stripeAccount: connectAccountId })
+    } else {
+      await stripe.checkout.sessions.expire(expireSessionId)
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // Already expired / complete — still mark local row so UI cleans up.
+    if (!/already|expired|complete|No such/i.test(msg)) {
+      console.warn("[pay-link] expire failed:", msg)
+      return { ok: false, error: "Could not cancel this pay link. Try Refresh, then Cancel again." }
+    }
+  }
+
+  if (expireToken) await markCollectPayLinkExpired(expireToken).catch(() => false)
+  return {
+    ok: true,
+    token: expireToken || expireSessionId.slice(-10),
+    alreadyPaid: false,
+    alreadyExpired: false,
+  }
+}
+
+/** Cancel every unpaid (Waiting) pay link for a job — e.g. after an in-person card charge. */
+export async function cancelOpenCollectPayLinksForJob(params: {
+  actingUserId: string
+  ownerUserId: string
+  jobId: string
+}): Promise<{ canceled: number; skippedPaid: number }> {
+  const links = await syncCollectPayLinksForJob(params.ownerUserId, params.jobId)
+  let canceled = 0
+  let skippedPaid = 0
+  for (const link of links) {
+    if (link.paymentStatus === "paid" || link.walletSettled) {
+      skippedPaid += 1
+      continue
+    }
+    if (link.paymentStatus === "expired") continue
+    const result = await cancelCollectPayLink({
+      actingUserId: params.actingUserId,
+      token: link.token,
+      stripeSessionId: link.stripeSessionId,
+    })
+    if (result.ok && !result.alreadyPaid) canceled += 1
+    if (result.ok && result.alreadyPaid) skippedPaid += 1
+  }
+  return { canceled, skippedPaid }
 }
 
 /** Resolve a Checkout session from a short pay token (DB, then Stripe search). */
