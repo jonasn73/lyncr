@@ -214,6 +214,32 @@ describe("buildLatestCustomerActions", () => {
   it("isHotLatestAction rejects legacy sent rows", () => {
     expect(isHotLatestAction({ event: "sent" })).toBe(false)
     expect(isHotLatestAction({ event: "replied" } as never)).toBe(true)
+    expect(isHotLatestAction({ event: "customer_paid" } as never)).toBe(true)
+  })
+
+  it("surfaces customer_paid from recent wallet settles", () => {
+    const latest = buildLatestCustomerActions({
+      nowMs: NOW,
+      messages: [],
+      recentPayments: [
+        {
+          id: "wt-1",
+          customerPhone: "+15557770007",
+          customerName: "Alex",
+          amountCents: 26500,
+          at: "2026-07-27T19:30:00.000Z",
+          jobId: "job-alex",
+          jobLabel: "2019 Honda Civic",
+        },
+      ],
+      limit: 6,
+    })
+    expect(latest).toHaveLength(1)
+    expect(latest[0]?.event).toBe("customer_paid")
+    expect(latest[0]?.headline).toContain("$265")
+    expect(latest[0]?.headline).toContain("Alex")
+    expect(latest[0]?.paidAmountCents).toBe(26500)
+    expect(latest[0]?.completedJobId).toBe("job-alex")
   })
 
   it("keeps job_finished when completed_at is evening ET (UTC next calendar day)", () => {

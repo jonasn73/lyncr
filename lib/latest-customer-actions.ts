@@ -1,23 +1,26 @@
-// Build “Latest” rows for Lines: hot work only — unreplied inbound + jobs needing review SMS.
+// Build “Latest” rows for Lines: hot work + recent customer payments.
 
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
 
-/** Kind of outbound text (heuristic from body), or a finished job with no text yet. */
-export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job"
+/** Kind of outbound text (heuristic from body), or a finished job / payment row. */
+export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job" | "paid"
 
 /**
- * One Latest row. Only `replied` (needs operator reply) and `job_finished`
- * (needs Thanks + review SMS) are surfaced — outbound “we sent X” never stays here.
+ * One Latest row.
+ * - `replied` — customer text needs an answer
+ * - `job_finished` — needs Thanks + review SMS
+ * - `customer_paid` — card / pay-link just settled (informational)
+ * Outbound “we sent X” never stays here.
  */
 export type LatestCustomerAction = {
   id: string
   customerPhone: string
   customerName: string
-  /** What needs attention. */
-  event: "replied" | "job_finished"
+  /** What needs attention (or a recent payment notice). */
+  event: "replied" | "job_finished" | "customer_paid"
   kind: LatestSmsKind
-  /** e.g. “David replied” / “Jason · job finished” */
+  /** e.g. “David replied” / “Jason · job finished” / “Customer paid · $265 · Alex” */
   headline: string
   /** Short status under the headline. */
   statusLine: string
@@ -46,6 +49,8 @@ export type LatestCustomerAction = {
   } | null
   /** Completed job id today (for Thanks + review), if matched. */
   completedJobId: string | null
+  /** Settled charge amount in cents (customer_paid only). */
+  paidAmountCents?: number | null
 }
 
 export type LatestCompletedJobHint = {
@@ -62,6 +67,22 @@ export type LatestCompletedJobHint = {
   reviewLinkOpenedAt?: string | null
 }
 
+/** One completed wallet payment to surface as “Customer paid”. */
+export type LatestPaidHint = {
+  /** wallet_transactions.id — stable Latest row id. */
+  id: string
+  customerPhone: string | null
+  customerName: string | null
+  /** Amount the customer paid, in cents. */
+  amountCents: number
+  /** When the ledger row was created / settled. */
+  at: string
+  /** Job id when this was a job charge (opens Collect / job). */
+  jobId: string | null
+  /** Short vehicle / job label for the preview line. */
+  jobLabel: string | null
+}
+
 function phoneKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
 }
@@ -70,6 +91,16 @@ function truncate(text: string, max = 90): string {
   const t = text.replace(/\s+/g, " ").trim()
   if (t.length <= max) return t
   return `${t.slice(0, max - 1)}…`
+}
+
+/** Dollar label for Latest headlines (e.g. $265 or $257.01). */
+function formatPaidDollars(cents: number): string {
+  const safe = Math.max(0, Math.round(cents))
+  return (safe / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: safe % 100 === 0 ? 0 : 2,
+  })
 }
 
 /** Guess SMS template type from message body. */
@@ -131,29 +162,39 @@ export type LatestReviewHint = {
 /** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
 export const LATEST_INBOUND_MAX_AGE_HOURS = 72
 
+/** Default: keep “Customer paid” rows for this many hours after settle. */
+export const LATEST_PAID_MAX_AGE_HOURS = 24
+
 /**
- * Hot Latest only:
+ * Hot Latest:
  * 1) Unreplied inbound SMS (customer last messaged you) — age-capped
- * 2) Today’s completed jobs that still need a Thanks + review text
+ * 2) Recent completed payments (“Customer paid · $X · Name”)
+ * 3) Today’s completed jobs that still need a Thanks + review text
  *
  * Outbound-only threads (“Review link sent…”) are never listed.
- * Cap ~4–6; unreplied first, then action-needed jobs.
+ * Cap ~4–6; unreplied first, then payments, then action-needed jobs.
  */
 export function buildLatestCustomerActions(params: {
   messages: SmsMessage[]
   nameHints?: LatestActionNameHint[]
   reviewHints?: LatestReviewHint[]
   completedJobs?: LatestCompletedJobHint[]
+  /** Recent COMPLETED wallet payments (from owner-collected). */
+  recentPayments?: LatestPaidHint[]
   limit?: number
   /** Drop unreplied inbound older than this many hours (default 72). */
   maxAgeHours?: number
+  /** Drop customer_paid older than this many hours (default 24). */
+  paidMaxAgeHours?: number
   /** Injected clock for tests. */
   nowMs?: number
 }): LatestCustomerAction[] {
   const limit = Math.min(Math.max(params.limit ?? 5, 1), 6)
   const maxAgeHours = params.maxAgeHours ?? LATEST_INBOUND_MAX_AGE_HOURS
+  const paidMaxAgeHours = params.paidMaxAgeHours ?? LATEST_PAID_MAX_AGE_HOURS
   const nowMs = params.nowMs ?? Date.now()
   const inboundCutoff = nowMs - maxAgeHours * 60 * 60 * 1000
+  const paidCutoff = nowMs - paidMaxAgeHours * 60 * 60 * 1000
 
   const nameByPhone = new Map<string, string>()
   const openedByPhone = new Map<string, string>()
@@ -252,6 +293,40 @@ export function buildLatestCustomerActions(params: {
           }
         : null,
       completedJobId,
+      paidAmountCents: null,
+    })
+  }
+
+  // Recent settled payments — “Customer paid · $265 · Alex” (persists via wallet_transactions).
+  for (const pay of params.recentPayments ?? []) {
+    const amountCents = Math.round(Number(pay.amountCents) || 0)
+    if (amountCents <= 0) continue
+    const atMs = Date.parse(pay.at) || 0
+    if (atMs && atMs < paidCutoff) continue
+
+    const phone = (pay.customerPhone || "").trim()
+    const key = phoneKey(phone)
+    const name =
+      (pay.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
+    const dollars = formatPaidDollars(amountCents)
+
+    out.push({
+      id: `paid-${pay.id}`,
+      customerPhone: phone,
+      customerName: name,
+      event: "customer_paid",
+      kind: "paid",
+      headline: `Customer paid · ${dollars} · ${name}`,
+      statusLine: "Payment received",
+      preview: (pay.jobLabel || "Card / pay link").trim(),
+      at: pay.at,
+      deliveryLabel: null,
+      reviewLinkOpened: false,
+      reviewLinkClicks: 0,
+      lastOutbound: null,
+      lastInbound: null,
+      completedJobId: pay.jobId,
+      paidAmountCents: amountCents,
     })
   }
 
@@ -281,12 +356,17 @@ export function buildLatestCustomerActions(params: {
       lastOutbound: null,
       lastInbound: null,
       completedJobId: job.id,
+      paidAmountCents: null,
     })
   }
 
-  // Unreplied first, then jobs needing review; newest within each bucket.
+  // Unreplied first, then payments, then jobs needing review; newest within each bucket.
   out.sort((a, b) => {
-    const rank = (ev: LatestCustomerAction["event"]) => (ev === "replied" ? 0 : 1)
+    const rank = (ev: LatestCustomerAction["event"]) => {
+      if (ev === "replied") return 0
+      if (ev === "customer_paid") return 1
+      return 2
+    }
     const r = rank(a.event) - rank(b.event)
     if (r !== 0) return r
     return (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)
@@ -299,5 +379,9 @@ export function buildLatestCustomerActions(params: {
 export function isHotLatestAction(
   item: LatestCustomerAction | { event?: string }
 ): item is LatestCustomerAction {
-  return item.event === "replied" || item.event === "job_finished"
+  return (
+    item.event === "replied" ||
+    item.event === "job_finished" ||
+    item.event === "customer_paid"
+  )
 }

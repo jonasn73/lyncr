@@ -2,7 +2,7 @@
 
 // Shared Latest feed for Lines — one fetch + session/cookie/paint-seed cache.
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useDocumentVisible } from "@/lib/hooks/use-poll-budget"
@@ -18,10 +18,40 @@ import {
   excludeReadRepliesFromLatest,
   LATEST_SEEN_CHANGED_EVENT,
 } from "@/lib/latest-seen"
+import { refreshHeaderMoney } from "@/lib/settings-modals-events"
+import { formatHeaderMoneyCents } from "@/lib/header-money-cache"
+import { useToast } from "@/hooks/use-toast"
 
 /** Slow backup poll while the browser tab is hidden (Lines stays mounted). */
 const LATEST_POLL_VISIBLE_MS = 30_000
 const LATEST_POLL_HIDDEN_MS = 120_000
+
+/** Remember which payment ids we already toasted this browser session. */
+const SEEN_PAID_TOAST_KEY = "lyncr-latest-paid-toasted"
+
+function readSeenPaidToastIds(): Set<string> {
+  if (typeof window === "undefined") return new Set()
+  try {
+    const raw = sessionStorage.getItem(SEEN_PAID_TOAST_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.filter((x): x is string => typeof x === "string"))
+  } catch {
+    return new Set()
+  }
+}
+
+function writeSeenPaidToastIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return
+  try {
+    // Cap so sessionStorage stays small.
+    const list = [...ids].slice(-40)
+    sessionStorage.setItem(SEEN_PAID_TOAST_KEY, JSON.stringify(list))
+  } catch {
+    /* ignore quota */
+  }
+}
 
 /** In-flight dedupe so compact + desktop card mounts don’t double-hit the API. */
 const inflight = new Map<string, Promise<LatestCustomerAction[]>>()
@@ -65,6 +95,7 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
 
 /** Latest customer actions — session/cookie/SSR seed before paint, then live fetch. */
 export function useOwnerLatest(activeOrganizationId: string | null | undefined) {
+  const { toast } = useToast()
   const paint = useDashboardPaintSeeds()
   // `latest !== null` means the paint cookie existed (even `[]` = confirmed empty).
   const paintHasSeed = paint.latest != null
@@ -88,6 +119,8 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
       readLatestCache(activeOrganizationId, paintSeed).length === 0
   )
   const documentVisible = useDocumentVisible()
+  // First successful fetch only seeds “seen” ids — later fetches can toast new payments.
+  const primedPaidToastRef = useRef(false)
 
   useEffect(() => {
     if (items.length > 0) setLoading(false)
@@ -97,9 +130,47 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     if (cachedItems.length > 0 || paintHasSeed) setLoading(false)
   }, [cachedItems.length, paintHasSeed])
 
+  const notifyNewPayments = useCallback(
+    (next: LatestCustomerAction[]) => {
+      const paid = next.filter((row) => row.event === "customer_paid")
+      if (paid.length === 0) {
+        primedPaidToastRef.current = true
+        return
+      }
+      const seen = readSeenPaidToastIds()
+      if (!primedPaidToastRef.current) {
+        // First load: mark current payments as already known (no toast spam on refresh).
+        for (const row of paid) seen.add(row.id)
+        writeSeenPaidToastIds(seen)
+        primedPaidToastRef.current = true
+        return
+      }
+      const fresh = paid.filter((row) => !seen.has(row.id))
+      if (fresh.length === 0) return
+      for (const row of fresh) seen.add(row.id)
+      writeSeenPaidToastIds(seen)
+      // Brief in-app toast when a new settle shows up on the next Latest poll.
+      const newest = fresh[0]!
+      const dollars =
+        newest.paidAmountCents != null
+          ? formatHeaderMoneyCents(newest.paidAmountCents)
+          : ""
+      toast({
+        title: dollars ? `Payment received · ${dollars}` : "Payment received",
+        description: newest.customerName
+          ? `${newest.customerName} paid — see Latest.`
+          : "A customer paid — see Latest.",
+      })
+      // Nudge the header wallet so Pending / Available catch up.
+      refreshHeaderMoney()
+    },
+    [toast]
+  )
+
   const load = useCallback(async () => {
     try {
       const next = await fetchLatest(activeOrganizationId)
+      notifyNewPayments(next)
       setLiveItems((prev) => {
         if (
           prev &&
@@ -115,7 +186,7 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     } finally {
       setLoading(false)
     }
-  }, [activeOrganizationId])
+  }, [activeOrganizationId, notifyNewPayments])
 
   const setItems = useCallback(
     (next: LatestCustomerAction[] | ((prev: LatestCustomerAction[]) => LatestCustomerAction[])) => {

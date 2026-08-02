@@ -71,3 +71,44 @@ export function formatHeaderMoneyCents(cents: number): string {
     maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
   })
 }
+
+/**
+ * What the header wallet chip should show at a glance.
+ * When Available is $0 but Pending has money, lead with Pending so the chip
+ * “counts up” as cards / pay links clear — not a confusing stuck $0.
+ */
+export type HeaderWalletChipDisplay = {
+  /** Big number on the chip (Available, or Pending when that is the story). */
+  amountCents: number
+  /** Chip subtitle: PENDING (amber) vs IN ACCOUNT (emerald). */
+  mode: "pending" | "in_account"
+  /** Extra line when Available > 0 and Pending > 0 (e.g. “+$89 pending”). */
+  pendingHint: string | null
+}
+
+/** Pick the chip amount + label from Stripe Connect Available / Pending. */
+export function resolveHeaderWalletChipDisplay(
+  availableCents: number,
+  pendingCents: number
+): HeaderWalletChipDisplay {
+  // Normalize bad/NaN values so the chip never shows garbage.
+  const available = Number.isFinite(availableCents) ? Math.max(0, availableCents) : 0
+  const pending = Number.isFinite(pendingCents) ? Math.max(0, pendingCents) : 0
+
+  // Money is clearing but nothing is transferable yet — show Pending big.
+  if (pending > 0 && available <= 0) {
+    return { amountCents: pending, mode: "pending", pendingHint: null }
+  }
+
+  // Ready-to-transfer money exists — show Available; mention Pending if any.
+  if (available > 0 && pending > 0) {
+    return {
+      amountCents: available,
+      mode: "in_account",
+      pendingHint: `+${formatHeaderMoneyCents(pending)} pending`,
+    }
+  }
+
+  // Flat $0 or Available-only with no Pending.
+  return { amountCents: available, mode: "in_account", pendingHint: null }
+}

@@ -1,4 +1,4 @@
-// GET /api/owner/latest — hot Latest for Lines: unreplied inbound + jobs needing review SMS.
+// GET /api/owner/latest — hot Latest: unreplied inbound + payments + jobs needing review SMS.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -15,7 +15,9 @@ import {
   buildLatestCustomerActions,
   type LatestActionNameHint,
   type LatestCompletedJobHint,
+  type LatestPaidHint,
 } from "@/lib/latest-customer-actions"
+import { listOwnerCollectedTransactions } from "@/lib/owner-collected"
 import { listReviewLinkClickHintsForOwner } from "@/lib/review-link-token"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
       listReviewLinkClickHintsForOwner(userId, 40),
     ])
 
-    const [orgMessages, reviewJobs] = await Promise.all([
+    const [orgMessages, reviewJobs, collectedRows] = await Promise.all([
       org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
       // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after 8pm ET.
       listOwnerJobsNeedingReviewSms({
@@ -69,6 +71,8 @@ export async function GET(req: NextRequest) {
         organizationId: org?.id ?? null,
         limit: 12,
       }),
+      // Recent wallet settles — feed “Customer paid” into Latest (persists across refresh).
+      listOwnerCollectedTransactions(userId, 20).catch(() => []),
     ])
 
     // If this workspace has no SMS rows, still show owner-wide texts (null/other org).
@@ -107,6 +111,20 @@ export async function GET(req: NextRequest) {
       reviewSmsSentAt: ev.review_sms_sent_at ?? null,
       reviewLinkOpenedAt: ev.review_link_opened_at ?? null,
     }))
+
+    // Only COMPLETED charges with a positive amount (builder also age-filters to 24h).
+    const recentPayments: LatestPaidHint[] = collectedRows
+      .filter((row) => row.status === "COMPLETED" && row.amount > 0)
+      .map((row) => ({
+        id: row.id,
+        customerPhone: row.customerPhone,
+        customerName: row.customerName,
+        // wallet_transactions.amount is USD dollars — convert to cents for Latest.
+        amountCents: Math.round(row.amount * 100),
+        at: row.createdAt,
+        jobId: row.jobId,
+        jobLabel: row.jobLabel,
+      }))
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.
     const known = new Set(
@@ -150,6 +168,7 @@ export async function GET(req: NextRequest) {
       nameHints,
       reviewHints,
       completedJobs,
+      recentPayments,
       limit: 6,
     })
 

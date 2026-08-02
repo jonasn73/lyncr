@@ -7,6 +7,10 @@ export const OPEN_MISSED_CALL_RESCUE_MODAL_EVENT = "lyncr-open-missed-call-rescu
 export const OPEN_BUSINESS_PROFILE_MODAL_EVENT = "lyncr-open-business-profile-modal"
 export const OPEN_BILLING_MODAL_EVENT = "lyncr-open-billing-modal"
 export const OPEN_GET_PAID_MODAL_EVENT = "lyncr-open-get-paid-modal"
+/** Open Collect payment from Latest “Customer paid” (or anywhere else). */
+export const OPEN_COLLECT_PAYMENT_MODAL_EVENT = "lyncr-open-collect-payment-modal"
+/** Ask the header wallet chip to re-fetch Stripe Available / Pending. */
+export const REFRESH_HEADER_MONEY_EVENT = "lyncr-refresh-header-money"
 export const OPEN_ROUTING_STRATEGY_MODAL_EVENT = "lyncr-open-routing-strategy-modal"
 export const OPEN_TEAM_INVITE_MODAL_EVENT = "lyncr-open-team-invite-modal"
 export const CARRIER_REGISTRATION_UPDATED_EVENT = "lyncr-carrier-registration-updated"
@@ -60,6 +64,18 @@ export function openMissedCallRescueModal() {
 export function openGetPaidModal() {
   if (typeof window === "undefined") return
   window.dispatchEvent(new CustomEvent(OPEN_GET_PAID_MODAL_EVENT))
+}
+
+/** Open the owner Collect payment sheet (job list / history). */
+export function openCollectPaymentModal() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent(OPEN_COLLECT_PAYMENT_MODAL_EVENT))
+}
+
+/** Refresh the header $ chip after a payment settles. */
+export function refreshHeaderMoney() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent(REFRESH_HEADER_MONEY_EVENT))
 }
 
 export function notifyCarrierRegistrationUpdated() {

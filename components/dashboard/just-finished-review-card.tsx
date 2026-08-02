@@ -1,12 +1,13 @@
 "use client"
 
-// Lines “Latest” card — hot work only: unreplied inbound + jobs needing review SMS.
+// Lines “Latest” card — unreplied inbound, customer payments, jobs needing review SMS.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
   ChevronRight,
+  CreditCard,
   Loader2,
   MessageSquare,
   Settings2,
@@ -34,7 +35,10 @@ import {
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
-import { openSmsAutomationModal } from "@/lib/settings-modals-events"
+import {
+  openCollectPaymentModal,
+  openSmsAutomationModal,
+} from "@/lib/settings-modals-events"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
@@ -285,7 +289,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               Recent activity
             </p>
             <p className={cn("text-zinc-500", compact ? "text-xs leading-snug" : "mt-1 text-sm")}>
-              Replies waiting on you, and finished jobs that still need a review text.
+              Replies, customer payments, and finished jobs that still need a review text.
             </p>
           </div>
           <button
@@ -303,13 +307,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         <div className="mt-3 min-h-[3.5rem]">
           {items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
-              Nothing hot right now. Customer replies and finished jobs that need a review text show up
-              here.
+              Nothing hot right now. Customer replies, payments, and finished jobs that need a review
+              text show up here.
             </p>
           ) : (
             <ul className="space-y-2">
               {items.map((item) => {
                 const isJob = item.event === "job_finished"
+                const isPaid = item.event === "customer_paid"
                 // Replies in this list are unread by definition (read ones were filtered out).
                 const unread = item.event === "replied"
                 return (
@@ -317,16 +322,25 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                     <div
                       className={cn(
                         "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                        isJob
-                          ? "border-amber-500/40 bg-amber-500/10"
-                          : unread
-                            ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                            : "border-sky-500/25 bg-sky-500/5"
+                        isPaid
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : isJob
+                            ? "border-amber-500/40 bg-amber-500/10"
+                            : unread
+                              ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
+                              : "border-sky-500/25 bg-sky-500/5"
                       )}
                     >
                       <button
                         type="button"
-                        onClick={() => openDetail(item)}
+                        onClick={() => {
+                          // Payments jump straight to Collect (same as Money → Collect).
+                          if (isPaid) {
+                            openCollectPaymentModal()
+                            return
+                          }
+                          openDetail(item)
+                        }}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       >
                         {item.event === "replied" ? (
@@ -335,6 +349,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                               "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
                               unread ? "bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-sky-500/35"
                             )}
+                            aria-hidden
+                          />
+                        ) : isPaid ? (
+                          <span
+                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
                             aria-hidden
                           />
                         ) : (
@@ -355,7 +374,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           <p
                             className={cn(
                               "mt-0.5 truncate text-xs font-semibold",
-                              isJob ? "text-amber-200" : unread ? "text-sky-200" : "text-sky-300/80"
+                              isPaid
+                                ? "text-emerald-200"
+                                : isJob
+                                  ? "text-amber-200"
+                                  : unread
+                                    ? "text-sky-200"
+                                    : "text-sky-300/80"
                             )}
                           >
                             {item.statusLine}
@@ -377,6 +402,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           Reply
+                        </button>
+                      ) : null}
+                      {isPaid ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openCollectPaymentModal()
+                          }}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/90 px-2.5 py-1.5 text-[11px] font-bold text-zinc-950 hover:bg-emerald-400"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Collect
                         </button>
                       ) : null}
                       {isJob && item.completedJobId ? (
@@ -470,8 +508,9 @@ function LatestActionDetail({
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
   const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
-  // Full SMS history only for reply detail — job “Send review” rows stay status-only.
+  // Full SMS history only for reply detail — job / payment rows stay status-only.
   const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
+  const isPaidEvent = item.event === "customer_paid"
   // Simple delivery / open status when 119 columns are present on the last outbound.
   const reviewDeliveryLabel = item.lastOutbound
     ? formatSmsDeliveryLabel({ ...item.lastOutbound, direction: "outbound" })
@@ -527,6 +566,24 @@ function LatestActionDetail({
   }, [showSmsThread, threadLoading, threadMessages.length])
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
+  if (item.event === "customer_paid") {
+    steps.push({
+      label: "Customer paid",
+      done: true,
+      detail: formatTimeAgo(item.at),
+    })
+    if (item.paidAmountCents != null && item.paidAmountCents > 0) {
+      steps.push({
+        label: "Amount",
+        done: true,
+        detail: (item.paidAmountCents / 100).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: item.paidAmountCents % 100 === 0 ? 0 : 2,
+        }),
+      })
+    }
+  }
   if (item.event === "job_finished") {
     steps.push({
       label: "Job finished",
@@ -752,7 +809,17 @@ function LatestActionDetail({
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 px-5 py-4">
-        {item.customerPhone ? (
+        {isPaidEvent ? (
+          <button
+            type="button"
+            onClick={() => openCollectPaymentModal()}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
+          >
+            <CreditCard className="h-4 w-4" />
+            Open Collect
+          </button>
+        ) : null}
+        {item.customerPhone && !isPaidEvent ? (
           <button
             type="button"
             onClick={() => onOpenMessages(item.customerPhone)}
@@ -777,7 +844,7 @@ function LatestActionDetail({
             Mark review received
           </button>
         ) : null}
-        {item.completedJobId ? (
+        {item.completedJobId && item.event !== "customer_paid" ? (
           <button
             type="button"
             disabled={busyJobId === item.completedJobId}

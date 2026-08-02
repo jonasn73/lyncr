@@ -16,7 +16,9 @@ import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   CLOSE_HEADER_SETTINGS_EVENT,
+  OPEN_COLLECT_PAYMENT_MODAL_EVENT,
   OPEN_GET_PAID_MODAL_EVENT,
+  REFRESH_HEADER_MONEY_EVENT,
   SETTINGS_CHILD_OPEN_EVENTS,
   openGetPaidModal,
 } from "@/lib/settings-modals-events"
@@ -25,12 +27,13 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   formatHeaderMoneyCents,
   readHeaderMoneyCache,
+  resolveHeaderWalletChipDisplay,
   writeHeaderMoneyCache,
   type HeaderMoneyCache,
 } from "@/lib/header-money-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
-const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[4.75rem] flex-col items-end leading-none"
+const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[5.25rem] flex-col items-end leading-none"
 
 /**
  * Last-known wallet for header skeleton / first paint.
@@ -254,10 +257,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   useEffect(() => {
     refreshMoney()
+    // When money is still clearing (Pending > 0), poll more often so the chip updates sooner.
+    const intervalMs = pendingCents > 0 ? 45_000 : 120_000
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return
       refreshMoney()
-    }, 120_000)
+    }, intervalMs)
     const onVisible = () => {
       if (document.visibilityState === "visible") refreshMoney()
     }
@@ -266,7 +271,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       window.clearInterval(id)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [refreshMoney])
+  }, [refreshMoney, pendingCents])
 
   // After Get paid closes (e.g. bank transfer), refresh so the chip drops.
   const wasGetPaidOpen = useRef(false)
@@ -305,6 +310,25 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
   }, [])
 
+  // Latest “Customer paid” (and other callers) open Collect from anywhere on the dashboard.
+  useEffect(() => {
+    const openCollectFromEvent = () => {
+      setMoneyOpen(false)
+      setOpen(false)
+      setCollectMounted(true)
+      setCollectOpen(true)
+    }
+    window.addEventListener(OPEN_COLLECT_PAYMENT_MODAL_EVENT, openCollectFromEvent)
+    return () => window.removeEventListener(OPEN_COLLECT_PAYMENT_MODAL_EVENT, openCollectFromEvent)
+  }, [])
+
+  // After a pay-link / card settles, Latest asks the chip to refresh Available + Pending.
+  useEffect(() => {
+    const onRefresh = () => refreshMoney()
+    window.addEventListener(REFRESH_HEADER_MONEY_EVENT, onRefresh)
+    return () => window.removeEventListener(REFRESH_HEADER_MONEY_EVENT, onRefresh)
+  }, [refreshMoney])
+
   // Return from hosted Stripe onboarding: /dashboard?tab=get-paid&connect=return
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -332,8 +356,13 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
-  const balanceLabel =
-    availableCents != null ? formatMoneyCents(availableCents) : null
+  // Available vs Pending chip rules — Pending leads when Available is still $0.
+  const chipDisplay =
+    availableCents != null
+      ? resolveHeaderWalletChipDisplay(availableCents, pendingCents)
+      : null
+  const chipAmountLabel = chipDisplay ? formatMoneyCents(chipDisplay.amountCents) : null
+  const chipPendingMode = chipDisplay?.mode === "pending"
 
   const periodCents = (id: CollectedPeriod): number | null => {
     if (!periodsReady) return null
@@ -348,41 +377,62 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   return (
     <>
       <div className="flex items-center gap-1.5">
-        {/* Account balance (ready to pay out). Tap → period collected totals + Collect. */}
+        {/* Wallet chip: Available when ready; Pending when money is clearing. Tap → Money sheet. */}
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={openMoneyPicker}
           onPointerEnter={() => prefetchCollectJobs()}
-          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
+          className={cn(
+            "h-9 shrink-0 gap-1.5 px-2.5 shadow-sm",
+            chipPendingMode
+              ? "border-amber-500/45 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-amber-50 focus-visible:text-amber-50"
+              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
+          )}
           aria-label={
-            balanceLabel
-              ? `In account ${balanceLabel}${
-                  pendingCents > 0 ? `, ${formatMoneyCents(pendingCents)} pending` : ""
-                }. Tap for available, pending, and collected today.`
-              : "In account — loading balance"
+            chipAmountLabel && availableCents != null
+              ? chipPendingMode
+                ? `Pending ${chipAmountLabel} (available ${formatMoneyCents(availableCents)}). Tap for available, pending, and collected today.`
+                : `In account ${chipAmountLabel}${
+                    pendingCents > 0 ? `, ${formatMoneyCents(pendingCents)} pending` : ""
+                  }. Tap for available, pending, and collected today.`
+              : "Wallet — loading balance"
           }
           title={
-            balanceLabel
-              ? pendingCents > 0
-                ? `In account ${balanceLabel} · ${formatMoneyCents(pendingCents)} pending — tap for details`
-                : `In account ${balanceLabel} — tap for collected this week / month`
+            chipAmountLabel && availableCents != null
+              ? chipPendingMode
+                ? `Pending ${chipAmountLabel} · Available ${formatMoneyCents(availableCents)} — tap for details`
+                : pendingCents > 0
+                  ? `In account ${chipAmountLabel} · ${formatMoneyCents(pendingCents)} pending — tap for details`
+                  : `In account ${chipAmountLabel} — tap for collected this week / month`
               : "Loading account balance"
           }
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
           <span className={WALLET_AMOUNT_SLOT_CLASS}>
-            {balanceLabel && amountReady ? (
+            {chipAmountLabel && amountReady ? (
               <span className="text-xs font-bold tabular-nums" suppressHydrationWarning>
-                {balanceLabel}
+                {chipAmountLabel}
               </span>
             ) : (
               // Reserved width only — never pulse bars that look like broken "...." data.
               <span className="inline-block h-3 w-14" aria-hidden />
             )}
-            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/70">
-              {pendingCents > 0 && amountReady ? "avail · pending" : "in account"}
+            <span
+              className={cn(
+                "mt-0.5 max-w-[7.5rem] truncate text-[10px] font-semibold uppercase tracking-wide",
+                chipPendingMode || chipDisplay?.pendingHint
+                  ? "normal-case text-amber-200/90"
+                  : "text-emerald-300/80"
+              )}
+            >
+              {/* One subtitle line only (chip is h-9) — Pending, pending hint, or In account. */}
+              {chipPendingMode
+                ? "Pending"
+                : chipDisplay?.pendingHint
+                  ? chipDisplay.pendingHint
+                  : "In account"}
             </span>
           </span>
         </Button>

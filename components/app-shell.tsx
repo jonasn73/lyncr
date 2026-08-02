@@ -23,6 +23,7 @@ import {
   formatHeaderMoneyCents,
 } from "@/components/layout/header-settings-sheet"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { resolveHeaderWalletChipDisplay } from "@/lib/header-money-cache"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { type PageId } from "@/lib/dashboard-nav"
@@ -115,16 +116,30 @@ const AppShellHeader = memo(function AppShellHeader({
 const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   // Sync cache so the loading→ready swap does not flash a pulse bar over a known amount.
   const paintSeeds = useDashboardPaintSeeds()
-  const [cachedLabel, setCachedLabel] = useState(() => {
+  const [cachedChip, setCachedChip] = useState(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
-    return cached != null ? formatHeaderMoneyCents(cached.availableCents) : null
+    if (!cached) return null
+    // Same Available-vs-Pending rules as the live chip (Pending leads when Available is $0).
+    const display = resolveHeaderWalletChipDisplay(cached.availableCents, cached.pendingCents)
+    return {
+      label: formatHeaderMoneyCents(display.amountCents),
+      mode: display.mode,
+      pendingHint: display.pendingHint,
+    }
   })
   useLayoutEffect(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (cached == null) return
-    setCachedLabel(formatHeaderMoneyCents(cached.availableCents))
+    const display = resolveHeaderWalletChipDisplay(cached.availableCents, cached.pendingCents)
+    setCachedChip({
+      label: formatHeaderMoneyCents(display.amountCents),
+      mode: display.mode,
+      pendingHint: display.pendingHint,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- paint seed is stable per layout request
   }, [])
+
+  const pendingMode = cachedChip?.mode === "pending"
 
   return (
     <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
@@ -133,18 +148,41 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
+        className={cn(
+          "h-9 shrink-0 gap-1.5 px-2.5 shadow-sm",
+          pendingMode
+            ? "border-amber-500/45 bg-amber-500/10"
+            : "border-emerald-500/40 bg-emerald-500/10"
+        )}
       >
-        <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
+        <CreditCard
+          className={cn(
+            "h-4 w-4 shrink-0",
+            pendingMode ? "text-amber-300/70" : "text-emerald-300/70"
+          )}
+          aria-hidden
+        />
         {/* Match live wallet chip — same label + cached amount when known. */}
-        <span className="flex min-w-[4.75rem] flex-col items-end leading-none" aria-hidden>
-          {cachedLabel ? (
-            <span className="text-xs font-bold tabular-nums text-emerald-200">{cachedLabel}</span>
+        <span className="flex min-w-[5.25rem] flex-col items-end leading-none" aria-hidden>
+          {cachedChip ? (
+            <span
+              className={cn(
+                "text-xs font-bold tabular-nums",
+                pendingMode ? "text-amber-100" : "text-emerald-200"
+              )}
+            >
+              {cachedChip.label}
+            </span>
           ) : (
             <span className="inline-block h-3 w-14" />
           )}
-          <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-300/40">
-            in account
+          <span
+            className={cn(
+              "mt-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              pendingMode ? "text-amber-200/50" : "text-emerald-300/40"
+            )}
+          >
+            {pendingMode ? "Pending" : "In account"}
           </span>
         </span>
       </Button>
