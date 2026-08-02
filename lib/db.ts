@@ -6362,7 +6362,6 @@ export async function listCollectPayLinksByJobId(
   }
 }
 
-/** Recent pay links for an owner (all jobs + walk-up). */
 /** Mark a pay link expired locally (after Stripe Checkout expire / cancel). */
 export async function markCollectPayLinkExpired(token: string): Promise<boolean> {
   const key = token.trim()
