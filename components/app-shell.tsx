@@ -119,27 +119,31 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   const [cachedChip, setCachedChip] = useState(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (!cached) return null
-    // Same Available-vs-Pending rules as the live chip (Pending leads when Available is $0).
-    const display = resolveHeaderWalletChipDisplay(cached.availableCents, cached.pendingCents)
+    // Same Today-first rules as the live chip (never lead with Pending).
+    const display = resolveHeaderWalletChipDisplay(
+      cached.availableCents,
+      cached.pendingCents,
+      cached.todayCents
+    )
     return {
       label: formatHeaderMoneyCents(display.amountCents),
-      mode: display.mode,
-      pendingHint: display.pendingHint,
+      subtitle: display.label,
     }
   })
   useLayoutEffect(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (cached == null) return
-    const display = resolveHeaderWalletChipDisplay(cached.availableCents, cached.pendingCents)
+    const display = resolveHeaderWalletChipDisplay(
+      cached.availableCents,
+      cached.pendingCents,
+      cached.todayCents
+    )
     setCachedChip({
       label: formatHeaderMoneyCents(display.amountCents),
-      mode: display.mode,
-      pendingHint: display.pendingHint,
+      subtitle: display.label,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- paint seed is stable per layout request
   }, [])
-
-  const pendingMode = cachedChip?.mode === "pending"
 
   return (
     <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
@@ -148,41 +152,18 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className={cn(
-          "h-9 shrink-0 gap-1.5 px-2.5 shadow-sm",
-          pendingMode
-            ? "border-amber-500/45 bg-amber-500/10"
-            : "border-emerald-500/40 bg-emerald-500/10"
-        )}
+        className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
       >
-        <CreditCard
-          className={cn(
-            "h-4 w-4 shrink-0",
-            pendingMode ? "text-amber-300/70" : "text-emerald-300/70"
-          )}
-          aria-hidden
-        />
+        <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
         {/* Match live wallet chip — same label + cached amount when known. */}
         <span className="flex min-w-[5.25rem] flex-col items-end leading-none" aria-hidden>
           {cachedChip ? (
-            <span
-              className={cn(
-                "text-xs font-bold tabular-nums",
-                pendingMode ? "text-amber-100" : "text-emerald-200"
-              )}
-            >
-              {cachedChip.label}
-            </span>
+            <span className="text-xs font-bold tabular-nums text-emerald-200">{cachedChip.label}</span>
           ) : (
             <span className="inline-block h-3 w-14" />
           )}
-          <span
-            className={cn(
-              "mt-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              pendingMode ? "text-amber-200/50" : "text-emerald-300/40"
-            )}
-          >
-            {pendingMode ? "Pending" : "In account"}
+          <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300/40">
+            {cachedChip?.subtitle ?? "Today"}
           </span>
         </span>
       </Button>

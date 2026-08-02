@@ -73,42 +73,61 @@ export function formatHeaderMoneyCents(cents: number): string {
 }
 
 /**
- * What the header wallet chip should show at a glance.
- * When Available is $0 but Pending has money, lead with Pending so the chip
- * “counts up” as cards / pay links clear — not a confusing stuck $0.
+ * Rough “your cut” after Lyncr’s card fee (default 2.9% + $0.30), treating
+ * the gross as one charge. Real fees are per card payment — good enough for
+ * a daily glance, not a bank statement.
  */
-export type HeaderWalletChipDisplay = {
-  /** Big number on the chip (Available, or Pending when that is the story). */
-  amountCents: number
-  /** Chip subtitle: PENDING (amber) vs IN ACCOUNT (emerald). */
-  mode: "pending" | "in_account"
-  /** Extra line when Available > 0 and Pending > 0 (e.g. “+$89 pending”). */
-  pendingHint: string | null
+export function estimateLyncrNetFromGrossCents(grossCents: number): number {
+  const amount = Number.isFinite(grossCents) ? Math.max(0, Math.round(grossCents)) : 0
+  if (amount <= 0) return 0
+  // Match server defaults in lib/stripe-connect.ts (client has no env overrides).
+  const fee = Math.min(amount - 1, Math.round((amount * 290) / 10000) + 30)
+  return Math.max(0, amount - Math.max(0, fee))
 }
 
-/** Pick the chip amount + label from Stripe Connect Available / Pending. */
+/**
+ * What the header wallet chip should show at a glance.
+ * Lead with today’s collected (what customers paid). Pending/Available belong
+ * in the Money sheet under “Get paid,” not as the daily headline.
+ */
+export type HeaderWalletChipDisplay = {
+  /** Big number on the chip. */
+  amountCents: number
+  /**
+   * today — customers paid today (primary daily story)
+   * in_account — no sales today, but transferable balance exists
+   * zero — nothing today and nothing ready
+   */
+  mode: "today" | "in_account" | "zero"
+  /** Short subtitle under the amount (e.g. “Today”, “In account”). */
+  label: string
+}
+
+/**
+ * Pick the chip amount + label.
+ * 1) Collected today > 0 → show that (label “Today”)
+ * 2) Else Available > 0 → show Available (label “In account”)
+ * 3) Else $0 with label “Today”
+ */
 export function resolveHeaderWalletChipDisplay(
   availableCents: number,
-  pendingCents: number
+  _pendingCents: number,
+  todayCents: number | null | undefined
 ): HeaderWalletChipDisplay {
-  // Normalize bad/NaN values so the chip never shows garbage.
   const available = Number.isFinite(availableCents) ? Math.max(0, availableCents) : 0
-  const pending = Number.isFinite(pendingCents) ? Math.max(0, pendingCents) : 0
+  const today =
+    todayCents != null && Number.isFinite(todayCents) ? Math.max(0, todayCents) : null
 
-  // Money is clearing but nothing is transferable yet — show Pending big.
-  if (pending > 0 && available <= 0) {
-    return { amountCents: pending, mode: "pending", pendingHint: null }
+  // Daily story first — what customers paid today.
+  if (today != null && today > 0) {
+    return { amountCents: today, mode: "today", label: "Today" }
   }
 
-  // Ready-to-transfer money exists — show Available; mention Pending if any.
-  if (available > 0 && pending > 0) {
-    return {
-      amountCents: available,
-      mode: "in_account",
-      pendingHint: `+${formatHeaderMoneyCents(pending)} pending`,
-    }
+  // Quiet day — show money already ready to transfer, if any.
+  if (available > 0) {
+    return { amountCents: available, mode: "in_account", label: "In account" }
   }
 
-  // Flat $0 or Available-only with no Pending.
-  return { amountCents: available, mode: "in_account", pendingHint: null }
+  // Flat zero — still label “Today” so the chip reads as a daily glance.
+  return { amountCents: 0, mode: "zero", label: "Today" }
 }

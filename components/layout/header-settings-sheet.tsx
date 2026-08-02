@@ -8,6 +8,7 @@ import Link from "next/link"
 import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
@@ -25,6 +26,7 @@ import {
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
+  estimateLyncrNetFromGrossCents,
   formatHeaderMoneyCents,
   readHeaderMoneyCache,
   resolveHeaderWalletChipDisplay,
@@ -151,7 +153,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [periodsReady, setPeriodsReady] = useState(
     () => readHeaderMoneyCache(undefined, moneyPaint) != null
   )
-  const amountReady = availableCents != null
+  // Chip can show Today from collected periods even while Stripe balance is still loading.
+  const amountReady = availableCents != null || (periodsReady && todayCents != null)
+  // Quiet “Get paid” details — collapsed unless they already have transferable cash.
+  const [getPaidDetailsOpen, setGetPaidDetailsOpen] = useState(false)
   const isMobile = useIsMobile()
 
   // SSR hydration: re-read session/cookie once before paint (org/key lag).
@@ -356,13 +361,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
-  // Available vs Pending chip rules — Pending leads when Available is still $0.
-  const chipDisplay =
-    availableCents != null
-      ? resolveHeaderWalletChipDisplay(availableCents, pendingCents)
-      : null
+  // Daily glance chip — lead with Collected today; never amber “Pending”.
+  const chipDisplay = amountReady
+    ? resolveHeaderWalletChipDisplay(availableCents ?? 0, pendingCents, todayCents)
+    : null
   const chipAmountLabel = chipDisplay ? formatMoneyCents(chipDisplay.amountCents) : null
-  const chipPendingMode = chipDisplay?.mode === "pending"
 
   const periodCents = (id: CollectedPeriod): number | null => {
     if (!periodsReady) return null
@@ -372,40 +375,37 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return allTimeCents
   }
 
+  // Rough “your cut” for today’s sales (one-charge fee estimate — beginner-friendly).
+  const todayNetCents =
+    periodsReady && todayCents != null && todayCents > 0
+      ? estimateLyncrNetFromGrossCents(todayCents)
+      : null
+
   const firstName = name.trim().split(/\s+/)[0] || name
 
   return (
     <>
       <div className="flex items-center gap-1.5">
-        {/* Wallet chip: Available when ready; Pending when money is clearing. Tap → Money sheet. */}
+        {/* Wallet chip: today’s collected first. Tap → Money sheet. */}
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={openMoneyPicker}
           onPointerEnter={() => prefetchCollectJobs()}
-          className={cn(
-            "h-9 shrink-0 gap-1.5 px-2.5 shadow-sm",
-            chipPendingMode
-              ? "border-amber-500/45 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-amber-50 focus-visible:text-amber-50"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
-          )}
+          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
-            chipAmountLabel && availableCents != null
-              ? chipPendingMode
-                ? `Pending ${chipAmountLabel} (available ${formatMoneyCents(availableCents)}). Tap for available, pending, and collected today.`
-                : `In account ${chipAmountLabel}${
-                    pendingCents > 0 ? `, ${formatMoneyCents(pendingCents)} pending` : ""
-                  }. Tap for available, pending, and collected today.`
+            chipAmountLabel && chipDisplay
+              ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
+                ? `Collected today ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
+                : `In account ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
               : "Wallet — loading balance"
           }
           title={
-            chipAmountLabel && availableCents != null
-              ? chipPendingMode
-                ? `Pending ${chipAmountLabel} · Available ${formatMoneyCents(availableCents)} — tap for details`
-                : pendingCents > 0
-                  ? `In account ${chipAmountLabel} · ${formatMoneyCents(pendingCents)} pending — tap for details`
-                  : `In account ${chipAmountLabel} — tap for collected this week / month`
+            chipAmountLabel && chipDisplay
+              ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
+                ? `Today ${chipAmountLabel} — tap for details`
+                : `In account ${chipAmountLabel} — tap for details`
               : "Loading account balance"
           }
         >
@@ -419,20 +419,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               // Reserved width only — never pulse bars that look like broken "...." data.
               <span className="inline-block h-3 w-14" aria-hidden />
             )}
-            <span
-              className={cn(
-                "mt-0.5 max-w-[7.5rem] truncate text-[10px] font-semibold uppercase tracking-wide",
-                chipPendingMode || chipDisplay?.pendingHint
-                  ? "normal-case text-amber-200/90"
-                  : "text-emerald-300/80"
-              )}
-            >
-              {/* One subtitle line only (chip is h-9) — Pending, pending hint, or In account. */}
-              {chipPendingMode
-                ? "Pending"
-                : chipDisplay?.pendingHint
-                  ? chipDisplay.pendingHint
-                  : "In account"}
+            <span className="mt-0.5 max-w-[7.5rem] truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
+              {chipDisplay?.label ?? "Today"}
             </span>
           </span>
         </Button>
@@ -475,7 +463,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         </Button>
       </div>
 
-      {/* Balance + collected-period chooser (tap the header chip). */}
+      {/* Today-first Money sheet (tap the header chip). */}
       <Sheet open={moneyOpen} onOpenChange={setMoneyOpen}>
         <SheetContent
           side="bottom"
@@ -483,67 +471,119 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         >
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
-            <p className="text-xs text-slate-500">
-              Collected is what customers paid (sales). Bank transfers are usually less — Lyncr
-              takes 2.9% + $0.30 per card payment, and cash never goes through Get paid.
+            <p className="hidden text-xs text-slate-500 md:block">
+              See what customers paid today, then transfer when you are ready.
             </p>
           </SheetHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                Available (ready for bank)
+            {/* Section 1 — Today (hero): what you ran / getting paid */}
+            <div className="rounded-xl border border-teal-500/25 bg-teal-500/10 px-4 py-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/70">
+                Customers paid today
               </p>
-              <p className="mt-0.5 text-2xl font-bold tabular-nums text-emerald-100">
-                {availableCents != null ? formatMoneyCents(availableCents) : "—"}
+              <p className="mt-0.5 text-3xl font-bold tabular-nums text-teal-50">
+                {periodsReady && todayCents != null ? formatMoneyCents(todayCents) : "—"}
               </p>
-              <p className="mt-1 text-xs text-emerald-200/60">
-                {connectReady
-                  ? "This is what you can transfer now. New card payments often sit in Pending for 1–2 days first."
-                  : "Finish Get paid setup to hold and transfer card payments."}
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-200/80">
-                    Pending
+
+              {todayNetCents != null ? (
+                <div className="mt-3 border-t border-teal-500/20 pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/60">
+                    Your cut after Lyncr fees
                   </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-amber-100">
-                    {formatMoneyCents(pendingCents)}
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-100">
+                    ~{formatMoneyCents(todayNetCents)}
                   </p>
-                  <p className="mt-0.5 text-[10px] leading-snug text-amber-200/60">
-                    Processing — not transferable yet
+                  <p className="mt-1 text-[11px] leading-snug text-teal-200/55">
+                    Lyncr takes about 2.9% + $0.30 per card payment. Cash stays with you — it does
+                    not go through Get paid.
                   </p>
                 </div>
-                <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-200/80">
-                    Collected today
-                  </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-sky-100">
-                    {periodsReady && todayCents != null ? formatMoneyCents(todayCents) : "—"}
-                  </p>
-                  <p className="mt-0.5 text-[10px] leading-snug text-sky-200/60">
-                    Sales total (not the same as Available)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMoneyOpen(false)
-                  openGetPaidModal()
-                }}
-                className="mt-3 text-xs font-semibold text-emerald-300 underline-offset-2 hover:underline"
-              >
-                {connectReady ? "Transfer to bank (Get paid)" : "Set up Get paid"}
-              </button>
+              ) : null}
+
+              <p className="mt-3 text-[11px] leading-snug text-teal-200/50">
+                {periodsReady && todayCents != null && todayCents > 0
+                  ? "Card money is clearing to your bank balance — usually 1–2 days."
+                  : "Collect a card payment and it shows up here."}
+              </p>
             </div>
 
+            {/* Section 2 — Get paid (quiet / collapsed): Available vs Pending when withdrawing */}
+            <Collapsible open={getPaidDetailsOpen} onOpenChange={setGetPaidDetailsOpen}>
+              <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/50">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left hover:bg-zinc-900/60"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-200">Get paid</p>
+                      <p className="text-[11px] text-slate-500">
+                        Ready to transfer · still clearing
+                      </p>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-slate-500 transition-transform",
+                        getPaidDetailsOpen && "rotate-180"
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-3 border-t border-zinc-800 px-3.5 pb-3.5 pt-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                          Ready to transfer
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-200">
+                          {availableCents != null ? formatMoneyCents(availableCents) : "—"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                          Available now
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-2">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                          Still clearing
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-200">
+                          {formatMoneyCents(pendingCents)}
+                        </p>
+                        <p className="mt-0.5 text-[10px] leading-snug text-slate-500">
+                          Usually 1–2 days
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] leading-snug text-slate-500">
+                      {connectReady
+                        ? "Transfer when you need cash in the bank. Clearing money moves to Ready automatically."
+                        : "Finish Get paid setup to hold and transfer card payments."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoneyOpen(false)
+                        openGetPaidModal()
+                      }}
+                      className="text-xs font-semibold text-teal-300 underline-offset-2 hover:underline"
+                    >
+                      {connectReady ? "Transfer to bank" : "Set up Get paid"}
+                    </button>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+
+            {/* Section 3 — Sales history */}
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Collected (sales total)
+                Sales history
               </p>
-              <p className="mb-2 text-[11px] leading-snug text-slate-500">
-                Not the same as bank deposits — this is the full amount customers paid.
+              <p className="mb-2 hidden text-[11px] leading-snug text-slate-500 md:block">
+                Full amount customers paid — before Lyncr card fees.
               </p>
               <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/60">
                 {PERIOD_OPTIONS.map((opt) => (
