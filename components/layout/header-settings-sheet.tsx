@@ -315,7 +315,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
   }, [])
 
-  // Latest “Customer paid” (and other callers) open Collect from anywhere on the dashboard.
+  // Collect can open from Money / Get paid / other dashboard callers.
   useEffect(() => {
     const openCollectFromEvent = () => {
       setMoneyOpen(false)

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import {
   CheckCircle2,
   ChevronRight,
-  CreditCard,
+  Eye,
   Loader2,
   MessageSquare,
   Settings2,
@@ -35,10 +35,7 @@ import {
   LINES_MOBILE_SECTION_LABEL,
 } from "@/lib/mobile-shell"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
-import {
-  openCollectPaymentModal,
-  openSmsAutomationModal,
-} from "@/lib/settings-modals-events"
+import { openSmsAutomationModal } from "@/lib/settings-modals-events"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
@@ -334,11 +331,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                       <button
                         type="button"
                         onClick={() => {
-                          // Payments jump straight to Collect (same as Money → Collect).
-                          if (isPaid) {
-                            openCollectPaymentModal()
-                            return
-                          }
+                          // Paid / reply / job rows all open the detail sheet (not Collect).
                           openDetail(item)
                         }}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -409,12 +402,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            openCollectPaymentModal()
+                            // Payment already received — open read-only detail, not Collect.
+                            openDetail(item)
                           }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/90 px-2.5 py-1.5 text-[11px] font-bold text-zinc-950 hover:bg-emerald-400"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/25"
                         >
-                          <CreditCard className="h-3.5 w-3.5" />
-                          Collect
+                          <Eye className="h-3.5 w-3.5" />
+                          View
                         </button>
                       ) : null}
                       {isJob && item.completedJobId ? (
@@ -809,15 +803,11 @@ function LatestActionDetail({
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 px-5 py-4">
+        {/* Payment-received alerts are informational — no Collect CTA. */}
         {isPaidEvent ? (
-          <button
-            type="button"
-            onClick={() => openCollectPaymentModal()}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
-          >
-            <CreditCard className="h-4 w-4" />
-            Open Collect
-          </button>
+          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-center text-sm font-semibold text-emerald-100">
+            Paid · no balance to collect
+          </p>
         ) : null}
         {item.customerPhone && !isPaidEvent ? (
           <button
@@ -871,9 +861,16 @@ function LatestActionDetail({
           <button
             type="button"
             onClick={() => onOpenJob(item.completedJobId!)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-muted/40"
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
+              // Paid detail: Open job is the main next step (not Collect).
+              isPaidEvent
+                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                : "border border-border/60 text-zinc-200 hover:bg-muted/40"
+            )}
           >
-            Open job
+            {isPaidEvent ? <Eye className="h-4 w-4" /> : null}
+            {isPaidEvent ? "View job" : "Open job"}
           </button>
         ) : null}
       </div>

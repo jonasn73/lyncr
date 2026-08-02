@@ -7,7 +7,7 @@ export const OPEN_MISSED_CALL_RESCUE_MODAL_EVENT = "lyncr-open-missed-call-rescu
 export const OPEN_BUSINESS_PROFILE_MODAL_EVENT = "lyncr-open-business-profile-modal"
 export const OPEN_BILLING_MODAL_EVENT = "lyncr-open-billing-modal"
 export const OPEN_GET_PAID_MODAL_EVENT = "lyncr-open-get-paid-modal"
-/** Open Collect payment from Latest “Customer paid” (or anywhere else). */
+/** Open the owner Collect payment sheet (Money → Collect, Get paid, etc.). */
 export const OPEN_COLLECT_PAYMENT_MODAL_EVENT = "lyncr-open-collect-payment-modal"
 /** Ask the header wallet chip to re-fetch Stripe Available / Pending. */
 export const REFRESH_HEADER_MONEY_EVENT = "lyncr-refresh-header-money"
