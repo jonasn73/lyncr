@@ -107,6 +107,7 @@ export function PriceShopperRecoveryPanel({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={FAILURE_REASON_NEUTRAL}>— Select reason —</SelectItem>
+            <SelectItem value="Price shopping">Price shopping</SelectItem>
             <SelectItem value="Price too high">Price too high</SelectItem>
             <SelectItem value="Abrupt hang-up">Abrupt hang-up</SelectItem>
             <SelectItem value="Shopping competitors">Shopping competitors</SelectItem>

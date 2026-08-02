@@ -101,8 +101,9 @@ export function continueOpenQuoteStep(params: {
 /** Draft / wizard step order — higher means further along the intake path. */
 const DRAFT_RESUME_STEP_ORDER: Record<string, number> = {
   SERVICE_SELECT: 0,
-  VEHICLE_INFO: 1,
-  JOB_TYPE: 2,
+  // Live-call flow: Copy/AKL before YMM (KEY_SPECIFICS kept for old drafts only)
+  JOB_TYPE: 1,
+  VEHICLE_INFO: 2,
   KEY_SPECIFICS: 3,
   ADDRESS_CONTACT: 4,
   SCHEDULE_TIME: 5,

@@ -224,7 +224,7 @@ function ServiceSectorSelector({
                   carKeyFobActive ? "text-emerald-400/70" : ""
                 )}
               >
-                YMM first
+                Copy or AKL
               </span>
             </button>
           ) : null}

@@ -39,8 +39,8 @@ export const AUTOMOTIVE_JOB_TYPE_IDS: readonly ServiceQuoteTypeId[] = [
 ]
 
 /**
- * True when intake should ask AKL/Spare (etc.) after Vehicle, before Key details.
- * Only automotive key jobs require vehicle — lockout / home / re-key never hit this step.
+ * True when intake should ask copy vs AKL (etc.) before YMM.
+ * Only automotive key jobs — lockout / home / re-key never hit this step.
  */
 export function serviceNeedsJobTypeStep(serviceTypeId: ServiceQuoteTypeId): boolean {
   return serviceTypeRequiresVehicle(serviceTypeId)
@@ -53,11 +53,19 @@ export function serviceSectorForType(serviceTypeId: ServiceQuoteTypeId): Service
   return "automotive"
 }
 
-/** Next manual intake canvas after a service card is tapped. */
+/**
+ * Next manual intake canvas after a service card is tapped.
+ * Car key / fob → ask copy vs AKL first (live-call flow), then YMM → address.
+ */
 export function manualIntakeStepAfterService(
   serviceTypeId: ServiceQuoteTypeId
-): "VEHICLE_INFO" | "ADDRESS_CONTACT" {
-  return serviceTypeRequiresVehicle(serviceTypeId) ? "VEHICLE_INFO" : "ADDRESS_CONTACT"
+): "JOB_TYPE" | "VEHICLE_INFO" | "ADDRESS_CONTACT" {
+  // Automotive key jobs: Copy vs AKL before year/make/model
+  if (serviceNeedsJobTypeStep(serviceTypeId)) return "JOB_TYPE"
+  // Lockout / other vehicle-light paths still collect YMM when required elsewhere
+  if (serviceTypeRequiresVehicle(serviceTypeId)) return "VEHICLE_INFO"
+  // Residential / commercial → jump straight to location
+  return "ADDRESS_CONTACT"
 }
 
 /** Primary AKL / Spare choices on the JOB_TYPE step (others under “More”). */

@@ -153,7 +153,7 @@ const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   SERVICE_SELECT: "Service",
   VEHICLE_INFO: "Vehicle",
   JOB_TYPE: "Job type",
-  KEY_SPECIFICS: "Key details",
+  KEY_SPECIFICS: "Lookup notes",
   ADDRESS_CONTACT: "Location",
   SCHEDULE_TIME: "Schedule",
   CUSTOMER_NAME: "Customer",
@@ -435,8 +435,11 @@ function ReturningCallerDecisionCard({
 }
 
 /**
- * Automotive key jobs: Service → YMM → Job type → Key details → …
- * Vehicle lockout: Service → Vehicle (light) → Location → … (no AKL / key blanks).
+ * Live-call automotive flow (Key Squad):
+ * Service → Copy vs AKL → YMM → Address (before quote, esp. AKL) → Schedule → Quote/outcomes.
+ * In-app FCC/key catalog search is no longer a required step — look keys up on 3rd-party sites.
+ * Vehicle lockout: Service → Vehicle (light) → Location → …
+ * Residential / commercial: Service → Location → …
  */
 function manualWorkflowPath(
   serviceTypeId: ServiceQuoteTypeId,
@@ -444,25 +447,22 @@ function manualWorkflowPath(
 ): WorkflowStep[] {
   const path: WorkflowStep[] = ["SERVICE_SELECT"]
   if (serviceTypeRequiresVehicle(serviceTypeId)) {
-    path.push("VEHICLE_INFO")
-    if (serviceNeedsJobTypeStep(serviceTypeId)) {
-      path.push("JOB_TYPE")
-    }
-    path.push("KEY_SPECIFICS")
+    // Copy vs AKL first, then simple YMM — skip forced KEY_SPECIFICS
+    path.push("JOB_TYPE", "VEHICLE_INFO")
   } else if (vehicleLockoutIntake) {
     path.push("VEHICLE_INFO")
   }
-  // Location → Time blocks → Customer name → Booking summary
+  // Location → Time blocks → Customer / quote / outcomes → Booking summary
   path.push("ADDRESS_CONTACT", "SCHEDULE_TIME", "CUSTOMER_NAME", "BOOKING_COMPLETE")
   return path
 }
 
 function nextStepAfterVehicleInfo(
-  serviceTypeId: ServiceQuoteTypeId,
-  vehicleLockoutIntake = false
+  _serviceTypeId: ServiceQuoteTypeId,
+  _vehicleLockoutIntake = false
 ): WorkflowStep {
-  if (vehicleLockoutIntake || serviceTypeId === "lockout") return "ADDRESS_CONTACT"
-  return serviceNeedsJobTypeStep(serviceTypeId) ? "JOB_TYPE" : "KEY_SPECIFICS"
+  // Always get address next (AKL needs distance before quoting)
+  return "ADDRESS_CONTACT"
 }
 
 const PRIMARY_JOB_TYPE_OPTIONS = SERVICE_QUOTE_TYPES.filter((service) =>
@@ -973,6 +973,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [showMoreJobTypes, setShowMoreJobTypes] = useState(false)
   /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
   const [keySkipArmed, setKeySkipArmed] = useState(false)
+  /** Busy flag while texting /book invite from intake outcomes. */
+  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
+  /** Busy flag while creating + texting $49 service-call form+pay link. */
+  const [serviceCallLinkBusy, setServiceCallLinkBusy] = useState(false)
   /** Hide returning-caller decision card after View job / Continue / New job / Restore. */
   const [callbackChooserDismissed, setCallbackChooserDismissed] = useState(false)
   /** Only true after explicit New job — allows insert instead of open-quote upgrade. */
@@ -2643,15 +2647,203 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     ]
   )
 
-  /** JOB_TYPE step — AKL vs Spare (etc.) after YMM; then Key details. */
+  /** JOB_TYPE step — copy vs AKL (etc.) before YMM; then vehicle fields. */
   const handleJobTypeChange = useCallback(
     (serviceType: ServiceQuoteTypeId) => {
       setKeySkipArmed(false)
       setServiceQuoteTypeId(serviceType)
-      setCurrentStep("KEY_SPECIFICS")
+      setCurrentStep("VEHICLE_INFO")
     },
     [setServiceQuoteTypeId]
   )
+
+  /** One-tap price shopping — saves to lost_leads / salvage without extra dropdown fuss. */
+  const markPriceShopping = useCallback(async () => {
+    setFailureReason("Price shopping")
+    // Small delay so state commits before the lost-lead POST reads failureReason
+    await new Promise((r) => window.setTimeout(r, 0))
+    setLostLeadState("saving")
+    setLostLeadError(null)
+    if (!effectiveCurrent || !ownerUserId) {
+      setLostLeadState("error")
+      setLostLeadError("Need an active call to log price shopping")
+      return
+    }
+    try {
+      const quotedPriceCents = resolveLostLeadQuoteCents()
+      const res = await fetch("/api/leads/lost", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          call_log_id:
+            effectiveCurrent.sourceCallLogId?.trim() ||
+            (effectiveCurrent.isManual ? null : effectiveCurrent.id),
+          phone_number: form.phoneNumber.trim() || effectiveCurrent.from_number,
+          last_quoted_price_cents: quotedPriceCents,
+          baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
+          discount_applied: negotiationDiscountApplied,
+          negotiation_discounts_tried: negotiationDiscountsTried,
+          failure_reason: "Price shopping",
+          vehicle_year: form.vehicleYear,
+          vehicle_make: form.vehicleMake,
+          vehicle_model: form.vehicleModel,
+          service_type: liveQuote.dispatchJobTypeLabel,
+          organization_id: activeOrganizationId,
+        }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Could not log price shopping")
+      setLostLeadState("saved")
+      toast({
+        title: "Logged as price shopping",
+        description: "Saved for follow-up when they call back.",
+      })
+      void revalidateSchedulerJobPoolCaches(activeOrganizationId)
+      window.setTimeout(() => dismissOnly(), 900)
+    } catch (e) {
+      setLostLeadState("error")
+      setLostLeadError(e instanceof Error ? e.message : "Could not log price shopping")
+    }
+  }, [
+    activeOrganizationId,
+    dismissOnly,
+    effectiveCurrent,
+    form.phoneNumber,
+    form.vehicleMake,
+    form.vehicleModel,
+    form.vehicleYear,
+    liveQuote.dispatchJobTypeLabel,
+    liveQuote.totalCents,
+    negotiationDiscountApplied,
+    negotiationDiscountsTried,
+    ownerUserId,
+    resolveLostLeadQuoteCents,
+    toast,
+  ])
+
+  /** Text booking invite (/book/[id]) — same path as the ops toolbar. */
+  const sendIntakeBookingLink = useCallback(async () => {
+    const phone =
+      resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
+    if (!phone.trim()) {
+      toast({
+        title: "Need a phone number",
+        description: "Enter the caller phone before texting a booking link.",
+        variant: "destructive",
+      })
+      return
+    }
+    setBookingLinkBusy(true)
+    try {
+      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone_number: phone,
+          business_line: effectiveCurrent?.to_number || undefined,
+          source: "on_call",
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast({
+          title: "Could not send booking link",
+          description: json.error || "Try again in a moment.",
+          variant: "destructive",
+        })
+        return
+      }
+      toast({
+        title: "Booking link sent",
+        description: "Customer can book a slot and enter their details.",
+      })
+    } finally {
+      setBookingLinkBusy(false)
+    }
+  }, [
+    effectiveCurrent?.from_number,
+    effectiveCurrent?.to_number,
+    form.phoneNumber,
+    resolvedPhoneNumber,
+    toast,
+  ])
+
+  /**
+   * Save quote lead (if possible) + text $49 service-call form+pay link.
+   * Customer fills dispatch fields, then pays via Stripe.
+   */
+  const sendServiceCallFeeLink = useCallback(async () => {
+    const phone =
+      resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
+    if (!phone.trim()) {
+      toast({
+        title: "Need a phone number",
+        description: "Enter the caller phone before sending the $49 link.",
+        variant: "destructive",
+      })
+      return
+    }
+    setServiceCallLinkBusy(true)
+    try {
+      // Prefer tying the pay link to a saved quote lead when we have enough to create one
+      let jobId: string | null = bookedLeadId
+      if (!jobId && canSaveQuoteLead) {
+        const quotedPriceCents = applyCustomPriceToForm()
+        const result = await createJob(activeOrganizationId, {
+          pendingCallback: true,
+          quoteLead: true,
+          ...jobCreateExtras(quotedPriceCents),
+        })
+        if (result.ok) jobId = result.leadId
+      }
+
+      const res = await fetch("/api/payments/service-call-link", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: jobId || undefined,
+          phone,
+          customerName: form.displayName.trim() || undefined,
+          note: "Service call fee ($49) — after pay, tech can be on the way",
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { form_url?: string }
+      }
+      if (!res.ok) {
+        toast({
+          title: "Could not send $49 link",
+          description: json.error || "Check Stripe Connect / SMS setup.",
+          variant: "destructive",
+        })
+        return
+      }
+      toast({
+        title: "$49 service call link sent",
+        description: "Customer fills a short form, then pays $49.",
+      })
+      if (jobId) closeIntakeAfterSave()
+    } finally {
+      setServiceCallLinkBusy(false)
+    }
+  }, [
+    activeOrganizationId,
+    applyCustomPriceToForm,
+    bookedLeadId,
+    canSaveQuoteLead,
+    closeIntakeAfterSave,
+    createJob,
+    effectiveCurrent?.from_number,
+    form.displayName,
+    form.phoneNumber,
+    jobCreateExtras,
+    resolvedPhoneNumber,
+    toast,
+  ])
 
   const requestLiveGps = useCallback(async () => {
     const phone = resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
@@ -2870,9 +3062,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const vehicleYmmComplete = Boolean(
     form.vehicleYear.trim() && form.vehicleMake.trim() && form.vehicleModel.trim()
   )
-  const hasKeyBlank = Boolean(form.keyVariantId.trim() || form.tiSku.trim())
-  /** All-keys-lost requires a blank before location. */
-  const keyBlankRequired = serviceTypeId === "key_generation"
 
   const incomingPhone = form.phoneNumber || effectiveCurrent?.from_number || ""
   const repeatUrgency = useRepeatCallerUrgency(incomingPhone, effectiveCurrent?.id ?? null)
@@ -3581,7 +3770,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <p className="text-[11px] text-muted-foreground">
                                 {vehicleLockoutIntake
                                   ? "Optional but recommended — year / make / model help the tech on site. You can skip to location."
-                                  : "Or pick year, make, then model manually — next we confirm all keys lost vs spare."}
+                                  : "Simple year / make / model. Look the key up on your usual sites while they're on hold — not inside Lyncr. Next: address (especially for AKL before quoting)."}
                               </p>
                               <VehiclePickerCascade
                                 variant="sequential"
@@ -3600,15 +3789,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 What do they need?
                               </legend>
-                              {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                                <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
-                                  {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                </div>
-                              ) : null}
                               <p className="text-sm text-muted-foreground">
-                                All keys lost, or do they need a spare?
+                                Copy (have a key) or all keys lost (AKL)? Then we&apos;ll get year / make /
+                                model.
                               </p>
                               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {PRIMARY_JOB_TYPE_OPTIONS.map((service, index) => {
@@ -3629,7 +3812,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     >
                                       {service.id === "key_generation"
                                         ? "All keys lost (AKL)"
-                                        : "Need a spare"}
+                                        : "Need a copy / spare"}
                                       <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
                                         {service.label}
                                       </span>
@@ -3675,205 +3858,98 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {currentStep === "KEY_SPECIFICS" ? (
                             <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                                Key specifics
+                                Lookup notes (optional)
                               </legend>
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                                  <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
-                                    Selected Vehicle:{" "}
-                                    {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
-                                      .filter(Boolean)
-                                      .join(" ")}
-                                  </div>
-                                ) : (
-                                  <span />
-                                )}
-                                {liveQuote.totalCents > 0 ? (
-                                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-emerald-200">
-                                    {liveQuote.dispatchJobTypeLabel} ·{" "}
-                                    {formatQuoteDollars(
-                                      parseQuoteDollars(customPrice, liveQuote.totalCents) * 100
-                                    )}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <VehicleIntakeClarificationsPanel
-                                year={form.vehicleYear}
-                                make={form.vehicleMake}
-                                model={form.vehicleModel}
-                                answeredIds={answeredClarificationSet}
-                                onAnswer={applyVehicleClarification}
-                                onFccAutoResolved={applyFccAutoResolved}
-                                onPendingKeyClarificationChange={setKeyClarificationPending}
-                              />
-                              <VehicleKeyInfoPanel
-                                year={form.vehicleYear}
-                                make={form.vehicleMake}
-                                model={form.vehicleModel}
-                                vehicleTrim={form.vehicleTrim}
-                                factoryOptions={form.factoryOptions}
-                                onVehicleTrimChange={(trim) => patchForm({ vehicleTrim: trim })}
-                                fccId={form.keyFccId || null}
-                                holdForClarification={keyClarificationPending}
-                                value={
-                                  form.keyFccId || form.keyStyle
-                                    ? {
-                                        profileId: form.keyProfileId,
-                                        fccId: form.keyFccId,
-                                        frequency: form.keyFrequency || null,
-                                        chipset: form.keyChipset || null,
-                                        keyStyle: form.keyStyle || "Not sure yet",
-                                        variantId: form.keyVariantId || null,
-                                        programmingMethod: form.programmingMethod || null,
-                                        tiSku: form.tiSku || null,
-                                      }
-                                    : null
-                                }
-                                onChange={setVehicleKeySelection}
-                                onVariantSelected={handleManualKeyVariantSelected}
-                                onBackToVehicleLookup={() =>
-                                  setCurrentStep(
-                                    previousWorkflowStep(manualPath, "KEY_SPECIFICS") ?? "VEHICLE_INFO"
-                                  )
-                                }
-                                onVehicleFromVin={handleVehicleFromVin}
-                                preloadedKeyBundle={preloadedKeyBundle}
-                                onInventoryLoaded={handleInventoryLoaded}
-                              />
-
-                              {/* Shop vs mobile — for “she’ll come to me / call back” quotes. */}
-                              <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                  Where is this job?
-                                </p>
-                                <div className="mt-2 grid grid-cols-2 gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => patchForm({ serviceVenue: "mobile" })}
-                                    className={cn(
-                                      "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
-                                      form.serviceVenue === "mobile"
-                                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                                        : "border-zinc-700 bg-zinc-900 text-slate-300"
-                                    )}
-                                  >
-                                    I go to them
-                                    <span className="mt-0.5 block text-[10px] font-normal text-slate-500">
-                                      Mobile — needs address
-                                    </span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      patchForm({ serviceVenue: "shop" })
-                                      // Common shop cut/program quote — leave editable.
-                                      if (!customPrice.trim()) {
-                                        setCustomPrice("75")
-                                        setQuotedPriceDollars(75)
-                                      }
-                                    }}
-                                    className={cn(
-                                      "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
-                                      form.serviceVenue === "shop"
-                                        ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
-                                        : "border-zinc-700 bg-zinc-900 text-slate-300"
-                                    )}
-                                  >
-                                    They come to shop
-                                    <span className="mt-0.5 block text-[10px] font-normal text-slate-500">
-                                      No address needed
-                                    </span>
-                                  </button>
+                              <p className="text-sm text-muted-foreground">
+                                Key catalog search in Lyncr is optional. Look the key up on your usual
+                                3rd-party sites, then type anything useful here.
+                              </p>
+                              {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
+                                <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                                  {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
+                                    .filter(Boolean)
+                                    .join(" ")}
                                 </div>
-                                <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={form.customerOwnsKey}
-                                    onChange={(e) =>
-                                      patchForm({ customerOwnsKey: e.target.checked })
-                                    }
-                                    className="mt-0.5 h-4 w-4 rounded border-zinc-600"
+                              ) : null}
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="lookup-key-style" className="text-xs">
+                                    Key type / style
+                                  </Label>
+                                  <Input
+                                    id="lookup-key-style"
+                                    value={form.keyStyle}
+                                    onChange={(e) => patchForm({ keyStyle: e.target.value })}
+                                    placeholder="e.g. proximity fob, blade…"
+                                    className="h-10"
                                   />
-                                  <span>
-                                    <span className="block text-xs font-semibold text-slate-100">
-                                      Customer already has the key
-                                    </span>
-                                    <span className="block text-[10px] text-slate-500">
-                                      Bought online / bring-your-own — cut &amp; program only
-                                    </span>
-                                  </span>
-                                </label>
-                                {form.serviceVenue === "shop" ? (
-                                  <div className="mt-3 space-y-1.5">
-                                    <Label htmlFor="shop-quote-price" className="text-[11px]">
-                                      Shop quote ($)
-                                    </Label>
-                                    <Input
-                                      id="shop-quote-price"
-                                      inputMode="decimal"
-                                      value={customPrice}
-                                      onChange={(e) => {
-                                        setCustomPrice(e.target.value)
-                                        const dollars = Number.parseFloat(e.target.value)
-                                        if (Number.isFinite(dollars) && dollars > 0) {
-                                          setQuotedPriceDollars(dollars)
-                                        }
-                                      }}
-                                      placeholder="75"
-                                      className="h-10 font-mono text-base tabular-nums"
-                                    />
-                                    <p className="text-[10px] leading-snug text-slate-500">
-                                      They&apos;ll shop around? Tap{" "}
-                                      <span className="font-semibold text-amber-200">
-                                        Save shop quote
-                                      </span>{" "}
-                                      below — phone + vehicle + $ price are saved for when they call
-                                      back.
-                                    </p>
-                                  </div>
-                                ) : null}
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="lookup-fcc" className="text-xs">
+                                    FCC / part # (if you wrote it down)
+                                  </Label>
+                                  <Input
+                                    id="lookup-fcc"
+                                    value={form.keyFccId}
+                                    onChange={(e) => patchForm({ keyFccId: e.target.value })}
+                                    placeholder="Optional"
+                                    className="h-10 font-mono"
+                                  />
+                                </div>
                               </div>
-
-                              <CallTimeInventoryIntake
-                                year={form.vehicleYear}
-                                make={form.vehicleMake}
-                                model={form.vehicleModel}
-                                selectedFccId={form.keyFccId || null}
-                                selectedFrequency={form.keyFrequency || null}
-                                selectedTiSku={form.tiSku || null}
-                                organizationId={activeOrganizationId}
-                                inventory={preloadedKeyBundle?.inventory}
-                                onInventoryUpdated={mergeInventoryItem}
-                                onMarkedOutOfStock={() => {
-                                  requestAnimationFrame(() => {
-                                    document
-                                      .getElementById("key-details-alternative-solutions")
-                                      ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
-                                  })
-                                }}
-                              />
-                              <div id="key-details-alternative-solutions">
-                                <OutOfStockFallbackCard
-                                  inventory={preloadedKeyBundle?.inventory}
-                                  vehicleResolved={vehicleResolvedForStock}
-                                  intake={stockFallbackIntake}
-                                  onSpecialOrderDone={({ earliestServiceDate }) => {
-                                    toast({
-                                      title: "Special order link ready",
-                                      description: `Status: Pending Deposit · earliest service ${earliestServiceDate}. Copy or open the Stripe link for the customer.`,
-                                    })
-                                  }}
-                                  onPartnerLeadDone={({ referralStatus, affiliateName }) => {
-                                    toast({
-                                      title: `Lead sent to ${affiliateName}`,
-                                      description: referralStatus,
-                                    })
-                                    closeIntakeAfterSave()
-                                    // Partner referrals land in CRM Leads for follow-up.
-                                    router.push("/dashboard/customers?tab=leads")
-                                  }}
+                              <div className="space-y-1.5">
+                                <Label htmlFor="lookup-notes" className="text-xs">
+                                  Notes from your lookup
+                                </Label>
+                                <textarea
+                                  id="lookup-notes"
+                                  value={form.notes}
+                                  onChange={(e) => patchForm({ notes: e.target.value })}
+                                  rows={3}
+                                  placeholder="AKL / blade / programming notes…"
+                                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                                 />
                               </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => patchForm({ serviceVenue: "mobile" })}
+                                  className={cn(
+                                    "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                    form.serviceVenue === "mobile"
+                                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                                      : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                  )}
+                                >
+                                  I go to them
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    patchForm({ serviceVenue: "shop" })
+                                    if (!customPrice.trim()) {
+                                      setCustomPrice("75")
+                                      setQuotedPriceDollars(75)
+                                    }
+                                  }}
+                                  className={cn(
+                                    "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                    form.serviceVenue === "shop"
+                                      ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
+                                      : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                  )}
+                                >
+                                  They come to shop
+                                </button>
+                              </div>
+                              <Button
+                                type="button"
+                                size="lg"
+                                className="h-11 w-full font-semibold"
+                                onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                              >
+                                Continue to location →
+                              </Button>
                             </fieldset>
                           ) : null}
 
@@ -3882,6 +3958,32 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Location &amp; address
                               </legend>
+                              {requiresVehicle && serviceTypeId === "key_generation" ? (
+                                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-snug text-amber-100">
+                                  AKL: get the address (distance) before you quote.
+                                </p>
+                              ) : null}
+                              {requiresVehicle ? (
+                                <details className="rounded-lg border border-border/60 bg-card/30 px-3 py-2">
+                                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                                    I looked it up (optional notes)
+                                  </summary>
+                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    <Input
+                                      value={form.keyStyle}
+                                      onChange={(e) => patchForm({ keyStyle: e.target.value })}
+                                      placeholder="Key type / style"
+                                      className="h-9"
+                                    />
+                                    <Input
+                                      value={form.keyFccId}
+                                      onChange={(e) => patchForm({ keyFccId: e.target.value })}
+                                      placeholder="FCC / part # (optional)"
+                                      className="h-9 font-mono"
+                                    />
+                                  </div>
+                                </details>
+                              ) : null}
                               <div className="space-y-1.5">
                                 <Label htmlFor="manual-ac-phone" className="text-xs">
                                   Phone number
@@ -4507,141 +4609,28 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         className="h-11 w-full"
                         onClick={() => goBackManualWorkflow(manualPath)}
                       >
-                        Back to vehicle
+                        Back to service
                       </Button>
                     ) : null}
                     {currentStep === "KEY_SPECIFICS" ? (
-                      <div className="flex flex-col gap-2">
-                        {form.serviceVenue === "shop" ? (
-                          <>
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="lg"
-                                className="h-11 shrink-0"
-                                onClick={() => goBackManualWorkflow(manualPath)}
-                              >
-                                Back
-                              </Button>
-                              <Button
-                                type="button"
-                                size="lg"
-                                className="h-11 min-w-0 flex-1 border border-amber-500/50 bg-amber-500/20 font-semibold text-amber-50 hover:bg-amber-500/30"
-                                disabled={jobState === "creating" || !canSaveQuoteLead}
-                                onClick={() => {
-                                  const dollars = Number.parseFloat(customPrice.trim())
-                                  if (!Number.isFinite(dollars) || dollars <= 0) {
-                                    toast({
-                                      title: "Enter the shop quote",
-                                      description: "e.g. $75 if they come to you.",
-                                      variant: "destructive",
-                                    })
-                                    return
-                                  }
-                                  void saveQuoteLead()
-                                }}
-                              >
-                                {jobState === "creating" ? "Saving…" : "Save shop quote & hang up"}
-                              </Button>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="lg"
-                              className="h-11 w-full"
-                              disabled={keyBlankRequired && !hasKeyBlank}
-                              onClick={() => {
-                                patchForm({ serviceVenue: "mobile" })
-                                if (keyBlankRequired && !hasKeyBlank) {
-                                  toast({
-                                    title: "Pick a key blank",
-                                    description: "All-keys-lost jobs need a blank before location.",
-                                  })
-                                  return
-                                }
-                                setCurrentStep("ADDRESS_CONTACT")
-                              }}
-                            >
-                              Actually mobile — continue to location
-                            </Button>
-                            <p className="text-center text-[10px] text-slate-500">
-                              Saves phone, vehicle, key, and shop price — no address. Find them under
-                              Leads when they call back.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="lg"
-                                className="h-11 shrink-0"
-                                onClick={() => goBackManualWorkflow(manualPath)}
-                              >
-                                Back
-                              </Button>
-                              <Button
-                                type="button"
-                                variant={hasKeyBlank ? "outline" : "default"}
-                                size="lg"
-                                className="h-11 min-w-0 flex-1"
-                                disabled={keyBlankRequired && !hasKeyBlank}
-                                onClick={() => {
-                                  if (keyBlankRequired && !hasKeyBlank) {
-                                    toast({
-                                      title: "Pick a key blank",
-                                      description: "All-keys-lost jobs need a blank before location.",
-                                    })
-                                    return
-                                  }
-                                  if (!hasKeyBlank && !keySkipArmed) {
-                                    setKeySkipArmed(true)
-                                    toast({
-                                      title: "No key selected",
-                                      description:
-                                        "Tap Continue again to skip, or pick a blank first.",
-                                    })
-                                    return
-                                  }
-                                  setKeySkipArmed(false)
-                                  if (!form.serviceVenue) patchForm({ serviceVenue: "mobile" })
-                                  setCurrentStep("ADDRESS_CONTACT")
-                                }}
-                              >
-                                {hasKeyBlank
-                                  ? "Continue to location"
-                                  : keyBlankRequired
-                                    ? "Select a key blank first"
-                                    : keySkipArmed
-                                      ? "Skip key — go to location"
-                                      : "Next: Location & Contact"}
-                              </Button>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="lg"
-                              className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
-                              disabled={jobState === "creating" || !canSaveQuoteLead}
-                              onClick={() => void saveQuoteLead()}
-                            >
-                              {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
-                            </Button>
-                            {!canSaveQuoteLead ? (
-                              <p className="text-center text-[10px] text-amber-200/90">
-                                Need a phone number to save a quote lead for call-back matching.
-                              </p>
-                            ) : (
-                              <p className="text-center text-[10px] text-slate-500">
-                                They&apos;ll call back? Save quote here — or choose{" "}
-                                <span className="text-amber-200/90">They come to shop</span> above
-                                if it&apos;s not a mobile job.
-                              </p>
-                            )}
-                          </>
-                        )}
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="h-11 shrink-0"
+                          onClick={() => goBackManualWorkflow(manualPath)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="h-11 min-w-0 flex-1"
+                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
+                        >
+                          Continue to location
+                        </Button>
                       </div>
                     ) : null}
                     {currentStep === "ADDRESS_CONTACT" ? (
@@ -4783,9 +4772,53 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             {jobState === "creating" ? (
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                             ) : null}
-                            Finalize &amp; Secure Appointment →
+                            Booked — secure appointment →
                           </Button>
                         </div>
+
+                        {/* Live-call outcomes after the quote — big taps, few choices */}
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="lg"
+                            className="h-11 border border-amber-500/40 bg-amber-500/10 font-semibold text-amber-50 hover:bg-amber-500/20"
+                            disabled={lostLeadState === "saving"}
+                            onClick={() => void markPriceShopping()}
+                          >
+                            {lostLeadState === "saving" ? "Saving…" : "Price shopping"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="lg"
+                            className="h-11 border border-sky-500/40 bg-sky-500/10 font-semibold text-sky-50 hover:bg-sky-500/20"
+                            disabled={serviceCallLinkBusy}
+                            onClick={() => void sendServiceCallFeeLink()}
+                          >
+                            {serviceCallLinkBusy ? (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />
+                            ) : null}
+                            Send $49 service call
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="h-11 font-semibold"
+                            disabled={bookingLinkBusy}
+                            onClick={() => void sendIntakeBookingLink()}
+                          >
+                            {bookingLinkBusy ? (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />
+                            ) : null}
+                            Text booking link
+                          </Button>
+                        </div>
+                        {lostLeadError ? (
+                          <p className="text-center text-[11px] text-red-300">{lostLeadError}</p>
+                        ) : null}
+
                         <button
                           type="button"
                           disabled={jobState === "creating" || !canSavePendingLead}
@@ -4868,9 +4901,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           setCurrentStep(nextStepAfterVehicleInfo(serviceTypeId, vehicleLockoutIntake))
                         }
                       >
-                        {serviceNeedsJobTypeStep(serviceTypeId)
-                          ? "Next: Job type"
-                          : "Next: Key details"}
+                        {serviceTypeId === "key_generation"
+                          ? "Next: Address (before quote)"
+                          : "Next: Location"}
                       </Button>
                     ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
