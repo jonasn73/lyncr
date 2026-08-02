@@ -10418,21 +10418,23 @@ export async function setJobStatusForTech(
     status === "referred" ||
     status === "unresolved"
   // Mirror terminal job_status onto dispatch so CRM/scheduler stop treating the row as a lead/pool.
+  // Cast status ::text inside jsonb_build_object — Neon/Postgres 42P18 otherwise ("could not determine data type").
+  const dispatchMirror = status === "completed" ? "completed" : status
   const rows = isTerminal
     ? await sql`
         UPDATE ai_leads
         SET
           job_status = ${status},
-          dispatch_status = ${status === "completed" ? "completed" : status},
+          dispatch_status = ${dispatchMirror},
           collected =
             coalesce(collected, '{}'::jsonb)
             || jsonb_build_object(
-              'job_status', ${status},
-              'dispatch_status', ${status === "completed" ? "completed" : status},
+              'job_status', ${status}::text,
+              'dispatch_status', ${dispatchMirror}::text,
               'pending_callback', false
             )
             || CASE
-              WHEN ${status} = 'completed'
+              WHEN ${status}::text = 'completed'
                 THEN jsonb_build_object('completed_at', now()::timestamptz::text)
               ELSE '{}'::jsonb
             END
@@ -10491,7 +10493,8 @@ export async function setJobStatusForOwner(
           status === "canceled" ||
           status === "referred" ||
           status === "unresolved"
-        ? await sql`
+        ? // ::text casts fix Neon 42P18 on jsonb_build_object unbound params (Cancel / referred / unresolved).
+          await sql`
             UPDATE ai_leads
             SET
               job_status = ${status},
@@ -10499,8 +10502,8 @@ export async function setJobStatusForOwner(
               collected =
                 coalesce(collected, '{}'::jsonb)
                 || jsonb_build_object(
-                  'job_status', ${status},
-                  'dispatch_status', ${status},
+                  'job_status', ${status}::text,
+                  'dispatch_status', ${status}::text,
                   'pending_callback', false
                 )
             WHERE id = ${leadId} AND user_id = ${ownerUserId}

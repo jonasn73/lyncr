@@ -192,6 +192,17 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     })
   } catch (e) {
     console.error("[PATCH /api/owner/jobs/[id]/status]", e)
-    return NextResponse.json({ error: "Could not update job status" }, { status: 500 })
+    // Surface a short Postgres/Neon hint so Cancel/Complete failures are actionable in the UI.
+    const raw = e instanceof Error ? e.message : String(e)
+    const hint =
+      /could not determine data type/i.test(raw)
+        ? "Database could not save this status — try again."
+        : /unique|duplicate|check constraint|violates/i.test(raw)
+          ? "This job could not be updated (database rule)."
+          : null
+    return NextResponse.json(
+      { error: hint ?? "Could not update job status" },
+      { status: 500 }
+    )
   }
 }
