@@ -1,6 +1,7 @@
 "use client"
 
-// Chrome for the receptionist portal — Home / Calls / Earnings; Sign out only in bottom nav.
+// Chrome for the receptionist portal — Home / Calls / Earnings.
+// Sign out: header on desktop (sm+), bottom tab on mobile (no duplicate).
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -60,6 +61,7 @@ export function ReceptionistPortalChrome({
               ) : null}
             </div>
           </div>
+          {/* Desktop / tablet header nav — includes Sign out (bottom bar is sm:hidden) */}
           <div className="hidden items-center gap-1 sm:flex">
             {NAV.map((item) => {
               const active = item.match(pathname)
@@ -82,6 +84,16 @@ export function ReceptionistPortalChrome({
                 </Button>
               )
             })}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleLogout()}
+              className="text-zinc-400 hover:text-foreground"
+            >
+              <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Sign out
+            </Button>
           </div>
         </div>
       </header>
