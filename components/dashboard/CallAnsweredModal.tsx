@@ -892,6 +892,22 @@ function phoneDigitsKey(raw: string | null | undefined): string {
 }
 
 /**
+ * True when the operator minimized this same call on purpose (Open CRM / last job / Map).
+ * Polls and Pusher must not yank the sheet back open over that destination.
+ */
+function isSameLegIntentionallyMinimized(
+  minimized: boolean,
+  open: { id?: string; from_number?: string | null } | null | undefined,
+  incoming: { id?: string; from_number?: string | null }
+): boolean {
+  if (!minimized || !open) return false
+  if (open.id && incoming.id && open.id === incoming.id) return true
+  const openDigits = phoneDigitsKey(open.from_number)
+  const incomingDigits = phoneDigitsKey(incoming.from_number)
+  return Boolean(openDigits && incomingDigits && openDigits === incomingDigits)
+}
+
+/**
  * True when focus is in an input/textarea/select that is NOT the address autocomplete.
  * Live GPS must not overwrite or steal caret from name, phone, notes, etc.
  */
@@ -1896,19 +1912,29 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         .then((ringing) => {
           if (cancelled) return
           if (ringing) {
-            // Poll backup must pop like Pusher — don’t leave Map stuck on a buried PiP.
-            isMinimizedRef.current = false
-            setIsMinimized(false)
-            bumpOpenDismissGuard()
+            const sameLegMinimized = isSameLegIntentionallyMinimized(
+              isMinimizedRef.current,
+              effectiveCurrentRef.current,
+              ringing
+            )
             showCallRow(setCurrent, ringing, dismissedRef.current)
+            // New ring expands; same-leg Open CRM / Map / job keep the PiP.
+            if (!sameLegMinimized) {
+              isMinimizedRef.current = false
+              setIsMinimized(false)
+              bumpOpenDismissGuard()
+            }
             return
           }
           return fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
             if (cancelled || !answered) return
-            const sameLegMinimized =
-              isMinimizedRef.current && effectiveCurrentRef.current?.id === answered.id
+            const sameLegMinimized = isSameLegIntentionallyMinimized(
+              isMinimizedRef.current,
+              effectiveCurrentRef.current,
+              answered
+            )
             showCallRow(setCurrent, answered, dismissedRef.current)
-            // Keep intentional View-on-Map minimize for the same leg; new legs always expand.
+            // Keep intentional View-on-Map / Open CRM minimize for the same leg; new legs expand.
             if (!sameLegMinimized) {
               isMinimizedRef.current = false
               setIsMinimized(false)
@@ -2051,9 +2077,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             return
           }
         }
-        isMinimizedRef.current = false
-        setIsMinimized(false)
-        bumpOpenDismissGuard()
+        const sameLegMinimized = isSameLegIntentionallyMinimized(
+          isMinimizedRef.current,
+          effectiveCurrentRef.current,
+          row
+        )
+        // Answered poll already keeps same-leg PiP; match that for Open CRM during ring→answer.
+        if (!sameLegMinimized) {
+          isMinimizedRef.current = false
+          setIsMinimized(false)
+          bumpOpenDismissGuard()
+        }
         setCurrent((prev) => {
           if (prev?.id.startsWith("ring-") && phoneDigitsKey(prev.from_number) === phoneDigitsKey(row.from_number)) {
             ringAliasRef.current = prev.id
@@ -3265,8 +3299,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const handleOpenCrmForReturningCaller = useCallback(() => {
     const id = matchedCustomer?.id?.trim()
     if (!id) return
-    setCallbackChooserDismissed(true)
+    // Peek CRM only — do not dismiss the decision card (that was opening New Intake).
     intakeReturnTabRef.current = activeTab === "contacts" ? "dashboard" : activeTab
+    // Cancel any Map→intake expand so CRM stays on top with a PiP tray.
+    pendingExpandAfterTabRef.current = null
     minimizeIntake()
     router.push(buildCrmReturnUrl(id))
   }, [activeTab, matchedCustomer?.id, minimizeIntake, router])
