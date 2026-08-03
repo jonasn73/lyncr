@@ -3,6 +3,7 @@ import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
   intakeDraftBelongsToPhone,
+  intakeDraftMatchesLiveForm,
   intakeDraftPhonesMatch,
   intakeDraftStorageKey,
   isIntakeDraftFresh,
@@ -12,6 +13,8 @@ import {
   loadIntakeDraft,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
+  shouldOfferIntakeDraftRestore,
+  wasIntakeDraftSavedDuringSession,
   INTAKE_DRAFT_MAX_AGE_MS,
 } from "@/lib/intake-draft-storage"
 import type { ActiveCallFormState } from "@/lib/hooks/use-active-call-form"
@@ -345,5 +348,102 @@ describe("intake draft storage", () => {
         "call-new"
       )
     ).toBe(true)
+  })
+
+  it("treats drafts saved after session open as this-session auto-saves", () => {
+    const sessionStartedAtMs = Date.now() - 5_000
+    // Written during this open — do not offer Restore.
+    expect(
+      wasIntakeDraftSavedDuringSession(
+        { savedAt: new Date(sessionStartedAtMs + 1_000).toISOString() },
+        sessionStartedAtMs
+      )
+    ).toBe(true)
+    // Written before this open — OK to offer Restore on reopen.
+    expect(
+      wasIntakeDraftSavedDuringSession(
+        { savedAt: new Date(sessionStartedAtMs - 60_000).toISOString() },
+        sessionStartedAtMs
+      )
+    ).toBe(false)
+  })
+
+  it("detects when the live form already matches the draft (AKL just tapped)", () => {
+    const aklForm: ActiveCallFormState = {
+      ...THIN_FORM,
+      serviceQuoteTypeId: "all_keys_lost",
+      jobType: "All keys lost",
+    }
+    expect(
+      intakeDraftMatchesLiveForm(
+        { form: aklForm, currentStep: "JOB_TYPE" },
+        { form: aklForm, currentStep: "JOB_TYPE" }
+      )
+    ).toBe(true)
+    // Blank start vs saved AKL — Restore still useful.
+    expect(
+      intakeDraftMatchesLiveForm(
+        { form: aklForm, currentStep: "JOB_TYPE" },
+        { form: THIN_FORM, currentStep: "SERVICE_SELECT" }
+      )
+    ).toBe(false)
+  })
+
+  it("shouldOfferIntakeDraftRestore blocks same-session and matching-form drafts", () => {
+    const sessionStartedAtMs = Date.now() - 10_000
+    const aklForm: ActiveCallFormState = {
+      ...THIN_FORM,
+      phoneNumber: "+15025551234",
+      serviceQuoteTypeId: "all_keys_lost",
+      jobType: "All keys lost",
+    }
+    // Persist a prior-session draft with real progress.
+    saveIntakeDraft("5025551234", {
+      form: SAMPLE_FORM,
+      currentStep: "ADDRESS_CONTACT",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+      savedAt: new Date(sessionStartedAtMs - 120_000).toISOString(),
+    })
+    const prior = getDraftByPhoneNumber("5025551234")!
+    expect(
+      shouldOfferIntakeDraftRestore({
+        draft: prior,
+        phone: "5025551234",
+        sessionStartedAtMs,
+        liveForm: THIN_FORM,
+        liveStep: "SERVICE_SELECT",
+      })
+    ).toBe(true)
+
+    // Same content already on screen — no banner.
+    expect(
+      shouldOfferIntakeDraftRestore({
+        draft: prior,
+        phone: "5025551234",
+        sessionStartedAtMs,
+        liveForm: SAMPLE_FORM,
+        liveStep: "ADDRESS_CONTACT",
+      })
+    ).toBe(false)
+
+    // Just-saved auto-save during this open — no banner.
+    const justNow = {
+      ...prior,
+      form: aklForm,
+      currentStep: "JOB_TYPE" as const,
+      savedAt: new Date(sessionStartedAtMs + 500).toISOString(),
+    }
+    expect(
+      shouldOfferIntakeDraftRestore({
+        draft: justNow,
+        phone: "5025551234",
+        sessionStartedAtMs,
+        liveForm: aklForm,
+        liveStep: "JOB_TYPE",
+      })
+    ).toBe(false)
   })
 })

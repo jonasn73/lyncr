@@ -214,6 +214,97 @@ export function isIntakeDraftRestorable(draft: IntakeDraftSnapshot, nowMs: numbe
 }
 
 /**
+ * True when the draft was written during the current intake open (auto-save).
+ * Offering Restore for that snapshot is useless — the form already has it.
+ */
+export function wasIntakeDraftSavedDuringSession(
+  draft: Pick<IntakeDraftSnapshot, "savedAt">,
+  sessionStartedAtMs: number
+): boolean {
+  // Turn the ISO timestamp into milliseconds since epoch.
+  const saved = new Date(draft.savedAt).getTime()
+  // Corrupt / missing dates are treated as "not this session".
+  if (!Number.isFinite(saved) || !Number.isFinite(sessionStartedAtMs)) return false
+  // Same clock: anything saved at or after open is this session's auto-save.
+  return saved >= sessionStartedAtMs
+}
+
+/** Trim helper so " AKL " and "AKL" compare equal. */
+function draftField(value: string | null | undefined): string {
+  return String(value ?? "").trim()
+}
+
+/**
+ * Stable fingerprint of the fields Restore would put back on screen.
+ * Used to detect "draft already matches what the operator is looking at".
+ */
+export function intakeDraftProgressFingerprint(
+  form: ActiveCallFormState,
+  currentStep: IntakeDraftWorkflowStep
+): string {
+  // Normalize step so legacy FINAL_DISPATCH does not create a false mismatch.
+  const step = normalizeIntakeDraftStep(currentStep)
+  // Only compare operator progress — ignore quote dollars that auto-fill.
+  return [
+    step,
+    draftField(form.serviceQuoteTypeId),
+    draftField(form.jobType),
+    draftField(form.keyReplacementMode),
+    draftField(form.vehicleYear),
+    draftField(form.vehicleMake),
+    draftField(form.vehicleModel),
+    draftField(form.addressLine1),
+    draftField(form.city),
+    draftField(form.postalCode),
+    draftField(form.notes),
+    draftField(form.plateNumber),
+    draftField(form.vehicleVin),
+    draftField(form.displayName),
+    draftField(form.scheduledDate),
+    draftField(form.scheduledTime),
+    form.quotedPriceOverridden ? "1" : "0",
+  ].join("|")
+}
+
+/**
+ * True when restoring would be a no-op — live form already mirrors the draft.
+ * Covers "Saved draft from just now" after the operator just tapped AKL / Job type.
+ */
+export function intakeDraftMatchesLiveForm(
+  draft: Pick<IntakeDraftSnapshot, "form" | "currentStep">,
+  live: { form: ActiveCallFormState; currentStep: IntakeDraftWorkflowStep }
+): boolean {
+  return (
+    intakeDraftProgressFingerprint(draft.form, draft.currentStep) ===
+    intakeDraftProgressFingerprint(live.form, live.currentStep)
+  )
+}
+
+/**
+ * Final gate for the Restore banner / decision-card chip.
+ * Restorable + belongs to phone + NOT this-session auto-save + NOT already on screen.
+ */
+export function shouldOfferIntakeDraftRestore(params: {
+  draft: IntakeDraftSnapshot
+  phone: string
+  sessionStartedAtMs: number
+  liveForm: ActiveCallFormState
+  liveStep: IntakeDraftWorkflowStep
+  nowMs?: number
+}): boolean {
+  const { draft, phone, sessionStartedAtMs, liveForm, liveStep, nowMs } = params
+  // Wrong caller — never offer.
+  if (!intakeDraftBelongsToPhone(draft, phone)) return false
+  // Stale / thin / submitted — never offer.
+  if (!isIntakeDraftRestorable(draft, nowMs)) return false
+  // Auto-save from this open — form already has the data; banner is noise.
+  if (wasIntakeDraftSavedDuringSession(draft, sessionStartedAtMs)) return false
+  // Live form already matches the snapshot — Restore would change nothing.
+  if (intakeDraftMatchesLiveForm(draft, { form: liveForm, currentStep: liveStep })) return false
+  return true
+}
+
+/**
  * True when Restore should be a secondary action (new inbound leg / soft-aged draft),
  * not the primary path blocking New job.
  */

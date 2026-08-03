@@ -127,7 +127,9 @@ import {
   isValidIntakeDraftPhone,
   normalizeIntakeDraftPhone,
   saveIntakeDraft,
+  shouldOfferIntakeDraftRestore,
   type IntakeDraftSnapshot,
+  type IntakeDraftWorkflowStep,
 } from "@/lib/intake-draft-storage"
 import type { StructuredAddress } from "@/lib/structured-address"
 import type { CustomerVehicle } from "@/lib/types"
@@ -989,6 +991,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const lastLoadedDraftPhoneRef = useRef<string | null>(null)
   /** Phone whose restore banner was dismissed (draft kept in storage for later). */
   const dismissedDraftPhoneRef = useRef<string | null>(null)
+  /**
+   * When this intake sheet opened (this call / mount).
+   * Drafts saved at or after this time are auto-saves from the current session —
+   * never offer "Restore draft" for those (the form already has them).
+   */
+  const intakeSessionStartedAtRef = useRef<number>(Date.now())
   const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const skipNextDraftSaveRef = useRef(false)
   /** Restorable draft for the current caller — shown as an explicit Restore chip. */
@@ -1147,6 +1155,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     setCallbackForceNewJob(false)
     setContinuingDraft(false)
     setReturningCallerNotesExpanded(false)
+    // Mark a fresh intake session so same-session auto-saves never show Restore.
+    intakeSessionStartedAtRef.current = Date.now()
     lastLoadedDraftPhoneRef.current = null
     dismissedDraftPhoneRef.current = null
     setPendingDraft(null)
@@ -1203,7 +1213,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   /**
    * Offer an explicit Restore draft chip when a fresh, meaningful draft exists
-   * for THIS caller. Never auto-hydrate. Never offer another phone's snapshot.
+   * for THIS caller from a *previous* open — never auto-hydrate, never another
+   * phone, never the auto-save we just wrote in this session.
    */
   useEffect(() => {
     if (!effectiveCurrent || !activeDraftPhone) {
@@ -1241,7 +1252,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPendingDraft(null)
       return
     }
-    // Only offer drafts that belong to THIS caller phone — never another number's snapshot.
+    // Only consider drafts that belong to THIS caller phone.
     const draft = getDraftByPhoneNumber(activeDraftPhone)
     if (!draft || !intakeDraftBelongsToPhone(draft, activeDraftPhone)) {
       if (draft) clearIntakeDraft(activeDraftPhone)
@@ -1254,8 +1265,24 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPendingDraft(null)
       return
     }
+    // Skip same-session auto-save and drafts that already match the live form
+    // (e.g. operator just tapped AKL — "Restore" would be a no-op).
+    if (
+      !shouldOfferIntakeDraftRestore({
+        draft,
+        phone: activeDraftPhone,
+        sessionStartedAtMs: intakeSessionStartedAtRef.current,
+        liveForm: form,
+        liveStep: currentStep as IntakeDraftWorkflowStep,
+      })
+    ) {
+      setPendingDraft(null)
+      return
+    }
     setPendingDraft(draft)
-  }, [effectiveCurrent, activeDraftPhone, form.phoneNumber])
+    // Re-check when step/form progress changes so a just-written auto-save
+    // never sticks the Restore banner on screen mid-typing.
+  }, [effectiveCurrent, activeDraftPhone, form, currentStep])
 
   /** One-tap: restore form, clear false Lockout, land on first incomplete step. */
   const restorePendingDraft = useCallback(() => {
