@@ -22,6 +22,7 @@ import {
   REFRESH_HEADER_MONEY_EVENT,
   SETTINGS_CHILD_OPEN_EVENTS,
   openGetPaidModal,
+  type CollectPaymentModalOpenDetail,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
@@ -117,6 +118,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [collectOpen, setCollectOpen] = useState(false)
+  /** Optional CRM / deep-link prefill for Collect (name, phone, start on Add charge). */
+  const [collectPrefill, setCollectPrefill] = useState<CollectPaymentModalOpenDetail | null>(null)
   const [getPaidOpen, setGetPaidOpen] = useState(false)
   // Lightweight sheet: balance + period collected totals (not the full Collect flow).
   const [moneyOpen, setMoneyOpen] = useState(false)
@@ -326,9 +329,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     return () => window.removeEventListener(OPEN_GET_PAID_MODAL_EVENT, openGetPaid)
   }, [])
 
-  // Collect can open from Money / Get paid / other dashboard callers.
+  // Collect can open from Money / Get paid / CRM (optional name+phone prefill).
   useEffect(() => {
-    const openCollectFromEvent = () => {
+    const openCollectFromEvent = (ev: Event) => {
+      const detail = (ev as CustomEvent<CollectPaymentModalOpenDetail>).detail
+      setCollectPrefill(detail && typeof detail === "object" ? detail : null)
       setMoneyOpen(false)
       setOpen(false)
       setCollectMounted(true)
@@ -367,6 +372,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   }, [refreshMoney])
 
   const openCollect = useCallback(() => {
+    setCollectPrefill(null)
     setMoneyOpen(false)
     setCollectMounted(true)
     setCollectOpen(true)
@@ -683,8 +689,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         >
           <OwnerCollectPaymentSheet
             open={collectOpen}
-            onOpenChange={setCollectOpen}
+            onOpenChange={(next) => {
+              setCollectOpen(next)
+              if (!next) setCollectPrefill(null)
+            }}
             onCollected={refreshMoney}
+            prefill={collectPrefill}
           />
         </Suspense>
       ) : null}

@@ -239,10 +239,17 @@ export function OwnerCollectPaymentSheet({
   open,
   onOpenChange,
   onCollected,
+  prefill = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCollected?: () => void
+  /** CRM / deep-link: prefill name+phone and optionally open Add charge. */
+  prefill?: {
+    customerName?: string
+    customerPhone?: string
+    startAdhoc?: boolean
+  } | null
 }) {
   const { toast } = useToast()
   // Instant from session cache when possible; refreshes in the background.
@@ -639,6 +646,25 @@ export function OwnerCollectPaymentSheet({
     if (!open) return
     resetAdhoc()
 
+    // After reset: apply CRM / deep-link name+phone and optionally open Add charge.
+    if (prefill) {
+      const name = (prefill.customerName ?? "").trim()
+      const phone = (prefill.customerPhone ?? "").trim()
+      if (name) {
+        setPayLinkName(name)
+        setReceiptName(name)
+      }
+      if (phone) {
+        setPayLinkPhone(phone)
+        setReceiptPhone(phone)
+        setReceiptChannel("sms")
+      }
+      if (prefill.startAdhoc) {
+        setMode("adhoc")
+        setListTab("collect")
+      }
+    }
+
     fetch("/api/payments/connect/status", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: { ready?: boolean; message?: string | null } } | null) => {
@@ -673,7 +699,7 @@ export function OwnerCollectPaymentSheet({
             /* ignore */
           })
       })
-  }, [open, resetAdhoc, applyPayLinkBadges])
+  }, [open, resetAdhoc, applyPayLinkBadges, prefill])
 
   const sorted = useMemo(() => {
     return [...jobs].sort((a, b) => {
@@ -710,10 +736,13 @@ export function OwnerCollectPaymentSheet({
     return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
   }
 
-  /** Shared body for walk-up create-intent (card or tap) — contact collected after pay. */
+  /** Shared body for walk-up create-intent (card or tap) — contact from CRM prefill or pay-link fields. */
   function adhocIntentBody(paymentMethodType: "MANUAL_CARD" | "TAP_TO_PAY") {
     const dollars = parseAdhocDollars()
     if (dollars == null) return null
+    // Prefer explicit pay-link fields; fall back to CRM prefill so walk-up stays linked to this phone.
+    const name = payLinkName.trim() || receiptName.trim() || prefill?.customerName?.trim() || ""
+    const phone = payLinkPhone.trim() || receiptPhone.trim() || prefill?.customerPhone?.trim() || ""
     return {
       adhoc: true as const,
       amount: dollars,
@@ -721,6 +750,8 @@ export function OwnerCollectPaymentSheet({
       note: adhocNote.trim() || "Service",
       taxEnabled,
       taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+      ...(name ? { customerName: name } : {}),
+      ...(phone ? { customerPhone: phone } : {}),
     }
   }
 

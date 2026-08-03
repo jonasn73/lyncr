@@ -5199,10 +5199,22 @@ export async function listCrmCustomersForUser(
   }
   }
 
+  // Walk-up Collect charges (no job) — add into LTV so CRM isn't $0 after a card pay.
+  let walkUpByDigits = new Map<string, number>()
+  if (digitKeys.length > 0) {
+    try {
+      const { sumWalkUpCompletedCentsByPhoneDigits } = await import("@/lib/owner-collected")
+      walkUpByDigits = await sumWalkUpCompletedCentsByPhoneDigits(userId, digitKeys)
+    } catch (e) {
+      console.warn("[listCrmCustomersForUser] walk-up LTV failed", e)
+    }
+  }
+
   const filter = options?.filter ?? "all"
   const out: CrmCustomerListItem[] = []
   for (const c of customers) {
-    const agg = byDigits.get(crmDigits(c.phone_e164)) ?? {
+    const digits = crmDigits(c.phone_e164)
+    const agg = byDigits.get(digits) ?? {
       completed: 0,
       revenueCents: 0,
       openLeads: 0,
@@ -5210,6 +5222,8 @@ export async function listCrmCustomersForUser(
       hasSalvage: false,
       callback: false,
     }
+    const walkUpCents = walkUpByDigits.get(digits) ?? 0
+    const lifetimeCents = Math.max(0, agg.revenueCents) + Math.max(0, walkUpCents)
     const badge = resolveCrmLeadBadge({
       jobsCompleted: agg.completed,
       openLeadCount: agg.openLeads,
@@ -5230,7 +5244,7 @@ export async function listCrmCustomersForUser(
     out.push({
       ...c,
       jobs_completed: agg.completed,
-      lifetime_revenue_cents: agg.revenueCents,
+      lifetime_revenue_cents: lifetimeCents,
       lead_badge: badge,
       open_lead_count: agg.openLeads,
     })

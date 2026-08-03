@@ -419,6 +419,187 @@ export async function listOwnerCollectedTransactions(
   }
 }
 
+/** Last 10 digits of a phone — same key CRM uses to match people. */
+function phoneLast10(phone: string): string {
+  const d = phone.replace(/\D/g, "")
+  return d.length >= 10 ? d.slice(-10) : d
+}
+
+/**
+ * Wallet charges for one customer phone (walk-up + job payments).
+ * Matches last-10 digits on wallet customer_phone or job caller_e164.
+ */
+export async function listOwnerCollectedTransactionsForPhone(
+  ownerUserId: string,
+  phoneE164: string,
+  limit = 50
+): Promise<OwnerCollectedTransaction[]> {
+  const uid = ownerUserId.trim()
+  const digits = phoneLast10(phoneE164)
+  if (!uid || digits.length < 10) return []
+
+  const sql = neon(resolveNeonDatabaseUrl())
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
+
+  try {
+    const rows = await sql`
+      SELECT
+        wt.id::text AS id,
+        wt.amount::float8 AS amount,
+        wt.status,
+        wt.payment_method,
+        wt.created_at,
+        wt.job_id::text AS job_id,
+        wt.stripe_payment_intent_id,
+        COALESCE(
+          NULLIF(TRIM(al.caller_e164), ''),
+          NULLIF(TRIM(wt.customer_phone), '')
+        ) AS caller_e164,
+        COALESCE(
+          NULLIF(TRIM(crm.display_name), ''),
+          NULLIF(TRIM(wt.customer_name), ''),
+          NULLIF(TRIM(al.collected->>'customer_name'), ''),
+          NULLIF(TRIM(al.collected->>'name'), ''),
+          NULLIF(TRIM(al.collected->>'caller_name'), '')
+        ) AS customer_name,
+        COALESCE(
+          NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
+          NULLIF(TRIM(al.vehicle_year::text), '')
+        ) AS vehicle_year,
+        COALESCE(
+          NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
+          NULLIF(TRIM(al.vehicle_make), '')
+        ) AS vehicle_make,
+        COALESCE(
+          NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
+          NULLIF(TRIM(al.vehicle_model), '')
+        ) AS vehicle_model,
+        COALESCE(
+          NULLIF(TRIM(al.collected->>'job_type'), ''),
+          NULLIF(TRIM(al.job_type), '')
+        ) AS job_type,
+        ps.tip_cents,
+        CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
+      FROM wallet_transactions wt
+      LEFT JOIN ai_leads al ON al.id = wt.job_id
+      LEFT JOIN customers crm
+        ON crm.user_id = ${uid}
+        AND (
+          (al.caller_e164 IS NOT NULL AND crm.phone_e164 = al.caller_e164)
+          OR (
+            NULLIF(TRIM(wt.customer_phone), '') IS NOT NULL
+            AND crm.phone_e164 = wt.customer_phone
+          )
+        )
+      LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
+      WHERE
+        (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
+        AND (
+          right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+          OR right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+        )
+      ORDER BY wt.created_at DESC
+      LIMIT ${safeLimit}
+    `
+    return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+  } catch (e) {
+    if (isMissingWalletSchemaError(e)) return []
+    // Fallback without payment_slips / customers / customer_phone columns.
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/payment_slips|customers|customer_phone|customer_name|column|relation/i.test(msg)) {
+      try {
+        const rows = await sql`
+          SELECT
+            wt.id::text AS id,
+            wt.amount::float8 AS amount,
+            wt.status,
+            wt.payment_method,
+            wt.created_at,
+            wt.job_id::text AS job_id,
+            wt.stripe_payment_intent_id,
+            al.caller_e164,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'customer_name'), ''),
+              NULLIF(TRIM(al.collected->>'name'), ''),
+              NULLIF(TRIM(al.collected->>'caller_name'), '')
+            ) AS customer_name,
+            NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+            NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+            NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+          FROM wallet_transactions wt
+          LEFT JOIN ai_leads al ON al.id = wt.job_id
+          WHERE
+            (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
+            AND right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+          ORDER BY wt.created_at DESC
+          LIMIT ${safeLimit}
+        `
+        return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+      } catch (e2) {
+        if (isMissingWalletSchemaError(e2)) return []
+        console.warn("[owner-collected] phone list fallback failed:", e2)
+        return []
+      }
+    }
+    console.warn("[owner-collected] phone list failed:", e)
+    return []
+  }
+}
+
+/**
+ * Walk-up (no job) completed wallet totals by last-10 phone digits.
+ * Used to add Collect charges into CRM LTV without double-counting job quotes.
+ */
+export async function sumWalkUpCompletedCentsByPhoneDigits(
+  ownerUserId: string,
+  digitKeys: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  const uid = ownerUserId.trim()
+  const keys = digitKeys.filter((d) => d.length >= 10)
+  if (!uid || keys.length === 0) return out
+
+  const sql = neon(resolveNeonDatabaseUrl())
+  try {
+    const rows = (await sql`
+      SELECT
+        right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) AS phone_key,
+        COALESCE(SUM(wt.amount), 0)::float8 AS usd
+      FROM wallet_transactions wt
+      WHERE wt.user_id = ${uid}
+        AND wt.job_id IS NULL
+        AND wt.status = 'COMPLETED'
+        AND wt.amount > 0
+        AND right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) = ANY(${keys})
+      GROUP BY 1
+    `) as Record<string, unknown>[]
+
+    for (const row of rows) {
+      const key = String(row.phone_key ?? "")
+      if (key.length < 10) continue
+      const usd = Number(row.usd ?? 0) || 0
+      out.set(key, Math.round(usd * 100))
+    }
+  } catch (e) {
+    if (!isMissingWalletSchemaError(e)) {
+      console.warn("[owner-collected] walk-up LTV agg failed:", e)
+    }
+  }
+  return out
+}
+
+/** Sum completed payment dollars (as cents) from a transaction list. */
+export function sumCompletedCollectedCents(transactions: OwnerCollectedTransaction[]): number {
+  let cents = 0
+  for (const tx of transactions) {
+    if (tx.status !== "COMPLETED") continue
+    if (!Number.isFinite(tx.amount) || tx.amount <= 0) continue
+    cents += Math.round(tx.amount * 100)
+  }
+  return cents
+}
+
 function mapOwnerCollectedRow(row: Record<string, unknown>): OwnerCollectedTransaction {
   const statusRaw = String(row.status || "PENDING").toUpperCase()
   const status: OwnerCollectedTransaction["status"] =

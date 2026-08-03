@@ -9,7 +9,9 @@ import {
   CalendarCheck,
   Car,
   Check,
+  CreditCard,
   Loader2,
+  Mail,
   MessageSquare,
   Pencil,
   Phone,
@@ -35,6 +37,11 @@ import type {
   CrmServiceHistoryItem,
   CustomerVehicle,
 } from "@/lib/types"
+import {
+  formatCollectedDollars,
+  type OwnerCollectedTransaction,
+} from "@/lib/owner-collected"
+import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { cn } from "@/lib/utils"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
@@ -176,6 +183,33 @@ function datetimeLocalToIso(local: string): string | null {
   return d.toISOString()
 }
 
+/** Short date/time for a payment row. */
+function formatPaymentWhen(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+/** Plain English payment method for CRM. */
+function paymentMethodLabel(method: OwnerCollectedTransaction["paymentMethod"]): string {
+  if (method === "TAP_TO_PAY") return "Tap to Pay"
+  if (method === "CASH") return "Cash"
+  return "Card"
+}
+
+/** Paid / Pending / Failed badge text. */
+function paymentStatusLabel(status: OwnerCollectedTransaction["status"]): string {
+  if (status === "COMPLETED") return "Paid"
+  if (status === "FAILED") return "Failed"
+  return "Pending"
+}
+
 const EMPTY_CRM_ROWS: CrmCustomerListItem[] = []
 
 function crmListCacheKey(filter: CrmFilter, q: string): string {
@@ -221,6 +255,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [profileLoading, setProfileLoading] = useState(false)
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([])
   const [history, setHistory] = useState<CrmServiceHistoryItem[]>([])
+  // Wallet charges for this phone (walk-up Collect + job payments).
+  const [payments, setPayments] = useState<OwnerCollectedTransaction[]>([])
   const [selected, setSelected] = useState<CrmCustomerListItem | null>(null)
   const [addingVehicle, setAddingVehicle] = useState(false)
   const [vehicleForm, setVehicleForm] = useState({
@@ -243,6 +279,13 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [editingName, setEditingName] = useState(false)
   // Job id while CRM “Send review” backup is in flight.
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null)
+  // Send invoice/receipt for a past payment (same API as Money → payments).
+  const [receiptTx, setReceiptTx] = useState<OwnerCollectedTransaction | null>(null)
+  const [receiptName, setReceiptName] = useState("")
+  const [receiptEmail, setReceiptEmail] = useState("")
+  const [receiptPhone, setReceiptPhone] = useState("")
+  const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("sms")
+  const [receiptBusy, setReceiptBusy] = useState(false)
   // SMS preview sheet — follow-up / rescue draft before real send.
   const [smsPreviewOpen, setSmsPreviewOpen] = useState(false)
   const [smsPreviewKind, setSmsPreviewKind] = useState<"follow_up" | "rescue">("follow_up")
@@ -320,10 +363,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         customer?: CrmCustomerListItem | { id: string; display_name: string; notes: string; phone_e164: string; company_name: string }
         vehicles?: CustomerVehicle[]
         history?: CrmServiceHistoryItem[]
+        payments?: OwnerCollectedTransaction[]
       }
     }) => {
       const c = json.data?.customer
       const hist = json.data?.history ?? []
+      const pays = Array.isArray(json.data?.payments) ? json.data!.payments! : []
       if (c) {
         // Prefer API fields when present; otherwise keep list-row LTV/jobs (never flash $0).
         const fromApi = c as Partial<CrmCustomerListItem>
@@ -351,6 +396,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       }
       setVehicles(json.data?.vehicles ?? [])
       setHistory(hist)
+      setPayments(pays)
     },
     []
   )
@@ -368,6 +414,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         .catch(() => {
           setVehicles([])
           setHistory([])
+          setPayments([])
         })
         .finally(() => setProfileLoading(false))
     },
@@ -380,10 +427,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setSelected(null)
       setVehicles([])
       setHistory([])
+      setPayments([])
       setEditName("")
       setEditingApptId(null)
       setEditApptLocal("")
       setEditingName(false)
+      setReceiptTx(null)
       return
     }
     setEditingName(false)
@@ -742,6 +791,81 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     }
   }
 
+  /** Open the invoice/receipt form for a paid charge (Money uses the same API). */
+  const openSendReceipt = (tx: OwnerCollectedTransaction) => {
+    setReceiptTx(tx)
+    setReceiptName(
+      tx.customerName?.trim() ||
+        selected?.display_name?.trim() ||
+        editName.trim() ||
+        ""
+    )
+    setReceiptPhone(tx.customerPhone || selected?.phone_e164 || "")
+    setReceiptEmail("")
+    setReceiptChannel(tx.customerPhone || selected?.phone_e164 ? "sms" : "email")
+  }
+
+  /** Email or text a paid receipt — same endpoint as Money → All payments. */
+  const sendReceiptFromCrm = async () => {
+    if (!receiptTx?.stripePaymentIntentId) return
+    if (receiptChannel === "email" && !receiptEmail.trim().includes("@")) {
+      toast({
+        title: "Enter an email",
+        description: "Need a valid address to send the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (receiptChannel === "sms" && receiptPhone.replace(/\D/g, "").length < 10) {
+      toast({
+        title: "Enter a phone number",
+        description: "Need a valid number to text the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    setReceiptBusy(true)
+    try {
+      const res = await fetch("/api/payments/send-receipt", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId: receiptTx.stripePaymentIntentId,
+          channel: receiptChannel,
+          customerName: receiptName.trim() || undefined,
+          email: receiptChannel === "email" ? receiptEmail.trim() : undefined,
+          phone: receiptChannel === "sms" ? receiptPhone.trim() : undefined,
+        }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not send invoice")
+      toast({
+        title: receiptChannel === "email" ? "Invoice emailed" : "Invoice texted",
+        description: "Customer gets a paid invoice with a view link.",
+      })
+      setReceiptTx(null)
+    } catch (e) {
+      toast({
+        title: "Could not send invoice",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setReceiptBusy(false)
+    }
+  }
+
+  /** Open Collect with this customer’s name + phone already filled in. */
+  const openCollectForCustomer = () => {
+    if (!selected) return
+    openCollectPaymentModal({
+      customerName: editName.trim() || selected.display_name || undefined,
+      customerPhone: selected.phone_e164,
+      startAdhoc: true,
+    })
+  }
+
   const closeProfile = () => setSelectedId(null)
   const profileOpen = selectedId != null
 
@@ -834,6 +958,15 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             <MessageSquare className="h-3.5 w-3.5" />
             Open Messages
           </Link>
+          <button
+            type="button"
+            onClick={openCollectForCustomer}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100"
+            title="Open Collect with this customer’s name and phone filled in"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Collect
+          </button>
           {(selected.lead_badge === "price_quoted" ||
             selected.lead_badge === "needs_recovery" ||
             selected.lead_badge === "callback" ||
@@ -976,12 +1109,198 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </div>
 
         <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Payments
+            </h3>
+            <button
+              type="button"
+              onClick={openCollectForCustomer}
+              className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New charge
+            </button>
+          </div>
+          {payments.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
+              No card or cash charges linked to this phone yet. Use Collect to charge them — it will
+              show up here.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {payments.map((tx) => {
+                const amountCents = Math.round(tx.amount * 100)
+                const canInvoice =
+                  tx.status === "COMPLETED" && Boolean(tx.stripePaymentIntentId)
+                return (
+                  <li
+                    key={tx.id}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold tabular-nums text-emerald-200">
+                          {formatCollectedDollars(amountCents)}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          {formatPaymentWhen(tx.createdAt)}
+                          {" · "}
+                          {paymentMethodLabel(tx.paymentMethod)}
+                          {!tx.jobId ? " · Walk-up" : tx.jobLabel ? ` · ${tx.jobLabel}` : ""}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                          tx.status === "COMPLETED" && "bg-emerald-500/15 text-emerald-300",
+                          tx.status === "FAILED" && "bg-rose-500/15 text-rose-300",
+                          tx.status === "PENDING" && "bg-amber-500/15 text-amber-200"
+                        )}
+                      >
+                        {paymentStatusLabel(tx.status)}
+                      </span>
+                    </div>
+                    {canInvoice ? (
+                      <button
+                        type="button"
+                        onClick={() => openSendReceipt(tx)}
+                        className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        Send invoice / receipt
+                      </button>
+                    ) : tx.paymentMethod === "CASH" && tx.status === "COMPLETED" ? (
+                      <p className="mt-1.5 text-[10px] text-zinc-600">
+                        Cash — no digital card receipt link.
+                      </p>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          {/* Inline send-invoice form (same API as Money → payments). */}
+          {receiptTx ? (
+            <div className="mt-3 space-y-3 rounded-xl border border-teal-500/30 bg-teal-500/5 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/70">
+                    Send invoice / receipt
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums text-teal-50">
+                    {formatCollectedDollars(Math.round(receiptTx.amount * 100))}
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-teal-200/55">
+                    Already paid — this texts or emails a receipt, not a new bill.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReceiptTx(null)}
+                  className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                  aria-label="Close invoice form"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setReceiptChannel("email")}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    receiptChannel === "email"
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiptChannel("sms")}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    receiptChannel === "sms"
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Text
+                </button>
+              </div>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Customer name
+                </span>
+                <Input
+                  value={receiptName}
+                  onChange={(e) => setReceiptName(e.target.value)}
+                  placeholder="Optional"
+                  className="h-10 border-zinc-800 bg-zinc-950"
+                />
+              </label>
+              {receiptChannel === "email" ? (
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Email
+                  </span>
+                  <Input
+                    type="email"
+                    value={receiptEmail}
+                    onChange={(e) => setReceiptEmail(e.target.value)}
+                    placeholder="customer@email.com"
+                    className="h-10 border-zinc-800 bg-zinc-950"
+                    autoComplete="email"
+                  />
+                </label>
+              ) : (
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Phone
+                  </span>
+                  <Input
+                    type="tel"
+                    value={receiptPhone}
+                    onChange={(e) => setReceiptPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="h-10 border-zinc-800 bg-zinc-950"
+                    autoComplete="tel"
+                  />
+                </label>
+              )}
+              <Button
+                type="button"
+                disabled={receiptBusy}
+                onClick={() => void sendReceiptFromCrm()}
+                className="h-10 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+              >
+                {receiptBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : receiptChannel === "email" ? (
+                  <Mail className="h-4 w-4" />
+                ) : (
+                  <MessageSquare className="h-4 w-4" />
+                )}
+                {receiptChannel === "email" ? "Email invoice" : "Text invoice"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
             Service history &amp; quotes
           </h3>
           {history.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              No jobs or leads for this phone yet.
+              {payments.length > 0
+                ? "No jobs or leads for this phone yet — walk-up payments above still count toward LTV."
+                : "No jobs or leads for this phone yet."}
             </p>
           ) : (
             <ol className="space-y-2">
@@ -1158,8 +1477,14 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
         {selected.company_name.trim() ? ` · ${selected.company_name}` : ""}
         {" · "}
-        {BADGE_LABEL[selected.lead_badge]} · {selected.jobs_completed} completed ·{" "}
+        {BADGE_LABEL[selected.lead_badge]} · {selected.jobs_completed} job
+        {selected.jobs_completed === 1 ? "" : "s"} ·{" "}
         {formatMoney(selected.lifetime_revenue_cents)} LTV
+        {payments.length > 0
+          ? ` · ${payments.filter((p) => p.status === "COMPLETED").length} payment${
+              payments.filter((p) => p.status === "COMPLETED").length === 1 ? "" : "s"
+            }`
+          : ""}
       </>
     ) : null
 

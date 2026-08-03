@@ -9,6 +9,15 @@ export const OPEN_BILLING_MODAL_EVENT = "lyncr-open-billing-modal"
 export const OPEN_GET_PAID_MODAL_EVENT = "lyncr-open-get-paid-modal"
 /** Open the owner Collect payment sheet (Money → Collect, Get paid, etc.). */
 export const OPEN_COLLECT_PAYMENT_MODAL_EVENT = "lyncr-open-collect-payment-modal"
+/** Optional detail when opening Collect (e.g. CRM → Collect for this customer). */
+export type CollectPaymentModalOpenDetail = {
+  /** Prefill customer name on walk-up charge / pay link / receipt. */
+  customerName?: string
+  /** Prefill customer phone (E.164 or display). */
+  customerPhone?: string
+  /** Jump straight to walk-up “Add charge” instead of the job list. */
+  startAdhoc?: boolean
+}
 /** Ask the header wallet chip to re-fetch Stripe Available / Pending. */
 export const REFRESH_HEADER_MONEY_EVENT = "lyncr-refresh-header-money"
 export const OPEN_ROUTING_STRATEGY_MODAL_EVENT = "lyncr-open-routing-strategy-modal"
@@ -66,10 +75,12 @@ export function openGetPaidModal() {
   window.dispatchEvent(new CustomEvent(OPEN_GET_PAID_MODAL_EVENT))
 }
 
-/** Open the owner Collect payment sheet (job list / history). */
-export function openCollectPaymentModal() {
+/** Open the owner Collect payment sheet (job list / history / CRM prefill). */
+export function openCollectPaymentModal(detail?: CollectPaymentModalOpenDetail) {
   if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent(OPEN_COLLECT_PAYMENT_MODAL_EVENT))
+  window.dispatchEvent(
+    new CustomEvent(OPEN_COLLECT_PAYMENT_MODAL_EVENT, { detail: detail ?? {} })
+  )
 }
 
 /** Refresh the header $ chip after a payment settles. */

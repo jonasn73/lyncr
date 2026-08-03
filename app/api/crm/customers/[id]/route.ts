@@ -1,17 +1,58 @@
-// GET /api/crm/customers/[id] — profile: customer + vehicles + service history
+// GET /api/crm/customers/[id] — profile: customer + vehicles + service history + payments
 // PATCH /api/crm/customers/[id] — edit display name, notes, and/or lead appointment
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
   getCustomerByIdForUser,
+  listCrmCustomersForUser,
   listCrmServiceHistoryForCustomer,
   listCustomerVehiclesForCustomer,
   updateCrmLeadAppointmentForUser,
   updateCustomerFieldsForUser,
 } from "@/lib/db"
+import {
+  listOwnerCollectedTransactionsForPhone,
+  sumCompletedCollectedCents,
+} from "@/lib/owner-collected"
+import type { CrmCustomerListItem } from "@/lib/types"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
+
+/** Merge list-row stats (jobs / LTV / badge) onto a plain customer row. */
+async function enrichCustomerForProfile(
+  userId: string,
+  customerId: string,
+  phoneE164: string,
+  paidFromPaymentsCents: number
+): Promise<Partial<CrmCustomerListItem>> {
+  // Reuse list enrichment (jobs + walk-up LTV) when we can find this row.
+  try {
+    const list = await listCrmCustomersForUser(userId, {
+      q: phoneE164,
+      limit: 20,
+      filter: "all",
+    })
+    const row = list.find((c) => c.id === customerId)
+    if (row) {
+      // Prefer the higher of list LTV vs this profile's paid total (never flash $0 after a charge).
+      return {
+        jobs_completed: row.jobs_completed,
+        lifetime_revenue_cents: Math.max(row.lifetime_revenue_cents, paidFromPaymentsCents),
+        lead_badge: row.lead_badge,
+        open_lead_count: row.open_lead_count,
+      }
+    }
+  } catch (e) {
+    console.warn("[crm customer enrich] list failed", e)
+  }
+  return {
+    jobs_completed: 0,
+    lifetime_revenue_cents: paidFromPaymentsCents,
+    lead_badge: "new_contact",
+    open_lead_count: 0,
+  }
+}
 
 export async function GET(
   req: NextRequest,
@@ -27,17 +68,31 @@ export async function GET(
     const customer = await getCustomerByIdForUser(userId, id)
     if (!customer) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const [vehicles, history] = await Promise.all([
+    const [vehicles, history, payments] = await Promise.all([
       listCustomerVehiclesForCustomer(userId, customer.id),
       listCrmServiceHistoryForCustomer({
         userId,
         customerId: customer.id,
         phoneE164: customer.phone_e164,
       }),
+      listOwnerCollectedTransactionsForPhone(userId, customer.phone_e164, 50),
     ])
 
+    const paidCents = sumCompletedCollectedCents(payments)
+    const stats = await enrichCustomerForProfile(
+      userId,
+      customer.id,
+      customer.phone_e164,
+      paidCents
+    )
+
     return NextResponse.json({
-      data: { customer, vehicles, history },
+      data: {
+        customer: { ...customer, ...stats },
+        vehicles,
+        history,
+        payments,
+      },
     })
   } catch (e) {
     console.error("[GET /api/crm/customers/:id]", e)
@@ -104,16 +159,32 @@ export async function PATCH(
       }
     }
 
-    const [vehicles, history] = await Promise.all([
+    const [vehicles, history, payments] = await Promise.all([
       listCustomerVehiclesForCustomer(userId, customer.id),
       listCrmServiceHistoryForCustomer({
         userId,
         customerId: customer.id,
         phoneE164: customer.phone_e164,
       }),
+      listOwnerCollectedTransactionsForPhone(userId, customer.phone_e164, 50),
     ])
 
-    return NextResponse.json({ data: { customer, vehicles, history } })
+    const paidCents = sumCompletedCollectedCents(payments)
+    const stats = await enrichCustomerForProfile(
+      userId,
+      customer.id,
+      customer.phone_e164,
+      paidCents
+    )
+
+    return NextResponse.json({
+      data: {
+        customer: { ...customer, ...stats },
+        vehicles,
+        history,
+        payments,
+      },
+    })
   } catch (e) {
     console.error("[PATCH /api/crm/customers/:id]", e)
     return NextResponse.json({ error: "Failed to save profile" }, { status: 500 })
