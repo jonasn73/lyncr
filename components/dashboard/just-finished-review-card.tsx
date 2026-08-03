@@ -311,7 +311,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   return (
     <>
       {items.length > 0 ? (
-        <div className="w-full text-left" aria-label="Alerts">
+        // mt-3 only when Alerts actually paint — keeps Primary→Available gap honest when empty.
+        <div className="mt-3 w-full text-left" aria-label="Alerts">
           {/* Tiny header only — alert cards carry the meaning. */}
           <div className="mb-2 flex items-center gap-2 px-0.5">
             <p

@@ -766,10 +766,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         </div>
       )}
 
-      {/* Alerts — hide empty wrapper so Primary isn’t stuck to Available; mt-3 only when alerts show. */}
-      <div className="mt-3 [&:empty]:hidden">
-        <JustFinishedReviewCard compact />
-      </div>
+      {/*
+        Alerts — component returns null when empty (no spacer div).
+        Do NOT wrap with always-on mt-3: an empty/hidden wrapper sat in the box model and
+        made Primary · Who answers look glued to Available below this section.
+        When alerts render, the card adds its own top margin (see JustFinishedReviewCard).
+      */}
+      <JustFinishedReviewCard compact />
     </section>
   )
 })

@@ -223,7 +223,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
               className="lg:sticky lg:top-4"
               onConfigureRouting={() => setWhoAnswersOpen(true)}
             />
-            {/* flex + gap (not space-y) so Primary / Alerts and Available never collapse together */}
+            {/* Main column: setup / telemetry / (Who answers + Available stack). */}
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-4">
               {quickSetupDecided && !isSetupComplete ? (
                 <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
@@ -325,36 +325,44 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                 uniqueMissedLeadsReady={missedLeadInsights.ready}
               />
 
-              <DashboardCallFlow
-                businessNumbers={businessNumbers}
-                routingBusinessNumber={routingBusinessNumber}
-                setRoutingBusinessNumber={setRoutingBusinessNumber}
-                quickSetupDecided={quickSetupDecided}
-                callFlowUiReady={callFlowUiReady}
-                routingLineDetailLoading={routingLineDetailLoading}
-                isRoutingToOwner={isRoutingToOwner}
-                selectedReceptionist={selectedReceptionist}
-                ownerPhoneDisplay={ownerPhoneDisplay}
-                ringTimeoutSec={ringTimeoutSec}
-                activeFallbackLabel={activeFallbackLabel}
-                autopilotMode={autopilotMode}
-                routingStrategy={routingStrategy}
-                allowLyncrNetworkFallback={allowLyncrNetworkFallback}
-                onConfigureStrategy={onConfigureStrategy}
-                setDashboardStoryKey={setDashboardStoryKey}
-                setWhoAnswersOpen={setWhoAnswersOpen}
-                setRingBackupOpen={setRingBackupOpen}
-                setShowFallbackSettings={setShowFallbackSettings}
-                adminRoutingOverridePhone={adminRoutingOverridePhone}
-              />
-
-              {/* Available + Caller ID — gap-3 from parent separates this from Primary · Who answers. */}
-              <div className="flex flex-col gap-3 pb-2">
-                <PresenceStatusBar />
-                <CallerIdUtilitiesCard
-                  organizationId={activeOrganizationId}
-                  onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
+              {/*
+                Who answers + Available must be direct flex siblings with gap-4 (~16px).
+                Parent gap alone was easy to miss: CallFlow’s empty Alerts wrapper (mt-3 +
+                :empty hide) sat between the cards in the box model, so Primary and Available
+                looked flush. This inner column owns only that pair — no min-height / pb-24.
+              */}
+              <div className="flex flex-col gap-4">
+                <DashboardCallFlow
+                  businessNumbers={businessNumbers}
+                  routingBusinessNumber={routingBusinessNumber}
+                  setRoutingBusinessNumber={setRoutingBusinessNumber}
+                  quickSetupDecided={quickSetupDecided}
+                  callFlowUiReady={callFlowUiReady}
+                  routingLineDetailLoading={routingLineDetailLoading}
+                  isRoutingToOwner={isRoutingToOwner}
+                  selectedReceptionist={selectedReceptionist}
+                  ownerPhoneDisplay={ownerPhoneDisplay}
+                  ringTimeoutSec={ringTimeoutSec}
+                  activeFallbackLabel={activeFallbackLabel}
+                  autopilotMode={autopilotMode}
+                  routingStrategy={routingStrategy}
+                  allowLyncrNetworkFallback={allowLyncrNetworkFallback}
+                  onConfigureStrategy={onConfigureStrategy}
+                  setDashboardStoryKey={setDashboardStoryKey}
+                  setWhoAnswersOpen={setWhoAnswersOpen}
+                  setRingBackupOpen={setRingBackupOpen}
+                  setShowFallbackSettings={setShowFallbackSettings}
+                  adminRoutingOverridePhone={adminRoutingOverridePhone}
                 />
+
+                {/* Available + Caller ID — sibling of CallFlow; gap-4 above is the visible space. */}
+                <div className="flex flex-col gap-3 pb-2">
+                  <PresenceStatusBar />
+                  <CallerIdUtilitiesCard
+                    organizationId={activeOrganizationId}
+                    onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
+                  />
+                </div>
               </div>
             </div>
           </div>
