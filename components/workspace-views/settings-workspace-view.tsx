@@ -8,6 +8,7 @@ import {
   Banknote,
   Loader2,
   LogOut,
+  MessageSquare,
   MessageSquareText,
   Network,
   Package,
@@ -172,6 +173,16 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             title="Call routing"
             subtitle="Who answers — team, pool, or hybrid"
             onClick={modals.openRoutingStrategy}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<MessageSquare className="h-5 w-5 text-sky-300" aria-hidden />}
+            title="Messages"
+            subtitle="SMS inbox — read and reply to customer texts"
+            onClick={() => {
+              closeHeaderSettings()
+              router.push("/dashboard/messages")
+            }}
           />
           <SettingsMenuRow
             grouped

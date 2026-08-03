@@ -1,11 +1,12 @@
 "use client"
 
-// Lines “Latest” card — unreplied inbound, customer payments, jobs needing review SMS.
+// Lines Alerts — unreplied inbound, customer payments, jobs needing review SMS.
+// Hidden when empty; opening an alert clears it from the list (except job_finished).
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
-import { ClipboardList, CheckCircle2, ChevronRight, Eye, Loader2, MessageSquare, Settings2, Star } from "lucide-react"
+import { ClipboardList, CheckCircle2, ChevronRight, Eye, Loader2, MessageSquare, Star } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   Sheet,
@@ -26,12 +27,8 @@ import {
   markLatestAttentionOpened,
   markLatestReplySeen,
 } from "@/lib/latest-seen"
-import {
-  LINES_MOBILE_CARD,
-  LINES_MOBILE_SECTION_LABEL,
-} from "@/lib/mobile-shell"
+import { LINES_MOBILE_SECTION_LABEL } from "@/lib/mobile-shell"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
-import { openSmsAutomationModal } from "@/lib/settings-modals-events"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
@@ -101,7 +98,6 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     void seenTick
     return excludeReadRepliesFromLatest(rawItems)
   }, [rawItems, seenTick])
-  const unrepliedCount = items.filter((i) => i.event === "replied").length
 
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   // Skip no-op setState so list refreshes cannot churn the Sheet open state (#185).
@@ -308,219 +304,189 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     }
   }, [])
 
+  // Empty → hide the whole Alerts block (no empty “Recent activity” chrome).
+  // Keep the detail sheet if they just opened the last remaining alert.
+  if (items.length === 0 && !selected) return null
+
   return (
     <>
-      <div
-        className={cn(
-          "w-full text-left",
-          compact ? cn(LINES_MOBILE_CARD, "px-3 py-3") : "rounded-2xl border border-border/70 bg-card/80 p-4 sm:p-5"
-        )}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p
-                className={
-                  compact
-                    ? LINES_MOBILE_SECTION_LABEL
-                    : "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
-                }
-              >
-                Latest
-              </p>
-              {/* Unreplied inbound count — hot inbox only. */}
-              {unrepliedCount > 0 ? (
-                <span
-                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500/25 px-1.5 text-[10px] font-bold tabular-nums text-sky-100 ring-1 ring-sky-400/40"
-                  aria-label={`${unrepliedCount} unreplied`}
-                >
-                  {unrepliedCount}
-                </span>
-              ) : null}
-            </div>
-            <p className={cn("font-semibold text-foreground", compact ? "text-sm" : "mt-0.5 text-base")}>
-              Recent activity
+      {items.length > 0 ? (
+        <div className="w-full text-left" aria-label="Alerts">
+          {/* Tiny header only — alert cards carry the meaning. */}
+          <div className="mb-2 flex items-center gap-2 px-0.5">
+            <p
+              className={
+                compact
+                  ? LINES_MOBILE_SECTION_LABEL
+                  : "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              }
+            >
+              Alerts
             </p>
-            <p className={cn("text-zinc-500", compact ? "text-xs leading-snug" : "mt-1 text-sm")}>
-              Replies, book forms, payments, and finished jobs that still need a review text.
-            </p>
+            <span
+              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500/25 px-1.5 text-[10px] font-bold tabular-nums text-orange-100 ring-1 ring-orange-400/40"
+              aria-label={`${items.length} alert${items.length === 1 ? "" : "s"}`}
+            >
+              {items.length}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => openSmsAutomationModal()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:bg-muted/40 hover:text-foreground"
-            aria-label="Edit SMS templates"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            Texts
-          </button>
-        </div>
 
-        {/* Show empty or cached rows immediately — never flash a Loading spinner on refresh. */}
-        <div className="mt-3 min-h-[3.5rem]">
-          {items.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
-              Nothing hot right now. Customer replies, book forms, payments, and finished jobs that
-              need a review text show up here.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {items.map((item) => {
-                const isJob = item.event === "job_finished"
-                const isPaid = item.event === "customer_paid"
-                const isBook = item.event === "book_form"
-                // Replies in this list are unread by definition (read ones were filtered out).
-                const unread = item.event === "replied"
-                return (
-                  <li key={item.id}>
-                    <div
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                        isPaid
-                          ? "border-emerald-500/40 bg-emerald-500/10"
-                          : isBook
-                            ? "border-orange-500/45 bg-orange-500/10"
-                            : isJob
-                              ? "border-amber-500/40 bg-amber-500/10"
-                              : unread
-                                ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                                : "border-sky-500/25 bg-sky-500/5"
-                      )}
+          <ul className="space-y-2">
+            {items.map((item) => {
+              const isJob = item.event === "job_finished"
+              const isPaid = item.event === "customer_paid"
+              const isBook = item.event === "book_form"
+              // Replies in this list are unread by definition (read ones were filtered out).
+              const unread = item.event === "replied"
+              return (
+                <li key={item.id}>
+                  <div
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                      isPaid
+                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        : isBook
+                          ? "border-orange-500/45 bg-orange-500/10"
+                          : isJob
+                            ? "border-amber-500/40 bg-amber-500/10"
+                            : unread
+                              ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
+                              : "border-sky-500/25 bg-sky-500/5"
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Opening counts as read → leaves Latest (except job_finished).
+                        openDetail(item)
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
+                      {item.event === "replied" ? (
+                        <span
+                          className={cn(
+                            "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
+                            unread ? "bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-sky-500/35"
+                          )}
+                          aria-hidden
+                        />
+                      ) : isPaid ? (
+                        <span
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
+                          aria-hidden
+                        />
+                      ) : isBook ? (
+                        <span
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-orange-400"
+                          aria-hidden
+                        />
+                      ) : (
+                        <span
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+                          aria-hidden
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {item.headline}
+                          </p>
+                          <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                            {formatTimeAgo(item.at)}
+                          </span>
+                        </div>
+                        <p
+                          className={cn(
+                            "mt-0.5 truncate text-xs font-semibold",
+                            isPaid
+                              ? "text-emerald-200"
+                              : isBook
+                                ? "text-orange-200"
+                                : isJob
+                                  ? "text-amber-200"
+                                  : unread
+                                    ? "text-sky-200"
+                                    : "text-sky-300/80"
+                          )}
+                        >
+                          {item.statusLine}
+                        </p>
+                        {item.preview ? (
+                          <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+                        ) : null}
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                    </button>
+                    {item.event === "replied" && item.customerPhone ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          // Paid / reply / job / book rows all open the detail sheet.
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openInMessages(item.customerPhone)
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-bold text-sky-100 hover:bg-sky-500/25"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Reply
+                      </button>
+                    ) : null}
+                    {isBook ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openBookIntake(item)
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
+                      >
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        Intake
+                      </button>
+                    ) : null}
+                    {isPaid ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Payment already received — open read-only detail, not Collect.
                           openDetail(item)
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/25"
                       >
-                        {item.event === "replied" ? (
-                          <span
-                            className={cn(
-                              "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
-                              unread ? "bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-sky-500/35"
-                            )}
-                            aria-hidden
-                          />
-                        ) : isPaid ? (
-                          <span
-                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
-                            aria-hidden
-                          />
-                        ) : isBook ? (
-                          <span
-                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-orange-400"
-                            aria-hidden
-                          />
-                        ) : (
-                          <span
-                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
-                            aria-hidden
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {item.headline}
-                            </p>
-                            <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
-                              {formatTimeAgo(item.at)}
-                            </span>
-                          </div>
-                          <p
-                            className={cn(
-                              "mt-0.5 truncate text-xs font-semibold",
-                              isPaid
-                                ? "text-emerald-200"
-                                : isBook
-                                  ? "text-orange-200"
-                                  : isJob
-                                    ? "text-amber-200"
-                                    : unread
-                                      ? "text-sky-200"
-                                      : "text-sky-300/80"
-                            )}
-                          >
-                            {item.statusLine}
-                          </p>
-                          {item.preview ? (
-                            <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
-                          ) : null}
-                        </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                        <Eye className="h-3.5 w-3.5" />
+                        View
                       </button>
-                      {item.event === "replied" && item.customerPhone ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openInMessages(item.customerPhone)
-                          }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-bold text-sky-100 hover:bg-sky-500/25"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          Reply
-                        </button>
-                      ) : null}
-                      {isBook ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openBookIntake(item)
-                          }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
-                        >
-                          <ClipboardList className="h-3.5 w-3.5" />
-                          Intake
-                        </button>
-                      ) : null}
-                      {isPaid ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // Payment already received — open read-only detail, not Collect.
-                            openDetail(item)
-                          }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/25"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </button>
-                      ) : null}
-                      {isJob && item.completedJobId ? (
-                        <button
-                          type="button"
-                          disabled={busyJobId === item.completedJobId}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void sendThanksReview(item.completedJobId!)
-                          }}
-                          className={cn(
-                            "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50",
-                            failedReviewJobIds.has(item.completedJobId)
-                              ? "bg-rose-500/90 text-white hover:bg-rose-400"
-                              : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
-                          )}
-                        >
-                          {busyJobId === item.completedJobId ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Star className="h-3.5 w-3.5" />
-                          )}
-                          {failedReviewJobIds.has(item.completedJobId) ? "Retry" : "Send"}
-                        </button>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                    ) : null}
+                    {isJob && item.completedJobId ? (
+                      <button
+                        type="button"
+                        disabled={busyJobId === item.completedJobId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void sendThanksReview(item.completedJobId!)
+                        }}
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50",
+                          failedReviewJobIds.has(item.completedJobId)
+                            ? "bg-rose-500/90 text-white hover:bg-rose-400"
+                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                        )}
+                      >
+                        {busyJobId === item.completedJobId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Star className="h-3.5 w-3.5" />
+                        )}
+                        {failedReviewJobIds.has(item.completedJobId) ? "Retry" : "Send"}
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
-      </div>
+      ) : null}
 
       {/* Mount Sheet only while open — always-mounted Radix Sheet+Close button
           contributed to update-depth crashes when Latest refreshed (#185). */}
