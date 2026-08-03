@@ -1070,121 +1070,110 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           </div>
         ) : null}
 
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Vehicle garage
-            </h3>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1 text-xs"
-              onClick={() => setAddingVehicle((v) => !v)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add vehicle
-            </Button>
-          </div>
-          {addingVehicle ? (
-            <div className="mb-3 grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-2">
-              {(
-                [
-                  ["year", "Year"],
-                  ["make", "Make"],
-                  ["model", "Model"],
-                  ["vin", "VIN"],
-                  ["fcc_id", "FCC ID"],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="block text-[11px] text-zinc-500">
-                  {label}
-                  <Input
-                    value={vehicleForm[key]}
-                    onChange={(e) =>
-                      setVehicleForm((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    className="mt-1 h-9 border-zinc-800 bg-zinc-950"
-                  />
-                </label>
-              ))}
-              <div className="flex gap-2 sm:col-span-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={vehicleBusy}
-                  onClick={() => void addVehicle()}
-                >
-                  {vehicleBusy ? "Saving…" : "Save vehicle"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setAddingVehicle(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
+        {/* Only show vehicle block when there is at least one saved vehicle (or the add form is open). */}
+        {vehicles.length > 0 || addingVehicle ? (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Vehicle information
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+                onClick={() => setAddingVehicle((v) => !v)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add vehicle
+              </Button>
             </div>
-          ) : null}
-          {vehicles.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              No vehicles yet. Add one, or save YMM from intake (after migration 120).
-            </p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {vehicles.map((v) => (
-                <li
-                  key={v.id}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
-                >
-                  <div className="flex items-start gap-2">
-                    <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-100">
-                        {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
-                      </p>
-                      {v.vin ? (
-                        <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
-                      ) : null}
-                      {v.fcc_id ? (
-                        <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
-                      ) : null}
+            {addingVehicle ? (
+              <div className="mb-3 grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["year", "Year"],
+                    ["make", "Make"],
+                    ["model", "Model"],
+                    ["vin", "VIN"],
+                    ["fcc_id", "FCC ID"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block text-[11px] text-zinc-500">
+                    {label}
+                    <Input
+                      value={vehicleForm[key]}
+                      onChange={(e) =>
+                        setVehicleForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="mt-1 h-9 border-zinc-800 bg-zinc-950"
+                    />
+                  </label>
+                ))}
+                <div className="flex gap-2 sm:col-span-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={vehicleBusy}
+                    onClick={() => void addVehicle()}
+                  >
+                    {vehicleBusy ? "Saving…" : "Save vehicle"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAddingVehicle(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {vehicles.length > 0 ? (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {vehicles.map((v) => (
+                  <li
+                    key={v.id}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                  >
+                    <div className="flex items-start gap-2">
+                      <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-100">
+                          {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
+                        </p>
+                        {v.vin ? (
+                          <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
+                        ) : null}
+                        {v.fcc_id ? (
+                          <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Payments
-            </h3>
-            <button
-              type="button"
-              onClick={openCollectForCustomer}
-              className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {isFullyPaidCustomer ? "Charge again" : "New charge"}
-            </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
-          {payments.length === 0 && (selected?.lifetime_revenue_cents ?? 0) <= 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              No card or cash charges linked to this phone yet. Use Collect to charge them — it will
-              show up here.
-            </p>
-          ) : payments.length === 0 ? (
-            // LTV already shows paid money — never claim “no charges” while that is true.
-            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              Paid walk-up charges count toward LTV above. Open Collect → History if a receipt is
-              needed while this list refreshes.
-            </p>
-          ) : (
+        ) : null}
+
+        {/* Hide Payments entirely when this phone has no linked charges yet. */}
+        {payments.length > 0 ? (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Payments
+              </h3>
+              <button
+                type="button"
+                onClick={openCollectForCustomer}
+                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {isFullyPaidCustomer ? "Charge again" : "New charge"}
+              </button>
+            </div>
             <ul className="space-y-2">
               {payments.map((tx) => {
                 const amountCents = Math.round(tx.amount * 100)
@@ -1236,22 +1225,17 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 )
               })}
             </ul>
-          )}
 
-          {/* Invoice form lives in a Sheet popup below — keeps the profile short. */}
-        </div>
+            {/* Invoice form lives in a Sheet popup below — keeps the profile short. */}
+          </div>
+        ) : null}
 
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Service history &amp; quotes
-          </h3>
-          {displayHistory.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              {payments.length > 0 || (selected?.lifetime_revenue_cents ?? 0) > 0
-                ? "No scheduled jobs yet. Paid walk-ups still show under Payments (and count toward LTV)."
-                : "No jobs or leads for this phone yet."}
-            </p>
-          ) : (
+        {/* Only show Service history when this customer has leads/jobs to list. */}
+        {displayHistory.length > 0 ? (
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Service history &amp; quotes
+            </h3>
             <ol className="space-y-2">
               {displayHistory.map((item) => (
                 <li
@@ -1415,8 +1399,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 </li>
               ))}
             </ol>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     )
 
