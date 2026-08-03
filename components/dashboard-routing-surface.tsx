@@ -14,7 +14,6 @@ import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
-import { MissedLeadRecoveryBanner } from "@/components/dashboard/missed-lead-recovery-banner"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
@@ -212,11 +211,6 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-24 md:pb-8">
         <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
-          <MissedLeadRecoveryBanner
-            prospects={missedLeadInsights.recentUnreturned}
-            onIntercepted={missedLeadInsights.markIntercepted}
-            className="mb-3 sm:mb-4"
-          />
           <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
               activeLineDisplay={activeLineDisplay}
