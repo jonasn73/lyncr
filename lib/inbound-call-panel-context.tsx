@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react"
 import type { ActiveCallRow, ManualCallStatus } from "@/lib/hooks/use-active-call-form"
+import type { CallbackContinueStep } from "@/lib/callback-intake-chooser"
 
 /** Optional seed values when opening the sheet from dispatch operations. */
 export type OpenManualCallPanelInput = {
@@ -40,8 +41,8 @@ export type OpenManualCallPanelInput = {
    * Aligns with callback chooser “Continue open quote”.
    */
   continueOpenQuote?: boolean
-  /** Precomputed Continue-quote step (SERVICE_SELECT | VEHICLE_INFO | ADDRESS_CONTACT | SCHEDULE_TIME). */
-  intakeStartStep?: "SERVICE_SELECT" | "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
+  /** Precomputed Continue-quote step (may include CUSTOMER_NAME when schedule is filled). */
+  intakeStartStep?: CallbackContinueStep
 }
 
 type InboundCallPanelContextValue = {

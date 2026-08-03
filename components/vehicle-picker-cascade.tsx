@@ -387,7 +387,7 @@ function VehiclePickerSequential({
                   {emptyFilterMessage}
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {filteredOptions.map((option) => {
                     const selected = selectedValue === option
                     return (

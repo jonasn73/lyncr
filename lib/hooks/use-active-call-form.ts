@@ -22,7 +22,7 @@ import {
 } from "@/lib/service-quote-calculator"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { DEFAULT_SERVICE_RATE_CARD } from "@/lib/service-rate-card"
-import { serviceQuoteTypeIdFromCrmHistory } from "@/lib/callback-intake-chooser"
+import { serviceQuoteTypeIdFromCrmHistory, type CallbackContinueStep } from "@/lib/callback-intake-chooser"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
 import { revalidateSchedulerJobPoolCaches } from "@/lib/hooks/use-job-pool-query"
@@ -85,7 +85,7 @@ export type ActiveCallRow = {
   /** When true, CallAnsweredModal auto-runs Continue open quote (skip Service). */
   continueOpenQuote?: boolean
   /** Landing step after Continue-quote auto-start. */
-  intakeStartStep?: "SERVICE_SELECT" | "VEHICLE_INFO" | "ADDRESS_CONTACT" | "SCHEDULE_TIME"
+  intakeStartStep?: CallbackContinueStep
 }
 
 export type ActiveCallFormState = {

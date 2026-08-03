@@ -68,10 +68,11 @@ export type CallbackContinueStep =
   | "VEHICLE_INFO"
   | "ADDRESS_CONTACT"
   | "SCHEDULE_TIME"
+  | "CUSTOMER_NAME"
 
 /**
- * After Continue open quote: skip Service when type is known; otherwise land on Service.
- * Then Vehicle confirm when YMM missing; Address when location missing; else Schedule.
+ * After Continue open quote: skip filled steps; land on the first incomplete one.
+ * Service → Vehicle (YMM) → Address → Schedule → Customer (outcomes / book).
  */
 export function continueOpenQuoteStep(params: {
   serviceTypeId: ServiceQuoteTypeId | ""
@@ -79,6 +80,9 @@ export function continueOpenQuoteStep(params: {
   vehicleMake: string
   vehicleModel: string
   addressReady: boolean
+  /** When both set, Schedule is considered done — jump to Customer. */
+  scheduledDate?: string
+  scheduledTime?: string
 }): CallbackContinueStep {
   const serviceId = (params.serviceTypeId || "") as ServiceQuoteTypeId | ""
   // Unknown type — show Service wizard (decision card already dismissed).
@@ -95,7 +99,12 @@ export function continueOpenQuoteStep(params: {
     return "VEHICLE_INFO"
   }
   if (!params.addressReady) return "ADDRESS_CONTACT"
-  return "SCHEDULE_TIME"
+  const scheduleReady = Boolean(
+    String(params.scheduledDate ?? "").trim() && String(params.scheduledTime ?? "").trim()
+  )
+  // Date + time already on the ticket / draft — skip Schedule, go book / outcomes.
+  if (!scheduleReady) return "SCHEDULE_TIME"
+  return "CUSTOMER_NAME"
 }
 
 /** Draft / wizard step order — higher means further along the intake path. */
@@ -170,7 +179,8 @@ export function resolveRestoredDraftServiceTypeId(params: {
 /**
  * After Restore draft: land on first incomplete step (Continue-quote spirit).
  * Prefer the later of saved vs computed incomplete so mid-flow drafts are not yanked backward.
- * Mid key/name steps Continue does not model stay put when service is known.
+ * Mid key/name steps Continue does not model stay put when service is known —
+ * unless computed incomplete is further ahead (e.g. schedule already filled → Customer).
  */
 export function resumeDraftIntakeStep(params: {
   serviceTypeId: ServiceQuoteTypeId | ""
@@ -179,6 +189,8 @@ export function resumeDraftIntakeStep(params: {
   vehicleModel: string
   addressReady: boolean
   savedStep: string | null | undefined
+  scheduledDate?: string
+  scheduledTime?: string
 }): DraftResumeStep {
   const incomplete = continueOpenQuoteStep({
     serviceTypeId: params.serviceTypeId,
@@ -186,30 +198,35 @@ export function resumeDraftIntakeStep(params: {
     vehicleMake: params.vehicleMake,
     vehicleModel: params.vehicleModel,
     addressReady: params.addressReady,
+    scheduledDate: params.scheduledDate,
+    scheduledTime: params.scheduledTime,
   })
   const rawSaved = String(params.savedStep ?? "SERVICE_SELECT").trim() || "SERVICE_SELECT"
   const saved = rawSaved === "FINAL_DISPATCH" ? "SCHEDULE_TIME" : rawSaved
   if (saved === "BOOKING_COMPLETE") return incomplete
 
-  // Mid key / name steps Continue does not model — keep when service is known.
+  const savedOrder = DRAFT_RESUME_STEP_ORDER[saved] ?? 0
+  const incompleteOrder = DRAFT_RESUME_STEP_ORDER[incomplete] ?? 0
+
+  // Mid key / name steps — keep when service is known, unless incomplete is further ahead.
   if (
     (saved === "JOB_TYPE" || saved === "KEY_SPECIFICS" || saved === "CUSTOMER_NAME") &&
     params.serviceTypeId
   ) {
+    if (incompleteOrder > savedOrder) return incomplete
     return saved
   }
 
-  const savedOrder = DRAFT_RESUME_STEP_ORDER[saved] ?? 0
-  const incompleteOrder = DRAFT_RESUME_STEP_ORDER[incomplete] ?? 0
   // Prefer later of saved vs incomplete so mid-flow Address/Schedule is not yanked back.
   if (
     savedOrder > incompleteOrder &&
     (saved === "SERVICE_SELECT" ||
       saved === "VEHICLE_INFO" ||
       saved === "ADDRESS_CONTACT" ||
-      saved === "SCHEDULE_TIME")
+      saved === "SCHEDULE_TIME" ||
+      saved === "CUSTOMER_NAME")
   ) {
-    return saved
+    return saved as DraftResumeStep
   }
   return incomplete
 }

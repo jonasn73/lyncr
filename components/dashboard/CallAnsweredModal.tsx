@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { Loader2, ChevronDown, MapPin, Phone } from "lucide-react"
 import { VehiclePickerCascade } from "@/components/vehicle-picker-cascade"
-import { VehicleFastLookupField } from "@/components/vehicle-fast-lookup-field"
 import { JobAddressAutocomplete, type JobAddressAutocompleteHandle } from "@/components/job-address-autocomplete"
 import { VehicleIntakeClarificationsPanel } from "@/components/vehicle-intake-clarifications-panel"
 import { VehicleKeyInfoPanel, type VehicleKeySelection, type PreloadedVehicleKeyBundle } from "@/components/vehicle-key-info-panel"
@@ -33,11 +32,7 @@ import {
   SecondaryCallInterceptBanner,
   type SecondaryIncomingLeg,
 } from "@/components/dashboard/secondary-call-intercept-banner"
-import { PriceNegotiationHelperPanel } from "@/components/price-negotiation-helper-panel"
-import {
-  FAILURE_REASON_NEUTRAL,
-  PriceShopperRecoveryPanel,
-} from "@/components/dashboard/price-shopper-recovery-panel"
+import { FAILURE_REASON_NEUTRAL } from "@/components/dashboard/price-shopper-recovery-panel"
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -74,7 +69,6 @@ import {
   type ServiceQuoteTypeId,
 } from "@/lib/service-quote-calculator"
 import type { NegotiationDiscountId } from "@/lib/price-negotiation"
-import { parseQuoteDollars, recoveryStepPrices } from "@/lib/price-negotiation"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import {
   LYNCR_FOCUS_INTAKE_EVENT,
@@ -1052,7 +1046,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     travelDistanceMiles,
     dispatcherLocation,
     setVehicle,
-    applyPlateLookupResult,
     applyVehicleClarification,
     applyFccAutoResolved,
     setVehicleKeySelection,
@@ -1138,18 +1131,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const [negotiationDiscountApplied, setNegotiationDiscountApplied] =
     useState<NegotiationDiscountId | null>(null)
   const [negotiationDiscountsTried, setNegotiationDiscountsTried] = useState<NegotiationDiscountId[]>([])
-
-  const currentPriceVar = useMemo(() => {
-    const parsed = Number.parseFloat(customPrice.trim())
-    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed)
-    if (autoTotalDollars > 0) return autoTotalDollars
-    return 120
-  }, [customPrice, autoTotalDollars])
-
-  const { step1Price, step2Price, step3Price } = useMemo(
-    () => recoveryStepPrices(currentPriceVar),
-    [currentPriceVar]
-  )
 
   useEffect(() => {
     setNegotiationDiscountApplied(null)
@@ -1341,6 +1322,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       vehicleModel: model,
       addressReady: addressReadyNow,
       savedStep: pendingDraft.currentStep,
+      scheduledDate: draftForm.scheduledDate || form.scheduledDate,
+      scheduledTime: draftForm.scheduledTime || form.scheduledTime,
     })
     setCurrentStep(next as WorkflowStep)
     setCustomPrice(pendingDraft.customPrice)
@@ -1371,6 +1354,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     form.postalCode,
     form.region,
     form.serviceAddress,
+    form.scheduledDate,
+    form.scheduledTime,
     garageVehicles,
     pendingDraft,
     activeDraftPhone,
@@ -1543,18 +1528,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return null
   }, [customPrice, form.quotedPriceCents, liveQuote.totalCents])
 
-  const handleNegotiationApply = useCallback(
-    (dollars: number, discountId: NegotiationDiscountId) => {
-      setCustomPrice(String(dollars))
-      setQuotedPriceDollars(dollars)
-      setNegotiationDiscountApplied(discountId)
-      setNegotiationDiscountsTried((prev) =>
-        prev.includes(discountId) ? prev : [...prev, discountId]
-      )
-    },
-    [setQuotedPriceDollars]
-  )
-
   const handleQuoteEstimateChange = useCallback(
     (totalCents: number, overridden: boolean) => {
       const dollars = Math.round(totalCents / 100)
@@ -1581,47 +1554,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     },
     [setQuotedPriceDollars]
   )
-
-  const applyRecoveryOffer = useCallback(
-    (params: {
-      dollars: number
-      discountId: NegotiationDiscountId
-      markRouteRecovery?: boolean
-    }) => {
-      setCustomPrice(String(params.dollars))
-      setQuotedPriceDollars(params.dollars)
-      setNegotiationDiscountApplied(params.discountId)
-      setNegotiationDiscountsTried((prev) =>
-        prev.includes(params.discountId) ? prev : [...prev, params.discountId]
-      )
-      if (params.markRouteRecovery) setRecoveredViaRouteDiscount(true)
-      setFailureReason(FAILURE_REASON_NEUTRAL)
-      setHighlightConfirmBook(true)
-    },
-    [setQuotedPriceDollars]
-  )
-
-  const handleApplyRouteMatchDiscount = useCallback(() => {
-    applyRecoveryOffer({
-      dollars: step1Price,
-      discountId: "route_optimization",
-      markRouteRecovery: true,
-    })
-  }, [applyRecoveryOffer, step1Price])
-
-  const handleApplyAftermarketRecovery = useCallback(() => {
-    applyRecoveryOffer({
-      dollars: step2Price,
-      discountId: "aftermarket_key_swap",
-    })
-  }, [applyRecoveryOffer, step2Price])
-
-  const handleApplyManagementFloor = useCallback(() => {
-    applyRecoveryOffer({
-      dollars: step3Price,
-      discountId: "first_time_callback",
-    })
-  }, [applyRecoveryOffer, step3Price])
 
   const jobCreateExtras = useCallback(
     (quotedPriceCents: number) => {
@@ -2507,60 +2439,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     toast,
   ])
 
-  const logLostLead = useCallback(async () => {
-    if (!effectiveCurrent || !ownerUserId) return
-    setLostLeadState("saving")
-    setLostLeadError(null)
-    try {
-      const quotedPriceCents = resolveLostLeadQuoteCents()
-      const res = await fetch("/api/leads/lost", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // Bind lost-lead to the real call log when Activities reopened intake (sourceCallLogId).
-          call_log_id:
-            effectiveCurrent.sourceCallLogId?.trim() ||
-            (effectiveCurrent.isManual ? null : effectiveCurrent.id),
-          phone_number: form.phoneNumber.trim() || effectiveCurrent.from_number,
-          last_quoted_price_cents: quotedPriceCents,
-          baseline_quote_cents: liveQuote.totalCents > 0 ? liveQuote.totalCents : null,
-          discount_applied: negotiationDiscountApplied,
-          negotiation_discounts_tried: negotiationDiscountsTried,
-          failure_reason: failureReason,
-          vehicle_year: form.vehicleYear,
-          vehicle_make: form.vehicleMake,
-          vehicle_model: form.vehicleModel,
-          service_type: liveQuote.dispatchJobTypeLabel,
-          organization_id: activeOrganizationId,
-        }),
-      })
-      const json = (await res.json()) as { error?: string }
-      if (!res.ok) throw new Error(json.error ?? "Could not log lost lead")
-      setLostLeadState("saved")
-      void revalidateSchedulerJobPoolCaches(activeOrganizationId)
-      window.setTimeout(() => dismissOnly(), 1200)
-    } catch (e) {
-      setLostLeadState("error")
-      setLostLeadError(e instanceof Error ? e.message : "Could not log lost lead")
-    }
-  }, [
-    activeOrganizationId,
-    dismissOnly,
-    effectiveCurrent,
-    resolveLostLeadQuoteCents,
-    failureReason,
-    form.phoneNumber,
-    form.vehicleMake,
-    form.vehicleModel,
-    form.vehicleYear,
-    liveQuote.dispatchJobTypeLabel,
-    liveQuote.totalCents,
-    negotiationDiscountApplied,
-    negotiationDiscountsTried,
-    ownerUserId,
-  ])
-
   const setManualCallStatus = useCallback(
     (status: ManualCallStatus) => {
       patchManualCallRow({
@@ -2881,21 +2759,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [form.serviceQuoteTypeId, setVehicle, vehicleLockoutIntake]
   )
 
-  const handlePlateLookupSuccess = useCallback(
-    (result: Parameters<typeof applyPlateLookupResult>[0] & {
-      keyBundle?: PreloadedVehicleKeyBundle | null
-    }) => {
-      applyPlateLookupResult(result)
-      if (result.keyBundle) setPreloadedKeyBundle(result.keyBundle)
-      else setPreloadedKeyBundle(null)
-      if (result.vehicle_model?.trim() || result.keyBundle?.model?.trim()) {
-        const activeType = (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId
-        setCurrentStep(nextStepAfterVehicleInfo(activeType, vehicleLockoutIntake))
-      }
-    },
-    [applyPlateLookupResult, form.serviceQuoteTypeId, vehicleLockoutIntake]
-  )
-
   const handleManualKeyVariantSelected = useCallback(
     (selection: VehicleKeySelection) => {
       setKeySkipArmed(false)
@@ -3139,10 +3002,65 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   }, [activeCallbackJobId, openActiveJobOnScheduler])
 
   const handleContinueOpenQuote = useCallback(() => {
+    // Snapshot same-phone draft before we clear the Restore chip / pending state.
+    const draft =
+      pendingDraft &&
+      activeDraftPhone &&
+      intakeDraftBelongsToPhone(pendingDraft, activeDraftPhone)
+        ? pendingDraft
+        : null
+    const draftForm = draft?.form
+
+    // Draft fills gaps CRM does not have yet (YMM, address, time, name).
+    const ymm = resolveOpenQuoteYmm({
+      lead: {
+        vehicle_year: draftForm?.vehicleYear || form.vehicleYear,
+        vehicle_make: draftForm?.vehicleMake || form.vehicleMake,
+        vehicle_model: draftForm?.vehicleModel || form.vehicleModel,
+      },
+      garage: garageVehicles[0] ?? null,
+    })
+    const mergedYear = form.vehicleYear.trim() || draftForm?.vehicleYear?.trim() || ymm.year
+    const mergedMake = form.vehicleMake.trim() || draftForm?.vehicleMake?.trim() || ymm.make
+    const mergedModel = form.vehicleModel.trim() || draftForm?.vehicleModel?.trim() || ymm.model
+    const mergedAddress1 = form.addressLine1.trim() || draftForm?.addressLine1?.trim() || ""
+    const mergedCity = form.city.trim() || draftForm?.city?.trim() || ""
+    const mergedDate = form.scheduledDate.trim() || draftForm?.scheduledDate?.trim() || ""
+    const mergedTime = form.scheduledTime.trim() || draftForm?.scheduledTime?.trim() || ""
+    const mergedAddressReady =
+      addressReady ||
+      isFlatAddressReadyForDispatch({
+        addressLine1: mergedAddress1,
+        city: mergedCity,
+      })
+
+    if (draftForm) {
+      skipNextDraftSaveRef.current = true
+      patchForm({
+        displayName: form.displayName.trim() || draftForm.displayName,
+        vehicleYear: mergedYear,
+        vehicleMake: mergedMake,
+        vehicleModel: mergedModel,
+        addressLine1: mergedAddress1,
+        addressLine2: form.addressLine2.trim() || draftForm.addressLine2,
+        city: mergedCity,
+        region: form.region.trim() || draftForm.region,
+        postalCode: form.postalCode.trim() || draftForm.postalCode,
+        serviceAddress: form.serviceAddress || draftForm.serviceAddress,
+        scheduledDate: mergedDate,
+        scheduledTime: mergedTime,
+        notes: form.notes.trim() || draftForm.notes,
+        jobType: form.jobType.trim() || draftForm.jobType,
+      })
+      if (draft.customPrice.trim() && !customPrice.trim()) {
+        setCustomPrice(draft.customPrice)
+      }
+    }
+
     applyOpenQuoteContinuePrefill()
     setCallbackChooserDismissed(true)
     setCallbackForceNewJob(false)
-    setContinuingDraft(false)
+    setContinuingDraft(Boolean(draft))
     // Hide Restore chip for this session so Continue quote isn't buried under it.
     if (activeDraftPhone) {
       dismissedDraftPhoneRef.current = normalizeIntakeDraftPhone(activeDraftPhone)
@@ -3155,21 +3073,18 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (serviceId && serviceId !== "lockout") {
       setVehicleLockoutIntake(false)
     }
-    // CRM Book may precompute the landing step; otherwise match chooser Continue logic.
+    // CRM Book may precompute the landing step; otherwise skip filled fields.
     const next =
       manualCallRow?.continueOpenQuote && manualCallRow.intakeStartStep
         ? manualCallRow.intakeStartStep
         : continueOpenQuoteStep({
             serviceTypeId: serviceId,
-            vehicleYear: form.vehicleYear,
-            vehicleMake: form.vehicleMake,
-            vehicleModel: form.vehicleModel,
-            addressReady:
-              addressReady ||
-              isFlatAddressReadyForDispatch({
-                addressLine1: form.addressLine1,
-                city: form.city,
-              }),
+            vehicleYear: mergedYear,
+            vehicleMake: mergedMake,
+            vehicleModel: mergedModel,
+            addressReady: mergedAddressReady,
+            scheduledDate: mergedDate,
+            scheduledTime: mergedTime,
           })
     setCurrentStep(next)
   }, [
@@ -3177,14 +3092,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     addressReady,
     applyOpenQuoteContinuePrefill,
     crmOpenLeadServiceTypeId,
+    customPrice,
     form.addressLine1,
+    form.addressLine2,
     form.city,
+    form.displayName,
+    form.jobType,
+    form.notes,
+    form.postalCode,
+    form.region,
+    form.scheduledDate,
+    form.scheduledTime,
+    form.serviceAddress,
     form.serviceQuoteTypeId,
     form.vehicleMake,
     form.vehicleModel,
     form.vehicleYear,
+    garageVehicles,
     manualCallRow?.continueOpenQuote,
     manualCallRow?.intakeStartStep,
+    patchForm,
+    pendingDraft,
   ])
 
   // CRM Book (thin quote) → auto Continue open quote once per handoff row.
@@ -3349,7 +3277,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           : callLinePhase === "ringing"
             ? "text-primary"
             : "text-muted-foreground"
-  const canLogLostLead = failureReason !== FAILURE_REASON_NEUTRAL
   const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
   const intakePhoneDisplay = formatPhoneDisplay(
     form.phoneNumber || effectiveCurrent?.from_number || ""
@@ -3731,24 +3658,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "VEHICLE_INFO" ? (
-                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
+                            <fieldset className={cn(WS_SECTION, "grid gap-2")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                                 Vehicle year · make · model
                               </legend>
-                              <VehicleFastLookupField
-                                plateNumber={form.plateNumber}
-                                plateState={form.plateState}
-                                vehicleVin={form.vehicleVin}
-                                onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
-                                onPlateStateChange={(plateState) => patchForm({ plateState })}
-                                onVinChange={(vehicleVin) => patchForm({ vehicleVin })}
-                                onPlateSuccess={handlePlateLookupSuccess}
-                                onVinSuccess={handleVehicleFromVin}
-                              />
                               <p className="text-[11px] text-muted-foreground">
                                 {vehicleLockoutIntake
-                                  ? "Optional but recommended — year / make / model help the tech on site. You can skip to location."
-                                  : "Simple year / make / model. Look the key up on your usual sites while they're on hold — not inside Lyncr. Next: address (especially for AKL before quoting)."}
+                                  ? "Optional — helps the tech. Skip if they are in a hurry."
+                                  : "Look the key up outside Lyncr while they hold."}
                               </p>
                               <VehiclePickerCascade
                                 variant="sequential"
@@ -3934,17 +3851,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {currentStep === "ADDRESS_CONTACT" ? (
                             <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                                Location &amp; address
+                                Location
                               </legend>
                               {requiresVehicle && serviceTypeId === "key_generation" ? (
-                                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-snug text-amber-100">
-                                  AKL: get the address (distance) before you quote.
+                                <p className="text-[11px] text-amber-200/90">
+                                  AKL: get the address before you quote.
                                 </p>
                               ) : null}
                               {requiresVehicle ? (
-                                <details className="rounded-lg border border-border/60 bg-card/30 px-3 py-2">
-                                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
-                                    I looked it up (optional notes)
+                                <details className="text-[11px] text-muted-foreground">
+                                  <summary className="cursor-pointer font-medium">
+                                    Key lookup notes (optional)
                                   </summary>
                                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                                     <Input
@@ -3989,7 +3906,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     ) : (
                                       <MapPin className="h-3.5 w-3.5" aria-hidden />
                                     )}
-                                    Request Live GPS
+                                    Live GPS
                                   </button>
                                 </div>
                                 {gpsRequestState === "sent" ? (
@@ -4010,33 +3927,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   seedQuery={addressSeedQuery}
                                   placeholder="Start typing street address…"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={viewOnMapLayout}
-                                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
-                                >
-                                  <MapPin className="h-3.5 w-3.5" aria-hidden />
-                                  View on Map Layout
-                                </button>
-                                <NearestTechDispatchBadge
-                                  jobLat={form.serviceAddress?.lat ?? null}
-                                  jobLng={form.serviceAddress?.lng ?? null}
-                                />
-                                <Button
-                                  type="button"
-                                  size="lg"
-                                  className={cn(
-                                    "mt-1 h-11 w-full font-semibold",
-                                    !canAdvanceToSchedule && "opacity-50"
-                                  )}
-                                  disabled={!canAdvanceToSchedule}
-                                  onClick={() => setCurrentStep("SCHEDULE_TIME")}
-                                >
-                                  {canAdvanceToSchedule
-                                    ? "Continue to Schedule →"
-                                    : "Enter a Service Address to Continue"}
-                                </Button>
-                                {/* Rare-use photos sit below the primary Continue CTA. */}
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  <button
+                                    type="button"
+                                    onClick={viewOnMapLayout}
+                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-300/90 underline-offset-2 hover:underline"
+                                  >
+                                    <MapPin className="h-3 w-3" aria-hidden />
+                                    View on map
+                                  </button>
+                                  <NearestTechDispatchBadge
+                                    jobLat={form.serviceAddress?.lat ?? null}
+                                    jobLng={form.serviceAddress?.lng ?? null}
+                                  />
+                                </div>
                                 <IntakeJobPhotosPanel
                                   compact
                                   callLogId={effectiveCurrent?.id ?? null}
@@ -4056,41 +3960,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "SCHEDULE_TIME" ? (
-                            <div className="flex flex-col justify-start gap-4">
-                              <div className={cn(WS_SECTION, "text-sm")}>
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                  Time block &amp; schedule
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
-                                    form.serviceAddress?.formatted ||
-                                    "Service address selected"}
-                                </p>
-                              </div>
-
-                              <ServiceQuoteCalculatorPanel
-                                quote={liveQuote}
-                                serviceTypeId={serviceTypeId}
-                                vehicleYear={form.vehicleYear}
-                                vehicleMake={form.vehicleMake}
-                                vehicleModel={form.vehicleModel}
-                                postalCode={form.postalCode || form.serviceAddress?.postal_code}
-                                onServiceTypeChange={handleManualServiceTypeChange}
-                                onEstimateChange={handleQuoteEstimateChange}
-                                onFlatPriceChange={handleFlatPriceChange}
-                                variant="breakdown-only"
-                              />
-
-                              <PriceNegotiationHelperPanel
-                                baselineCents={liveQuote.totalCents}
-                                currentPriceDollars={customPrice}
-                                onApplyPrice={handleNegotiationApply}
-                              />
-
+                            <div className={cn(WS_SECTION, "grid gap-3")}>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                Schedule
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                                  form.serviceAddress?.formatted ||
+                                  "Service address selected"}
+                              </p>
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
                                   <Label htmlFor="intake-scheduled-date" className="text-xs">
-                                    Appointment date <span className="text-primary">*</span>
+                                    Date <span className="text-primary">*</span>
                                   </Label>
                                   <Input
                                     id="intake-scheduled-date"
@@ -4102,7 +3984,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 </div>
                                 <div className="space-y-1.5">
                                   <Label htmlFor="intake-scheduled-time" className="text-xs">
-                                    Appointment time <span className="text-primary">*</span>
+                                    Time <span className="text-primary">*</span>
                                   </Label>
                                   <Input
                                     id="intake-scheduled-time"
@@ -4117,76 +3999,51 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "CUSTOMER_NAME" ? (
-                            <fieldset className={cn(WS_SECTION, "grid gap-4")}>
+                            <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                               <legend className="px-1 text-sm font-semibold tracking-tight text-foreground">
-                                Who are we assisting?
+                                Customer &amp; quote
                               </legend>
-                              <p className="text-xs text-muted-foreground">
-                                Customer details — we&apos;ll lock the appointment under this name.
-                              </p>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="manual-ac-display" className="text-xs">
-                                  Caller name <span className="text-primary">*</span>
-                                </Label>
-                                <Input
-                                  id="manual-ac-display"
-                                  value={form.displayName}
-                                  onChange={(e) => patchForm({ displayName: e.target.value })}
-                                  placeholder="Customer full name"
-                                  className="h-12 text-base"
-                                  autoFocus
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="manual-ac-quote" className="text-xs">
-                                  Pitched quote ($)
-                                </Label>
-                                <Input
-                                  id="manual-ac-quote"
-                                  inputMode="decimal"
-                                  value={customPrice}
-                                  onChange={(e) => setCustomPrice(e.target.value)}
-                                  placeholder={
-                                    liveQuote.totalCents > 0
-                                      ? String(Math.round(liveQuote.totalCents / 100))
-                                      : "0"
-                                  }
-                                  className="h-11 font-mono text-base tabular-nums"
-                                />
-                              </div>
-                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                                <p>
+                              <div className="grid gap-3 rounded-xl border border-border/70 bg-card/40 p-3">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="manual-ac-display" className="text-xs">
+                                    Caller name <span className="text-primary">*</span>
+                                  </Label>
+                                  <Input
+                                    id="manual-ac-display"
+                                    value={form.displayName}
+                                    onChange={(e) => patchForm({ displayName: e.target.value })}
+                                    placeholder="Customer full name"
+                                    className="h-12 text-base"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="manual-ac-quote" className="text-xs">
+                                    Pitched quote ($)
+                                  </Label>
+                                  <Input
+                                    id="manual-ac-quote"
+                                    inputMode="decimal"
+                                    value={customPrice}
+                                    onChange={(e) => setCustomPrice(e.target.value)}
+                                    placeholder={
+                                      liveQuote.totalCents > 0
+                                        ? String(Math.round(liveQuote.totalCents / 100))
+                                        : "0"
+                                    }
+                                    className="h-11 font-mono text-base tabular-nums"
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
                                   {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
                                     form.serviceAddress?.formatted ||
                                     "—"}
-                                </p>
-                                <p className="mt-1 tabular-nums">
-                                  {form.scheduledDate} · {form.scheduledTime}
+                                  {" · "}
+                                  <span className="tabular-nums">
+                                    {form.scheduledDate} · {form.scheduledTime}
+                                  </span>
                                 </p>
                               </div>
-                              <PriceShopperRecoveryPanel
-                                compact
-                                customPrice={customPrice}
-                                baselineTotalCents={liveQuote.totalCents}
-                                negotiationDiscountApplied={negotiationDiscountApplied}
-                                quotedPriceOverridden={form.quotedPriceOverridden}
-                                failureReason={failureReason}
-                                onFailureReasonChange={setFailureReason}
-                                negotiationStep={negotiationStep}
-                                onNegotiationStepChange={setNegotiationStep}
-                                step1Price={step1Price}
-                                step2Price={step2Price}
-                                step3Price={step3Price}
-                                customerName={form.displayName}
-                                recoveredViaRouteDiscount={recoveredViaRouteDiscount}
-                                onApplyRouteMatch={handleApplyRouteMatchDiscount}
-                                onApplyAftermarket={handleApplyAftermarketRecovery}
-                                onApplyManagementFloor={handleApplyManagementFloor}
-                                lostLeadState={lostLeadState}
-                                lostLeadError={lostLeadError}
-                                canLogLostLead={canLogLostLead}
-                                onLogLostLead={() => void logLostLead()}
-                              />
                             </fieldset>
                           ) : null}
 
@@ -4274,31 +4131,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   onRescueMetaChange={setRescueMeta}
                 />
 
-                <PriceNegotiationHelperPanel
-                  baselineCents={liveQuote.totalCents}
-                  currentPriceDollars={customPrice}
-                  onApplyPrice={handleNegotiationApply}
-                  appliedDiscountId={negotiationDiscountApplied}
-                />
-
                 {requiresVehicle ? (
                   <fieldset className={cn(WS_SECTION, "grid gap-3")}>
                     <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                       Vehicle metadata
                     </legend>
-                    <p className="text-[11px] text-primary/90">
-                      Get the vehicle before the service address. Tap the customer&apos;s answers below.
+                    <p className="text-[11px] text-muted-foreground">
+                      Look the key up outside Lyncr while they hold.
                     </p>
-                    <VehicleFastLookupField
-                      plateNumber={form.plateNumber}
-                      plateState={form.plateState}
-                      vehicleVin={form.vehicleVin}
-                      onPlateNumberChange={(plateNumber) => patchForm({ plateNumber })}
-                      onPlateStateChange={(plateState) => patchForm({ plateState })}
-                      onVinChange={(vehicleVin) => patchForm({ vehicleVin })}
-                      onPlateSuccess={handlePlateLookupSuccess}
-                      onVinSuccess={handleVehicleFromVin}
-                    />
                     <VehiclePickerCascade
                       value={{
                         vehicle_year: form.vehicleYear,
@@ -4549,29 +4389,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     </div>
                   ) : null}
                 </fieldset>
-
-                <PriceShopperRecoveryPanel
-                  customPrice={customPrice}
-                  baselineTotalCents={liveQuote.totalCents}
-                  negotiationDiscountApplied={negotiationDiscountApplied}
-                  quotedPriceOverridden={form.quotedPriceOverridden}
-                  failureReason={failureReason}
-                  onFailureReasonChange={setFailureReason}
-                  negotiationStep={negotiationStep}
-                  onNegotiationStepChange={setNegotiationStep}
-                  step1Price={step1Price}
-                  step2Price={step2Price}
-                  step3Price={step3Price}
-                  customerName={form.displayName}
-                  recoveredViaRouteDiscount={recoveredViaRouteDiscount}
-                  onApplyRouteMatch={handleApplyRouteMatchDiscount}
-                  onApplyAftermarket={handleApplyAftermarketRecovery}
-                  onApplyManagementFloor={handleApplyManagementFloor}
-                  lostLeadState={lostLeadState}
-                  lostLeadError={lostLeadError}
-                  canLogLostLead={canLogLostLead}
-                  onLogLostLead={() => void logLostLead()}
-                />
                   </>
                 )}
               </div>

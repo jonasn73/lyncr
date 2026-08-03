@@ -73,7 +73,7 @@ describe("continueOpenQuoteStep", () => {
     ).toBe("ADDRESS_CONTACT")
   })
 
-  it("lands on Schedule when vehicle + address are ready", () => {
+  it("lands on Schedule when vehicle + address are ready but time is not", () => {
     expect(
       continueOpenQuoteStep({
         serviceTypeId: "key_generation",
@@ -83,6 +83,20 @@ describe("continueOpenQuoteStep", () => {
         addressReady: true,
       })
     ).toBe("SCHEDULE_TIME")
+  })
+
+  it("lands on Customer when vehicle + address + schedule are ready", () => {
+    expect(
+      continueOpenQuoteStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: true,
+        scheduledDate: "2026-08-04",
+        scheduledTime: "14:00",
+      })
+    ).toBe("CUSTOMER_NAME")
   })
 
   it("lands on Service when open quote has unknown type", () => {
@@ -124,13 +138,41 @@ describe("resumeDraftIntakeStep / restore Lockout clear", () => {
     ).toBe("ADDRESS_CONTACT")
   })
 
-  it("keeps mid KEY_SPECIFICS instead of jumping to Address", () => {
+  it("jumps Schedule drafts to Customer when date and time are already filled", () => {
     expect(
       resumeDraftIntakeStep({
         serviceTypeId: "key_generation",
         vehicleYear: "2025",
         vehicleMake: "Jeep",
         vehicleModel: "Wrangler",
+        addressReady: true,
+        savedStep: "SCHEDULE_TIME",
+        scheduledDate: "2026-08-04",
+        scheduledTime: "14:00",
+      })
+    ).toBe("CUSTOMER_NAME")
+  })
+
+  it("advances past mid KEY_SPECIFICS when vehicle is complete (first incomplete = Address)", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: false,
+        savedStep: "KEY_SPECIFICS",
+      })
+    ).toBe("ADDRESS_CONTACT")
+  })
+
+  it("keeps KEY_SPECIFICS when vehicle is still incomplete", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "",
         addressReady: false,
         savedStep: "KEY_SPECIFICS",
       })
