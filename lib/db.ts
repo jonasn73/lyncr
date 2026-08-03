@@ -89,7 +89,7 @@ import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
 import { runOnboardingTelnyxProvisionPlaceholder } from "./onboarding-telnyx-provision-placeholder"
-import { isBookFormIntakeSource } from "./book-form-owner-alert"
+import { isBookFormIntakeSource } from "./book-form-sources"
 
 /** True when Postgres/Neon rejects SELECT/INSERT because `users.industry` was not migrated yet (011-user-industry.sql). */
 function isMissingIndustryColumnError(e: unknown): boolean {

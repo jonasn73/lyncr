@@ -41,7 +41,7 @@ import type {
 import {
   crmIntakeFilledByLabel,
   isBookFormIntakeSource,
-} from "@/lib/book-form-owner-alert"
+} from "@/lib/book-form-sources"
 import { jobTypeFromBookFormKind } from "@/lib/book-customer-request"
 import {
   formatCollectedDollars,

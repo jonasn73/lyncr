@@ -5,25 +5,11 @@ import { updateAiLeadSmsOutcome } from "@/lib/db"
 import { dispatchLeadSmsAlert } from "@/lib/intake-engine"
 import { notifyOwnerLatestNeedsAttention } from "@/lib/latest-attention-sms"
 
-/** Intake sources that mean the customer submitted a book / callback form. */
-export const BOOK_FORM_INTAKE_SOURCES = new Set([
-  "public_book_asap",
-  "public_book_window",
-  "public_book",
-  "activity_book_link",
-])
-
-export function isBookFormIntakeSource(source: string | null | undefined): boolean {
-  const s = (source || "").trim()
-  return BOOK_FORM_INTAKE_SOURCES.has(s)
-}
-
-/** CRM badge copy — customer book link vs operator intake. */
-export function crmIntakeFilledByLabel(
-  source: string | null | undefined
-): "Filled by customer" | "Entered by you" {
-  return isBookFormIntakeSource(source) ? "Filled by customer" : "Entered by you"
-}
+export {
+  BOOK_FORM_INTAKE_SOURCES,
+  isBookFormIntakeSource,
+  crmIntakeFilledByLabel,
+} from "@/lib/book-form-sources"
 
 export type NotifyOwnerBookFormParams = {
   ownerUserId: string
