@@ -311,6 +311,65 @@ export function formatReturningCallerVehicleFact(params: {
   return label || null
 }
 
+/** Most recent closed job/lead for the profile “Last job” block (newest-first history). */
+export function pickReturningCallerLastJob<
+  T extends { is_open_lead?: boolean | null },
+>(history: T[]): T | null {
+  for (const item of history) {
+    if (!item.is_open_lead) return item
+  }
+  return null
+}
+
+/** Short calendar day for profile history (e.g. "Mar 12"). */
+export function formatReturningCallerHistoryDate(
+  iso: string | null | undefined,
+  now: Date = new Date()
+): string | null {
+  const raw = String(iso ?? "").trim()
+  if (!raw) return null
+  const d = new Date(raw)
+  if (!Number.isFinite(d.getTime())) return null
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  })
+}
+
+/**
+ * One compact history line for the returning-caller profile.
+ * Example: "Done · Mar 12 · Key replacement · $185"
+ */
+export function formatReturningCallerHistoryLine(item: {
+  status_label?: string | null
+  summary?: string | null
+  job_type?: string | null
+  amount_cents?: number | null
+  at?: string | null
+  vehicle_label?: string | null
+  address_line1?: string | null
+}): string {
+  const date = formatReturningCallerHistoryDate(item.at)
+  const status = String(item.status_label ?? "").trim() || "Job"
+  const service =
+    String(item.summary ?? "").trim() ||
+    String(item.job_type ?? "").trim() ||
+    String(item.vehicle_label ?? "").trim() ||
+    ""
+  const cents = item.amount_cents
+  const money =
+    cents != null && Number.isFinite(cents) && cents > 0
+      ? (Math.max(0, cents) / 100).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+        })
+      : null
+  return [status, date, service || null, money].filter(Boolean).join(" · ")
+}
+
 /** Garage / CRM vehicle chips used to fill missing lead YMM. */
 export type GarageYmmSource = {
   year?: string | null

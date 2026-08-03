@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
   continueOpenQuoteStep,
   draftClearlyChoseLockout,
+  formatReturningCallerHistoryLine,
   formatReturningCallerVehicleFact,
   hasContinueableOpenLead,
   isKnownReturningCaller,
   isOpenLeadPoolReady,
+  pickReturningCallerLastJob,
   resolveOpenQuoteYmm,
   resolveRestoredDraftServiceTypeId,
   resumeDraftIntakeStep,
@@ -361,6 +363,31 @@ describe("isKnownReturningCaller / notes / vehicle fact", () => {
       formatReturningCallerVehicleFact({ year: "2017", make: "Toyota", model: "Yaris iA" })
     ).toBe("2017 Toyota Yaris iA")
     expect(formatReturningCallerVehicleFact({})).toBeNull()
+  })
+
+  it("picks last closed job and formats history lines", () => {
+    const history = [
+      {
+        id: "open",
+        is_open_lead: true,
+        status_label: "Quote",
+        summary: "Spare key",
+        amount_cents: 12000,
+        at: "2026-03-01T12:00:00.000Z",
+      },
+      {
+        id: "done",
+        is_open_lead: false,
+        status_label: "Done",
+        summary: "Key replacement",
+        amount_cents: 18500,
+        at: "2026-02-12T12:00:00.000Z",
+      },
+    ]
+    expect(pickReturningCallerLastJob(history)?.id).toBe("done")
+    expect(formatReturningCallerHistoryLine(history[1]!)).toContain("Done")
+    expect(formatReturningCallerHistoryLine(history[1]!)).toContain("Key replacement")
+    expect(formatReturningCallerHistoryLine(history[1]!)).toContain("$185")
   })
 })
 
