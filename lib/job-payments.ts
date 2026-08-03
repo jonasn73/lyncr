@@ -335,6 +335,8 @@ export async function createAdhocPaymentIntent(params: {
     status: "PENDING",
     paymentMethod: params.walletMethod,
     stripePaymentIntentId: intent.id,
+    customerPhone: customerPhone || null,
+    customerName: customerName || null,
   })
 
   return {

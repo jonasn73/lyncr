@@ -168,6 +168,7 @@ export async function listOwnerCollectedTransactions(
   const hasSearch = Boolean(qLike)
 
   try {
+    // Walk-up rows store contact on wt.customer_* (migration 124); job rows use ai_leads + CRM.
     const rows = hasSearch
       ? await sql`
           SELECT
@@ -178,9 +179,13 @@ export async function listOwnerCollectedTransactions(
             wt.created_at,
             wt.job_id::text AS job_id,
             wt.stripe_payment_intent_id,
-            al.caller_e164,
+            COALESCE(
+              NULLIF(TRIM(al.caller_e164), ''),
+              NULLIF(TRIM(wt.customer_phone), '')
+            ) AS caller_e164,
             COALESCE(
               NULLIF(TRIM(crm.display_name), ''),
+              NULLIF(TRIM(wt.customer_name), ''),
               NULLIF(TRIM(al.collected->>'customer_name'), ''),
               NULLIF(TRIM(al.collected->>'name'), ''),
               NULLIF(TRIM(al.collected->>'caller_name'), ''),
@@ -208,8 +213,13 @@ export async function listOwnerCollectedTransactions(
           LEFT JOIN ai_leads al ON al.id = wt.job_id
           LEFT JOIN customers crm
             ON crm.user_id = ${uid}
-            AND al.caller_e164 IS NOT NULL
-            AND crm.phone_e164 = al.caller_e164
+            AND (
+              (al.caller_e164 IS NOT NULL AND crm.phone_e164 = al.caller_e164)
+              OR (
+                NULLIF(TRIM(wt.customer_phone), '') IS NOT NULL
+                AND crm.phone_e164 = wt.customer_phone
+              )
+            )
           LEFT JOIN LATERAL (
             SELECT cpl0.customer_name
             FROM collect_pay_links cpl0
@@ -226,15 +236,21 @@ export async function listOwnerCollectedTransactions(
             AND (
               COALESCE(
                 NULLIF(TRIM(crm.display_name), ''),
+                NULLIF(TRIM(wt.customer_name), ''),
                 NULLIF(TRIM(al.collected->>'customer_name'), ''),
                 NULLIF(TRIM(al.collected->>'name'), ''),
                 NULLIF(TRIM(al.collected->>'caller_name'), ''),
                 NULLIF(TRIM(cpl.customer_name), '')
               ) ILIKE ${qLike}
               OR COALESCE(al.caller_e164, '') ILIKE ${qLike}
+              OR COALESCE(wt.customer_phone, '') ILIKE ${qLike}
+              OR COALESCE(wt.customer_name, '') ILIKE ${qLike}
               OR (
                 ${phoneLike} <> ''
-                AND regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                AND (
+                  regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                  OR regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                )
               )
               OR COALESCE(al.collected->>'vehicle_make', '') ILIKE ${qLike}
               OR COALESCE(al.collected->>'vehicle_model', '') ILIKE ${qLike}
@@ -252,9 +268,13 @@ export async function listOwnerCollectedTransactions(
             wt.created_at,
             wt.job_id::text AS job_id,
             wt.stripe_payment_intent_id,
-            al.caller_e164,
+            COALESCE(
+              NULLIF(TRIM(al.caller_e164), ''),
+              NULLIF(TRIM(wt.customer_phone), '')
+            ) AS caller_e164,
             COALESCE(
               NULLIF(TRIM(crm.display_name), ''),
+              NULLIF(TRIM(wt.customer_name), ''),
               NULLIF(TRIM(al.collected->>'customer_name'), ''),
               NULLIF(TRIM(al.collected->>'name'), ''),
               NULLIF(TRIM(al.collected->>'caller_name'), ''),
@@ -282,8 +302,13 @@ export async function listOwnerCollectedTransactions(
           LEFT JOIN ai_leads al ON al.id = wt.job_id
           LEFT JOIN customers crm
             ON crm.user_id = ${uid}
-            AND al.caller_e164 IS NOT NULL
-            AND crm.phone_e164 = al.caller_e164
+            AND (
+              (al.caller_e164 IS NOT NULL AND crm.phone_e164 = al.caller_e164)
+              OR (
+                NULLIF(TRIM(wt.customer_phone), '') IS NOT NULL
+                AND crm.phone_e164 = wt.customer_phone
+              )
+            )
           LEFT JOIN LATERAL (
             SELECT cpl0.customer_name
             FROM collect_pay_links cpl0
@@ -304,10 +329,10 @@ export async function listOwnerCollectedTransactions(
 
     return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
   } catch (e) {
-    // payment_slips / customers / collect_pay_links missing — leaner query.
+    // payment_slips / customers / collect_pay_links / customer_phone missing — leaner query.
     const msg = e instanceof Error ? e.message : String(e)
     if (
-      /payment_slips|customers|collect_pay_links|vehicle_year|vehicle_make|job_type|column|relation/i.test(
+      /payment_slips|customers|collect_pay_links|customer_phone|customer_name|vehicle_year|vehicle_make|job_type|column|relation/i.test(
         msg
       ) ||
       isMissingWalletSchemaError(e)

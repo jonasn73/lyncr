@@ -15,6 +15,9 @@ export type WalletTransaction = {
   status: WalletTransactionStatus
   paymentMethod: WalletPaymentMethod
   stripePaymentIntentId: string | null
+  /** Walk-up / adhoc E.164 phone when job_id is null (migration 124). */
+  customerPhone: string | null
+  customerName: string | null
   createdAt: string
 }
 
@@ -70,6 +73,14 @@ function mapTransaction(row: Record<string, unknown>): WalletTransaction {
     paymentMethod,
     stripePaymentIntentId:
       row.stripe_payment_intent_id != null ? String(row.stripe_payment_intent_id).trim() || null : null,
+    customerPhone:
+      row.customer_phone != null && String(row.customer_phone).trim()
+        ? String(row.customer_phone).trim()
+        : null,
+    customerName:
+      row.customer_name != null && String(row.customer_name).trim()
+        ? String(row.customer_name).trim()
+        : null,
     createdAt: created,
   }
 }
@@ -148,28 +159,60 @@ export async function createWalletTransaction(params: {
   status: WalletTransactionStatus
   paymentMethod: WalletPaymentMethod
   stripePaymentIntentId?: string | null
+  /** Walk-up contact (migration 124). Ignored when columns are missing. */
+  customerPhone?: string | null
+  customerName?: string | null
 }): Promise<WalletTransaction | null> {
   const sql = getSql()
   const id = crypto.randomUUID()
   const amount = Math.round(Number(params.amountUsd) * 100) / 100
   if (!Number.isFinite(amount) || amount <= 0) return null
 
+  const customerPhone = (params.customerPhone ?? "").trim() || null
+  const customerName = (params.customerName ?? "").trim().slice(0, 80) || null
+
   try {
-    await sql`
-      INSERT INTO wallet_transactions
-        (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at)
-      VALUES
-        (
-          ${id},
-          ${params.userId},
-          ${params.jobId},
-          ${amount},
-          ${params.status},
-          ${params.paymentMethod},
-          ${params.stripePaymentIntentId?.trim() || null},
-          now()
-        )
-    `
+    try {
+      await sql`
+        INSERT INTO wallet_transactions
+          (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+           customer_phone, customer_name, created_at)
+        VALUES
+          (
+            ${id},
+            ${params.userId},
+            ${params.jobId},
+            ${amount},
+            ${params.status},
+            ${params.paymentMethod},
+            ${params.stripePaymentIntentId?.trim() || null},
+            ${customerPhone},
+            ${customerName},
+            now()
+          )
+      `
+    } catch (inner) {
+      // Pre-migration 124: customer_phone / customer_name columns missing.
+      if (pgErrorCode(inner) === "42703") {
+        await sql`
+          INSERT INTO wallet_transactions
+            (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at)
+          VALUES
+            (
+              ${id},
+              ${params.userId},
+              ${params.jobId},
+              ${amount},
+              ${params.status},
+              ${params.paymentMethod},
+              ${params.stripePaymentIntentId?.trim() || null},
+              now()
+            )
+        `
+      } else {
+        throw inner
+      }
+    }
 
     if (params.status === "COMPLETED") {
       await sql`
@@ -194,6 +237,38 @@ export async function createWalletTransaction(params: {
       return null
     }
     throw e
+  }
+}
+
+/**
+ * Attach / refresh walk-up customer phone + name on a wallet row (by Stripe PI).
+ * Also used when a receipt SMS captures the number after charge.
+ */
+export async function updateWalletTransactionCustomerContact(params: {
+  stripePaymentIntentId: string
+  customerPhone?: string | null
+  customerName?: string | null
+}): Promise<boolean> {
+  const pi = params.stripePaymentIntentId.trim()
+  if (!pi) return false
+  const phone = (params.customerPhone ?? "").trim() || null
+  const name = (params.customerName ?? "").trim().slice(0, 80) || null
+  if (!phone && !name) return false
+
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE wallet_transactions
+      SET
+        customer_phone = COALESCE(${phone}, customer_phone),
+        customer_name = COALESCE(${name}, customer_name)
+      WHERE stripe_payment_intent_id = ${pi}
+    `
+    return true
+  } catch (e) {
+    if (isMissingWalletSchemaError(e) || pgErrorCode(e) === "42703") return false
+    console.warn("[tech-wallet] update customer contact failed", e)
+    return false
   }
 }
 

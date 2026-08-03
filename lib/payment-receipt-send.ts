@@ -79,6 +79,42 @@ export async function sendPaymentReceipt(
     console.warn("[payment-receipt] metadata update failed", e)
   }
 
+  // Keep Neon wallet + CRM in sync so Collect History / CRM search find this person.
+  const receiptPhone = normalizePhoneNumberE164(input.phone ?? "")
+  const receiptName = (input.customerName ?? "").trim()
+  if (receiptPhone || receiptName) {
+    try {
+      const { updateWalletTransactionCustomerContact } = await import("@/lib/tech-wallet")
+      await updateWalletTransactionCustomerContact({
+        stripePaymentIntentId: intent.id,
+        customerPhone: receiptPhone || null,
+        customerName: receiptName || null,
+      })
+    } catch (e) {
+      console.warn("[payment-receipt] wallet contact update failed", e)
+    }
+    if (receiptPhone) {
+      try {
+        const { upsertCustomerForUser } = await import("@/lib/db")
+        await upsertCustomerForUser({
+          userId: shopOwnerId,
+          phoneE164: receiptPhone,
+          displayName: receiptName || "Walk-up customer",
+          companyName: "",
+          addressLine1: "",
+          addressLine2: "",
+          city: "",
+          region: "",
+          postalCode: "",
+          country: "US",
+          notes: "",
+        })
+      } catch (e) {
+        console.warn("[payment-receipt] CRM upsert failed", e)
+      }
+    }
+  }
+
   // Reload invoice after metadata update so name / contact show on the receipt.
   const invoice = await loadPaymentInvoice({
     paymentIntentId: intent.id,
