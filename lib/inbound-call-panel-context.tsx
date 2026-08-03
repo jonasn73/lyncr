@@ -41,7 +41,7 @@ export type OpenManualCallPanelInput = {
    * Aligns with callback chooser “Continue open quote”.
    */
   continueOpenQuote?: boolean
-  /** Precomputed Continue-quote step (may include CUSTOMER_NAME when schedule is filled). */
+  /** Precomputed Continue-quote step (may include SCHEDULE_TIME when name is filled). */
   intakeStartStep?: CallbackContinueStep
 }
 

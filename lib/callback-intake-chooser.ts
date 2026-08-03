@@ -72,7 +72,7 @@ export type CallbackContinueStep =
 
 /**
  * After Continue open quote: skip filled steps; land on the first incomplete one.
- * Service → Vehicle (YMM) → Address → Schedule → Customer (outcomes / book).
+ * Service → Vehicle (YMM) → Address → Customer (name / quote / outcomes) → Schedule → book.
  */
 export function continueOpenQuoteStep(params: {
   serviceTypeId: ServiceQuoteTypeId | ""
@@ -80,7 +80,9 @@ export function continueOpenQuoteStep(params: {
   vehicleMake: string
   vehicleModel: string
   addressReady: boolean
-  /** When both set, Schedule is considered done — jump to Customer. */
+  /** Caller name — Customer step comes before Schedule. */
+  displayName?: string
+  /** When both set (and name ready), Schedule is done — stay on Schedule to finalize. */
   scheduledDate?: string
   scheduledTime?: string
 }): CallbackContinueStep {
@@ -99,12 +101,15 @@ export function continueOpenQuoteStep(params: {
     return "VEHICLE_INFO"
   }
   if (!params.addressReady) return "ADDRESS_CONTACT"
+  const nameReady = Boolean(String(params.displayName ?? "").trim())
+  // Quote / outcomes before picking a time — Booked then advances to Schedule.
+  if (!nameReady) return "CUSTOMER_NAME"
   const scheduleReady = Boolean(
     String(params.scheduledDate ?? "").trim() && String(params.scheduledTime ?? "").trim()
   )
-  // Date + time already on the ticket / draft — skip Schedule, go book / outcomes.
+  // Name filled but no date/time yet — land on Schedule to secure the appointment.
   if (!scheduleReady) return "SCHEDULE_TIME"
-  return "CUSTOMER_NAME"
+  return "SCHEDULE_TIME"
 }
 
 /** Draft / wizard step order — higher means further along the intake path. */
@@ -115,10 +120,11 @@ const DRAFT_RESUME_STEP_ORDER: Record<string, number> = {
   VEHICLE_INFO: 2,
   KEY_SPECIFICS: 3,
   ADDRESS_CONTACT: 4,
-  SCHEDULE_TIME: 5,
-  CUSTOMER_NAME: 6,
+  // Customer (quote) before Schedule — matches live-call Booked → Schedule flow
+  CUSTOMER_NAME: 5,
+  SCHEDULE_TIME: 6,
   BOOKING_COMPLETE: 7,
-  FINAL_DISPATCH: 5, // legacy alias of SCHEDULE_TIME
+  FINAL_DISPATCH: 6, // legacy alias of SCHEDULE_TIME
 }
 
 /** Steps Restore may land on (Continue-quote set + mid-flow key/name steps). */
@@ -189,6 +195,7 @@ export function resumeDraftIntakeStep(params: {
   vehicleModel: string
   addressReady: boolean
   savedStep: string | null | undefined
+  displayName?: string
   scheduledDate?: string
   scheduledTime?: string
 }): DraftResumeStep {
@@ -198,6 +205,7 @@ export function resumeDraftIntakeStep(params: {
     vehicleMake: params.vehicleMake,
     vehicleModel: params.vehicleModel,
     addressReady: params.addressReady,
+    displayName: params.displayName,
     scheduledDate: params.scheduledDate,
     scheduledTime: params.scheduledTime,
   })
@@ -207,6 +215,11 @@ export function resumeDraftIntakeStep(params: {
 
   const savedOrder = DRAFT_RESUME_STEP_ORDER[saved] ?? 0
   const incompleteOrder = DRAFT_RESUME_STEP_ORDER[incomplete] ?? 0
+
+  // Old drafts could sit on Schedule before Customer — never skip a missing name.
+  if (saved === "SCHEDULE_TIME" && incomplete === "CUSTOMER_NAME") {
+    return "CUSTOMER_NAME"
+  }
 
   // Mid key / name steps — keep when service is known, unless incomplete is further ahead.
   if (
@@ -339,13 +352,13 @@ export function isOpenLeadPoolReady(params: {
   const serviceTypeId = serviceQuoteTypeIdFromCrmHistory(params.lead) ?? ""
   const ymm = resolveOpenQuoteYmm({ lead: params.lead, garage: params.garage })
   const addressReady = Boolean(params.lead.has_job_address) || Boolean(params.customerAddressReady)
-  return (
-    continueOpenQuoteStep({
-      serviceTypeId,
-      vehicleYear: ymm.year,
-      vehicleMake: ymm.make,
-      vehicleModel: ymm.model,
-      addressReady,
-    }) === "SCHEDULE_TIME"
-  )
+  // Pool-ready once vehicle + address are done (next step is Customer or Schedule).
+  const next = continueOpenQuoteStep({
+    serviceTypeId,
+    vehicleYear: ymm.year,
+    vehicleMake: ymm.make,
+    vehicleModel: ymm.model,
+    addressReady,
+  })
+  return next === "CUSTOMER_NAME" || next === "SCHEDULE_TIME"
 }

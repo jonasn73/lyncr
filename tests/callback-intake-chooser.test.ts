@@ -73,7 +73,7 @@ describe("continueOpenQuoteStep", () => {
     ).toBe("ADDRESS_CONTACT")
   })
 
-  it("lands on Schedule when vehicle + address are ready but time is not", () => {
+  it("lands on Customer when vehicle + address are ready but name is not", () => {
     expect(
       continueOpenQuoteStep({
         serviceTypeId: "key_generation",
@@ -81,11 +81,24 @@ describe("continueOpenQuoteStep", () => {
         vehicleMake: "Jeep",
         vehicleModel: "Wrangler",
         addressReady: true,
+      })
+    ).toBe("CUSTOMER_NAME")
+  })
+
+  it("lands on Schedule when name is ready but date/time are not", () => {
+    expect(
+      continueOpenQuoteStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: true,
+        displayName: "Alex",
       })
     ).toBe("SCHEDULE_TIME")
   })
 
-  it("lands on Customer when vehicle + address + schedule are ready", () => {
+  it("lands on Schedule when vehicle + address + name + schedule are ready", () => {
     expect(
       continueOpenQuoteStep({
         serviceTypeId: "key_generation",
@@ -93,10 +106,11 @@ describe("continueOpenQuoteStep", () => {
         vehicleMake: "Jeep",
         vehicleModel: "Wrangler",
         addressReady: true,
+        displayName: "Alex",
         scheduledDate: "2026-08-04",
         scheduledTime: "14:00",
       })
-    ).toBe("CUSTOMER_NAME")
+    ).toBe("SCHEDULE_TIME")
   })
 
   it("lands on Service when open quote has unknown type", () => {
@@ -138,7 +152,7 @@ describe("resumeDraftIntakeStep / restore Lockout clear", () => {
     ).toBe("ADDRESS_CONTACT")
   })
 
-  it("jumps Schedule drafts to Customer when date and time are already filled", () => {
+  it("jumps Schedule drafts to Customer when name is still missing", () => {
     expect(
       resumeDraftIntakeStep({
         serviceTypeId: "key_generation",
@@ -151,6 +165,36 @@ describe("resumeDraftIntakeStep / restore Lockout clear", () => {
         scheduledTime: "14:00",
       })
     ).toBe("CUSTOMER_NAME")
+  })
+
+  it("keeps Schedule drafts when name and time are already filled", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: true,
+        savedStep: "SCHEDULE_TIME",
+        displayName: "Alex",
+        scheduledDate: "2026-08-04",
+        scheduledTime: "14:00",
+      })
+    ).toBe("SCHEDULE_TIME")
+  })
+
+  it("advances Customer drafts to Schedule when name is filled", () => {
+    expect(
+      resumeDraftIntakeStep({
+        serviceTypeId: "key_generation",
+        vehicleYear: "2025",
+        vehicleMake: "Jeep",
+        vehicleModel: "Wrangler",
+        addressReady: true,
+        savedStep: "CUSTOMER_NAME",
+        displayName: "Alex",
+      })
+    ).toBe("SCHEDULE_TIME")
   })
 
   it("advances past mid KEY_SPECIFICS when vehicle is complete (first incomplete = Address)", () => {

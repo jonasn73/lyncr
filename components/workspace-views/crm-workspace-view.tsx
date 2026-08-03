@@ -641,6 +641,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             vehicleModel: ymm.model,
             addressReady:
               Boolean(target.has_job_address) || crmCustomerAddressReady(selected),
+            displayName: customerName,
           })
           setSelectedId(null)
           setSelected(null)

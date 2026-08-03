@@ -24,7 +24,6 @@ import {
   type IntakeRescueMeta,
 } from "@/components/dashboard/intake-job-photos-panel"
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
-import { IntakeSuggestFromCallButton } from "@/components/dashboard/intake-suggest-from-call-button"
 import { MissedCallQuickLogPanel } from "@/components/dashboard/missed-call-quick-log-panel"
 import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
@@ -433,10 +432,10 @@ function ReturningCallerDecisionCard({
 
 /**
  * Live-call automotive flow (Key Squad):
- * Service → Copy vs AKL → YMM → Address (before quote, esp. AKL) → Schedule → Quote/outcomes.
+ * Service → Copy vs AKL → YMM → Address (before quote, esp. AKL) → Customer / quote → Schedule → book.
  * In-app FCC/key catalog search is no longer a required step — look keys up on 3rd-party sites.
- * Vehicle lockout: Service → Vehicle (light) → Location → …
- * Residential / commercial: Service → Location → …
+ * Vehicle lockout: Service → Vehicle (light) → Location → Customer → Schedule → …
+ * Residential / commercial: Service → Location → Customer → Schedule → …
  */
 function manualWorkflowPath(
   serviceTypeId: ServiceQuoteTypeId,
@@ -449,8 +448,8 @@ function manualWorkflowPath(
   } else if (vehicleLockoutIntake) {
     path.push("VEHICLE_INFO")
   }
-  // Location → Time blocks → Customer / quote / outcomes → Booking summary
-  path.push("ADDRESS_CONTACT", "SCHEDULE_TIME", "CUSTOMER_NAME", "BOOKING_COMPLETE")
+  // Location → Customer / quote / outcomes → Schedule → Booking summary
+  path.push("ADDRESS_CONTACT", "CUSTOMER_NAME", "SCHEDULE_TIME", "BOOKING_COMPLETE")
   return path
 }
 
@@ -1360,6 +1359,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       vehicleModel: model,
       addressReady: addressReadyNow,
       savedStep: pendingDraft.currentStep,
+      displayName: draftForm.displayName.trim() || form.displayName,
       scheduledDate: draftForm.scheduledDate || form.scheduledDate,
       scheduledTime: draftForm.scheduledTime || form.scheduledTime,
     })
@@ -2952,7 +2952,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
   const incomingPhone = form.phoneNumber || effectiveCurrent?.from_number || ""
   const repeatUrgency = useRepeatCallerUrgency(incomingPhone, effectiveCurrent?.id ?? null)
-  const canAdvanceToSchedule = useMemo(
+  const canAdvanceFromLocation = useMemo(
     () =>
       Boolean(
         addressReady ||
@@ -2961,7 +2961,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [form.addressLine1, form.city, addressReady]
   )
 
-  const canAdvanceToCustomerName = useMemo(
+  /** Schedule step — date + time required before final book. */
+  const canConfirmSchedule = useMemo(
     () => Boolean(form.scheduledDate.trim() && form.scheduledTime.trim()),
     [form.scheduledDate, form.scheduledTime]
   )
@@ -2987,6 +2988,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         }
         if (currentStep === "CUSTOMER_NAME") {
           document.getElementById("manual-ac-display")?.focus()
+          return
+        }
+        if (currentStep === "SCHEDULE_TIME") {
+          document.getElementById("intake-scheduled-date")?.focus()
           return
         }
         if (currentStep === "SERVICE_SELECT") {
@@ -3129,6 +3134,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             vehicleMake: mergedMake,
             vehicleModel: mergedModel,
             addressReady: mergedAddressReady,
+            displayName: form.displayName.trim() || draftForm?.displayName?.trim() || "",
             scheduledDate: mergedDate,
             scheduledTime: mergedTime,
           })
@@ -3658,54 +3664,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   — pick the service.
                                 </p>
                               ) : null}
-                              {/* Continuing draft: name is in the sticky banner — skip cold Suggest strip. */}
-                              {!continuingDraft ? (
-                              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-2.5 py-2">
-                                <p className="text-[10px] leading-snug text-cyan-100/80">
-                                  Prefill from open quote / CRM / notes — you confirm, nothing auto-books.
-                                </p>
-                                <IntakeSuggestFromCallButton
-                                  compact
-                                  phone={form.phoneNumber || effectiveCurrent?.from_number}
-                                  notes={form.notes}
-                                  customerName={matchedCustomer?.display_name}
-                                  customerNotes={matchedCustomer?.notes}
-                                  openServiceTypeId={crmOpenLeadServiceTypeId || form.serviceQuoteTypeId}
-                                  openQuoteCents={crmOpenLeadQuoteCents}
-                                  vehicleYear={form.vehicleYear}
-                                  vehicleMake={form.vehicleMake}
-                                  vehicleModel={form.vehicleModel}
-                                  callContext={
-                                    [
-                                      form.notes,
-                                      rescueMeta?.special_notes,
-                                      effectiveCurrent?.recording_url ? "Recording available on this call" : null,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" · ") || null
-                                  }
-                                  onApply={(suggestion) => {
-                                    setServiceQuoteTypeId(suggestion.serviceTypeId)
-                                    if (suggestion.suggestedPriceCents != null && suggestion.suggestedPriceCents > 0) {
-                                      const dollars = suggestion.suggestedPriceCents / 100
-                                      setCustomPrice(String(dollars))
-                                      setQuotedPriceDollars(dollars)
-                                    }
-                                    const existing = form.notes.trim()
-                                    const nextNotes = existing.includes("[AI intake suggestion")
-                                      ? existing
-                                      : existing
-                                        ? `${existing}\n\n${suggestion.notesDraft}`
-                                        : suggestion.notesDraft
-                                    patchForm({ notes: nextNotes })
-                                  }}
-                                />
-                              </div>
-                              ) : (
+                              {/* Prefill / Suggest-from-call strip removed — not needed for live intake. */}
+                              {continuingDraft ? (
                                 <p className="text-[11px] text-muted-foreground">
                                   Pick the service for this draft — Lockout is not assumed.
                                 </p>
-                              )}
+                              ) : null}
                               <ServiceQuoteCalculatorPanel
                                 quote={liveQuote}
                                 serviceTypeId={selectorServiceTypeId}
@@ -4123,10 +4087,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
                                     form.serviceAddress?.formatted ||
                                     "—"}
-                                  {" · "}
-                                  <span className="tabular-nums">
-                                    {form.scheduledDate} · {form.scheduledTime}
-                                  </span>
+                                  {form.scheduledDate.trim() && form.scheduledTime.trim() ? (
+                                    <>
+                                      {" · "}
+                                      <span className="tabular-nums">
+                                        {form.scheduledDate} · {form.scheduledTime}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-muted-foreground/80"> · Schedule next</span>
+                                  )}
                                 </p>
                               </div>
                             </fieldset>
@@ -4530,57 +4500,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             size="lg"
                             className={cn(
                               "h-11 min-w-0 flex-1 font-semibold",
-                              !canAdvanceToSchedule && "opacity-50"
+                              !canAdvanceFromLocation && "opacity-50"
                             )}
-                            disabled={!canAdvanceToSchedule}
-                            onClick={() => setCurrentStep("SCHEDULE_TIME")}
+                            disabled={!canAdvanceFromLocation}
+                            onClick={() => setCurrentStep("CUSTOMER_NAME")}
                           >
-                            {canAdvanceToSchedule
-                              ? "Continue to Schedule →"
-                              : "Enter a Service Address to Continue"}
-                          </Button>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="lg"
-                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
-                          disabled={jobState === "creating" || !canSaveQuoteLead}
-                          onClick={() => void saveQuoteLead()}
-                        >
-                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
-                        </Button>
-                      </div>
-                    ) : null}
-                    {currentStep === "SCHEDULE_TIME" ? (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            className="h-11 shrink-0"
-                            onClick={() => setCurrentStep("ADDRESS_CONTACT")}
-                          >
-                            Back
-                          </Button>
-                          <Button
-                            type="button"
-                            size="lg"
-                            className={cn(
-                              "h-11 min-w-0 flex-1 font-semibold",
-                              !canAdvanceToCustomerName && "opacity-50"
-                            )}
-                            disabled={!canAdvanceToCustomerName}
-                            onClick={() => {
-                              // Flush the quote-card total into the ticket before advancing.
-                              applyCustomPriceToForm()
-                              setCurrentStep("CUSTOMER_NAME")
-                            }}
-                          >
-                            {canAdvanceToCustomerName
+                            {canAdvanceFromLocation
                               ? "Continue to Customer Details →"
-                              : "Pick Date & Time to Advance"}
+                              : "Enter a Service Address to Continue"}
                           </Button>
                         </div>
                         <Button
@@ -4602,9 +4529,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           variant="outline"
                           size="sm"
                           className="h-9 w-full"
-                          onClick={() => setCurrentStep("SCHEDULE_TIME")}
+                          onClick={() => setCurrentStep("ADDRESS_CONTACT")}
                         >
-                          Back to schedule
+                          Back to location
                         </Button>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
@@ -4647,11 +4574,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             disabled={
                               jobState === "creating" || !canFinalizeBooking || !canDispatch
                             }
-                            onClick={() => void confirmAndBook()}
+                            onClick={() => {
+                              // Flush quote into the ticket, then pick date/time.
+                              applyCustomPriceToForm()
+                              setCurrentStep("SCHEDULE_TIME")
+                            }}
                           >
-                            {jobState === "creating" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                            ) : null}
                             Booked — secure appointment →
                           </Button>
                         </div>
@@ -4714,6 +4642,52 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         ) : null}
                         {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
                       </>
+                    ) : null}
+                    {currentStep === "SCHEDULE_TIME" ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="h-11 shrink-0"
+                            onClick={() => setCurrentStep("CUSTOMER_NAME")}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            size="lg"
+                            className={cn(
+                              "h-11 min-w-0 flex-1 gap-2 font-semibold",
+                              (!canConfirmSchedule || !canDispatch) && "opacity-50",
+                              highlightConfirmBook &&
+                                "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                            )}
+                            disabled={
+                              jobState === "creating" || !canConfirmSchedule || !canDispatch
+                            }
+                            onClick={() => void confirmAndBook()}
+                          >
+                            {jobState === "creating" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                            ) : null}
+                            {canConfirmSchedule
+                              ? "Confirm appointment →"
+                              : "Pick Date & Time to Finish"}
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="lg"
+                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          disabled={jobState === "creating" || !canSaveQuoteLead}
+                          onClick={() => void saveQuoteLead()}
+                        >
+                          {jobState === "creating" ? "Saving…" : "Save Quote & Hang Up"}
+                        </Button>
+                      </div>
                     ) : null}
                     {currentStep === "BOOKING_COMPLETE" ? (
                       <div className="flex flex-col gap-2">
