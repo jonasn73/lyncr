@@ -13,10 +13,13 @@ import { cn } from "@/lib/utils"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-call-flow"
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
+import { CallerIdUtilitiesCard } from "@/components/dashboard/caller-id-utilities-card"
+import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 import { useMissedLeadInsights } from "@/lib/hooks/use-missed-lead-insights"
 import {
@@ -166,6 +169,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   openManageModal: () => void
 }) {
   const realtimeStats = useRealTimeStatsContextOptional()
+  const { activeOrganizationId } = useDashboardWorkspace()
   // Only hit /api/calls while Lines is the active tab — Activity owns the full log elsewhere.
   const linesActive = useDashboardActivePage() === "dashboard"
   const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
@@ -209,7 +213,8 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
     <div className="flex w-full flex-col">
       {stickyChrome}
 
-      <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-24 md:pb-8">
+      {/* No pb-24 spacer — Available/Caller ID follow Alerts with normal gap (Messages left Lines). */}
+      <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-3 md:pb-4">
         <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
           <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
@@ -218,7 +223,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
               className="lg:sticky lg:top-4"
               onConfigureRouting={() => setWhoAnswersOpen(true)}
             />
-            <div className="min-w-0 flex-1 space-y-3 sm:space-y-6 lg:space-y-10">
+            <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
               {quickSetupDecided && !isSetupComplete ? (
                 <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
                   <div className="flex items-start gap-3">
@@ -341,6 +346,15 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                 setShowFallbackSettings={setShowFallbackSettings}
                 adminRoutingOverridePhone={adminRoutingOverridePhone}
               />
+
+              {/* Available + Caller ID — same column as Alerts, normal spacing (not pushed to page bottom). */}
+              <div className="space-y-3 pb-2">
+                <PresenceStatusBar />
+                <CallerIdUtilitiesCard
+                  organizationId={activeOrganizationId}
+                  onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -10,8 +10,6 @@ import { StorySheetHeader } from "@/components/story-sheet-header"
 import { VOICE_AI_DRAWER_SHEET_CLASS } from "@/components/dashboard-call-flow"
 import { DashboardCallFlowConfigureDrawer } from "@/components/dashboard-call-flow-configure-drawer"
 import { DashboardRingBackupDrawer } from "@/components/dashboard-ring-backup-drawer"
-import { CallerIdUtilitiesCard } from "@/components/dashboard/caller-id-utilities-card"
-import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
 import type { Contact, DashboardBusinessNumber, FallbackOption } from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
 
@@ -50,7 +48,6 @@ export type DashboardRoutingSheetsProps = {
   onChangeRoutingStrategy: () => void
   routingStrategy: RoutingStrategy
   setRoutingStrategy: (s: RoutingStrategy) => void
-  organizationId?: string | null
 }
 
 export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
@@ -75,7 +72,6 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   setFallback,
   routingBusinessNumber,
   setRoutingStrategy,
-  organizationId,
 }: DashboardRoutingSheetsProps) {
   const configureDiscardRef = useRef<() => void>(() => {})
   const ringBackupDiscardRef = useRef<() => void>(() => {})
@@ -110,15 +106,6 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
 
   return (
     <>
-      {/* Bottom settings stack — Available toggle + Caller ID (Spam shield / CNAM). */}
-      <div className="mx-auto w-full max-w-7xl space-y-3 px-3 pb-6 sm:px-0 sm:pb-8">
-        <PresenceStatusBar />
-        <CallerIdUtilitiesCard
-          organizationId={organizationId}
-          onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}
-        />
-      </div>
-
       {configureOpen ? (
         <Sheet open={configureOpen} onOpenChange={handleConfigureOpenChange} modal>
           <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>

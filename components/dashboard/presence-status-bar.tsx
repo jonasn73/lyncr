@@ -1,6 +1,6 @@
 "use client"
 
-// Compact Available toggle — sits with Caller ID / Messages settings at the bottom of Lines.
+// Compact Available toggle — sits under Alerts with Caller ID on Lines.
 // On = Available (cell rings first). Off = Busy (skip phone → booking text).
 // Uses plain-button Switch (not Radix) to avoid React #185.
 

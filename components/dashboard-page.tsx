@@ -605,7 +605,8 @@ export function DashboardPage() {
 
   return (
     // Full-width shell so the sticky tracking line can span the main column; max-w lives under the bar.
-    <div className="flex w-full flex-col gap-10 sm:gap-14">
+    {/* Tight stack — no giant gap between Alerts and Available/Caller ID. */}
+    <div className="flex w-full flex-col gap-3">
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
         callFlowUiReady={callFlowUiReady}
@@ -642,7 +643,6 @@ export function DashboardPage() {
         setAiRingOwnerFirst={setAiRingOwnerFirst}
         hasTelnyxAiAssistant={hasTelnyxAiAssistant}
         setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
-        organizationId={activeOrganizationId}
       />
     </div>
   )

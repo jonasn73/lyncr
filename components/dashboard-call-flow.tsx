@@ -659,7 +659,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   // Flattened shell — no outer card; step rows/cards sit on the page background.
   return (
-    <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:min-h-[22rem] md:scroll-mt-24">
+    {/* No min-height spacer — Alerts sit tight above Available (Messages moved to Settings). */}
+    <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">
       {/* Title + info only on md+ — non-actionable on mobile per UI standards. */}
       <div className="mb-3 hidden items-center justify-between gap-2 md:flex">
         <div className="flex min-w-0 items-center gap-2">
@@ -766,8 +767,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         </div>
       )}
 
-      {/* Alerts (Latest) — hides itself when empty; Messages lives under Settings. */}
-      <div className="mt-3 flex flex-col gap-3 md:mt-4">
+      {/* Alerts — hides when empty; sits directly above Available with normal gap. */}
+      <div className="mt-3">
         <JustFinishedReviewCard compact />
       </div>
     </section>
