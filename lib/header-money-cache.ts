@@ -90,6 +90,7 @@ export function estimateLyncrNetFromGrossCents(grossCents: number): number {
  * Lead with today’s collected when > 0; otherwise fall through to money
  * already in the wallet (Available, then Pending) so we never imply $0
  * when card pays are still clearing.
+ * The chip UI shows the dollar amount only — Available vs Pending lives in the Money sheet.
  */
 export type HeaderWalletChipDisplay = {
   /** Big number on the chip. */
@@ -101,16 +102,19 @@ export type HeaderWalletChipDisplay = {
    * zero — nothing today, nothing ready, nothing pending
    */
   mode: "today" | "in_account" | "pending" | "zero"
-  /** Short subtitle under the amount (e.g. “Today”, “Pending”). */
+  /**
+   * Internal mode label (not shown on the chip).
+   * Kept for callers that still branch on wording; chip renders amount only.
+   */
   label: string
 }
 
 /**
- * Pick the chip amount + label.
- * 1) Collected today > 0 → show that (label “Today”)
- * 2) Else Available > 0 → show Available (label “In account”)
- * 3) Else Pending > 0 → show Pending (label “Pending”) — not “$0 Today”
- * 4) Else $0 with label “Today”
+ * Pick which amount the chip shows (priority only — no visible subtitle).
+ * 1) Collected today > 0 → that amount
+ * 2) Else Available > 0 → Available
+ * 3) Else Pending > 0 → Pending (so we never flash a fake $0)
+ * 4) Else $0
  */
 export function resolveHeaderWalletChipDisplay(
   availableCents: number,
@@ -137,6 +141,5 @@ export function resolveHeaderWalletChipDisplay(
     return { amountCents: pending, mode: "pending", label: "Pending" }
   }
 
-  // Flat zero — still label “Today” so the chip reads as a daily glance.
   return { amountCents: 0, mode: "zero", label: "Today" }
 }

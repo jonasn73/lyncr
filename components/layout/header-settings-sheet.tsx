@@ -36,7 +36,7 @@ import {
 } from "@/lib/header-money-cache"
 
 /** Keep the wallet chip the same width while $0 → real total hydrates (avoids header collapse). */
-const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[5.25rem] flex-col items-end leading-none"
+const WALLET_AMOUNT_SLOT_CLASS = "flex min-w-[5.25rem] items-center justify-end leading-none"
 
 /**
  * Last-known wallet for header skeleton / first paint.
@@ -418,21 +418,13 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           onPointerEnter={() => prefetchCollectJobs()}
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
-            chipAmountLabel && chipDisplay
-              ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
-                ? `Collected today ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
-                : chipDisplay.mode === "pending"
-                  ? `Pending ${chipAmountLabel} clearing. Tap for today’s sales, fees, and bank transfer.`
-                  : `In account ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
+            chipAmountLabel
+              ? `Wallet ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
               : "Wallet — loading balance"
           }
           title={
-            chipAmountLabel && chipDisplay
-              ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
-                ? `Today ${chipAmountLabel} — tap for details`
-                : chipDisplay.mode === "pending"
-                  ? `Pending ${chipAmountLabel} — tap for details`
-                  : `In account ${chipAmountLabel} — tap for details`
+            chipAmountLabel
+              ? `${chipAmountLabel} — tap for details`
               : "Loading account balance"
           }
         >
@@ -446,9 +438,6 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               // Reserved width only — never pulse bars that look like broken "...." data.
               <span className="inline-block h-3 w-14" aria-hidden />
             )}
-            <span className="mt-0.5 max-w-[7.5rem] truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
-              {chipDisplay?.label ?? "Today"}
-            </span>
           </span>
         </Button>
 
