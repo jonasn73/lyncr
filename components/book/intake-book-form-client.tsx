@@ -49,7 +49,7 @@ type WizardStep = "details" | "availability" | "pay" | "done"
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+  "w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -73,6 +73,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [vehicleText, setVehicleText] = useState("")
   const [jobKind, setJobKind] = useState("")
   const [notes, setNotes] = useState("")
+  /** Notes stay collapsed until the customer taps “Add notes”. */
+  const [notesOpen, setNotesOpen] = useState(false)
+  /** Optional email stays collapsed until tapped. */
+  const [emailOpen, setEmailOpen] = useState(false)
   const [urgency, setUrgency] = useState<BookUrgency | null>(null)
 
   const dayOptions = useMemo(() => buildBookDayOptions(), [])
@@ -344,178 +348,203 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       ) : null}
 
       {wizardStep === "details" ? (
-        <div className="mt-6 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Your name *</span>
-            <input
-              required
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className={fieldClass}
-              autoComplete="name"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Phone *</span>
-            <input
-              required
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={fieldClass}
-              autoComplete="tel"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">
-              Email <span className="text-slate-500">(optional)</span>
-            </span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={fieldClass}
-              autoComplete="email"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Service address *</span>
-            <input
-              required
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Street, city, ZIP"
-              className={fieldClass}
-              autoComplete="street-address"
-            />
-          </label>
-
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-medium text-slate-300">What do you need? *</legend>
-            <div className="grid gap-2">
-              {BOOK_JOB_KIND_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setJobKind(opt.id)}
-                  className={
-                    jobKind === opt.id
-                      ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-2.5 text-left text-sm font-medium text-emerald-50"
-                      : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
-                  }
-                >
-                  {opt.label}
-                </button>
-              ))}
+        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
+          <div className="space-y-2.5">
+            {/* Name + phone on one row */}
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block space-y-0.5">
+                <span className="text-xs font-medium text-slate-400">Name *</span>
+                <input
+                  required
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={fieldClass}
+                  autoComplete="name"
+                />
+              </label>
+              <label className="block space-y-0.5">
+                <span className="text-xs font-medium text-slate-400">Phone *</span>
+                <input
+                  required
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={fieldClass}
+                  autoComplete="tel"
+                />
+              </label>
             </div>
-          </fieldset>
 
-          {bookJobKindNeedsVehicle(jobKind) ? (
-            <>
-              <div className="grid grid-cols-3 gap-2">
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">Year</span>
+            <label className="block space-y-0.5">
+              <span className="text-xs font-medium text-slate-400">Address *</span>
+              <input
+                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Street, city, ZIP"
+                className={fieldClass}
+                autoComplete="street-address"
+              />
+            </label>
+
+            {emailOpen || email ? (
+              <label className="block space-y-0.5">
+                <span className="text-xs font-medium text-slate-400">
+                  Email <span className="text-slate-600">(optional)</span>
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={fieldClass}
+                  autoComplete="email"
+                />
+              </label>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEmailOpen(true)}
+                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+              >
+                + Add email
+              </button>
+            )}
+
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-slate-400">Job type *</legend>
+              <div className="grid grid-cols-2 gap-1.5">
+                {BOOK_JOB_KIND_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    title={opt.label}
+                    onClick={() => setJobKind(opt.id)}
+                    className={
+                      jobKind === opt.id
+                        ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-1.5 text-center text-xs font-medium text-emerald-50"
+                        : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-center text-xs text-slate-200"
+                    }
+                  >
+                    {opt.chip}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            {bookJobKindNeedsVehicle(jobKind) ? (
+              <div>
+                <p className="mb-1 text-xs font-medium text-slate-400">Vehicle</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <label className="block space-y-0.5">
+                    <span className="text-[10px] text-slate-500">Year</span>
+                    <input
+                      value={year}
+                      onChange={(e) => setYear(e.target.value)}
+                      inputMode="numeric"
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block space-y-0.5">
+                    <span className="text-[10px] text-slate-500">Make</span>
+                    <input
+                      value={make}
+                      onChange={(e) => setMake(e.target.value)}
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block space-y-0.5">
+                    <span className="text-[10px] text-slate-500">Model</span>
+                    <input
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className={fieldClass}
+                    />
+                  </label>
+                </div>
+                <label className="mt-1.5 block space-y-0.5">
+                  <span className="text-[10px] text-slate-500">Or describe</span>
                   <input
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    inputMode="numeric"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">Make</span>
-                  <input
-                    value={make}
-                    onChange={(e) => setMake(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-                  />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-slate-300">Model</span>
-                  <input
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                    value={vehicleText}
+                    onChange={(e) => setVehicleText(e.target.value)}
+                    placeholder="e.g. Silver Honda Civic"
+                    className={fieldClass}
                   />
                 </label>
               </div>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-slate-300">
-                  Or describe vehicle
+            ) : null}
+
+            {notesOpen || notes ? (
+              <label className="block space-y-0.5">
+                <span className="text-xs font-medium text-slate-400">
+                  Notes <span className="text-slate-600">(optional)</span>
                 </span>
                 <input
-                  value={vehicleText}
-                  onChange={(e) => setVehicleText(e.target.value)}
-                  placeholder="e.g. Silver Honda Civic"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                   className={fieldClass}
+                  placeholder="Gate code, parking…"
                 />
               </label>
-            </>
-          ) : null}
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Notes (optional)</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className={fieldClass}
-              placeholder="Gate code, parking, key details…"
-            />
-          </label>
-
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-medium text-slate-300">How urgent? *</legend>
-            <div className="grid gap-2">
+            ) : (
               <button
                 type="button"
-                onClick={() => setUrgency("asap")}
-                className={
-                  urgency === "asap"
-                    ? "rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-2.5 text-left text-sm text-rose-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
-                }
+                onClick={() => setNotesOpen(true)}
+                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
               >
-                <span className="font-semibold">Emergency / ASAP</span>
-                <span className="mt-0.5 block text-[11px] text-slate-400">
-                  Skip the time window — we&apos;ll prioritize
-                </span>
+                + Add notes
               </button>
+            )}
+
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-slate-400">Urgency *</legend>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setUrgency("asap")}
+                  className={
+                    urgency === "asap"
+                      ? "rounded-lg border border-rose-500/40 bg-rose-500/15 px-2 py-2 text-center text-xs text-rose-50"
+                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                  }
+                >
+                  <span className="font-semibold">ASAP</span>
+                  <span className="mt-0.5 block text-[10px] text-slate-500">Need help now</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUrgency("window")}
+                  className={
+                    urgency === "window"
+                      ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-50"
+                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                  }
+                >
+                  <span className="font-semibold">Schedule</span>
+                  <span className="mt-0.5 block text-[10px] text-slate-500">Pick a window</span>
+                </button>
+              </div>
+            </fieldset>
+
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          </div>
+
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800/80 bg-slate-950/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
+            <div className="mx-auto w-full max-w-lg">
               <button
                 type="button"
-                onClick={() => setUrgency("window")}
-                className={
-                  urgency === "window"
-                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-2.5 text-left text-sm text-emerald-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
-                }
+                disabled={!detailsReady || submitting}
+                onClick={() => onDetailsContinue()}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
               >
-                <span className="font-semibold">Schedule a window</span>
-                <span className="mt-0.5 block text-[11px] text-slate-400">
-                  One day + From–To range
-                </span>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {urgency === "asap"
+                  ? invite?.fee_mode === "none"
+                    ? "Submit — need service ASAP"
+                    : `Submit ASAP · then pay ${amountLabel}`
+                  : "Continue — pick a window"}
               </button>
             </div>
-          </fieldset>
-
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-          <button
-            type="button"
-            disabled={!detailsReady || submitting}
-            onClick={() => onDetailsContinue()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            {urgency === "asap"
-              ? invite?.fee_mode === "none"
-                ? "Submit — need service ASAP"
-                : `Submit ASAP · then pay ${amountLabel}`
-              : "Continue — pick a window"}
-          </button>
+          </div>
         </div>
       ) : null}
 

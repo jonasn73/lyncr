@@ -36,8 +36,9 @@ export type BookFormMode = "book" | "callback"
 
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
+// Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-2.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -85,6 +86,10 @@ export default function BookPageClient({
   const [vehicleMake, setVehicleMake] = useState("")
   const [vehicleModel, setVehicleModel] = useState("")
   const [notes, setNotes] = useState("")
+  /** Notes stay collapsed until the customer taps “Add notes”. */
+  const [notesOpen, setNotesOpen] = useState(false)
+  /** Optional email stays collapsed until tapped (saves a full field row). */
+  const [emailOpen, setEmailOpen] = useState(false)
   const [urgency, setUrgency] = useState<BookUrgency | null>(null)
 
   // —— Step 2 fields (only when urgency === "window") ——
@@ -296,6 +301,7 @@ export default function BookPageClient({
       mode={portalMode}
       currentStep={shellStep}
       subtitle={subtitle}
+      compact
     >
       {loading ? (
         <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
@@ -329,37 +335,35 @@ export default function BookPageClient({
           <p className="mt-3 text-xs text-zinc-400">{successCopy.nextHint}</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Compact step chips — Details / When (only if scheduling). */}
-          <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-1",
-                wizardStep === "details" && "bg-amber-500/20 text-amber-200"
-              )}
-            >
-              1 · Details
-            </span>
-            {urgency === "window" || wizardStep === "availability" ? (
-              <>
-                <span className="text-zinc-700">→</span>
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-1",
-                    wizardStep === "availability" && "bg-amber-500/20 text-amber-200"
-                  )}
-                >
-                  2 · When
-                </span>
-              </>
-            ) : null}
-            {mayRequireDeposit ? (
-              <>
-                <span className="text-zinc-700">→</span>
-                <span className="rounded-full px-2.5 py-1">3 · Pay</span>
-              </>
-            ) : null}
-          </div>
+        <div className="space-y-3">
+          {/* Mini step chips only when scheduling (shell already shows Book/Pay/Done). */}
+          {urgency === "window" || wizardStep === "availability" ? (
+            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5",
+                  wizardStep === "details" && "bg-amber-500/20 text-amber-200"
+                )}
+              >
+                Details
+              </span>
+              <span className="text-zinc-700">→</span>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5",
+                  wizardStep === "availability" && "bg-amber-500/20 text-amber-200"
+                )}
+              >
+                When
+              </span>
+              {mayRequireDeposit ? (
+                <>
+                  <span className="text-zinc-700">→</span>
+                  <span className="rounded-full px-2 py-0.5">Pay</span>
+                </>
+              ) : null}
+            </div>
+          ) : null}
 
           {depositStatus === "cancelled" ? (
             <p className="rounded-lg border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
@@ -367,204 +371,239 @@ export default function BookPageClient({
             </p>
           ) : null}
 
-          {/* —— STEP 1: Details sheet —— */}
+          {/* —— STEP 1: Compact Details sheet (aim: one phone screen) —— */}
           {wizardStep === "details" ? (
-            <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 shadow-lg shadow-black/20">
-              <h2 className="text-sm font-semibold text-zinc-100">Your details</h2>
-
-              <label className="block text-sm text-zinc-300">
-                Name *
-                <input
-                  type="text"
-                  autoComplete="name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Full name"
-                  className={fieldClass}
-                />
-              </label>
-
-              <label className="block text-sm text-zinc-300">
-                Phone *
-                <input
-                  type="tel"
-                  autoComplete="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Mobile number"
-                  className={fieldClass}
-                />
-              </label>
-
-              <label className="block text-sm text-zinc-300">
-                Email <span className="text-zinc-500">(optional)</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  className={fieldClass}
-                />
-              </label>
-
-              <label className="block text-sm text-zinc-300">
-                Service address *
-                <input
-                  type="text"
-                  autoComplete="street-address"
-                  value={serviceAddress}
-                  onChange={(e) => setServiceAddress(e.target.value)}
-                  placeholder="Street, city, ZIP"
-                  className={fieldClass}
-                />
-              </label>
-
-              <fieldset className="space-y-2">
-                <legend className="text-sm text-zinc-300">What do you need? *</legend>
-                <div className="grid gap-2">
-                  {BOOK_JOB_KIND_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setJobKind(opt.id)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2.5 text-left text-sm",
-                        jobKind === opt.id
-                          ? "border-amber-400/60 bg-amber-500/15 font-semibold text-amber-50"
-                          : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
+              <div className="space-y-2.5 sm:space-y-3">
+                {/* Name + phone share one row so both stay above the fold. */}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs text-zinc-400">
+                    Name *
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Full name"
+                      className={fieldClass}
+                    />
+                  </label>
+                  <label className="block text-xs text-zinc-400">
+                    Phone *
+                    <input
+                      type="tel"
+                      autoComplete="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Mobile"
+                      className={fieldClass}
+                    />
+                  </label>
                 </div>
-              </fieldset>
 
-              {jobKind === "other" ? (
-                <label className="block text-sm text-zinc-300">
-                  Describe the job *
+                <label className="block text-xs text-zinc-400">
+                  Address *
                   <input
                     type="text"
-                    value={jobOther}
-                    onChange={(e) => setJobOther(e.target.value)}
-                    placeholder="What do you need help with?"
+                    autoComplete="street-address"
+                    value={serviceAddress}
+                    onChange={(e) => setServiceAddress(e.target.value)}
+                    placeholder="Street, city, ZIP"
                     className={fieldClass}
                   />
                 </label>
-              ) : null}
 
-              {bookJobKindNeedsVehicle(jobKind) ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-zinc-300">Vehicle</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <label className="block text-xs text-zinc-400">
-                      Year
-                      <input
-                        value={vehicleYear}
-                        onChange={(e) => setVehicleYear(e.target.value)}
-                        inputMode="numeric"
-                        placeholder="2018"
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-zinc-400">
-                      Make
-                      <input
-                        value={vehicleMake}
-                        onChange={(e) => setVehicleMake(e.target.value)}
-                        placeholder="Honda"
-                        className={fieldClass}
-                      />
-                    </label>
-                    <label className="block text-xs text-zinc-400">
-                      Model
-                      <input
-                        value={vehicleModel}
-                        onChange={(e) => setVehicleModel(e.target.value)}
-                        placeholder="Civic"
-                        className={fieldClass}
-                      />
-                    </label>
+                {/* Optional email — collapsed by default. */}
+                {emailOpen || customerEmail ? (
+                  <label className="block text-xs text-zinc-400">
+                    Email <span className="text-zinc-600">(optional)</span>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="you@email.com"
+                      className={fieldClass}
+                    />
+                  </label>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEmailOpen(true)}
+                    className="text-left text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                  >
+                    + Add email
+                  </button>
+                )}
+
+                {/* Job type — compact 2×2 chips (not tall full-width slabs). */}
+                <fieldset>
+                  <legend className="mb-1 text-xs text-zinc-400">Job type *</legend>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {BOOK_JOB_KIND_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        title={opt.label}
+                        onClick={() => setJobKind(opt.id)}
+                        className={cn(
+                          "rounded-lg border px-2 py-1.5 text-center text-xs font-medium leading-tight",
+                          jobKind === opt.id
+                            ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+                            : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                        )}
+                      >
+                        {opt.chip}
+                      </button>
+                    ))}
                   </div>
-                </div>
-              ) : null}
+                </fieldset>
 
-              <label className="block text-sm text-zinc-300">
-                Notes <span className="text-zinc-500">(optional)</span>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Gate code, parking, key details…"
-                  className={fieldClass}
-                />
-              </label>
+                {jobKind === "other" ? (
+                  <label className="block text-xs text-zinc-400">
+                    Describe the job *
+                    <input
+                      type="text"
+                      value={jobOther}
+                      onChange={(e) => setJobOther(e.target.value)}
+                      placeholder="What do you need help with?"
+                      className={fieldClass}
+                    />
+                  </label>
+                ) : null}
 
-              <fieldset className="space-y-2">
-                <legend className="text-sm text-zinc-300">How urgent? *</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
+                {/* Vehicle YMM — only for car-key jobs (copy / AKL). */}
+                {bookJobKindNeedsVehicle(jobKind) ? (
+                  <div>
+                    <p className="mb-1 text-xs text-zinc-400">Vehicle</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <label className="block text-[10px] text-zinc-500">
+                        Year
+                        <input
+                          value={vehicleYear}
+                          onChange={(e) => setVehicleYear(e.target.value)}
+                          inputMode="numeric"
+                          placeholder="2018"
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-[10px] text-zinc-500">
+                        Make
+                        <input
+                          value={vehicleMake}
+                          onChange={(e) => setVehicleMake(e.target.value)}
+                          placeholder="Honda"
+                          className={fieldClass}
+                        />
+                      </label>
+                      <label className="block text-[10px] text-zinc-500">
+                        Model
+                        <input
+                          value={vehicleModel}
+                          onChange={(e) => setVehicleModel(e.target.value)}
+                          placeholder="Civic"
+                          className={fieldClass}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Notes — collapsed until expanded (or already has text). */}
+                {notesOpen || notes ? (
+                  <label className="block text-xs text-zinc-400">
+                    Notes <span className="text-zinc-600">(optional)</span>
+                    <input
+                      type="text"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Gate code, parking…"
+                      className={fieldClass}
+                    />
+                  </label>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => setUrgency("asap")}
-                    className={cn(
-                      "rounded-xl border px-3 py-3 text-left",
-                      urgency === "asap"
-                        ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
-                        : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
-                    )}
+                    onClick={() => setNotesOpen(true)}
+                    className="text-left text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
                   >
-                    <span className="block text-sm font-semibold">Emergency / ASAP</span>
-                    <span className="mt-0.5 block text-[11px] text-zinc-400">
-                      Need service now — we won&apos;t ask for a time window
-                    </span>
+                    + Add notes
                   </button>
+                )}
+
+                {/* Urgency — short side-by-side chips. */}
+                <fieldset>
+                  <legend className="mb-1 text-xs text-zinc-400">Urgency *</legend>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setUrgency("asap")}
+                      className={cn(
+                        "rounded-lg border px-2 py-2 text-center",
+                        urgency === "asap"
+                          ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
+                          : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                      )}
+                    >
+                      <span className="block text-xs font-semibold">ASAP</span>
+                      <span className="mt-0.5 block text-[10px] leading-tight text-zinc-500">
+                        Need help now
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUrgency("window")}
+                      className={cn(
+                        "rounded-lg border px-2 py-2 text-center",
+                        urgency === "window"
+                          ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+                          : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                      )}
+                    >
+                      <span className="block text-xs font-semibold">Schedule</span>
+                      <span className="mt-0.5 block text-[10px] leading-tight text-zinc-500">
+                        Pick a window
+                      </span>
+                    </button>
+                  </div>
+                </fieldset>
+
+                {error ? (
+                  <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Fixed Continue — always visible at the bottom of the phone screen. */}
+              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800/80 bg-zinc-950/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
+                <div className="mx-auto w-full max-w-lg">
                   <button
                     type="button"
-                    onClick={() => setUrgency("window")}
-                    className={cn(
-                      "rounded-xl border px-3 py-3 text-left",
-                      urgency === "window"
-                        ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
-                        : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
-                    )}
+                    disabled={!detailsReady || submitting}
+                    onClick={() => onDetailsContinue()}
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span className="block text-sm font-semibold">Schedule a window</span>
-                    <span className="mt-0.5 block text-[11px] text-zinc-400">
-                      Pick one day and when you&apos;re free
-                    </span>
+                    {submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : null}
+                    {urgency === "asap"
+                      ? "Submit — need service ASAP"
+                      : "Continue — pick a window"}
                   </button>
+                  {!detailsReady ? (
+                    <p className="mt-1 text-center text-[10px] text-zinc-500">
+                      Name, phone, address, job type, and urgency are required.
+                    </p>
+                  ) : null}
                 </div>
-              </fieldset>
-
-              {error ? (
-                <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
-                  {error}
-                </p>
-              ) : null}
-
-              <button
-                type="button"
-                disabled={!detailsReady || submitting}
-                onClick={() => onDetailsContinue()}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                {urgency === "asap"
-                  ? "Submit — need service ASAP"
-                  : "Continue — pick a window"}
-              </button>
-              {!detailsReady ? (
-                <p className="text-center text-[11px] text-zinc-500">
-                  Name, phone, address, job type, and urgency are required.
-                </p>
-              ) : null}
+              </div>
             </section>
           ) : null}
 
           {/* —— STEP 2: Availability sheet (one day + From–To) —— */}
           {wizardStep === "availability" ? (
-            <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 shadow-lg shadow-black/20">
+            <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 shadow-lg shadow-black/20 sm:space-y-4 sm:p-4">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-sm font-semibold text-zinc-100">Your availability</h2>
                 <button
@@ -577,7 +616,7 @@ export default function BookPageClient({
               </div>
 
               <fieldset className="space-y-2">
-                <legend className="text-sm text-zinc-300">Which day?</legend>
+                <legend className="text-xs text-zinc-400">Which day?</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {dayOptions.map((day) => (
                     <button
@@ -585,7 +624,7 @@ export default function BookPageClient({
                       type="button"
                       onClick={() => setDayKey(day.dateKey)}
                       className={cn(
-                        "rounded-xl border px-3 py-3 text-left",
+                        "rounded-xl border px-3 py-2.5 text-left",
                         dayKey === day.dateKey
                           ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
                           : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
@@ -601,7 +640,7 @@ export default function BookPageClient({
               </fieldset>
 
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm text-zinc-300">
+                <label className="block text-xs text-zinc-400">
                   From
                   <select
                     value={fromTime}
@@ -615,7 +654,7 @@ export default function BookPageClient({
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm text-zinc-300">
+                <label className="block text-xs text-zinc-400">
                   To
                   <select
                     value={toTime}
@@ -633,7 +672,8 @@ export default function BookPageClient({
 
               {windowReady ? (
                 <p className="rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 text-center text-sm text-zinc-200">
-                  You&apos;re free: <span className="font-semibold text-amber-100">{availabilityLabel}</span>
+                  You&apos;re free:{" "}
+                  <span className="font-semibold text-amber-100">{availabilityLabel}</span>
                 </p>
               ) : (
                 <p className="text-center text-[11px] text-rose-300/90">
@@ -651,7 +691,7 @@ export default function BookPageClient({
                 type="button"
                 disabled={!windowReady || submitting}
                 onClick={() => void submitRequest()}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {mayRequireDeposit ? depositLabel : "Submit request"}

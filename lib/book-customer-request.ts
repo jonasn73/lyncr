@@ -6,12 +6,20 @@ import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 /** Urgency chip: emergency skips availability; window asks for one day + from–to. */
 export type BookUrgency = "asap" | "window"
 
-/** Job chips — same ids as Activity /book/form. */
+/** Job chips — same ids as Activity /book/form. `chip` is the short mobile label. */
 export const BOOK_JOB_KIND_OPTIONS = [
-  { id: "lockout", label: "Lockout" },
-  { id: "copy", label: "Car key — copy (have a working key)" },
-  { id: "akl", label: "Car key — all keys lost (AKL)" },
-  { id: "other", label: "Other" },
+  { id: "lockout", label: "Lockout", chip: "Lockout" },
+  {
+    id: "copy",
+    label: "Car key — copy (have a working key)",
+    chip: "Key copy",
+  },
+  {
+    id: "akl",
+    label: "Car key — all keys lost (AKL)",
+    chip: "Keys lost",
+  },
+  { id: "other", label: "Other", chip: "Other" },
 ] as const
 
 export type BookJobKindId = (typeof BOOK_JOB_KIND_OPTIONS)[number]["id"]
@@ -39,10 +47,10 @@ export type BookTimeOption = {
   label: string // "1:00 PM"
 }
 
-/** True when we should show year / make / model (lockout + car key). */
+/** True when we should show year / make / model (car-key jobs only — not lockout). */
 export function bookJobKindNeedsVehicle(jobKind: string): boolean {
   const k = jobKind.trim().toLowerCase()
-  return k === "lockout" || k === "copy" || k === "akl"
+  return k === "copy" || k === "akl"
 }
 
 /** Build Today + Tomorrow chips (and a third day if today is late evening). */

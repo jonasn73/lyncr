@@ -17,9 +17,10 @@ describe("book customer request helpers", () => {
     expect(jobTypeFromBookFormKind("akl")).toContain("Origination")
   })
 
-  it("shows vehicle fields for lockout and car keys", () => {
-    expect(bookJobKindNeedsVehicle("lockout")).toBe(true)
+  it("shows vehicle fields for car-key jobs only", () => {
+    expect(bookJobKindNeedsVehicle("lockout")).toBe(false)
     expect(bookJobKindNeedsVehicle("copy")).toBe(true)
+    expect(bookJobKindNeedsVehicle("akl")).toBe(true)
     expect(bookJobKindNeedsVehicle("other")).toBe(false)
   })
 
