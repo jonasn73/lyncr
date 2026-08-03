@@ -8,11 +8,13 @@ import {
   ChevronDown,
   ClipboardList,
   Clock,
+  Link2,
   MapPin,
   Phone,
   PhoneMissed,
 } from "lucide-react"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { cn } from "@/lib/utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -453,6 +455,55 @@ function CallBackButton({
   )
 }
 
+/** Opens the fee-mode sheet to SMS a customer intake (+ optional pay) link. */
+function SendBookLinkButton({
+  phone,
+  callerName,
+  businessLine,
+  callLogId,
+  compact = false,
+  className,
+}: {
+  phone: string
+  callerName?: string
+  businessLine?: string | null
+  callLogId?: string | null
+  compact?: boolean
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const canSend = Boolean(toE164(phone) || phone.replace(/\D/g, "").length >= 10)
+  if (!canSend) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen(true)
+        }}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
+          compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+          className
+        )}
+      >
+        <Link2 className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+        Send book link
+      </button>
+      <SendBookLinkSheet
+        open={open}
+        onOpenChange={setOpen}
+        phone={phone}
+        callerName={callerName}
+        businessLine={businessLine}
+        callLogId={callLogId}
+      />
+    </>
+  )
+}
+
 function ActivityCallFilterBar({
   filter,
   missedCount,
@@ -746,13 +797,30 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </button>
           ) : null}
           {showCallBack ? (
-            <CallBackButton
+            <div className="flex flex-wrap gap-2">
+              <CallBackButton
+                phone={call.callerNumber}
+                openIntakeDraft={needsRevenueRescue(call)}
+                intakeCall={call}
+                missed={isMissedLog}
+                className="min-w-0 flex-1"
+              />
+              <SendBookLinkButton
+                phone={call.callerNumber}
+                callerName={call.callerName}
+                businessLine={call.targetLineE164}
+                callLogId={call.id}
+                className="min-w-0 flex-1"
+              />
+            </div>
+          ) : (
+            <SendBookLinkButton
               phone={call.callerNumber}
-              openIntakeDraft={needsRevenueRescue(call)}
-              intakeCall={call}
-              missed={isMissedLog}
+              callerName={call.callerName}
+              businessLine={call.targetLineE164}
+              callLogId={call.id}
             />
-          ) : null}
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
@@ -1009,15 +1077,34 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
             {expanded ? (
               <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
                 {canCallBack(call) ? (
-                  <CallBackButton
+                  <div className="flex flex-wrap gap-2">
+                    <CallBackButton
+                      phone={call.callerNumber}
+                      compact
+                      className="min-w-0 flex-1"
+                      openIntakeDraft={needsRevenueRescue(call)}
+                      intakeCall={call}
+                      missed={missed}
+                    />
+                    <SendBookLinkButton
+                      phone={call.callerNumber}
+                      callerName={call.callerName}
+                      businessLine={call.targetLineE164}
+                      callLogId={call.id}
+                      compact
+                      className="min-w-0 flex-1"
+                    />
+                  </div>
+                ) : (
+                  <SendBookLinkButton
                     phone={call.callerNumber}
+                    callerName={call.callerName}
+                    businessLine={call.targetLineE164}
+                    callLogId={call.id}
                     compact
                     className="w-full"
-                    openIntakeDraft={needsRevenueRescue(call)}
-                    intakeCall={call}
-                    missed={missed}
                   />
-                ) : null}
+                )}
                 {call.activity ? (
                   <ActivityIntakeSummary
                     activity={call.activity}
@@ -1235,6 +1322,13 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                             missed={missed}
                           />
                         ) : null}
+                        <SendBookLinkButton
+                          phone={call.callerNumber}
+                          callerName={call.callerName}
+                          businessLine={call.targetLineE164}
+                          callLogId={call.id}
+                          compact
+                        />
                         <button
                           type="button"
                           onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}

@@ -5,6 +5,11 @@ import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 import { ensureStripeWalletPaymentMethodDomains } from "@/lib/stripe-payment-method-domains"
 import {
+  COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES,
+  COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO,
+  isUnsupportedPaymentMethodError,
+} from "@/lib/stripe-collect-payment-methods"
+import {
   getUser,
   insertCollectPayLink,
   normalizePhoneNumberE164,
@@ -59,6 +64,8 @@ export type CreatePayLinkResult = {
   sessionId: string
   chargeCents: number
   payToken: string
+  /** True when Venmo was accepted on this Checkout session. */
+  venmoIncluded?: boolean
 }
 
 /** Create an embedded Checkout session + short lyncr.app/pay/{token} URL. */
@@ -125,80 +132,104 @@ export async function createCollectPayLinkCheckout(params: {
     console.warn("[pay-link] wallet domain register:", e)
   })
 
-  // Embedded Checkout on the connected account (customer statement shows the shop).
-  const session = await stripe.checkout.sessions.create(
-    {
-      ui_mode: "embedded",
-      mode: "payment",
-      payment_method_options: {
-        card: {
-          request_three_d_secure: "automatic",
-        },
+  // Shared Checkout fields — wallets (Apple/Google Pay) ride on `card` + domain registration.
+  const checkoutBase = {
+    ui_mode: "embedded" as const,
+    mode: "payment" as const,
+    // Prefer explicit US wallets: card (+ Apple/Google Pay), Cash App, Link; Venmo when allowed.
+    payment_method_options: {
+      card: {
+        request_three_d_secure: "automatic" as const,
       },
-      client_reference_id: ownerUserId,
-      customer_email: params.customerEmail?.trim() || undefined,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: params.chargeCents,
-            product_data: {
-              name: lineSummary,
-              description:
-                params.taxCents > 0
-                  ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
-                  : `Secure payment to ${businessLabel}`,
-            },
+    },
+    client_reference_id: ownerUserId,
+    customer_email: params.customerEmail?.trim() || undefined,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: params.chargeCents,
+          product_data: {
+            name: lineSummary,
+            description:
+              params.taxCents > 0
+                ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
+                : `Secure payment to ${businessLabel}`,
           },
         },
-      ],
+      },
+    ],
+    metadata: {
+      checkout_type: checkoutType,
+      user_id: ownerUserId,
+      acting_user_id: params.actingUserId,
+      owner_user_id: ownerUserId,
+      tech_user_id: techUserId,
+      job_id: jobId || "",
+      charge_cents: String(params.chargeCents),
+      subtotal_cents: String(params.subtotalCents),
+      tax_cents: String(params.taxCents),
+      commission_cents: String(commissionCents),
+      note,
+      customer_name: customerName,
+      business_label: businessLabel.slice(0, 80),
+      pay_token: payToken,
+      lyncr_kind: lyncrKind,
+      stripe_connect_account_id: connect.accountId,
+      lyncr_application_fee_cents: String(applicationFeeAmount),
+    },
+    payment_intent_data: {
+      application_fee_amount: applicationFeeAmount,
+      description: customerName
+        ? `${businessLabel} · ${customerName} · ${note}`
+        : `${businessLabel} · ${note}`,
       metadata: {
-        checkout_type: checkoutType,
-        user_id: ownerUserId,
-        acting_user_id: params.actingUserId,
+        lyncr_kind: lyncrKind,
+        job_id: jobId || "",
         owner_user_id: ownerUserId,
         tech_user_id: techUserId,
-        job_id: jobId || "",
-        charge_cents: String(params.chargeCents),
-        subtotal_cents: String(params.subtotalCents),
-        tax_cents: String(params.taxCents),
+        acting_user_id: params.actingUserId,
         commission_cents: String(commissionCents),
+        payment_method: "MANUAL_CARD",
         note,
         customer_name: customerName,
-        business_label: businessLabel.slice(0, 80),
+        subtotal_cents: String(params.subtotalCents),
+        tax_cents: String(params.taxCents),
+        pay_link: "1",
         pay_token: payToken,
-        lyncr_kind: lyncrKind,
         stripe_connect_account_id: connect.accountId,
         lyncr_application_fee_cents: String(applicationFeeAmount),
       },
-      payment_intent_data: {
-        application_fee_amount: applicationFeeAmount,
-        description: customerName
-          ? `${businessLabel} · ${customerName} · ${note}`
-          : `${businessLabel} · ${note}`,
-        metadata: {
-          lyncr_kind: lyncrKind,
-          job_id: jobId || "",
-          owner_user_id: ownerUserId,
-          tech_user_id: techUserId,
-          acting_user_id: params.actingUserId,
-          commission_cents: String(commissionCents),
-          payment_method: "MANUAL_CARD",
-          note,
-          customer_name: customerName,
-          subtotal_cents: String(params.subtotalCents),
-          tax_cents: String(params.taxCents),
-          pay_link: "1",
-          pay_token: payToken,
-          stripe_connect_account_id: connect.accountId,
-          lyncr_application_fee_cents: String(applicationFeeAmount),
-        },
-      },
-      return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
     },
-    connectDirectChargeOptions(connect.accountId)
-  )
+    return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
+  }
+
+  const connectOpts = connectDirectChargeOptions(connect.accountId)
+
+  // Try Venmo first; if this Connect account rejects it, retry without Venmo.
+  let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>
+  let venmoIncluded = false
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        ...checkoutBase,
+        payment_method_types: [...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO],
+      },
+      connectOpts
+    )
+    venmoIncluded = true
+  } catch (e) {
+    if (!isUnsupportedPaymentMethodError(e)) throw e
+    console.warn("[pay-link] Venmo/PM rejected — retrying without Venmo:", e)
+    session = await stripe.checkout.sessions.create(
+      {
+        ...checkoutBase,
+        payment_method_types: [...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES],
+      },
+      connectOpts
+    )
+  }
 
   if (!session.id) throw new Error("Could not create payment session")
 
@@ -221,6 +252,7 @@ export async function createCollectPayLinkCheckout(params: {
     sessionId: session.id,
     chargeCents: params.chargeCents,
     payToken,
+    venmoIncluded,
   }
 }
 

@@ -1,0 +1,207 @@
+"use client"
+
+// Activity sheet: pick fee mode + Send SMS book link for a caller's phone.
+
+import { useEffect, useState } from "react"
+import { Loader2, Link2 } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
+import { SERVICE_CALL_FEE_DOLLARS } from "@/lib/service-call-fee"
+import { useToast } from "@/hooks/use-toast"
+
+export type SendBookLinkSheetProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  phone: string
+  callerName?: string
+  businessLine?: string | null
+  callLogId?: string | null
+}
+
+type FeeMode = "none" | "service_call" | "full_quote"
+
+export function SendBookLinkSheet({
+  open,
+  onOpenChange,
+  phone,
+  callerName,
+  businessLine,
+  callLogId,
+}: SendBookLinkSheetProps) {
+  const { toast } = useToast()
+  const [feeMode, setFeeMode] = useState<FeeMode>("none")
+  const [quoteDollars, setQuoteDollars] = useState("")
+  const [note, setNote] = useState("")
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Prefill Full quote from an existing draft/lead when possible
+  useEffect(() => {
+    if (!open || !phone.trim()) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/activity/send-book-link?phone=${encodeURIComponent(phone)}`
+        )
+        const json = (await res.json().catch(() => ({}))) as {
+          data?: { suggested_quote_dollars?: number | null }
+        }
+        const suggested = json.data?.suggested_quote_dollars
+        if (!cancelled && suggested != null && suggested > 0) {
+          setQuoteDollars(String(suggested))
+        }
+      } catch {
+        // ignore — owner can type the amount
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, phone])
+
+  // Reset ephemeral error when reopened
+  useEffect(() => {
+    if (open) setError(null)
+  }, [open])
+
+  async function onSend() {
+    if (sending) return
+    setSending(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/activity/send-book-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          business_line: businessLine || undefined,
+          call_log_id: callLogId || undefined,
+          fee_mode: feeMode,
+          quote_dollars: feeMode === "full_quote" ? quoteDollars : undefined,
+          note: note.trim() || undefined,
+          customer_name: callerName?.trim() || undefined,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { wallets?: string; form_url?: string }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not send SMS")
+
+      toast({
+        title: "Book link sent",
+        description:
+          feeMode === "none"
+            ? `Form texted to ${phone}.`
+            : `Form + pay link texted. ${json.data?.wallets || ""}`.trim(),
+      })
+      onOpenChange(false)
+      setNote("")
+      setFeeMode("none")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[88dvh] overflow-y-auto rounded-t-2xl border-zinc-800 bg-zinc-950 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 text-zinc-100"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2 text-base text-white">
+            <Link2 className="h-4 w-4 text-emerald-400" aria-hidden />
+            Send book link
+          </SheetTitle>
+          <SheetDescription className="text-sm text-zinc-400">
+            Text {callerName ? `${callerName} · ` : ""}
+            {phone} a short form
+            {feeMode !== "none" ? " + pay link" : ""}.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-4 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            Fee
+          </p>
+          {(
+            [
+              { id: "none" as const, label: "No fee", hint: "Form only — capture info" },
+              {
+                id: "service_call" as const,
+                label: `Service call $${SERVICE_CALL_FEE_DOLLARS}`,
+                hint: "Form + pay $49",
+              },
+              {
+                id: "full_quote" as const,
+                label: "Full quote",
+                hint: "Form + pay the quote amount",
+              },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setFeeMode(opt.id)}
+              className={cn(
+                "flex w-full flex-col items-start rounded-xl border px-3 py-3 text-left transition-colors",
+                feeMode === opt.id
+                  ? "border-emerald-500/50 bg-emerald-500/15"
+                  : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+              )}
+            >
+              <span className="text-sm font-semibold text-zinc-100">{opt.label}</span>
+              <span className="text-[11px] text-zinc-500">{opt.hint}</span>
+            </button>
+          ))}
+
+          {feeMode === "full_quote" ? (
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-zinc-300">Quote amount ($)</span>
+              <input
+                inputMode="decimal"
+                value={quoteDollars}
+                onChange={(e) => setQuoteDollars(e.target.value)}
+                placeholder="e.g. 185"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              />
+            </label>
+          ) : null}
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-zinc-300">Short note (optional)</span>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={280}
+              placeholder="We’ll call when we’re close…"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+            />
+          </label>
+
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+
+          <button
+            type="button"
+            disabled={sending || (feeMode === "full_quote" && !quoteDollars.trim())}
+            onClick={() => void onSend()}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            Send SMS
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}

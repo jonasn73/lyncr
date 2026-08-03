@@ -141,8 +141,9 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </div>
 
           <p className="mt-6 text-center text-[11px] leading-relaxed text-zinc-500">
-            On iPhone Safari, Apple Pay shows when available. Card and other methods work on any
-            device. You&apos;ll stay on this site when payment is complete.
+            Pay with card, Apple Pay, Google Pay, Cash App, or Link when those methods are on for
+            this shop. On iPhone Safari, Apple Pay shows when available. You&apos;ll stay on this
+            site when payment is complete.
           </p>
         </>
       ) : null}
