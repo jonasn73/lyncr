@@ -3,7 +3,7 @@
 // Incoming-call context row + Decline / Quick SMS action toolbar.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link2, Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
+import { ChevronDown, Link2, Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import {
@@ -45,6 +45,11 @@ type IncomingCallOpsToolbarProps = {
   urgency?: RepeatCallerUrgency | null
   /** Open Scheduler job drawer for the matched active/recent job (RECENT JOB ACTIVE). */
   onOpenActiveJob?: (jobId: string) => void
+  /**
+   * Deep intake steps (Vehicle / Location / …): tuck Decline / SMS / booking
+   * behind a one-line “Call actions” disclosure so the year grid can dominate.
+   */
+  compactActions?: boolean
 }
 
 const EMPTY_URGENCY: RepeatCallerUrgency = {
@@ -86,6 +91,7 @@ export function IncomingCallOpsToolbar({
   className,
   urgency: urgencyProp,
   onOpenActiveJob,
+  compactActions = false,
 }: IncomingCallOpsToolbarProps) {
   const { toast } = useToast()
   const engine = useLyncEngineOptional()
@@ -99,6 +105,18 @@ export function IncomingCallOpsToolbar({
   const [smsOpen, setSmsOpen] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
   const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
+  // Deep steps start collapsed so Vehicle year taps get the vertical space.
+  const [actionsOpen, setActionsOpen] = useState(!compactActions)
+
+  // When parent flips into compact mode (e.g. landed on Vehicle), collapse again.
+  useEffect(() => {
+    if (compactActions) {
+      setActionsOpen(false)
+      setSmsOpen(false)
+    } else {
+      setActionsOpen(true)
+    }
+  }, [compactActions])
 
   // Prefer engine-prefetched CRM context when the phone matches the live primary call.
   const engineContext: CallerContextMatch | null =
@@ -274,6 +292,141 @@ export function IncomingCallOpsToolbar({
       setBookingLinkBusy(false)
     }
   }, [businessLineE164, phoneE164, toast])
+
+  // Compact deep-intake chrome: one-line disclosure + badge; expand for Decline / SMS / book.
+  if (compactActions) {
+    return (
+      <div className={cn("flex flex-col gap-1.5", className)}>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-expanded={actionsOpen}
+            aria-controls="incoming-call-actions-panel"
+            onClick={() => {
+              setActionsOpen((open) => {
+                if (open) setSmsOpen(false)
+                return !open
+              })
+            }}
+            className={cn(
+              BTN,
+              "min-h-8 border-slate-800 bg-slate-900/50 py-1 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+            )}
+          >
+            Call actions
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform", actionsOpen && "rotate-180")}
+              aria-hidden
+            />
+          </button>
+          <span
+            className={cn(
+              "text-[10px] font-semibold uppercase tracking-wider",
+              intakeCallBadgeClassName(linePhase)
+            )}
+          >
+            {intakeCallBadgeLabel(linePhase)}
+          </span>
+          {/* Keep high-urgency / active-job signal visible even when actions are tucked away. */}
+          {context.kind === "active_job" && onOpenActiveJob ? (
+            <button
+              type="button"
+              onClick={() => onOpenActiveJob(context.jobId)}
+              className="ml-auto truncate text-[10px] font-bold uppercase tracking-wide text-amber-200"
+              title="Open this job on Scheduler"
+            >
+              Job active
+            </button>
+          ) : null}
+        </div>
+
+        {actionsOpen ? (
+          <div id="incoming-call-actions-panel" className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                disabled={declining}
+                onClick={() => void handleDecline()}
+                className={cn(
+                  BTN,
+                  "min-h-8 border-rose-900/50 bg-rose-950/40 py-1 text-rose-400 hover:bg-rose-950/60"
+                )}
+                aria-label="Decline and send to voicemail"
+              >
+                {declining ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <PhoneOff className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Decline
+              </button>
+              <button
+                type="button"
+                disabled={smsSending || !phoneE164.trim()}
+                aria-expanded={smsOpen}
+                aria-controls="incoming-quick-sms-panel"
+                onClick={() => setSmsOpen((open) => !open)}
+                className={cn(
+                  BTN,
+                  "min-h-8 py-1",
+                  smsOpen
+                    ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
+                    : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+                )}
+                aria-label="Quick SMS templates"
+              >
+                {smsSending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                )}
+                SMS
+              </button>
+              <button
+                type="button"
+                disabled={bookingLinkBusy || !phoneE164.trim()}
+                onClick={() => void sendBookingLink()}
+                className={cn(
+                  BTN,
+                  "min-h-8 border-emerald-500/40 bg-emerald-500/10 py-1 text-emerald-100 hover:bg-emerald-500/20"
+                )}
+                aria-label="Text booking link"
+              >
+                {bookingLinkBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Link2 className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Book link
+              </button>
+            </div>
+            {smsOpen ? (
+              <div
+                id="incoming-quick-sms-panel"
+                data-quick-sms
+                className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2"
+              >
+                <ul className="flex flex-col gap-1">
+                  {QUICK_SMS_TEMPLATES.map((template) => (
+                    <li key={template}>
+                      <button
+                        type="button"
+                        disabled={smsSending}
+                        onClick={() => void sendQuickSms(template)}
+                        className="w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                      >
+                        {template}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>

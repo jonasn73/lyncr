@@ -190,7 +190,7 @@ function OptionChip({
       onClick={onSelect}
       onKeyDown={(event) => onOptionRowKeyDown(event, onSelect)}
       className={cn(
-        "min-h-10 touch-manipulation leading-snug",
+        "min-h-11 touch-manipulation leading-snug",
         selected ? WS_OPTION_ROW_ACTIVE : WS_OPTION_ROW,
         selected ? WS_TEXT_ACTIVE : WS_TEXT
       )}
@@ -245,14 +245,14 @@ function VehiclePickerSequential({
     setFilterQuery("")
   }, [activePicker])
 
-  // When make → model advances, bring the full model list into the parent scroll view.
+  // When make→model advances, jump the options list back to the top (search + first chips).
   useEffect(() => {
     if (activePicker !== "model") return
     if (loadingModels || models.length === 0) return
     const el = optionsListRef.current
     if (!el) return
     window.requestAnimationFrame(() => {
-      el.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      el.scrollTop = 0
     })
   }, [activePicker, loadingModels, models.length])
 
@@ -316,8 +316,9 @@ function VehiclePickerSequential({
         : value.vehicle_model
 
   return (
-    <div className={cn(WS_STACK, "w-full min-w-0")}>
-      <div className="flex flex-wrap items-center gap-3">
+    // Fill parent Vehicle step — chips stay put; year/make/model grid scrolls as the hero.
+    <div className={cn(WS_STACK, "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-2")}>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <SelectionChip
           label={value.vehicle_year ? value.vehicle_year : "Year"}
           selected={Boolean(value.vehicle_year)}
@@ -348,10 +349,14 @@ function VehiclePickerSequential({
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={activePicker} {...PICKER_STEP_MOTION} className={WS_STACK}>
-          <p className={WS_METADATA}>{pickerTitle}</p>
+        <motion.div
+          key={activePicker}
+          {...PICKER_STEP_MOTION}
+          className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden"
+        >
+          <p className={cn(WS_METADATA, "shrink-0")}>{pickerTitle}</p>
           {pickerLoading ? (
-            <div className="flex min-h-[8rem] items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
+            <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
               <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
               <span className="sr-only">Loading options</span>
             </div>
@@ -364,9 +369,11 @@ function VehiclePickerSequential({
                   : "No years available."}
             </p>
           ) : (
-            // No nested max-height scroll — parent intake sheet owns scrolling so the
-            // last model chips are reachable (nested overflow often truncates on mobile).
-            <div ref={optionsListRef} className="grid gap-2 pb-2 pr-0.5">
+            // Dominant scroll region — large min-height so years are easy tap targets on mobile.
+            <div
+              ref={optionsListRef}
+              className="flex min-h-[14rem] min-w-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-2 pr-0.5 [-webkit-overflow-scrolling:touch]"
+            >
               <input
                 ref={filterInputRef}
                 type="search"
@@ -378,8 +385,8 @@ function VehiclePickerSequential({
                 aria-label={searchPlaceholder}
                 onChange={(e) => setFilterQuery(e.target.value)}
                 className={cn(
-                  "sticky top-0 z-10 w-full rounded-md border border-border/70 bg-background p-2 text-sm text-foreground",
-                  "mb-1 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  "sticky top-0 z-10 w-full shrink-0 rounded-md border border-border/70 bg-background p-2 text-sm text-foreground",
+                  "mb-0.5 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 )}
               />
               {filteredOptions.length === 0 ? (
@@ -387,7 +394,7 @@ function VehiclePickerSequential({
                   {emptyFilterMessage}
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {filteredOptions.map((option) => {
                     const selected = selectedValue === option
                     return (

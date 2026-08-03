@@ -477,8 +477,9 @@ function previousWorkflowStep(path: WorkflowStep[], current: WorkflowStep): Work
 
 function IntakeStepProgress({ path, currentStep }: { path: WorkflowStep[]; currentStep: WorkflowStep }) {
   const currentIndex = Math.max(0, path.indexOf(currentStep))
+  // Thin stepper strip — deep intake steps need every pixel for year / address taps.
   return (
-    <div className="flex min-w-0 items-center gap-1.5 border-b border-border/60 px-4 py-1.5">
+    <div className="flex min-w-0 items-center gap-1 border-b border-border/60 px-4 py-0.5">
       {path.map((step, index) => {
         const active = step === currentStep
         const done = index < currentIndex
@@ -486,14 +487,14 @@ function IntakeStepProgress({ path, currentStep }: { path: WorkflowStep[]; curre
           <div
             key={step}
             className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+              "h-1 w-1 shrink-0 rounded-full transition-colors",
               active ? "bg-primary" : done ? "bg-primary/50" : "bg-muted"
             )}
             title={WORKFLOW_STEP_LABELS[step]}
           />
         )
       })}
-      <span className="truncate text-xs font-semibold text-foreground">
+      <span className="truncate text-[10px] font-semibold text-foreground">
         {WORKFLOW_STEP_LABELS[currentStep]}
       </span>
     </div>
@@ -516,21 +517,31 @@ function ManualIntakeToolbar({
   onMinimize?: () => void
 }) {
   const currentIndex = Math.max(0, path.indexOf(currentStep))
+  // Match live answered sheet: keep chrome thin so Vehicle year taps stay easy.
+  const deepStep = currentStep !== "SERVICE_SELECT" && currentStep !== "BOOKING_COMPLETE"
   return (
-    <div className="shrink-0 border-b border-border/60 px-3 pb-3.5 pt-2 pr-12">
+    <div
+      className={cn(
+        "shrink-0 border-b border-border/60 pr-12",
+        deepStep ? "px-3 pb-2 pt-1.5" : "px-3 pb-3.5 pt-2"
+      )}
+    >
       <div className="flex items-center gap-2">
         {onMinimize ? (
           <button
             type="button"
             onClick={onMinimize}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            className={cn(
+              "inline-flex shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+              deepStep ? "h-7 w-7" : "h-8 w-8"
+            )}
             aria-label="Minimize intake"
             title="Minimize"
           >
-            <ChevronDown className="h-4 w-4" aria-hidden />
+            <ChevronDown className={cn(deepStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
           </button>
         ) : null}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
           {path.map((step, index) => {
             const active = step === currentStep
             const done = index < currentIndex
@@ -538,14 +549,14 @@ function ManualIntakeToolbar({
               <div
                 key={step}
                 className={cn(
-                  "h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
+                  "h-1 w-1 shrink-0 rounded-full transition-colors",
                   active ? "bg-primary" : done ? "bg-primary/50" : "bg-muted"
                 )}
                 title={WORKFLOW_STEP_LABELS[step]}
               />
             )
           })}
-          <span className="truncate text-xs font-semibold text-foreground">
+          <span className="truncate text-[10px] font-semibold text-foreground">
             {WORKFLOW_STEP_LABELS[currentStep]}
           </span>
         </div>
@@ -566,7 +577,7 @@ function ManualIntakeToolbar({
         </Select>
       </div>
       {phoneDisplay ? (
-        <p className="mt-1.5 mb-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+        <p className="mt-1 mb-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0 text-primary/80" aria-hidden />
           {phoneDisplay}
         </p>
@@ -2927,6 +2938,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   const isManual = Boolean(effectiveCurrent?.isManual)
   /** One step wizard for everyone — keeps negotiation / lost-lead / ops on the same path. */
   const stepIntake = true
+  /**
+   * Past Service: collapse Decline/SMS/booking + slim header so Vehicle / Location /
+   * Schedule / Customer content (year grid, address) can dominate the sheet.
+   */
+  const compactIntakeChrome =
+    stepIntake &&
+    currentStep !== "SERVICE_SELECT" &&
+    currentStep !== "BOOKING_COMPLETE"
   const vehicleYmmComplete = Boolean(
     form.vehicleYear.trim() && form.vehicleMake.trim() && form.vehicleModel.trim()
   )
@@ -3433,29 +3452,48 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 onMinimize={minimizeIntake}
               />
             ) : (
-            <SheetHeader className="shrink-0 border-b border-border/60 px-4 pb-3 pr-12 pt-2 text-left">
+            <SheetHeader
+              className={cn(
+                "shrink-0 border-b border-border/60 pr-12 text-left",
+                // Deep steps: tighter header so the year / address region gets the height.
+                compactIntakeChrome ? "px-3 pb-1.5 pt-1.5" : "px-4 pb-3 pt-2"
+              )}
+            >
               <div className="flex items-start gap-2">
                 <button
                   type="button"
                   onClick={minimizeIntake}
-                  className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground",
+                    compactIntakeChrome ? "mt-0 h-7 w-7" : "mt-0.5 h-8 w-8"
+                  )}
                   aria-label="Minimize intake"
                   title="Minimize"
                 >
-                  <ChevronDown className="h-4 w-4" aria-hidden />
+                  <ChevronDown className={cn(compactIntakeChrome ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
                 </button>
                 <div className="min-w-0 flex-1">
               <p
                 className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wide",
+                  "font-semibold uppercase tracking-wide",
+                  compactIntakeChrome ? "text-[9px] leading-tight" : "text-[10px]",
                   headerToneClass
                 )}
               >
                 {callHeaderLabel}
               </p>
-              <SheetTitle className="flex flex-wrap items-center gap-2 text-left text-lg">
+              <SheetTitle
+                className={cn(
+                  "flex flex-wrap items-center gap-2 text-left",
+                  compactIntakeChrome ? "text-base leading-tight" : "text-lg"
+                )}
+              >
                 <Phone
-                  className={cn("h-5 w-5 shrink-0 text-primary", isRinging && "animate-pulse")}
+                  className={cn(
+                    "shrink-0 text-primary",
+                    compactIntakeChrome ? "h-4 w-4" : "h-5 w-5",
+                    isRinging && "animate-pulse"
+                  )}
                   aria-hidden
                 />
                 <span className="tabular-nums">
@@ -3466,7 +3504,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 ) : null}
               </SheetTitle>
               {/* P2-lite: ringing/answered open-quote chip — same CRM bind as Convert handoff */}
-              {matchedCustomer || crmOpenLeadId ? (
+              {!compactIntakeChrome && (matchedCustomer || crmOpenLeadId) ? (
                 <RepeatCustomerCrmChips
                   compact
                   garageVehicles={garageVehicles}
@@ -3481,7 +3519,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </div>
               </div>
               <IncomingCallOpsToolbar
-                className="mt-2"
+                className={compactIntakeChrome ? "mt-1" : "mt-2"}
                 phoneE164={form.phoneNumber || effectiveCurrent.from_number}
                 businessLineE164={effectiveCurrent.to_number}
                 callLogId={effectiveCurrent.id}
@@ -3491,8 +3529,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 onDeclined={dismissOnly}
                 urgency={repeatUrgency}
                 onOpenActiveJob={openActiveJobOnScheduler}
+                compactActions={compactIntakeChrome}
               />
-              {effectiveCurrent.recording_url ? (
+              {!compactIntakeChrome && effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
                   <span className="font-mono text-xs text-zinc-400">Recording:</span>
                   <audio
@@ -3504,8 +3543,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               ) : null}
             </SheetHeader>
             )}
-            {/* Standalone draft strip only when decision card is not already offering Restore. */}
-            {pendingDraft && sheetOpen && !showReturningCallerCard ? (
+            {/* Standalone draft strip only on Service — never steal Vehicle year space. */}
+            {pendingDraft &&
+            sheetOpen &&
+            !showReturningCallerCard &&
+            currentStep === "SERVICE_SELECT" ? (
               <IntakeDraftRestoreBanner
                 draft={pendingDraft}
                 onRestore={restorePendingDraft}
@@ -3548,10 +3590,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 notesExpanded={returningCallerNotesExpanded}
               />
             ) : null}
-            {/* Compact sticky banner after Restore — not the full decision card. */}
-            {continuingDraft && !showReturningCallerCard ? (
+            {/* Compact sticky banner after Restore — hide on Vehicle so the year grid wins. */}
+            {continuingDraft && !showReturningCallerCard && currentStep !== "VEHICLE_INFO" ? (
               <div
-                className="sticky top-0 z-20 shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1.5"
+                className="sticky top-0 z-20 shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1"
                 role="status"
               >
                 <p className="truncate text-[11px] font-medium text-amber-50/95">
@@ -3573,7 +3615,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 className={cn(
                   "flex min-h-0 flex-1 flex-col",
                   stepIntake
-                    ? "overflow-hidden px-4 py-2"
+                    ? cn(
+                        "overflow-hidden",
+                        // Deep steps: less padding so content (year grid) claims the viewport.
+                        compactIntakeChrome ? "px-3 py-1.5" : "px-4 py-2"
+                      )
                     : "space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4"
                 )}
               >
@@ -3588,13 +3634,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         <div
                           ref={manualStepScrollRef}
                           className={cn(
-                            MANUAL_STEP_SCROLL,
-                            "relative z-10",
-                            // Extra bottom space so sticky footer does not cover model chips / key options.
-                            (currentStep === "KEY_SPECIFICS" ||
-                              currentStep === "VEHICLE_INFO" ||
-                              currentStep === "JOB_TYPE") &&
-                              "pb-32"
+                            // Vehicle: flex-fill shell — year grid owns scroll, not the whole page.
+                            currentStep === "VEHICLE_INFO"
+                              ? "relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden pb-28"
+                              : cn(
+                                  MANUAL_STEP_SCROLL,
+                                  "relative z-10",
+                                  // Extra bottom space so sticky footer does not cover model chips / key options.
+                                  (currentStep === "KEY_SPECIFICS" ||
+                                    currentStep === "JOB_TYPE") &&
+                                    "pb-32"
+                                )
                           )}
                         >
                           {currentStep === "SERVICE_SELECT" && !showReturningCallerCard ? (
@@ -3685,24 +3735,32 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           ) : null}
 
                           {currentStep === "VEHICLE_INFO" ? (
-                            <fieldset className={cn(WS_SECTION, "grid gap-2")}>
-                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                            <fieldset
+                              className={cn(
+                                WS_SECTION,
+                                // Fill the step — year/make/model grid is the dominant region.
+                                "flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden p-2"
+                              )}
+                            >
+                              <legend className="shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
                                 Vehicle year · make · model
                               </legend>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">
                                 {vehicleLockoutIntake
                                   ? "Optional — helps the tech. Skip if they are in a hurry."
                                   : "Look the key up outside Lyncr while they hold."}
                               </p>
-                              <VehiclePickerCascade
-                                variant="sequential"
-                                value={{
-                                  vehicle_year: form.vehicleYear,
-                                  vehicle_make: form.vehicleMake,
-                                  vehicle_model: form.vehicleModel,
-                                }}
-                                onChange={handleManualVehicleChange}
-                              />
+                              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                                <VehiclePickerCascade
+                                  variant="sequential"
+                                  value={{
+                                    vehicle_year: form.vehicleYear,
+                                    vehicle_make: form.vehicleMake,
+                                    vehicle_model: form.vehicleModel,
+                                  }}
+                                  onChange={handleManualVehicleChange}
+                                />
+                              </div>
                             </fieldset>
                           ) : null}
 
