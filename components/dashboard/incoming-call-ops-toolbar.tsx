@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ChevronDown, Link2, Loader2, MessageSquare, PhoneOff, X } from "lucide-react"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { resolveCallerContext, type CallerContextMatch } from "@/lib/caller-context-engine"
 import { useLyncEngineOptional } from "@/lib/lync-engine-context"
 import {
@@ -104,7 +105,8 @@ export function IncomingCallOpsToolbar({
   // Inline panel (not Radix Popover) — Popover portals at z-50 and hides under Sheet z-[110].
   const [smsOpen, setSmsOpen] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
-  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
+  // Shared fee-options sheet (No fee / $49 / Full quote)
+  const [bookLinkOpen, setBookLinkOpen] = useState(false)
   // Deep steps start collapsed so Vehicle year taps get the vertical space.
   const [actionsOpen, setActionsOpen] = useState(!compactActions)
 
@@ -254,7 +256,7 @@ export function IncomingCallOpsToolbar({
     [businessLineE164, organizationId, phoneE164, toast]
   )
 
-  const sendBookingLink = useCallback(async () => {
+  const openBookLinkSheet = useCallback(() => {
     if (!phoneE164.trim()) {
       toast({
         title: "No caller number",
@@ -263,39 +265,13 @@ export function IncomingCallOpsToolbar({
       })
       return
     }
-    setBookingLinkBusy(true)
-    try {
-      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: phoneE164,
-          business_line: businessLineE164 || undefined,
-          source: "on_call",
-        }),
-      })
-      const json = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) {
-        toast({
-          title: "Could not send booking link",
-          description: json.error || "Try again in a moment.",
-          variant: "destructive",
-        })
-        return
-      }
-      toast({
-        title: "Booking link sent",
-        description: "Customer can book a slot and enter their details.",
-      })
-    } finally {
-      setBookingLinkBusy(false)
-    }
-  }, [businessLineE164, phoneE164, toast])
+    setBookLinkOpen(true)
+  }, [phoneE164, toast])
 
   // Compact deep-intake chrome: one-line disclosure + badge; expand for Decline / SMS / book.
   if (compactActions) {
     return (
+      <>
       <div className={cn("flex flex-col gap-1.5", className)}>
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -384,19 +360,15 @@ export function IncomingCallOpsToolbar({
               </button>
               <button
                 type="button"
-                disabled={bookingLinkBusy || !phoneE164.trim()}
-                onClick={() => void sendBookingLink()}
+                disabled={!phoneE164.trim()}
+                onClick={openBookLinkSheet}
                 className={cn(
                   BTN,
                   "min-h-8 border-emerald-500/40 bg-emerald-500/10 py-1 text-emerald-100 hover:bg-emerald-500/20"
                 )}
                 aria-label="Text booking link"
               >
-                {bookingLinkBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Link2 className="h-3.5 w-3.5" aria-hidden />
-                )}
+                <Link2 className="h-3.5 w-3.5" aria-hidden />
                 Book link
               </button>
             </div>
@@ -425,10 +397,19 @@ export function IncomingCallOpsToolbar({
           </div>
         ) : null}
       </div>
+      <SendBookLinkSheet
+        open={bookLinkOpen}
+        onOpenChange={setBookLinkOpen}
+        phone={phoneE164}
+        businessLine={businessLineE164}
+        callLogId={callLogId}
+      />
+      </>
     )
   }
 
   return (
+    <>
     <div className={cn("flex flex-col gap-2", className)}>
       {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
@@ -510,19 +491,15 @@ export function IncomingCallOpsToolbar({
 
         <button
           type="button"
-          disabled={bookingLinkBusy || !phoneE164.trim()}
-          onClick={() => void sendBookingLink()}
+          disabled={!phoneE164.trim()}
+          onClick={openBookLinkSheet}
           className={cn(
             BTN,
             "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
           )}
           aria-label="Text booking link"
         >
-          {bookingLinkBusy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Link2 className="h-3.5 w-3.5" aria-hidden />
-          )}
+          <Link2 className="h-3.5 w-3.5" aria-hidden />
           Text booking link
         </button>
 
@@ -573,5 +550,13 @@ export function IncomingCallOpsToolbar({
         </div>
       ) : null}
     </div>
+    <SendBookLinkSheet
+      open={bookLinkOpen}
+      onOpenChange={setBookLinkOpen}
+      phone={phoneE164}
+      businessLine={businessLineE164}
+      callLogId={callLogId}
+    />
+    </>
   )
 }

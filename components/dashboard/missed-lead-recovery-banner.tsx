@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { SmsTemplateInterceptorSheet } from "@/components/dashboard/sms-template-interceptor-sheet"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -52,7 +53,8 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   const [pendingPhones, setPendingPhones] = useState<string[]>([])
   // High-urgency options dialog (Call back / Intake / Booking link / Dismiss).
   const [urgencyOptionsOpen, setUrgencyOptionsOpen] = useState(false)
-  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
+  const [bookLinkOpen, setBookLinkOpen] = useState(false)
+  const [bookLinkPhone, setBookLinkPhone] = useState("")
 
   const mode = useMemo(() => classifyMissedLeadRecoveryMode(prospects), [prospects])
 
@@ -175,7 +177,7 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
   )
 
   const handleTextBookingLink = useCallback(
-    async (phone: string) => {
+    (phone: string) => {
       const e164 = toE164(phone) || phone.trim()
       if (!e164) {
         toast({
@@ -185,37 +187,10 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         })
         return
       }
-      setBookingLinkBusy(true)
-      try {
-        const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone_number: e164,
-            business_line: fromNumber || undefined,
-            source: "missed_lead_banner",
-          }),
-        })
-        const json = (await res.json().catch(() => ({}))) as { error?: string }
-        if (!res.ok) {
-          toast({
-            title: "Could not send booking link",
-            description: json.error || "Try again in a moment.",
-            variant: "destructive",
-          })
-          return
-        }
-        toast({
-          title: "Booking link sent",
-          description: "Customer can book a slot and enter their details.",
-        })
-        setUrgencyOptionsOpen(false)
-      } finally {
-        setBookingLinkBusy(false)
-      }
+      setBookLinkPhone(e164)
+      setBookLinkOpen(true)
     },
-    [fromNumber, toast]
+    [toast]
   )
 
   const handleDismissUrgency = useCallback(
@@ -233,6 +208,17 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
       recipientCount={pendingPhones.length}
       onClose={closeTemplateMenu}
       onSelect={handleTemplateSelect}
+    />
+  )
+
+  // Same fee-options sheet as Activity — opens from high-urgency “Text booking link”
+  const bookLinkSheet = (
+    <SendBookLinkSheet
+      open={bookLinkOpen}
+      onOpenChange={setBookLinkOpen}
+      phone={bookLinkPhone}
+      businessLine={fromNumber || null}
+      onSent={() => setUrgencyOptionsOpen(false)}
     />
   )
 
@@ -271,6 +257,7 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
           </button>
         </div>
         {templateSheet}
+        {bookLinkSheet}
       </>
     )
   }
@@ -366,20 +353,14 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
 
               <button
                 type="button"
-                disabled={bookingLinkBusy}
-                onClick={() => void handleTextBookingLink(rescuePhone)}
+                onClick={() => handleTextBookingLink(rescuePhone)}
                 className={cn(
                   optionBtn,
-                  "border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20",
-                  "disabled:opacity-60"
+                  "border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
                 )}
               >
-                {bookingLinkBusy ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-                ) : (
-                  <Link2 className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-                {bookingLinkBusy ? "Sending…" : "Text booking link"}
+                <Link2 className="h-4 w-4 shrink-0" aria-hidden />
+                Text booking link
               </button>
 
               <button
@@ -398,6 +379,7 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         </Dialog>
 
         {templateSheet}
+        {bookLinkSheet}
       </>
     )
   }
@@ -462,6 +444,7 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
         </div>
       </div>
       {templateSheet}
+      {bookLinkSheet}
     </>
   )
 })

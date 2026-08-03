@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link2, Loader2, MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
   CUSTOMER_SMS_QUICK_TEMPLATES,
@@ -65,7 +66,8 @@ export function CustomerSmsComposer({
   const [draft, setDraft] = useState("")
   const [etaMinutes, setEtaMinutes] = useState(String(DEFAULT_LATE_ETA_MINUTES))
   const [sending, setSending] = useState(false)
-  const [bookingBusy, setBookingBusy] = useState(false)
+  // Fee-options sheet (same UI as Activity “Send book link”)
+  const [bookLinkOpen, setBookLinkOpen] = useState(false)
   // Owner-saved reusable texts + late/status copy from Settings → SMS templates.
   const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
@@ -185,7 +187,7 @@ export function CustomerSmsComposer({
     [businessName, sendRunningLate, sendText, statusTemplates]
   )
 
-  const resendBookingLink = useCallback(async () => {
+  const openBookLinkSheet = useCallback(() => {
     if (!toPhone.trim()) {
       toast({
         title: "No phone on file",
@@ -194,41 +196,10 @@ export function CustomerSmsComposer({
       })
       return
     }
-    setBookingBusy(true)
-    try {
-      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: toPhone,
-          business_line: fromLine?.trim() || undefined,
-          // Missed-call activity → apology SMS; otherwise plain booking link.
-          source: isMissed ? "missed_call_activity" : "activity_follow_up",
-        }),
-      })
-      const json = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) {
-        toast({
-          title: "Could not send booking link",
-          description: json.error || "Try again in a moment.",
-          variant: "destructive",
-        })
-        return
-      }
-      toast({
-        title: isMissed ? "Recovery link sent" : "Booking link sent",
-        description: isMissed
-          ? "Customer can share their info & availability — a tech will follow up ASAP."
-          : "Customer can pick a time and enter their details.",
-      })
-      onSent?.()
-    } finally {
-      setBookingBusy(false)
-    }
-  }, [fromLine, isMissed, onSent, toPhone, toast])
+    setBookLinkOpen(true)
+  }, [toPhone, toast])
 
-  const busy = sending || bookingBusy
+  const busy = sending
 
   return (
     <div
@@ -318,24 +289,29 @@ export function CustomerSmsComposer({
       ) : null}
 
       {showBookingLink ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void resendBookingLink()}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold disabled:opacity-50",
-            isMissed
-              ? "border-rose-500/40 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25"
-              : "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
-          )}
-        >
-          {bookingBusy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          ) : (
+        <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={openBookLinkSheet}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold disabled:opacity-50",
+              isMissed
+                ? "border-rose-500/40 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25"
+                : "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+            )}
+          >
             <Link2 className="h-3.5 w-3.5" aria-hidden />
-          )}
-          {isMissed ? "Send booking link" : "Re-send booking link"}
-        </button>
+            Send book link
+          </button>
+          <SendBookLinkSheet
+            open={bookLinkOpen}
+            onOpenChange={setBookLinkOpen}
+            phone={toPhone}
+            businessLine={fromLine}
+            onSent={onSent}
+          />
+        </>
       ) : null}
 
       {showQuickTemplates && customSnippets.length > 0 ? (

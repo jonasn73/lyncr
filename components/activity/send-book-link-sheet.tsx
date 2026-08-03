@@ -1,8 +1,9 @@
 "use client"
 
-// Activity sheet: pick fee mode + Send SMS book link for a caller's phone.
+// Shared fee-options sheet: No fee / Service call $49 / Full quote → optional note → Send SMS.
+// Used from Activity, Call Answered, ops toolbar, missed-call rescue, SMS composer, etc.
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type MouseEvent } from "react"
 import { Loader2, Link2 } from "lucide-react"
 import {
   Sheet,
@@ -14,6 +15,7 @@ import {
 import { cn } from "@/lib/utils"
 import { SERVICE_CALL_FEE_DOLLARS } from "@/lib/service-call-fee"
 import { useToast } from "@/hooks/use-toast"
+import { toE164 } from "@/lib/phone-e164"
 
 export type SendBookLinkSheetProps = {
   open: boolean
@@ -22,6 +24,10 @@ export type SendBookLinkSheetProps = {
   callerName?: string
   businessLine?: string | null
   callLogId?: string | null
+  /** Prefill Full quote (e.g. live intake quote) when the API has no open lead. */
+  suggestedQuoteDollars?: number | null
+  /** Called after a successful SMS send (sheet also closes + toasts). */
+  onSent?: () => void
 }
 
 type FeeMode = "none" | "service_call" | "full_quote"
@@ -33,6 +39,8 @@ export function SendBookLinkSheet({
   callerName,
   businessLine,
   callLogId,
+  suggestedQuoteDollars,
+  onSent,
 }: SendBookLinkSheetProps) {
   const { toast } = useToast()
   const [feeMode, setFeeMode] = useState<FeeMode>("none")
@@ -41,10 +49,16 @@ export function SendBookLinkSheet({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Prefill Full quote from an existing draft/lead when possible
+  // Prefill Full quote from parent hint and/or an existing draft/lead
   useEffect(() => {
     if (!open || !phone.trim()) return
     let cancelled = false
+
+    // Parent (e.g. Call Answered live quote) wins as an immediate hint
+    if (suggestedQuoteDollars != null && suggestedQuoteDollars > 0) {
+      setQuoteDollars(String(suggestedQuoteDollars))
+    }
+
     ;(async () => {
       try {
         const res = await fetch(
@@ -54,8 +68,9 @@ export function SendBookLinkSheet({
           data?: { suggested_quote_dollars?: number | null }
         }
         const suggested = json.data?.suggested_quote_dollars
+        // Only fill from API when the field is still empty (don't stomp parent hint)
         if (!cancelled && suggested != null && suggested > 0) {
-          setQuoteDollars(String(suggested))
+          setQuoteDollars((prev) => (prev.trim() ? prev : String(suggested)))
         }
       } catch {
         // ignore — owner can type the amount
@@ -64,7 +79,7 @@ export function SendBookLinkSheet({
     return () => {
       cancelled = true
     }
-  }, [open, phone])
+  }, [open, phone, suggestedQuoteDollars])
 
   // Reset ephemeral error when reopened
   useEffect(() => {
@@ -105,6 +120,7 @@ export function SendBookLinkSheet({
       onOpenChange(false)
       setNote("")
       setFeeMode("none")
+      onSent?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send")
     } finally {
@@ -203,5 +219,67 @@ export function SendBookLinkSheet({
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+/** Button + shared fee sheet — reuse anywhere “Send / Text book link” appears. */
+export function SendBookLinkButton({
+  phone,
+  callerName,
+  businessLine,
+  callLogId,
+  suggestedQuoteDollars,
+  compact = false,
+  label = "Send book link",
+  className,
+  onSent,
+  onClick,
+}: {
+  phone: string
+  callerName?: string
+  businessLine?: string | null
+  callLogId?: string | null
+  suggestedQuoteDollars?: number | null
+  compact?: boolean
+  /** Visible button label (defaults to “Send book link”). */
+  label?: string
+  className?: string
+  onSent?: () => void
+  /** Extra click handler (e.g. stopPropagation) before the sheet opens. */
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  // Need a usable phone (E.164 or at least 10 digits)
+  const canSend = Boolean(toE164(phone) || phone.replace(/\D/g, "").length >= 10)
+  if (!canSend) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          onClick?.(e)
+          setOpen(true)
+        }}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
+          compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+          className
+        )}
+      >
+        <Link2 className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+        {label}
+      </button>
+      <SendBookLinkSheet
+        open={open}
+        onOpenChange={setOpen}
+        phone={phone}
+        callerName={callerName}
+        businessLine={businessLine}
+        callLogId={callLogId}
+        suggestedQuoteDollars={suggestedQuoteDollars}
+        onSent={onSent}
+      />
+    </>
   )
 }

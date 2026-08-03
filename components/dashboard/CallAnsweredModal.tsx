@@ -26,6 +26,7 @@ import {
 import { IncomingCallOpsToolbar, RepeatCallerUrgencyBadge } from "@/components/dashboard/incoming-call-ops-toolbar"
 import { MissedCallQuickLogPanel } from "@/components/dashboard/missed-call-quick-log-panel"
 import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
 import {
   SecondaryCallInterceptBanner,
@@ -98,12 +99,14 @@ import type { PageId } from "@/components/app-shell"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
-import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
+import { buildCrmReturnUrl, buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import {
   continueOpenQuoteStep,
+  formatReturningCallerHistoryLine,
   formatReturningCallerVehicleFact,
   hasContinueableOpenLead,
   isKnownReturningCaller,
+  pickReturningCallerLastJob,
   resolveOpenQuoteYmm,
   resolveRestoredDraftServiceTypeId,
   resumeDraftIntakeStep,
@@ -130,8 +133,9 @@ import {
   type IntakeDraftSnapshot,
   type IntakeDraftWorkflowStep,
 } from "@/lib/intake-draft-storage"
+import type { OwnerCollectedTransaction } from "@/lib/owner-collected"
 import type { StructuredAddress } from "@/lib/structured-address"
-import type { CustomerVehicle } from "@/lib/types"
+import type { CrmServiceHistoryItem, CustomerVehicle } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /** Manual intake micro-step views — branching by service type. */
@@ -981,7 +985,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   /** Soft-gate: second tap skips Key details without a blank (non-AKL). */
   const [keySkipArmed, setKeySkipArmed] = useState(false)
   /** Busy flag while texting /book invite from intake outcomes. */
-  const [bookingLinkBusy, setBookingLinkBusy] = useState(false)
+  const [bookingLinkOpen, setBookingLinkOpen] = useState(false)
   /** Busy flag while creating + texting $49 service-call form+pay link. */
   const [serviceCallLinkBusy, setServiceCallLinkBusy] = useState(false)
   /** Hide returning-caller decision card after View job / Continue / New job / Restore. */
@@ -2616,8 +2620,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     toast,
   ])
 
-  /** Text booking invite (/book/[id]) — same path as the ops toolbar. */
-  const sendIntakeBookingLink = useCallback(async () => {
+  /** Opens the shared fee-options sheet (No fee / $49 / Full quote → SMS). */
+  const openIntakeBookingLink = useCallback(() => {
     const phone =
       resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
     if (!phone.trim()) {
@@ -2628,37 +2632,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       })
       return
     }
-    setBookingLinkBusy(true)
-    try {
-      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: phone,
-          business_line: effectiveCurrent?.to_number || undefined,
-          source: "on_call",
-        }),
-      })
-      const json = (await res.json().catch(() => ({}))) as { error?: string }
-      if (!res.ok) {
-        toast({
-          title: "Could not send booking link",
-          description: json.error || "Try again in a moment.",
-          variant: "destructive",
-        })
-        return
-      }
-      toast({
-        title: "Booking link sent",
-        description: "Customer can book a slot and enter their details.",
-      })
-    } finally {
-      setBookingLinkBusy(false)
-    }
+    setBookingLinkOpen(true)
   }, [
     effectiveCurrent?.from_number,
-    effectiveCurrent?.to_number,
     form.phoneNumber,
     resolvedPhoneNumber,
     toast,
@@ -4614,12 +4590,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             variant="outline"
                             size="lg"
                             className="h-11 font-semibold"
-                            disabled={bookingLinkBusy}
-                            onClick={() => void sendIntakeBookingLink()}
+                            onClick={openIntakeBookingLink}
                           >
-                            {bookingLinkBusy ? (
-                              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden />
-                            ) : null}
                             Text booking link
                           </Button>
                         </div>
@@ -4883,6 +4855,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         ) : null}
       </SheetContent>
     </Sheet>
+    <SendBookLinkSheet
+      open={bookingLinkOpen}
+      onOpenChange={setBookingLinkOpen}
+      phone={
+        resolvedPhoneNumber || form.phoneNumber || effectiveCurrent?.from_number || ""
+      }
+      callerName={form.displayName || undefined}
+      businessLine={effectiveCurrent?.to_number || null}
+      callLogId={
+        effectiveCurrent?.sourceCallLogId?.trim() ||
+        (effectiveCurrent && !effectiveCurrent.isManual ? effectiveCurrent.id : null)
+      }
+      suggestedQuoteDollars={autoTotalDollars > 0 ? autoTotalDollars : null}
+    />
     </>
   )
 }

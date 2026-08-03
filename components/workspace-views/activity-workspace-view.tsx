@@ -8,13 +8,12 @@ import {
   ChevronDown,
   ClipboardList,
   Clock,
-  Link2,
   MapPin,
   Phone,
   PhoneMissed,
 } from "lucide-react"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
-import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
+import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
 import { cn } from "@/lib/utils"
 import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -452,55 +451,6 @@ function CallBackButton({
       {/* Missed: always “Call back”; answered compact list stays short “Call”. */}
       {missed || !compact ? "Call back" : "Call"}
     </a>
-  )
-}
-
-/** Opens the fee-mode sheet to SMS a customer intake (+ optional pay) link. */
-function SendBookLinkButton({
-  phone,
-  callerName,
-  businessLine,
-  callLogId,
-  compact = false,
-  className,
-}: {
-  phone: string
-  callerName?: string
-  businessLine?: string | null
-  callLogId?: string | null
-  compact?: boolean
-  className?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const canSend = Boolean(toE164(phone) || phone.replace(/\D/g, "").length >= 10)
-  if (!canSend) return null
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(true)
-        }}
-        className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
-          compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
-          className
-        )}
-      >
-        <Link2 className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-        Send book link
-      </button>
-      <SendBookLinkSheet
-        open={open}
-        onOpenChange={setOpen}
-        phone={phone}
-        callerName={callerName}
-        businessLine={businessLine}
-        callLogId={callLogId}
-      />
-    </>
   )
 }
 
@@ -1328,6 +1278,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           businessLine={call.targetLineE164}
                           callLogId={call.id}
                           compact
+                          onClick={(e) => e.stopPropagation()}
                         />
                         <button
                           type="button"

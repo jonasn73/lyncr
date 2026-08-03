@@ -3,7 +3,7 @@
 // Action sheet: today's missed callers with Call Back & Rescue + Re-send SMS Link.
 
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react"
-import { Check, Loader2, Phone, PhoneMissed } from "lucide-react"
+import { Loader2, Phone, PhoneMissed } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { cn } from "@/lib/utils"
 import { businessNumbersMatch, formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -218,12 +219,10 @@ function seedIntakeDraftForCallback(phone: string, displayName: string | null): 
 
 function MissedLeadCard({
   item,
-  onResendLink,
-  resendState,
+  onSendBookLink,
 }: {
   item: MissedHotlistItem
-  onResendLink: (item: MissedHotlistItem) => void
-  resendState: "idle" | "sending" | "sent" | "error"
+  onSendBookLink: (item: MissedHotlistItem) => void
 }) {
   const inbound = useInboundCallPanelOptional()
   const href = buildTelHref(item.from_number)
@@ -277,34 +276,15 @@ function MissedLeadCard({
           </button>
           <button
             type="button"
-            disabled={resendState === "sending" || resendState === "sent"}
-            onClick={() => onResendLink(item)}
+            onClick={() => onSendBookLink(item)}
             className={cn(
               "inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
-              resendState === "sent"
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                : "border-slate-700 bg-transparent text-slate-300 hover:border-slate-500 hover:bg-slate-900/60",
-              MOBILE_TAP_TARGET,
-              (resendState === "sending" || resendState === "sent") && "opacity-90"
+              "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20",
+              MOBILE_TAP_TARGET
             )}
           >
-            {resendState === "sending" ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                Sending…
-              </>
-            ) : resendState === "sent" ? (
-              <>
-                <Check className="h-3.5 w-3.5" aria-hidden />
-                Link sent!
-              </>
-            ) : (
-              <>💬 Re-send SMS Link</>
-            )}
+            Send book link
           </button>
-          {resendState === "error" ? (
-            <p className="text-center text-[10px] text-rose-400">Could not send — try again.</p>
-          ) : null}
         </div>
       ) : (
         <p className="mt-2 text-xs text-slate-500">No dialable number on this log.</p>
@@ -333,10 +313,13 @@ export function MissedCallRescueSheet({
   const [fetchedAt, setFetchedAt] = useState(0)
   /** phone key → contact/company name from customers table. */
   const [contactNames, setContactNames] = useState<Record<string, string>>({})
-  /** phone key → resend button state. */
-  const [resendByKey, setResendByKey] = useState<
-    Record<string, "idle" | "sending" | "sent" | "error">
-  >({})
+  // Fee-options sheet target (phone + business line + name from a missed card)
+  const [bookLinkTarget, setBookLinkTarget] = useState<{
+    phone: string
+    businessLine: string | null
+    callerName?: string
+    callLogId?: string | null
+  } | null>(null)
 
   // Stable string key — businessNumbers array identity must not recreate loadMissed (#185).
   const linesKey = businessNumbers
@@ -419,7 +402,6 @@ export function MissedCallRescueSheet({
     if (!open) return
     // Clear stale rows immediately so old timestamps do not flash while refetching.
     setRows([])
-    setResendByKey({})
     void loadMissed()
   }, [open, loadMissed])
 
@@ -441,36 +423,17 @@ export function MissedCallRescueSheet({
       ? `Missed Call Rescue (${totalMissedCalls} Call${totalMissedCalls === 1 ? "" : "s"} · ${uniqueLeadsCount} Lead${uniqueLeadsCount === 1 ? "" : "s"})`
       : "Missed Call Rescue"
 
-  const handleResendLink = useCallback(async (item: MissedHotlistItem) => {
-    setResendByKey((prev) => ({ ...prev, [item.key]: "sending" }))
-    try {
-      const res = await fetch("/api/routing/missed-call-rescue/resend-link", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: item.from_number,
-          business_line: item.to_number || null,
-          source: "missed_call_rescue_resend",
-        }),
-      })
-      if (!res.ok) throw new Error("send_failed")
-      setResendByKey((prev) => ({ ...prev, [item.key]: "sent" }))
-      // Clear the success badge after a short flash.
-      window.setTimeout(() => {
-        setResendByKey((prev) => {
-          if (prev[item.key] !== "sent") return prev
-          const next = { ...prev }
-          delete next[item.key]
-          return next
-        })
-      }, 3500)
-    } catch {
-      setResendByKey((prev) => ({ ...prev, [item.key]: "error" }))
-    }
+  const openBookLink = useCallback((item: MissedHotlistItem) => {
+    setBookLinkTarget({
+      phone: item.from_number,
+      businessLine: item.to_number || null,
+      callerName: item.displayName || undefined,
+      callLogId: null,
+    })
   }, [])
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -509,8 +472,7 @@ export function MissedCallRescueSheet({
                 <MissedLeadCard
                   key={item.key}
                   item={item}
-                  onResendLink={handleResendLink}
-                  resendState={resendByKey[item.key] || "idle"}
+                  onSendBookLink={openBookLink}
                 />
               ))}
             </ul>
@@ -518,6 +480,17 @@ export function MissedCallRescueSheet({
         </div>
       </SheetContent>
     </Sheet>
+    <SendBookLinkSheet
+      open={Boolean(bookLinkTarget)}
+      onOpenChange={(next) => {
+        if (!next) setBookLinkTarget(null)
+      }}
+      phone={bookLinkTarget?.phone || ""}
+      callerName={bookLinkTarget?.callerName}
+      businessLine={bookLinkTarget?.businessLine}
+      callLogId={bookLinkTarget?.callLogId}
+    />
+    </>
   )
 }
 
