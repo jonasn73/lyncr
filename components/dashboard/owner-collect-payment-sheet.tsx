@@ -23,6 +23,7 @@ import {
   Phone,
   Link2,
   MessageSquare,
+  Search,
   X,
   History,
   RefreshCw,
@@ -267,6 +268,8 @@ export function OwnerCollectPaymentSheet({
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historySearch, setHistorySearch] = useState("")
+  const [historyDebouncedQ, setHistoryDebouncedQ] = useState("")
   /** Collected period totals — seed from header money cache; null until known (never fake $0). */
   const [collectedTodayCents, setCollectedTodayCents] = useState<number | null>(() => {
     const cached = readHeaderMoneyCache()
@@ -347,6 +350,8 @@ export function OwnerCollectPaymentSheet({
     setPayLinkPhone("")
     setPayLinkUrl(null)
     setReceiptBusy(false)
+    setHistorySearch("")
+    setHistoryDebouncedQ("")
   }, [])
 
   // Load business sales-tax defaults so Charge opens with tax ON (unless Settings says off).
@@ -388,7 +393,9 @@ export function OwnerCollectPaymentSheet({
     setHistoryLoading(true)
     setHistoryError(null)
     try {
-      const res = await fetch("/api/owner/collected/transactions?limit=50", {
+      const params = new URLSearchParams({ limit: "100" })
+      if (historyDebouncedQ) params.set("q", historyDebouncedQ)
+      const res = await fetch(`/api/owner/collected/transactions?${params}`, {
         credentials: "include",
         cache: "no-store",
       })
@@ -403,9 +410,15 @@ export function OwnerCollectPaymentSheet({
     } finally {
       setHistoryLoading(false)
     }
-  }, [])
+  }, [historyDebouncedQ])
 
-  // Load history when the History tab is opened.
+  // Debounce History search.
+  useEffect(() => {
+    const t = window.setTimeout(() => setHistoryDebouncedQ(historySearch.trim()), 280)
+    return () => window.clearTimeout(t)
+  }, [historySearch])
+
+  // Load history when the History tab is opened (or search changes).
   useEffect(() => {
     if (!open || mode !== "list" || listTab !== "history") return
     void loadPaymentHistory()
@@ -1309,9 +1322,24 @@ export function OwnerCollectPaymentSheet({
                   </button>
                   .
                 </p>
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="Search name or phone"
+                    className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-emerald-500/40"
+                    autoComplete="off"
+                    enterKeyHint="search"
+                  />
+                </div>
                 <div className="flex items-center justify-between gap-2 px-0.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Recent charges
+                    {historyDebouncedQ ? "Matching charges" : "Recent charges"}
                   </p>
                   <button
                     type="button"
@@ -1338,7 +1366,9 @@ export function OwnerCollectPaymentSheet({
                   </p>
                 ) : historyRows.length === 0 ? (
                   <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-8 text-center text-sm text-slate-500">
-                    No charges yet. Run a card or Tap to Pay from Collect, then check back here.
+                    {historyDebouncedQ
+                      ? "No matching charges. Try another name or phone."
+                      : "No charges yet. Run a card or Tap to Pay from Collect, then check back here."}
                   </p>
                 ) : (
                   <ul className="space-y-2">

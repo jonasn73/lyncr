@@ -133,71 +133,43 @@ export type OwnerCollectedTransaction = {
   hasSignature: boolean
 }
 
+export type ListOwnerCollectedOptions = {
+  /** Max rows (1–200). Default 100. */
+  limit?: number
+  /** Search name, phone digits, or job label (vehicle / job type). */
+  q?: string
+}
+
+/** Digits-only phone fragment for ILIKE matching against E.164. */
+function searchPhoneDigits(q: string): string {
+  return q.replace(/\D/g, "").slice(0, 15)
+}
+
 /**
  * Recent wallet ledger rows for this business (job payments + walk-up charges).
  * Includes pending/failed so owners can look up cards that did not settle.
+ * Prefer CRM display_name when the job phone matches a saved customer.
  */
 export async function listOwnerCollectedTransactions(
   ownerUserId: string,
-  limit = 50
+  limitOrOpts: number | ListOwnerCollectedOptions = 100
 ): Promise<OwnerCollectedTransaction[]> {
   const uid = ownerUserId.trim()
   if (!uid) return []
 
+  const opts: ListOwnerCollectedOptions =
+    typeof limitOrOpts === "number" ? { limit: limitOrOpts } : limitOrOpts ?? {}
   const sql = neon(resolveNeonDatabaseUrl())
-  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(opts.limit ?? 100)))
+  const qRaw = (opts.q ?? "").trim()
+  const qLike = qRaw ? `%${qRaw.replace(/[%_]/g, "")}%` : ""
+  const phoneDigits = searchPhoneDigits(qRaw)
+  const phoneLike = phoneDigits.length >= 3 ? `%${phoneDigits}%` : ""
+  const hasSearch = Boolean(qLike)
 
   try {
-    const rows = await sql`
-      SELECT
-        wt.id::text AS id,
-        wt.amount::float8 AS amount,
-        wt.status,
-        wt.payment_method,
-        wt.created_at,
-        wt.job_id::text AS job_id,
-        wt.stripe_payment_intent_id,
-        al.caller_e164,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'customer_name'), ''),
-          NULLIF(TRIM(al.collected->>'name'), ''),
-          NULLIF(TRIM(al.collected->>'caller_name'), '')
-        ) AS customer_name,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
-          NULLIF(TRIM(al.vehicle_year::text), '')
-        ) AS vehicle_year,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
-          NULLIF(TRIM(al.vehicle_make), '')
-        ) AS vehicle_make,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
-          NULLIF(TRIM(al.vehicle_model), '')
-        ) AS vehicle_model,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'job_type'), ''),
-          NULLIF(TRIM(al.job_type), '')
-        ) AS job_type,
-        ps.tip_cents,
-        CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
-      FROM wallet_transactions wt
-      LEFT JOIN ai_leads al ON al.id = wt.job_id
-      LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
-      WHERE
-        al.user_id = ${uid}
-        OR (wt.job_id IS NULL AND wt.user_id = ${uid})
-      ORDER BY wt.created_at DESC
-      LIMIT ${safeLimit}
-    `
-
-    return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
-  } catch (e) {
-    // payment_slips / column differences — retry a leaner query.
-    const msg = e instanceof Error ? e.message : String(e)
-    if (/payment_slips|vehicle_year|vehicle_make|job_type|column/i.test(msg) || isMissingWalletSchemaError(e)) {
-      try {
-        const rows = await sql`
+    const rows = hasSearch
+      ? await sql`
           SELECT
             wt.id::text AS id,
             wt.amount::float8 AS amount,
@@ -208,22 +180,208 @@ export async function listOwnerCollectedTransactions(
             wt.stripe_payment_intent_id,
             al.caller_e164,
             COALESCE(
+              NULLIF(TRIM(crm.display_name), ''),
               NULLIF(TRIM(al.collected->>'customer_name'), ''),
               NULLIF(TRIM(al.collected->>'name'), ''),
-              NULLIF(TRIM(al.collected->>'caller_name'), '')
+              NULLIF(TRIM(al.collected->>'caller_name'), ''),
+              NULLIF(TRIM(cpl.customer_name), '')
             ) AS customer_name,
-            NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
-            NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
-            NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
-            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
+              NULLIF(TRIM(al.vehicle_year::text), '')
+            ) AS vehicle_year,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
+              NULLIF(TRIM(al.vehicle_make), '')
+            ) AS vehicle_make,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
+              NULLIF(TRIM(al.vehicle_model), '')
+            ) AS vehicle_model,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'job_type'), ''),
+              NULLIF(TRIM(al.job_type), '')
+            ) AS job_type,
+            ps.tip_cents,
+            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
+          LEFT JOIN customers crm
+            ON crm.user_id = ${uid}
+            AND al.caller_e164 IS NOT NULL
+            AND crm.phone_e164 = al.caller_e164
+          LEFT JOIN LATERAL (
+            SELECT cpl0.customer_name
+            FROM collect_pay_links cpl0
+            WHERE cpl0.owner_user_id = ${uid}
+              AND wt.job_id IS NOT NULL
+              AND cpl0.job_id = wt.job_id::text
+              AND NULLIF(TRIM(cpl0.customer_name), '') IS NOT NULL
+            ORDER BY cpl0.created_at DESC
+            LIMIT 1
+          ) cpl ON true
+          LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
+          WHERE
+            (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
+            AND (
+              COALESCE(
+                NULLIF(TRIM(crm.display_name), ''),
+                NULLIF(TRIM(al.collected->>'customer_name'), ''),
+                NULLIF(TRIM(al.collected->>'name'), ''),
+                NULLIF(TRIM(al.collected->>'caller_name'), ''),
+                NULLIF(TRIM(cpl.customer_name), '')
+              ) ILIKE ${qLike}
+              OR COALESCE(al.caller_e164, '') ILIKE ${qLike}
+              OR (
+                ${phoneLike} <> ''
+                AND regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+              )
+              OR COALESCE(al.collected->>'vehicle_make', '') ILIKE ${qLike}
+              OR COALESCE(al.collected->>'vehicle_model', '') ILIKE ${qLike}
+              OR COALESCE(al.job_type, '') ILIKE ${qLike}
+            )
+          ORDER BY wt.created_at DESC
+          LIMIT ${safeLimit}
+        `
+      : await sql`
+          SELECT
+            wt.id::text AS id,
+            wt.amount::float8 AS amount,
+            wt.status,
+            wt.payment_method,
+            wt.created_at,
+            wt.job_id::text AS job_id,
+            wt.stripe_payment_intent_id,
+            al.caller_e164,
+            COALESCE(
+              NULLIF(TRIM(crm.display_name), ''),
+              NULLIF(TRIM(al.collected->>'customer_name'), ''),
+              NULLIF(TRIM(al.collected->>'name'), ''),
+              NULLIF(TRIM(al.collected->>'caller_name'), ''),
+              NULLIF(TRIM(cpl.customer_name), '')
+            ) AS customer_name,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
+              NULLIF(TRIM(al.vehicle_year::text), '')
+            ) AS vehicle_year,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
+              NULLIF(TRIM(al.vehicle_make), '')
+            ) AS vehicle_make,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
+              NULLIF(TRIM(al.vehicle_model), '')
+            ) AS vehicle_model,
+            COALESCE(
+              NULLIF(TRIM(al.collected->>'job_type'), ''),
+              NULLIF(TRIM(al.job_type), '')
+            ) AS job_type,
+            ps.tip_cents,
+            CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
+          FROM wallet_transactions wt
+          LEFT JOIN ai_leads al ON al.id = wt.job_id
+          LEFT JOIN customers crm
+            ON crm.user_id = ${uid}
+            AND al.caller_e164 IS NOT NULL
+            AND crm.phone_e164 = al.caller_e164
+          LEFT JOIN LATERAL (
+            SELECT cpl0.customer_name
+            FROM collect_pay_links cpl0
+            WHERE cpl0.owner_user_id = ${uid}
+              AND wt.job_id IS NOT NULL
+              AND cpl0.job_id = wt.job_id::text
+              AND NULLIF(TRIM(cpl0.customer_name), '') IS NOT NULL
+            ORDER BY cpl0.created_at DESC
+            LIMIT 1
+          ) cpl ON true
+          LEFT JOIN payment_slips ps ON ps.stripe_payment_intent_id = wt.stripe_payment_intent_id
           WHERE
             al.user_id = ${uid}
             OR (wt.job_id IS NULL AND wt.user_id = ${uid})
           ORDER BY wt.created_at DESC
           LIMIT ${safeLimit}
         `
+
+    return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+  } catch (e) {
+    // payment_slips / customers / collect_pay_links missing — leaner query.
+    const msg = e instanceof Error ? e.message : String(e)
+    if (
+      /payment_slips|customers|collect_pay_links|vehicle_year|vehicle_make|job_type|column|relation/i.test(
+        msg
+      ) ||
+      isMissingWalletSchemaError(e)
+    ) {
+      try {
+        const rows = hasSearch
+          ? await sql`
+              SELECT
+                wt.id::text AS id,
+                wt.amount::float8 AS amount,
+                wt.status,
+                wt.payment_method,
+                wt.created_at,
+                wt.job_id::text AS job_id,
+                wt.stripe_payment_intent_id,
+                al.caller_e164,
+                COALESCE(
+                  NULLIF(TRIM(al.collected->>'customer_name'), ''),
+                  NULLIF(TRIM(al.collected->>'name'), ''),
+                  NULLIF(TRIM(al.collected->>'caller_name'), '')
+                ) AS customer_name,
+                NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+                NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+                NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+              FROM wallet_transactions wt
+              LEFT JOIN ai_leads al ON al.id = wt.job_id
+              WHERE
+                (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
+                AND (
+                  COALESCE(
+                    NULLIF(TRIM(al.collected->>'customer_name'), ''),
+                    NULLIF(TRIM(al.collected->>'name'), ''),
+                    NULLIF(TRIM(al.collected->>'caller_name'), '')
+                  ) ILIKE ${qLike}
+                  OR COALESCE(al.caller_e164, '') ILIKE ${qLike}
+                  OR (
+                    ${phoneLike} <> ''
+                    AND regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                  )
+                  OR COALESCE(al.collected->>'vehicle_make', '') ILIKE ${qLike}
+                  OR COALESCE(al.collected->>'vehicle_model', '') ILIKE ${qLike}
+                  OR COALESCE(al.job_type, '') ILIKE ${qLike}
+                )
+              ORDER BY wt.created_at DESC
+              LIMIT ${safeLimit}
+            `
+          : await sql`
+              SELECT
+                wt.id::text AS id,
+                wt.amount::float8 AS amount,
+                wt.status,
+                wt.payment_method,
+                wt.created_at,
+                wt.job_id::text AS job_id,
+                wt.stripe_payment_intent_id,
+                al.caller_e164,
+                COALESCE(
+                  NULLIF(TRIM(al.collected->>'customer_name'), ''),
+                  NULLIF(TRIM(al.collected->>'name'), ''),
+                  NULLIF(TRIM(al.collected->>'caller_name'), '')
+                ) AS customer_name,
+                NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+                NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+                NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+                NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+              FROM wallet_transactions wt
+              LEFT JOIN ai_leads al ON al.id = wt.job_id
+              WHERE
+                al.user_id = ${uid}
+                OR (wt.job_id IS NULL AND wt.user_id = ${uid})
+              ORDER BY wt.created_at DESC
+              LIMIT ${safeLimit}
+            `
         return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
       } catch (e2) {
         if (isMissingWalletSchemaError(e2)) return []

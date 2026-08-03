@@ -77,6 +77,14 @@ const GetPaidSheet = dynamic(
   { ssr: false }
 )
 
+const MoneyPaymentsSheet = dynamic(
+  () =>
+    import("@/components/dashboard/money-payments-sheet").then((m) => ({
+      default: m.MoneyPaymentsSheet,
+    })),
+  { ssr: false }
+)
+
 const SettingsWorkspaceView = dynamic(
   () =>
     import("@/components/workspace-views/settings-workspace-view").then((m) => ({
@@ -112,9 +120,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [getPaidOpen, setGetPaidOpen] = useState(false)
   // Lightweight sheet: balance + period collected totals (not the full Collect flow).
   const [moneyOpen, setMoneyOpen] = useState(false)
+  // Money → View all payments (search + detail + send invoice).
+  const [paymentsOpen, setPaymentsOpen] = useState(false)
   // Keep sheets mounted after first open so re-open is instant (chunk already loaded).
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
+  const [paymentsMounted, setPaymentsMounted] = useState(false)
   const [busy, setBusy] = useState(false)
   // Cookie-backed seeds from layout — available on SSR first paint.
   const paintSeeds = useDashboardPaintSeeds()
@@ -361,6 +372,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
+  const openPayments = useCallback(() => {
+    setMoneyOpen(false)
+    setPaymentsMounted(true)
+    setPaymentsOpen(true)
+  }, [])
+
   // Daily glance chip — lead with Collected today; never amber “Pending”.
   const chipDisplay = amountReady
     ? resolveHeaderWalletChipDisplay(availableCents ?? 0, pendingCents, todayCents)
@@ -579,39 +596,74 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
             {/* Section 3 — Sales history */}
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Sales history
-              </p>
-              <p className="mb-2 hidden text-[11px] leading-snug text-slate-500 md:block">
-                Full amount customers paid — before Lyncr card fees.
-              </p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    Sales history
+                  </p>
+                  <p className="hidden text-[11px] leading-snug text-slate-500 md:block">
+                    Full amount customers paid — before Lyncr card fees.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openPayments}
+                  className="shrink-0 text-xs font-semibold text-teal-300 underline-offset-2 hover:underline"
+                >
+                  View all payments
+                </button>
+              </div>
               <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/60">
                 {PERIOD_OPTIONS.map((opt) => (
-                  <li
-                    key={opt.id}
-                    className="flex items-center justify-between gap-3 px-3 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-100">{opt.label}</p>
-                      <p className="text-[11px] text-slate-500">{opt.hint}</p>
-                    </div>
-                    <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-200">
-                      {periodCents(opt.id) != null
-                        ? formatMoneyCents(periodCents(opt.id)!)
-                        : "—"}
-                    </p>
+                  <li key={opt.id}>
+                    <button
+                      type="button"
+                      onClick={openPayments}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-zinc-900/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-100">{opt.label}</p>
+                        <p className="text-[11px] text-slate-500">{opt.hint}</p>
+                      </div>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-200">
+                        {periodCents(opt.id) != null
+                          ? formatMoneyCents(periodCents(opt.id)!)
+                          : "—"}
+                      </p>
+                    </button>
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 text-[11px] leading-snug text-slate-500">
+                Tap a total or{" "}
+                <button
+                  type="button"
+                  onClick={openPayments}
+                  className="font-semibold text-teal-300 underline-offset-2 hover:underline"
+                >
+                  View all payments
+                </button>{" "}
+                to search charges and send invoices.
+              </p>
             </div>
 
-            <Button
-              type="button"
-              onClick={openCollect}
-              className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
-            >
-              Collect payment
-            </Button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                onClick={openPayments}
+                variant="outline"
+                className="h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
+              >
+                View all payments
+              </Button>
+              <Button
+                type="button"
+                onClick={openCollect}
+                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 sm:col-auto"
+              >
+                Collect payment
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -651,6 +703,23 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           }
         >
           <GetPaidSheet open={getPaidOpen} onOpenChange={setGetPaidOpen} />
+        </Suspense>
+      ) : null}
+
+      {paymentsMounted ? (
+        <Suspense
+          fallback={
+            paymentsOpen ? (
+              <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  Opening payments…
+                </div>
+              </div>
+            ) : null
+          }
+        >
+          <MoneyPaymentsSheet open={paymentsOpen} onOpenChange={setPaymentsOpen} />
         </Suspense>
       ) : null}
 
