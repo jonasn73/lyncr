@@ -1,6 +1,6 @@
 "use client"
 
-// Shared account presence for Lines — Presence bar + call-flow cards stay in sync.
+// Shared account presence for Lines — Available toggle + call-flow cards stay in sync.
 
 import {
   createContext,

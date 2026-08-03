@@ -15,8 +15,6 @@ import { DashboardCallFlow, ActiveLineSubHeader } from "@/components/dashboard-c
 import { DashboardRoutingSidebar } from "@/components/dashboard-routing-sidebar"
 import { RoutingTelemetryStrip } from "@/components/dashboard/routing-telemetry-strip"
 import { MissedLeadRecoveryBanner } from "@/components/dashboard/missed-lead-recovery-banner"
-import { PresenceStatusBar } from "@/components/dashboard/presence-status-bar"
-import { AccountPresenceProvider } from "@/components/dashboard/account-presence-context"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import { useDashboardActivationOptional } from "@/components/dashboard-activation-context"
 import { useDashboardActivePage } from "@/components/dashboard-shell-chrome-context"
@@ -173,11 +171,10 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const linesActive = useDashboardActivePage() === "dashboard"
   const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
 
-  // Always reserve Presence + main-line row height so refresh doesn’t collapse under Live & Connected.
+  // Sticky Main Line status only — Available/Busy lives at the bottom with Caller ID.
   // Prefer real ActiveLineSubHeader whenever we have seeded/live numbers — never opacity-0 blank chrome.
   const stickyChrome = (
     <div className="sticky top-0 z-50 w-full bg-slate-950">
-      <PresenceStatusBar />
       <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
         {businessNumbers.length > 0 || callFlowUiReady ? (
           <ActiveLineSubHeader
@@ -210,7 +207,6 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   )
 
   return (
-    <AccountPresenceProvider>
     <div className="flex w-full flex-col">
       {stickyChrome}
 
@@ -356,6 +352,5 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
         </div>
       </div>
     </div>
-    </AccountPresenceProvider>
   )
 })

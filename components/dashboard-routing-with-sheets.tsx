@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { DashboardRoutingSurface, type DashboardRoutingSurfaceProps } from "@/components/dashboard-routing-surface"
 import { DashboardRoutingSheets, type DashboardRoutingSheetsProps } from "@/components/dashboard-routing-sheets"
+import { AccountPresenceProvider } from "@/components/dashboard/account-presence-context"
 import { isSundayAutopilotActive } from "@/components/dashboard-call-flow"
 import dynamic from "next/dynamic"
 import type { RoutingStrategy } from "@/lib/types"
@@ -143,8 +144,9 @@ export function DashboardRoutingWithSheets(props: Props) {
     adminRoutingOverridePhone: props.adminRoutingOverridePhone,
   }
 
+  // One presence provider for call-flow cards + bottom Available toggle (must stay in sync).
   return (
-    <>
+    <AccountPresenceProvider>
       <Suspense fallback={null}>
         <RoutingAiSearchParamsBridge
           pathname={pathname}
@@ -202,6 +204,6 @@ export function DashboardRoutingWithSheets(props: Props) {
         setRoutingStrategy={props.setRoutingStrategy}
         organizationId={props.organizationId}
       />
-    </>
+    </AccountPresenceProvider>
   )
 }

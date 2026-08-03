@@ -1,95 +1,83 @@
 "use client"
 
-// Sticky Presence bar — Available / Busy only (Smart Busy UI stripped while fixing #185).
+// Compact Available toggle — sits with Caller ID / Messages settings at the bottom of Lines.
+// On = Available (cell rings first). Off = Busy (skip phone → booking text).
+// Uses plain-button Switch (not Radix) to avoid React #185.
 
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch"
 import {
   isBusyPresenceStatus,
   PRESENCE_BUSY_WRITE_STATUS,
-  type PresenceStatus,
 } from "@/lib/account-presence"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
-import {
-  LINES_MOBILE_CARD,
-  LINES_MOBILE_PAGE_X,
-  LINES_MOBILE_SECTION_LABEL,
-} from "@/lib/mobile-shell"
-
-type PresenceUiOption = {
-  write: PresenceStatus
-  label: string
-  hint: string
-  isActive: (status: PresenceStatus) => boolean
-}
-
-const OPTIONS: PresenceUiOption[] = [
-  {
-    write: "AVAILABLE",
-    label: "Available",
-    hint: "Your phone rings first",
-    isActive: (s) => s === "AVAILABLE",
-  },
-  {
-    write: PRESENCE_BUSY_WRITE_STATUS,
-    label: "Busy",
-    hint: "Skip your phone → booking text",
-    isActive: (s) => isBusyPresenceStatus(s),
-  },
-]
 
 export function PresenceStatusBar({ className }: { className?: string }) {
   const { presenceStatus, presenceReady, loading, saving, setPresenceStatus } = useAccountPresence()
 
+  // Available = switch on; Busy (ON_JOB / CLOSED) = switch off.
+  const isAvailable = presenceReady && presenceStatus === "AVAILABLE"
+  const isBusy = presenceReady && isBusyPresenceStatus(presenceStatus)
+  const busySaving = saving || loading
+
   return (
-    <div
+    <section
       className={cn(
-        "w-full border-b border-zinc-800/90 bg-slate-950/95 py-2.5",
-        LINES_MOBILE_PAGE_X,
+        "rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 sm:px-6 sm:py-4",
         className
       )}
       aria-label="Presence status"
     >
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className={LINES_MOBILE_SECTION_LABEL}>Presence</p>
-        <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
-          {loading || saving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
-          ) : null}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {OPTIONS.map((opt) => {
-          const active = presenceReady && opt.isActive(presenceStatus)
-          return (
-            <button
-              key={opt.label}
-              type="button"
-              disabled={saving}
-              onClick={() => void setPresenceStatus(opt.write)}
-              className={cn(
-                "flex min-h-[3.25rem] flex-col items-center justify-center px-2 py-2 text-center transition-colors",
-                LINES_MOBILE_CARD,
-                active
-                  ? opt.write === "AVAILABLE"
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                    : "border-amber-500/50 bg-amber-500/15 text-amber-100"
-                  : "text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-              )}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="presence-available-toggle"
+              className="block cursor-pointer text-xs font-semibold text-slate-200"
             >
-              <span className="text-sm font-semibold leading-tight">{opt.label}</span>
-              <span
-                className={cn(
-                  "mt-0.5 text-[10px] leading-tight",
-                  active ? "text-current/70" : "text-zinc-500"
-                )}
-              >
-                {opt.hint}
+              Available
+            </label>
+            {/* Spinner while loading or saving — same cue as the old dual-button bar. */}
+            <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+              {busySaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
+              ) : null}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] font-normal text-slate-500">
+            {isBusy
+              ? "Skip your phone → booking text"
+              : "Your phone rings first"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {presenceReady ? (
+            isAvailable ? (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                Active
               </span>
-            </button>
-          )
-        })}
+            ) : (
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                Busy
+              </span>
+            )
+          ) : (
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+              …
+            </span>
+          )}
+          <Switch
+            id="presence-available-toggle"
+            checked={isAvailable}
+            disabled={busySaving}
+            onCheckedChange={(next) => {
+              void setPresenceStatus(next ? "AVAILABLE" : PRESENCE_BUSY_WRITE_STATUS)
+            }}
+            aria-label="Available — your phone rings first when on"
+          />
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
