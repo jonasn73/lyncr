@@ -9,6 +9,10 @@ import {
   SERVICE_CALL_FEE_CENTS,
   SERVICE_CALL_FEE_DOLLARS,
 } from "@/lib/service-call-fee"
+import { jobTypeFromBookFormKind } from "@/lib/book-customer-request"
+
+// Re-export for Activity callers that already import from this module.
+export { jobTypeFromBookFormKind }
 
 function sqlClient() {
   // Neon serverless SQL tagged-template client
@@ -200,16 +204,6 @@ export async function markIntakeBookLinkSubmitted(params: {
     console.warn("[intake-book-link] mark submitted failed:", e)
     return false
   }
-}
-
-/** Map form job-kind chips → intake jobType string. */
-export function jobTypeFromBookFormKind(jobKind: string): string {
-  const k = jobKind.trim().toLowerCase()
-  if (k === "copy") return "Key replacement (Duplication)"
-  if (k === "akl") return "Key replacement (Origination)"
-  if (k === "lockout") return "Lockout"
-  if (k === "other") return "Service call"
-  return "Service call"
 }
 
 /** SMS body for the Activity book link. */

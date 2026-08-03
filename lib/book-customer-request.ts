@@ -1,7 +1,6 @@
 // Shared helpers for the public customer /book flow (details → ASAP or time window).
 // Field names match Activity book-link + owner intake collected JSON so intake can auto-fill.
 
-import { jobTypeFromBookFormKind } from "@/lib/intake-book-link"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 
 /** Urgency chip: emergency skips availability; window asks for one day + from–to. */
@@ -17,6 +16,16 @@ export const BOOK_JOB_KIND_OPTIONS = [
 
 export type BookJobKindId = (typeof BOOK_JOB_KIND_OPTIONS)[number]["id"]
 
+/** Map form job-kind chips → intake jobType string (client-safe — no server imports). */
+export function jobTypeFromBookFormKind(jobKind: string): string {
+  const k = jobKind.trim().toLowerCase()
+  if (k === "copy") return "Key replacement (Duplication)"
+  if (k === "akl") return "Key replacement (Origination)"
+  if (k === "lockout") return "Lockout"
+  if (k === "other") return "Service call"
+  return "Service call"
+}
+
 /** One day chip for the availability step (today + next day, not a multi-day grid). */
 export type BookDayOption = {
   dateKey: string
@@ -29,9 +38,6 @@ export type BookTimeOption = {
   value: string // "13:00"
   label: string // "1:00 PM"
 }
-
-/** Re-export so /book and /book/form share one jobType string. */
-export { jobTypeFromBookFormKind }
 
 /** True when we should show year / make / model (lockout + car key). */
 export function bookJobKindNeedsVehicle(jobKind: string): boolean {
