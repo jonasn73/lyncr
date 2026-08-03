@@ -3,6 +3,12 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUser } from "@/lib/db"
+import {
+  buildBookCollectedExtras,
+  formatBookAvailabilityLabel,
+  isValidBookTimeRange,
+  type BookUrgency,
+} from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { getAppUrl } from "@/lib/telnyx"
 import {
@@ -61,6 +67,7 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 type PostBody = {
   customer_name?: string
   phone?: string
+  email?: string
   address?: string
   vehicle_year?: string
   vehicle_make?: string
@@ -69,6 +76,12 @@ type PostBody = {
   vehicle_text?: string
   job_kind?: string
   notes?: string
+  urgency?: string
+  is_asap?: boolean
+  availability_date?: string
+  availability_from?: string
+  availability_to?: string
+  availability?: string
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
@@ -84,6 +97,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const body = (await req.json().catch(() => ({}))) as PostBody
   const customerName = String(body.customer_name ?? "").trim().slice(0, 120)
   const phone = String(body.phone ?? link.callerPhone ?? "").trim().slice(0, 40)
+  const email = String(body.email ?? "").trim().slice(0, 160)
   const address = String(body.address ?? "").trim().slice(0, 240)
   let year = String(body.vehicle_year ?? "").trim().slice(0, 8)
   let make = String(body.vehicle_make ?? "").trim().slice(0, 60)
@@ -91,6 +105,16 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const vehicleText = String(body.vehicle_text ?? "").trim().slice(0, 120)
   const jobKind = String(body.job_kind ?? "").trim().toLowerCase().slice(0, 40)
   const notes = String(body.notes ?? "").trim().slice(0, 800)
+
+  const urgencyRaw = String(body.urgency ?? "").trim().toLowerCase()
+  const isAsap =
+    body.is_asap === true || urgencyRaw === "asap" || urgencyRaw === "emergency"
+  const urgency: BookUrgency = isAsap ? "asap" : "window"
+
+  const availabilityDate = String(body.availability_date ?? "").trim().slice(0, 16)
+  const availabilityFrom = String(body.availability_from ?? "").trim().slice(0, 8)
+  const availabilityTo = String(body.availability_to ?? "").trim().slice(0, 8)
+  const availabilityFree = String(body.availability ?? "").trim().slice(0, 200)
 
   if (!customerName) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -102,6 +126,30 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     return NextResponse.json({ error: "Service address is required" }, { status: 400 })
   }
 
+  let availabilityLabel = ""
+  if (urgency === "asap") {
+    availabilityLabel = "ASAP / emergency"
+  } else if (availabilityDate && availabilityFrom && availabilityTo) {
+    if (!isValidBookTimeRange(availabilityFrom, availabilityTo)) {
+      return NextResponse.json(
+        { error: "Choose an end time after the start time" },
+        { status: 400 }
+      )
+    }
+    availabilityLabel = formatBookAvailabilityLabel({
+      dateKey: availabilityDate,
+      fromHhmm: availabilityFrom,
+      toHhmm: availabilityTo,
+    })
+  } else if (availabilityFree.length >= 3) {
+    availabilityLabel = availabilityFree
+  } else {
+    return NextResponse.json(
+      { error: "Pick a day and a time window, or choose Emergency / ASAP" },
+      { status: 400 }
+    )
+  }
+
   // If YMM empty but free-text present, stash free-text into make so intake still shows a vehicle.
   if (!year && !make && !model && vehicleText) {
     make = vehicleText
@@ -111,9 +159,24 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   const operatorBit = link.operatorNote
     ? `Owner note: ${link.operatorNote}`
     : null
-  const combinedNotes = [notes || null, operatorBit, "Source: Activity book link"]
+  const urgencyBit =
+    urgency === "asap"
+      ? "Customer urgency: ASAP / emergency"
+      : `Customer availability: ${availabilityLabel}`
+  const combinedNotes = [notes || null, urgencyBit, operatorBit, "Source: Activity book link"]
     .filter(Boolean)
     .join("\n")
+
+  const collectedExtras = buildBookCollectedExtras({
+    urgency,
+    email: email || null,
+    jobKind: jobKind || null,
+    notes: notes || null,
+    availabilityDate: urgency === "window" ? availabilityDate : null,
+    availabilityFrom: urgency === "window" ? availabilityFrom : null,
+    availabilityTo: urgency === "window" ? availabilityTo : null,
+    availabilityLabel,
+  })
 
   try {
     // Creates/updates CRM customer + ai_leads draft for this phone (open lead upgrade when present).
@@ -129,8 +192,11 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       vehicleModel: model || null,
       jobType,
       quotedPriceCents: link.quoteCents > 0 ? link.quoteCents : null,
+      customerEmail: email || null,
+      collectedExtras,
       intakeSource: "activity_book_link",
-      pendingCallback: false,
+      // ASAP stays a callback priority; window is still a soft lead until owner confirms.
+      pendingCallback: urgency === "asap",
       // Customer already came from our SMS — don't send another booking confirmation.
       deferCustomerSms: true,
     })
@@ -150,6 +216,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         // Same-page Embedded Checkout uses this; also works as a fallback redirect.
         pay_url: payUrl,
         thank_you: !requiresPayment,
+        urgency,
+        availability: availabilityLabel,
       },
     })
   } catch (e) {

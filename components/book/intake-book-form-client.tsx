@@ -1,11 +1,23 @@
 "use client"
 
-// Customer book-link form — simple intake + (when paid) Embedded Checkout on the same page.
+// Customer Activity book-link form — step sheets + (when paid) Embedded Checkout.
+// Same ASAP / window model as /book/[id] so owner intake gets consistent fields.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
 import { Loader2 } from "lucide-react"
+import {
+  BOOK_JOB_KIND_OPTIONS,
+  bookJobKindNeedsVehicle,
+  buildBookDayOptions,
+  buildBookTimeOptions,
+  defaultBookTimeRange,
+  formatBookAvailabilityLabel,
+  isValidBookTimeRange,
+  type BookUrgency,
+} from "@/lib/book-customer-request"
+import { cn } from "@/lib/utils"
 
 type Prefill = {
   customer_name: string
@@ -32,19 +44,19 @@ type InvitePayload = {
   prefill: Prefill
 }
 
-const JOB_KIND_OPTIONS = [
-  { id: "copy", label: "Need a key copy (have a working key)" },
-  { id: "akl", label: "All keys lost (AKL)" },
-  { id: "lockout", label: "Vehicle lockout" },
-  { id: "other", label: "Other" },
-] as const
+type WizardStep = "details" | "availability" | "pay" | "done"
+
+const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
+
+const fieldClass =
+  "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [invite, setInvite] = useState<InvitePayload | null>(null)
-  const [doneNoPay, setDoneNoPay] = useState(false)
+  const [wizardStep, setWizardStep] = useState<WizardStep>("details")
 
   // After form save — show Embedded Checkout on this same screen
   const [payClientSecret, setPayClientSecret] = useState<string | null>(null)
@@ -53,6 +65,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
   const [customerName, setCustomerName] = useState("")
   const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [year, setYear] = useState("")
   const [make, setMake] = useState("")
@@ -60,6 +73,13 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [vehicleText, setVehicleText] = useState("")
   const [jobKind, setJobKind] = useState("")
   const [notes, setNotes] = useState("")
+  const [urgency, setUrgency] = useState<BookUrgency | null>(null)
+
+  const dayOptions = useMemo(() => buildBookDayOptions(), [])
+  const defaults = useMemo(() => defaultBookTimeRange(), [])
+  const [dayKey, setDayKey] = useState(dayOptions[0]?.dateKey || "")
+  const [fromTime, setFromTime] = useState(defaults.from)
+  const [toTime, setToTime] = useState(defaults.to)
 
   useEffect(() => {
     let cancelled = false
@@ -84,7 +104,11 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
         setJobKind(p.job_kind || "")
         setNotes(p.notes || "")
         if (json.data.already_submitted && !json.data.requires_payment) {
-          setDoneNoPay(true)
+          setWizardStep("done")
+        } else if (json.data.already_submitted && json.data.requires_payment && json.data.pay_token) {
+          // Resume pay if they already submitted details.
+          await loadCheckout(json.data.pay_token)
+          setWizardStep("pay")
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not open this link")
@@ -95,6 +119,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per invite
   }, [inviteId])
 
   const stripePromise = useMemo(() => {
@@ -122,7 +147,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       return
     }
     if (json.data.status === "paid") {
-      setDoneNoPay(true)
+      setWizardStep("done")
       return
     }
     if (!json.data.client_secret || !json.data.publishable_key) {
@@ -133,9 +158,30 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     setPayStripeAccount(json.data.stripe_account_id ?? null)
   }, [])
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!invite || submitting) return
+  const detailsReady =
+    customerName.trim().length >= 2 &&
+    phone.trim().replace(/\D/g, "").length >= 10 &&
+    address.trim().length >= 5 &&
+    Boolean(jobKind) &&
+    urgency != null
+
+  const windowReady = Boolean(dayKey) && isValidBookTimeRange(fromTime, toTime)
+  const dayShort = dayOptions.find((d) => d.dateKey === dayKey)?.shortLabel
+  const availabilityLabel =
+    urgency === "window" && windowReady
+      ? formatBookAvailabilityLabel({
+          dateKey: dayKey,
+          fromHhmm: fromTime,
+          toHhmm: toTime,
+          dayShortLabel: dayShort,
+        })
+      : urgency === "asap"
+        ? "ASAP / emergency"
+        : ""
+
+  async function submitForm() {
+    if (!invite || submitting || !detailsReady) return
+    if (urgency === "window" && !windowReady) return
     setSubmitting(true)
     setError(null)
     try {
@@ -145,6 +191,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
         body: JSON.stringify({
           customer_name: customerName,
           phone,
+          email: email.trim() || undefined,
           address,
           vehicle_year: year,
           vehicle_make: make,
@@ -152,6 +199,16 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           vehicle_text: vehicleText,
           job_kind: jobKind,
           notes,
+          urgency,
+          is_asap: urgency === "asap",
+          ...(urgency === "window"
+            ? {
+                availability_date: dayKey,
+                availability_from: fromTime,
+                availability_to: toTime,
+                availability: availabilityLabel,
+              }
+            : {}),
         }),
       })
       const json = (await res.json().catch(() => ({}))) as {
@@ -165,20 +222,25 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       if (!res.ok) throw new Error(json.error || "Could not save your info")
 
       if (json.data?.requires_payment && json.data.pay_token) {
-        // Stay on this page — reveal wallet buttons / card form below
         await loadCheckout(json.data.pay_token)
-        // Scroll pay block into view on mobile
-        requestAnimationFrame(() => {
-          document.getElementById("book-link-pay")?.scrollIntoView({ behavior: "smooth", block: "start" })
-        })
+        setWizardStep("pay")
       } else {
-        setDoneNoPay(true)
+        setWizardStep("done")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function onDetailsContinue() {
+    if (!detailsReady) return
+    if (urgency === "asap") {
+      void submitForm()
+      return
+    }
+    setWizardStep("availability")
   }
 
   if (loading) {
@@ -199,13 +261,18 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     )
   }
 
-  if (doneNoPay) {
+  if (wizardStep === "done") {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-        <p className="text-2xl font-semibold text-white">Thanks — you’re all set</p>
+        <p className="text-2xl font-semibold text-white">Thanks — you&apos;re all set</p>
         <p className="mt-2 text-sm text-slate-400">
           {invite?.business_label || "The shop"} received your details
-          {invite?.requires_payment ? " and payment" : ""}.
+          {invite?.requires_payment ? " and payment" : ""}
+          {urgency === "asap"
+            ? " — marked ASAP."
+            : availabilityLabel
+              ? ` · free ${availabilityLabel}.`
+              : "."}
         </p>
       </div>
     )
@@ -224,12 +291,18 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
         {invite?.fee_mode === "none"
           ? "Finish booking"
-          : `Book & pay ${amountLabel}`}
+          : wizardStep === "pay"
+            ? `Pay ${amountLabel}`
+            : `Book & pay ${amountLabel}`}
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-slate-400">
-        {invite?.fee_mode === "none"
-          ? "Quick form so we have your name, address, and vehicle ready."
-          : `Fill this in, then pay ${amountLabel} with Cash App, Apple Pay, card, or Link — all on this page.`}
+        {wizardStep === "availability"
+          ? "Pick one day and a From–To window — no endless hour buttons."
+          : wizardStep === "pay"
+            ? `Pay ${amountLabel} with Cash App, Apple Pay, card, or Link.`
+            : invite?.fee_mode === "none"
+              ? "Quick details so we can help — then confirm urgency."
+              : `Fill this in, then pay ${amountLabel} on the next step.`}
       </p>
       {invite?.operator_note ? (
         <p className="mt-3 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-300">
@@ -237,16 +310,48 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
         </p>
       ) : null}
 
-      {/* Hide the form once checkout is showing so the page stays one short screen */}
-      {!payClientSecret ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4">
+      {/* Step chips */}
+      {wizardStep !== "pay" ? (
+        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1",
+              wizardStep === "details" && "bg-emerald-500/20 text-emerald-200"
+            )}
+          >
+            1 · Details
+          </span>
+          {urgency === "window" || wizardStep === "availability" ? (
+            <>
+              <span className="text-slate-700">→</span>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1",
+                  wizardStep === "availability" && "bg-emerald-500/20 text-emerald-200"
+                )}
+              >
+                2 · When
+              </span>
+            </>
+          ) : null}
+          {invite?.fee_mode !== "none" ? (
+            <>
+              <span className="text-slate-700">→</span>
+              <span className="rounded-full px-2.5 py-1">3 · Pay</span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {wizardStep === "details" ? (
+        <div className="mt-6 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-slate-300">Your name *</span>
             <input
               required
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className={fieldClass}
               autoComplete="name"
             />
           </label>
@@ -258,8 +363,21 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className={fieldClass}
               autoComplete="tel"
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-slate-300">
+              Email <span className="text-slate-500">(optional)</span>
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={fieldClass}
+              autoComplete="email"
             />
           </label>
 
@@ -270,55 +388,15 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Street, city, ZIP"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className={fieldClass}
               autoComplete="street-address"
             />
           </label>
 
-          <div className="grid grid-cols-3 gap-2">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Year</span>
-              <input
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                inputMode="numeric"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Make</span>
-              <input
-                value={make}
-                onChange={(e) => setMake(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Model</span>
-              <input
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-              />
-            </label>
-          </div>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">
-              Or describe vehicle (if not sure of year/make/model)
-            </span>
-            <input
-              value={vehicleText}
-              onChange={(e) => setVehicleText(e.target.value)}
-              placeholder="e.g. Silver Honda Civic"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
-            />
-          </label>
-
           <fieldset className="space-y-2">
-            <legend className="text-xs font-medium text-slate-300">What do you need?</legend>
+            <legend className="text-xs font-medium text-slate-300">What do you need? *</legend>
             <div className="grid gap-2">
-              {JOB_KIND_OPTIONS.map((opt) => (
+              {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -335,33 +413,196 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             </div>
           </fieldset>
 
+          {bookJobKindNeedsVehicle(jobKind) ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-slate-300">Year</span>
+                  <input
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    inputMode="numeric"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-slate-300">Make</span>
+                  <input
+                    value={make}
+                    onChange={(e) => setMake(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-slate-300">Model</span>
+                  <input
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                  />
+                </label>
+              </div>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-slate-300">
+                  Or describe vehicle
+                </span>
+                <input
+                  value={vehicleText}
+                  onChange={(e) => setVehicleText(e.target.value)}
+                  placeholder="e.g. Silver Honda Civic"
+                  className={fieldClass}
+                />
+              </label>
+            </>
+          ) : null}
+
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-slate-300">Notes (optional)</span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className={fieldClass}
               placeholder="Gate code, parking, key details…"
             />
           </label>
 
+          <fieldset className="space-y-2">
+            <legend className="text-xs font-medium text-slate-300">How urgent? *</legend>
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={() => setUrgency("asap")}
+                className={
+                  urgency === "asap"
+                    ? "rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-2.5 text-left text-sm text-rose-50"
+                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
+                }
+              >
+                <span className="font-semibold">Emergency / ASAP</span>
+                <span className="mt-0.5 block text-[11px] text-slate-400">
+                  Skip the time window — we&apos;ll prioritize
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUrgency("window")}
+                className={
+                  urgency === "window"
+                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-2.5 text-left text-sm text-emerald-50"
+                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
+                }
+              >
+                <span className="font-semibold">Schedule a window</span>
+                <span className="mt-0.5 block text-[11px] text-slate-400">
+                  One day + From–To range
+                </span>
+              </button>
+            </div>
+          </fieldset>
+
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
           <button
-            type="submit"
-            disabled={submitting}
+            type="button"
+            disabled={!detailsReady || submitting}
+            onClick={() => onDetailsContinue()}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-            {invite?.fee_mode === "none"
-              ? "Submit"
-              : `Continue to pay ${amountLabel}`}
+            {urgency === "asap"
+              ? invite?.fee_mode === "none"
+                ? "Submit — need service ASAP"
+                : `Submit ASAP · then pay ${amountLabel}`
+              : "Continue — pick a window"}
           </button>
-        </form>
+        </div>
       ) : null}
 
-      {payClientSecret && stripePromise ? (
+      {wizardStep === "availability" ? (
+        <div className="mt-6 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-white">Your availability</p>
+            <button
+              type="button"
+              onClick={() => setWizardStep("details")}
+              className="text-xs text-slate-400 underline-offset-2 hover:underline"
+            >
+              Back
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {dayOptions.map((day) => (
+              <button
+                key={day.dateKey}
+                type="button"
+                onClick={() => setDayKey(day.dateKey)}
+                className={
+                  dayKey === day.dateKey
+                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm text-emerald-50"
+                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left text-sm text-slate-200"
+                }
+              >
+                <span className="font-semibold">{day.shortLabel}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">From</span>
+              <select
+                value={fromTime}
+                onChange={(e) => setFromTime(e.target.value)}
+                className={fieldClass}
+              >
+                {TIME_OPTIONS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">To</span>
+              <select
+                value={toTime}
+                onChange={(e) => setToTime(e.target.value)}
+                className={fieldClass}
+              >
+                {TIME_OPTIONS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {windowReady ? (
+            <p className="text-center text-sm text-slate-200">
+              Free: <span className="font-semibold text-emerald-200">{availabilityLabel}</span>
+            </p>
+          ) : (
+            <p className="text-center text-[11px] text-rose-300">End time must be after start.</p>
+          )}
+
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+
+          <button
+            type="button"
+            disabled={!windowReady || submitting}
+            onClick={() => void submitForm()}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            {invite?.fee_mode === "none" ? "Submit" : `Continue to pay ${amountLabel}`}
+          </button>
+        </div>
+      ) : null}
+
+      {wizardStep === "pay" && payClientSecret && stripePromise ? (
         <div id="book-link-pay" className="mt-6 space-y-3">
           <p className="text-center text-sm font-medium text-slate-200">
             Pay {amountLabel} — Cash App, Apple Pay, card, or Link

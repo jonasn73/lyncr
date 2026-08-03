@@ -15,7 +15,8 @@ export default async function BookInvitePage({
   const invite = await getBookingInviteById(id)
   if (!invite) notFound()
 
-  // Missed-call invites → availability + follow-up form; IVR / on_call keep slot pick.
+  // Missed-call → soft request (no deposit). IVR/on_call can still collect a deposit on a window.
+  // Both modes share the same Details → ASAP|Window step UI (no hour-slot wall).
   const initialFormMode = isMissedCallBookingCallbackMode(invite.source)
     ? "callback"
     : "book"

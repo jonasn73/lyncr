@@ -108,6 +108,13 @@ export type CreateIntakeJobInput = {
   serviceVenue?: "mobile" | "shop" | null
   /** Customer already has the blank/key — cut & program only. */
   customerOwnsKey?: boolean
+  /** Optional email from public /book form (stored on collected). */
+  customerEmail?: string | null
+  /**
+   * Extra keys merged into ai_leads.collected (ASAP flag, availability window, etc.).
+   * Used by public /book + Activity book-link so owner intake can auto-populate.
+   */
+  collectedExtras?: Record<string, unknown> | null
   /**
    * Out-of-stock / specialty fallback resolution.
    * Sets job_status + collected metadata (pending deposit or referred partner).
@@ -491,6 +498,14 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     ...(latitude != null ? { customer_lat: latitude } : {}),
     ...(longitude != null ? { customer_lng: longitude } : {}),
     ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
+    // Public /book email (optional) — intake / CRM can surface it.
+    ...(input.customerEmail?.trim()
+      ? { customer_email: input.customerEmail.trim().slice(0, 160) }
+      : {}),
+    // ASAP / preferred window / job_kind from customer booking pages.
+    ...(input.collectedExtras && typeof input.collectedExtras === "object"
+      ? input.collectedExtras
+      : {}),
   }
 
   const sql = getSql()

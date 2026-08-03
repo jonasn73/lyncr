@@ -13,7 +13,8 @@ describe("missed-call booking callback mode", () => {
     expect(bookingLinkSmsToneFromSource("missed_call_activity")).toBe("missed_call")
   })
 
-  it("keeps plain IVR / follow-up sources on slot booking", () => {
+  it("keeps plain IVR / follow-up sources off missed-call callback mode (deposit may apply)", () => {
+    // UI is now ASAP/window for all /book/[id] invites; this flag only skips deposit.
     expect(isMissedCallBookingCallbackMode("ivr")).toBe(false)
     expect(isMissedCallBookingCallbackMode("on_call")).toBe(false)
     expect(isMissedCallBookingCallbackMode("activity_follow_up")).toBe(false)
