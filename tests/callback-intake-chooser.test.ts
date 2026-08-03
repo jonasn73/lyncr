@@ -31,6 +31,20 @@ describe("serviceQuoteTypeIdFromCrmHistory", () => {
     ).toBe("key_generation")
   })
 
+  it("prefers book-form AKL chip over polluted Lockout service id", () => {
+    expect(
+      serviceQuoteTypeIdFromCrmHistory({
+        job_kind: "akl",
+        service_quote_type_id: "lockout",
+        job_type: "Lockout",
+      })
+    ).toBe("key_generation")
+  })
+
+  it("maps book-form copy chip to key duplication", () => {
+    expect(serviceQuoteTypeIdFromCrmHistory({ job_kind: "copy" })).toBe("key_duplication")
+  })
+
   it("maps legacy aliases and job_type labels", () => {
     expect(serviceQuoteTypeIdFromCrmHistory({ service_quote_type_id: "key_gen" })).toBe(
       "key_generation"

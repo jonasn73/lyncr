@@ -16,6 +16,7 @@ import {
 import { ToastAction } from "@/components/ui/toast"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { serviceQuoteTypeIdFromBookJobKind } from "@/lib/book-customer-request"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import {
@@ -235,7 +236,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [markSeen, router]
   )
 
-  /** Open Call Answered intake with this book-form lead bound for upgrade-on-book. */
+  /** Open Call Answered intake with this book-form lead — profile-first, already filled. */
   const openBookIntake = useCallback(
     (item: LatestCustomerAction) => {
       const phone = (item.customerPhone || "").trim()
@@ -243,12 +244,33 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       setSelected(null)
       // Drop from Latest once the owner opens intake for this submit.
       setItems((prev) => prev.filter((i) => i.id !== item.id))
+      // Resolve calculator id from chip / stored type (AKL chip beats Lockout default).
+      const fromKind = serviceQuoteTypeIdFromBookJobKind(item.bookFormJobKind)
+      const rawStored = String(item.bookFormServiceQuoteTypeId ?? "").trim()
+      const serviceId =
+        fromKind && fromKind !== "lockout"
+          ? fromKind
+          : rawStored || fromKind || undefined
+      const asapNote =
+        item.bookFormUrgency === "asap" ? "Customer urgency: ASAP / emergency" : ""
       inbound?.openManualCallPanel({
         phoneNumber: phone,
         customerName: item.customerName || undefined,
         leadId: item.bookFormLeadId || undefined,
         callStatus: "answered",
-        continueOpenQuote: true,
+        // Profile-first — do NOT auto-jump Continue into empty Service.
+        fromBookForm: true,
+        continueOpenQuote: false,
+        serviceQuoteTypeId: serviceId,
+        vehicleYear: item.bookFormVehicleYear || undefined,
+        vehicleMake: item.bookFormVehicleMake || undefined,
+        vehicleModel: item.bookFormVehicleModel || undefined,
+        addressLine1: item.bookFormAddressLine1 || undefined,
+        notes: asapNote || undefined,
+        quotedPriceCents:
+          item.bookFormQuotedPriceCents != null && item.bookFormQuotedPriceCents > 0
+            ? item.bookFormQuotedPriceCents
+            : undefined,
       })
     },
     [inbound, setItems]
@@ -629,6 +651,25 @@ function LatestActionDetail({
       done: true,
       detail: item.preview || undefined,
     })
+    // Structured submitted details (same fields Continue intake will hydrate).
+    const ymm = [
+      item.bookFormVehicleYear,
+      item.bookFormVehicleMake,
+      item.bookFormVehicleModel,
+    ]
+      .map((p) => String(p ?? "").trim())
+      .filter(Boolean)
+      .join(" ")
+    if (ymm) {
+      steps.push({ label: "Vehicle", done: true, detail: ymm })
+    }
+    if (item.bookFormAddressLine1?.trim()) {
+      steps.push({
+        label: "Address",
+        done: true,
+        detail: item.bookFormAddressLine1.trim(),
+      })
+    }
   }
   if (item.event === "job_finished") {
     steps.push({
@@ -868,7 +909,7 @@ function LatestActionDetail({
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
           >
             <ClipboardList className="h-4 w-4" />
-            Open intake
+            Continue intake
           </button>
         ) : null}
         {item.customerPhone && !isPaidEvent ? (

@@ -1,5 +1,6 @@
 // Returning-caller / callback intake helpers — chooser step + service prefill from CRM.
 
+import { serviceQuoteTypeIdFromBookJobKind } from "@/lib/book-customer-request"
 import { serviceQuoteTypeFromJobType, serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import {
   SERVICE_QUOTE_TYPE_IDS,
@@ -11,6 +12,8 @@ import { serviceQuoteTypeIdFromIntake } from "@/lib/service-quote-calculator"
 export type OpenQuotePrefillSource = {
   service_quote_type_id?: string | null
   job_type?: string | null
+  /** Public /book chip id (lockout | akl | copy | other) — wins over polluted Lockout default. */
+  job_kind?: string | null
   summary?: string | null
   vehicle_year?: string | null
   vehicle_make?: string | null
@@ -26,14 +29,25 @@ export function serviceQuoteTypeIdFromCrmHistory(
   item: OpenQuotePrefillSource | null | undefined
 ): ServiceQuoteTypeId | null {
   if (!item) return null
+
+  // Book-form chip (akl/copy) beats a later autosaved Lockout default on the lead.
+  const fromKind = serviceQuoteTypeIdFromBookJobKind(item.job_kind)
+
   const rawId = String(item.service_quote_type_id ?? "").trim()
+  let fromStored: ServiceQuoteTypeId | null = null
   if (rawId && (SERVICE_QUOTE_TYPE_IDS as readonly string[]).includes(rawId)) {
-    return rawId as ServiceQuoteTypeId
+    fromStored = rawId as ServiceQuoteTypeId
+  } else if (rawId === "key_gen") {
+    fromStored = "key_generation"
+  } else if (rawId === "key_dup") {
+    fromStored = "key_duplication"
+  } else if (rawId === "ignition") {
+    fromStored = "ignition_repair"
   }
-  // Legacy aliases stored before the current enum.
-  if (rawId === "key_gen") return "key_generation"
-  if (rawId === "key_dup") return "key_duplication"
-  if (rawId === "ignition") return "ignition_repair"
+
+  if (fromKind && fromKind !== "lockout") return fromKind
+  if (fromStored) return fromStored
+  if (fromKind) return fromKind
 
   const jobType = String(item.job_type ?? "").trim()
   if (jobType) {

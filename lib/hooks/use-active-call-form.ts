@@ -67,6 +67,10 @@ export type ActiveCallRow = {
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  /** Job street seed (book form / CRM) before profile fetch. */
+  addressLine1?: string
+  /** Notes / ASAP seed. */
+  notes?: string
   /** Pre-filled quote from CRM convert handoff. */
   quotedPriceCents?: number
   /**
@@ -87,6 +91,8 @@ export type ActiveCallRow = {
   continueOpenQuote?: boolean
   /** Landing step after Continue-quote auto-start. */
   intakeStartStep?: CallbackContinueStep
+  /** Latest book-form open — profile-first submitted details. */
+  fromBookForm?: boolean
 }
 
 export type ActiveCallFormState = {
@@ -500,12 +506,21 @@ export function useActiveCallForm(
       vehicleYear: current.vehicleYear?.trim() || "",
       vehicleMake: current.vehicleMake?.trim() || "",
       vehicleModel: current.vehicleModel?.trim() || "",
-      // CRM Book / Continue-quote seed — never leave blank form as Lockout default.
+      addressLine1: current.addressLine1?.trim() || "",
+      notes: current.notes?.trim() || "",
+      // CRM Book / Continue-quote / book-form seed — never leave blank form as Lockout default.
       serviceQuoteTypeId: seededService,
       ...(seededQuote > 0
         ? { quotedPriceCents: seededQuote, quotedPriceOverridden: true }
         : {}),
     })
+    // Seed open-lead service type immediately so profile shows the label before CRM fetch.
+    if (seededService) {
+      setCrmOpenLeadServiceTypeId(seededService as ServiceQuoteTypeId)
+    }
+    if (seededQuote > 0) {
+      setCrmOpenLeadQuoteCents(seededQuote)
+    }
   }, [
     callLogId,
     current?.from_number,
@@ -513,6 +528,8 @@ export function useActiveCallForm(
     current?.vehicleYear,
     current?.vehicleMake,
     current?.vehicleModel,
+    current?.addressLine1,
+    current?.notes,
     current?.quotedPriceCents,
     current?.serviceQuoteTypeId,
   ])
@@ -693,9 +710,14 @@ export function useActiveCallForm(
                     ? Math.round(Number(lifetimeRaw))
                     : null
                 setCrmLifetimeRevenueCents(lifetime)
-                const openLead = history.find((h) => h.is_open_lead) ?? null
+                const openLead =
+                  (current?.existingLeadId?.trim()
+                    ? history.find((h) => h.id === current.existingLeadId?.trim())
+                    : null) ??
+                  history.find((h) => h.is_open_lead) ??
+                  null
                 const openLeadId = openLead?.id?.trim() || null
-                // Row handoff (CRM Convert) wins; else bind the open quote for upgrade-on-book.
+                // Row handoff (CRM Convert / book form) wins; else bind the open quote for upgrade-on-book.
                 setCrmOpenLeadId(current?.existingLeadId?.trim() || openLeadId)
                 const quoteCents =
                   openLead?.amount_cents != null && openLead.amount_cents > 0
@@ -752,11 +774,15 @@ export function useActiveCallForm(
                     patch.quotedPriceOverridden = true
                   }
                   // Stop false "new Lockout" when an open quote is loaded.
-                  // Only rewrite the blank-form default — never fight a user/draft pick.
-                  const stillDefaultLockout = prev.serviceQuoteTypeId === "lockout"
-                  if (stillDefaultLockout && (resolvedServiceType || (quoteCents != null && quoteCents > 0))) {
+                  // Only rewrite blank / Lockout default — never fight a user/draft pick.
+                  const blankOrDefaultLockout =
+                    !prev.serviceQuoteTypeId.trim() || prev.serviceQuoteTypeId === "lockout"
+                  if (blankOrDefaultLockout && (resolvedServiceType || (quoteCents != null && quoteCents > 0))) {
                     if (resolvedServiceType && resolvedServiceType !== "lockout") {
                       patch.serviceQuoteTypeId = resolvedServiceType
+                    } else if (resolvedServiceType === "lockout" && !prev.serviceQuoteTypeId.trim()) {
+                      // Explicit lockout from lead/chip — fill blank form only.
+                      patch.serviceQuoteTypeId = "lockout"
                     } else if (!resolvedServiceType && quoteCents != null && quoteCents > 0) {
                       // Known quote, unknown type — clear selection until Continue / user picks.
                       patch.serviceQuoteTypeId = ""

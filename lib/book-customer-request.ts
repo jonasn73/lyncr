@@ -34,6 +34,23 @@ export function jobTypeFromBookFormKind(jobKind: string): string {
   return "Service call"
 }
 
+/**
+ * Map book-form chips → calculator ids.
+ * Prefer this over a later autosaved Lockout default when `job_kind` is still on the lead.
+ */
+export function serviceQuoteTypeIdFromBookJobKind(
+  jobKind: string | null | undefined
+): "lockout" | "key_generation" | "key_duplication" | "other" | null {
+  const k = String(jobKind ?? "")
+    .trim()
+    .toLowerCase()
+  if (k === "akl") return "key_generation"
+  if (k === "copy") return "key_duplication"
+  if (k === "lockout") return "lockout"
+  if (k === "other") return "other"
+  return null
+}
+
 /** One day chip for the availability step (today + next day, not a multi-day grid). */
 export type BookDayOption = {
   dateKey: string

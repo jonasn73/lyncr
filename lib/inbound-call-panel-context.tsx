@@ -20,6 +20,10 @@ export type OpenManualCallPanelInput = {
   vehicleYear?: string
   vehicleMake?: string
   vehicleModel?: string
+  /** Job street from book form / CRM thin lead — seeds intake before CRM fetch. */
+  addressLine1?: string
+  /** ASAP / customer notes seed. */
+  notes?: string
   quotedPriceCents?: number
   /** Calculator id for Continue-quote / Book thin-lead handoff (never invent Lockout). */
   serviceQuoteTypeId?: string
@@ -43,6 +47,10 @@ export type OpenManualCallPanelInput = {
   continueOpenQuote?: boolean
   /** Precomputed Continue-quote step (may include SCHEDULE_TIME when name is filled). */
   intakeStartStep?: CallbackContinueStep
+  /**
+   * Latest book-form tap — show profile-first submitted details (do not auto-jump Service).
+   */
+  fromBookForm?: boolean
 }
 
 type InboundCallPanelContextValue = {
@@ -82,6 +90,8 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     vehicleYear: input?.vehicleYear?.trim() || "",
     vehicleMake: input?.vehicleMake?.trim() || "",
     vehicleModel: input?.vehicleModel?.trim() || "",
+    addressLine1: input?.addressLine1?.trim() || "",
+    notes: input?.notes?.trim() || "",
     quotedPriceCents:
       typeof input?.quotedPriceCents === "number" && input.quotedPriceCents > 0
         ? Math.round(input.quotedPriceCents)
@@ -94,8 +104,10 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     intakeMode: input?.intakeMode === "quick" ? "quick" : "full",
     serviceQuoteTypeId: input?.serviceQuoteTypeId?.trim() || undefined,
     // Thin CRM Book → same Continue-quote path as the callback chooser.
-    continueOpenQuote: input?.continueOpenQuote === true,
+    // Book-form Latest taps stay profile-first (fromBookForm) — never auto-jump Service.
+    continueOpenQuote: input?.continueOpenQuote === true && input?.fromBookForm !== true,
     intakeStartStep: input?.intakeStartStep,
+    fromBookForm: input?.fromBookForm === true,
   }
 }
 

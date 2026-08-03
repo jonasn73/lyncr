@@ -1066,6 +1066,8 @@ export interface CrmServiceHistoryItem {
   service_quote_type_id: string | null
   /** Dispatch job_type label from the lead row or collected — fallback for intake prefill. */
   job_type: string | null
+  /** Public /book chip id (lockout | akl | copy | other) when the customer submitted online. */
+  job_kind?: string | null
   /**
    * True when collected has a usable job/service street (Book → drawer vs Continue-intake).
    * Customer profile address may still make a thin lead pool-ready.

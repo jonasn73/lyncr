@@ -143,6 +143,14 @@ export async function GET(req: NextRequest) {
       urgency: row.urgency,
       availabilityLabel: row.availabilityLabel,
       preview: row.preview,
+      jobKind: row.jobKind,
+      jobType: row.jobType,
+      serviceQuoteTypeId: row.serviceQuoteTypeId,
+      vehicleYear: row.vehicleYear,
+      vehicleMake: row.vehicleMake,
+      vehicleModel: row.vehicleModel,
+      addressLine1: row.addressLine1,
+      quotedPriceCents: row.quotedPriceCents,
     }))
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.

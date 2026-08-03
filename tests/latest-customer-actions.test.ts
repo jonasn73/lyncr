@@ -230,7 +230,14 @@ describe("buildLatestCustomerActions", () => {
           at: "2026-07-27T19:08:00.000Z",
           urgency: "asap",
           availabilityLabel: "ASAP / emergency",
-          preview: "Key replacement (Origination) · 2010 Honda Civic · 5010 Roy William Pl",
+          preview: "Keys lost (AKL) · 2010 Honda Civic · 5010 Roy William Pl",
+          jobKind: "akl",
+          jobType: "Key replacement (Origination)",
+          serviceQuoteTypeId: "key_generation",
+          vehicleYear: "2010",
+          vehicleMake: "Honda",
+          vehicleModel: "Civic",
+          addressLine1: "5010 Roy William Pl",
         },
       ],
       limit: 6,
@@ -240,6 +247,9 @@ describe("buildLatestCustomerActions", () => {
     expect(latest[0]?.headline).toBe("Customer submitted book form · ASAP")
     expect(latest[0]?.bookFormLeadId).toBe("lead-jonas")
     expect(latest[0]?.customerName).toBe("Jonas Rwibuka")
+    expect(latest[0]?.bookFormJobKind).toBe("akl")
+    expect(latest[0]?.bookFormVehicleYear).toBe("2010")
+    expect(latest[0]?.bookFormAddressLine1).toBe("5010 Roy William Pl")
   })
 
   it("surfaces customer_paid from recent wallet settles", () => {

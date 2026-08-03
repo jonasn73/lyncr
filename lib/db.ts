@@ -5420,6 +5420,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
           ""
       ).trim()
       const jobTypeRaw = String(collected.job_type ?? collected.service_type ?? "").trim()
+      const jobKindRaw = String(collected.job_kind ?? "").trim() || null
       // Belt-and-suspenders: completed/done/paid (and other terminals) are never open leads.
       const isSalvageLead =
         ds === "salvage_pending" ||
@@ -5531,6 +5532,7 @@ export async function listCrmServiceHistoryForCustomer(params: {
         vehicle_model: model || null,
         service_quote_type_id: serviceQuoteRaw || null,
         job_type: jobTypeRaw || null,
+        job_kind: jobKindRaw,
         has_job_address,
         address_line1: addressLine1,
         job_notes: jobNotes,
@@ -9160,6 +9162,15 @@ export async function listOwnerRecentBookFormLeads(params: {
     urgency: "asap" | "window"
     availabilityLabel: string | null
     preview: string | null
+    /** Book chip id — used to hydrate intake (akl vs lockout). */
+    jobKind: string | null
+    jobType: string | null
+    serviceQuoteTypeId: string | null
+    vehicleYear: string | null
+    vehicleMake: string | null
+    vehicleModel: string | null
+    addressLine1: string | null
+    quotedPriceCents: number | null
   }>
 > {
   const sql = getSql()
@@ -9212,9 +9223,23 @@ export async function listOwnerRecentBookFormLeads(params: {
       const make = pick("vehicle_make", "make")
       const model = pick("vehicle_model", "model")
       const vehicle = [year, make, model].filter(Boolean).join(" ")
+      const jobKind = pick("job_kind")
       const job = pick("job_type")
       const address = pick("address_line1", "job_address", "location")
-      const previewParts = [job || null, vehicle || null, address || null].filter(Boolean)
+      // Prefer chip-aware label so Latest does not show Lockout when job_kind was AKL.
+      const jobLabel =
+        jobKind === "akl"
+          ? "Keys lost (AKL)"
+          : jobKind === "copy"
+            ? "Key copy"
+            : job || null
+      const previewParts = [jobLabel, vehicle || null, address || null].filter(Boolean)
+      const serviceQuoteRaw = pick("service_quote_type_id")
+      const quoteRaw = collected.quoted_price_cents ?? collected.last_quoted_price_cents ?? null
+      const quotedPriceCents =
+        quoteRaw != null && Number.isFinite(Number(quoteRaw)) && Number(quoteRaw) > 0
+          ? Math.round(Number(quoteRaw))
+          : null
       const at =
         row.created_at instanceof Date
           ? row.created_at.toISOString()
@@ -9231,6 +9256,14 @@ export async function listOwnerRecentBookFormLeads(params: {
         preview:
           previewParts.join(" · ") ||
           (row.summary != null ? String(row.summary) : null),
+        jobKind: jobKind || null,
+        jobType: job || null,
+        serviceQuoteTypeId: serviceQuoteRaw || null,
+        vehicleYear: year || null,
+        vehicleMake: make || null,
+        vehicleModel: model || null,
+        addressLine1: address || null,
+        quotedPriceCents,
       }
     })
   } catch (e) {

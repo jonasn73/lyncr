@@ -263,6 +263,8 @@ function ReturningCallerDecisionCard({
   emphasizeJob,
   hasCrmHistory,
   canOpenCrm,
+  /** Latest book-form handoff — label the open lead as a customer submit. */
+  bookFormSubmitted,
   primaryContinueLabel,
   onPrimaryContinue,
   onRestoreDraft,
@@ -296,6 +298,7 @@ function ReturningCallerDecisionCard({
   /** CRM match / open lead / garage / active job — not draft-only. */
   hasCrmHistory: boolean
   canOpenCrm: boolean
+  bookFormSubmitted?: boolean
   primaryContinueLabel: string | null
   onPrimaryContinue: () => void
   onRestoreDraft: () => void
@@ -402,12 +405,14 @@ function ReturningCallerDecisionCard({
           {hasOpenLead ? (
             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-200">
-                Open quote
+                {bookFormSubmitted ? "Book form submitted" : "Open quote"}
               </p>
               <p className="mt-0.5 text-[12px] font-medium text-sky-50">
                 {openQuoteCents != null && openQuoteCents > 0
                   ? formatCrmQuoteChip(openQuoteCents)
-                  : "Saved lead"}
+                  : bookFormSubmitted
+                    ? "Customer details ready"
+                    : "Saved lead"}
                 {serviceTypeLabel ? ` · ${serviceTypeLabel}` : ""}
               </p>
             </div>
@@ -3052,6 +3057,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return lines
   }, [crmServiceHistory, returningCallerLastJob])
   const returningCallerAddressLine = useMemo(() => {
+    // Prefer job street from the open book-form / lead (form seed), then CRM profile.
+    const fromForm = form.addressLine1.trim()
+    if (fromForm) return fromForm
     if (!matchedCustomer) return null
     const parts = [
       matchedCustomer.address_line1?.trim(),
@@ -3059,7 +3067,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       matchedCustomer.region?.trim(),
     ].filter(Boolean)
     return parts.length > 0 ? parts.join(", ") : null
-  }, [matchedCustomer])
+  }, [form.addressLine1, matchedCustomer])
+  const fromBookFormOpen = Boolean(manualCallRow?.fromBookForm)
   const returningCallerLastPaidLine = useMemo(() => {
     const paid = crmPayments.find((p) => p.status === "COMPLETED")
     if (!paid) return null
@@ -3107,7 +3116,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
           ? ` · ${formatCrmQuoteChip(crmOpenLeadQuoteCents)}`
           : ""
-      return { label: `Continue quote${money}`, action: "continue_quote" as const }
+      // Book-form Latest taps: "Continue intake" (prefilled) — same spirit as profile-first.
+      return {
+        label: fromBookFormOpen ? `Continue intake${money}` : `Continue quote${money}`,
+        action: "continue_quote" as const,
+      }
     }
     if (pendingDraft && !restoreDraftSecondary) {
       return { label: "Restore draft", action: "restore_draft" as const }
@@ -3123,6 +3136,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     activeCallbackJobId,
     crmOpenLeadId,
     crmOpenLeadQuoteCents,
+    fromBookFormOpen,
     pendingDraft,
     restoreDraftSecondary,
     returningCallerLastJob?.id,
@@ -3373,6 +3387,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   ])
 
   // CRM Book (thin quote) → auto Continue open quote once per handoff row.
+  // Skip when intakeStartStep is missing AND service is still unknown (book-form race).
   const continueQuoteAppliedRef = useRef<string | null>(null)
   useEffect(() => {
     const rowId = manualCallRow?.id?.trim() || null
@@ -3381,6 +3396,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       return
     }
     if (!manualCallRow.existingLeadId?.trim()) return
+    // Book-form / thin handoffs without a precomputed step wait for a real service id.
+    const hasStep = Boolean(manualCallRow.intakeStartStep)
+    const hasService = Boolean(
+      (manualCallRow.serviceQuoteTypeId || crmOpenLeadServiceTypeId || form.serviceQuoteTypeId || "").trim()
+    )
+    if (!hasStep && !hasService) return
     if (continueQuoteAppliedRef.current === rowId) return
     continueQuoteAppliedRef.current = rowId
     handleContinueOpenQuote()
@@ -3388,6 +3409,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     manualCallRow?.id,
     manualCallRow?.continueOpenQuote,
     manualCallRow?.existingLeadId,
+    manualCallRow?.intakeStartStep,
+    manualCallRow?.serviceQuoteTypeId,
+    crmOpenLeadServiceTypeId,
+    form.serviceQuoteTypeId,
     handleContinueOpenQuote,
   ])
 
@@ -3827,6 +3852,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 emphasizeJob={Boolean(activeCallbackJobId)}
                 hasCrmHistory={returningCallerHasCrmHistory}
                 canOpenCrm={Boolean(matchedCustomer?.id)}
+                bookFormSubmitted={fromBookFormOpen}
                 primaryContinueLabel={returningCallerPrimary?.label ?? null}
                 onPrimaryContinue={handleReturningCallerPrimaryContinue}
                 onRestoreDraft={restorePendingDraft}

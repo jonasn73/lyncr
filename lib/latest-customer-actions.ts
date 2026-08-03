@@ -56,6 +56,15 @@ export type LatestCustomerAction = {
   bookFormLeadId?: string | null
   /** asap | window for book_form rows. */
   bookFormUrgency?: "asap" | "window" | null
+  /** Prefill seeds so Open intake hydrates before CRM fetch. */
+  bookFormJobKind?: string | null
+  bookFormJobType?: string | null
+  bookFormServiceQuoteTypeId?: string | null
+  bookFormVehicleYear?: string | null
+  bookFormVehicleMake?: string | null
+  bookFormVehicleModel?: string | null
+  bookFormAddressLine1?: string | null
+  bookFormQuotedPriceCents?: number | null
 }
 
 export type LatestCompletedJobHint = {
@@ -177,6 +186,15 @@ export type LatestBookFormHint = {
   availabilityLabel: string | null
   /** Short job / vehicle preview. */
   preview: string | null
+  /** Book chip id (lockout | akl | copy | other). */
+  jobKind?: string | null
+  jobType?: string | null
+  serviceQuoteTypeId?: string | null
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  addressLine1?: string | null
+  quotedPriceCents?: number | null
 }
 
 /** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
@@ -399,6 +417,14 @@ export function buildLatestCustomerActions(params: {
       paidAmountCents: null,
       bookFormLeadId: form.id,
       bookFormUrgency: urgency,
+      bookFormJobKind: form.jobKind ?? null,
+      bookFormJobType: form.jobType ?? null,
+      bookFormServiceQuoteTypeId: form.serviceQuoteTypeId ?? null,
+      bookFormVehicleYear: form.vehicleYear ?? null,
+      bookFormVehicleMake: form.vehicleMake ?? null,
+      bookFormVehicleModel: form.vehicleModel ?? null,
+      bookFormAddressLine1: form.addressLine1 ?? null,
+      bookFormQuotedPriceCents: form.quotedPriceCents ?? null,
     })
   }
 
