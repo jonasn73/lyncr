@@ -766,8 +766,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         </div>
       )}
 
-      {/* Alerts — hides when empty; sits directly above Available with normal gap. */}
-      <div className="mt-3">
+      {/* Alerts — hide empty wrapper so Primary isn’t stuck to Available; mt-3 only when alerts show. */}
+      <div className="mt-3 [&:empty]:hidden">
         <JustFinishedReviewCard compact />
       </div>
     </section>

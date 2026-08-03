@@ -223,7 +223,8 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
               className="lg:sticky lg:top-4"
               onConfigureRouting={() => setWhoAnswersOpen(true)}
             />
-            <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
+            {/* flex + gap (not space-y) so Primary / Alerts and Available never collapse together */}
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-4">
               {quickSetupDecided && !isSetupComplete ? (
                 <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
                   <div className="flex items-start gap-3">
@@ -347,8 +348,8 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                 adminRoutingOverridePhone={adminRoutingOverridePhone}
               />
 
-              {/* Available + Caller ID — same column as Alerts, normal spacing (not pushed to page bottom). */}
-              <div className="space-y-3 pb-2">
+              {/* Available + Caller ID — gap-3 from parent separates this from Primary · Who answers. */}
+              <div className="flex flex-col gap-3 pb-2">
                 <PresenceStatusBar />
                 <CallerIdUtilitiesCard
                   organizationId={activeOrganizationId}
