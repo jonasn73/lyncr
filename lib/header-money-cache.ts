@@ -87,8 +87,9 @@ export function estimateLyncrNetFromGrossCents(grossCents: number): number {
 
 /**
  * What the header wallet chip should show at a glance.
- * Lead with today’s collected (what customers paid). Pending/Available belong
- * in the Money sheet under “Get paid,” not as the daily headline.
+ * Lead with today’s collected when > 0; otherwise fall through to money
+ * already in the wallet (Available, then Pending) so we never imply $0
+ * when card pays are still clearing.
  */
 export type HeaderWalletChipDisplay = {
   /** Big number on the chip. */
@@ -96,10 +97,11 @@ export type HeaderWalletChipDisplay = {
   /**
    * today — customers paid today (primary daily story)
    * in_account — no sales today, but transferable balance exists
-   * zero — nothing today and nothing ready
+   * pending — no today/available, but funds still clearing
+   * zero — nothing today, nothing ready, nothing pending
    */
-  mode: "today" | "in_account" | "zero"
-  /** Short subtitle under the amount (e.g. “Today”, “In account”). */
+  mode: "today" | "in_account" | "pending" | "zero"
+  /** Short subtitle under the amount (e.g. “Today”, “Pending”). */
   label: string
 }
 
@@ -107,14 +109,16 @@ export type HeaderWalletChipDisplay = {
  * Pick the chip amount + label.
  * 1) Collected today > 0 → show that (label “Today”)
  * 2) Else Available > 0 → show Available (label “In account”)
- * 3) Else $0 with label “Today”
+ * 3) Else Pending > 0 → show Pending (label “Pending”) — not “$0 Today”
+ * 4) Else $0 with label “Today”
  */
 export function resolveHeaderWalletChipDisplay(
   availableCents: number,
-  _pendingCents: number,
+  pendingCents: number,
   todayCents: number | null | undefined
 ): HeaderWalletChipDisplay {
   const available = Number.isFinite(availableCents) ? Math.max(0, availableCents) : 0
+  const pending = Number.isFinite(pendingCents) ? Math.max(0, pendingCents) : 0
   const today =
     todayCents != null && Number.isFinite(todayCents) ? Math.max(0, todayCents) : null
 
@@ -126,6 +130,11 @@ export function resolveHeaderWalletChipDisplay(
   // Quiet day — show money already ready to transfer, if any.
   if (available > 0) {
     return { amountCents: available, mode: "in_account", label: "In account" }
+  }
+
+  // Card pays still clearing — show that amount so the chip is not a fake $0.
+  if (pending > 0) {
+    return { amountCents: pending, mode: "pending", label: "Pending" }
   }
 
   // Flat zero — still label “Today” so the chip reads as a daily glance.

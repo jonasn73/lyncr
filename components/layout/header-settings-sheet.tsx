@@ -384,7 +384,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setPaymentsOpen(true)
   }, [])
 
-  // Daily glance chip — lead with Collected today; never amber “Pending”.
+  // Daily glance chip — Today → Available → Pending → $0 (never lie that wallet is empty).
   const chipDisplay = amountReady
     ? resolveHeaderWalletChipDisplay(availableCents ?? 0, pendingCents, todayCents)
     : null
@@ -421,14 +421,18 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             chipAmountLabel && chipDisplay
               ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
                 ? `Collected today ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
-                : `In account ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
+                : chipDisplay.mode === "pending"
+                  ? `Pending ${chipAmountLabel} clearing. Tap for today’s sales, fees, and bank transfer.`
+                  : `In account ${chipAmountLabel}. Tap for today’s sales, fees, and bank transfer.`
               : "Wallet — loading balance"
           }
           title={
             chipAmountLabel && chipDisplay
               ? chipDisplay.mode === "today" || chipDisplay.mode === "zero"
                 ? `Today ${chipAmountLabel} — tap for details`
-                : `In account ${chipAmountLabel} — tap for details`
+                : chipDisplay.mode === "pending"
+                  ? `Pending ${chipAmountLabel} — tap for details`
+                  : `In account ${chipAmountLabel} — tap for details`
               : "Loading account balance"
           }
         >

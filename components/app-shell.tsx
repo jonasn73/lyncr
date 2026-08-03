@@ -119,7 +119,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   const [cachedChip, setCachedChip] = useState(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (!cached) return null
-    // Same Today-first rules as the live chip (never lead with Pending).
+    // Same Today → Available → Pending → $0 rules as the live chip.
     const display = resolveHeaderWalletChipDisplay(
       cached.availableCents,
       cached.pendingCents,
