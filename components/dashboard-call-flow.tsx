@@ -657,9 +657,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     />
   ) : null
 
-  // Flattened shell — no outer card; step rows/cards sit on the page background.
+  // Flattened shell — no outer card; no min-height spacer above Available.
   return (
-    {/* No min-height spacer — Alerts sit tight above Available (Messages moved to Settings). */}
     <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">
       {/* Title + info only on md+ — non-actionable on mobile per UI standards. */}
       <div className="mb-3 hidden items-center justify-between gap-2 md:flex">
