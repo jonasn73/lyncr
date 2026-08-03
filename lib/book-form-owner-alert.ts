@@ -18,6 +18,13 @@ export function isBookFormIntakeSource(source: string | null | undefined): boole
   return BOOK_FORM_INTAKE_SOURCES.has(s)
 }
 
+/** CRM badge copy — customer book link vs operator intake. */
+export function crmIntakeFilledByLabel(
+  source: string | null | undefined
+): "Filled by customer" | "Entered by you" {
+  return isBookFormIntakeSource(source) ? "Filled by customer" : "Entered by you"
+}
+
 export type NotifyOwnerBookFormParams = {
   ownerUserId: string
   leadId: string

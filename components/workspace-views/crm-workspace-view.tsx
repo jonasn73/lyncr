@@ -13,6 +13,7 @@ import {
   Loader2,
   Mail,
   MessageSquare,
+  MoreHorizontal,
   Pencil,
   Phone,
   Plus,
@@ -38,6 +39,11 @@ import type {
   CustomerVehicle,
 } from "@/lib/types"
 import {
+  crmIntakeFilledByLabel,
+  isBookFormIntakeSource,
+} from "@/lib/book-form-owner-alert"
+import { jobTypeFromBookFormKind } from "@/lib/book-customer-request"
+import {
   formatCollectedDollars,
   type OwnerCollectedTransaction,
 } from "@/lib/owner-collected"
@@ -59,6 +65,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -74,7 +86,7 @@ import {
   mergeCrmServiceHistoryWithWalkUps,
 } from "@/lib/crm-walk-up-history"
 
-type CrmFilter = "all" | "leads" | "clients"
+type CrmFilter = "all" | "leads" | "clients" | "book_forms"
 
 const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   booked_client: "Booked client",
@@ -85,6 +97,26 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   callback: "Needs call",
   repeat_customer: "Repeat customer",
   new_contact: "New contact",
+}
+
+/** Human service label from book chip or job_type (never invent Lockout from blanks). */
+function crmServiceLabel(item: CrmServiceHistoryItem): string {
+  const kind = String(item.job_kind ?? "").trim().toLowerCase()
+  if (kind) return jobTypeFromBookFormKind(kind)
+  const typed = String(item.job_type ?? "").trim()
+  if (typed) return typed
+  return String(item.summary ?? "").trim() || "Service request"
+}
+
+/** Short urgency line for book-form / open-lead cards. */
+function crmUrgencyLabel(item: CrmServiceHistoryItem): string | null {
+  if (String(item.urgency ?? "").toLowerCase() === "asap" || item.intake_source === "public_book_asap") {
+    return "ASAP"
+  }
+  const avail = String(item.availability_label ?? "").trim()
+  if (avail) return avail
+  if (String(item.urgency ?? "").toLowerCase() === "window") return "Preferred window"
+  return null
 }
 
 /** CRM → Scheduler action label for a history row (no more overloaded "Convert"). */
@@ -251,7 +283,13 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   // Return-from-Scheduler deep link — reopen this customer profile.
   const customerParam = searchParams.get("customer")?.trim() || null
   const initialFilter: CrmFilter =
-    tabParam === "leads" ? "leads" : tabParam === "clients" ? "clients" : "all"
+    tabParam === "leads"
+      ? "leads"
+      : tabParam === "clients"
+        ? "clients"
+        : tabParam === "book_forms"
+          ? "book_forms"
+          : "all"
 
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
@@ -310,6 +348,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   useEffect(() => {
     if (tabParam === "leads") setFilter("leads")
     else if (tabParam === "clients") setFilter("clients")
+    else if (tabParam === "book_forms") setFilter("book_forms")
   }, [tabParam])
 
   // Reopen profile when Scheduler returns with ?customer= (or operator shares the link).
@@ -643,6 +682,20 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Boolean(target.has_job_address) || crmCustomerAddressReady(selected),
             displayName: customerName,
           })
+          // Same rich hydrate as Latest book-form alert → Continue intake.
+          const fromBook = Boolean(
+            target.filled_by_customer || isBookFormIntakeSource(target.intake_source)
+          )
+          const asapNote =
+            String(target.urgency ?? "").toLowerCase() === "asap" ||
+            target.intake_source === "public_book_asap"
+              ? "Customer urgency: ASAP / emergency"
+              : ""
+          const notesParts = [
+            asapNote,
+            String(target.customer_notes ?? "").trim(),
+            String(target.job_notes ?? "").trim(),
+          ].filter(Boolean)
           setSelectedId(null)
           setSelected(null)
           inboundCallPanel.openManualCallPanel({
@@ -657,8 +710,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 : undefined,
             serviceQuoteTypeId: serviceId || undefined,
             leadId: target.id,
-            continueOpenQuote: true,
-            intakeStartStep: startStep,
+            continueOpenQuote: !fromBook,
+            fromBookForm: fromBook,
+            // Profile-first for book forms — do not auto-jump into empty Service.
+            intakeStartStep: fromBook ? undefined : startStep,
+            addressLine1: target.address_line1 || undefined,
+            notes: notesParts.join("\n") || undefined,
           })
           return
         }
@@ -982,7 +1039,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       </div>
     ) : (
       <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
+        {/* Compact primary actions — Call + Message first; rest under More. */}
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href={buildTelHref(selected.phone_e164) || undefined}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-200"
@@ -997,66 +1055,57 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             aria-label="Open Messages with a blank composer for this phone"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            Open Messages
+            Message
           </Link>
-          <button
-            type="button"
-            onClick={openCollectForCustomer}
-            className={cn(
-              "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
-              // Already paid — keep charge available but don’t look like they still owe.
-              isFullyPaidCustomer
-                ? "border border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800/80"
-                : "border border-teal-500/40 bg-teal-500/15 text-teal-100"
-            )}
-            title={
-              isFullyPaidCustomer
-                ? "Start another charge for this customer (they already paid)"
-                : "Open Collect with this customer’s name and phone filled in"
-            }
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-            {isFullyPaidCustomer ? "Charge again" : "Collect"}
-          </button>
-          {(selected.lead_badge === "price_quoted" ||
-            selected.lead_badge === "needs_recovery" ||
-            selected.lead_badge === "callback" ||
-            openLeadHistory.length > 0) && (
-            <button
-              type="button"
-              onClick={openFollowUpPreview}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-xs font-semibold text-amber-100"
-              title="Preview follow-up SMS before sending"
-            >
-              Draft follow-up
-            </button>
-          )}
-          {salvageOpenLead ? (
-            <button
-              type="button"
-              onClick={openRescuePreview}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 text-xs font-semibold text-rose-100"
-              title="Preview a lower-price rescue SMS before sending"
-            >
-              Draft rescue offer
-            </button>
-          ) : null}
-          {headerJobAction && headerJobTarget ? (
-            <button
-              type="button"
-              onClick={() => openJobOnScheduler(headerJobTarget)}
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
-                headerJobAction === "Recover"
-                  ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
-                  : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                More
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="z-[7200] min-w-[11rem] border-zinc-800 bg-zinc-950">
+              <DropdownMenuItem
+                onClick={openCollectForCustomer}
+                className="gap-2 text-xs focus:bg-zinc-900"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                {isFullyPaidCustomer ? "Charge again" : "Collect"}
+              </DropdownMenuItem>
+              {(selected.lead_badge === "price_quoted" ||
+                selected.lead_badge === "needs_recovery" ||
+                selected.lead_badge === "callback" ||
+                openLeadHistory.length > 0) && (
+                <DropdownMenuItem
+                  onClick={openFollowUpPreview}
+                  className="gap-2 text-xs focus:bg-zinc-900"
+                >
+                  Draft follow-up
+                </DropdownMenuItem>
               )}
-              title={crmJobNavTitle(headerJobAction)}
-            >
-              <CalendarCheck className="h-3.5 w-3.5" />
-              {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
-            </button>
-          ) : null}
+              {salvageOpenLead ? (
+                <DropdownMenuItem
+                  onClick={openRescuePreview}
+                  className="gap-2 text-xs focus:bg-zinc-900"
+                >
+                  Draft rescue offer
+                </DropdownMenuItem>
+              ) : null}
+              {headerJobAction && headerJobTarget ? (
+                <DropdownMenuItem
+                  onClick={() => openJobOnScheduler(headerJobTarget)}
+                  className="gap-2 text-xs focus:bg-zinc-900"
+                >
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {saveMsg && saveMsg !== "Saved" ? (
@@ -1067,6 +1116,110 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           <div className="flex items-center gap-2 text-sm text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading profile…
+          </div>
+        ) : null}
+
+        {/* Job / book-form details first — same fields the Latest alert showed. */}
+        {headerJobTarget && headerJobTarget.is_open_lead ? (
+          <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-200/90">
+                Submitted request
+              </h3>
+              <span
+                className={cn(
+                  "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  headerJobTarget.filled_by_customer
+                    ? "bg-orange-500/20 text-orange-100"
+                    : "bg-zinc-800 text-zinc-300"
+                )}
+              >
+                {crmIntakeFilledByLabel(headerJobTarget.intake_source)}
+              </span>
+              {crmUrgencyLabel(headerJobTarget) === "ASAP" ? (
+                <span className="rounded-md bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-rose-100">
+                  ASAP
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  headerJobTarget.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
+                  headerJobTarget.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
+                  headerJobTarget.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
+                  headerJobTarget.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
+                  headerJobTarget.status_tone === "neutral" && "bg-zinc-800 text-zinc-400"
+                )}
+              >
+                {headerJobTarget.status_label}
+              </span>
+            </div>
+            <dl className="space-y-1.5 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Service</dt>
+                <dd className="min-w-0 font-medium text-slate-100">
+                  {crmServiceLabel(headerJobTarget)}
+                </dd>
+              </div>
+              {headerJobTarget.vehicle_label ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Vehicle</dt>
+                  <dd className="min-w-0 text-zinc-200">{headerJobTarget.vehicle_label}</dd>
+                </div>
+              ) : null}
+              {headerJobTarget.address_line1 ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Address</dt>
+                  <dd className="min-w-0 text-zinc-200">{headerJobTarget.address_line1}</dd>
+                </div>
+              ) : null}
+              {crmUrgencyLabel(headerJobTarget) && crmUrgencyLabel(headerJobTarget) !== "ASAP" ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">When</dt>
+                  <dd className="min-w-0 text-zinc-200">{crmUrgencyLabel(headerJobTarget)}</dd>
+                </div>
+              ) : null}
+              {headerJobTarget.amount_cents != null && headerJobTarget.amount_cents > 0 ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Quote</dt>
+                  <dd className="min-w-0 tabular-nums text-emerald-200">
+                    {formatMoney(headerJobTarget.amount_cents)}
+                  </dd>
+                </div>
+              ) : null}
+              {(headerJobTarget.customer_notes || headerJobTarget.job_notes) && (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Notes</dt>
+                  <dd className="min-w-0 whitespace-pre-wrap text-zinc-300">
+                    {headerJobTarget.customer_notes || headerJobTarget.job_notes}
+                  </dd>
+                </div>
+              )}
+              {headerJobTarget.at ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Submitted</dt>
+                  <dd className="min-w-0 text-[11px] text-zinc-500">
+                    {new Date(headerJobTarget.at).toLocaleString()}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+            {headerJobAction ? (
+              <button
+                type="button"
+                onClick={() => openJobOnScheduler(headerJobTarget)}
+                className={cn(
+                  "mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold sm:w-auto",
+                  headerJobAction === "Recover"
+                    ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
+                    : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+                )}
+                title={crmJobNavTitle(headerJobAction)}
+              >
+                <CalendarCheck className="h-3.5 w-3.5" />
+                {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -1237,15 +1390,47 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Service history &amp; quotes
             </h3>
             <ol className="space-y-2">
-              {displayHistory.map((item) => (
+              {displayHistory.map((item) => {
+                const serviceLabel = crmServiceLabel(item)
+                const urgencyBit = crmUrgencyLabel(item)
+                const sourceBit =
+                  item.intake_source || item.filled_by_customer != null
+                    ? crmIntakeFilledByLabel(item.intake_source)
+                    : null
+                const detailBits = [
+                  serviceLabel,
+                  item.vehicle_label,
+                  item.address_line1,
+                  urgencyBit,
+                  item.amount_cents != null && item.amount_cents > 0
+                    ? formatMoney(item.amount_cents)
+                    : null,
+                  sourceBit,
+                ].filter(Boolean)
+                return (
                 <li
                   key={item.id}
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-slate-100">
-                      {item.summary?.trim() || item.vehicle_label || "Service"}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-100">
+                        {serviceLabel}
+                        {item.vehicle_label ? (
+                          <span className="font-normal text-zinc-400">
+                            {" · "}
+                            {item.vehicle_label}
+                          </span>
+                        ) : null}
+                      </p>
+                      {/* Flattened book-form / quote metadata — not just “Lockout · Needs call · $49”. */}
+                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
+                        {detailBits.slice(item.vehicle_label ? 2 : 1).join(" · ") ||
+                          (item.summary?.trim() && item.summary.trim() !== serviceLabel
+                            ? item.summary.trim()
+                            : null)}
+                      </p>
+                    </div>
                     <span
                       className={cn(
                         "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
@@ -1259,14 +1444,16 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                       {item.status_label}
                     </span>
                   </div>
+                  {(item.customer_notes || item.job_notes) && item.is_open_lead ? (
+                    <p className="mt-1 line-clamp-2 text-[11px] text-zinc-400">
+                      {item.customer_notes || item.job_notes}
+                    </p>
+                  ) : null}
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
                     {/* Call / lead timestamp — not the future appointment */}
                     <span className="min-w-0 truncate">
                       {item.at ? new Date(item.at).toLocaleString() : ""}
                       {item.assigned_tech_name ? ` · ${item.assigned_tech_name}` : ""}
-                      {item.amount_cents != null && item.amount_cents > 0
-                        ? ` · ${formatMoney(item.amount_cents)}`
-                        : ""}
                     </span>
                     {/* Compact future-appointment control (distinct from call time) */}
                     {!isWalkUpHistoryId(item.id) && editingApptId === item.id ? (
@@ -1397,7 +1584,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                     ) : null}
                   </div>
                 </li>
-              ))}
+                )
+              })}
             </ol>
           </div>
         ) : null}
@@ -1410,7 +1598,22 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
         {selected.company_name.trim() ? ` · ${selected.company_name}` : ""}
         {" · "}
-        {BADGE_LABEL[selected.lead_badge]} · {selected.jobs_completed} job
+        {BADGE_LABEL[selected.lead_badge]}
+        {selected.filled_by_customer || selected.has_book_form_lead ? (
+          <>
+            {" · "}
+            <span className="text-orange-300/90">Filled by customer</span>
+          </>
+        ) : openLeadHistory[0] ? (
+          <>
+            {" · "}
+            <span className="text-zinc-500">
+              {crmIntakeFilledByLabel(openLeadHistory[0].intake_source)}
+            </span>
+          </>
+        ) : null}
+        {" · "}
+        {selected.jobs_completed} job
         {selected.jobs_completed === 1 ? "" : "s"} ·{" "}
         {formatMoney(selected.lifetime_revenue_cents)} LTV
         {payments.length > 0
@@ -1432,8 +1635,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           Customers &amp; Leads
         </h1>
         <p className="hidden text-sm text-zinc-500 md:block">
-          One place for people, vehicles, history, and follow-ups — including Needs call callbacks and
-          Recover quote on lost/price-rejected leads. Scheduler stays for assigning work.
+          People, vehicles, history, and follow-ups — including book-form submissions (stay here after
+          you clear Lines alerts). Use Book forms to find customer-filled requests that still need a call.
         </p>
       </header>
 
@@ -1456,6 +1659,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 [
                   ["all", "All"],
                   ["leads", "Leads"],
+                  ["book_forms", "Book forms"],
                   ["clients", "Clients"],
                 ] as const
               ).map(([id, label]) => (
@@ -1468,7 +1672,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   className={cn(
                     "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
                     filter === id
-                      ? "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/40"
+                      ? id === "book_forms"
+                        ? "bg-orange-500/20 text-orange-100 ring-1 ring-orange-500/40"
+                        : "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/40"
                       : "bg-zinc-900 text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300"
                   )}
                 >
@@ -1488,7 +1694,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
             ) : rows.length === 0 ? (
               <p className="px-2 py-8 text-center text-sm text-zinc-500">
-                No customers yet. Save a caller from intake — they’ll show up here.
+                {filter === "book_forms"
+                  ? "No open book-form leads. When a customer submits your /book link, they show up here — even after you clear the Lines alert."
+                  : "No customers yet. Save a caller from intake — they’ll show up here."}
               </p>
             ) : (
               <ul className="space-y-1.5">
@@ -1522,6 +1730,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                           {formatPhoneDisplay(row.phone_e164)}
                         </p>
                         <p className="mt-1 text-[11px] text-zinc-500">
+                          {row.filled_by_customer || row.has_book_form_lead ? (
+                            <span className="text-orange-300/90">From book link · </span>
+                          ) : null}
                           {row.jobs_completed} job{row.jobs_completed === 1 ? "" : "s"} ·{" "}
                           {formatMoney(row.lifetime_revenue_cents)} LTV
                           {row.open_lead_count > 0

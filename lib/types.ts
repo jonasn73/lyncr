@@ -1044,6 +1044,13 @@ export interface CrmCustomerListItem extends Customer {
   lifetime_revenue_cents: number
   lead_badge: CrmLeadBadge
   open_lead_count: number
+  /**
+   * True when this phone has an open lead from a customer book form
+   * (public /book or Activity book link) — still findable after Latest dismiss.
+   */
+  has_book_form_lead?: boolean
+  /** True when the open book-form lead was filled by the customer (not operator intake). */
+  filled_by_customer?: boolean
 }
 
 /** One job / lead row on a CRM profile timeline. */
@@ -1077,6 +1084,16 @@ export interface CrmServiceHistoryItem {
   address_line1?: string | null
   /** Customer notes / ASAP line from collected (intake notes field). */
   job_notes?: string | null
+  /** collected.source — e.g. public_book_asap, activity_book_link, answered_call_intake. */
+  intake_source?: string | null
+  /** True when intake_source is a public/activity book form (customer-filled). */
+  filled_by_customer?: boolean
+  /** asap | window from book form extras. */
+  urgency?: string | null
+  /** Human availability line — “ASAP / emergency” or preferred window label. */
+  availability_label?: string | null
+  /** Free-text notes the customer typed on the book form. */
+  customer_notes?: string | null
   /** Call/lead created timestamp (not the future appointment). */
   at: string
   /** Structured appointment time when the lead/job is booked — null if unscheduled. */

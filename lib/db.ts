@@ -89,6 +89,7 @@ import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
 import { runOnboardingTelnyxProvisionPlaceholder } from "./onboarding-telnyx-provision-placeholder"
+import { isBookFormIntakeSource } from "./book-form-owner-alert"
 
 /** True when Postgres/Neon rejects SELECT/INSERT because `users.industry` was not migrated yet (011-user-industry.sql). */
 function isMissingIndustryColumnError(e: unknown): boolean {
@@ -5099,15 +5100,89 @@ function isCrmTerminalJobStatus(js: string): boolean {
 /** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
 export async function listCrmCustomersForUser(
   userId: string,
-  options?: { q?: string; limit?: number; filter?: "all" | "leads" | "clients" }
+  options?: {
+    q?: string
+    limit?: number
+    /** all | leads | clients | book_forms (open customer-filled book links). */
+    filter?: "all" | "leads" | "clients" | "book_forms"
+  }
 ): Promise<CrmCustomerListItem[]> {
-  const customers = await listCustomersForUser(userId, {
-    q: options?.q,
-    limit: options?.limit ?? 80,
-  })
+  const filter = options?.filter ?? "all"
+  const sql = getSql()
+
+  // Book forms filter: pull phones that still have an open customer-filled lead first
+  // so they stay findable after Latest dismiss (not buried past the default customer limit).
+  let bookFormDigitKeys: string[] = []
+  if (filter === "book_forms") {
+    try {
+      const bookRows = (await sql`
+        SELECT DISTINCT
+          right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key
+        FROM ai_leads
+        WHERE user_id = ${userId}
+          AND lower(trim(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), 'lead'))) IN ('lead')
+          AND coalesce(collected->>'source', '') IN (
+            'public_book_asap', 'public_book_window', 'public_book', 'activity_book_link'
+          )
+          AND coalesce(created_at, now()) > now() - interval '24 months'
+        LIMIT 200
+      `) as Record<string, unknown>[]
+      bookFormDigitKeys = bookRows
+        .map((r) => String(r.phone_key ?? ""))
+        .filter((d) => d.length >= 10)
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "ai_leads")) {
+        console.warn("[listCrmCustomersForUser] book-form phones failed", e)
+      }
+    }
+    if (bookFormDigitKeys.length === 0) return []
+  }
+
+  // Default list OR (Book forms) customers matching those open book-form phones.
+  let customers: Customer[]
+  if (filter === "book_forms") {
+    const q = (options?.q ?? "").trim()
+    const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
+    try {
+      if (!q) {
+        const rows = (await sql`
+          SELECT * FROM customers
+          WHERE user_id = ${userId}
+            AND right(regexp_replace(coalesce(phone_e164, ''), '\\D', '', 'g'), 10) = ANY(${bookFormDigitKeys})
+          ORDER BY updated_at DESC
+          LIMIT ${lim}
+        `) as Record<string, unknown>[]
+        customers = rows.map((r) => parseCustomerRow(r))
+      } else {
+        const pat = `%${q}%`
+        const rows = (await sql`
+          SELECT * FROM customers
+          WHERE user_id = ${userId}
+            AND right(regexp_replace(coalesce(phone_e164, ''), '\\D', '', 'g'), 10) = ANY(${bookFormDigitKeys})
+            AND (
+              phone_e164 ILIKE ${pat}
+              OR display_name ILIKE ${pat}
+              OR company_name ILIKE ${pat}
+              OR address_line1 ILIKE ${pat}
+              OR notes ILIKE ${pat}
+            )
+          ORDER BY updated_at DESC
+          LIMIT ${lim}
+        `) as Record<string, unknown>[]
+        customers = rows.map((r) => parseCustomerRow(r))
+      }
+    } catch (e) {
+      if (isUndefinedRelationError(e, "customers")) return []
+      throw e
+    }
+  } else {
+    customers = await listCustomersForUser(userId, {
+      q: options?.q,
+      limit: options?.limit ?? 80,
+    })
+  }
   if (customers.length === 0) return []
 
-  const sql = getSql()
   const digitKeys = customers.map((c) => crmDigits(c.phone_e164)).filter((d) => d.length >= 10)
 
   type Agg = {
@@ -5117,6 +5192,7 @@ export async function listCrmCustomersForUser(
     priceQuoted: boolean
     hasSalvage: boolean
     callback: boolean
+    hasBookForm: boolean
   }
   const byDigits = new Map<string, Agg>()
 
@@ -5127,6 +5203,7 @@ export async function listCrmCustomersForUser(
         right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key,
         lower(coalesce(nullif(trim(dispatch_status), ''), nullif(trim(collected->>'dispatch_status'), ''), '')) AS ds,
         lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) AS js,
+        coalesce(nullif(trim(collected->>'source'), ''), '') AS intake_source,
         coalesce(
           nullif(trim(collected->>'quoted_price_cents'), '')::int,
           nullif(trim(collected->>'last_quoted_price_cents'), '')::int,
@@ -5151,9 +5228,11 @@ export async function listCrmCustomersForUser(
         priceQuoted: false,
         hasSalvage: false,
         callback: false,
+        hasBookForm: false,
       }
       const ds = String(row.ds ?? "")
       const js = String(row.js ?? "")
+      const intakeSource = String(row.intake_source ?? "")
       const price = Number(row.price_cents ?? 0)
       const isCompleted =
         isCrmTerminalJobStatus(js) ||
@@ -5189,6 +5268,8 @@ export async function listCrmCustomersForUser(
           prev.priceQuoted = true
         }
         if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) prev.callback = true
+        // Customer filled /book or Activity book link — stay findable after Latest clear.
+        if (isBookFormIntakeSource(intakeSource)) prev.hasBookForm = true
       }
       byDigits.set(key, prev)
     }
@@ -5210,7 +5291,7 @@ export async function listCrmCustomersForUser(
     }
   }
 
-  const filter = options?.filter ?? "all"
+  const bookFormSet = new Set(bookFormDigitKeys)
   const out: CrmCustomerListItem[] = []
   for (const c of customers) {
     const digits = crmDigits(c.phone_e164)
@@ -5221,7 +5302,10 @@ export async function listCrmCustomersForUser(
       priceQuoted: false,
       hasSalvage: false,
       callback: false,
+      hasBookForm: false,
     }
+    // Dedicated book_forms phone list wins even if this row's agg missed a source edge case.
+    const filledByCustomer = agg.hasBookForm || bookFormSet.has(digits)
     const walkUpCents = walkUpByDigits.get(digits) ?? 0
     const lifetimeCents = Math.max(0, agg.revenueCents) + Math.max(0, walkUpCents)
     const badge = resolveCrmLeadBadge({
@@ -5241,12 +5325,15 @@ export async function listCrmCustomersForUser(
       continue
     }
     if (filter === "clients" && agg.completed === 0) continue
+    if (filter === "book_forms" && !filledByCustomer) continue
     out.push({
       ...c,
       jobs_completed: agg.completed,
       lifetime_revenue_cents: lifetimeCents,
       lead_badge: badge,
       open_lead_count: agg.openLeads,
+      has_book_form_lead: filledByCustomer,
+      filled_by_customer: filledByCustomer,
     })
   }
   return out
@@ -5518,6 +5605,29 @@ export async function listCrmServiceHistoryForCustomer(params: {
       const localityClean =
         jobLocality === "CALLBACK" || jobLocality === "PENDING_CALLBACK" ? "" : jobLocality
       const has_job_address = Boolean(addressLine1) || Boolean(localityClean)
+      // Book-form / intake provenance — powers CRM “Filled by customer” badges.
+      const intakeSource = String(collected.source ?? "").trim() || null
+      const filledByCustomer = isBookFormIntakeSource(intakeSource)
+      const urgencyRaw = String(
+        collected.urgency ?? collected.customer_urgency ?? ""
+      )
+        .trim()
+        .toLowerCase()
+      const isAsap =
+        collected.is_asap === true ||
+        urgencyRaw === "asap" ||
+        intakeSource === "public_book_asap"
+      const urgency = isAsap ? "asap" : urgencyRaw === "window" ? "window" : urgencyRaw || null
+      const availabilityLabel =
+        String(
+          collected.availability_label ??
+            collected.availability ??
+            collected.preferred_window ??
+            ""
+        ).trim() ||
+        (isAsap ? "ASAP / emergency" : null)
+      const customerNotes =
+        String(collected.customer_notes ?? "").trim() || null
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,
@@ -5536,6 +5646,11 @@ export async function listCrmServiceHistoryForCustomer(params: {
         has_job_address,
         address_line1: addressLine1,
         job_notes: jobNotes,
+        intake_source: intakeSource,
+        filled_by_customer: filledByCustomer,
+        urgency,
+        availability_label: availabilityLabel,
+        customer_notes: customerNotes,
         at,
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,
