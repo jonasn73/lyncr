@@ -191,22 +191,10 @@ export async function listOwnerCollectedTransactions(
               NULLIF(TRIM(al.collected->>'caller_name'), ''),
               NULLIF(TRIM(cpl.customer_name), '')
             ) AS customer_name,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
-              NULLIF(TRIM(al.vehicle_year::text), '')
-            ) AS vehicle_year,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
-              NULLIF(TRIM(al.vehicle_make), '')
-            ) AS vehicle_make,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
-              NULLIF(TRIM(al.vehicle_model), '')
-            ) AS vehicle_model,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'job_type'), ''),
-              NULLIF(TRIM(al.job_type), '')
-            ) AS job_type,
+            NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+            NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+            NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
             CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
           FROM wallet_transactions wt
@@ -254,7 +242,7 @@ export async function listOwnerCollectedTransactions(
               )
               OR COALESCE(al.collected->>'vehicle_make', '') ILIKE ${qLike}
               OR COALESCE(al.collected->>'vehicle_model', '') ILIKE ${qLike}
-              OR COALESCE(al.job_type, '') ILIKE ${qLike}
+              OR COALESCE(al.collected->>'job_type', '') ILIKE ${qLike}
             )
           ORDER BY wt.created_at DESC
           LIMIT ${safeLimit}
@@ -280,22 +268,10 @@ export async function listOwnerCollectedTransactions(
               NULLIF(TRIM(al.collected->>'caller_name'), ''),
               NULLIF(TRIM(cpl.customer_name), '')
             ) AS customer_name,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
-              NULLIF(TRIM(al.vehicle_year::text), '')
-            ) AS vehicle_year,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
-              NULLIF(TRIM(al.vehicle_make), '')
-            ) AS vehicle_make,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
-              NULLIF(TRIM(al.vehicle_model), '')
-            ) AS vehicle_model,
-            COALESCE(
-              NULLIF(TRIM(al.collected->>'job_type'), ''),
-              NULLIF(TRIM(al.job_type), '')
-            ) AS job_type,
+            NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+            NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+            NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+            NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
             CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
           FROM wallet_transactions wt
@@ -348,8 +324,12 @@ export async function listOwnerCollectedTransactions(
                 wt.created_at,
                 wt.job_id::text AS job_id,
                 wt.stripe_payment_intent_id,
-                al.caller_e164,
                 COALESCE(
+                  NULLIF(TRIM(al.caller_e164), ''),
+                  NULLIF(TRIM(wt.customer_phone), '')
+                ) AS caller_e164,
+                COALESCE(
+                  NULLIF(TRIM(wt.customer_name), ''),
                   NULLIF(TRIM(al.collected->>'customer_name'), ''),
                   NULLIF(TRIM(al.collected->>'name'), ''),
                   NULLIF(TRIM(al.collected->>'caller_name'), '')
@@ -364,18 +344,24 @@ export async function listOwnerCollectedTransactions(
                 (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
                 AND (
                   COALESCE(
+                    NULLIF(TRIM(wt.customer_name), ''),
                     NULLIF(TRIM(al.collected->>'customer_name'), ''),
                     NULLIF(TRIM(al.collected->>'name'), ''),
                     NULLIF(TRIM(al.collected->>'caller_name'), '')
                   ) ILIKE ${qLike}
                   OR COALESCE(al.caller_e164, '') ILIKE ${qLike}
+                  OR COALESCE(wt.customer_phone, '') ILIKE ${qLike}
+                  OR COALESCE(wt.customer_name, '') ILIKE ${qLike}
                   OR (
                     ${phoneLike} <> ''
-                    AND regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                    AND (
+                      regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                      OR regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g') LIKE ${phoneLike}
+                    )
                   )
                   OR COALESCE(al.collected->>'vehicle_make', '') ILIKE ${qLike}
                   OR COALESCE(al.collected->>'vehicle_model', '') ILIKE ${qLike}
-                  OR COALESCE(al.job_type, '') ILIKE ${qLike}
+                  OR COALESCE(al.collected->>'job_type', '') ILIKE ${qLike}
                 )
               ORDER BY wt.created_at DESC
               LIMIT ${safeLimit}
@@ -389,8 +375,12 @@ export async function listOwnerCollectedTransactions(
                 wt.created_at,
                 wt.job_id::text AS job_id,
                 wt.stripe_payment_intent_id,
-                al.caller_e164,
                 COALESCE(
+                  NULLIF(TRIM(al.caller_e164), ''),
+                  NULLIF(TRIM(wt.customer_phone), '')
+                ) AS caller_e164,
+                COALESCE(
+                  NULLIF(TRIM(wt.customer_name), ''),
                   NULLIF(TRIM(al.collected->>'customer_name'), ''),
                   NULLIF(TRIM(al.collected->>'name'), ''),
                   NULLIF(TRIM(al.collected->>'caller_name'), '')
@@ -462,22 +452,11 @@ export async function listOwnerCollectedTransactionsForPhone(
           NULLIF(TRIM(al.collected->>'name'), ''),
           NULLIF(TRIM(al.collected->>'caller_name'), '')
         ) AS customer_name,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_year'), ''),
-          NULLIF(TRIM(al.vehicle_year::text), '')
-        ) AS vehicle_year,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_make'), ''),
-          NULLIF(TRIM(al.vehicle_make), '')
-        ) AS vehicle_make,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'vehicle_model'), ''),
-          NULLIF(TRIM(al.vehicle_model), '')
-        ) AS vehicle_model,
-        COALESCE(
-          NULLIF(TRIM(al.collected->>'job_type'), ''),
-          NULLIF(TRIM(al.job_type), '')
-        ) AS job_type,
+        -- Labels are only on ai_leads.collected (no top-level vehicle_*/job_type columns).
+        NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+        NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+        NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+        NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
         ps.tip_cents,
         CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
       FROM wallet_transactions wt
@@ -504,7 +483,7 @@ export async function listOwnerCollectedTransactionsForPhone(
     return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return []
-    // Fallback without payment_slips / customers / customer_phone columns.
+    // Fallback without payment_slips / customers — still match walk-up by customer_phone digits.
     const msg = e instanceof Error ? e.message : String(e)
     if (/payment_slips|customers|customer_phone|customer_name|column|relation/i.test(msg)) {
       try {
@@ -517,8 +496,12 @@ export async function listOwnerCollectedTransactionsForPhone(
             wt.created_at,
             wt.job_id::text AS job_id,
             wt.stripe_payment_intent_id,
-            al.caller_e164,
             COALESCE(
+              NULLIF(TRIM(al.caller_e164), ''),
+              NULLIF(TRIM(wt.customer_phone), '')
+            ) AS caller_e164,
+            COALESCE(
+              NULLIF(TRIM(wt.customer_name), ''),
               NULLIF(TRIM(al.collected->>'customer_name'), ''),
               NULLIF(TRIM(al.collected->>'name'), ''),
               NULLIF(TRIM(al.collected->>'caller_name'), '')
@@ -531,15 +514,50 @@ export async function listOwnerCollectedTransactionsForPhone(
           LEFT JOIN ai_leads al ON al.id = wt.job_id
           WHERE
             (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
-            AND right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+            AND (
+              right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+              OR right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+            )
           ORDER BY wt.created_at DESC
           LIMIT ${safeLimit}
         `
         return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
       } catch (e2) {
         if (isMissingWalletSchemaError(e2)) return []
-        console.warn("[owner-collected] phone list fallback failed:", e2)
-        return []
+        // Last resort: job-phone only (no customer_phone column on wallet yet).
+        try {
+          const rows = await sql`
+            SELECT
+              wt.id::text AS id,
+              wt.amount::float8 AS amount,
+              wt.status,
+              wt.payment_method,
+              wt.created_at,
+              wt.job_id::text AS job_id,
+              wt.stripe_payment_intent_id,
+              al.caller_e164,
+              COALESCE(
+                NULLIF(TRIM(al.collected->>'customer_name'), ''),
+                NULLIF(TRIM(al.collected->>'name'), ''),
+                NULLIF(TRIM(al.collected->>'caller_name'), '')
+              ) AS customer_name,
+              NULLIF(TRIM(al.collected->>'vehicle_year'), '') AS vehicle_year,
+              NULLIF(TRIM(al.collected->>'vehicle_make'), '') AS vehicle_make,
+              NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
+              NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type
+            FROM wallet_transactions wt
+            LEFT JOIN ai_leads al ON al.id = wt.job_id
+            WHERE
+              (al.user_id = ${uid} OR (wt.job_id IS NULL AND wt.user_id = ${uid}))
+              AND right(regexp_replace(COALESCE(al.caller_e164, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+            ORDER BY wt.created_at DESC
+            LIMIT ${safeLimit}
+          `
+          return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+        } catch (e3) {
+          console.warn("[owner-collected] phone list fallback failed:", e3)
+          return []
+        }
       }
     }
     console.warn("[owner-collected] phone list failed:", e)

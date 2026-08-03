@@ -1122,10 +1122,16 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               New charge
             </button>
           </div>
-          {payments.length === 0 ? (
+          {payments.length === 0 && (selected?.lifetime_revenue_cents ?? 0) <= 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
               No card or cash charges linked to this phone yet. Use Collect to charge them — it will
               show up here.
+            </p>
+          ) : payments.length === 0 ? (
+            // LTV already shows paid money — never claim “no charges” while that is true.
+            <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
+              Paid walk-up charges count toward LTV above. Open Collect → History if a receipt is
+              needed while this list refreshes.
             </p>
           ) : (
             <ul className="space-y-2">
