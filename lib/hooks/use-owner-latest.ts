@@ -28,11 +28,13 @@ const LATEST_POLL_HIDDEN_MS = 120_000
 
 /** Remember which payment ids we already toasted this browser session. */
 const SEEN_PAID_TOAST_KEY = "lyncr-latest-paid-toasted"
+/** Remember which book-form lead ids we already toasted this browser session. */
+const SEEN_BOOK_TOAST_KEY = "lyncr-latest-book-toasted"
 
-function readSeenPaidToastIds(): Set<string> {
+function readSeenIdSet(storageKey: string): Set<string> {
   if (typeof window === "undefined") return new Set()
   try {
-    const raw = sessionStorage.getItem(SEEN_PAID_TOAST_KEY)
+    const raw = sessionStorage.getItem(storageKey)
     if (!raw) return new Set()
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return new Set()
@@ -42,15 +44,30 @@ function readSeenPaidToastIds(): Set<string> {
   }
 }
 
-function writeSeenPaidToastIds(ids: Set<string>): void {
+function writeSeenIdSet(storageKey: string, ids: Set<string>): void {
   if (typeof window === "undefined") return
   try {
-    // Cap so sessionStorage stays small.
     const list = [...ids].slice(-40)
-    sessionStorage.setItem(SEEN_PAID_TOAST_KEY, JSON.stringify(list))
+    sessionStorage.setItem(storageKey, JSON.stringify(list))
   } catch {
     /* ignore quota */
   }
+}
+
+function readSeenPaidToastIds(): Set<string> {
+  return readSeenIdSet(SEEN_PAID_TOAST_KEY)
+}
+
+function writeSeenPaidToastIds(ids: Set<string>): void {
+  writeSeenIdSet(SEEN_PAID_TOAST_KEY, ids)
+}
+
+function readSeenBookToastIds(): Set<string> {
+  return readSeenIdSet(SEEN_BOOK_TOAST_KEY)
+}
+
+function writeSeenBookToastIds(ids: Set<string>): void {
+  writeSeenIdSet(SEEN_BOOK_TOAST_KEY, ids)
 }
 
 /** In-flight dedupe so compact + desktop card mounts don’t double-hit the API. */
@@ -119,8 +136,9 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
       readLatestCache(activeOrganizationId, paintSeed).length === 0
   )
   const documentVisible = useDocumentVisible()
-  // First successful fetch only seeds “seen” ids — later fetches can toast new payments.
+  // First successful fetch only seeds “seen” ids — later fetches can toast new payments / book forms.
   const primedPaidToastRef = useRef(false)
+  const primedBookToastRef = useRef(false)
 
   useEffect(() => {
     if (items.length > 0) setLoading(false)
@@ -167,10 +185,40 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     [toast]
   )
 
+  const notifyNewBookForms = useCallback(
+    (next: LatestCustomerAction[]) => {
+      const books = next.filter((row) => row.event === "book_form")
+      if (books.length === 0) {
+        primedBookToastRef.current = true
+        return
+      }
+      const seen = readSeenBookToastIds()
+      if (!primedBookToastRef.current) {
+        for (const row of books) seen.add(row.id)
+        writeSeenBookToastIds(seen)
+        primedBookToastRef.current = true
+        return
+      }
+      const fresh = books.filter((row) => !seen.has(row.id))
+      if (fresh.length === 0) return
+      for (const row of fresh) seen.add(row.id)
+      writeSeenBookToastIds(seen)
+      const newest = fresh[0]!
+      toast({
+        title: newest.headline || "Customer submitted book form",
+        description: newest.customerName
+          ? `${newest.customerName} — open Latest to book.`
+          : "Open Latest to review and book.",
+      })
+    },
+    [toast]
+  )
+
   const load = useCallback(async () => {
     try {
       const next = await fetchLatest(activeOrganizationId)
       notifyNewPayments(next)
+      notifyNewBookForms(next)
       setLiveItems((prev) => {
         if (
           prev &&
@@ -186,7 +234,7 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     } finally {
       setLoading(false)
     }
-  }, [activeOrganizationId, notifyNewPayments])
+  }, [activeOrganizationId, notifyNewPayments, notifyNewBookForms])
 
   const setItems = useCallback(
     (next: LatestCustomerAction[] | ((prev: LatestCustomerAction[]) => LatestCustomerAction[])) => {

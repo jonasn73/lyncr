@@ -4,15 +4,8 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import {
-  CheckCircle2,
-  ChevronRight,
-  Eye,
-  Loader2,
-  MessageSquare,
-  Settings2,
-  Star,
-} from "lucide-react"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { ClipboardList, CheckCircle2, ChevronRight, Eye, Loader2, MessageSquare, Settings2, Star } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   Sheet,
@@ -90,6 +83,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const { toast } = useToast()
   const router = useRouter()
   const { activeOrganizationId } = useDashboardWorkspace()
+  const inbound = useInboundCallPanelOptional()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
   const { items: rawItems, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
@@ -241,6 +235,25 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [markSeen, router]
   )
 
+  /** Open Call Answered intake with this book-form lead bound for upgrade-on-book. */
+  const openBookIntake = useCallback(
+    (item: LatestCustomerAction) => {
+      const phone = (item.customerPhone || "").trim()
+      if (!phone) return
+      setSelected(null)
+      // Drop from Latest once the owner opens intake for this submit.
+      setItems((prev) => prev.filter((i) => i.id !== item.id))
+      inbound?.openManualCallPanel({
+        phoneNumber: phone,
+        customerName: item.customerName || undefined,
+        leadId: item.bookFormLeadId || undefined,
+        callStatus: "answered",
+        continueOpenQuote: true,
+      })
+    },
+    [inbound, setItems]
+  )
+
   // Re-filter when returning to the tab or when Messages marks a thread seen.
   useEffect(() => {
     const bump = () => setSeenTick((n) => n + 1)
@@ -286,7 +299,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               Recent activity
             </p>
             <p className={cn("text-zinc-500", compact ? "text-xs leading-snug" : "mt-1 text-sm")}>
-              Replies, customer payments, and finished jobs that still need a review text.
+              Replies, book forms, payments, and finished jobs that still need a review text.
             </p>
           </div>
           <button
@@ -304,14 +317,15 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         <div className="mt-3 min-h-[3.5rem]">
           {items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border/60 px-3 py-3 text-xs text-zinc-500">
-              Nothing hot right now. Customer replies, payments, and finished jobs that need a review
-              text show up here.
+              Nothing hot right now. Customer replies, book forms, payments, and finished jobs that
+              need a review text show up here.
             </p>
           ) : (
             <ul className="space-y-2">
               {items.map((item) => {
                 const isJob = item.event === "job_finished"
                 const isPaid = item.event === "customer_paid"
+                const isBook = item.event === "book_form"
                 // Replies in this list are unread by definition (read ones were filtered out).
                 const unread = item.event === "replied"
                 return (
@@ -321,17 +335,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
                         isPaid
                           ? "border-emerald-500/40 bg-emerald-500/10"
-                          : isJob
-                            ? "border-amber-500/40 bg-amber-500/10"
-                            : unread
-                              ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                              : "border-sky-500/25 bg-sky-500/5"
+                          : isBook
+                            ? "border-orange-500/45 bg-orange-500/10"
+                            : isJob
+                              ? "border-amber-500/40 bg-amber-500/10"
+                              : unread
+                                ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
+                                : "border-sky-500/25 bg-sky-500/5"
                       )}
                     >
                       <button
                         type="button"
                         onClick={() => {
-                          // Paid / reply / job rows all open the detail sheet (not Collect).
+                          // Paid / reply / job / book rows all open the detail sheet.
                           openDetail(item)
                         }}
                         className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -347,6 +363,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         ) : isPaid ? (
                           <span
                             className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
+                            aria-hidden
+                          />
+                        ) : isBook ? (
+                          <span
+                            className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-orange-400"
                             aria-hidden
                           />
                         ) : (
@@ -369,11 +390,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                               "mt-0.5 truncate text-xs font-semibold",
                               isPaid
                                 ? "text-emerald-200"
-                                : isJob
-                                  ? "text-amber-200"
-                                  : unread
-                                    ? "text-sky-200"
-                                    : "text-sky-300/80"
+                                : isBook
+                                  ? "text-orange-200"
+                                  : isJob
+                                    ? "text-amber-200"
+                                    : unread
+                                      ? "text-sky-200"
+                                      : "text-sky-300/80"
                             )}
                           >
                             {item.statusLine}
@@ -395,6 +418,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           Reply
+                        </button>
+                      ) : null}
+                      {isBook ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openBookIntake(item)
+                          }}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" />
+                          Intake
                         </button>
                       ) : null}
                       {isPaid ? (
@@ -469,6 +505,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               onMarkReviewOpened={(jobId) => void markReviewOpened(jobId)}
               onOpenMessages={openInMessages}
               onOpenJob={openJobDrawer}
+              onOpenBookIntake={openBookIntake}
             />
           </SheetContent>
         </Sheet>
@@ -487,6 +524,7 @@ function LatestActionDetail({
   onMarkReviewOpened,
   onOpenMessages,
   onOpenJob,
+  onOpenBookIntake,
 }: {
   item: LatestCustomerAction
   organizationId: string | null
@@ -497,14 +535,16 @@ function LatestActionDetail({
   onMarkReviewOpened: (jobId: string) => void
   onOpenMessages: (phone: string) => void
   onOpenJob: (jobId: string) => void
+  onOpenBookIntake: (item: LatestCustomerAction) => void
 }) {
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
   const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
-  // Full SMS history only for reply detail — job / payment rows stay status-only.
+  // Full SMS history only for reply detail — job / payment / book rows stay status-only.
   const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
   const isPaidEvent = item.event === "customer_paid"
+  const isBookEvent = item.event === "book_form"
   // Simple delivery / open status when 119 columns are present on the last outbound.
   const reviewDeliveryLabel = item.lastOutbound
     ? formatSmsDeliveryLabel({ ...item.lastOutbound, direction: "outbound" })
@@ -577,6 +617,18 @@ function LatestActionDetail({
         }),
       })
     }
+  }
+  if (item.event === "book_form") {
+    steps.push({
+      label: "Book form submitted",
+      done: true,
+      detail: formatTimeAgo(item.at),
+    })
+    steps.push({
+      label: item.bookFormUrgency === "asap" ? "Urgency · ASAP" : "Urgency · window",
+      done: true,
+      detail: item.preview || undefined,
+    })
   }
   if (item.event === "job_finished") {
     steps.push({
@@ -808,6 +860,16 @@ function LatestActionDetail({
           <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-center text-sm font-semibold text-emerald-100">
             Paid · no balance to collect
           </p>
+        ) : null}
+        {isBookEvent ? (
+          <button
+            type="button"
+            onClick={() => onOpenBookIntake(item)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Open intake
+          </button>
         ) : null}
         {item.customerPhone && !isPaidEvent ? (
           <button

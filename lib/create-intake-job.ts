@@ -216,10 +216,14 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
   if (!customerName) throw new Error("Customer name is required.")
 
   const pendingCallback = Boolean(input.pendingCallback)
+  // Keep a real customer street when they typed one (public /book ASAP often has address).
   const addressLine1 =
     input.addressLine1?.trim() ||
     (pendingCallback ? PENDING_CALLBACK_ADDRESS : null)
-  const city = input.city?.trim() || (pendingCallback ? "CALLBACK" : null)
+  // Only invent city=CALLBACK when we also invented the placeholder street.
+  const city =
+    input.city?.trim() ||
+    (pendingCallback && addressLine1 === PENDING_CALLBACK_ADDRESS ? "CALLBACK" : null)
   const region = input.region?.trim() || null
   const postalCode = input.postalCode?.trim() || null
   const country = input.country?.trim() || "US"
@@ -706,6 +710,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     }
   }
 
+  const intakeSourceTag = String(collected.source ?? "")
+  const isBookFormSource =
+    intakeSourceTag === "public_book_asap" ||
+    intakeSourceTag === "public_book_window" ||
+    intakeSourceTag === "public_book" ||
+    intakeSourceTag === "activity_book_link"
+
   await publishOwnerEvent(
     input.ownerUserId,
     isReferredOut || pendingCallback || isSpecialOrder ? "lead-salvageable" : "job-booked",
@@ -714,6 +725,10 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       customerName,
       dispatch_status: dispatchStatus,
       job_status: jobStatusColumn,
+      // So dashboard can toast ASAP book submits even before Latest poll.
+      book_form: isBookFormSource,
+      urgency: collected.is_asap === true ? "asap" : collected.urgency || null,
+      customerPhone: phone,
     }
   ).catch((e) => console.warn("[create-intake-job] intake publish failed:", e))
 

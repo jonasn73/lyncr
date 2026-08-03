@@ -13,7 +13,7 @@ import { getAppUrl } from "@/lib/telnyx"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
 /** Hot Latest events that match isHotLatestAction / JustFinished semantics. */
-export type LatestAttentionEvent = "replied" | "job_finished"
+export type LatestAttentionEvent = "replied" | "job_finished" | "book_form"
 
 /** Cooldown for the same customer “replied” alert (ms). Jobs are once-only via dedupe key. */
 export const LATEST_REPLIED_COOLDOWN_MS = 2 * 60 * 60 * 1000
@@ -67,6 +67,12 @@ export function buildLatestAttentionSmsText(params: {
     return `Lyncr Latest: ${who} replied and needs your attention.${snippet} Open: ${latestUrl}`
   }
 
+  if (params.event === "book_form") {
+    const preview = (params.preview || "").replace(/\s+/g, " ").trim()
+    const line = preview || "Customer submitted book form"
+    return `Lyncr Latest: ${line}${who !== "a customer" ? ` — ${who}` : ""}. Open: ${latestUrl}`
+  }
+
   return `Lyncr Latest: Job finished for ${who} — send Thanks + review SMS. Open: ${latestUrl}`
 }
 
@@ -102,9 +108,9 @@ export async function notifyOwnerLatestNeedsAttention(
     return { ok: true, sent: false, reason: "self-phone" }
   }
 
-  // Dedupe key: job id (once) or customer phone last-10 (cooldown window).
+  // Dedupe key: job/lead id (once) for finished + book form; phone for reply cooldown.
   const dedupeKey =
-    params.event === "job_finished"
+    params.event === "job_finished" || params.event === "book_form"
       ? String(params.jobId || "").trim() || customerKey || "unknown-job"
       : customerKey || "unknown-customer"
 

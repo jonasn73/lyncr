@@ -5499,10 +5499,24 @@ export async function listCrmServiceHistoryForCustomer(params: {
           collected.job_address_full ??
           ""
       ).trim()
+      // Prefer raw street; strip placeholder CALLBACK city suffix for intake.
+      const addressLine1Raw = String(collected.address_line1 ?? "").trim()
+      const addressLine1 =
+        addressLine1Raw &&
+        addressLine1Raw !== "PENDING_CALLBACK" &&
+        addressLine1Raw !== "CALLBACK"
+          ? addressLine1Raw
+          : jobAddressLine
+              .replace(/,?\s*CALLBACK\s*$/i, "")
+              .replace(/^PENDING_CALLBACK$/i, "")
+              .trim() || null
+      const jobNotes = String(collected.job_notes ?? collected.notes ?? "").trim() || null
       const jobLocality = String(
         collected.job_address_locality ?? collected.city ?? collected.locality ?? ""
       ).trim()
-      const has_job_address = Boolean(jobAddressLine) || Boolean(jobLocality)
+      const localityClean =
+        jobLocality === "CALLBACK" || jobLocality === "PENDING_CALLBACK" ? "" : jobLocality
+      const has_job_address = Boolean(addressLine1) || Boolean(localityClean)
       return {
         id: String(row.id),
         summary: row.summary != null ? String(row.summary) : null,
@@ -5518,6 +5532,8 @@ export async function listCrmServiceHistoryForCustomer(params: {
         service_quote_type_id: serviceQuoteRaw || null,
         job_type: jobTypeRaw || null,
         has_job_address,
+        address_line1: addressLine1,
+        job_notes: jobNotes,
         at,
         scheduled_at: scheduledAt,
         dispatch_status: ds || null,
@@ -9125,6 +9141,104 @@ function syntheticSchedulerEventFromCreate(params: {
  * Uses the owner's IANA timezone for “today” (not the UTC server clock) and
  * prefers collected.completed_at so pool jobs / reschedules still qualify.
  */
+/**
+ * Recent public /book + Activity book-link leads for Latest (“Customer submitted book form”).
+ * Age-capped in the builder; here we pull a short window of open callback leads.
+ */
+export async function listOwnerRecentBookFormLeads(params: {
+  ownerUserId: string
+  organizationId?: string | null
+  /** Look-back hours (default 48). */
+  maxAgeHours?: number
+  limit?: number
+}): Promise<
+  Array<{
+    id: string
+    customerPhone: string | null
+    customerName: string | null
+    at: string
+    urgency: "asap" | "window"
+    availabilityLabel: string | null
+    preview: string | null
+  }>
+> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(params.limit ?? 12, 1), 40)
+  const maxAgeHours = Math.min(Math.max(params.maxAgeHours ?? 48, 1), 168)
+  const orgId = params.organizationId?.trim() || null
+  try {
+    const rows = orgId
+      ? await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.created_at
+          FROM ai_leads l
+          WHERE l.user_id = ${params.ownerUserId}
+            AND (l.organization_id IS NULL OR l.organization_id = ${orgId}::uuid)
+            AND l.created_at > now() - (${maxAgeHours}::text || ' hours')::interval
+            AND LOWER(TRIM(COALESCE(l.job_status, l.collected->>'job_status', 'lead'))) IN ('lead')
+            AND COALESCE(l.collected->>'source', '') IN (
+              'public_book_asap', 'public_book_window', 'public_book', 'activity_book_link'
+            )
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
+      : await sql`
+          SELECT l.id, l.caller_e164, l.collected, l.summary, l.created_at
+          FROM ai_leads l
+          WHERE l.user_id = ${params.ownerUserId}
+            AND l.created_at > now() - (${maxAgeHours}::text || ' hours')::interval
+            AND LOWER(TRIM(COALESCE(l.job_status, l.collected->>'job_status', 'lead'))) IN ('lead')
+            AND COALESCE(l.collected->>'source', '') IN (
+              'public_book_asap', 'public_book_window', 'public_book', 'activity_book_link'
+            )
+          ORDER BY l.created_at DESC
+          LIMIT ${lim}
+        `
+
+    return (rows as Record<string, unknown>[]).map((row) => {
+      const collected = (row.collected as Record<string, unknown>) || {}
+      const pick = (...keys: string[]): string => {
+        for (const k of keys) {
+          const v = collected[k]
+          if (typeof v === "string" && v.trim()) return v.trim()
+        }
+        return ""
+      }
+      const source = pick("source")
+      const isAsap =
+        collected.is_asap === true ||
+        pick("urgency", "customer_urgency") === "asap" ||
+        source === "public_book_asap"
+      const year = pick("vehicle_year", "year")
+      const make = pick("vehicle_make", "make")
+      const model = pick("vehicle_model", "model")
+      const vehicle = [year, make, model].filter(Boolean).join(" ")
+      const job = pick("job_type")
+      const address = pick("address_line1", "job_address", "location")
+      const previewParts = [job || null, vehicle || null, address || null].filter(Boolean)
+      const at =
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : String(row.created_at ?? new Date().toISOString())
+      return {
+        id: String(row.id),
+        customerPhone: row.caller_e164 != null ? String(row.caller_e164) : null,
+        customerName: pick("customer_name", "name") || null,
+        at,
+        urgency: (isAsap ? "asap" : "window") as "asap" | "window",
+        availabilityLabel:
+          pick("availability_label", "availability", "preferred_window") ||
+          (isAsap ? "ASAP / emergency" : null),
+        preview:
+          previewParts.join(" · ") ||
+          (row.summary != null ? String(row.summary) : null),
+      }
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads") || pgErrorCode(e) === "42703") return []
+    throw e
+  }
+}
+
 export async function listOwnerJobsNeedingReviewSms(params: {
   ownerUserId: string
   timezone?: string | null

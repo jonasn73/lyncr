@@ -14,6 +14,7 @@ import {
   type BookUrgency,
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
+import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { toE164 } from "@/lib/phone-e164"
 
 export const dynamic = "force-dynamic"
@@ -163,6 +164,19 @@ export async function POST(req: NextRequest) {
       intakeSource:
         urgency === "asap" ? "public_book_asap" : "public_book_window",
     })
+
+    // Latest + SMS + toastable Pusher — createUnassignedJobFromIntake alone was silent.
+    await notifyOwnerBookFormSubmitted({
+      ownerUserId: owner.id,
+      leadId: job.lead_id,
+      callerE164: customerPhone,
+      customerName,
+      urgency,
+      availabilityLabel,
+      summary: `${jobType} — ${customerName}`,
+      collected: collectedExtras,
+    })
+
     return NextResponse.json({
       data: {
         lead_id: job.lead_id,

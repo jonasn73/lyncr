@@ -11,16 +11,17 @@ export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "othe
  * - `replied` — customer text needs an answer
  * - `job_finished` — needs Thanks + review SMS
  * - `customer_paid` — card / pay-link just settled (informational)
+ * - `book_form` — customer finished public /book (ASAP or window)
  * Outbound “we sent X” never stays here.
  */
 export type LatestCustomerAction = {
   id: string
   customerPhone: string
   customerName: string
-  /** What needs attention (or a recent payment notice). */
-  event: "replied" | "job_finished" | "customer_paid"
+  /** What needs attention (or a recent payment / book-form notice). */
+  event: "replied" | "job_finished" | "customer_paid" | "book_form"
   kind: LatestSmsKind
-  /** e.g. “David replied” / “Jason · job finished” / “Customer paid · $265 · Alex” */
+  /** e.g. “David replied” / “Jason · job finished” / “Customer submitted book form · ASAP” */
   headline: string
   /** Short status under the headline. */
   statusLine: string
@@ -51,6 +52,10 @@ export type LatestCustomerAction = {
   completedJobId: string | null
   /** Settled charge amount in cents (customer_paid only). */
   paidAmountCents?: number | null
+  /** Open ai_leads id for book_form rows (Open intake). */
+  bookFormLeadId?: string | null
+  /** asap | window for book_form rows. */
+  bookFormUrgency?: "asap" | "window" | null
 }
 
 export type LatestCompletedJobHint = {
@@ -159,20 +164,39 @@ export type LatestReviewHint = {
   click_count: number
 }
 
+/** One customer book-form submit to surface in Latest. */
+export type LatestBookFormHint = {
+  /** ai_leads.id */
+  id: string
+  customerPhone: string | null
+  customerName: string | null
+  /** When the form was saved. */
+  at: string
+  urgency: "asap" | "window"
+  /** e.g. ASAP / emergency or “Today 1:00 PM–5:00 PM”. */
+  availabilityLabel: string | null
+  /** Short job / vehicle preview. */
+  preview: string | null
+}
+
 /** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
 export const LATEST_INBOUND_MAX_AGE_HOURS = 72
 
 /** Default: keep “Customer paid” rows for this many hours after settle. */
 export const LATEST_PAID_MAX_AGE_HOURS = 24
 
+/** Default: keep book-form rows for this many hours after submit. */
+export const LATEST_BOOK_FORM_MAX_AGE_HOURS = 48
+
 /**
  * Hot Latest:
  * 1) Unreplied inbound SMS (customer last messaged you) — age-capped
- * 2) Recent completed payments (“Customer paid · $X · Name”)
- * 3) Today’s completed jobs that still need a Thanks + review text
+ * 2) Customer book-form submits (ASAP / window)
+ * 3) Recent completed payments (“Customer paid · $X · Name”)
+ * 4) Today’s completed jobs that still need a Thanks + review text
  *
  * Outbound-only threads (“Review link sent…”) are never listed.
- * Cap ~4–6; unreplied first, then payments, then action-needed jobs.
+ * Cap ~4–6; unreplied first, then book forms, then payments, then action-needed jobs.
  */
 export function buildLatestCustomerActions(params: {
   messages: SmsMessage[]
@@ -181,20 +205,26 @@ export function buildLatestCustomerActions(params: {
   completedJobs?: LatestCompletedJobHint[]
   /** Recent COMPLETED wallet payments (from owner-collected). */
   recentPayments?: LatestPaidHint[]
+  /** Recent public /book or Activity book-link submits. */
+  bookForms?: LatestBookFormHint[]
   limit?: number
   /** Drop unreplied inbound older than this many hours (default 72). */
   maxAgeHours?: number
   /** Drop customer_paid older than this many hours (default 24). */
   paidMaxAgeHours?: number
+  /** Drop book_form older than this many hours (default 48). */
+  bookFormMaxAgeHours?: number
   /** Injected clock for tests. */
   nowMs?: number
 }): LatestCustomerAction[] {
   const limit = Math.min(Math.max(params.limit ?? 5, 1), 6)
   const maxAgeHours = params.maxAgeHours ?? LATEST_INBOUND_MAX_AGE_HOURS
   const paidMaxAgeHours = params.paidMaxAgeHours ?? LATEST_PAID_MAX_AGE_HOURS
+  const bookFormMaxAgeHours = params.bookFormMaxAgeHours ?? LATEST_BOOK_FORM_MAX_AGE_HOURS
   const nowMs = params.nowMs ?? Date.now()
   const inboundCutoff = nowMs - maxAgeHours * 60 * 60 * 1000
   const paidCutoff = nowMs - paidMaxAgeHours * 60 * 60 * 1000
+  const bookFormCutoff = nowMs - bookFormMaxAgeHours * 60 * 60 * 1000
 
   const nameByPhone = new Map<string, string>()
   const openedByPhone = new Map<string, string>()
@@ -330,12 +360,56 @@ export function buildLatestCustomerActions(params: {
     })
   }
 
+  // Public /book (and Activity book-link) submits — stay hot until owner opens intake.
+  const phonesWithBookForm = new Set<string>()
+  for (const form of params.bookForms ?? []) {
+    const atMs = Date.parse(form.at) || 0
+    if (atMs && atMs < bookFormCutoff) continue
+    const phone = (form.customerPhone || "").trim()
+    const key = phoneKey(phone)
+    // Prefer unreplied SMS for the same phone.
+    if (key && phonesWithReply.has(key)) continue
+    if (key && phonesWithBookForm.has(key)) continue
+    if (key) phonesWithBookForm.add(key)
+
+    const name =
+      (form.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
+    const urgency = form.urgency === "asap" ? "asap" : "window"
+    const urgencyLabel = urgency === "asap" ? "ASAP" : "window"
+    const avail =
+      (form.availabilityLabel || "").trim() ||
+      (urgency === "asap" ? "ASAP / emergency" : "Preferred window")
+
+    out.push({
+      id: `book-${form.id}`,
+      customerPhone: phone,
+      customerName: name,
+      event: "book_form",
+      kind: "booking",
+      headline: `Customer submitted book form · ${urgencyLabel}`,
+      statusLine: name,
+      preview: truncate((form.preview || avail).trim() || avail),
+      at: form.at,
+      deliveryLabel: null,
+      reviewLinkOpened: false,
+      reviewLinkClicks: 0,
+      lastOutbound: null,
+      lastInbound: null,
+      completedJobId: null,
+      paidAmountCents: null,
+      bookFormLeadId: form.id,
+      bookFormUrgency: urgency,
+    })
+  }
+
   // Completed today, review SMS not sent yet — amber “Send thanks + review” slot.
   for (const job of jobsNeedingReview) {
     const phone = (job.customerPhone || "").trim()
     const key = phoneKey(phone)
     // Same phone already in Latest as unreplied inbound — keep reply priority.
     if (key && phonesWithReply.has(key)) continue
+    // Book-form row already covers this phone.
+    if (key && phonesWithBookForm.has(key)) continue
 
     const name =
       (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
@@ -360,12 +434,13 @@ export function buildLatestCustomerActions(params: {
     })
   }
 
-  // Unreplied first, then payments, then jobs needing review; newest within each bucket.
+  // Unreplied → book forms → payments → jobs needing review; newest within each bucket.
   out.sort((a, b) => {
     const rank = (ev: LatestCustomerAction["event"]) => {
       if (ev === "replied") return 0
-      if (ev === "customer_paid") return 1
-      return 2
+      if (ev === "book_form") return 1
+      if (ev === "customer_paid") return 2
+      return 3
     }
     const r = rank(a.event) - rank(b.event)
     if (r !== 0) return r
@@ -382,6 +457,7 @@ export function isHotLatestAction(
   return (
     item.event === "replied" ||
     item.event === "job_finished" ||
-    item.event === "customer_paid"
+    item.event === "customer_paid" ||
+    item.event === "book_form"
   )
 }

@@ -2,6 +2,7 @@
 -- When enabled, Telnyx texts the dispatch/profile phone when Latest needs attention:
 --   - customer unreplied inbound SMS ("replied")
 --   - finished job still needing Thanks + review SMS ("job_finished")
+--   - customer submitted public /book form ("book_form") — also see 126
 -- Run in Neon SQL Editor after 121-smart-busy-enabled.sql.
 
 ALTER TABLE onboarding_profiles
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS latest_attention_sms_sent (
   dedupe_key TEXT NOT NULL,
   sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT latest_attention_sms_sent_event_check
-    CHECK (event_type IN ('replied', 'job_finished'))
+    CHECK (event_type IN ('replied', 'job_finished', 'book_form'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_latest_attention_sms_dedupe

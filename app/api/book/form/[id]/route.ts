@@ -10,6 +10,7 @@ import {
   type BookUrgency,
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
+import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
 import { getAppUrl } from "@/lib/telnyx"
 import {
   getIntakeBookLinkById,
@@ -202,6 +203,17 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     })
 
     await markIntakeBookLinkSubmitted({ id: link.id, jobId: result.lead_id })
+
+    await notifyOwnerBookFormSubmitted({
+      ownerUserId: link.ownerUserId,
+      leadId: result.lead_id,
+      callerE164: phone,
+      customerName,
+      urgency,
+      availabilityLabel,
+      summary: `${jobType} — ${customerName}`,
+      collected: collectedExtras,
+    })
 
     const requiresPayment = link.feeMode !== "none" && Boolean(link.payToken)
     const payUrl = requiresPayment

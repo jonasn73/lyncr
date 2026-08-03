@@ -1071,6 +1071,10 @@ export interface CrmServiceHistoryItem {
    * Customer profile address may still make a thin lead pool-ready.
    */
   has_job_address: boolean
+  /** Street from the lead’s collected JSON (for Call Answered prefill). */
+  address_line1?: string | null
+  /** Customer notes / ASAP line from collected (intake notes field). */
+  job_notes?: string | null
   /** Call/lead created timestamp (not the future appointment). */
   at: string
   /** Structured appointment time when the lead/job is booked — null if unscheduled. */

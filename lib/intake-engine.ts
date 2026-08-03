@@ -37,7 +37,8 @@ export type SaveCallIntakeResult = {
   sms_to: string | null
 }
 
-async function maybeDispatchLeadSmsAlert(params: {
+/** Send instant owner lead-alert SMS when sms_leads_enabled (shared by AI intake + book form). */
+export async function dispatchLeadSmsAlert(params: {
   userId: string
   leadId: string
   caller_e164: string | null
@@ -143,7 +144,7 @@ export async function saveCallIntake(params: SaveCallIntakeParams): Promise<Save
     vapi_call_id: params.vapi_call_id,
   })
 
-  const smsOutcome = await maybeDispatchLeadSmsAlert({
+  const smsOutcome = await dispatchLeadSmsAlert({
     userId: params.user_id,
     leadId,
     caller_e164: params.caller_e164,

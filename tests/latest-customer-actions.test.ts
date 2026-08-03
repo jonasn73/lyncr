@@ -215,6 +215,31 @@ describe("buildLatestCustomerActions", () => {
     expect(isHotLatestAction({ event: "sent" })).toBe(false)
     expect(isHotLatestAction({ event: "replied" } as never)).toBe(true)
     expect(isHotLatestAction({ event: "customer_paid" } as never)).toBe(true)
+    expect(isHotLatestAction({ event: "book_form" } as never)).toBe(true)
+  })
+
+  it("surfaces book_form ASAP submits", () => {
+    const latest = buildLatestCustomerActions({
+      nowMs: NOW,
+      messages: [],
+      bookForms: [
+        {
+          id: "lead-jonas",
+          customerPhone: "+15025369252",
+          customerName: "Jonas Rwibuka",
+          at: "2026-07-27T19:08:00.000Z",
+          urgency: "asap",
+          availabilityLabel: "ASAP / emergency",
+          preview: "Key replacement (Origination) · 2010 Honda Civic · 5010 Roy William Pl",
+        },
+      ],
+      limit: 6,
+    })
+    expect(latest).toHaveLength(1)
+    expect(latest[0]?.event).toBe("book_form")
+    expect(latest[0]?.headline).toBe("Customer submitted book form · ASAP")
+    expect(latest[0]?.bookFormLeadId).toBe("lead-jonas")
+    expect(latest[0]?.customerName).toBe("Jonas Rwibuka")
   })
 
   it("surfaces customer_paid from recent wallet settles", () => {

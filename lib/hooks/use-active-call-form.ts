@@ -3,6 +3,7 @@
 // Client state for the answered-call intake sheet (CRM + vehicle + job dispatch).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import type { OwnerCollectedTransaction } from "@/lib/owner-collected"
 import type { CrmServiceHistoryItem, Customer, CustomerVehicle } from "@/lib/types"
 import {
   isCompleteStructuredAddress,
@@ -234,6 +235,12 @@ export function useActiveCallForm(
   const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null)
   /** Garage vehicles from CRM profile — compact picker chips on repeat callers. */
   const [garageVehicles, setGarageVehicles] = useState<CustomerVehicle[]>([])
+  /** Full CRM timeline (same fetch as open-quote bind) — profile-first returning-caller card. */
+  const [crmServiceHistory, setCrmServiceHistory] = useState<CrmServiceHistoryItem[]>([])
+  /** Wallet charges for this phone — last paid + LTV on the returning-caller profile. */
+  const [crmPayments, setCrmPayments] = useState<OwnerCollectedTransaction[]>([])
+  /** Lifetime revenue cents from enriched CRM profile (falls back to sum of payments). */
+  const [crmLifetimeRevenueCents, setCrmLifetimeRevenueCents] = useState<number | null>(null)
   /**
    * Open quote/callback lead id from CRM — booking / Save Quote upgrades this row
    * instead of inserting a duplicate (same idea as CRM Convert handoff).
@@ -607,6 +614,9 @@ export function useActiveCallForm(
     if (!callLogId) {
       setMatchedCustomer(null)
       setGarageVehicles([])
+      setCrmServiceHistory([])
+      setCrmPayments([])
+      setCrmLifetimeRevenueCents(null)
       setCrmOpenLeadId(null)
       setCrmOpenLeadQuoteCents(null)
       setCrmOpenLeadServiceTypeId(null)
@@ -615,6 +625,9 @@ export function useActiveCallForm(
     if (!hasCompleteIntakePhone(resolvedPhoneNumber)) {
       setMatchedCustomer(null)
       setGarageVehicles([])
+      setCrmServiceHistory([])
+      setCrmPayments([])
+      setCrmLifetimeRevenueCents(null)
       setCrmOpenLeadId(null)
       setCrmOpenLeadQuoteCents(null)
       setCrmOpenLeadServiceTypeId(null)
@@ -626,6 +639,9 @@ export function useActiveCallForm(
     // while the next profile is still loading.
     setMatchedCustomer(null)
     setGarageVehicles([])
+    setCrmServiceHistory([])
+    setCrmPayments([])
+    setCrmLifetimeRevenueCents(null)
     setCrmOpenLeadId(current?.existingLeadId?.trim() || null)
     setCrmOpenLeadQuoteCents(null)
     setCrmOpenLeadServiceTypeId(null)
@@ -639,6 +655,9 @@ export function useActiveCallForm(
           setMatchedCustomer(c)
           if (!c) {
             setGarageVehicles([])
+            setCrmServiceHistory([])
+            setCrmPayments([])
+            setCrmLifetimeRevenueCents(null)
             if (!current?.existingLeadId?.trim()) {
               setCrmOpenLeadId(null)
               setCrmOpenLeadQuoteCents(null)
@@ -655,14 +674,25 @@ export function useActiveCallForm(
             .then(
               (json: {
                 data?: {
+                  customer?: Customer & { lifetime_revenue_cents?: number | null }
                   vehicles?: CustomerVehicle[]
                   history?: CrmServiceHistoryItem[]
+                  payments?: OwnerCollectedTransaction[]
                 }
               } | null) => {
                 if (cancel || !json?.data) return
                 const vehicles = json.data.vehicles ?? []
                 const history = json.data.history ?? []
+                const payments = json.data.payments ?? []
                 setGarageVehicles(vehicles)
+                setCrmServiceHistory(history)
+                setCrmPayments(payments)
+                const lifetimeRaw = json.data.customer?.lifetime_revenue_cents
+                const lifetime =
+                  lifetimeRaw != null && Number.isFinite(Number(lifetimeRaw))
+                    ? Math.round(Number(lifetimeRaw))
+                    : null
+                setCrmLifetimeRevenueCents(lifetime)
                 const openLead = history.find((h) => h.is_open_lead) ?? null
                 const openLeadId = openLead?.id?.trim() || null
                 // Row handoff (CRM Convert) wins; else bind the open quote for upgrade-on-book.
@@ -701,6 +731,16 @@ export function useActiveCallForm(
                     patch.vehicleMake = nextYmm.make
                     patch.vehicleModel = nextYmm.model
                   }
+                  // Prefill street from the open book-form / callback lead when blank.
+                  const leadAddress = openLead?.address_line1?.trim() || ""
+                  if (!prev.addressLine1.trim() && leadAddress) {
+                    patch.addressLine1 = leadAddress
+                  }
+                  // Prefill ASAP / customer notes when the operator has not typed any yet.
+                  const leadNotes = openLead?.job_notes?.trim() || ""
+                  if (!prev.notes.trim() && leadNotes) {
+                    patch.notes = leadNotes
+                  }
                   // Don't clobber a CRM-convert / manual seed quote.
                   if (
                     !prev.quotedPriceOverridden &&
@@ -734,6 +774,9 @@ export function useActiveCallForm(
           if (!cancel) {
             setMatchedCustomer(null)
             setGarageVehicles([])
+            setCrmServiceHistory([])
+            setCrmPayments([])
+            setCrmLifetimeRevenueCents(null)
             if (!current?.existingLeadId?.trim()) {
               setCrmOpenLeadId(null)
               setCrmOpenLeadQuoteCents(null)
@@ -1259,6 +1302,9 @@ export function useActiveCallForm(
     form,
     matchedCustomer,
     garageVehicles,
+    crmServiceHistory,
+    crmPayments,
+    crmLifetimeRevenueCents,
     crmOpenLeadId,
     crmOpenLeadQuoteCents,
     crmOpenLeadServiceTypeId,

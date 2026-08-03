@@ -128,6 +128,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 123 | `123-sales-tax-defaults.sql` | **Collect sales tax defaults.** Adds **`account_settings.sales_tax_enabled_default`** (default true) + **`sales_tax_rate_percent`** (default 6). Charge/Collect opens with tax ON unless the owner turns it off in Settings → Sales tax default. **Required** to save tax defaults; app falls back to ON / 6% until applied. |
 | 124 | `124-wallet-customer-phone.sql` | **Walk-up payment phone.** Adds **`wallet_transactions.customer_phone`** + **`customer_name`** so Collect History / Money search and CRM can find ad-hoc charges (no job). App reads defensively until applied. |
 | 125 | `125-intake-book-links.sql` | **Activity Send book link.** Creates **`intake_book_links`** (fee mode none / $49 service call / full quote, optional pay token). Powers **Send book link** on Activity → SMS → `/book/form/{id}` customer form → CRM + intake; paid modes reuse Collect Embedded Checkout (card / Apple Pay / Cash App / Link / Venmo when enabled). **Required** for Activity book links. |
+| 126 | `126-latest-attention-book-form.sql` | **Book-form Latest SMS.** Extends **`latest_attention_sms_sent`** so `event_type` may be **`book_form`** (customer finished public `/book` ASAP or window). **Required** for owner SMS when a book form is submitted (with `sms_latest_enabled`). |
 
 ## Platform admin (`admin@lyncr.app`)
 

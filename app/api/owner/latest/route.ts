@@ -6,6 +6,7 @@ import {
   getDefaultOrganizationForOwner,
   getOrganizationForOwner,
   listOwnerJobsNeedingReviewSms,
+  listOwnerRecentBookFormLeads,
   listOwnerSchedulerEvents,
   listSmsMessagesForOrganization,
   listSmsMessagesForOwner,
@@ -14,6 +15,7 @@ import {
 import {
   buildLatestCustomerActions,
   type LatestActionNameHint,
+  type LatestBookFormHint,
   type LatestCompletedJobHint,
   type LatestPaidHint,
 } from "@/lib/latest-customer-actions"
@@ -62,7 +64,7 @@ export async function GET(req: NextRequest) {
       listReviewLinkClickHintsForOwner(userId, 40),
     ])
 
-    const [orgMessages, reviewJobs, collectedRows] = await Promise.all([
+    const [orgMessages, reviewJobs, collectedRows, bookFormRows] = await Promise.all([
       org ? listSmsMessagesForOrganization(userId, org.id, 120) : Promise.resolve([]),
       // Completed today (owner TZ) with review_sms_sent_at still null — includes Jason after 8pm ET.
       listOwnerJobsNeedingReviewSms({
@@ -73,6 +75,13 @@ export async function GET(req: NextRequest) {
       }),
       // Recent wallet settles — feed “Customer paid” into Latest (persists across refresh).
       listOwnerCollectedTransactions(userId, 20).catch(() => []),
+      // Public /book ASAP|window + Activity book-link submits.
+      listOwnerRecentBookFormLeads({
+        ownerUserId: userId,
+        organizationId: org?.id ?? null,
+        maxAgeHours: 48,
+        limit: 12,
+      }).catch(() => []),
     ])
 
     // If this workspace has no SMS rows, still show owner-wide texts (null/other org).
@@ -126,6 +135,16 @@ export async function GET(req: NextRequest) {
         jobLabel: row.jobLabel,
       }))
 
+    const bookForms: LatestBookFormHint[] = bookFormRows.map((row) => ({
+      id: row.id,
+      customerPhone: row.customerPhone,
+      customerName: row.customerName,
+      at: row.at,
+      urgency: row.urgency,
+      availabilityLabel: row.availabilityLabel,
+      preview: row.preview,
+    }))
+
     // For recent SMS phones missing a today-calendar name, look up the latest job.
     const known = new Set(
       nameHints.map((h) => phoneKey(h.phone)).filter((k) => k.length >= 10)
@@ -169,6 +188,7 @@ export async function GET(req: NextRequest) {
       reviewHints,
       completedJobs,
       recentPayments,
+      bookForms,
       limit: 6,
     })
 

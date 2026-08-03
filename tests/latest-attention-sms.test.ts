@@ -24,14 +24,15 @@ describe("buildLatestAttentionSmsText", () => {
     expect(text).toContain("/dashboard")
   })
 
-  it("builds a job_finished reminder", () => {
+  it("builds a book_form reminder", () => {
     const text = buildLatestAttentionSmsText({
-      event: "job_finished",
-      customerName: "Jason",
-      customerPhone: "+15025559999",
+      event: "book_form",
+      customerName: "Jonas",
+      customerPhone: "+15025369252",
+      preview: "Customer submitted book form · ASAP",
     })
-    expect(text).toContain("Job finished")
-    expect(text).toContain("Jason")
-    expect(text).toContain("Thanks + review")
+    expect(text).toContain("Customer submitted book form · ASAP")
+    expect(text).toContain("Jonas")
+    expect(text).toContain("/dashboard")
   })
 })
