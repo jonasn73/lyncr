@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import {
   excludeReadRepliesFromLatest,
+  markLatestAttentionOpened,
+  markLatestItemSeen,
   markLatestReplySeen,
 } from "@/lib/latest-seen"
 
@@ -26,6 +28,51 @@ function replied(
       created_at: partial.at,
     },
     completedJobId: null,
+    ...partial,
+  }
+}
+
+function bookForm(
+  partial: Partial<LatestCustomerAction> & Pick<LatestCustomerAction, "id" | "at">
+): LatestCustomerAction {
+  return {
+    customerPhone: "+15553330003",
+    customerName: "Jonas",
+    event: "book_form",
+    kind: "booking",
+    headline: "Customer submitted book form · ASAP",
+    statusLine: "Open intake to book",
+    preview: "2020 Honda Civic",
+    deliveryLabel: null,
+    reviewLinkOpened: false,
+    reviewLinkClicks: 0,
+    lastOutbound: null,
+    lastInbound: null,
+    completedJobId: null,
+    bookFormLeadId: "lead-1",
+    bookFormUrgency: "asap",
+    ...partial,
+  }
+}
+
+function paid(
+  partial: Partial<LatestCustomerAction> & Pick<LatestCustomerAction, "id" | "at">
+): LatestCustomerAction {
+  return {
+    customerPhone: "+15554440004",
+    customerName: "Sam",
+    event: "customer_paid",
+    kind: "paid",
+    headline: "Sam paid · $120",
+    statusLine: "Payment received",
+    preview: "Lockout",
+    deliveryLabel: null,
+    reviewLinkOpened: false,
+    reviewLinkClicks: 0,
+    lastOutbound: null,
+    lastInbound: null,
+    completedJobId: "job-pay-1",
+    paidAmountCents: 12000,
     ...partial,
   }
 }
@@ -106,5 +153,39 @@ describe("excludeReadRepliesFromLatest", () => {
       }),
     ]
     expect(excludeReadRepliesFromLatest(items)).toHaveLength(1)
+  })
+
+  it("drops book_form after open even if the same id returns from the API", () => {
+    const item = bookForm({ id: "book-lead-1", at: "2026-08-01T15:00:00.000Z" })
+    markLatestAttentionOpened(item)
+    expect(excludeReadRepliesFromLatest([item])).toHaveLength(0)
+  })
+
+  it("drops customer_paid after View / detail open", () => {
+    const item = paid({ id: "wallet-tx-9", at: "2026-08-01T16:00:00.000Z" })
+    markLatestItemSeen(item.id)
+    expect(excludeReadRepliesFromLatest([item])).toHaveLength(0)
+  })
+
+  it("keeps job_finished after markLatestAttentionOpened (Send still required)", () => {
+    const job: LatestCustomerAction = {
+      id: "job-2",
+      customerPhone: "+15552220002",
+      customerName: "Jason",
+      event: "job_finished",
+      kind: "job",
+      headline: "Jason · job finished",
+      statusLine: "Send thanks + review",
+      preview: "Main St",
+      at: "2026-08-01T11:00:00.000Z",
+      deliveryLabel: null,
+      reviewLinkOpened: false,
+      reviewLinkClicks: 0,
+      lastOutbound: null,
+      lastInbound: null,
+      completedJobId: "job-2",
+    }
+    markLatestAttentionOpened(job)
+    expect(excludeReadRepliesFromLatest([job])).toHaveLength(1)
   })
 })

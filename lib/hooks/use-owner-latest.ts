@@ -97,7 +97,7 @@ async function fetchLatest(organizationId: string | null | undefined): Promise<L
       throw new Error("latest-load-failed")
     }
     const raw = Array.isArray(json.data.latest) ? json.data.latest : []
-    // Hide replies the owner already opened (localStorage seen stamps).
+    // Hide replies / book forms / payments the owner already opened (localStorage).
     const items = excludeReadRepliesFromLatest(raw)
     writeLatestCache(organizationId, items)
     // Prefer sanitized cache so hot-only filter matches session/cookie seeds.
@@ -249,7 +249,7 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
     [activeOrganizationId, cachedItems]
   )
 
-  // When Messages / Latest marks a phone seen, drop that reply row immediately.
+  // When Messages / Latest marks an item seen, drop that row immediately.
   useEffect(() => {
     const onSeen = () => {
       setLiveItems((prev) => {

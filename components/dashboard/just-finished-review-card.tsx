@@ -21,7 +21,9 @@ import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import {
   excludeReadRepliesFromLatest,
+  isDismissOnOpenLatestEvent,
   LATEST_SEEN_CHANGED_EVENT,
+  markLatestAttentionOpened,
   markLatestReplySeen,
 } from "@/lib/latest-seen"
 import {
@@ -94,7 +96,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const [markingOpened, setMarkingOpened] = useState(false)
   // Bumps when we mark a reply seen so read rows leave Latest immediately.
   const [seenTick, setSeenTick] = useState(0)
-  // Drop opened “Customer replied” rows; job-finished review items stay.
+  // Drop opened replies / book forms / payments; job-finished review items stay.
   const items = useMemo(() => {
     void seenTick
     return excludeReadRepliesFromLatest(rawItems)
@@ -104,10 +106,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   // Skip no-op setState so list refreshes cannot churn the Sheet open state (#185).
   // Do NOT close when the row was dismissed as read — selected stays until the user closes.
-  const selectedPhone = selected?.customerPhone ?? null
+  const selectedId = selected?.id ?? null
   useEffect(() => {
-    if (!selectedPhone) return
-    const next = rawItems.find((i) => i.customerPhone === selectedPhone)
+    if (!selectedId) return
+    const next = rawItems.find((i) => i.id === selectedId)
     if (!next) return
     setSelected((prev) => {
       if (
@@ -122,7 +124,28 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       }
       return next
     })
-  }, [rawItems, selectedPhone])
+  }, [rawItems, selectedId])
+
+  /** Persist seen + drop from Latest immediately (reply / book / payment). */
+  const markAttentionOpened = useCallback(
+    (item: LatestCustomerAction) => {
+      markLatestAttentionOpened(item)
+      setSeenTick((n) => n + 1)
+      if (item.event === "replied" && item.customerPhone) {
+        const key = phoneMatchKey(item.customerPhone)
+        setItems((prev) =>
+          prev.filter(
+            (i) => !(i.event === "replied" && phoneMatchKey(i.customerPhone) === key)
+          )
+        )
+        return
+      }
+      if (isDismissOnOpenLatestEvent(item.event)) {
+        setItems((prev) => prev.filter((i) => i.id !== item.id))
+      }
+    },
+    [setItems]
+  )
 
   const markSeen = useCallback((phone: string) => {
     if (!phone.trim()) return
@@ -139,13 +162,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
   const openDetail = useCallback(
     (item: LatestCustomerAction) => {
-      // Opening a customer-reply card counts as read → leaves Latest.
-      if (item.event === "replied" && item.customerPhone) {
-        markSeen(item.customerPhone)
-      }
+      // Opening detail counts as read → leaves Latest (except job_finished).
+      markAttentionOpened(item)
       setSelected(item)
     },
-    [markSeen]
+    [markAttentionOpened]
   )
 
   // Job finished → JobDetailDrawer (Send review / Complete live there too).
@@ -242,8 +263,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       const phone = (item.customerPhone || "").trim()
       if (!phone) return
       setSelected(null)
-      // Drop from Latest once the owner opens intake for this submit.
-      setItems((prev) => prev.filter((i) => i.id !== item.id))
+      // Persist seen + drop from Latest even if intake hydrate is still catching up.
+      markAttentionOpened(item)
       // Resolve calculator id from chip / stored type (AKL chip beats Lockout default).
       const fromKind = serviceQuoteTypeIdFromBookJobKind(item.bookFormJobKind)
       const rawStored = String(item.bookFormServiceQuoteTypeId ?? "").trim()
@@ -273,7 +294,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             : undefined,
       })
     },
-    [inbound, setItems]
+    [inbound, markAttentionOpened]
   )
 
   // Re-filter when returning to the tab or when Messages marks a thread seen.
