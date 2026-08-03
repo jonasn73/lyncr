@@ -604,8 +604,7 @@ export function DashboardPage() {
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
   return (
-    // Full-width shell so the sticky tracking line can span the main column; max-w lives under the bar.
-    {/* Tight stack — no giant gap between Alerts and Available/Caller ID. */}
+    // Tight stack — Alerts sit above Available/Caller ID with normal spacing (no giant gap).
     <div className="flex w-full flex-col gap-3">
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
