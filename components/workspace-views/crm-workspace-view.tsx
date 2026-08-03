@@ -58,9 +58,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { useToast } from "@/hooks/use-toast"
 import { buildRescueOfferSmsPreview } from "@/lib/rescue-queue"
 import { recoveryStepPrices } from "@/lib/price-negotiation"
+import {
+  emailFromCustomerNotes,
+  isWalkUpHistoryId,
+  mergeCrmServiceHistoryWithWalkUps,
+} from "@/lib/crm-walk-up-history"
 
 type CrmFilter = "all" | "leads" | "clients"
 
@@ -88,6 +100,8 @@ const TERMINAL_HISTORY_LABELS = new Set([
 
 /** Open quote/callback → Book; salvage → Recover; pool/active → Open; terminal → View. */
 function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
+  // Synthetic walk-up cards are not real ai_leads — no Scheduler deep-link.
+  if (isWalkUpHistoryId(item.id) || item.status_label === "Paid walk-up") return null
   if (TERMINAL_HISTORY_LABELS.has(item.status_label)) return "View job"
   // P2: fold PRICE_REJECTED / lost into CRM Leads with Recover (same Book/Continue path).
   if (item.is_open_lead && item.is_salvageable) return "Recover"
@@ -791,7 +805,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     }
   }
 
-  /** Open the invoice/receipt form for a paid charge (Money uses the same API). */
+  /** Open the invoice/receipt popup (Sheet) for a paid charge — same API as Money. */
   const openSendReceipt = (tx: OwnerCollectedTransaction) => {
     setReceiptTx(tx)
     setReceiptName(
@@ -801,9 +815,35 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         ""
     )
     setReceiptPhone(tx.customerPhone || selected?.phone_e164 || "")
-    setReceiptEmail("")
-    setReceiptChannel(tx.customerPhone || selected?.phone_e164 ? "sms" : "email")
+    // Prefill email from CRM notes when we stored "Email: …" on the profile.
+    setReceiptEmail(emailFromCustomerNotes(selected?.notes))
+    // Default to email when we already know their address; otherwise SMS.
+    const hasEmail = Boolean(emailFromCustomerNotes(selected?.notes))
+    setReceiptChannel(
+      hasEmail ? "email" : tx.customerPhone || selected?.phone_e164 ? "sms" : "email"
+    )
   }
+
+  /** Paid walk-up / completed charges with nothing pending → Collect feels pushy. */
+  const isFullyPaidCustomer = useMemo(() => {
+    const completed = payments.filter((p) => p.status === "COMPLETED")
+    const pending = payments.filter((p) => p.status === "PENDING")
+    const hasPaid =
+      completed.length > 0 || (selected?.lifetime_revenue_cents ?? 0) > 0
+    return hasPaid && pending.length === 0
+  }, [payments, selected?.lifetime_revenue_cents])
+
+  /** Real jobs + synthetic walk-up cards when Collect never created an ai_leads row. */
+  const displayHistory = useMemo(
+    () =>
+      mergeCrmServiceHistoryWithWalkUps({
+        history,
+        payments,
+        vehicles,
+        notes: selected?.notes,
+      }),
+    [history, payments, vehicles, selected?.notes]
+  )
 
   /** Email or text a paid receipt — same endpoint as Money → All payments. */
   const sendReceiptFromCrm = async () => {
@@ -961,11 +1001,21 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           <button
             type="button"
             onClick={openCollectForCustomer}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100"
-            title="Open Collect with this customer’s name and phone filled in"
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
+              // Already paid — keep charge available but don’t look like they still owe.
+              isFullyPaidCustomer
+                ? "border border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800/80"
+                : "border border-teal-500/40 bg-teal-500/15 text-teal-100"
+            )}
+            title={
+              isFullyPaidCustomer
+                ? "Start another charge for this customer (they already paid)"
+                : "Open Collect with this customer’s name and phone filled in"
+            }
           >
             <CreditCard className="h-3.5 w-3.5" />
-            Collect
+            {isFullyPaidCustomer ? "Charge again" : "Collect"}
           </button>
           {(selected.lead_badge === "price_quoted" ||
             selected.lead_badge === "needs_recovery" ||
@@ -1119,7 +1169,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
             >
               <Plus className="h-3.5 w-3.5" />
-              New charge
+              {isFullyPaidCustomer ? "Charge again" : "New charge"}
             </button>
           </div>
           {payments.length === 0 && (selected?.lifetime_revenue_cents ?? 0) <= 0 ? (
@@ -1187,130 +1237,22 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             </ul>
           )}
 
-          {/* Inline send-invoice form (same API as Money → payments). */}
-          {receiptTx ? (
-            <div className="mt-3 space-y-3 rounded-xl border border-teal-500/30 bg-teal-500/5 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/70">
-                    Send invoice / receipt
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-teal-50">
-                    {formatCollectedDollars(Math.round(receiptTx.amount * 100))}
-                  </p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-teal-200/55">
-                    Already paid — this texts or emails a receipt, not a new bill.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setReceiptTx(null)}
-                  className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-                  aria-label="Close invoice form"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
-                <button
-                  type="button"
-                  onClick={() => setReceiptChannel("email")}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
-                    receiptChannel === "email"
-                      ? "bg-teal-500/20 text-teal-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReceiptChannel("sms")}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
-                    receiptChannel === "sms"
-                      ? "bg-teal-500/20 text-teal-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Text
-                </button>
-              </div>
-              <label className="block space-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Customer name
-                </span>
-                <Input
-                  value={receiptName}
-                  onChange={(e) => setReceiptName(e.target.value)}
-                  placeholder="Optional"
-                  className="h-10 border-zinc-800 bg-zinc-950"
-                />
-              </label>
-              {receiptChannel === "email" ? (
-                <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Email
-                  </span>
-                  <Input
-                    type="email"
-                    value={receiptEmail}
-                    onChange={(e) => setReceiptEmail(e.target.value)}
-                    placeholder="customer@email.com"
-                    className="h-10 border-zinc-800 bg-zinc-950"
-                    autoComplete="email"
-                  />
-                </label>
-              ) : (
-                <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Phone
-                  </span>
-                  <Input
-                    type="tel"
-                    value={receiptPhone}
-                    onChange={(e) => setReceiptPhone(e.target.value)}
-                    placeholder="(555) 123-4567"
-                    className="h-10 border-zinc-800 bg-zinc-950"
-                    autoComplete="tel"
-                  />
-                </label>
-              )}
-              <Button
-                type="button"
-                disabled={receiptBusy}
-                onClick={() => void sendReceiptFromCrm()}
-                className="h-10 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
-              >
-                {receiptBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : receiptChannel === "email" ? (
-                  <Mail className="h-4 w-4" />
-                ) : (
-                  <MessageSquare className="h-4 w-4" />
-                )}
-                {receiptChannel === "email" ? "Email invoice" : "Text invoice"}
-              </Button>
-            </div>
-          ) : null}
+          {/* Invoice form lives in a Sheet popup below — keeps the profile short. */}
         </div>
 
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
             Service history &amp; quotes
           </h3>
-          {history.length === 0 ? (
+          {displayHistory.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-xs text-zinc-500">
-              {payments.length > 0
-                ? "No jobs or leads for this phone yet — walk-up payments above still count toward LTV."
+              {payments.length > 0 || (selected?.lifetime_revenue_cents ?? 0) > 0
+                ? "No scheduled jobs yet. Paid walk-ups still show under Payments (and count toward LTV)."
                 : "No jobs or leads for this phone yet."}
             </p>
           ) : (
             <ol className="space-y-2">
-              {history.map((item) => (
+              {displayHistory.map((item) => (
                 <li
                   key={item.id}
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
@@ -1342,7 +1284,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         : ""}
                     </span>
                     {/* Compact future-appointment control (distinct from call time) */}
-                    {editingApptId === item.id ? (
+                    {!isWalkUpHistoryId(item.id) && editingApptId === item.id ? (
                       <span className="inline-flex max-w-full flex-wrap items-center gap-1">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
                           Appt
@@ -1390,7 +1332,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                           </button>
                         ) : null}
                       </span>
-                    ) : (
+                    ) : !isWalkUpHistoryId(item.id) ? (
                       <button
                         type="button"
                         onClick={() => beginEditAppointment(item)}
@@ -1421,7 +1363,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         ) : null}
                         <Pencil className="h-3 w-3 shrink-0 opacity-70" />
                       </button>
-                    )}
+                    ) : null}
                     {/* Book / Recover / Open / View — never "Convert" on completed rows */}
                     {(() => {
                       const action = crmJobNavAction(item)
@@ -1735,6 +1677,139 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Send invoice / receipt — popup Sheet (not an inline accordion that forces scroll). */}
+      <Sheet
+        open={receiptTx != null}
+        onOpenChange={(open) => {
+          if (!open && !receiptBusy) setReceiptTx(null)
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          // Above mobile CRM profile dialog so the form is always reachable.
+          overlayClassName="z-[7200]"
+          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+        >
+          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base font-bold text-slate-100">
+                  Send invoice / receipt
+                </SheetTitle>
+                <SheetDescription className="mt-0.5 text-xs text-slate-500">
+                  Already paid — this emails or texts a receipt, not a new bill.
+                </SheetDescription>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiptTx(null)}
+                disabled={receiptBusy}
+                className="rounded-lg p-2 text-zinc-400 hover:text-white disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </SheetHeader>
+
+          {receiptTx ? (
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+              <p className="text-2xl font-bold tabular-nums text-teal-50">
+                {formatCollectedDollars(Math.round(receiptTx.amount * 100))}
+              </p>
+
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setReceiptChannel("email")}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    receiptChannel === "email"
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiptChannel("sms")}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    receiptChannel === "sms"
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Text
+                </button>
+              </div>
+
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Customer name
+                </span>
+                <Input
+                  value={receiptName}
+                  onChange={(e) => setReceiptName(e.target.value)}
+                  placeholder="Optional"
+                  className="h-10 border-zinc-800 bg-zinc-950"
+                />
+              </label>
+
+              {receiptChannel === "email" ? (
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Email
+                  </span>
+                  <Input
+                    type="email"
+                    value={receiptEmail}
+                    onChange={(e) => setReceiptEmail(e.target.value)}
+                    placeholder="customer@email.com"
+                    className="h-10 border-zinc-800 bg-zinc-950"
+                    autoComplete="email"
+                  />
+                </label>
+              ) : (
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Phone
+                  </span>
+                  <Input
+                    type="tel"
+                    value={receiptPhone}
+                    onChange={(e) => setReceiptPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="h-10 border-zinc-800 bg-zinc-950"
+                    autoComplete="tel"
+                  />
+                </label>
+              )}
+
+              <Button
+                type="button"
+                disabled={receiptBusy}
+                onClick={() => void sendReceiptFromCrm()}
+                className="h-11 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+              >
+                {receiptBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : receiptChannel === "email" ? (
+                  <Mail className="h-4 w-4" />
+                ) : (
+                  <MessageSquare className="h-4 w-4" />
+                )}
+                {receiptChannel === "email" ? "Email invoice" : "Text invoice"}
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 })
