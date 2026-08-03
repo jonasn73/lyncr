@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest"
 import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
+  intakeDraftBelongsToPhone,
   intakeDraftPhonesMatch,
   intakeDraftStorageKey,
   isIntakeDraftFresh,
@@ -161,6 +162,23 @@ describe("intake draft storage", () => {
     ).toBe(true)
   })
 
+  it("ignores mid-flow step alone when the form is still an empty shell", () => {
+    // Call-switch race: previous step id + blank new-caller form must not Restore.
+    expect(
+      isIntakeDraftMeaningful({
+        form: { ...THIN_FORM, serviceQuoteTypeId: "", jobType: "", quotedPriceCents: 0 },
+        currentStep: "ADDRESS_CONTACT",
+      })
+    ).toBe(false)
+    // Picked a service and advanced — that is real progress even with empty YMM.
+    expect(
+      isIntakeDraftMeaningful({
+        form: { ...THIN_FORM, serviceQuoteTypeId: "lockout" },
+        currentStep: "VEHICLE_INFO",
+      })
+    ).toBe(true)
+  })
+
   it("does not persist thin drafts", () => {
     saveIntakeDraft("5025551234", {
       form: THIN_FORM,
@@ -224,7 +242,7 @@ describe("intake draft storage", () => {
 
   it("getDraftByPhoneNumber ignores submitted drafts", () => {
     saveIntakeDraft("5025559999", {
-      form: SAMPLE_FORM,
+      form: { ...SAMPLE_FORM, phoneNumber: "+15025559999" },
       currentStep: "CUSTOMER_NAME",
       customPrice: "",
       failureReason: "__neutral__",
@@ -261,8 +279,50 @@ describe("intake draft storage", () => {
       recoveredViaRouteDiscount: false,
       negotiationStep: 1,
     })
+    // saveIntakeDraft itself refuses a mismatched form phone — nothing stored.
+    expect(loadIntakeDraft("5025551234")).toBeNull()
+    expect(getDraftByPhoneNumber("5025551234")).toBeNull()
+  })
+
+  it("getDraftByPhoneNumber clears legacy drafts with empty form phone", () => {
+    // Bypass saveIntakeDraft guards to simulate an older corrupt entry.
+    const key = intakeDraftStorageKey("5025551234")!
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        v: 1,
+        data: {
+          form: { ...SAMPLE_FORM, phoneNumber: "" },
+          currentStep: "ADDRESS_CONTACT",
+          customPrice: "",
+          failureReason: "__neutral__",
+          recoveredViaRouteDiscount: false,
+          negotiationStep: 1,
+          savedAt: new Date().toISOString(),
+        },
+      })
+    )
+    expect(intakeDraftBelongsToPhone({ form: { ...SAMPLE_FORM, phoneNumber: "" } }, "5025551234")).toBe(
+      false
+    )
     expect(getDraftByPhoneNumber("5025551234")).toBeNull()
     expect(loadIntakeDraft("5025551234")).toBeNull()
+  })
+
+  it("stores callerPhoneKey and only restores for that exact phone", () => {
+    saveIntakeDraft("5025551234", {
+      form: SAMPLE_FORM,
+      currentStep: "ADDRESS_CONTACT",
+      customPrice: "",
+      failureReason: "__neutral__",
+      recoveredViaRouteDiscount: false,
+      negotiationStep: 1,
+    })
+    const draft = getDraftByPhoneNumber("5025551234")
+    expect(draft?.callerPhoneKey).toBe("15025551234")
+    expect(intakeDraftBelongsToPhone(draft!, "5025551234")).toBe(true)
+    expect(intakeDraftBelongsToPhone(draft!, "5025559999")).toBe(false)
+    expect(getDraftByPhoneNumber("5025559999")).toBeNull()
   })
 
   it("marks Restore secondary on a different call leg", () => {

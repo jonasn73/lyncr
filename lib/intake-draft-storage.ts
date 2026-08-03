@@ -30,6 +30,11 @@ export type IntakeDraftSnapshot = {
    * Used so a brand-new inbound leg treats the prior draft as optional.
    */
   sourceCallLogId?: string | null
+  /**
+   * Normalized phone key this draft was written under (e.g. "15023145391").
+   * Restore must match this to the open call — never show another caller's draft.
+   */
+  callerPhoneKey?: string | null
 }
 
 const STORAGE_VERSION = 1
@@ -112,28 +117,15 @@ function isFormSnapshot(value: unknown): value is ActiveCallFormState {
   )
 }
 
-/**
- * True when the draft has real operator progress — not just the blank Service
- * screen with default Lockout (or empty service) and empty fields.
- *
- * Important: the quote calculator auto-fills jobType "Lockout" + a dollar total
- * whenever service is lockout. Those alone must NOT count as meaningful, or every
- * new inbound gets a false "Returning caller / Restore draft" card.
- */
-export function isIntakeDraftMeaningful(
-  draft: Pick<IntakeDraftSnapshot, "form" | "currentStep">
-): boolean {
-  const { form, currentStep } = draft
-  if (currentStep === "BOOKING_COMPLETE") return false
-  // Any step past Service means they started intake for real.
-  if (currentStep !== "SERVICE_SELECT") return true
-
+/** True when the form has operator-entered fields (not just a wizard step id). */
+function intakeDraftHasFieldProgress(form: ActiveCallFormState): boolean {
   if (form.vehicleYear?.trim() || form.vehicleMake?.trim() || form.vehicleModel?.trim()) {
     return true
   }
   if (form.addressLine1?.trim() || form.city?.trim() || form.postalCode?.trim()) return true
   if (form.notes?.trim()) return true
   if (form.plateNumber?.trim() || form.vehicleVin?.trim()) return true
+  // CNAM / caller_name alone must NOT count — every inbound can have a display name.
 
   const service = String(form.serviceQuoteTypeId ?? "").trim()
   const jobType = String(form.jobType ?? "").trim()
@@ -147,9 +139,57 @@ export function isIntakeDraftMeaningful(
   if (form.quotedPriceOverridden) return true
   if ((form.quotedPriceCents ?? 0) > 0 && !isDefaultLockoutShell) return true
 
-  // Empty or default Lockout alone on Service = thin — do not offer Restore.
+  // Empty or default Lockout alone = no field progress.
   if (service && service !== "lockout") return true
   return false
+}
+
+/**
+ * True when the draft has real operator progress — not just the blank Service
+ * screen with default Lockout (or empty service) and empty fields.
+ *
+ * Important: the quote calculator auto-fills jobType "Lockout" + a dollar total
+ * whenever service is lockout. Those alone must NOT count as meaningful, or every
+ * new inbound gets a false "Returning caller / Restore draft" card.
+ *
+ * Also: a mid-flow step id with a blank form (call-switch race before Service
+ * resets) must NOT count — that was seeding "Saved draft from just now" on
+ * brand-new numbers.
+ */
+export function isIntakeDraftMeaningful(
+  draft: Pick<IntakeDraftSnapshot, "form" | "currentStep">
+): boolean {
+  const { form, currentStep } = draft
+  if (currentStep === "BOOKING_COMPLETE") return false
+
+  const hasFields = intakeDraftHasFieldProgress(form)
+  const service = String(form.serviceQuoteTypeId ?? "").trim()
+
+  // Mid-flow only counts when they actually picked a service or entered fields.
+  // Empty shell stuck on Address/Vehicle after a call switch is NOT progress.
+  if (currentStep !== "SERVICE_SELECT") {
+    return hasFields || Boolean(service)
+  }
+
+  return hasFields
+}
+
+/**
+ * True when this draft belongs to the given caller phone (normalized).
+ * Prefers explicit callerPhoneKey; falls back to form.phoneNumber.
+ * Missing/mismatched identity → false (do not offer Restore).
+ */
+export function intakeDraftBelongsToPhone(
+  draft: Pick<IntakeDraftSnapshot, "form" | "callerPhoneKey">,
+  phone: string
+): boolean {
+  const expected = normalizeIntakeDraftPhone(phone)
+  if (!expected) return false
+  const key = String(draft.callerPhoneKey ?? "").trim()
+  if (key) return key === expected
+  const formPhone = draft.form.phoneNumber?.trim() || ""
+  if (!formPhone) return false
+  return intakeDraftPhonesMatch(formPhone, phone)
 }
 
 /** True when the draft is recent enough to resume (default: under 2 hours). */
@@ -216,6 +256,10 @@ function parseStoredDraft(raw: string): IntakeDraftSnapshot | null {
         typeof data.sourceCallLogId === "string" && data.sourceCallLogId.trim()
           ? data.sourceCallLogId.trim()
           : null,
+      callerPhoneKey:
+        typeof data.callerPhoneKey === "string" && data.callerPhoneKey.trim()
+          ? data.callerPhoneKey.trim()
+          : null,
     }
   } catch {
     return null
@@ -239,21 +283,21 @@ export function loadIntakeDraft(phone: string): IntakeDraftSnapshot | null {
 /**
  * Resume helper for intake open — only returns a draft that is fresh,
  * meaningful, not submitted, and not already on the booking-complete step.
+ * Always requires the draft to belong to this exact phone (never cross-caller).
  */
 export function getDraftByPhoneNumber(phone: string): IntakeDraftSnapshot | null {
   const draft = loadIntakeDraft(phone)
   if (!draft) return null
+  // Wrong-number / missing identity drafts must not surface as Restore.
+  if (!intakeDraftBelongsToPhone(draft, phone)) {
+    clearIntakeDraft(phone)
+    return null
+  }
   if (!isIntakeDraftRestorable(draft)) {
     // Drop stale / submitted / thin entries so the next call starts clean.
     if (draft.submitted || !isIntakeDraftFresh(draft) || !isIntakeDraftMeaningful(draft)) {
       clearIntakeDraft(phone)
     }
-    return null
-  }
-  // Harden: stored form phone (when present) must match the lookup key.
-  const formPhone = draft.form.phoneNumber?.trim()
-  if (formPhone && !intakeDraftPhonesMatch(formPhone, phone)) {
-    clearIntakeDraft(phone)
     return null
   }
   return draft
@@ -266,7 +310,12 @@ export function saveIntakeDraft(
 ): void {
   if (typeof localStorage === "undefined") return
   const key = intakeDraftStorageKey(phone)
-  if (!key) return
+  const callerPhoneKey = normalizeIntakeDraftPhone(phone)
+  if (!key || !callerPhoneKey) return
+  // Never write under phone A while the form still belongs to phone B (or is empty).
+  if (!intakeDraftBelongsToPhone({ form: snapshot.form, callerPhoneKey: null }, phone)) {
+    return
+  }
   // Never persist empty Service + Lockout shells — they cause false Restore prompts.
   if (
     !isIntakeDraftMeaningful({
@@ -287,6 +336,7 @@ export function saveIntakeDraft(
           typeof snapshot.sourceCallLogId === "string" && snapshot.sourceCallLogId.trim()
             ? snapshot.sourceCallLogId.trim()
             : snapshot.sourceCallLogId ?? null,
+        callerPhoneKey,
         savedAt: snapshot.savedAt || new Date().toISOString(),
       },
     }

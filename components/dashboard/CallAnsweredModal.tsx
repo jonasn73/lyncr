@@ -126,6 +126,7 @@ import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
 import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
+  intakeDraftBelongsToPhone,
   intakeDraftPhonesMatch,
   isIntakeDraftMeaningful,
   isIntakeDraftRestoreSecondary,
@@ -1259,17 +1260,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       setPendingDraft(null)
       return
     }
-    // Only offer drafts keyed to the open caller — never another phone's snapshot.
+    // Only offer drafts that belong to THIS caller phone — never another number's snapshot.
     const draft = getDraftByPhoneNumber(activeDraftPhone)
-    // Drop leftover shells that are no longer considered meaningful (e.g. auto Lockout).
-    if (!draft) {
+    if (!draft || !intakeDraftBelongsToPhone(draft, activeDraftPhone)) {
+      if (draft) clearIntakeDraft(activeDraftPhone)
       setPendingDraft(null)
       return
     }
-    if (
-      draft.form.phoneNumber?.trim() &&
-      !intakeDraftPhonesMatch(draft.form.phoneNumber, activeDraftPhone)
-    ) {
+    // Belt + suspenders: draft must also match the ringing E.164 when present.
+    if (callPhone && !intakeDraftBelongsToPhone(draft, callPhone)) {
       clearIntakeDraft(activeDraftPhone)
       setPendingDraft(null)
       return
@@ -1282,19 +1281,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     if (!pendingDraft || !activeDraftPhone || !effectiveCurrent) return
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)
     if (!normalized) return
-    // Guard: draft form phone must match the open caller.
-    const draftPhone = normalizeIntakeDraftPhone(
-      pendingDraft.form.phoneNumber || activeDraftPhone
-    )
-    if (draftPhone && draftPhone !== normalized) {
-      clearIntakeDraft(activeDraftPhone)
-      setPendingDraft(null)
-      return
-    }
-    if (
-      pendingDraft.form.phoneNumber?.trim() &&
-      !intakeDraftPhonesMatch(pendingDraft.form.phoneNumber, activeDraftPhone)
-    ) {
+    // Guard: draft must belong to the open caller phone.
+    if (!intakeDraftBelongsToPhone(pendingDraft, activeDraftPhone)) {
       clearIntakeDraft(activeDraftPhone)
       setPendingDraft(null)
       return
@@ -1426,22 +1414,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
     const callPhone = effectiveCurrent.from_number?.trim() || ""
     const formPhone = form.phoneNumber.trim()
-    // Never write under the ringing number while form still belongs to another caller.
-    if (
-      formPhone &&
-      callPhone &&
-      isValidIntakeDraftPhone(formPhone) &&
-      isValidIntakeDraftPhone(callPhone) &&
-      !intakeDraftPhonesMatch(formPhone, callPhone)
-    ) {
+    // Never write under the ringing number unless the form phone already matches it.
+    // Empty form phone is not enough — that was a cross-caller race vector.
+    if (!formPhone || !intakeDraftPhonesMatch(formPhone, activeDraftPhone)) {
       return
     }
-    // Live inbound: require the form phone to already match the draft key.
-    if (
-      !effectiveCurrent.isManual &&
-      formPhone &&
-      !intakeDraftPhonesMatch(formPhone, activeDraftPhone)
-    ) {
+    if (callPhone && !intakeDraftPhonesMatch(formPhone, callPhone)) {
       return
     }
     const normalized = normalizeIntakeDraftPhone(activeDraftPhone)

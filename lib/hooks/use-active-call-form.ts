@@ -622,7 +622,9 @@ export function useActiveCallForm(
     }
 
     let cancel = false
-    // Clear prior CRM bind until this phone's profile loads (avoids stale existingLeadId).
+    // Drop prior caller CRM immediately so a new number never looks "known"
+    // while the next profile is still loading.
+    setMatchedCustomer(null)
     setGarageVehicles([])
     setCrmOpenLeadId(current?.existingLeadId?.trim() || null)
     setCrmOpenLeadQuoteCents(null)
