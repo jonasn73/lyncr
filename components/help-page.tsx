@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { SupportChatPanel } from "@/components/support/support-chat-panel"
 import type { User } from "@/lib/types"
 
 type SessionUser = User & { operator_access?: boolean }
@@ -99,12 +100,14 @@ export function HelpPage() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Help & feedback</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pricing overview, account balance, and a direct line to report issues or suggest features.
+          <p className="mt-1 hidden text-sm text-muted-foreground md:block">
+            Chat with Lyncr Support, check your plan balance, or send a written feedback note.
           </p>
         </div>
         <SheetInfoTrigger onPress={() => setHelpSheetKey("help-page-overview")} label="About Help and feedback" />
       </div>
+
+      <SupportChatPanel />
 
       {billing && (
         <Card id="billing-account-balance" className="scroll-mt-28 border-border/80 bg-card/90 shadow-sm">

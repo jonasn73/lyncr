@@ -540,6 +540,56 @@ export type AdminSupportEmailListItem = Omit<AdminSupportEmail, "html_body" | "t
   has_html: boolean
 }
 
+/** In-app Support chat thread status (`128-support-chat.sql`). */
+export type SupportChatThreadStatus = "open" | "waiting" | "closed"
+
+/** Who sent a support chat message. */
+export type SupportChatSenderType = "user" | "admin" | "system"
+
+/** One file/image attached to a support chat message. */
+export interface SupportChatAttachment {
+  id: string
+  message_id: string
+  url: string
+  filename: string
+  content_type: string
+  size_bytes: number
+  created_at: string
+}
+
+/** One message in a support chat thread. */
+export interface SupportChatMessage {
+  id: string
+  thread_id: string
+  sender_type: SupportChatSenderType
+  sender_user_id: string | null
+  body: string
+  created_at: string
+  attachments: SupportChatAttachment[]
+}
+
+/** Active (or reopened) support chat thread for a business owner. */
+export interface SupportChatThread {
+  id: string
+  user_id: string
+  status: SupportChatThreadStatus
+  created_at: string
+  updated_at: string
+  last_message_at: string | null
+  admin_unread_count: number
+  user_unread_count: number
+  waiting_agent_notice_sent: boolean
+}
+
+/** Admin conversation list row with business identity + last message preview. */
+export interface SupportChatThreadListItem extends SupportChatThread {
+  business_name: string
+  owner_name: string
+  owner_email: string
+  last_message_preview: string | null
+  last_sender_type: SupportChatSenderType | null
+}
+
 /** Admin user list row with recent call volume (30 days). */
 export interface AdminUserSummary {
   id: string

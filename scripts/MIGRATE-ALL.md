@@ -130,6 +130,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 125 | `125-intake-book-links.sql` | **Activity Send book link.** Creates **`intake_book_links`** (fee mode none / $49 service call / full quote, optional pay token). Powers **Send book link** on Activity → SMS → `/book/form/{id}` customer form → CRM + intake; paid modes reuse Collect Embedded Checkout (card / Apple Pay / Cash App / Link / Venmo when enabled). **Required** for Activity book links. |
 | 126 | `126-latest-attention-book-form.sql` | **Book-form Latest SMS.** Extends **`latest_attention_sms_sent`** so `event_type` may be **`book_form`** (customer finished public `/book` ASAP or window). **Required** for owner SMS when a book form is submitted (with `sms_latest_enabled`). |
 | 127 | `127-admin-support-emails.sql` | **Admin support email inbox.** Creates **`admin_support_emails`** for inbound `support@lyncr.app` messages (Resend `email.received` webhook → Neon). **Required** for Admin → Support → Emails. Zoho keeps root MX — see **`ADMIN-SUPPORT-INBOX.md`** (forward support@ to Resend subdomain / `*.resend.app`; do **not** point `lyncr.app` MX at Resend). |
+| 128 | `128-support-chat.sql` | **In-app Support chat.** Creates **`support_chat_threads`**, **`support_chat_messages`**, **`support_chat_attachments`**. Powers Help → Chat with Lyncr Support and Admin → Support → Live chat (text + file uploads via Vercel Blob). **Required** for live chat; also set **`BLOB_READ_WRITE_TOKEN`** in Vercel for attachments. |
 
 ## Platform admin (`admin@lyncr.app`)
 

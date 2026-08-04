@@ -41,6 +41,12 @@ import type {
   FeedbackStatus,
   AdminSupportEmail,
   AdminSupportEmailListItem,
+  SupportChatAttachment,
+  SupportChatMessage,
+  SupportChatSenderType,
+  SupportChatThread,
+  SupportChatThreadListItem,
+  SupportChatThreadStatus,
   AdminUserSummary,
   AdminUserDetail,
   FeedbackCategory,
@@ -12704,6 +12710,420 @@ export async function markAdminSupportEmailRead(
     return row ? parseAdminSupportEmailRow(row) : null
   } catch (e) {
     if (isUndefinedRelationError(e, "admin_support_emails")) return null
+    throw e
+  }
+}
+
+// ---------------------------------------------------------------------------
+// In-app support chat (`128-support-chat.sql`)
+// ---------------------------------------------------------------------------
+
+const SUPPORT_CHAT_MISSING =
+  "Support chat tables missing — run scripts/128-support-chat.sql in Neon (see scripts/MIGRATE-ALL.md)."
+
+function parseSupportChatThreadRow(row: Record<string, unknown>): SupportChatThread {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    status: String(row.status ?? "open") as SupportChatThreadStatus,
+    created_at:
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+    updated_at:
+      row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at ?? ""),
+    last_message_at:
+      row.last_message_at == null
+        ? null
+        : row.last_message_at instanceof Date
+          ? row.last_message_at.toISOString()
+          : String(row.last_message_at),
+    admin_unread_count: Number(row.admin_unread_count ?? 0),
+    user_unread_count: Number(row.user_unread_count ?? 0),
+    waiting_agent_notice_sent: Boolean(row.waiting_agent_notice_sent),
+  }
+}
+
+function parseSupportChatAttachmentRow(row: Record<string, unknown>): SupportChatAttachment {
+  return {
+    id: String(row.id),
+    message_id: String(row.message_id),
+    url: String(row.url ?? ""),
+    filename: String(row.filename ?? ""),
+    content_type: String(row.content_type ?? "application/octet-stream"),
+    size_bytes: Number(row.size_bytes ?? 0),
+    created_at:
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+  }
+}
+
+function parseSupportChatMessageRow(
+  row: Record<string, unknown>,
+  attachments: SupportChatAttachment[] = []
+): SupportChatMessage {
+  return {
+    id: String(row.id),
+    thread_id: String(row.thread_id),
+    sender_type: String(row.sender_type) as SupportChatSenderType,
+    sender_user_id: row.sender_user_id != null ? String(row.sender_user_id) : null,
+    body: String(row.body ?? ""),
+    created_at:
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+    attachments,
+  }
+}
+
+/** Get the owner's active (open/waiting) thread, or null. */
+export async function getActiveSupportChatThreadForUser(
+  userId: string
+): Promise<SupportChatThread | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, user_id, status, created_at, updated_at, last_message_at,
+             admin_unread_count, user_unread_count, waiting_agent_notice_sent
+      FROM support_chat_threads
+      WHERE user_id = ${userId} AND status IN ('open', 'waiting')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseSupportChatThreadRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Create a new open thread for this owner. */
+export async function createSupportChatThread(userId: string): Promise<SupportChatThread> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      INSERT INTO support_chat_threads (user_id, status)
+      VALUES (${userId}, 'open')
+      RETURNING id, user_id, status, created_at, updated_at, last_message_at,
+                admin_unread_count, user_unread_count, waiting_agent_notice_sent
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("Failed to create support chat thread")
+    return parseSupportChatThreadRow(row)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/**
+ * Get or create the owner's active thread.
+ * If the only thread is closed, create a fresh open one.
+ */
+export async function getOrCreateSupportChatThread(userId: string): Promise<SupportChatThread> {
+  const existing = await getActiveSupportChatThreadForUser(userId)
+  if (existing) return existing
+  return createSupportChatThread(userId)
+}
+
+export async function getSupportChatThreadById(threadId: string): Promise<SupportChatThread | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, user_id, status, created_at, updated_at, last_message_at,
+             admin_unread_count, user_unread_count, waiting_agent_notice_sent
+      FROM support_chat_threads
+      WHERE id = ${threadId}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseSupportChatThreadRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Load messages + attachments for a thread (oldest first). */
+export async function listSupportChatMessages(threadId: string): Promise<SupportChatMessage[]> {
+  const sql = getSql()
+  try {
+    const msgRows = await sql`
+      SELECT id, thread_id, sender_type, sender_user_id, body, created_at
+      FROM support_chat_messages
+      WHERE thread_id = ${threadId}
+      ORDER BY created_at ASC
+    `
+    const messages = (msgRows as Record<string, unknown>[]).map((r) => parseSupportChatMessageRow(r))
+    if (messages.length === 0) return []
+
+    const ids = messages.map((m) => m.id)
+    const attRows = await sql`
+      SELECT id, message_id, url, filename, content_type, size_bytes, created_at
+      FROM support_chat_attachments
+      WHERE message_id = ANY(${ids})
+      ORDER BY created_at ASC
+    `
+    const byMessage = new Map<string, SupportChatAttachment[]>()
+    for (const raw of attRows as Record<string, unknown>[]) {
+      const att = parseSupportChatAttachmentRow(raw)
+      const list = byMessage.get(att.message_id) ?? []
+      list.push(att)
+      byMessage.set(att.message_id, list)
+    }
+    return messages.map((m) => ({ ...m, attachments: byMessage.get(m.id) ?? [] }))
+  } catch (e) {
+    if (
+      isUndefinedRelationError(e, "support_chat_messages") ||
+      isUndefinedRelationError(e, "support_chat_attachments")
+    ) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/**
+ * Ensure the “An agent will be with you shortly.” system line exists once per thread.
+ * Called when the tenant opens an empty thread or sends their first message.
+ */
+export async function ensureSupportChatWaitingNotice(threadId: string): Promise<SupportChatMessage | null> {
+  const sql = getSql()
+  try {
+    const threads = await sql`
+      SELECT waiting_agent_notice_sent
+      FROM support_chat_threads
+      WHERE id = ${threadId}
+      LIMIT 1
+    `
+    const t = threads[0] as { waiting_agent_notice_sent?: boolean } | undefined
+    if (!t || t.waiting_agent_notice_sent) return null
+
+    const body = "An agent will be with you shortly."
+    const msgRows = await sql`
+      INSERT INTO support_chat_messages (thread_id, sender_type, sender_user_id, body)
+      VALUES (${threadId}, 'system', NULL, ${body})
+      RETURNING id, thread_id, sender_type, sender_user_id, body, created_at
+    `
+    await sql`
+      UPDATE support_chat_threads
+      SET waiting_agent_notice_sent = TRUE,
+          updated_at = NOW(),
+          last_message_at = COALESCE(last_message_at, NOW())
+      WHERE id = ${threadId}
+    `
+    const row = msgRows[0] as Record<string, unknown> | undefined
+    return row ? parseSupportChatMessageRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Insert a user/admin message and bump unread + status. */
+export async function insertSupportChatMessage(params: {
+  threadId: string
+  senderType: "user" | "admin"
+  senderUserId: string
+  body: string
+  attachments?: Array<{
+    url: string
+    filename: string
+    content_type: string
+    size_bytes: number
+  }>
+}): Promise<SupportChatMessage> {
+  const sql = getSql()
+  const body = params.body.trim()
+  const atts = params.attachments ?? []
+  if (!body && atts.length === 0) {
+    throw new Error("Message must include text or an attachment.")
+  }
+
+  try {
+    if (params.senderType === "user") {
+      // Reopen if closed, mark waiting for agent, increment admin unread.
+      await sql`
+        UPDATE support_chat_threads
+        SET status = CASE WHEN status = 'closed' THEN 'waiting' ELSE 'waiting' END,
+            updated_at = NOW(),
+            last_message_at = NOW(),
+            admin_unread_count = admin_unread_count + 1
+        WHERE id = ${params.threadId}
+      `
+    } else {
+      await sql`
+        UPDATE support_chat_threads
+        SET status = CASE WHEN status = 'closed' THEN 'open' ELSE status END,
+            updated_at = NOW(),
+            last_message_at = NOW(),
+            user_unread_count = user_unread_count + 1
+        WHERE id = ${params.threadId}
+      `
+    }
+
+    const msgRows = await sql`
+      INSERT INTO support_chat_messages (thread_id, sender_type, sender_user_id, body)
+      VALUES (${params.threadId}, ${params.senderType}, ${params.senderUserId}, ${body})
+      RETURNING id, thread_id, sender_type, sender_user_id, body, created_at
+    `
+    const msgRow = msgRows[0] as Record<string, unknown> | undefined
+    if (!msgRow) throw new Error("Failed to insert support chat message")
+    const messageId = String(msgRow.id)
+
+    const savedAtts: SupportChatAttachment[] = []
+    for (const a of atts) {
+      const aRows = await sql`
+        INSERT INTO support_chat_attachments (message_id, url, filename, content_type, size_bytes)
+        VALUES (${messageId}, ${a.url}, ${a.filename}, ${a.content_type}, ${a.size_bytes})
+        RETURNING id, message_id, url, filename, content_type, size_bytes, created_at
+      `
+      const aRow = aRows[0] as Record<string, unknown> | undefined
+      if (aRow) savedAtts.push(parseSupportChatAttachmentRow(aRow))
+    }
+
+    return parseSupportChatMessageRow(msgRow, savedAtts)
+  } catch (e) {
+    if (
+      isUndefinedRelationError(e, "support_chat_messages") ||
+      isUndefinedRelationError(e, "support_chat_threads")
+    ) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Clear unread for the tenant when they open the chat. */
+export async function markSupportChatReadByUser(threadId: string, userId: string): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE support_chat_threads
+      SET user_unread_count = 0, updated_at = NOW()
+      WHERE id = ${threadId} AND user_id = ${userId}
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Clear unread for admin when they open a thread. */
+export async function markSupportChatReadByAdmin(threadId: string): Promise<void> {
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE support_chat_threads
+      SET admin_unread_count = 0, updated_at = NOW()
+      WHERE id = ${threadId}
+    `
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Unread count for dashboard badge / banner (0 if migration missing). */
+export async function getSupportChatUserUnreadCount(userId: string): Promise<number> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT COALESCE(SUM(user_unread_count), 0)::int AS c
+      FROM support_chat_threads
+      WHERE user_id = ${userId}
+    `
+    return Number((rows[0] as { c?: number } | undefined)?.c ?? 0)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) return 0
+    throw e
+  }
+}
+
+/** Admin inbox: threads with business identity + last message preview. */
+export async function listSupportChatThreadsForAdmin(
+  limit: number = 50
+): Promise<SupportChatThreadListItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 200)
+  try {
+    const rows = await sql`
+      SELECT
+        t.id, t.user_id, t.status, t.created_at, t.updated_at, t.last_message_at,
+        t.admin_unread_count, t.user_unread_count, t.waiting_agent_notice_sent,
+        u.business_name, u.name AS owner_name, u.email AS owner_email,
+        (
+          SELECT m.body FROM support_chat_messages m
+          WHERE m.thread_id = t.id
+          ORDER BY m.created_at DESC
+          LIMIT 1
+        ) AS last_message_preview,
+        (
+          SELECT m.sender_type FROM support_chat_messages m
+          WHERE m.thread_id = t.id
+          ORDER BY m.created_at DESC
+          LIMIT 1
+        ) AS last_sender_type
+      FROM support_chat_threads t
+      INNER JOIN users u ON u.id = t.user_id
+      ORDER BY
+        CASE WHEN t.admin_unread_count > 0 THEN 0 ELSE 1 END,
+        COALESCE(t.last_message_at, t.created_at) DESC
+      LIMIT ${lim}
+    `
+    return (rows as Record<string, unknown>[]).map((row) => {
+      const thread = parseSupportChatThreadRow(row)
+      const previewRaw = row.last_message_preview != null ? String(row.last_message_preview) : null
+      return {
+        ...thread,
+        business_name: String(row.business_name ?? "").trim() || "Business",
+        owner_name: String(row.owner_name ?? "").trim() || "Owner",
+        owner_email: String(row.owner_email ?? "").trim(),
+        last_message_preview: previewRaw
+          ? previewRaw.replace(/\s+/g, " ").trim().slice(0, 160) || null
+          : null,
+        last_sender_type:
+          row.last_sender_type != null
+            ? (String(row.last_sender_type) as SupportChatSenderType)
+            : null,
+      }
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Optional: close a thread from admin. */
+export async function updateSupportChatThreadStatus(
+  threadId: string,
+  status: SupportChatThreadStatus
+): Promise<SupportChatThread | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE support_chat_threads
+      SET status = ${status}, updated_at = NOW()
+      WHERE id = ${threadId}
+      RETURNING id, user_id, status, created_at, updated_at, last_message_at,
+                admin_unread_count, user_unread_count, waiting_agent_notice_sent
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseSupportChatThreadRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "support_chat_threads")) {
+      throw new Error(SUPPORT_CHAT_MISSING)
+    }
     throw e
   }
 }

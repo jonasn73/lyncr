@@ -53,6 +53,7 @@
     "@stripe/terminal-js": "^0.26.0",
     "@telnyx/webrtc": "^2.27.1",
     "@vercel/analytics": "1.6.1",
+    "@vercel/blob": "^2.6.1",
     "ai": "^6.0.104",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^2.4.3",

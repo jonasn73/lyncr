@@ -26,10 +26,20 @@ export default function SupportPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Help & Support</h1>
-            <p className="text-sm text-muted-foreground">Get help or get in touch</p>
+            <p className="hidden text-sm text-muted-foreground md:block">Get help or get in touch</p>
           </div>
         </div>
         <div className="space-y-6 text-sm text-foreground">
+          <section>
+            <h2 className="mb-2 font-semibold text-foreground">Chat in the app</h2>
+            <p className="mb-3 text-muted-foreground">
+              Signed-in business owners can message Lyncr Support from{" "}
+              <Link href="/dashboard/help" className="font-medium text-primary underline-offset-4 hover:underline">
+                Help &amp; feedback
+              </Link>{" "}
+              (live chat with optional screenshots).
+            </p>
+          </section>
           <section>
             <h2 className="mb-2 font-semibold text-foreground">Contact us</h2>
             <p className="mb-3 text-muted-foreground">
