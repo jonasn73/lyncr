@@ -57,14 +57,18 @@ export function DashboardPage() {
   const [mainLinePhone, setMainLinePhone] = useState<string | null>(
     () => bootstrap?.routing.ownerPhone ?? linesPaint?.ownerPhone ?? null
   )
+  // Paint-only stub — name for first paint; not an authoritative dialable roster row.
+  const PAINT_SEED_RECEPTIONIST_ID = "__paint-seed-receptionist__"
+
   const [receptionists, setReceptionists] = useState<Contact[]>(() => {
-    if (bootstrap?.routing.receptionists?.length) return bootstrap.routing.receptionists
+    // Bootstrap / session cache already has real teammate rows (with phones + is_active).
+    if (bootstrap?.routing.receptionists) return bootstrap.routing.receptionists
     // Paint seed for a real teammate only — "Your phone" / "You (owner)" must stay owner mode.
     const who = linesPaint?.whoAnswers?.trim()
     if (who && !isOwnerWhoAnswersLabel(who)) {
       return [
         {
-          id: "__paint-seed-receptionist__",
+          id: PAINT_SEED_RECEPTIONIST_ID,
           name: who,
           phone: "",
           initials: who.slice(0, 2).toUpperCase() || "??",
@@ -74,6 +78,10 @@ export function DashboardPage() {
     }
     return []
   })
+  // False until API/bootstrap roster arrives — Busy must not treat empty paint as "no teammate → IVR LIVE".
+  const [teamRosterReady, setTeamRosterReady] = useState(
+    () => Boolean(bootstrap?.routing.receptionists)
+  )
   const [selectedReceptionistId, setSelectedReceptionistId] = useState<string | null>(() => {
     if (bootstrap) {
       const recId = bootstrap.routing.routing.selected_receptionist_id
@@ -83,7 +91,7 @@ export function DashboardPage() {
     }
     // Owner sentinel → no receptionist selected so call-flow shows "Your phone" + seeded number.
     const who = linesPaint?.whoAnswers?.trim()
-    return who && !isOwnerWhoAnswersLabel(who) ? "__paint-seed-receptionist__" : null
+    return who && !isOwnerWhoAnswersLabel(who) ? PAINT_SEED_RECEPTIONIST_ID : null
   })
   const [fallback, setFallback] = useState<FallbackOption>(
     () =>
@@ -156,6 +164,8 @@ export function DashboardPage() {
       setActiveLine(null)
     }
 
+    // New workspace — don't keep the previous org's roster while Busy decides IVR LIVE.
+    setTeamRosterReady(false)
     void fetch(receptionistsUrl(), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((data) => {
@@ -172,12 +182,16 @@ export function DashboardPage() {
           is_active: r.is_active !== false,
         }))
         setReceptionists(mapped)
+        setTeamRosterReady(true)
         // Keep a still-valid selection; otherwise stay on Your phone (null) until routing fetch.
         setSelectedReceptionistId((prev) =>
           prev && mapped.some((r: Contact) => r.id === prev) ? prev : null
         )
       })
-      .catch(() => {})
+      .catch(() => {
+        // Failed fetch — settle empty so Busy + no known team can still show IVR LIVE.
+        setTeamRosterReady(true)
+      })
   }, [activeOrganizationId, activeLine, routedNumbers, receptionistsUrl, setActiveLine])
 
   // Apply session/bootstrap routing before paint — useEffect left one blank frame of Who answers.
@@ -186,6 +200,8 @@ export function DashboardPage() {
     bootstrapHydratedRef.current = true
     setMainLinePhone(bootstrap.routing.ownerPhone ?? null)
     setReceptionists(bootstrap.routing.receptionists)
+    // Authoritative roster — Busy + Available teammate can decide IVR LIVE vs standby.
+    setTeamRosterReady(true)
     const recId = bootstrap.routing.routing.selected_receptionist_id
     // Owner when id is missing — do not auto-pick receptionists[0] (false "Who answers").
     setSelectedReceptionistId(
@@ -245,6 +261,7 @@ export function DashboardPage() {
         if (cancelled) return
         if (data.ownerPhone) setMainLinePhone(data.ownerPhone)
         setReceptionists(data.receptionists)
+        setTeamRosterReady(true)
         const recId = data.routing.selected_receptionist_id
         setSelectedReceptionistId(
           recId && data.receptionists.some((r) => r.id === recId) ? recId : null
@@ -266,6 +283,7 @@ export function DashboardPage() {
         if (!cancelled) {
           setSessionFetchDone(true)
           setReceptionistsFetchDone(true)
+          setTeamRosterReady(true)
         }
       }
     })()
@@ -300,6 +318,7 @@ export function DashboardPage() {
             is_active: r.is_active !== false,
           }))
           setReceptionists(mapped)
+          setTeamRosterReady(true)
           // Roster load must not invent a Who answers pick — null stays Your phone.
           setSelectedReceptionistId((prev) =>
             prev && mapped.some((r: Contact) => r.id === prev) ? prev : null
@@ -310,6 +329,8 @@ export function DashboardPage() {
       if (!cancelled) {
         setSessionFetchDone(true)
         setReceptionistsFetchDone(true)
+        // Empty team is still a settled answer — solo Busy owners may show IVR LIVE.
+        setTeamRosterReady(true)
       }
     })
     return () => {
@@ -626,6 +647,7 @@ export function DashboardPage() {
         routingLineDetailLoading={showRoutingDetailLoading}
         isRoutingToOwner={isRoutingToOwner}
         selectedReceptionist={selectedReceptionist}
+        teamRosterReady={teamRosterReady}
         ownerPhoneDisplay={ownerPhoneDisplay}
         ringTimeoutSec={ringTimeoutSec}
         activeFallbackLabel={activeFallbackMeta?.label ?? "Backup"}

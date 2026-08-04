@@ -311,6 +311,11 @@ export type DashboardCallFlowProps = {
   selectedReceptionist: Contact | null
   /** Full team roster — when Busy, an Available teammate is shown before IVR. */
   teamReceptionists?: Contact[]
+  /**
+   * True once bootstrap/API settled the receptionist list (may be empty).
+   * While false, Busy must not paint IVR LIVE (avoids orange flash before Alex loads).
+   */
+  teamRosterReady?: boolean
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
@@ -547,6 +552,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   isRoutingToOwner,
   selectedReceptionist,
   teamReceptionists = [],
+  teamRosterReady = false,
   ownerPhoneDisplay,
   ringTimeoutSec: _ringTimeoutSec,
   activeFallbackLabel: _activeFallbackLabel,
@@ -621,17 +627,23 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   // Smart IVR / capacity overflow must NOT claim "100% automation" while Available —
   // Available always rings the cell first; automation is only the unanswered fallback.
   const presenceIsAvailable = presenceReady && presenceStatus === "AVAILABLE"
+  // Lines chrome paint seed — name only, no phone yet (see dashboard-page).
+  const PAINT_SEED_RECEPTIONIST_ID = "__paint-seed-receptionist__"
   // When Busy, prefer an Available teammate (same order as inbound TeXML).
   const busyBackupReceptionist = (() => {
     if (!presenceBypass) return null
-    const dialable = teamReceptionists.filter(
-      (r) => r.is_active !== false && Boolean(r.phone?.trim())
-    )
+    const dialable = teamReceptionists.filter((r) => {
+      if (r.is_active === false) return false
+      // Paint-seed stub still means "team answers first" — don't flash IVR LIVE waiting for phone.
+      if (r.id === PAINT_SEED_RECEPTIONIST_ID) return Boolean(r.name?.trim())
+      return Boolean(r.phone?.trim())
+    })
     if (dialable.length === 0) return null
     if (
       selectedReceptionist &&
       selectedReceptionist.is_active !== false &&
-      selectedReceptionist.phone?.trim()
+      (Boolean(selectedReceptionist.phone?.trim()) ||
+        selectedReceptionist.id === PAINT_SEED_RECEPTIONIST_ID)
     ) {
       return selectedReceptionist
     }
@@ -641,11 +653,14 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   const showIvrDeck =
     activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
   // Connector pulse / LIVE glow only when automation actually owns first answer.
-  const ivrMenuLive = presenceBypass && !busyBackupLive
+  // Gate on teamRosterReady so Busy + empty paint roster does not flash orange IVR LIVE
+  // before Available receptionists hydrate (Alex LIVE / IVR standby).
+  const ivrMenuLive = presenceBypass && teamRosterReady && !busyBackupLive
   // Capacity overflow is a standby label while Available (not a primary-route takeover).
   // Busy + Available receptionist → IVR stays standby (not LIVE).
+  // Busy + roster still loading → also standby (neutral), never LIVE.
   const overflowCardActive =
-    (presenceBypass && !busyBackupLive) ||
+    (presenceBypass && teamRosterReady && !busyBackupLive) ||
     (!presenceIsAvailable && smartOverflow.overflowActive)
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
@@ -686,13 +701,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       compact
       step={String(primaryAndNetworkNodes.length + 2)}
       overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass && !busyBackupLive}
+      presenceDriven={presenceBypass && teamRosterReady && !busyBackupLive}
       presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
       capacityThreshold={smartOverflow.config.capacityThreshold}
       onOpenScriptEditor={openScriptEditor}
-      loading={routingLineDetailLoading || smartOverflow.loading}
+      loading={routingLineDetailLoading || smartOverflow.loading || (presenceBypass && !teamRosterReady)}
       retellConnected={smartOverflow.retellConnected}
       standbyBecauseTeam={busyBackupLive}
       standbyTeamName={busyBackupReceptionist?.name ?? null}
@@ -703,13 +718,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       compact={false}
       step={String(primaryAndNetworkNodes.length + 2)}
       overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass && !busyBackupLive}
+      presenceDriven={presenceBypass && teamRosterReady && !busyBackupLive}
       presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
       capacityThreshold={smartOverflow.config.capacityThreshold}
       onOpenScriptEditor={openScriptEditor}
-      loading={routingLineDetailLoading || smartOverflow.loading}
+      loading={routingLineDetailLoading || smartOverflow.loading || (presenceBypass && !teamRosterReady)}
       retellConnected={smartOverflow.retellConnected}
       standbyBecauseTeam={busyBackupLive}
       standbyTeamName={busyBackupReceptionist?.name ?? null}

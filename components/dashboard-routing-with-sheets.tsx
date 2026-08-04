@@ -131,6 +131,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     isRoutingToOwner: props.isRoutingToOwner,
     selectedReceptionist: props.selectedReceptionist,
     teamReceptionists: props.receptionists,
+    teamRosterReady: props.teamRosterReady,
     ownerPhoneDisplay: props.ownerPhoneDisplay,
     ringTimeoutSec: props.ringTimeoutSec,
     activeFallbackLabel: props.activeFallbackLabel,

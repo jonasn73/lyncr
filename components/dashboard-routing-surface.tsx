@@ -44,6 +44,11 @@ export type DashboardRoutingSurfaceProps = {
   selectedReceptionist: Contact | null
   /** Full team roster for Busy → Available teammate primary. */
   teamReceptionists?: Contact[]
+  /**
+   * True once bootstrap/API has the authoritative receptionist list (may be empty).
+   * False while only paint-seed stubs exist — Busy must not flash IVR LIVE.
+   */
+  teamRosterReady?: boolean
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
@@ -73,6 +78,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   isRoutingToOwner,
   selectedReceptionist,
   teamReceptionists = [],
+  teamRosterReady = false,
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
@@ -111,6 +117,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       isRoutingToOwner={isRoutingToOwner}
       selectedReceptionist={selectedReceptionist}
       teamReceptionists={teamReceptionists}
+      teamRosterReady={teamRosterReady}
       ownerPhoneDisplay={ownerPhoneDisplay}
       ringTimeoutSec={ringTimeoutSec}
       activeFallbackLabel={activeFallbackLabel}
@@ -147,6 +154,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   isRoutingToOwner,
   selectedReceptionist,
   teamReceptionists = [],
+  teamRosterReady = false,
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
@@ -347,6 +355,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                   isRoutingToOwner={isRoutingToOwner}
                   selectedReceptionist={selectedReceptionist}
                   teamReceptionists={teamReceptionists}
+                  teamRosterReady={teamRosterReady}
                   ownerPhoneDisplay={ownerPhoneDisplay}
                   ringTimeoutSec={ringTimeoutSec}
                   activeFallbackLabel={activeFallbackLabel}
