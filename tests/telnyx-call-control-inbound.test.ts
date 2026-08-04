@@ -6,8 +6,51 @@ const getOrCreateCallControlAppMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve("cc-app-99"))
 )
 
+const getActiveRoutingModeForDidMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve("your_phone"))
+)
+const getFirstAvailableOwnerReceptionistMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(null))
+)
+const getCustomRoutingPhoneForDidMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(null))
+)
+const getTeamReceptionistForDidMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(null))
+)
+const resolveInboundCapturePlanMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ kind: "day_dial" as const }))
+)
+
 vi.mock("@/lib/telnyx-call-control-config", () => ({
   getOrCreateCallControlApp: getOrCreateCallControlAppMock,
+}))
+
+vi.mock("@/lib/active-routing-mode-db", () => ({
+  getActiveRoutingModeForDid: getActiveRoutingModeForDidMock,
+  getCustomRoutingPhoneForDid: getCustomRoutingPhoneForDidMock,
+  getFirstAvailableOwnerReceptionist: getFirstAvailableOwnerReceptionistMock,
+  getTeamReceptionistForDid: getTeamReceptionistForDidMock,
+}))
+
+vi.mock("@/lib/inbound-time-capture", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/inbound-time-capture")>()
+  return {
+    ...actual,
+    resolveInboundCapturePlan: resolveInboundCapturePlanMock,
+  }
+})
+
+vi.mock("@/lib/account-presence", () => ({
+  getAccountPresence: vi.fn(() =>
+    Promise.resolve({
+      presenceStatus: "ON_JOB",
+      presenceClosedManual: true,
+      onJobGreetingText: "We're on a job.",
+      closedGreetingText: "We're closed.",
+    })
+  ),
+  resolvePresenceAutomationGreeting: vi.fn(() => "We're on a job."),
 }))
 
 describe("telnyx call control state", () => {
@@ -60,6 +103,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       json: async () => ({ data: { call_control_id: "cc-outbound-1" } }),
     })
     getOrCreateCallControlAppMock.mockResolvedValue("cc-app-99")
+    getActiveRoutingModeForDidMock.mockResolvedValue("your_phone")
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
+    getCustomRoutingPhoneForDidMock.mockResolvedValue(null)
+    getTeamReceptionistForDidMock.mockResolvedValue(null)
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
     vi.stubEnv("ZING_INBOUND_CALL_CONTROL", "1")
     vi.stubEnv("TELNYX_API_KEY", "test-key")
   })
@@ -191,6 +239,80 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.to).toBe("+15552602716")
     expect(dialBody.link_to).toBe("cc-inbound-1")
     expect(dialBody.bridge_on_answer).toBe(true)
+  })
+
+  it("speak.ended dials Available receptionist when owner is Busy (ON_JOB)", async () => {
+    // Presence Busy + Alex Available → Dial …5874, never owner …2716.
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue({
+      receptionistId: "recv-alex",
+      name: "Alex Jonas",
+      phoneE164: "+15029995874",
+    })
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+
+    const inboundState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-busy-backup",
+        payload: {
+          call_control_id: "cc-inbound-busy",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: inboundState,
+        },
+      },
+    })
+
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeTruthy()
+    const dialBody = JSON.parse(String(dialCall![1].body))
+    expect(dialBody.to).toBe("+15029995874")
+    expect(dialBody.to).not.toBe("+15022602716")
+    expect(dialBody.link_to).toBe("cc-inbound-busy")
   })
 
   it("speak.ended still dials when client_state phase was overwritten to await_caller_answered", async () => {

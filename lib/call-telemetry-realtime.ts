@@ -17,6 +17,9 @@ export async function broadcastCallInitiated(params: {
   fromNumber: string
   toNumber: string
   organizationId?: string | null
+  /** Teammate Dial target — owner UI should not treat this as “my phone is ringing”. */
+  routedToReceptionistId?: string | null
+  routedToName?: string | null
 }): Promise<void> {
   const payload: OwnerCallInitiatedPayload = {
     call_sid: params.callSid,
@@ -24,6 +27,8 @@ export async function broadcastCallInitiated(params: {
     from_number: params.fromNumber,
     to_number: params.toNumber,
     organization_id: params.organizationId ?? null,
+    routed_to_receptionist_id: params.routedToReceptionistId ?? null,
+    routed_to_name: params.routedToName ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-initiated", payload)
 }

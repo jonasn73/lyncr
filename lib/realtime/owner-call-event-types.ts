@@ -10,6 +10,13 @@ export type OwnerCallInitiatedPayload = {
   from_number?: string | null
   to_number?: string | null
   organization_id?: string | null
+  /**
+   * When set, a teammate cell is ringing — owner dashboard should NOT open the full
+   * “RINGING / Incoming Call” intake as if the owner phone were the Dial target.
+   */
+  routed_to_receptionist_id?: string | null
+  /** Display name for the live Dial target (e.g. Alex Jonas). */
+  routed_to_name?: string | null
 }
 
 /** Fired when an inbound call is bridged / picked up — drives the intake sheet immediately. */

@@ -14,6 +14,7 @@ import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
+  type TelnyxCallControlDialReason,
 } from "@/lib/telnyx-call-control-state"
 import {
   forgetOutboundDialLeg,
@@ -38,7 +39,24 @@ import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-me
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
-import { CAPTURE_DEFAULT_RING_E164 } from "@/lib/inbound-time-capture"
+import {
+  CAPTURE_DEFAULT_RING_E164,
+  CAPTURE_STATUS_CALENDAR_BUSY,
+  CAPTURE_STATUS_CALENDAR_OFF,
+  CAPTURE_STATUS_PRESENCE_CLOSED,
+  CAPTURE_STATUS_PRESENCE_ON_JOB,
+  resolveInboundCapturePlan,
+} from "@/lib/inbound-time-capture"
+import {
+  getActiveRoutingModeForDid,
+  getCustomRoutingPhoneForDid,
+  getFirstAvailableOwnerReceptionist,
+  getTeamReceptionistForDid,
+} from "@/lib/active-routing-mode-db"
+import {
+  getAccountPresence,
+  resolvePresenceAutomationGreeting,
+} from "@/lib/account-presence"
 import {
   getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
@@ -182,6 +200,205 @@ function resolveDialTargetE164(routing: Awaited<ReturnType<typeof getIncomingRou
     if (isReasonablePstnDialString(e164)) return e164
   }
   return ""
+}
+
+/** Result of presence + Who Answers resolution for Call Control Dial. */
+type CallControlInboundDialPlan = {
+  /** PSTN E.164 to Dial, or null when Busy with no teammate (speak automation instead). */
+  dialTargetE164: string | null
+  receptionistId: string | null
+  routedToName: string | null
+  reason: TelnyxCallControlDialReason
+}
+
+function ownerCellE164(routing: IncomingRoutingRow): string {
+  // Prefer the account owner phone; fall back to the Key Squad failsafe cell.
+  const owner = routing.owner_phone?.trim() || ""
+  const normalized = owner ? normalizePhoneNumberE164(owner) : ""
+  if (normalized && isReasonablePstnDialString(normalized)) return normalized
+  if (owner && isReasonablePstnDialString(owner)) return owner.trim()
+  return FAILSAFE_PRIMARY_CELL_E164
+}
+
+function capturePlanRoutedName(
+  kind: Awaited<ReturnType<typeof resolveInboundCapturePlan>>["kind"]
+): string {
+  if (kind === "presence_closed") return CAPTURE_STATUS_PRESENCE_CLOSED
+  if (kind === "presence_on_job") return CAPTURE_STATUS_PRESENCE_ON_JOB
+  if (kind === "calendar_full_day") return CAPTURE_STATUS_CALENDAR_OFF
+  if (kind === "calendar_partial") return CAPTURE_STATUS_CALENDAR_BUSY
+  return "Owner"
+}
+
+/**
+ * Mirror TeXML `/incoming` Busy + Who Answers rules for Call Control.
+ * Without this, production Call Control always Dialed the owner cell (…2716)
+ * even when Presence was ON_JOB and Alex was Available.
+ */
+async function resolveCallControlInboundDialPlan(
+  routing: IncomingRoutingRow,
+  businessLineE164: string
+): Promise<CallControlInboundDialPlan> {
+  const ownerDial = ownerCellE164(routing)
+
+  // Resolve unified Who Answers mode for this DID (your_phone / smart_ivr / team / …).
+  let mode = "your_phone"
+  try {
+    mode = await getActiveRoutingModeForDid(businessLineE164)
+  } catch (e) {
+    console.warn("[telnyx-cc] active routing mode lookup skipped:", e)
+  }
+
+  // Custom Routing — forward to the configured 10-digit target only.
+  if (mode === "custom_routing") {
+    try {
+      const custom = await getCustomRoutingPhoneForDid(businessLineE164)
+      if (custom && isReasonablePstnDialString(custom)) {
+        return {
+          dialTargetE164: custom,
+          receptionistId: null,
+          routedToName: "Custom Routing",
+          reason: "custom_routing",
+        }
+      }
+    } catch (e) {
+      console.warn("[telnyx-cc] custom routing lookup skipped:", e)
+    }
+  }
+
+  // Team receptionist → Available teammate first; else owner if Available; else automation.
+  if (mode === "team_receptionist") {
+    try {
+      const team = await getTeamReceptionistForDid(businessLineE164)
+      const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
+      const receptionistCanAnswer =
+        Boolean(team?.isActive) &&
+        Boolean(team?.phoneE164) &&
+        isReasonablePstnDialString(team!.phoneE164!)
+      if (receptionistCanAnswer) {
+        return {
+          dialTargetE164: team!.phoneE164!,
+          receptionistId: team!.receptionistId,
+          routedToName: team?.name?.trim() || "Receptionist",
+          reason: "team_receptionist",
+        }
+      }
+      if (plan.kind === "day_dial") {
+        return {
+          dialTargetE164: ownerDial,
+          receptionistId: null,
+          routedToName: "Owner",
+          reason: "team_owner_available",
+        }
+      }
+      return {
+        dialTargetE164: null,
+        receptionistId: null,
+        routedToName: capturePlanRoutedName(plan.kind),
+        reason: "busy_automation",
+      }
+    } catch (e) {
+      console.warn("[telnyx-cc] team receptionist plan failed:", e)
+    }
+  }
+
+  // Your Phone / Smart IVR — Available rings owner; Busy rings Available teammate before automation.
+  if (mode === "your_phone" || mode === "smart_ivr") {
+    try {
+      const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
+      if (plan.kind !== "day_dial") {
+        // Owner cannot answer — try an Available private receptionist (same as TeXML busy backup).
+        let backup: Awaited<ReturnType<typeof getFirstAvailableOwnerReceptionist>> = null
+        try {
+          backup = await getFirstAvailableOwnerReceptionist({
+            ownerUserId: routing.user_id,
+            preferredReceptionistId: routing.selected_receptionist_id,
+          })
+        } catch (e) {
+          console.warn("[telnyx-cc] busy-backup receptionist lookup skipped:", e)
+        }
+        if (backup?.phoneE164 && isReasonablePstnDialString(backup.phoneE164)) {
+          return {
+            dialTargetE164: backup.phoneE164,
+            receptionistId: backup.receptionistId,
+            routedToName: backup.name?.trim() || "Receptionist",
+            reason: "busy_backup_recv",
+          }
+        }
+        // No teammate Available — do NOT Dial the owner cell while Busy.
+        return {
+          dialTargetE164: null,
+          receptionistId: null,
+          routedToName: capturePlanRoutedName(plan.kind),
+          reason: "busy_automation",
+        }
+      }
+      // Presence Available — ring the owner's cell first.
+      return {
+        dialTargetE164: ownerDial,
+        receptionistId: null,
+        routedToName: "Owner",
+        reason: "day_dial",
+      }
+    } catch (e) {
+      console.warn("[telnyx-cc] your_phone/smart_ivr plan failed:", e)
+    }
+  }
+
+  // Pool / unknown mode — keep legacy selected-receptionist-or-owner behavior.
+  const legacy = resolveDialTargetE164(routing)
+  if (legacy && isReasonablePstnDialString(legacy)) {
+    const hasRecv = Boolean(routing.selected_receptionist_id?.trim() && routing.receptionist_phone?.trim())
+    return {
+      dialTargetE164: legacy,
+      receptionistId: hasRecv ? routing.selected_receptionist_id : null,
+      routedToName: hasRecv ? routing.receptionist_name || "Receptionist" : "Owner",
+      reason: hasRecv ? "legacy_recv" : "legacy_owner",
+    }
+  }
+  return {
+    dialTargetE164: ownerDial,
+    receptionistId: null,
+    routedToName: "Owner",
+    reason: "failsafe",
+  }
+}
+
+/** Speak the Busy/Closed greeting then hang up — used when presence blocks the owner cell. */
+async function startBusyAutomationFlow(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  routing: IncomingRoutingRow
+): Promise<void> {
+  let say = "We're tied up right now. Please text us to book, or try again later. Goodbye."
+  try {
+    const presence = await getAccountPresence(routing.user_id)
+    say = resolvePresenceAutomationGreeting({
+      presenceStatus: presence.presenceStatus,
+      onJobGreetingText: presence.onJobGreetingText,
+      closedGreetingText: presence.closedGreetingText,
+    })
+  } catch (e) {
+    console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
+  }
+  const nextState = encodeTelnyxCallControlState({
+    ...state,
+    phase: "await_voicemail_prompt_end",
+    dialTargetE164: undefined,
+    dialReason: "busy_automation",
+  })
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-busy-automation-speak",
+      callControlId,
+      userId: routing.user_id,
+    })
+  )
+  const speakRes = await telnyxCallControlSpeak(callControlId, say, nextState)
+  if (!speakRes.ok) {
+    console.error(JSON.stringify({ zing: "telnyx-cc-busy-speak-failed", error: speakRes.error }))
+    await telnyxCallControlHangup(callControlId)
+  }
 }
 
 function baseState(
@@ -431,16 +648,25 @@ async function handleCallInitiated(
       return
     }
 
-    let dialTargetE164 = resolveDialTargetE164(routing)
-    if (!isReasonablePstnDialString(dialTargetE164)) {
+    let dialPlan = await resolveCallControlInboundDialPlan(routing, businessLineE164)
+    let dialTargetE164 = dialPlan.dialTargetE164
+    // Only fall back to the owner failsafe when the plan intended a PSTN ring (Available).
+    if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
       console.warn(
         JSON.stringify({
           zing: "telnyx-cc-initiated-empty-dial-target-using-failsafe",
           callControlId,
           failsafe: FAILSAFE_PRIMARY_CELL_E164,
+          planReason: dialPlan.reason,
         })
       )
       dialTargetE164 = FAILSAFE_PRIMARY_CELL_E164
+      dialPlan = {
+        ...dialPlan,
+        dialTargetE164,
+        routedToName: dialPlan.routedToName || "Owner",
+        reason: "failsafe",
+      }
     }
 
     const wantsAi = String(routing.fallback_type ?? "").toLowerCase() === "ai"
@@ -453,8 +679,12 @@ async function handleCallInitiated(
       JSON.stringify({
         zing: "telnyx-cc-initiated-dial-plan",
         callControlId,
-        dialTargetTail4: dialTargetE164.replace(/\D/g, "").slice(-4),
+        dialTargetTail4: dialTargetE164
+          ? dialTargetE164.replace(/\D/g, "").slice(-4)
+          : null,
         ringTimeoutSec,
+        planReason: dialPlan.reason,
+        recvId: dialPlan.receptionistId,
       })
     )
 
@@ -469,8 +699,8 @@ async function handleCallInitiated(
         call_type: "incoming",
         status: "ringing",
         duration_seconds: 0,
-        routed_to_receptionist_id: routing.selected_receptionist_id,
-        routed_to_name: null,
+        routed_to_receptionist_id: dialPlan.receptionistId,
+        routed_to_name: dialPlan.routedToName,
         has_recording: false,
         recording_url: null,
         recording_duration_seconds: null,
@@ -496,9 +726,12 @@ async function handleCallInitiated(
         JSON.stringify({
           zing: "telnyx-cc-answer-ok",
           callControlId,
-          dialTargetTail4: dialTargetE164.replace(/\D/g, "").slice(-4),
+          dialTargetTail4: dialTargetE164
+            ? dialTargetE164.replace(/\D/g, "").slice(-4)
+            : null,
           ringTimeoutSec,
           userId: routing.user_id,
+          planReason: dialPlan.reason,
         })
       )
       return
@@ -514,7 +747,18 @@ async function handleCallInitiated(
       )
     }
 
-    // Best-effort: try dialing primary cell even if answer payload failed oddly.
+    // Best-effort: try dialing the planned target even if answer payload failed oddly.
+    // Never Dial the owner while Presence Busy with no teammate (busy_automation).
+    if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+      console.log(
+        JSON.stringify({
+          zing: "telnyx-cc-initiated-skip-failsafe-dial-busy",
+          callControlId,
+          planReason: dialPlan.reason,
+        })
+      )
+      return
+    }
     console.log("Triggering Telnyx failsafe Dial after Answer failure...", {
       callControlId,
       to: dialTargetE164,
@@ -528,10 +772,12 @@ async function handleCallInitiated(
           userId: routing.user_id,
           businessLineE164,
           callerE164,
-          dialTargetE164,
+          dialTargetE164: dialTargetE164!,
           ringTimeoutSec,
           fallbackType: routing.fallback_type,
           inboundCallControlId: callControlId,
+          dialReason: dialPlan.reason,
+          receptionistId: dialPlan.receptionistId || undefined,
         },
         routing
       )
@@ -591,9 +837,10 @@ async function handleCallAnswered(
     })
   }
 
-  // Prefer freshly resolved routing over provisional Answer client_state (concurrent init path).
-  let dialTargetE164 = resolveDialTargetE164(routing)
-  if (!isReasonablePstnDialString(dialTargetE164)) {
+  // Re-resolve presence + Who Answers (do not trust provisional Answer client_state target).
+  const dialPlan = await resolveCallControlInboundDialPlan(routing, state.businessLineE164)
+  let dialTargetE164 = dialPlan.dialTargetE164
+  if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
     dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
   }
   const wantsAi = String(routing.fallback_type ?? state.fallbackType ?? "").toLowerCase() === "ai"
@@ -604,9 +851,11 @@ async function handleCallAnswered(
   const enrichedState: TelnyxCallControlClientState = {
     ...state,
     userId: routing.user_id || state.userId,
-    dialTargetE164,
+    dialTargetE164: dialTargetE164 || undefined,
     ringTimeoutSec,
     fallbackType: routing.fallback_type ?? state.fallbackType,
+    dialReason: dialPlan.reason,
+    receptionistId: dialPlan.receptionistId || undefined,
   }
 
   const greetingEnabled = isInboundCallerGreetingEnabled(routing)
@@ -620,8 +869,17 @@ async function handleCallAnswered(
     const speakRes = await telnyxCallControlSpeak(event.callControlId, greetingText, nextState)
     if (!speakRes.ok) {
       console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
-      await dialTechnicianLeg(event.callControlId, enrichedState, routing)
+      if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+        await startBusyAutomationFlow(event.callControlId, enrichedState, routing)
+      } else {
+        await dialTechnicianLeg(event.callControlId, enrichedState, routing)
+      }
     }
+    return
+  }
+
+  if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+    await startBusyAutomationFlow(event.callControlId, enrichedState, routing)
     return
   }
 
@@ -633,6 +891,18 @@ async function handleSpeakEnded(
 ): Promise<void> {
   const state = event.clientState
   if (!state) return
+
+  // Busy automation Speak finished — hang up (do not start voicemail recording).
+  if (state.dialReason === "busy_automation" && state.phase === "await_voicemail_prompt_end") {
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-busy-automation-hangup",
+        callControlId: event.callControlId,
+      })
+    )
+    await telnyxCallControlHangup(event.callControlId)
+    return
+  }
 
   // `await_greeting_end` is the happy path. Also dial when phase is still
   // `await_caller_answered` — a late client_state refine can overwrite speak's
@@ -661,20 +931,40 @@ async function handleSpeakEnded(
         ownerPhone: state.dialTargetE164 || FAILSAFE_PRIMARY_CELL_E164,
       })
     }
-    let dialTargetE164 = resolveDialTargetE164(routing)
-    if (!isReasonablePstnDialString(dialTargetE164)) {
+    // Fresh presence check after greeting — Busy must Dial Alex, not the owner.
+    const dialPlan = await resolveCallControlInboundDialPlan(routing, state.businessLineE164)
+    let dialTargetE164 = dialPlan.dialTargetE164
+    if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
       dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
     }
-    await dialTechnicianLeg(
-      event.callControlId,
-      {
-        ...state,
-        userId: routing.user_id || state.userId,
-        dialTargetE164,
-        fallbackType: routing.fallback_type ?? state.fallbackType,
-      },
-      routing
+
+    const nextState: TelnyxCallControlClientState = {
+      ...state,
+      userId: routing.user_id || state.userId,
+      dialTargetE164: dialTargetE164 || undefined,
+      fallbackType: routing.fallback_type ?? state.fallbackType,
+      dialReason: dialPlan.reason,
+      receptionistId: dialPlan.receptionistId || undefined,
+    }
+
+    console.log(
+      JSON.stringify({
+        zing: "telnyx-cc-speak-ended-dial-plan",
+        callControlId: event.callControlId,
+        planReason: dialPlan.reason,
+        dialTargetTail4: dialTargetE164
+          ? dialTargetE164.replace(/\D/g, "").slice(-4)
+          : null,
+        recvId: dialPlan.receptionistId,
+      })
     )
+
+    if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+      await startBusyAutomationFlow(event.callControlId, nextState, routing)
+      return
+    }
+
+    await dialTechnicianLeg(event.callControlId, nextState, routing)
     return
   }
 
@@ -822,6 +1112,16 @@ async function handleCallHangup(
     if (!routing) {
       await telnyxCallControlHangup(inboundCallControlId)
       return
+    }
+
+    // Busy backup teammate missed — do not Dial the Busy owner; play automation instead.
+    if (state.dialReason === "busy_backup_recv" || state.dialReason === "team_receptionist") {
+      const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id }).catch(() => null)
+      if (!plan || plan.kind !== "day_dial") {
+        await startBusyAutomationFlow(inboundCallControlId, state, routing)
+        return
+      }
+      // Owner became Available while teammate rang — fall through to owner voicemail / hangup below.
     }
 
     const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()

@@ -41,9 +41,9 @@ type AccountPresenceContextValue = {
 const AccountPresenceContext = createContext<AccountPresenceContextValue | null>(null)
 
 function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
-  const upper = String(raw || "AVAILABLE").toUpperCase()
-  if (upper === "ON_JOB") return "ON_JOB"
-  if (upper === "CLOSED") return "CLOSED"
+  const upper = String(raw || "AVAILABLE").toUpperCase().replace(/-/g, "_")
+  if (upper === "ON_JOB" || upper === "ONJOB" || upper === "BUSY") return "ON_JOB"
+  if (upper === "CLOSED" || upper === "OFF" || upper === "OFF_DUTY") return "CLOSED"
   return "AVAILABLE"
 }
 

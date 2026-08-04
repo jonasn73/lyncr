@@ -1552,6 +1552,8 @@ async function tryFastInboundReceptionistResponse(
             fromNumber: fromE164Early,
             toNumber: businessLineE164Early,
             organizationId: lineOrganizationId,
+            routedToReceptionistId: receptionistCanAnswer ? team!.receptionistId : null,
+            routedToName: initialRoutedName,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
           })
@@ -1761,7 +1763,7 @@ async function tryFastInboundReceptionistResponse(
             }
           }
 
-          // Open New Intake + nudge Activity immediately with the same workspace id.
+          // Open New Intake only when the owner cell is the Dial target; team Busy backup skips.
           void broadcastCallInitiated({
             ownerUserId: routing.user_id,
             callSid: callSidEarly,
@@ -1769,6 +1771,10 @@ async function tryFastInboundReceptionistResponse(
             fromNumber: fromE164Early,
             toNumber: businessLineE164Early,
             organizationId: lineOrganizationId,
+            routedToReceptionistId: busyBackupCanAnswer
+              ? busyBackupRecv!.receptionistId
+              : null,
+            routedToName: initialRoutedName,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
           })

@@ -7,6 +7,18 @@ export type TelnyxCallControlPhase =
   | "await_voicemail_prompt_end"
   | "recording"
 
+/** Why Call Control chose this PSTN target (Busy backup vs owner day dial). */
+export type TelnyxCallControlDialReason =
+  | "day_dial"
+  | "busy_backup_recv"
+  | "team_receptionist"
+  | "team_owner_available"
+  | "busy_automation"
+  | "custom_routing"
+  | "legacy_recv"
+  | "legacy_owner"
+  | "failsafe"
+
 export type TelnyxCallControlClientState = {
   v: 1
   phase: TelnyxCallControlPhase
@@ -20,6 +32,10 @@ export type TelnyxCallControlClientState = {
   dialTargetE164?: string
   ringTimeoutSec?: number
   fallbackType?: "voicemail" | "ai" | "owner"
+  /** Presence / Who Answers reason for this Dial (Busy → teammate must not fall back to owner). */
+  dialReason?: TelnyxCallControlDialReason
+  /** Private receptionist being dialed (Busy backup or team mode). */
+  receptionistId?: string
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

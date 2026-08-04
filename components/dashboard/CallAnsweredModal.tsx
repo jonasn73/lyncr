@@ -2026,6 +2026,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
       oncePerSid(`i:${String(payload.call_sid ?? "")}`, () => {
+        // Teammate is ringing (Busy backup / team mode) — do not pop owner Incoming Call as RINGING.
+        const teamDialing = Boolean(String(payload.routed_to_receptionist_id ?? "").trim())
+        if (teamDialing) {
+          scheduleRingingLookups()
+          return
+        }
         const row = rowFromInitiatedPayload(payload)
         if (!row) {
           scheduleRingingLookups()

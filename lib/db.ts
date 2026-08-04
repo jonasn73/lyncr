@@ -3406,6 +3406,9 @@ async function notifyInboundCallInitiatedTelemetry(
       from_number: fromNum,
       to_number: toNum,
       organization_id: line?.organization_id ?? null,
+      // So Busy→team rings do not pop the owner's full Incoming Call sheet.
+      routed_to_receptionist_id: log.routed_to_receptionist_id ?? null,
+      routed_to_name: log.routed_to_name ?? null,
     })
   } catch (e) {
     console.warn("[db] call-initiated telemetry publish failed:", e)
@@ -4831,6 +4834,8 @@ export async function listRecentlyRingingIncomingCalls(
         AND cl.answered_at IS NULL
         AND cl.created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
         AND cl.owner_intake_dismissed_at IS NULL
+        -- Owner intake is for owner-cell rings only; teammate Busy backup should not open it.
+        AND cl.routed_to_receptionist_id IS NULL
       ORDER BY cl.created_at DESC
       LIMIT 20
     `
@@ -4847,6 +4852,7 @@ export async function listRecentlyRingingIncomingCalls(
               AND lower(status) = 'ringing'
               AND answered_at IS NULL
               AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+              AND routed_to_receptionist_id IS NULL
             ORDER BY created_at DESC
             LIMIT 20
           `
