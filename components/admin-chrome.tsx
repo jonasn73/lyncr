@@ -177,7 +177,17 @@ function MobileBottomTabs({
   )
 }
 
-function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+function MoreSheet({
+  open,
+  onClose,
+  onLogout,
+  logoutBusy,
+}: {
+  open: boolean
+  onClose: () => void
+  onLogout: () => void
+  logoutBusy: boolean
+}) {
   const pathname = usePathname() ?? ""
   if (!open) return null
 
@@ -229,6 +239,16 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
               </Link>
             )
           })}
+          {/* Logout sits last in More — same row style as Network / Support / Settings */}
+          <button
+            type="button"
+            disabled={logoutBusy}
+            onClick={onLogout}
+            className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800/80 hover:text-slate-100 disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+            Logout
+          </button>
         </nav>
       </div>
     </>
@@ -273,8 +293,23 @@ export function AdminChrome({
           </div>
         </div>
         <NavLinks />
-        <div className="mt-auto border-t border-slate-800 p-3">
+        <div className="mt-auto space-y-2 border-t border-slate-800 p-3">
           <p className="truncate text-[11px] text-slate-500">{userEmail}</p>
+          {/* Desktop has no More sheet — keep Logout reachable in the sidebar footer */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            className="h-8 w-full justify-start gap-2 px-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            onClick={() => {
+              setBusy(true)
+              void signOutAndGoToLogin()
+            }}
+          >
+            <LogOut className="h-3.5 w-3.5" aria-hidden />
+            Logout
+          </Button>
         </div>
       </aside>
 
@@ -287,22 +322,9 @@ export function AdminChrome({
               <p className="truncate text-[11px] text-slate-500 sm:hidden">{userName}</p>
             </div>
           </div>
+          {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
           <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:bg-slate-800 hover:text-slate-100">
             <Link href="/dashboard">App</Link>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            className="border-slate-600 bg-slate-900/50 text-slate-200 hover:bg-red-950/40 hover:text-red-200"
-            onClick={() => {
-              setBusy(true)
-              void signOutAndGoToLogin()
-            }}
-          >
-            <LogOut className="h-3.5 w-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Sign out</span>
           </Button>
         </header>
 
@@ -312,7 +334,15 @@ export function AdminChrome({
         </div>
       </div>
 
-      <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        logoutBusy={busy}
+        onLogout={() => {
+          setBusy(true)
+          void signOutAndGoToLogin()
+        }}
+      />
       <MobileBottomTabs moreOpen={moreOpen} onMoreToggle={() => setMoreOpen((o) => !o)} />
     </div>
   )
