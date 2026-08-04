@@ -24,9 +24,20 @@ export type SmartOverflowFallbackCardProps = {
   loading?: boolean
   /** Live Retell webhook bridge health (legacy diagnostics when AI path still used). */
   retellConnected?: boolean
+  /** Busy but an Available teammate rings first — IVR is standby, not LIVE. */
+  standbyBecauseTeam?: boolean
+  standbyTeamName?: string | null
 }
 
-function routeCauseLabel(status: PresenceStatus | undefined): string {
+function routeCauseLabel(
+  status: PresenceStatus | undefined,
+  standbyBecauseTeam?: boolean,
+  standbyTeamName?: string | null
+): string {
+  if (standbyBecauseTeam) {
+    const who = standbyTeamName?.trim() || "Available team"
+    return `🤖 Route Cause: Presence Busy — ${who} rings first`
+  }
   if (isBusyPresenceStatus(status)) return "🤖 Route Cause: Presence Busy — phone skipped"
   return "🤖 Route Cause: Presence Available — cell rings first"
 }
@@ -43,24 +54,33 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
   onOpenScriptEditor,
   loading = false,
   retellConnected = true,
+  standbyBecauseTeam = false,
+  standbyTeamName = null,
 }: SmartOverflowFallbackCardProps) {
+  const teamLabel = standbyTeamName?.trim() || "team"
   const title = overflowActive
     ? presenceDriven
       ? "📞 FALLBACK · AUTOMATION LIVE"
       : "📞 FALLBACK · IVR MENU ACTIVE"
-    : "Smart Overflow IVR Menu"
+    : standbyBecauseTeam
+      ? "Smart Overflow IVR Menu · standby"
+      : "Smart Overflow IVR Menu"
   const value = overflowActive
     ? presenceDriven
       ? "[ IVR Menu LIVE · Presence ]"
       : "[ IVR Menu LIVE ]"
-    : "IVR Menu standby"
+    : standbyBecauseTeam
+      ? "IVR Menu standby · team first"
+      : "IVR Menu standby"
   const detail = overflowActive
     ? presenceDriven
       ? "Presence Busy — calls skip your cell and hit automation first"
       : "Inbound calls → automated greeting + press 1 / press 2 menu"
-    : presenceStatus === "AVAILABLE"
-      ? "Available — your cell rings first. Automation only runs if you don’t answer."
-      : "Use Presence (top) for Busy, or set the capacity threshold under Feedback."
+    : standbyBecauseTeam
+      ? `You're Busy — ${teamLabel} rings first. Automation only if they don't answer.`
+      : presenceStatus === "AVAILABLE"
+        ? "Available — your cell rings first. Automation only runs if you don’t answer."
+        : "Use Presence (top) for Busy, or set the capacity threshold under Feedback."
   const valueClass = overflowActive
     ? presenceDriven
       ? "animate-pulse text-amber-300"
@@ -124,6 +144,8 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
           presenceStatus={presenceStatus}
           confirmedJobsToday={confirmedJobsToday}
           capacityThreshold={capacityThreshold}
+          standbyBecauseTeam={standbyBecauseTeam}
+          standbyTeamName={standbyTeamName}
         />
       </div>
     )
@@ -193,6 +215,8 @@ export const SmartOverflowFallbackCard = memo(function SmartOverflowFallbackCard
         presenceStatus={presenceStatus}
         confirmedJobsToday={confirmedJobsToday}
         capacityThreshold={capacityThreshold}
+        standbyBecauseTeam={standbyBecauseTeam}
+        standbyTeamName={standbyTeamName}
       />
 
       <button
@@ -251,13 +275,17 @@ function IvrTriggerSummary({
   presenceStatus,
   confirmedJobsToday,
   capacityThreshold,
+  standbyBecauseTeam = false,
+  standbyTeamName = null,
 }: {
   compact?: boolean
   presenceStatus: PresenceStatus
   confirmedJobsToday: number | null
   capacityThreshold: number
+  standbyBecauseTeam?: boolean
+  standbyTeamName?: string | null
 }) {
-  const driven = isBusyPresenceStatus(presenceStatus)
+  const driven = isBusyPresenceStatus(presenceStatus) && !standbyBecauseTeam
   const confirmedLabel =
     confirmedJobsToday == null ? "—" : String(confirmedJobsToday)
   return (
@@ -270,16 +298,22 @@ function IvrTriggerSummary({
           "rounded-lg border px-2.5 py-2",
           driven
             ? "border-amber-500/35 bg-amber-500/10"
-            : "border-zinc-800 bg-zinc-950/50"
+            : standbyBecauseTeam
+              ? "border-emerald-500/30 bg-emerald-500/10"
+              : "border-zinc-800 bg-zinc-950/50"
         )}
       >
         <p
           className={cn(
             "text-[11px] font-semibold leading-snug",
-            driven ? "text-amber-100" : "text-zinc-300"
+            driven
+              ? "text-amber-100"
+              : standbyBecauseTeam
+                ? "text-emerald-100"
+                : "text-zinc-300"
           )}
         >
-          {routeCauseLabel(presenceStatus)}
+          {routeCauseLabel(presenceStatus, standbyBecauseTeam, standbyTeamName)}
         </p>
         <p className="mt-1 text-[10px] text-zinc-500">
           Today: {confirmedLabel} confirmed · auto-bypass at {capacityThreshold}

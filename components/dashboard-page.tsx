@@ -160,12 +160,16 @@ export function DashboardPage() {
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((data) => {
         if (!Array.isArray(data.data)) return
-        const mapped = data.data.map((r: Record<string, string>) => ({
-          id: r.id,
-          name: r.name,
-          phone: r.phone,
-          initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
-          color: r.color || "bg-primary",
+        const mapped = data.data.map((r: Record<string, unknown>) => ({
+          id: String(r.id ?? ""),
+          name: String(r.name ?? ""),
+          phone: String(r.phone ?? ""),
+          initials:
+            String(r.initials || "").trim() ||
+            String(r.name ?? "").slice(0, 2).toUpperCase() ||
+            "??",
+          color: String(r.color || "bg-primary"),
+          is_active: r.is_active !== false,
         }))
         setReceptionists(mapped)
         // Keep a still-valid selection; otherwise stay on Your phone (null) until routing fetch.
@@ -284,12 +288,16 @@ export function DashboardPage() {
         .then((res) => (res.ok ? res.json() : { data: [] }))
         .then((data) => {
           if (cancelled || !Array.isArray(data.data)) return
-          const mapped = data.data.map((r: Record<string, string>) => ({
-            id: r.id,
-            name: r.name,
-            phone: r.phone,
-            initials: r.initials || r.name?.slice(0, 2)?.toUpperCase() || "??",
-            color: r.color || "bg-primary",
+          const mapped = data.data.map((r: Record<string, unknown>) => ({
+            id: String(r.id ?? ""),
+            name: String(r.name ?? ""),
+            phone: String(r.phone ?? ""),
+            initials:
+              String(r.initials || "").trim() ||
+              String(r.name ?? "").slice(0, 2).toUpperCase() ||
+              "??",
+            color: String(r.color || "bg-primary"),
+            is_active: r.is_active !== false,
           }))
           setReceptionists(mapped)
           // Roster load must not invent a Who answers pick — null stays Your phone.

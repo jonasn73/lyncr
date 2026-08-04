@@ -42,6 +42,8 @@ export type DashboardRoutingSurfaceProps = {
   routingLineDetailLoading: boolean
   isRoutingToOwner: boolean
   selectedReceptionist: Contact | null
+  /** Full team roster for Busy → Available teammate primary. */
+  teamReceptionists?: Contact[]
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
@@ -70,6 +72,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   routingLineDetailLoading,
   isRoutingToOwner,
   selectedReceptionist,
+  teamReceptionists = [],
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
@@ -107,6 +110,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       routingLineDetailLoading={routingLineDetailLoading}
       isRoutingToOwner={isRoutingToOwner}
       selectedReceptionist={selectedReceptionist}
+      teamReceptionists={teamReceptionists}
       ownerPhoneDisplay={ownerPhoneDisplay}
       ringTimeoutSec={ringTimeoutSec}
       activeFallbackLabel={activeFallbackLabel}
@@ -142,6 +146,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   routingLineDetailLoading,
   isRoutingToOwner,
   selectedReceptionist,
+  teamReceptionists = [],
   ownerPhoneDisplay,
   ringTimeoutSec,
   activeFallbackLabel,
@@ -341,6 +346,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                   routingLineDetailLoading={routingLineDetailLoading}
                   isRoutingToOwner={isRoutingToOwner}
                   selectedReceptionist={selectedReceptionist}
+                  teamReceptionists={teamReceptionists}
                   ownerPhoneDisplay={ownerPhoneDisplay}
                   ringTimeoutSec={ringTimeoutSec}
                   activeFallbackLabel={activeFallbackLabel}

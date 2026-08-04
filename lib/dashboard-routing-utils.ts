@@ -12,6 +12,8 @@ export interface Contact {
   phone: string
   initials: string
   color: string
+  /** Receptionist portal Available toggle (`receptionists.is_active`). Default true when omitted. */
+  is_active?: boolean
 }
 
 /** One business line on the dashboard — includes API `routing_summary` for AI confirmation. */

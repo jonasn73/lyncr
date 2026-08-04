@@ -37,7 +37,7 @@ export function dashboardBootstrapEquivalent(
   for (let i = 0; i < a.routing.receptionists.length; i++) {
     const ar = a.routing.receptionists[i]
     const br = b.routing.receptionists[i]
-    if (!br || ar.id !== br.id || ar.name !== br.name || ar.phone !== br.phone) {
+    if (!br || ar.id !== br.id || ar.name !== br.name || ar.phone !== br.phone || ar.is_active !== br.is_active) {
       return false
     }
   }

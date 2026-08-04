@@ -10,6 +10,8 @@ export type DashboardRoutingBootstrap = {
     phone: string
     initials: string
     color: string
+    /** Receptionist Available (`is_active`). */
+    is_active: boolean
   }>
   routing: {
     selected_receptionist_id: string | null

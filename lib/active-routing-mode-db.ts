@@ -255,6 +255,61 @@ export async function applyActiveRoutingMode(params: {
   }
 }
 
+/**
+ * First Available private receptionist for an owner account.
+ * Used when the owner is Busy/Closed: ring an Available teammate before IVR / booking automation.
+ * Prefers the line's selected_receptionist_id when that person is still Available + dialable.
+ */
+export async function getFirstAvailableOwnerReceptionist(params: {
+  ownerUserId: string
+  /** Optional preferred id (e.g. Who Answers team pick) — used only if still Available. */
+  preferredReceptionistId?: string | null
+}): Promise<{
+  receptionistId: string
+  name: string | null
+  phoneE164: string
+} | null> {
+  const ownerUserId = params.ownerUserId?.trim()
+  if (!ownerUserId) return null
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT id, name, phone, is_active
+      FROM receptionists
+      WHERE user_id = ${ownerUserId} AND is_active = true
+      ORDER BY created_at ASC
+    `
+    if (!rows.length) return null
+
+    const preferred = params.preferredReceptionistId?.trim() || ""
+    const ordered = preferred
+      ? [
+          ...rows.filter((r) => String((r as { id?: string }).id) === preferred),
+          ...rows.filter((r) => String((r as { id?: string }).id) !== preferred),
+        ]
+      : rows
+
+    for (const raw of ordered) {
+      const row = raw as { id?: string; name?: string; phone?: string }
+      const id = String(row.id || "").trim()
+      if (!id) continue
+      const phoneRaw = typeof row.phone === "string" ? row.phone.trim() : ""
+      if (!phoneRaw) continue
+      const phoneE164 = normalizePhoneNumberE164(phoneRaw) || phoneRaw
+      if (!phoneE164) continue
+      return {
+        receptionistId: id,
+        name: typeof row.name === "string" ? row.name : null,
+        phoneE164,
+      }
+    }
+    return null
+  } catch (e) {
+    console.warn("[active-routing-mode] first available receptionist lookup failed:", e)
+    return null
+  }
+}
+
 /** Team receptionist dial target for an inbound DID (null when not in that mode). */
 export async function getTeamReceptionistForDid(toNumber: string): Promise<{
   receptionistId: string

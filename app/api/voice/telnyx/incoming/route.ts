@@ -75,6 +75,7 @@ import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "
 import {
   getActiveRoutingModeForDid,
   getCustomRoutingPhoneForDid,
+  getFirstAvailableOwnerReceptionist,
   getTeamReceptionistForDid,
 } from "@/lib/active-routing-mode-db"
 import {
@@ -1674,8 +1675,26 @@ async function tryFastInboundReceptionistResponse(
           Number(routing.ring_timeout_seconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
         )
 
-        const initialRoutedName =
-          plan.kind === "presence_closed"
+        // Owner Busy/Closed/calendar → try an Available private receptionist before IVR.
+        const ownerCannotAnswer = plan.kind !== "day_dial"
+        let busyBackupRecv: Awaited<ReturnType<typeof getFirstAvailableOwnerReceptionist>> = null
+        if (ownerCannotAnswer && routing.user_id) {
+          try {
+            busyBackupRecv = await getFirstAvailableOwnerReceptionist({
+              ownerUserId: routing.user_id,
+              preferredReceptionistId: routing.selected_receptionist_id,
+            })
+          } catch (e) {
+            console.warn("[telnyx-incoming] busy-backup receptionist lookup skipped:", e)
+          }
+        }
+        const busyBackupCanAnswer =
+          Boolean(busyBackupRecv?.phoneE164) &&
+          isReasonablePstnDialString(busyBackupRecv!.phoneE164)
+
+        const initialRoutedName = busyBackupCanAnswer
+          ? busyBackupRecv!.name?.trim() || "Receptionist"
+          : plan.kind === "presence_closed"
             ? CAPTURE_STATUS_PRESENCE_CLOSED
             : plan.kind === "presence_on_job"
               ? CAPTURE_STATUS_PRESENCE_ON_JOB
@@ -1714,7 +1733,9 @@ async function tryFastInboundReceptionistResponse(
               call_type: initialCallType,
               status: "ringing",
               duration_seconds: 0,
-              routed_to_receptionist_id: null,
+              routed_to_receptionist_id: busyBackupCanAnswer
+                ? busyBackupRecv!.receptionistId
+                : null,
               routed_to_name: initialRoutedName,
               has_recording: false,
               recording_url: null,
@@ -1776,6 +1797,26 @@ async function tryFastInboundReceptionistResponse(
             actionUrl: `${captureBase}?step=presence-holiday`,
             presence,
           })
+        } else if (busyBackupCanAnswer) {
+          // Owner unavailable + Available teammate → ring her first; miss → recv-fallback (owner if Available, else VR).
+          const recvAnswerUrl = buildReceptionistAnswerUrl({
+            appUrl: VOICE_WEBHOOK_APP_URL,
+            ownerUserId: routing.user_id,
+            toNumber: businessLineE164Early,
+            callSid: callSidEarly,
+            businessType: "generic",
+            callerNumber: fromE164Early !== "Unknown" ? fromE164Early : null,
+            callerName: pickField(fields, ["CallerName", "caller_name"]) || null,
+            businessName: resolveWorkspaceDisplayName(routing),
+            receptionistId: busyBackupRecv!.receptionistId,
+          })
+          xml = buildDayCaptureDialXml({
+            ringE164: busyBackupRecv!.phoneE164,
+            actionUrl: `${captureBase}?step=recv-fallback`,
+            callerId: businessLineE164Early,
+            timeoutSeconds: dayRingTimeoutSec,
+            numberUrl: recvAnswerUrl,
+          })
         } else if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
           xml = buildAutomationPresenceGatherXml({
             kind: plan.kind === "presence_closed" ? "presence_closed" : "presence_on_job",
@@ -1812,14 +1853,18 @@ async function tryFastInboundReceptionistResponse(
             ...(perfStartMs != null
               ? { execMs: +(performance.now() - perfStartMs).toFixed(2) }
               : {}),
-            zing: `telnyx-incoming-capture-${plan.kind}`,
+            zing: busyBackupCanAnswer
+              ? "telnyx-incoming-capture-busy-backup-recv"
+              : `telnyx-incoming-capture-${plan.kind}`,
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
-            // Only meaningful when we actually Dial; Busy / Closed skip the cell.
-            ringTail4:
-              plan.kind === "day_dial"
+            // Dial target: Available teammate while Busy, else owner cell on day_dial.
+            ringTail4: busyBackupCanAnswer
+              ? busyBackupRecv!.phoneE164.replace(/\D/g, "").slice(-4) || null
+              : plan.kind === "day_dial"
                 ? ownerDial.replace(/\D/g, "").slice(-4) || null
                 : null,
+            busyBackupRecvId: busyBackupCanAnswer ? busyBackupRecv!.receptionistId : null,
             dayRingTimeoutSec,
             lookupMs,
             routingSource: memHit ? "memory" : "db",

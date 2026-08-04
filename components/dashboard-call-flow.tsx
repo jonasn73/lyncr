@@ -309,6 +309,8 @@ export type DashboardCallFlowProps = {
   routingLineDetailLoading: boolean
   isRoutingToOwner: boolean
   selectedReceptionist: Contact | null
+  /** Full team roster — when Busy, an Available teammate is shown before IVR. */
+  teamReceptionists?: Contact[]
   ownerPhoneDisplay: string
   ringTimeoutSec: number
   activeFallbackLabel: string
@@ -393,6 +395,12 @@ export function buildCallFlowNodes(params: {
   /** Presence Busy — cell is bypassed for automation. */
   presenceBypass?: boolean
   presenceStatus?: "AVAILABLE" | "ON_JOB" | "CLOSED"
+  /**
+   * When Busy, an Available teammate rings before IVR — show her as the live primary
+   * instead of advertising automation first.
+   */
+  busyBackupReceptionistName?: string | null
+  busyBackupReceptionistPhone?: string | null
   openWhoAnswers: () => void
   configureStrategy: () => void
 }): CallFlowNode[] {
@@ -400,10 +408,17 @@ export function buildCallFlowNodes(params: {
   const nodes: CallFlowNode[] = []
   const ivrLive = params.ivrMenuLive === true
   const presenceBypass = params.presenceBypass === true
-  const cellBypassed = ivrLive || presenceBypass
-  const presenceBadge = presenceBypass ? "[ BUSY ]" : undefined
+  const busyBackupName = params.busyBackupReceptionistName?.trim() || ""
+  // Busy + Available teammate → she owns first ring (not IVR).
+  const busyBackupLive = presenceBypass && Boolean(busyBackupName)
+  const cellBypassed = (ivrLive || presenceBypass) && !busyBackupLive
+  const presenceBadge = presenceBypass && !busyBackupLive ? "[ BUSY ]" : undefined
   const bypassDetail =
     "Presence Busy — calls go to booking automation. Your phone will not ring."
+  const busyBackupDetail =
+    params.busyBackupReceptionistPhone?.trim()
+      ? `${params.busyBackupReceptionistPhone.trim()} · rings first while you're Busy`
+      : "Rings first while you're Busy"
 
   // Node 1 — Primary: whoever the webhook dials first on this line.
   if (poolIsPrimary) {
@@ -423,6 +438,19 @@ export function buildCallFlowNodes(params: {
       valueBadge: presenceBadge || (ivrLive ? "[ Forwarding to IVR ]" : undefined),
       badgeTone: presenceBypass ? "amber" : ivrLive ? "emerald" : "amber",
       detailMuted: cellBypassed,
+    })
+  } else if (busyBackupLive) {
+    // Owner Busy + Available receptionist — she is the live first hop (matches inbound TeXML).
+    nodes.push({
+      key: "primary",
+      title: "Primary · Who answers",
+      icon: Smartphone,
+      value: busyBackupName,
+      detail: busyBackupDetail,
+      valueBadge: "[ LIVE ]",
+      badgeTone: "emerald",
+      onOpen: params.openWhoAnswers,
+      accent: "primary",
     })
   } else if (params.isRoutingToOwner && params.autopilotMode && !cellBypassed) {
     // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
@@ -518,6 +546,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   routingLineDetailLoading,
   isRoutingToOwner,
   selectedReceptionist,
+  teamReceptionists = [],
   ownerPhoneDisplay,
   ringTimeoutSec: _ringTimeoutSec,
   activeFallbackLabel: _activeFallbackLabel,
@@ -592,12 +621,32 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   // Smart IVR / capacity overflow must NOT claim "100% automation" while Available —
   // Available always rings the cell first; automation is only the unanswered fallback.
   const presenceIsAvailable = presenceReady && presenceStatus === "AVAILABLE"
+  // When Busy, prefer an Available teammate (same order as inbound TeXML).
+  const busyBackupReceptionist = (() => {
+    if (!presenceBypass) return null
+    const dialable = teamReceptionists.filter(
+      (r) => r.is_active !== false && Boolean(r.phone?.trim())
+    )
+    if (dialable.length === 0) return null
+    if (
+      selectedReceptionist &&
+      selectedReceptionist.is_active !== false &&
+      selectedReceptionist.phone?.trim()
+    ) {
+      return selectedReceptionist
+    }
+    return dialable[0] ?? null
+  })()
+  const busyBackupLive = Boolean(busyBackupReceptionist)
   const showIvrDeck =
     activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
-  // Live "owns first answer" only when presence actually bypasses the cell.
-  const ivrMenuLive = presenceBypass
+  // Connector pulse / LIVE glow only when automation actually owns first answer.
+  const ivrMenuLive = presenceBypass && !busyBackupLive
   // Capacity overflow is a standby label while Available (not a primary-route takeover).
-  const overflowCardActive = presenceBypass || (!presenceIsAvailable && smartOverflow.overflowActive)
+  // Busy + Available receptionist → IVR stays standby (not LIVE).
+  const overflowCardActive =
+    (presenceBypass && !busyBackupLive) ||
+    (!presenceIsAvailable && smartOverflow.overflowActive)
 
   // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
   const flowNodes = buildCallFlowNodes({
@@ -605,13 +654,19 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     allowLyncrNetworkFallback,
     isRoutingToOwner,
     selectedReceptionistName: selectedReceptionist?.name ?? null,
-    selectedReceptionistPhone: selectedReceptionist?.phone ? formatPhoneDisplay(selectedReceptionist.phone) : null,
+    selectedReceptionistPhone: selectedReceptionist?.phone
+      ? formatPhoneDisplay(selectedReceptionist.phone)
+      : null,
     ownerPhoneDisplay,
     autopilotMode: autopilotMode && !presenceBypass,
     // Never treat Smart IVR as cell-bypass while presence is Available.
     ivrMenuLive: false,
     presenceBypass,
     presenceStatus,
+    busyBackupReceptionistName: busyBackupReceptionist?.name ?? null,
+    busyBackupReceptionistPhone: busyBackupReceptionist?.phone
+      ? formatPhoneDisplay(busyBackupReceptionist.phone)
+      : null,
     openWhoAnswers: () => setWhoAnswersOpen(true),
     configureStrategy: onConfigureStrategy,
   })
@@ -631,7 +686,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       compact
       step={String(primaryAndNetworkNodes.length + 2)}
       overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass}
+      presenceDriven={presenceBypass && !busyBackupLive}
       presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
@@ -639,6 +694,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       onOpenScriptEditor={openScriptEditor}
       loading={routingLineDetailLoading || smartOverflow.loading}
       retellConnected={smartOverflow.retellConnected}
+      standbyBecauseTeam={busyBackupLive}
+      standbyTeamName={busyBackupReceptionist?.name ?? null}
     />
   ) : null
   const overflowCardDesktop = showIvrDeck ? (
@@ -646,7 +703,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       compact={false}
       step={String(primaryAndNetworkNodes.length + 2)}
       overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass}
+      presenceDriven={presenceBypass && !busyBackupLive}
       presenceStatus={presenceStatus}
       nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
       confirmedJobsToday={smartOverflow.confirmedJobsToday}
@@ -654,6 +711,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       onOpenScriptEditor={openScriptEditor}
       loading={routingLineDetailLoading || smartOverflow.loading}
       retellConnected={smartOverflow.retellConnected}
+      standbyBecauseTeam={busyBackupLive}
+      standbyTeamName={busyBackupReceptionist?.name ?? null}
     />
   ) : null
 
