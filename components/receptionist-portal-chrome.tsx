@@ -1,6 +1,6 @@
 "use client"
 
-// Chrome for the receptionist portal — Home / Calls / Earnings.
+// Chrome for the receptionist portal — desk header + Home / Calls / Earnings.
 // Sign out: header on desktop (sm+), bottom tab on mobile (no duplicate).
 
 import Link from "next/link"
@@ -45,24 +45,32 @@ export function ReceptionistPortalChrome({
   return (
     <div className="min-h-screen bg-background text-foreground pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-8">
       <ReceptionistImpersonationBar />
-      <header className="border-b border-border/60 bg-card/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-              <Phone className="h-4 w-4" aria-hidden />
+
+      {/* Desk-style header: console label + name + company */}
+      <header className="border-b border-border/50 bg-card/90 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Phone className="h-3.5 w-3.5" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Receptionist</p>
-              <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
-              {businessName ? (
-                <p className="truncate text-xs text-zinc-400">
-                  Assigned to <span className="font-medium text-zinc-200">{businessName}</span>
-                </p>
-              ) : null}
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                Receptionist console
+              </p>
+              <p className="truncate text-sm font-semibold leading-tight text-foreground">
+                {userName}
+                {businessName ? (
+                  <span className="font-normal text-zinc-500">
+                    {" · "}
+                    <span className="text-zinc-300">{businessName}</span>
+                  </span>
+                ) : null}
+              </p>
             </div>
           </div>
+
           {/* Desktop / tablet header nav — includes Sign out (bottom bar is sm:hidden) */}
-          <div className="hidden items-center gap-1 sm:flex">
+          <div className="hidden items-center gap-0.5 sm:flex">
             {NAV.map((item) => {
               const active = item.match(pathname)
               const Icon = item.icon
@@ -73,7 +81,7 @@ export function ReceptionistPortalChrome({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "text-zinc-400 hover:text-foreground",
+                    "h-8 text-zinc-400 hover:text-foreground",
                     active && "bg-primary/10 text-primary hover:text-primary"
                   )}
                 >
@@ -89,7 +97,7 @@ export function ReceptionistPortalChrome({
               variant="ghost"
               size="sm"
               onClick={() => void handleLogout()}
-              className="text-zinc-400 hover:text-foreground"
+              className="h-8 text-zinc-400 hover:text-foreground"
             >
               <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Sign out
@@ -98,11 +106,11 @@ export function ReceptionistPortalChrome({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
 
-      {/* Mobile bottom tabs */}
+      {/* Mobile bottom tabs — safe-area padding keeps controls above the browser chrome */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-sm sm:hidden pb-[env(safe-area-inset-bottom)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-card/95 backdrop-blur-sm sm:hidden pb-[env(safe-area-inset-bottom)]"
         aria-label="Receptionist sections"
       >
         <div className="mx-auto flex max-w-6xl items-stretch justify-around px-2 pt-1">

@@ -4,6 +4,9 @@
 // Available = eligible to ring IF the owner already chose you under Who answers.
 // Unavailable = skip you even when selected; owner backup runs instead.
 // This toggle does NOT change Who answers — only the business owner does that.
+//
+// variant="card"  — legacy bordered panel (unused on Home after console redesign)
+// variant="console" — switch only (status band lives in the parent)
 
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -15,13 +18,19 @@ export function ReceptionistAvailabilityToggle({
   isAvailable,
   businessName,
   onChange,
+  variant = "console",
 }: {
   isAvailable: boolean
   businessName: string
   onChange: (next: boolean) => void
+  /** "console" = compact switch for the duty band; "card" = old standalone panel */
+  variant?: "card" | "console"
 }) {
+  // Local copy so the switch flips immediately while the API save runs
   const [current, setCurrent] = useState(isAvailable)
+  // True while PATCH /api/receptionist/availability is in flight
   const [saving, setSaving] = useState(false)
+  // Shown under the switch if the save fails
   const [error, setError] = useState<string | null>(null)
 
   // Sync from server after parent reload — never setState during render (#185).
@@ -53,6 +62,35 @@ export function ReceptionistAvailabilityToggle({
     }
   }
 
+  // Compact switch used inside the hero status band
+  if (variant === "console") {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2.5">
+          {/* Short label next to the switch so duty state is obvious */}
+          <span
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide transition-colors duration-200",
+              current ? "text-emerald-300" : "text-zinc-500"
+            )}
+          >
+            {current ? "On" : "Off"}
+          </span>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
+          <Switch
+            checked={current}
+            disabled={saving}
+            onCheckedChange={(checked) => void toggle(checked)}
+            aria-label={current ? "Set unavailable (off duty)" : "Set available (on duty)"}
+            className="transition-transform duration-200 data-[state=checked]:scale-105"
+          />
+        </div>
+        {error ? <p className="max-w-[12rem] text-right text-xs text-red-400">{error}</p> : null}
+      </div>
+    )
+  }
+
+  // Legacy card layout (kept for any other callers)
   return (
     <WorkspacePanel
       className={cn(

@@ -1,10 +1,11 @@
 "use client"
 
-// Receptionist workspace — Home (status), Calls (ledger + intake), Earnings (pay metrics).
+// Receptionist workspace — Home (console), Calls (ledger + intake), Earnings (pay metrics).
+// Home is a live ops desk: duty band + answer channel + live strip (not a stack of marketing cards).
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Loader2, PhoneCall, PhoneIncoming, Wallet } from "lucide-react"
+import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
@@ -66,69 +67,68 @@ function billingCycleLabel(start: string, end: string): string {
   return `${s.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${e.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
 }
 
-function LiveStatusPanel({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
+/** Compact live strip under the duty band — not a third full card. */
+function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
   const { live_status, receptionist } = dashboard
   const onCall = live_status.mode === "on_call"
   const available = receptionist.is_active
 
+  // Primary line shown in the strip
+  const headline = onCall
+    ? "On an active call"
+    : available
+      ? "Online & ready"
+      : "Off duty"
+
+  // Secondary context (company / caller)
+  const detail = onCall ? (
+    <>
+      Answering for <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+      {" · "}
+      {formatPhoneDisplay(live_status.caller_number)}
+      {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
+    </>
+  ) : available ? (
+    <>
+      Waiting for <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+    </>
+  ) : (
+    <>
+      Not selected · <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+    </>
+  )
+
   return (
-    <WorkspacePanel
+    <div
       className={cn(
-        "p-5",
-        onCall ? "border-emerald-500/40 bg-emerald-950/20" : "border-primary/30 bg-primary/5"
+        "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors duration-300",
+        onCall
+          ? "border-emerald-500/35 bg-emerald-950/25"
+          : available
+            ? "border-primary/25 bg-primary/5"
+            : "border-border/40 bg-zinc-950/40"
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "mt-0.5 flex h-10 w-10 items-center justify-center rounded-full",
-              onCall ? "bg-emerald-500/20 text-emerald-300" : "bg-primary/15 text-primary"
-            )}
-          >
-            {onCall ? <PhoneCall className="h-5 w-5" aria-hidden /> : <PhoneIncoming className="h-5 w-5" aria-hidden />}
-          </span>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Live status</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {onCall ? "On an active call" : available ? "Online & ready" : "Stepped away"}
-            </p>
-            <p className="mt-1 text-sm text-zinc-400">
-              {onCall ? (
-                <>
-                  Answering for <span className="font-medium text-zinc-200">{live_status.business_name}</span>
-                  {" · "}
-                  {formatPhoneDisplay(live_status.caller_number)}
-                  {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
-                </>
-              ) : available ? (
-                <>
-                  Waiting for calls for{" "}
-                  <span className="font-medium text-zinc-200">{live_status.business_name}</span>
-                </>
-              ) : (
-                <>
-                  Not receiving calls for{" "}
-                  <span className="font-medium text-zinc-200">{live_status.business_name}</span>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
+      {/* Soft pulse when available and idle — signals “listening” without noise */}
+      <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
+        {available && !onCall ? (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-60" />
+        ) : null}
         <span
           className={cn(
-            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
-            onCall
-              ? "bg-emerald-500/15 text-emerald-300"
-              : available
-                ? "bg-success/15 text-success"
-                : "bg-zinc-800 text-zinc-400"
+            "relative inline-flex h-2.5 w-2.5 rounded-full",
+            onCall ? "bg-emerald-400" : available ? "bg-primary" : "bg-zinc-600"
           )}
-        >
-          {onCall ? "In call" : available ? "Available" : "Unavailable"}
-        </span>
+        />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {headline}
+          <span className="text-zinc-500"> · </span>
+          <span className="font-normal text-zinc-400">{detail}</span>
+        </p>
       </div>
-    </WorkspacePanel>
+    </div>
   )
 }
 
@@ -144,7 +144,7 @@ function CallRows({
   const [openId, setOpenId] = useState<string | null>(null)
 
   if (rows.length === 0) {
-    return <p className="px-5 py-10 text-center text-sm text-zinc-500">{emptyMessage}</p>
+    return <p className="px-4 py-8 text-center text-sm text-zinc-500">{emptyMessage}</p>
   }
 
   return (
@@ -264,6 +264,7 @@ export function ReceptionistPortalView() {
     }
   }, [receptionistId, load])
 
+  // Local answer-channel state (synced from server, drives WebRTC)
   const [endpoint, setEndpoint] = useState<"WEB" | "CELL">("CELL")
   const serverEndpoint = dashboard?.receptionist.routing_endpoint
   useEffect(() => {
@@ -277,7 +278,7 @@ export function ReceptionistPortalView() {
     return (
       <div className="flex items-center justify-center gap-2 py-24 text-sm text-zinc-500">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
-        Loading your workspace…
+        Loading console…
       </div>
     )
   }
@@ -294,35 +295,33 @@ export function ReceptionistPortalView() {
 
   const cycleLabel = billingCycleLabel(dashboard.billing_cycle.start, dashboard.billing_cycle.end)
   const callRows = dashboard.recent_calls?.length ? dashboard.recent_calls : dashboard.ledger
+  const rateLabel =
+    dashboard.receptionist.pay_mode === "FLAT_RATE"
+      ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
+      : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`
 
-  const titles: Record<PortalTab, { eyebrow: string; title: string }> = {
-    home: { eyebrow: "Your workspace", title: dashboard.business_name },
-    calls: { eyebrow: "Your calls", title: "Calls that rang you" },
-    earnings: { eyebrow: "Pay", title: "Earnings" },
-  }
+  const available = dashboard.receptionist.is_active
+  const onCall = dashboard.live_status.mode === "on_call"
 
   return (
-    <WorkspacePage>
-      <WorkspacePageHeader
-        eyebrow={titles[tab].eyebrow}
-        title={titles[tab].title}
-        action={
-          tab === "earnings" ? (
-            <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
-              <Wallet className="h-3.5 w-3.5" aria-hidden />
-              {dashboard.receptionist.pay_mode === "FLAT_RATE"
-                ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / answered call`
-                : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`}
-            </span>
-          ) : (
-            <span className="text-xs text-zinc-500">
-              {dashboard.receptionist.pay_mode === "FLAT_RATE"
-                ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
-                : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`}
-            </span>
-          )
-        }
-      />
+    <WorkspacePage className={tab === "home" ? "gap-3 sm:gap-4" : undefined}>
+      {/* Calls / Earnings keep a compact page header; Home uses the duty band as the hero */}
+      {tab !== "home" ? (
+        <WorkspacePageHeader
+          eyebrow={tab === "calls" ? "Console" : "Pay"}
+          title={tab === "calls" ? "Calls" : "Earnings"}
+          action={
+            tab === "earnings" ? (
+              <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
+                <Wallet className="h-3.5 w-3.5" aria-hidden />
+                {rateLabel}
+              </span>
+            ) : (
+              <span className="text-xs text-zinc-500">{dashboard.business_name}</span>
+            )
+          }
+        />
+      ) : null}
 
       {/* Live call HUD stays available on every tab so intake isn’t lost when navigating. */}
       <audio id={WEBRTC_REMOTE_AUDIO_ID} autoPlay />
@@ -353,36 +352,85 @@ export function ReceptionistPortalView() {
 
       {tab === "home" ? (
         <>
-          <ReceptionistAvailabilityToggle
-            isAvailable={dashboard.receptionist.is_active}
-            businessName={dashboard.business_name}
-            onChange={() => load({ silent: true })}
-          />
+          {/* ── Hero duty band: status + toggle + answer channel ── */}
+          <section
+            className={cn(
+              "overflow-hidden rounded-2xl border transition-colors duration-300",
+              onCall
+                ? "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card/90 to-card/90"
+                : available
+                  ? "border-primary/35 bg-gradient-to-br from-primary/10 via-card/90 to-card/90"
+                  : "border-border/50 bg-card/80"
+            )}
+          >
+            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-5 sm:py-5">
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    onCall ? "text-emerald-400" : available ? "text-primary" : "text-zinc-500"
+                  )}
+                >
+                  Duty status
+                </p>
+                <h1
+                  className={cn(
+                    "mt-1 text-2xl font-semibold tracking-tight sm:text-3xl",
+                    onCall ? "text-emerald-200" : available ? "text-foreground" : "text-zinc-400"
+                  )}
+                >
+                  {onCall ? "ON CALL" : available ? "ON DUTY" : "OFF DUTY"}
+                </h1>
+                <p className="mt-1.5 truncate text-sm text-zinc-300">
+                  <span className="font-medium text-foreground">{dashboard.business_name}</span>
+                  <span className="text-zinc-600"> · </span>
+                  <span className="text-zinc-400">{rateLabel}</span>
+                </p>
+                <p className="mt-2 hidden max-w-md text-xs leading-relaxed text-zinc-500 md:block">
+                  {available
+                    ? "You’re eligible when the owner has you under Who answers. This switch doesn’t pick you by itself."
+                    : "You won’t get rings — calls use the owner’s backup. Who answers stays the owner’s choice."}
+                </p>
+              </div>
 
-          <ReceptionistEndpointToggle
-            endpoint={endpoint}
-            webCallingAvailable={webCallingAvailable}
-            webStatus={web.status}
-            webError={web.error}
-            onChange={(next) => {
-              setEndpoint(next)
-              load({ silent: true })
-            }}
-          />
+              <ReceptionistAvailabilityToggle
+                isAvailable={dashboard.receptionist.is_active}
+                businessName={dashboard.business_name}
+                onChange={() => load({ silent: true })}
+                variant="console"
+              />
+            </div>
 
-          {!activeCall ? <LiveStatusPanel dashboard={dashboard} /> : null}
+            <div className="border-t border-border/40 px-4 py-3 sm:px-5">
+              <ReceptionistEndpointToggle
+                endpoint={endpoint}
+                webCallingAvailable={webCallingAvailable}
+                webStatus={web.status}
+                webError={web.error}
+                onChange={(next) => {
+                  setEndpoint(next)
+                  load({ silent: true })
+                }}
+                variant="console"
+              />
+            </div>
+          </section>
 
-          <p className="text-center text-xs text-zinc-500">
-            Calls &amp; earnings moved to their own tabs — use the menu above (or bottom bar on phones).
+          {/* Compact live strip (hidden while live intake is open) */}
+          {!activeCall ? <LiveStatusStrip dashboard={dashboard} /> : null}
+
+          {/* Desktop tip only — non-actionable on phones */}
+          <p className="hidden text-center text-xs text-zinc-600 md:block">
+            Calls &amp; earnings are in their own tabs — use the menu above (or bottom bar on phones).
           </p>
         </>
       ) : null}
 
       {tab === "calls" ? (
-        <WorkspacePanel className="overflow-hidden">
-          <div className="border-b border-border/60 px-5 py-4">
+        <WorkspacePanel className="overflow-hidden shadow-none ring-0">
+          <div className="border-b border-border/50 px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">Calls that rang your line</h2>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
               Only calls routed to you for {dashboard.business_name} — not every company call.
             </p>
           </div>
@@ -396,31 +444,31 @@ export function ReceptionistPortalView() {
 
       {tab === "earnings" ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
             <WorkspaceStatCard
-              label="Today's earnings"
+              label="Today"
               value={formatUsd(dashboard.metrics.today_earnings)}
-              hint="Answered calls since midnight UTC"
+              hint="Since midnight UTC"
               accent="primary"
             />
             <WorkspaceStatCard
-              label="Current pay period"
+              label="Pay period"
               value={formatUsd(dashboard.metrics.pay_period_earnings)}
               hint={cycleLabel}
               accent="success"
             />
             <WorkspaceStatCard
-              label="Total active talk time"
+              label="Talk time"
               value={`${dashboard.metrics.total_active_talk_minutes} min`}
-              hint={`${dashboard.metrics.total_active_talk_seconds}s this pay period`}
+              hint={`${dashboard.metrics.total_active_talk_seconds}s this period`}
             />
           </div>
 
-          <WorkspacePanel className="overflow-hidden">
-            <div className="border-b border-border/60 px-5 py-4">
+          <WorkspacePanel className="overflow-hidden shadow-none ring-0">
+            <div className="border-b border-border/50 px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">Pay period ledger</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                Answered calls this pay period for {dashboard.business_name}. Payout calculated per row.
+              <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
+                Answered calls this pay period for {dashboard.business_name}. Payout per row.
               </p>
             </div>
             <CallRows
