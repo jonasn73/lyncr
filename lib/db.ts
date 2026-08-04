@@ -39,6 +39,8 @@ import type {
   PortingNotification,
   FeedbackSubmission,
   FeedbackStatus,
+  AdminSupportEmail,
+  AdminSupportEmailListItem,
   AdminUserSummary,
   AdminUserDetail,
   FeedbackCategory,
@@ -12498,6 +12500,210 @@ export async function updateFeedbackSubmissionStatusAdmin(
     return row ? parseFeedbackSubmissionRow(row) : null
   } catch (e) {
     if (isUndefinedRelationError(e, "feedback_submissions")) return null
+    throw e
+  }
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => String(v))
+  return []
+}
+
+function parseAdminSupportEmailRow(row: Record<string, unknown>): AdminSupportEmail {
+  const meta = row.provider_meta
+  return {
+    id: String(row.id),
+    provider_email_id: String(row.provider_email_id ?? ""),
+    message_id: row.message_id != null ? String(row.message_id) : null,
+    from_email: String(row.from_email ?? ""),
+    from_name: row.from_name != null ? String(row.from_name) : null,
+    to_email: String(row.to_email ?? ""),
+    to_emails: parseStringArray(row.to_emails),
+    received_for: parseStringArray(row.received_for),
+    subject: String(row.subject ?? ""),
+    text_body: row.text_body != null ? String(row.text_body) : null,
+    html_body: row.html_body != null ? String(row.html_body) : null,
+    received_at:
+      row.received_at instanceof Date ? row.received_at.toISOString() : String(row.received_at ?? ""),
+    read_at:
+      row.read_at == null
+        ? null
+        : row.read_at instanceof Date
+          ? row.read_at.toISOString()
+          : String(row.read_at),
+    provider_meta:
+      meta && typeof meta === "object" && !Array.isArray(meta)
+        ? (meta as Record<string, unknown>)
+        : {},
+    created_at:
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ""),
+  }
+}
+
+function toAdminSupportEmailListItem(row: AdminSupportEmail): AdminSupportEmailListItem {
+  const preview = (row.text_body ?? "").replace(/\s+/g, " ").trim().slice(0, 160) || null
+  return {
+    id: row.id,
+    provider_email_id: row.provider_email_id,
+    message_id: row.message_id,
+    from_email: row.from_email,
+    from_name: row.from_name,
+    to_email: row.to_email,
+    to_emails: row.to_emails,
+    received_for: row.received_for,
+    subject: row.subject,
+    received_at: row.received_at,
+    read_at: row.read_at,
+    created_at: row.created_at,
+    text_preview: preview,
+    has_html: Boolean(row.html_body),
+  }
+}
+
+/** Upsert inbound support email by Resend provider_email_id (idempotent webhook retries). */
+export async function upsertAdminSupportEmail(params: {
+  provider_email_id: string
+  message_id: string | null
+  from_email: string
+  from_name: string | null
+  to_email: string
+  to_emails: string[]
+  received_for: string[]
+  subject: string
+  text_body: string | null
+  html_body: string | null
+  received_at: string
+  provider_meta: Record<string, unknown>
+}): Promise<AdminSupportEmail> {
+  const sql = getSql()
+  const metaJson = JSON.stringify(params.provider_meta ?? {})
+  try {
+    const rows = await sql`
+      INSERT INTO admin_support_emails (
+        provider_email_id,
+        message_id,
+        from_email,
+        from_name,
+        to_email,
+        to_emails,
+        received_for,
+        subject,
+        text_body,
+        html_body,
+        received_at,
+        provider_meta
+      )
+      VALUES (
+        ${params.provider_email_id},
+        ${params.message_id},
+        ${params.from_email},
+        ${params.from_name},
+        ${params.to_email},
+        ${params.to_emails}::text[],
+        ${params.received_for}::text[],
+        ${params.subject},
+        ${params.text_body},
+        ${params.html_body},
+        ${params.received_at}::timestamptz,
+        ${metaJson}::jsonb
+      )
+      ON CONFLICT (provider_email_id) DO UPDATE SET
+        message_id = COALESCE(EXCLUDED.message_id, admin_support_emails.message_id),
+        from_email = EXCLUDED.from_email,
+        from_name = COALESCE(EXCLUDED.from_name, admin_support_emails.from_name),
+        to_email = EXCLUDED.to_email,
+        to_emails = EXCLUDED.to_emails,
+        received_for = EXCLUDED.received_for,
+        subject = EXCLUDED.subject,
+        text_body = COALESCE(EXCLUDED.text_body, admin_support_emails.text_body),
+        html_body = COALESCE(EXCLUDED.html_body, admin_support_emails.html_body),
+        received_at = EXCLUDED.received_at,
+        provider_meta = EXCLUDED.provider_meta
+      RETURNING
+        id, provider_email_id, message_id, from_email, from_name, to_email, to_emails,
+        received_for, subject, text_body, html_body, received_at, read_at, provider_meta, created_at
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("admin_support_emails upsert returned no row")
+    return parseAdminSupportEmailRow(row)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "admin_support_emails")) {
+      throw new Error(
+        "Support inbox table missing — run scripts/127-admin-support-emails.sql in Neon (see ADMIN-SUPPORT-INBOX.md)."
+      )
+    }
+    throw e
+  }
+}
+
+/** Admin inbox list — newest first (bodies trimmed to preview). */
+export async function listAdminSupportEmails(limit: number = 50): Promise<AdminSupportEmailListItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(limit, 1), 200)
+  try {
+    const rows = await sql`
+      SELECT
+        id, provider_email_id, message_id, from_email, from_name, to_email, to_emails,
+        received_for, subject, text_body, html_body, received_at, read_at, provider_meta, created_at
+      FROM admin_support_emails
+      ORDER BY received_at DESC
+      LIMIT ${lim}
+    `
+    return (rows as Record<string, unknown>[])
+      .map(parseAdminSupportEmailRow)
+      .map(toAdminSupportEmailListItem)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "admin_support_emails")) return []
+    throw e
+  }
+}
+
+export async function getAdminSupportEmailById(id: string): Promise<AdminSupportEmail | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        id, provider_email_id, message_id, from_email, from_name, to_email, to_emails,
+        received_for, subject, text_body, html_body, received_at, read_at, provider_meta, created_at
+      FROM admin_support_emails
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseAdminSupportEmailRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "admin_support_emails")) return null
+    throw e
+  }
+}
+
+export async function markAdminSupportEmailRead(
+  id: string,
+  read: boolean
+): Promise<AdminSupportEmail | null> {
+  const sql = getSql()
+  try {
+    const rows = read
+      ? await sql`
+          UPDATE admin_support_emails
+          SET read_at = COALESCE(read_at, NOW())
+          WHERE id = ${id}
+          RETURNING
+            id, provider_email_id, message_id, from_email, from_name, to_email, to_emails,
+            received_for, subject, text_body, html_body, received_at, read_at, provider_meta, created_at
+        `
+      : await sql`
+          UPDATE admin_support_emails
+          SET read_at = NULL
+          WHERE id = ${id}
+          RETURNING
+            id, provider_email_id, message_id, from_email, from_name, to_email, to_emails,
+            received_for, subject, text_body, html_body, received_at, read_at, provider_meta, created_at
+        `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseAdminSupportEmailRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "admin_support_emails")) return null
     throw e
   }
 }

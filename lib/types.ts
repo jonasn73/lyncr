@@ -515,6 +515,31 @@ export interface FeedbackSubmission {
   created_at: string
 }
 
+/** Inbound support mail stored from Resend email.received (admin inbox). */
+export interface AdminSupportEmail {
+  id: string
+  provider_email_id: string
+  message_id: string | null
+  from_email: string
+  from_name: string | null
+  to_email: string
+  to_emails: string[]
+  received_for: string[]
+  subject: string
+  text_body: string | null
+  html_body: string | null
+  received_at: string
+  read_at: string | null
+  provider_meta: Record<string, unknown>
+  created_at: string
+}
+
+/** List row — omit large HTML bodies unless detail fetch. */
+export type AdminSupportEmailListItem = Omit<AdminSupportEmail, "html_body" | "text_body" | "provider_meta"> & {
+  text_preview: string | null
+  has_html: boolean
+}
+
 /** Admin user list row with recent call volume (30 days). */
 export interface AdminUserSummary {
   id: string
