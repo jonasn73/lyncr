@@ -297,6 +297,12 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   routingStrategy,
   allowLyncrNetworkFallback,
   onConfigureStrategy: _onConfigureStrategy,
+  setDashboardStoryKey,
+  setWhoAnswersOpen,
+  setRingBackupOpen: _setRingBackupOpen,
+  setShowFallbackSettings,
+  adminRoutingOverridePhone,
+}: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const { presenceBypass, presenceReady } = useAccountPresence()
   // Who Answers primary mode — gates the entire IVR configuration deck.
