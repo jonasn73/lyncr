@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { deriveRingsNowStrip, planInboundDial } from "@/lib/inbound-dial-plan"
+import { deriveRingsNowStrip, planInboundDial } from "@/lib/inbound-dial-plan-core"
 
 describe("planInboundDial", () => {
   const owner = "+15022602716"

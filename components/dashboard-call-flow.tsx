@@ -53,7 +53,7 @@ import {
   normalizeActiveRoutingMode,
   type ActiveRoutingMode,
 } from "@/lib/active-routing-mode"
-import { deriveRingsNowStrip } from "@/lib/inbound-dial-plan"
+import { deriveRingsNowStrip } from "@/lib/inbound-dial-plan-core"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
