@@ -77,6 +77,41 @@ export async function telnyxCallControlSpeak(
 }
 
 /**
+ * Speak a menu prompt and collect DTMF (Busy booking menu).
+ * Webhooks: call.dtmf.received (optional), call.gather.ended with digits + status.
+ */
+export async function telnyxCallControlGatherUsingSpeak(
+  callControlId: string,
+  opts: {
+    text: string
+    clientState: string
+    /** Max digits to collect (1 for press-1, or bypass code length). */
+    maximumDigits?: number
+    /** Milliseconds to wait after speak for a digit (TeXML uses ~8s). */
+    timeoutMillis?: number
+    validDigits?: string
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const attrs = getTexmlSayVoiceAttributes()
+  const spoken = cleanTextForTTS(opts.text)
+  const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
+  return postCallAction(callControlId, "gather_using_speak", {
+    payload: spoken,
+    payload_type: "text",
+    voice: attrs.voice,
+    language: attrs.language,
+    minimum_digits: 1,
+    maximum_digits: maxDigits,
+    // Interrupting digit ends gather early when maximum_digits is 1.
+    terminating_digit: "#",
+    valid_digits: opts.validDigits || "0123456789",
+    timeout_millis: opts.timeoutMillis ?? 8000,
+    inter_digit_timeout_millis: 3000,
+    client_state: opts.clientState,
+  })
+}
+
+/**
  * Dial PSTN target and bridge to the inbound caller when answered.
  * Telnyx uses POST /v2/calls (not /actions/dial) with link_to + bridge_on_answer.
  */

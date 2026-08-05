@@ -75,21 +75,14 @@ import { buildAdminRoutingOverrideDial, resolveAdminRoutingOverrideE164 } from "
 import {
   getActiveRoutingModeForDid,
   getCustomRoutingPhoneForDid,
-  getFirstAvailableOwnerReceptionist,
-  getTeamReceptionistForDid,
 } from "@/lib/active-routing-mode-db"
+import { resolveInboundDialPlan } from "@/lib/inbound-dial-plan"
 import {
-  CAPTURE_DEFAULT_RING_E164,
-  CAPTURE_STATUS_CALENDAR_BUSY,
-  CAPTURE_STATUS_CALENDAR_OFF,
-  CAPTURE_STATUS_PRESENCE_CLOSED,
-  CAPTURE_STATUS_PRESENCE_ON_JOB,
   DAY_CAPTURE_DIAL_TIMEOUT_SECONDS,
   buildCalendarFullDayGatherXml,
   buildCalendarPartialBusyGatherXml,
   buildDayCaptureDialXml,
   clampDayCaptureDialTimeoutSeconds,
-  resolveInboundCapturePlan,
 } from "@/lib/inbound-time-capture"
 import { getAccountPresence, DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
 import { isHolidayOverrideActive } from "@/lib/ivr-automation-settings"
@@ -1474,47 +1467,29 @@ async function tryFastInboundReceptionistResponse(
     try {
       const routingMode = await getActiveRoutingModeForDid(businessLineE164Early)
 
-      // Team receptionist → owner → busy voice menu cascade.
+      // Team receptionist → owner → busy voice menu cascade (shared inbound dial planner).
       if (routingMode === "team_receptionist") {
         const callSidEarly =
           pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
         const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
         const captureBase = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-capture`
-        const team = await getTeamReceptionistForDid(businessLineE164Early)
-        const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
-        const ownerDial =
-          normalizePhoneNumberE164(routing.owner_phone) ||
-          (isReasonablePstnDialString(routing.owner_phone) ? routing.owner_phone.trim() : "") ||
-          CAPTURE_DEFAULT_RING_E164
+        const dialPlan = await resolveInboundDialPlan({
+          userId: routing.user_id,
+          businessLineE164: businessLineE164Early,
+          ownerPhone: routing.owner_phone,
+          preferredReceptionistId: routing.selected_receptionist_id,
+          mode: routingMode,
+        })
         const dayRingTimeoutSec = clampDayCaptureDialTimeoutSeconds(
-          Number(team?.ringTimeoutSeconds ?? routing.ring_timeout_seconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
+          Number(routing.ring_timeout_seconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
         )
         const fromE164Early = fromEarly.trim()
           ? normalizePhoneNumberE164(fromEarly)
           : "Unknown"
 
-        // Prefer Available receptionist; else owner if Available (day_dial); else busy VR.
-        const receptionistCanAnswer =
-          Boolean(team?.isActive) &&
-          Boolean(team?.phoneE164) &&
-          isReasonablePstnDialString(team!.phoneE164!)
-        const ownerCanAnswer = plan.kind === "day_dial"
-
-        let initialRoutedName = "Owner"
-        if (receptionistCanAnswer) {
-          initialRoutedName = team?.name?.trim() || "Receptionist"
-        } else if (!ownerCanAnswer) {
-          initialRoutedName =
-            plan.kind === "presence_closed"
-              ? CAPTURE_STATUS_PRESENCE_CLOSED
-              : plan.kind === "presence_on_job"
-                ? CAPTURE_STATUS_PRESENCE_ON_JOB
-                : plan.kind === "calendar_full_day"
-                  ? CAPTURE_STATUS_CALENDAR_OFF
-                  : plan.kind === "calendar_partial"
-                    ? CAPTURE_STATUS_CALENDAR_BUSY
-                    : CAPTURE_STATUS_PRESENCE_ON_JOB
-        }
+        const receptionistCanAnswer = dialPlan.reason === "team_receptionist"
+        const ownerCanAnswer = dialPlan.reason === "team_owner_available"
+        const initialRoutedName = dialPlan.routedToName || "Owner"
 
         let lineOrganizationId: string | null = null
         try {
@@ -1536,7 +1511,7 @@ async function tryFastInboundReceptionistResponse(
               call_type: "incoming",
               status: "ringing",
               duration_seconds: 0,
-              routed_to_receptionist_id: receptionistCanAnswer ? team!.receptionistId : null,
+              routed_to_receptionist_id: dialPlan.receptionistId,
               routed_to_name: initialRoutedName,
               has_recording: false,
               recording_url: null,
@@ -1552,7 +1527,7 @@ async function tryFastInboundReceptionistResponse(
             fromNumber: fromE164Early,
             toNumber: businessLineE164Early,
             organizationId: lineOrganizationId,
-            routedToReceptionistId: receptionistCanAnswer ? team!.receptionistId : null,
+            routedToReceptionistId: dialPlan.receptionistId,
             routedToName: initialRoutedName,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
@@ -1569,8 +1544,7 @@ async function tryFastInboundReceptionistResponse(
         }
 
         let xml: string
-        if (receptionistCanAnswer) {
-          // Step 1: ring Available receptionist; no-answer → capture recv-fallback (owner then VR).
+        if (receptionistCanAnswer && dialPlan.dialTargetE164) {
           const recvAnswerUrl = buildReceptionistAnswerUrl({
             appUrl: VOICE_WEBHOOK_APP_URL,
             ownerUserId: routing.user_id,
@@ -1580,17 +1554,16 @@ async function tryFastInboundReceptionistResponse(
             callerNumber: fromE164Early !== "Unknown" ? fromE164Early : null,
             callerName: pickField(fields, ["CallerName", "caller_name"]) || null,
             businessName: resolveWorkspaceDisplayName(routing),
-            receptionistId: team!.receptionistId,
+            receptionistId: dialPlan.receptionistId || undefined,
           })
           xml = buildDayCaptureDialXml({
-            ringE164: team!.phoneE164!,
+            ringE164: dialPlan.dialTargetE164,
             actionUrl: `${captureBase}?step=recv-fallback`,
             callerId: businessLineE164Early,
             timeoutSeconds: dayRingTimeoutSec,
             numberUrl: recvAnswerUrl,
           })
-        } else if (ownerCanAnswer) {
-          // Receptionist Unavailable — owner Available → ring your cell.
+        } else if (ownerCanAnswer && dialPlan.dialTargetE164) {
           const ownerAnswerUrl = buildReceptionistAnswerUrl({
             appUrl: VOICE_WEBHOOK_APP_URL,
             ownerUserId: routing.user_id,
@@ -1602,7 +1575,7 @@ async function tryFastInboundReceptionistResponse(
             businessName: resolveWorkspaceDisplayName(routing),
           })
           xml = buildDayCaptureDialXml({
-            ringE164: ownerDial,
+            ringE164: dialPlan.dialTargetE164,
             actionUrl: `${captureBase}?step=day-fallback`,
             callerId: businessLineE164Early,
             timeoutSeconds: dayRingTimeoutSec,
@@ -1620,18 +1593,20 @@ async function tryFastInboundReceptionistResponse(
             actionUrl: `${captureBase}?step=presence-holiday`,
             presence,
           })
-        } else if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
+        } else if (
+          dialPlan.captureKind === "presence_closed" ||
+          dialPlan.captureKind === "presence_on_job"
+        ) {
           xml = buildAutomationPresenceGatherXml({
-            kind: plan.kind === "presence_closed" ? "presence_closed" : "presence_on_job",
-            actionUrl: `${captureBase}?step=${plan.kind === "presence_closed" ? "presence-closed" : "presence-on-job"}`,
+            kind: dialPlan.captureKind === "presence_closed" ? "presence_closed" : "presence_on_job",
+            actionUrl: `${captureBase}?step=${dialPlan.captureKind === "presence_closed" ? "presence-closed" : "presence-on-job"}`,
             presence,
           })
-        } else if (plan.kind === "calendar_full_day") {
+        } else if (dialPlan.captureKind === "calendar_full_day") {
           xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
-        } else if (plan.kind === "calendar_partial") {
+        } else if (dialPlan.captureKind === "calendar_partial") {
           xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
         } else {
-          // Safety: treat as busy voice menu (press 1 → booking SMS).
           xml = buildAutomationPresenceGatherXml({
             kind: "presence_on_job",
             actionUrl: `${captureBase}?step=presence-on-job`,
@@ -1649,8 +1624,9 @@ async function tryFastInboundReceptionistResponse(
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
             receptionistCanAnswer,
             ownerCanAnswer,
-            planKind: plan.kind,
-            recvId: team?.receptionistId || null,
+            planKind: dialPlan.captureKind,
+            planReason: dialPlan.reason,
+            recvId: dialPlan.receptionistId || null,
             dayRingTimeoutSec,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
@@ -1666,52 +1642,25 @@ async function tryFastInboundReceptionistResponse(
           pickField(fields, ["CallSid", "CallControlId", "call_control_id"]) || ""
         const fromEarly = pickField(fields, ["From", "Caller", "from"]) || ""
         const captureBase = `${VOICE_WEBHOOK_APP_URL}/api/telnyx-capture`
-        const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id })
-        // Available → always dial primary cell (owner phone, else hardcoded Key Squad cell).
-        const ownerDial =
-          normalizePhoneNumberE164(routing.owner_phone) ||
-          (isReasonablePstnDialString(routing.owner_phone) ? routing.owner_phone.trim() : "") ||
-          CAPTURE_DEFAULT_RING_E164
-        // Use dashboard "ring delay before fallback" — not the hardcoded 15s capture default.
+        // Shared planner — same rules as Call Control (Available / Busy+teammate / IVR).
+        const dialPlan = await resolveInboundDialPlan({
+          userId: routing.user_id,
+          businessLineE164: businessLineE164Early,
+          ownerPhone: routing.owner_phone,
+          preferredReceptionistId: routing.selected_receptionist_id,
+          mode: routingMode,
+        })
         const dayRingTimeoutSec = clampDayCaptureDialTimeoutSeconds(
           Number(routing.ring_timeout_seconds ?? DAY_CAPTURE_DIAL_TIMEOUT_SECONDS)
         )
 
-        // Owner Busy/Closed/calendar → try an Available private receptionist before IVR.
-        const ownerCannotAnswer = plan.kind !== "day_dial"
-        let busyBackupRecv: Awaited<ReturnType<typeof getFirstAvailableOwnerReceptionist>> = null
-        if (ownerCannotAnswer && routing.user_id) {
-          try {
-            busyBackupRecv = await getFirstAvailableOwnerReceptionist({
-              ownerUserId: routing.user_id,
-              preferredReceptionistId: routing.selected_receptionist_id,
-            })
-          } catch (e) {
-            console.warn("[telnyx-incoming] busy-backup receptionist lookup skipped:", e)
-          }
-        }
-        const busyBackupCanAnswer =
-          Boolean(busyBackupRecv?.phoneE164) &&
-          isReasonablePstnDialString(busyBackupRecv!.phoneE164)
-
-        const initialRoutedName = busyBackupCanAnswer
-          ? busyBackupRecv!.name?.trim() || "Receptionist"
-          : plan.kind === "presence_closed"
-            ? CAPTURE_STATUS_PRESENCE_CLOSED
-            : plan.kind === "presence_on_job"
-              ? CAPTURE_STATUS_PRESENCE_ON_JOB
-              : plan.kind === "calendar_full_day"
-                ? CAPTURE_STATUS_CALENDAR_OFF
-                : plan.kind === "calendar_partial"
-                  ? CAPTURE_STATUS_CALENDAR_BUSY
-                  : "Owner"
-        // Always tag as incoming+ringing so call-initiated telemetry opens New Intake.
+        const busyBackupCanAnswer = dialPlan.reason === "busy_backup_recv"
+        const initialRoutedName = dialPlan.routedToName || "Owner"
         const initialCallType = "incoming" as const
         const fromE164Early = fromEarly.trim()
           ? normalizePhoneNumberE164(fromEarly)
           : "Unknown"
 
-        // Resolve workspace id from the DID so Activity / Pusher match the dashboard org.
         let lineOrganizationId: string | null = null
         try {
           const { getActivePhoneNumberByE164 } = await import("@/lib/db")
@@ -1721,8 +1670,6 @@ async function tryFastInboundReceptionistResponse(
           console.warn("[telnyx-incoming] line org lookup skipped:", e)
         }
 
-        // FIRST action: persist the call row BEFORE dial/automation TeXML.
-        // Guarantees Activity still has the ring even if later routing crashes.
         let earlyCallLogId: string | null = null
         if (callSidEarly && routing.user_id) {
           try {
@@ -1735,9 +1682,7 @@ async function tryFastInboundReceptionistResponse(
               call_type: initialCallType,
               status: "ringing",
               duration_seconds: 0,
-              routed_to_receptionist_id: busyBackupCanAnswer
-                ? busyBackupRecv!.receptionistId
-                : null,
+              routed_to_receptionist_id: dialPlan.receptionistId,
               routed_to_name: initialRoutedName,
               has_recording: false,
               recording_url: null,
@@ -1763,7 +1708,6 @@ async function tryFastInboundReceptionistResponse(
             }
           }
 
-          // Open New Intake only when the owner cell is the Dial target; team Busy backup skips.
           void broadcastCallInitiated({
             ownerUserId: routing.user_id,
             callSid: callSidEarly,
@@ -1771,9 +1715,7 @@ async function tryFastInboundReceptionistResponse(
             fromNumber: fromE164Early,
             toNumber: businessLineE164Early,
             organizationId: lineOrganizationId,
-            routedToReceptionistId: busyBackupCanAnswer
-              ? busyBackupRecv!.receptionistId
-              : null,
+            routedToReceptionistId: dialPlan.receptionistId,
             routedToName: initialRoutedName,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
@@ -1781,7 +1723,6 @@ async function tryFastInboundReceptionistResponse(
         }
 
         let xml: string
-        // Load dashboard automation settings (greetings, voice, bypass, holiday).
         let presence = DEFAULT_ACCOUNT_PRESENCE
         if (routing.user_id) {
           try {
@@ -1803,8 +1744,7 @@ async function tryFastInboundReceptionistResponse(
             actionUrl: `${captureBase}?step=presence-holiday`,
             presence,
           })
-        } else if (busyBackupCanAnswer) {
-          // Owner unavailable + Available teammate → ring her first; miss → recv-fallback (owner if Available, else VR).
+        } else if (busyBackupCanAnswer && dialPlan.dialTargetE164) {
           const recvAnswerUrl = buildReceptionistAnswerUrl({
             appUrl: VOICE_WEBHOOK_APP_URL,
             ownerUserId: routing.user_id,
@@ -1814,27 +1754,29 @@ async function tryFastInboundReceptionistResponse(
             callerNumber: fromE164Early !== "Unknown" ? fromE164Early : null,
             callerName: pickField(fields, ["CallerName", "caller_name"]) || null,
             businessName: resolveWorkspaceDisplayName(routing),
-            receptionistId: busyBackupRecv!.receptionistId,
+            receptionistId: dialPlan.receptionistId || undefined,
           })
           xml = buildDayCaptureDialXml({
-            ringE164: busyBackupRecv!.phoneE164,
+            ringE164: dialPlan.dialTargetE164,
             actionUrl: `${captureBase}?step=recv-fallback`,
             callerId: businessLineE164Early,
             timeoutSeconds: dayRingTimeoutSec,
             numberUrl: recvAnswerUrl,
           })
-        } else if (plan.kind === "presence_closed" || plan.kind === "presence_on_job") {
+        } else if (
+          dialPlan.reason === "busy_automation" &&
+          (dialPlan.captureKind === "presence_closed" || dialPlan.captureKind === "presence_on_job")
+        ) {
           xml = buildAutomationPresenceGatherXml({
-            kind: plan.kind === "presence_closed" ? "presence_closed" : "presence_on_job",
-            actionUrl: `${captureBase}?step=${plan.kind === "presence_closed" ? "presence-closed" : "presence-on-job"}`,
+            kind: dialPlan.captureKind === "presence_closed" ? "presence_closed" : "presence_on_job",
+            actionUrl: `${captureBase}?step=${dialPlan.captureKind === "presence_closed" ? "presence-closed" : "presence-on-job"}`,
             presence,
           })
-        } else if (plan.kind === "calendar_full_day") {
+        } else if (dialPlan.reason === "busy_automation" && dialPlan.captureKind === "calendar_full_day") {
           xml = buildCalendarFullDayGatherXml(`${captureBase}?step=calendar-off`)
-        } else if (plan.kind === "calendar_partial") {
+        } else if (dialPlan.reason === "busy_automation" && dialPlan.captureKind === "calendar_partial") {
           xml = buildCalendarPartialBusyGatherXml(`${captureBase}?step=calendar-busy`)
-        } else {
-          // Presence AVAILABLE — Dial primary cell first; automation only after ring timeout.
+        } else if (dialPlan.dialTargetE164) {
           const ownerAnswerUrl = buildReceptionistAnswerUrl({
             appUrl: VOICE_WEBHOOK_APP_URL,
             ownerUserId: routing.user_id,
@@ -1846,11 +1788,17 @@ async function tryFastInboundReceptionistResponse(
             businessName: resolveWorkspaceDisplayName(routing),
           })
           xml = buildDayCaptureDialXml({
-            ringE164: ownerDial,
+            ringE164: dialPlan.dialTargetE164,
             actionUrl: `${captureBase}?step=day-fallback`,
             callerId: businessLineE164Early,
             timeoutSeconds: dayRingTimeoutSec,
             numberUrl: ownerAnswerUrl,
+          })
+        } else {
+          xml = buildAutomationPresenceGatherXml({
+            kind: "presence_on_job",
+            actionUrl: `${captureBase}?step=presence-on-job`,
+            presence,
           })
         }
 
@@ -1861,27 +1809,21 @@ async function tryFastInboundReceptionistResponse(
               : {}),
             zing: busyBackupCanAnswer
               ? "telnyx-incoming-capture-busy-backup-recv"
-              : `telnyx-incoming-capture-${plan.kind}`,
+              : `telnyx-incoming-capture-${dialPlan.captureKind}`,
             callSid: callSidEarly || null,
             didTail4: businessLineE164Early.replace(/\D/g, "").slice(-4) || null,
-            // Dial target: Available teammate while Busy, else owner cell on day_dial.
-            ringTail4: busyBackupCanAnswer
-              ? busyBackupRecv!.phoneE164.replace(/\D/g, "").slice(-4) || null
-              : plan.kind === "day_dial"
-                ? ownerDial.replace(/\D/g, "").slice(-4) || null
-                : null,
-            busyBackupRecvId: busyBackupCanAnswer ? busyBackupRecv!.receptionistId : null,
+            ringTail4: dialPlan.dialTargetE164
+              ? dialPlan.dialTargetE164.replace(/\D/g, "").slice(-4) || null
+              : null,
+            busyBackupRecvId: busyBackupCanAnswer ? dialPlan.receptionistId : null,
             dayRingTimeoutSec,
             lookupMs,
             routingSource: memHit ? "memory" : "db",
             routingMode,
-            planKind: plan.kind,
-            // Helps diagnose “UI Busy but cell still rings” (cron wipe / wrong user).
+            planKind: dialPlan.captureKind,
+            planReason: dialPlan.reason,
             presenceStatus: presence.presenceStatus,
             presenceManualLock: presence.presenceClosedManual === true,
-            ...(plan.kind === "calendar_full_day" || plan.kind === "calendar_partial"
-              ? { dateKey: plan.dateKey, timeHhMm: plan.timeHhMm, reason: plan.reason }
-              : {}),
           })
         )
         return new NextResponse(xml, {

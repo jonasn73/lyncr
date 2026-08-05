@@ -18,6 +18,10 @@ export type TelnyxVoiceWebhookEvent = {
   occurredAt: string
   callDurationSeconds: number
   clientState: ReturnType<typeof decodeTelnyxCallControlState>
+  /** Digits from call.gather.ended (Busy menu press 1 / 2). */
+  digits: string
+  /** gather.ended status: valid | timeout | call_hangup | cancelled | … */
+  gatherStatus: string
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -47,5 +51,7 @@ export function parseTelnyxVoiceWebhookEvent(body: Record<string, unknown>): Tel
     occurredAt: String(data.occurred_at ?? payload.occurred_at ?? "").trim(),
     callDurationSeconds: parseTelnyxCallDurationFromPayload(payload),
     clientState: decodeTelnyxCallControlState(rawClientState),
+    digits: String(payload.digits ?? payload.Digits ?? "").trim(),
+    gatherStatus: String(payload.status ?? payload.gather_status ?? "").trim().toLowerCase(),
   }
 }

@@ -53,6 +53,7 @@ import {
   normalizeActiveRoutingMode,
   type ActiveRoutingMode,
 } from "@/lib/active-routing-mode"
+import { deriveRingsNowStrip } from "@/lib/inbound-dial-plan"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
@@ -691,6 +692,25 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
+  // Thin "Rings now" strip — same planner rules as voice (Available / Busy+teammate / IVR).
+  const ringsNowStrip = deriveRingsNowStrip({
+    presenceBypass,
+    presenceReady,
+    teamRosterReady,
+    busyBackupName: busyBackupReceptionist?.name ?? null,
+    ownerLabel: ownerPhoneDisplay?.trim() ? "Your phone" : "Owner",
+    activeRoutingMode,
+    teamReceptionistName:
+      activeRoutingMode === "team_receptionist"
+        ? selectedReceptionist?.name ?? null
+        : null,
+    teamReceptionistActive:
+      activeRoutingMode === "team_receptionist"
+        ? selectedReceptionist?.is_active !== false &&
+          Boolean(selectedReceptionist?.name?.trim() || selectedReceptionist?.phone?.trim())
+        : false,
+  })
+
   // Stable open handler — avoid new function identity every paint for memo children.
   const openScriptEditor = useCallback(() => setShowFallbackSettings(true), [setShowFallbackSettings])
 
@@ -774,6 +794,33 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             active={adminOverrideActive}
             phone={adminRoutingOverridePhone?.trim() ?? ""}
           />
+          {/* Thin strip: who rings next — mirrors shared inbound dial planner. */}
+          <div
+            className="mb-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm text-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="leading-snug">
+              <span className="font-semibold">Rings now:</span>{" "}
+              <span className="text-foreground">{ringsNowStrip.ringsNow}</span>
+              <span className="text-muted-foreground"> · </span>
+              <span className="font-semibold">If no answer:</span>{" "}
+              <span className="text-foreground">{ringsNowStrip.ifNoAnswer}</span>
+              <span className="text-muted-foreground"> · </span>
+              <span
+                className={cn(
+                  "font-semibold",
+                  ringsNowStrip.statusLabel === "Busy"
+                    ? "text-amber-700 dark:text-amber-400"
+                    : ringsNowStrip.statusLabel === "Available"
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : "text-muted-foreground"
+                )}
+              >
+                {ringsNowStrip.statusLabel}
+              </span>
+            </p>
+          </div>
           {/* Mobile layout — CSS only (no useIsMobile remount on refresh). */}
           <div
             className="flex flex-col gap-3 md:hidden"

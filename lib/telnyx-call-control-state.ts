@@ -5,6 +5,10 @@ export type TelnyxCallControlPhase =
   | "await_greeting_end"
   | "await_dial_end"
   | "await_voicemail_prompt_end"
+  /** Busy / no-answer menu — gather_using_speak (press 1 = SMS, press 2 = owner). */
+  | "await_busy_gather_end"
+  /** After booking SMS — speak confirmation then hang up. */
+  | "await_busy_sms_confirm_end"
   | "recording"
 
 /** Why Call Control chose this PSTN target (Busy backup vs owner day dial). */

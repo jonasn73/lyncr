@@ -46,11 +46,14 @@ vi.mock("@/lib/account-presence", () => ({
     Promise.resolve({
       presenceStatus: "ON_JOB",
       presenceClosedManual: true,
-      onJobGreetingText: "We're on a job.",
+      onJobGreetingText: "We're on a job. Press 1 to get a booking link by text, or stay on the line.",
       closedGreetingText: "We're closed.",
+      ivrBypassCode: null,
     })
   ),
-  resolvePresenceAutomationGreeting: vi.fn(() => "We're on a job."),
+  resolvePresenceAutomationGreeting: vi.fn(() =>
+    "We're on a job. Press 1 to get a booking link by text, or stay on the line."
+  ),
 }))
 
 describe("telnyx call control state", () => {
@@ -630,5 +633,141 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       .map((c) => String(c[0]))
       .filter((u) => u.includes("/actions/hangup"))
     expect(hangupUrls.some((u) => u.includes("cc-out-cell"))).toBe(true)
+  })
+
+  it("call.answered Busy with no teammate starts gather_using_speak", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "presence_on_job" })
+    getFirstAvailableOwnerReceptionistMock.mockResolvedValue(null)
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve()),
+    }))
+
+    const answeredState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_caller_answered",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 30,
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.answered",
+        id: "evt-busy-gather",
+        payload: {
+          call_control_id: "cc-busy-gather",
+          from: "+15025369252",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: answeredState,
+        },
+      },
+    })
+
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeTruthy()
+    const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
+    expect(hangupCall).toBeFalsy()
+  })
+
+  it("call.gather.ended press 1 sends booking SMS then confirms", async () => {
+    const sendSms = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      updateCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: sendSms,
+    }))
+
+    const gatherState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_busy_gather_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialReason: "busy_automation",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.gather.ended",
+        id: "evt-gather-1",
+        payload: {
+          call_control_id: "cc-gather-1",
+          from: "+15025369252",
+          to: "+15025571219",
+          digits: "1",
+          status: "valid",
+          client_state: gatherState,
+        },
+      },
+    })
+
+    expect(sendSms).toHaveBeenCalled()
+    const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
+    expect(speakCall).toBeTruthy()
   })
 })
