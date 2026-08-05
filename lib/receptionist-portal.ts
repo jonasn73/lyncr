@@ -17,6 +17,12 @@ import {
 } from "@/lib/db"
 import type { CallLog, ReceptionistLedgerRow, ReceptionistLiveStatus, ReceptionistPortalDashboard } from "@/lib/types"
 
+/** Mirror of readInboundCallControlEnabled — kept local to avoid pulling the voice webhook module into portal. */
+function isCallControlInboundEnabled(): boolean {
+  const raw = (process.env.ZING_INBOUND_CALL_CONTROL || "").trim().toLowerCase()
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+}
+
 function startOfUtcDayIso(date = new Date()): string {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).toISOString()
 }
@@ -125,8 +131,12 @@ export async function buildReceptionistPortalDashboard(
       flat_rate_usd: ctx.receptionist.flat_rate_usd,
       routing_endpoint: ctx.receptionist.routing_endpoint ?? "CELL",
     },
-    // WEB calling only carries audio once a SIP username is provisioned for this receptionist.
+    // WEB media can register once a SIP username is provisioned.
     web_calling_available: Boolean(ctx.receptionist.sip_username?.trim()),
+    // Call Control inbound still dials PSTN only — browser ring is not live there yet.
+    // TeXML can dial sip: when endpoint=WEB + sip_username. Flip when CC SIP dial ships.
+    browser_inbound_live:
+      Boolean(ctx.receptionist.sip_username?.trim()) && !isCallControlInboundEnabled(),
     business_name: ctx.business_name,
     live_status,
     metrics: {

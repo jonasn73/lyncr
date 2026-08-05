@@ -13,9 +13,10 @@ export const TELNYX_MENU_PROMPT =
 /**
  * Unified Busy greeting (Presence Busy = ON_JOB or CLOSED).
  * Callers hear this when your cell is skipped for automation.
+ * Keep short — Call Control appends press-1/press-2 only when missing.
  */
 export const TELNYX_MENU_BUSY_PROMPT =
-  "Thanks for calling Key Squad. We can't take your call right now. Press 1 to get a booking link by text, or stay on the line."
+  "Thanks for calling. We're tied up right now. Press 1 for a booking text, or press 2 to ring our phone."
 
 /** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
 export const TELNYX_MENU_ON_JOB_PROMPT = TELNYX_MENU_BUSY_PROMPT

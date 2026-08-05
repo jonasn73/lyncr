@@ -953,6 +953,11 @@ export interface ReceptionistPortalDashboard {
   >
   /** True when a sip_username is provisioned, so the WEB toggle can actually carry browser audio. */
   web_calling_available: boolean
+  /**
+   * True when inbound can actually dial the browser (TeXML SIP path).
+   * False on Call Control production until CC dials SIP URIs — portal must not claim Browser is live.
+   */
+  browser_inbound_live: boolean
   business_name: string
   live_status: ReceptionistLiveStatus
   metrics: {

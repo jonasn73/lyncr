@@ -1,96 +1,41 @@
 "use client"
 
-// Caller ID card — spam shield + CNAM utilities (compact settings rows).
+// Caller ID card — Spam Shield + CNAM are display-only until Call Control wiring ships.
 
-import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
-import { Switch } from "@/components/ui/switch"
-import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
 import { cn } from "@/lib/utils"
 
-type CallerIdUtilityPrefs = {
-  spamShieldEnabled: boolean
-  enhancedCnamEnabled: boolean
-}
-
-const DEFAULT_PREFS: CallerIdUtilityPrefs = {
-  spamShieldEnabled: true,
-  enhancedCnamEnabled: true,
-}
-
-function prefsStorageKey(organizationId: string | null | undefined): string {
-  return `lyncr:caller-id-utilities:${organizationId ?? "default"}`
-}
-
-function readPrefs(organizationId: string | null | undefined): CallerIdUtilityPrefs {
-  if (typeof window === "undefined") return { ...DEFAULT_PREFS }
-  try {
-    const raw = window.localStorage.getItem(prefsStorageKey(organizationId))
-    if (!raw) return { ...DEFAULT_PREFS }
-    const parsed = JSON.parse(raw) as Partial<CallerIdUtilityPrefs>
-    return {
-      spamShieldEnabled: parsed.spamShieldEnabled !== false,
-      enhancedCnamEnabled: parsed.enhancedCnamEnabled !== false,
-    }
-  } catch {
-    return { ...DEFAULT_PREFS }
-  }
-}
-
-function writePrefs(organizationId: string | null | undefined, prefs: CallerIdUtilityPrefs): void {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(prefsStorageKey(organizationId), JSON.stringify(prefs))
-  } catch {
-    /* private mode / quota */
-  }
-}
-
-function UtilityRow({
+function ComingSoonRow({
   title,
   description,
-  enabled,
-  onEnabledChange,
   id,
-  belowDescription,
 }: {
   title: string
   description: string
-  enabled: boolean
-  onEnabledChange: (next: boolean) => void
   id: string
-  /** Optional muted metric line under the description (e.g. spam blocks this week). */
-  belowDescription?: ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-900 py-2 last:border-b-0">
+    <div
+      id={id}
+      className="flex items-center justify-between gap-3 border-b border-slate-900 py-2 last:border-b-0"
+    >
       <div className="min-w-0 flex-1">
-        <label htmlFor={id} className="block cursor-pointer text-xs font-semibold text-slate-200">
-          {title}
-        </label>
+        <p className="block text-xs font-semibold text-slate-200">{title}</p>
         <p className="mt-0.5 text-[11px] font-normal text-slate-500">{description}</p>
-        {belowDescription}
+        <p className="mt-1 hidden text-[10px] font-normal leading-snug text-slate-600 md:block">
+          Not wired to live inbound yet — toggle coming later.
+        </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {enabled ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Active</span>
-        ) : (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">Off</span>
-        )}
-        <Switch
-          id={id}
-          checked={enabled}
-          onCheckedChange={onEnabledChange}
-          aria-label={title}
-        />
-      </div>
+      <span className="shrink-0 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        Coming soon
+      </span>
     </div>
   )
 }
 
-/** Compact Caller ID utilities card for the Lines dashboard. */
+/** Compact Caller ID utilities card for the Lines dashboard (honest / display-only). */
 export function CallerIdUtilitiesCard({
-  organizationId,
+  organizationId: _organizationId,
   onOpenTips,
   className,
 }: {
@@ -98,55 +43,6 @@ export function CallerIdUtilitiesCard({
   onOpenTips: () => void
   className?: string
 }) {
-  const [prefs, setPrefs] = useState<CallerIdUtilityPrefs>(DEFAULT_PREFS)
-  // High-risk spam rings blocked this calendar week (status = blocked_spam).
-  const [spamCount, setSpamCount] = useState<number | null>(null)
-
-  // Hydrate from localStorage once per org — skip setState when values match
-  // (avoids extra paints that used to pile onto the Radix Switch #185 loop).
-  useEffect(() => {
-    const next = readPrefs(organizationId)
-    setPrefs((prev) =>
-      prev.spamShieldEnabled === next.spamShieldEnabled &&
-      prev.enhancedCnamEnabled === next.enhancedCnamEnabled
-        ? prev
-        : next
-    )
-  }, [organizationId])
-
-  useEffect(() => {
-    let cancelled = false
-    const qs = routingTelemetryQueryString(organizationId)
-    void fetch(`/api/routing/tracking-metrics${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("metrics")
-        const json = (await r.json()) as { data?: { spam_blocked_this_week?: number } }
-        if (!cancelled) {
-          setSpamCount(Number(json.data?.spam_blocked_this_week ?? 0))
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSpamCount(0)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [organizationId])
-
-  const updatePref = useCallback(
-    (patch: Partial<CallerIdUtilityPrefs>) => {
-      setPrefs((prev) => {
-        const next = { ...prev, ...patch }
-        writePrefs(organizationId, next)
-        return next
-      })
-    },
-    [organizationId]
-  )
-
   return (
     <section
       id="routing-tips"
@@ -165,26 +61,15 @@ export function CallerIdUtilitiesCard({
       </div>
 
       <div className="mt-1">
-        <UtilityRow
+        <ComingSoonRow
           id="caller-id-spam-shield"
           title="Spam & Robocall Shield"
-          description="Auto-reject verified high-risk spam"
-          enabled={prefs.spamShieldEnabled}
-          onEnabledChange={(next) => updatePref({ spamShieldEnabled: next })}
-          belowDescription={
-            spamCount != null ? (
-              <p className="mt-1 text-[10px] font-normal leading-snug text-slate-500">
-                🛡️ {spamCount} high-risk calls blocked this week.
-              </p>
-            ) : null
-          }
+          description="Will auto-reject verified high-risk spam before it rings your team"
         />
-        <UtilityRow
+        <ComingSoonRow
           id="caller-id-enhanced-cnam"
           title="Enhanced CNAM Lookup"
-          description="Identify business names on incoming rings"
-          enabled={prefs.enhancedCnamEnabled}
-          onEnabledChange={(next) => updatePref({ enhancedCnamEnabled: next })}
+          description="Will show business names on incoming rings when carriers provide them"
         />
       </div>
     </section>

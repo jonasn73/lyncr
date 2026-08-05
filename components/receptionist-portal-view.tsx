@@ -272,6 +272,7 @@ export function ReceptionistPortalView() {
   }, [serverEndpoint])
 
   const webCallingAvailable = dashboard?.web_calling_available ?? false
+  const browserInboundLive = dashboard?.browser_inbound_live ?? false
   const web = useTelnyxWebRtc({ enabled: endpoint === "WEB" && webCallingAvailable })
 
   if (loading && !dashboard) {
@@ -405,6 +406,7 @@ export function ReceptionistPortalView() {
               <ReceptionistEndpointToggle
                 endpoint={endpoint}
                 webCallingAvailable={webCallingAvailable}
+                browserInboundLive={browserInboundLive}
                 webStatus={web.status}
                 webError={web.error}
                 onChange={(next) => {

@@ -226,7 +226,7 @@ async function startBusyAutomationFlow(
   routing: IncomingRoutingRow
 ): Promise<void> {
   let say =
-    "Thanks for calling. We can't take your call right now. Press 1 to get a booking link by text, or stay on the line. Press 2 to ring our phone."
+    "Thanks for calling. We're tied up right now. Press 1 for a booking text, or press 2 to ring our phone."
   let maxDigits = 1
   try {
     const presence = await getAccountPresence(routing.user_id)
@@ -238,7 +238,7 @@ async function startBusyAutomationFlow(
     // Ensure press-1 / press-2 instructions exist even when custom greeting is short.
     const lower = say.toLowerCase()
     if (!lower.includes("press 1") && !lower.includes("press one")) {
-      say = `${say.trim()} Press 1 to get a booking link by text, or stay on the line. Press 2 to ring our phone.`
+      say = `${say.trim()} Press 1 for a booking text, or press 2 to ring our phone.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
   } catch (e) {
@@ -344,6 +344,10 @@ async function dialTechnicianLeg(
   state: TelnyxCallControlClientState,
   routing: NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>
 ): Promise<void> {
+  // TODO(cc-sip-browser): When receptionist endpoint=WEB + sip_username, Dial `sip:user@domain`
+  // via telnyxCallControlDial (Telnyx `to` accepts SIP URIs) and fall back to PSTN on failure.
+  // TeXML already does this in buildFastReceptionistDialWebRtcTexml — CC production is PSTN-only
+  // until that lands. Portal honesty uses browser_inbound_live=false while CC is enabled.
   const target = state.dialTargetE164?.trim() || ""
   if (!isReasonablePstnDialString(target)) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-missing-target", inboundCallControlId }))

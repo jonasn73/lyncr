@@ -62,7 +62,7 @@ describe("buildInstantGenericGreetingFirstPassResult", () => {
     const continueUrl = buildInboundGreetingContinueUrl("https://lyncr.app/api/voice/telnyx/incoming")
     const out = buildInstantGenericGreetingFirstPassResult(continueUrl)
     expect(out.xml).toContain("<Say ")
-    expect(out.xml).toContain("Thank you for calling.")
+    expect(out.xml).toContain("Thanks for calling.")
     expect(out.xml).toContain("<Redirect")
     expect(out.xml).toContain(`${INBOUND_GREETING_PASS_PARAM}=1`)
     expect(out.xml).not.toContain("<Dial")

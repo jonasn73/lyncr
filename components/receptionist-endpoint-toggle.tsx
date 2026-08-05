@@ -19,6 +19,11 @@ interface EndpointToggleProps {
   endpoint: Endpoint
   /** True once a sip_username is provisioned, so WEB can actually carry audio. */
   webCallingAvailable: boolean
+  /**
+   * True when inbound actually dials the browser.
+   * False on Call Control production until SIP dial ships — show honesty banner.
+   */
+  browserInboundLive?: boolean
   /** Live status from the WebRTC engine (only meaningful while endpoint = WEB). */
   webStatus: WebRtcStatus
   webError: string | null
@@ -29,12 +34,17 @@ interface EndpointToggleProps {
 }
 
 // Human-readable label + dot color for each WebRTC engine state.
-function webStatusLabel(status: WebRtcStatus): { text: string; dot: string } {
+function webStatusLabel(
+  status: WebRtcStatus,
+  browserInboundLive: boolean
+): { text: string; dot: string } {
   switch (status) {
     case "connecting":
       return { text: "Connecting your browser…", dot: "bg-amber-400" }
     case "registered":
-      return { text: "Browser ready for calls", dot: "bg-emerald-400" }
+      return browserInboundLive
+        ? { text: "Browser ready for calls", dot: "bg-emerald-400" }
+        : { text: "Browser registered — inbound still rings Cell", dot: "bg-amber-400" }
     case "ringing":
       return { text: "Incoming call ringing your browser", dot: "bg-emerald-400 animate-pulse" }
     case "active":
@@ -51,6 +61,7 @@ function webStatusLabel(status: WebRtcStatus): { text: string; dot: string } {
 export function ReceptionistEndpointToggle({
   endpoint,
   webCallingAvailable,
+  browserInboundLive = false,
   webStatus,
   webError,
   onChange,
@@ -90,8 +101,10 @@ export function ReceptionistEndpointToggle({
     }
   }
 
-  const status = webStatusLabel(webStatus)
+  const status = webStatusLabel(webStatus, browserInboundLive)
   const showWebStatus = current === "WEB" && status.text
+  const showBrowserNotLive =
+    current === "WEB" && (!webCallingAvailable || !browserInboundLive)
 
   // Shared Cell / Browser segmented control
   const segment = (
@@ -130,9 +143,9 @@ export function ReceptionistEndpointToggle({
         </div>
       ) : null}
 
-      {current === "WEB" && !webCallingAvailable ? (
+      {showBrowserNotLive ? (
         <p className="rounded-md border border-amber-500/25 bg-amber-950/20 px-2.5 py-1.5 text-xs text-amber-300">
-          Browser calling isn’t fully set up yet — calls still ring your cell until an admin finishes SIP setup.
+          Browser ringing not live yet — use Cell. Inbound Call Control still dials your phone.
         </p>
       ) : null}
 

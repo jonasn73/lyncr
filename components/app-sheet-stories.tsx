@@ -764,19 +764,17 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "dashboard-caller-id-tips": {
     eyebrow: "Trust",
-    storyline: "Spam shield and CNAM lookup help you block junk and name businesses before you answer.",
+    storyline: "Spam shield and CNAM are on the roadmap — Lines shows them as Coming soon until Call Control wiring ships.",
     title: "Caller ID utilities",
     description: (
       <>
         <p>
-          <strong>Spam &amp; Robocall Shield</strong> auto-rejects verified high-risk spam before it rings your team.
+          <strong>Spam &amp; Robocall Shield</strong> and <strong>Enhanced CNAM Lookup</strong> are display-only for
+          now. They do not change live inbound routing yet.
         </p>
         <p className="mt-2">
-          <strong>Enhanced CNAM Lookup</strong> tries to show a business name on incoming rings when carriers provide it.
-        </p>
-        <p className="mt-2">
-          We still send your business number on forwarded legs. Spam flags from the receiving network also depend on
-          accurate labels and consistent legitimate volume.
+          We still send your business number on forwarded legs. Carrier spam scores also depend on accurate labels and
+          consistent legitimate volume.
         </p>
       </>
     ),

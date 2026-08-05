@@ -55,7 +55,7 @@ export const DAY_BUSY_FALLBACK_PROMPT =
 
 /** Unified busy / on-job / closed / calendar — SMS already fired when this plays. */
 export const TIED_UP_BOOKING_PROMPT =
-  "Thanks for calling Key Squad. We're currently tied up on a service job, but our live calendar booking link was just texted to you. Press 1 or stay on the line to lock in our next open slot."
+  "We just texted you a booking link. Press 1 or stay on the line to grab the next open slot."
 
 /** Live call waiting — dial returned BUSY / CONGESTION. */
 export const LIVE_CALL_WAITING_PROMPT =

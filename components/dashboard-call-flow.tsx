@@ -1,27 +1,13 @@
 "use client"
 
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import {
-  PhoneForwarded,
-  Loader2,
-  ChevronDown,
-  ChevronRight,
-  Smartphone,
-  Network,
-} from "lucide-react"
+import { Loader2, ChevronDown, Smartphone, Network } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  LINES_MOBILE_CARD,
-  LINES_MOBILE_CARD_ACTIVE,
-  LINES_MOBILE_ICON_TILE,
-  LINES_MOBILE_SECTION_LABEL,
-  MOBILE_TAP_TARGET,
-} from "@/lib/mobile-shell"
+import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import type { RoutingStrategy } from "@/lib/types"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { LineRoutingStatus } from "@/components/line-routing-status"
-import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
 import {
   businessNumbersMatch,
   formatPhoneDisplay,
@@ -30,24 +16,10 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
-import { SmartOverflowFallbackCard } from "@/components/dashboard/smart-overflow-fallback-card"
+import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
-import {
-  CallFlowStepsSkeleton,
-} from "@/components/workspace-content-skeletons"
-import { CALL_FLOW_STEPS_MIN_H } from "@/components/dashboard-workspace-ui"
+import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import { SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD } from "@/lib/smart-overflow-autopilot"
-// useSmartOverflowAutopilot disabled while hunting React #185 (capacity fetch + IVR sync loops).
-const STATIC_SMART_OVERFLOW = {
-  config: { capacityThreshold: SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD },
-  overflowActive: false,
-  nextAvailableSlotText: "Monday morning",
-  confirmedJobsToday: null as number | null,
-  loading: false,
-  retellConnected: false,
-} as const
-
 import {
   LYNCR_ROUTING_MODE_CHANGED,
   normalizeActiveRoutingMode,
@@ -63,242 +35,6 @@ export const ROUTING_DRAWER_SHEET_CLASS =
 export const VOICE_AI_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5 " +
   DRAWER_SHEET_GPU
-
-function FlowConnector({ live = false }: { live?: boolean }) {
-  return (
-    <div
-      className="hidden min-w-[2.5rem] shrink-0 items-center justify-center px-1 sm:flex md:min-w-[3.5rem]"
-      aria-hidden
-    >
-      <div className="relative flex w-full max-w-[4rem] items-center">
-        <div
-          className={cn(
-            "h-[2px] w-full rounded-full",
-            live
-              ? "animate-pulse bg-gradient-to-r from-emerald-500/20 via-emerald-400 to-emerald-500/20 shadow-[0_0_12px_rgb(52_211_153)]"
-              : "bg-gradient-to-r from-primary/15 via-primary to-primary/15 shadow-[var(--electric-glow)]"
-          )}
-        />
-        <div
-          className={cn(
-            "absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-r-2 border-t-2",
-            live
-              ? "border-emerald-400 shadow-[0_0_10px_rgb(52_211_153)]"
-              : "border-primary shadow-[0_0_10px_var(--primary)]"
-          )}
-        />
-      </div>
-    </div>
-  )
-}
-
-function FlowStepMobileRow({
-  title,
-  icon: Icon,
-  value,
-  detail,
-  onOpen,
-  loading,
-  accent = "primary",
-  valueBadge,
-  detailMuted = false,
-  faded = false,
-  badgeTone = "amber",
-}: {
-  title: string
-  icon: LucideIcon
-  value: string
-  detail?: string
-  onOpen: () => void
-  loading?: boolean
-  accent?: "primary" | "network" | "scheduler"
-  /** Optional warning / status chip next to the value (e.g. Autopilot). */
-  valueBadge?: string
-  /** Muted slate detail copy (Autopilot “rings bypassed” line). */
-  detailMuted?: boolean
-  faded?: boolean
-  badgeTone?: "amber" | "emerald"
-}) {
-  // Pick the tint for the left icon tile from the step accent.
-  const isNetwork = accent === "network"
-  const isScheduler = accent === "scheduler"
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={loading}
-      className={cn(
-        "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:bg-zinc-900/60",
-        isScheduler ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
-        MOBILE_TAP_TARGET,
-        loading && "pointer-events-none opacity-50",
-        faded && "opacity-45"
-      )}
-    >
-      <div
-        className={cn(
-          LINES_MOBILE_ICON_TILE,
-          isNetwork
-            ? "bg-violet-500/15 text-violet-300"
-            : isScheduler
-              ? "bg-emerald-500/15 text-emerald-300"
-              : "bg-primary/12 text-primary"
-        )}
-      >
-        <Icon className="h-3.5 w-3.5" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className={LINES_MOBILE_SECTION_LABEL}>{title}</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <p className={cn("truncate text-sm font-semibold", faded ? "text-zinc-500" : "text-foreground")}>
-            {value}
-          </p>
-          {valueBadge ? (
-            <span
-              className={cn(
-                "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold",
-                badgeTone === "emerald"
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                  : "border-amber-500/20 bg-amber-500/10 text-amber-500"
-              )}
-            >
-              {valueBadge}
-            </span>
-          ) : null}
-        </div>
-        {detail ? (
-          <p
-            className={cn(
-              "text-xs break-words [overflow-wrap:anywhere] sm:truncate sm:overflow-hidden sm:whitespace-nowrap",
-              detailMuted || faded ? "text-zinc-500" : "text-zinc-500"
-            )}
-          >
-            {detail}
-          </p>
-        ) : null}
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
-    </button>
-  )
-}
-
-function FlowStepCard({
-  step: _step,
-  title,
-  icon: Icon,
-  value,
-  detail,
-  onOpen,
-  loading,
-  accent = "primary",
-  valueBadge,
-  detailMuted = false,
-  faded = false,
-  badgeTone = "amber",
-}: {
-  step?: string
-  title: string
-  icon: LucideIcon
-  value: string
-  detail?: string
-  onOpen: () => void
-  loading?: boolean
-  // "network" = Lyncr pool (violet); "scheduler" = Sunday Autopilot AI fallback (emerald).
-  accent?: "primary" | "network" | "scheduler"
-  /** Optional warning / status chip next to the value (e.g. Autopilot). */
-  valueBadge?: string
-  /** Muted slate detail copy (Autopilot “rings bypassed” line). */
-  detailMuted?: boolean
-  faded?: boolean
-  badgeTone?: "amber" | "emerald"
-}) {
-  // Resolve accent flags once so class lists stay readable.
-  const isNetwork = accent === "network"
-  const isScheduler = accent === "scheduler"
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={loading}
-      className={cn(
-        "group relative flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border p-3 text-left shadow-sm sm:min-h-[12.5rem] sm:p-5",
-        "transform-gpu will-change-[opacity,transform] backface-hidden transition-[border-color,box-shadow,opacity] duration-200",
-        "focus-visible:outline-none focus-visible:ring-2",
-        isNetwork
-          ? "border-violet-500/40 bg-gradient-to-b from-violet-500/10 to-background/80 hover:border-violet-500/60 hover:shadow-[0_0_32px_-12px_rgb(139_92_246)] focus-visible:ring-violet-500/50"
-          : isScheduler
-            ? "border-emerald-500/30 bg-emerald-950/10 hover:border-emerald-500/50 hover:shadow-[0_0_32px_-12px_rgb(16_185_129)] focus-visible:ring-emerald-500/40"
-            : "border-border/70 bg-gradient-to-b from-card to-background/80 hover:border-primary/45 hover:shadow-[0_0_32px_-12px_var(--primary)] focus-visible:ring-primary/50",
-        loading && "pointer-events-none opacity-50",
-        faded && "opacity-45 grayscale-[0.35]"
-      )}
-    >
-        <div className="flex items-start justify-between gap-2">
-          <div
-            className={cn(
-              "flex h-11 w-11 items-center justify-center rounded-xl border",
-              isNetwork
-                ? "border-violet-500/30 bg-violet-500/15 shadow-[0_0_20px_-6px_rgb(139_92_246)]"
-                : isScheduler
-                  ? "border-emerald-500/30 bg-emerald-500/15 shadow-[0_0_20px_-6px_rgb(16_185_129)]"
-                  : "border-primary/30 bg-primary/15 shadow-[0_0_20px_-6px_var(--primary)]"
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-5 w-5",
-                isNetwork ? "text-violet-300" : isScheduler ? "text-emerald-300" : "text-primary"
-              )}
-              aria-hidden
-            />
-          </div>
-        </div>
-      <div className="mt-3 flex flex-1 flex-col gap-0.5 sm:mt-4 sm:gap-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <p
-            className={cn(
-              "text-base font-semibold leading-tight line-clamp-2 sm:text-lg md:text-xl",
-              faded ? "text-zinc-500" : "text-foreground"
-            )}
-          >
-            {value}
-          </p>
-          {valueBadge ? (
-            <span
-              className={cn(
-                "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold",
-                badgeTone === "emerald"
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                  : "border-amber-500/20 bg-amber-500/10 text-amber-500"
-              )}
-            >
-              {valueBadge}
-            </span>
-          ) : null}
-        </div>
-        {detail ? (
-          <p className={cn("text-xs line-clamp-2", detailMuted || faded ? "text-slate-500" : "text-zinc-500")}>
-            {detail}
-          </p>
-        ) : null}
-      </div>
-      <span
-        className={cn(
-          "mt-3 inline-flex w-full items-center justify-center rounded-lg border border-border/70 bg-transparent px-4 text-xs font-semibold text-muted-foreground transition-[border-color,background-color,color] duration-200 sm:mt-5",
-          MOBILE_TAP_TARGET,
-          isNetwork
-            ? "group-hover:border-violet-500/50 group-hover:bg-violet-500/10 group-hover:text-violet-200"
-            : isScheduler
-              ? "group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10 group-hover:text-emerald-200"
-              : "group-hover:border-primary/50 group-hover:bg-primary/10 group-hover:text-primary"
-        )}
-      >
-        Configure
-      </span>
-    </button>
-  )
-}
 
 export type DashboardCallFlowProps = {
   businessNumbers: DashboardBusinessNumber[]
@@ -560,17 +296,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   autopilotMode,
   routingStrategy,
   allowLyncrNetworkFallback,
-  onConfigureStrategy,
-  setDashboardStoryKey,
-  setWhoAnswersOpen,
-  setRingBackupOpen: _setRingBackupOpen,
-  setShowFallbackSettings,
-  adminRoutingOverridePhone,
-}: DashboardCallFlowProps) {
+  onConfigureStrategy: _onConfigureStrategy,
   const { openBuyModal } = useDashboardNumbersModal()
-  const { presenceStatus, presenceBypass, presenceReady } = useAccountPresence()
-  // Static overflow stub — live autopilot hook disabled (React #185).
-  const smartOverflow = STATIC_SMART_OVERFLOW
+  const { presenceBypass, presenceReady } = useAccountPresence()
   // Who Answers primary mode — gates the entire IVR configuration deck.
   const routingModeCacheKey = persistedCacheKey(
     "active-routing-mode",
@@ -625,9 +353,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     return () => window.removeEventListener(LYNCR_ROUTING_MODE_CHANGED, onModeChanged)
   }, [loadActiveRoutingMode])
 
-  // Smart IVR / capacity overflow must NOT claim "100% automation" while Available —
-  // Available always rings the cell first; automation is only the unanswered fallback.
-  const presenceIsAvailable = presenceReady && presenceStatus === "AVAILABLE"
   // Lines chrome paint seed — name only, no phone yet (see dashboard-page).
   const PAINT_SEED_RECEPTIONIST_ID = "__paint-seed-receptionist__"
   // When Busy, prefer an Available teammate (same order as inbound TeXML).
@@ -650,49 +375,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     }
     return dialable[0] ?? null
   })()
-  const busyBackupLive = Boolean(busyBackupReceptionist)
-  const showIvrDeck =
-    activeRoutingMode === "smart_ivr" || presenceBypass || smartOverflow.overflowActive
-  // Connector pulse / LIVE glow only when automation actually owns first answer.
-  // Gate on teamRosterReady so Busy + empty paint roster does not flash orange IVR LIVE
-  // before Available receptionists hydrate (Alex LIVE / IVR standby).
-  const ivrMenuLive = presenceBypass && teamRosterReady && !busyBackupLive
-  // Capacity overflow is a standby label while Available (not a primary-route takeover).
-  // Busy + Available receptionist → IVR stays standby (not LIVE).
-  // Busy + roster still loading → also standby (neutral), never LIVE.
-  const overflowCardActive =
-    (presenceBypass && teamRosterReady && !busyBackupLive) ||
-    (!presenceIsAvailable && smartOverflow.overflowActive)
-
-  // The ordered waterfall mirrors exactly what the inbound webhook executes for this strategy.
-  const flowNodes = buildCallFlowNodes({
-    routingStrategy,
-    allowLyncrNetworkFallback,
-    isRoutingToOwner,
-    selectedReceptionistName: selectedReceptionist?.name ?? null,
-    selectedReceptionistPhone: selectedReceptionist?.phone
-      ? formatPhoneDisplay(selectedReceptionist.phone)
-      : null,
-    ownerPhoneDisplay,
-    autopilotMode: autopilotMode && !presenceBypass,
-    // Never treat Smart IVR as cell-bypass while presence is Available.
-    ivrMenuLive: false,
-    presenceBypass,
-    presenceStatus,
-    busyBackupReceptionistName: busyBackupReceptionist?.name ?? null,
-    busyBackupReceptionistPhone: busyBackupReceptionist?.phone
-      ? formatPhoneDisplay(busyBackupReceptionist.phone)
-      : null,
-    openWhoAnswers: () => setWhoAnswersOpen(true),
-    configureStrategy: onConfigureStrategy,
-  })
-
-  // Primary (+ optional network); IVR overflow is a dedicated card below.
-  const primaryAndNetworkNodes = flowNodes
-
   const adminOverrideActive = Boolean(adminRoutingOverridePhone?.trim())
 
-  // Thin "Rings now" strip — same planner rules as voice (Available / Busy+teammate / IVR).
+  // Same planner rules as voice — Busy waits for teamRosterReady so IVR never flashes early.
   const ringsNowStrip = deriveRingsNowStrip({
     presenceBypass,
     presenceReady,
@@ -711,66 +396,21 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         : false,
   })
 
-  // Stable open handler — avoid new function identity every paint for memo children.
+  const openWhoAnswers = useCallback(() => setWhoAnswersOpen(true), [setWhoAnswersOpen])
   const openScriptEditor = useCallback(() => setShowFallbackSettings(true), [setShowFallbackSettings])
 
-  // Overflow cards are hook-free — mobile/desktop CSS twins are OK.
-  // JustFinished is NOT: only one mount (shared block below) to avoid twin useOwnerLatest + Sheet trees (#185).
-  const overflowCardMobile = showIvrDeck ? (
-    <SmartOverflowFallbackCard
-      compact
-      step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass && teamRosterReady && !busyBackupLive}
-      presenceStatus={presenceStatus}
-      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
-      confirmedJobsToday={smartOverflow.confirmedJobsToday}
-      capacityThreshold={smartOverflow.config.capacityThreshold}
-      onOpenScriptEditor={openScriptEditor}
-      loading={routingLineDetailLoading || smartOverflow.loading || (presenceBypass && !teamRosterReady)}
-      retellConnected={smartOverflow.retellConnected}
-      standbyBecauseTeam={busyBackupLive}
-      standbyTeamName={busyBackupReceptionist?.name ?? null}
-    />
-  ) : null
-  const overflowCardDesktop = showIvrDeck ? (
-    <SmartOverflowFallbackCard
-      compact={false}
-      step={String(primaryAndNetworkNodes.length + 2)}
-      overflowActive={overflowCardActive}
-      presenceDriven={presenceBypass && teamRosterReady && !busyBackupLive}
-      presenceStatus={presenceStatus}
-      nextAvailableSlotText={smartOverflow.nextAvailableSlotText}
-      confirmedJobsToday={smartOverflow.confirmedJobsToday}
-      capacityThreshold={smartOverflow.config.capacityThreshold}
-      onOpenScriptEditor={openScriptEditor}
-      loading={routingLineDetailLoading || smartOverflow.loading || (presenceBypass && !teamRosterReady)}
-      retellConnected={smartOverflow.retellConnected}
-      standbyBecauseTeam={busyBackupLive}
-      standbyTeamName={busyBackupReceptionist?.name ?? null}
-    />
-  ) : null
+  // Desktop-only muted hint — never competes with the three-row story on phones.
+  const detailHint =
+    routingStrategy === "lyncr_only"
+      ? "Shared Lyncr pool answers these calls in-browser."
+      : autopilotMode && !presenceBypass
+        ? "Sunday Autopilot — AI answers first; your phone is on standby."
+        : allowLyncrNetworkFallback && routingStrategy === "hybrid_fallback"
+          ? "If your team misses, the Lyncr network can pick up."
+          : null
 
-  // Flattened shell — no outer card; no min-height spacer above Available.
   return (
     <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">
-      {/* Title + info only on md+ — non-actionable on mobile per UI standards. */}
-      <div className="mb-3 hidden items-center justify-between gap-2 md:flex">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
-            <PhoneForwarded className="h-5 w-5 text-primary" aria-hidden />
-          </div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">Call flow</h2>
-          <SheetInfoTrigger
-            onPress={() => setDashboardStoryKey("dashboard-call-flow")}
-            label="About call flow"
-          />
-        </div>
-        {routingLineDetailLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading line" />
-        ) : null}
-      </div>
-
       {!callFlowUiReady && businessNumbers.length === 0 ? (
         <CallFlowStepsSkeleton />
       ) : businessNumbers.length === 0 ? (
@@ -789,108 +429,27 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
           </div>
         </div>
       ) : (
-        <div>
+        <div className="space-y-3">
           <AdminRoutingOverrideNotice
             active={adminOverrideActive}
             phone={adminRoutingOverridePhone?.trim() ?? ""}
           />
-          {/* Thin strip: who rings next — mirrors shared inbound dial planner. */}
-          <div
-            className="mb-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm text-foreground"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="leading-snug">
-              <span className="font-semibold">Rings now:</span>{" "}
-              <span className="text-foreground">{ringsNowStrip.ringsNow}</span>
-              <span className="text-muted-foreground"> · </span>
-              <span className="font-semibold">If no answer:</span>{" "}
-              <span className="text-foreground">{ringsNowStrip.ifNoAnswer}</span>
-              <span className="text-muted-foreground"> · </span>
-              <span
-                className={cn(
-                  "font-semibold",
-                  ringsNowStrip.statusLabel === "Busy"
-                    ? "text-amber-700 dark:text-amber-400"
-                    : ringsNowStrip.statusLabel === "Available"
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : "text-muted-foreground"
-                )}
-              >
-                {ringsNowStrip.statusLabel}
-              </span>
-            </p>
-          </div>
-          {/* Mobile layout — CSS only (no useIsMobile remount on refresh). */}
-          <div
-            className="flex flex-col gap-3 md:hidden"
-            aria-label="Call handling steps"
-          >
-            {primaryAndNetworkNodes.map((node) => (
-              <FlowStepMobileRow
-                key={node.key}
-                title={node.title}
-                icon={node.icon}
-                value={node.value}
-                detail={node.detail}
-                onOpen={node.onOpen}
-                loading={routingLineDetailLoading}
-                accent={node.accent}
-                valueBadge={node.valueBadge}
-                detailMuted={node.detailMuted}
-                faded={node.faded}
-                badgeTone={node.badgeTone}
-              />
-            ))}
-            {showIvrDeck && ivrMenuLive ? (
-              <div
-                className="mx-auto h-6 w-[2px] animate-pulse rounded-full bg-gradient-to-b from-emerald-500/20 via-emerald-400 to-emerald-500/20"
-                aria-hidden
-              />
-            ) : null}
-            {overflowCardMobile}
-          </div>
-          {/* Desktop layout — hidden on phones so SSR + first paint match. */}
-          <div
-            className={cn(
-              "hidden md:flex flex-col gap-4 lg:flex-row lg:items-stretch",
-              CALL_FLOW_STEPS_MIN_H
-            )}
-            aria-label="Call handling steps"
-          >
-            {primaryAndNetworkNodes.map((node, i) => (
-              <Fragment key={node.key}>
-                {i > 0 ? <FlowConnector live={ivrMenuLive} /> : null}
-                <FlowStepCard
-                  step={String(i + 2)}
-                  title={node.title}
-                  icon={node.icon}
-                  value={node.value}
-                  detail={node.detail}
-                  onOpen={node.onOpen}
-                  loading={routingLineDetailLoading}
-                  accent={node.accent}
-                  valueBadge={node.valueBadge}
-                  detailMuted={node.detailMuted}
-                  faded={node.faded}
-                  badgeTone={node.badgeTone}
-                />
-              </Fragment>
-            ))}
-            {showIvrDeck ? (
-              <>
-                <FlowConnector live={ivrMenuLive} />
-                {overflowCardDesktop}
-              </>
-            ) : null}
-          </div>
+          <WhoRingsConsole
+            ringsNow={ringsNowStrip.ringsNow}
+            ifNoAnswer={ringsNowStrip.ifNoAnswer}
+            statusLabel={ringsNowStrip.statusLabel}
+            detailHint={detailHint}
+            onOpenWhoAnswers={openWhoAnswers}
+            onOpenGreetings={openScriptEditor}
+            onOpenAbout={() => setDashboardStoryKey("dashboard-call-flow")}
+            loading={routingLineDetailLoading}
+          />
         </div>
       )}
 
       {/*
         Alerts — component returns null when empty (no spacer div).
-        Do NOT wrap with always-on mt-3: an empty/hidden wrapper sat in the box model and
-        made Primary · Who answers look glued to Available below this section.
+        Do NOT wrap with always-on mt-3: an empty wrapper sat between Who rings and Available.
         When alerts render, the card adds its own top margin (see JustFinishedReviewCard).
       */}
       <JustFinishedReviewCard compact />

@@ -115,7 +115,7 @@ describe("telnyx menu IVR helpers", () => {
     expect(resolveTelnyxMenuGreetingForPresence("ON_JOB")).toBe(TELNYX_MENU_ON_JOB_PROMPT)
     expect(resolveTelnyxMenuGreetingForPresence("CLOSED")).toBe(TELNYX_MENU_CLOSED_PROMPT)
     expect(resolveTelnyxMenuGreetingForPresence("AVAILABLE")).toBe(TELNYX_MENU_PROMPT)
-    expect(TELNYX_MENU_ON_JOB_PROMPT).toContain("can't take your call right now")
+    expect(TELNYX_MENU_ON_JOB_PROMPT).toContain("tied up right now")
     expect(TELNYX_MENU_ON_JOB_PROMPT).toBe(TELNYX_MENU_CLOSED_PROMPT)
   })
 

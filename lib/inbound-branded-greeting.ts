@@ -28,15 +28,15 @@ export function resolveWorkspaceDisplayName(routing: InboundWorkspaceRoutingLike
   return "our business"
 }
 
-/** Caller-facing phrase played before we `<Dial>` the technician / owner leg. */
+/** Caller-facing phrase played before we Dial the technician / owner leg. */
 export function buildInboundCallerGreetingText(workspaceName: string): string {
   const name = workspaceName.trim() || "our business"
-  return `Thank you for calling ${name}. Please wait while we connect your call to a team member.`
+  return `Thanks for calling ${name}. Connecting you now.`
 }
 
 /** Zero-DB pass 1 when routing cache is cold — avoids Neon latency while the caller still hears ringback. */
 export const INBOUND_GENERIC_CALLER_GREETING =
-  "Thank you for calling. Please wait while we connect your call to a team member."
+  "Thanks for calling. Connecting you now."
 
 /** Optional hosted WAV/MP3 for pass 1 — plays faster than TTS while Telnyx is still fetching pass 2. */
 export function readInboundInstantGreetingAudioUrl(): string | null {
