@@ -19,6 +19,7 @@ describe("missed-call booking callback mode", () => {
     expect(isMissedCallBookingCallbackMode("on_call")).toBe(false)
     expect(isMissedCallBookingCallbackMode("activity_follow_up")).toBe(false)
     expect(bookingLinkSmsToneFromSource("ivr")).toBe("booking_link")
+    expect(bookingLinkSmsToneFromSource("cc_busy_hold_max_wait")).toBe("hold_timeout")
   })
 
   it("adds ?mode=callback on query-string fallback URLs", () => {

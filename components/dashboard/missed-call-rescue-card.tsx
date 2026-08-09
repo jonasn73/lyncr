@@ -171,8 +171,8 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
       toast({
         title: next ? "Missed Call Rescue on" : "Missed Call Rescue off",
         description: next
-          ? "Unanswered callers get your booking link by text."
-          : "No automatic textback after missed calls.",
+          ? "True missed calls get a separate “Sorry we missed you — book here” text (not the press-1 message)."
+          : "No automatic text after missed calls. Press 1 on Busy still texts when the caller chooses it.",
       })
     } catch (e) {
       setEnabled(!next)
@@ -197,7 +197,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const isOn = enabled === true
   const busy = toggleLoading || parentLoading || saving
   const switchDisabled = !known || busy
-  const label = !known ? "Textback…" : isOn ? "Textback on" : "Textback off"
+  const label = !known ? "Text after miss…" : isOn ? "Text after miss on" : "Text after miss off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
     <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
@@ -269,7 +269,8 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             <p className={LINES_MOBILE_SECTION_LABEL}>Automation · Missed Call Rescue</p>
             <p className="truncate text-sm font-semibold text-foreground">{label}</p>
             <p className="text-xs leading-snug text-zinc-500">
-              Instantly texts a booking link when a call goes unanswered.
+              Text after a true miss (team rang, no answer) — not when callers hang up on Busy without
+              pressing 1.
             </p>
             {rescueBadge}
           </div>
@@ -328,8 +329,8 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         />
       </div>
       <p className="mt-3 text-sm leading-relaxed text-zinc-500">
-        Instantly sends a text message with your secure booking link to any customer whose phone call
-        goes unanswered.
+        Texts “Sorry we missed your call — book here…” after a true miss (rang, no answer). Does not
+        text when someone hangs up on Busy without pressing 1. Press 1 uses a different message.
       </p>
       {rescueBadge}
       {capacityField}

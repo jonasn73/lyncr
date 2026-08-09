@@ -118,6 +118,7 @@ export async function enterBusyHoldQueue(params: {
       callSid: callControlId,
       routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_hold_cap",
+      tone: "hold_timeout",
     })
     const confirmState = encodeTelnyxCallControlState({
       ...state,
@@ -244,7 +245,8 @@ export async function startHoldMusicGather(
   })
   if (!speakGather.ok) {
     console.error(lyncrLog("telnyx-cc-hold-speak-gather-failed", { error: speakGather.error }))
-    await finishHoldWithSms(callControlId, state, "left")
+    // Do NOT auto-SMS on gather failure — only press 1 or max-wait may text.
+    await finishHoldWithoutSms(callControlId, state)
   }
 }
 
@@ -298,6 +300,7 @@ export async function leaveHoldQueueWithSms(
     callSid: callControlId,
     routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source,
+    tone: "booking_link",
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -315,10 +318,11 @@ export async function leaveHoldQueueWithSms(
   }
 }
 
+/** Max-wait only — one soft booking SMS (never used for hangup / leave without press 1). */
 async function finishHoldWithSms(
   callControlId: string,
   state: TelnyxCallControlClientState,
-  status: "timed_out" | "left"
+  status: "timed_out"
 ): Promise<void> {
   await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
@@ -330,7 +334,8 @@ async function finishHoldWithSms(
     businessLineE164: state.businessLineE164,
     callSid: callControlId,
     routedToName: CAPTURE_STATUS_HOLD_PRESS1,
-    source: status === "timed_out" ? "cc_busy_hold_max_wait" : "cc_busy_hold_leave",
+    source: "cc_busy_hold_max_wait",
+    tone: "hold_timeout",
   })
 
   const confirmState = encodeTelnyxCallControlState({
@@ -344,7 +349,19 @@ async function finishHoldWithSms(
   }
 }
 
-/** Caller hung up while waiting — cleanup Neon + Telnyx queue. */
+/** Leave hold without texting (gather failure / internal cleanup — hangup is not press 1). */
+async function finishHoldWithoutSms(
+  callControlId: string,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
+  await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
+  await updateCallQueueStatus({ callControlId, status: "left" })
+  await telnyxCallControlHangup(callControlId)
+  void state
+}
+
+/** Caller hung up while waiting — cleanup Neon + Telnyx queue (no auto SMS). */
 export async function abandonHoldQueue(callControlId: string): Promise<void> {
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
   await updateCallQueueStatus({ callControlId, status: "left" })

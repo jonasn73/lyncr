@@ -38,7 +38,7 @@ const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 // Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-2.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-2.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-teal-500/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -318,8 +318,8 @@ export default function BookPageClient({
           {error}
         </p>
       ) : payHandoffUrl || wizardStep === "pay" ? (
-        <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 px-4 py-5 text-center">
-          <p className="text-sm font-semibold text-amber-100">Next: secure deposit</p>
+        <div className="rounded-2xl border border-teal-900/40 bg-teal-950/30 px-4 py-5 text-center">
+          <p className="text-sm font-semibold text-teal-100">Next: secure deposit</p>
           <p className="mt-2 text-sm text-zinc-300">
             Taking you to checkout to hold your window
             {availabilityLabel ? ` (${availabilityLabel})` : ""}…
@@ -327,7 +327,7 @@ export default function BookPageClient({
           {payHandoffUrl ? (
             <a
               href={payHandoffUrl}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-600 px-5 text-sm font-semibold text-white hover:bg-amber-500"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-600 px-5 text-sm font-semibold text-white hover:bg-teal-500"
             >
               Continue to payment
             </a>
@@ -347,7 +347,7 @@ export default function BookPageClient({
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
-                  wizardStep === "details" && "bg-amber-500/20 text-amber-200"
+                  wizardStep === "details" && "bg-teal-500/20 text-teal-200"
                 )}
               >
                 Details
@@ -356,7 +356,7 @@ export default function BookPageClient({
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
-                  wizardStep === "availability" && "bg-amber-500/20 text-amber-200"
+                  wizardStep === "availability" && "bg-teal-500/20 text-teal-200"
                 )}
               >
                 When
@@ -371,7 +371,7 @@ export default function BookPageClient({
           ) : null}
 
           {depositStatus === "cancelled" ? (
-            <p className="rounded-lg border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+            <p className="rounded-lg border border-teal-900/50 bg-teal-950/40 px-3 py-2 text-xs text-teal-200">
               Deposit checkout was cancelled — your window was not held. Submit again when ready.
             </p>
           ) : null}
@@ -454,7 +454,7 @@ export default function BookPageClient({
                         className={cn(
                           "rounded-lg border px-2 py-1.5 text-center text-xs font-medium leading-tight",
                           jobKind === opt.id
-                            ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+                            ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                             : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
                         )}
                       >
@@ -561,7 +561,7 @@ export default function BookPageClient({
                       className={cn(
                         "rounded-lg border px-2 py-2 text-center",
                         urgency === "window"
-                          ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+                          ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                           : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
                       )}
                     >
@@ -587,7 +587,7 @@ export default function BookPageClient({
                     type="button"
                     disabled={!detailsReady || submitting}
                     onClick={() => onDetailsContinue()}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-sm font-semibold text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {submitting ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -631,7 +631,7 @@ export default function BookPageClient({
                       className={cn(
                         "rounded-xl border px-3 py-2.5 text-left",
                         dayKey === day.dateKey
-                          ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+                          ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                           : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
                       )}
                     >
@@ -678,7 +678,7 @@ export default function BookPageClient({
               {windowReady ? (
                 <p className="rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 text-center text-sm text-zinc-200">
                   You&apos;re free:{" "}
-                  <span className="font-semibold text-amber-100">{availabilityLabel}</span>
+                  <span className="font-semibold text-teal-100">{availabilityLabel}</span>
                 </p>
               ) : (
                 <p className="text-center text-[11px] text-rose-300/90">
@@ -696,7 +696,7 @@ export default function BookPageClient({
                 type="button"
                 disabled={!windowReady || submitting}
                 onClick={() => void submitRequest()}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-sm font-semibold text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {mayRequireDeposit ? depositLabel : "Submit request"}

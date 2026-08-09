@@ -57,6 +57,7 @@ import {
 } from "@/lib/inbound-time-capture"
 import { resolveInboundDialPlan, type InboundDialPlanResult } from "@/lib/inbound-dial-plan"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
 import {
   getAccountPresence,
   resolvePresenceAutomationGreeting,
@@ -1270,12 +1271,16 @@ async function handleCallHangup(
   await hangupCompanionOutboundLeg(event.callControlId, state, event.callSessionId)
 
   // Abandon hold queue row + Telnyx leave_queue when the waiting caller disconnects.
+  // Hangup without press 1 must NOT trigger Missed Call Rescue / booking SMS.
   if (
     state?.phase === "await_busy_hold_loop" ||
     state?.holdQueueName ||
-    state?.dialReason === "busy_automation"
+    state?.dialReason === "busy_automation" ||
+    state?.phase === "await_busy_gather_end"
   ) {
     await abandonHoldQueue(event.callControlId).catch(() => undefined)
+    // Mark IVR “done” so status-callback rescue skips this Busy abandon.
+    void markIvrActionCompleted(event.callControlId)
   }
 
   const hadConversation =

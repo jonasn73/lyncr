@@ -84,8 +84,8 @@ export function escapeTexmlSayText(value: string): string {
   return escapeTexmlText(cleanTextForTTS(value))
 }
 
-/** SMS tone for public booking links — missed-call recovery vs plain “here’s the link”. */
-export type BookingLinkSmsTone = "missed_call" | "booking_link"
+/** SMS tone for public booking links — press-1 vs missed vs hold max-wait. */
+export type BookingLinkSmsTone = "missed_call" | "booking_link" | "hold_timeout"
 
 /** Short shop label for booking SMS (defaults to Key Squad). */
 function normalizeBookingSmsShopLabel(raw?: string | null): string {
@@ -104,16 +104,29 @@ function formatBookingLinkSmsBody(
   tone: BookingLinkSmsTone,
   businessLabel?: string | null
 ): string {
-  // Missed-call rescue: apology → share info/availability → tech follows up (no slot pick).
+  // True miss (rang team / no answer) — distinct from press-1.
   if (tone === "missed_call") {
-    return `Sorry we missed your call — share your info & availability here and a tech will follow up ASAP: ${link}`
+    return `Sorry we missed your call — book here: ${link}`
+  }
+  // Hold max-wait — soft nudge, still one SMS max (dedupe elsewhere).
+  if (tone === "hold_timeout") {
+    const shop = normalizeBookingSmsShopLabel(businessLabel)
+    return `${shop} — still want to book? ${link}`
   }
   // Press-1 / hold / IVR — short, named, clear “pick a time”.
   const shop = normalizeBookingSmsShopLabel(businessLabel)
   return `${shop} — pick a time: ${link}`
 }
 
-/** Secure booking deep-link SMS body — prefers opaque /book/[id] tracking URLs. */
+/** Absolute tracking links: /book/<id> or short /b/<code>. */
+function isOpaqueBookingUrl(url: string): boolean {
+  return (
+    /^https?:\/\/.+/i.test(url) &&
+    (/\/book\/[^/?#]+/i.test(url) || /\/b\/[^/?#]+/i.test(url))
+  )
+}
+
+/** Secure booking deep-link SMS body — prefers opaque /book/[id] or /b/[code] URLs. */
 export function buildTelnyxMenuBookingSms(
   fromE164: string,
   bookUrlOrBase = "https://lyncr.app/book",
@@ -123,8 +136,8 @@ export function buildTelnyxMenuBookingSms(
   businessLabel?: string | null
 ): string {
   const trimmed = bookUrlOrBase.trim()
-  // Already a full /book/<uuid> (or other absolute) tracking link.
-  if (/^https?:\/\/.+/i.test(trimmed) && /\/book\/[^/?#]+/i.test(trimmed)) {
+  // Already a full tracking link (/book/uuid or /b/short).
+  if (isOpaqueBookingUrl(trimmed)) {
     return formatBookingLinkSmsBody(trimmed, tone, businessLabel)
   }
 

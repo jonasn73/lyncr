@@ -20,6 +20,7 @@ import {
   isAutomatedCallHandler,
   MIN_LIVE_ANSWER_DURATION_SECONDS,
 } from "@/lib/missed-call-telemetry"
+import { isHoldAutomationStatus } from "@/lib/inbound-time-capture"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -167,30 +168,36 @@ export async function POST(req: NextRequest) {
         } catch (dispatchErr) {
           console.error("[Telnyx] Admin override dispatch SMS failed:", dispatchErr)
         }
-        // Missed Call Rescue — skip legs that already had a confirmed human answer.
+        // Missed Call Rescue — true miss only (not Busy hangup / hold leave without press 1).
         try {
           const snap2 = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
-          const talkSec = Number(snap2?.duration_seconds ?? duration ?? 0)
-          const humanAnswered =
-            Boolean(snap2?.answered_at) &&
-            !isAutomatedCallHandler(snap2?.routed_to_name) &&
-            talkSec >= MIN_LIVE_ANSWER_DURATION_SECONDS
-          const preferRescue =
-            !humanAnswered &&
-            (callStatus === "no-answer" ||
-              callStatus === "busy" ||
-              callStatus === "canceled" ||
-              (callStatus === "completed" &&
-                (talkSec < 45 || talkSec < MIN_LIVE_ANSWER_DURATION_SECONDS) &&
-                !humanAnswered))
-          if (preferRescue && fromNumber && toNumber) {
-            await maybeSendMissedCallRescueSms({
-              callSid,
-              callStatus,
-              fromNumber,
-              toNumber,
-              preferRescue: true,
-            })
+          const routed = snap2?.routed_to_name ?? null
+          // Busy menu / hold / capture SMS paths never get a second “missed” text.
+          if (isHoldAutomationStatus(routed) || isAutomatedCallHandler(routed)) {
+            // skip
+          } else {
+            const talkSec = Number(snap2?.duration_seconds ?? duration ?? 0)
+            const humanAnswered =
+              Boolean(snap2?.answered_at) &&
+              !isAutomatedCallHandler(routed) &&
+              talkSec >= MIN_LIVE_ANSWER_DURATION_SECONDS
+            const preferRescue =
+              !humanAnswered &&
+              (callStatus === "no-answer" ||
+                callStatus === "busy" ||
+                callStatus === "canceled" ||
+                (callStatus === "completed" &&
+                  (talkSec < 45 || talkSec < MIN_LIVE_ANSWER_DURATION_SECONDS) &&
+                  !humanAnswered))
+            if (preferRescue && fromNumber && toNumber) {
+              await maybeSendMissedCallRescueSms({
+                callSid,
+                callStatus,
+                fromNumber,
+                toNumber,
+                preferRescue: true,
+              })
+            }
           }
         } catch (rescueErr) {
           console.error("[Telnyx] Missed Call Rescue SMS failed:", rescueErr)

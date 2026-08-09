@@ -86,11 +86,34 @@ describe("telnyx menu IVR helpers", () => {
       "missed_call"
     )
     expect(sms).toContain("Sorry we missed your call")
-    expect(sms).toContain("availability")
-    expect(sms).toContain("follow up ASAP")
+    expect(sms).toContain("book here:")
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     expect(sms).not.toContain("pick a time")
     expect(sms).not.toContain("Here's your booking link:")
+  })
+
+  it("uses soft still-want-to-book copy for hold max-wait SMS", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/AB12CD34",
+      null,
+      "hold_timeout",
+      "Key Squad"
+    )
+    expect(sms).toContain("still want to book?")
+    expect(sms).toContain("https://lyncr.app/b/AB12CD34")
+    expect(sms).not.toContain("Sorry we missed")
+  })
+
+  it("keeps short /b/ links intact in SMS bodies", () => {
+    const sms = buildTelnyxMenuBookingSms(
+      "+15025550100",
+      "https://lyncr.app/b/XYZ23456",
+      null,
+      "booking_link",
+      "Key Squad"
+    )
+    expect(sms).toBe("Key Squad — pick a time: https://lyncr.app/b/XYZ23456")
   })
 
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {

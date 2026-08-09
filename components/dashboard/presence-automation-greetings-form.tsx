@@ -12,11 +12,12 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/ivr-automation-settings"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
+import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 
 const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/40"
 
 type GreetingsPayload = {
   onJobGreetingText?: string
@@ -418,13 +419,22 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             ) : null}
           </div>
 
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
+            <p className="text-xs font-semibold text-zinc-300">Text after missed call</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+              Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call
+              Rescue can text “Sorry we missed your call — book here…” Turn it on/off under Lines →
+              Missed Call Rescue (default on). Hanging up on Busy without pressing 1 does not text.
+            </p>
+          </div>
+
           <button
             type="button"
             disabled={saving || !dirty}
             onClick={() => void handleSave()}
             className={cn(
               "inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition-opacity",
-              "bg-amber-600 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+              "bg-teal-600 hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             {saving ? (
