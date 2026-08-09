@@ -6,6 +6,7 @@
 // to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
 // Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see LYNCR_TEXML_SAY_RATE).
 
+import { normalizeElevenLabsCallControlVoice } from "@/lib/elevenlabs-telnyx"
 import { VoiceResponse } from "@/lib/telnyx"
 import { envLyncrOrZing } from "@/lib/lyncr-env"
 
@@ -55,6 +56,7 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
       raw
     )
   ) {
+    if (/^ElevenLabs\./i.test(raw)) return normalizeElevenLabsCallControlVoice(raw)
     return raw
   }
   // Twilio-style Polly on TeXML → AWS Polly on Call Control Speak.

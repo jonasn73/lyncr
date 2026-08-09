@@ -6,6 +6,7 @@ import {
   DEFAULT_CLOSED_GREETING_TEXT,
   DEFAULT_IVR_VOICE_ENGINE_MODEL,
   DEFAULT_ON_JOB_GREETING_TEXT,
+  defaultIvrVoiceEngineModel,
   normalizeIvrBypassCode,
   parseHolidayDateTimeInput,
 } from "@/lib/ivr-automation-settings"
@@ -193,7 +194,7 @@ function mapPresenceRow(row: PresenceRow): AccountPresence {
     ivrVoiceEngineModel:
       typeof row.ivr_voice_engine_model === "string" && row.ivr_voice_engine_model.trim()
         ? row.ivr_voice_engine_model.trim()
-        : DEFAULT_IVR_VOICE_ENGINE_MODEL,
+        : defaultIvrVoiceEngineModel(),
     holidayOverrideStart: isoOrNull(row.holiday_override_start),
     holidayOverrideEnd: isoOrNull(row.holiday_override_end),
     holidayGreetingText:
@@ -234,7 +235,7 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
         VALUES (${ownerUserId}, 'AVAILABLE', false)
         ON CONFLICT (user_id) DO NOTHING
       `
-      return { ...DEFAULT_ACCOUNT_PRESENCE }
+      return { ...DEFAULT_ACCOUNT_PRESENCE, ivrVoiceEngineModel: defaultIvrVoiceEngineModel() }
     }
     return mapPresenceRow(row)
   } catch (e) {
@@ -308,7 +309,7 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
           ...mapPresenceRow({
             ...row,
             ivr_bypass_code: null,
-            ivr_voice_engine_model: DEFAULT_IVR_VOICE_ENGINE_MODEL,
+            ivr_voice_engine_model: defaultIvrVoiceEngineModel(),
             holiday_override_start: null,
             holiday_override_end: null,
             holiday_greeting_text: null,
@@ -316,7 +317,7 @@ export async function getAccountPresence(ownerUserId: string): Promise<AccountPr
           }),
         }
       } catch {
-        return { ...DEFAULT_ACCOUNT_PRESENCE }
+        return { ...DEFAULT_ACCOUNT_PRESENCE, ivrVoiceEngineModel: defaultIvrVoiceEngineModel() }
       }
     }
     // Pre-100 migration: presence exists but greeting columns do not.
@@ -464,7 +465,7 @@ export async function setAccountPresenceGreetings(
   const voice =
     typeof params.ivrVoiceEngineModel === "string" && params.ivrVoiceEngineModel.trim()
       ? params.ivrVoiceEngineModel.trim()
-      : DEFAULT_IVR_VOICE_ENGINE_MODEL
+      : defaultIvrVoiceEngineModel()
   const holidayStart = parseHolidayDateTimeInput(params.holidayOverrideStart)
   const holidayEnd = parseHolidayDateTimeInput(params.holidayOverrideEnd)
   const holidayText =

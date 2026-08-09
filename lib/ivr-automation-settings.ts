@@ -1,13 +1,26 @@
 // IVR automation dispatch — voice personas, holiday window, bypass DTMF helpers.
 
 import {
+  ELEVENLABS_VOICE_IDS,
+  elevenLabsCallControlVoice,
+  elevenLabsNaturalHdFallback,
+  elevenLabsSpeakEnabled,
+  normalizeElevenLabsCallControlVoice,
+} from "@/lib/elevenlabs-telnyx"
+import {
   TELNYX_MENU_CLOSED_PROMPT,
   TELNYX_MENU_DEFAULT_RING_E164,
   TELNYX_MENU_ON_JOB_PROMPT,
 } from "@/lib/telnyx-menu"
 
-/** Product default TTS model id (stored on account_settings). */
+/**
+ * Product default TTS model id when ElevenLabs is not configured.
+ * Kept as NaturalHD Astra so deploys without ELEVENLABS_API_KEY stay unchanged.
+ */
 export const DEFAULT_IVR_VOICE_ENGINE_MODEL = "en-US-Standard-C"
+
+/** Best ElevenLabs calm female — used as default when Speak can use ElevenLabs. */
+export const ELEVENLABS_DEFAULT_IVR_VOICE_ENGINE_MODEL = "en-US-ElevenLabs-Rachel"
 
 /** Hardcoded owner cell for secret bypass dial (presence blocks ignored). */
 export const IVR_BYPASS_DIAL_E164 = TELNYX_MENU_DEFAULT_RING_E164
@@ -17,25 +30,55 @@ export const DEFAULT_CLOSED_GREETING_TEXT = TELNYX_MENU_CLOSED_PROMPT
 
 /**
  * Dashboard "AI Voice Persona" options → stored engine model ids.
- * Ordered best → worse for calm phone IVR (NaturalHD > Polly Neural).
- * ElevenLabs (when ELEVENLABS_API_KEY / Telnyx integration is set) ranks above NaturalHD —
- * see optional entries with requiresElevenLabs.
+ * Ordered best → worse for calm phone IVR.
+ * ElevenLabs (★ Best) first — Call Control Speak uses Telnyx + Mission Control secret.
+ * Without a key/secret, resolveSpeakVoiceForPersona falls back to NaturalHD.
  *
  * Call Control Speak uses `callControlVoice`. Persona wins over LYNCR_CALL_CONTROL_SPEAK_VOICE
  * unless that env is set to force an ops override (documented in PRODUCTION.md).
  */
 export const IVR_VOICE_PERSONA_OPTIONS = [
   {
+    id: "en-US-ElevenLabs-Rachel",
+    label: "★ Best · Calm woman (ElevenLabs Rachel)",
+    description:
+      "Top quality calm female via ElevenLabs. Needs ELEVENLABS_API_KEY (Vercel) and/or Telnyx Integration Secret. Falls back to NaturalHD Astra if Speak fails.",
+    texmlVoice: "Polly.Joanna-Neural",
+    callControlVoice: elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel),
+    qualityRank: 0,
+    requiresElevenLabs: true,
+  },
+  {
+    id: "en-US-ElevenLabs-Bella",
+    label: "★ Best · Warm woman (ElevenLabs Bella)",
+    description:
+      "Soft, warm female via ElevenLabs. Needs ELEVENLABS_API_KEY / Telnyx secret. Falls back to NaturalHD Astra if Speak fails.",
+    texmlVoice: "Polly.Salli-Neural",
+    callControlVoice: elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.bella),
+    qualityRank: 0,
+    requiresElevenLabs: true,
+  },
+  {
+    id: "en-US-ElevenLabs-Adam",
+    label: "★ Best · Calm man (ElevenLabs Adam)",
+    description:
+      "Calm male via ElevenLabs. Needs ELEVENLABS_API_KEY / Telnyx secret. Falls back to NaturalHD Albion if Speak fails.",
+    texmlVoice: "Polly.Matthew-Neural",
+    callControlVoice: elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.adam),
+    qualityRank: 0,
+    requiresElevenLabs: true,
+  },
+  {
     id: "en-US-Standard-C",
-    label: "★ Best · Calm woman (NaturalHD Astra)",
-    description: "Highest quality calm female without extra setup — Telnyx NaturalHD Astra.",
+    label: "Calm woman (NaturalHD Astra)",
+    description: "Telnyx NaturalHD Astra — highest quality without ElevenLabs setup.",
     texmlVoice: "Polly.Joanna-Neural",
     callControlVoice: "Telnyx.NaturalHD.astra",
     qualityRank: 1,
   },
   {
     id: "en-US-NaturalHD-Luna",
-    label: "★ Calm woman (NaturalHD Luna)",
+    label: "Calm woman (NaturalHD Luna)",
     description: "NaturalHD Luna — soft, clear female alternate.",
     texmlVoice: "Polly.Salli-Neural",
     callControlVoice: "Telnyx.NaturalHD.luna",
@@ -43,29 +86,11 @@ export const IVR_VOICE_PERSONA_OPTIONS = [
   },
   {
     id: "en-US-NaturalHD-Albion",
-    label: "★ Best · Calm man (NaturalHD Albion)",
-    description: "Highest quality calm male without extra setup — Telnyx NaturalHD Albion.",
+    label: "Calm man (NaturalHD Albion)",
+    description: "Telnyx NaturalHD Albion — calm male without ElevenLabs.",
     texmlVoice: "Polly.Matthew-Neural",
     callControlVoice: "Telnyx.NaturalHD.albion",
     qualityRank: 3,
-  },
-  {
-    id: "en-US-ElevenLabs-Rachel",
-    label: "Premium · Calm woman (ElevenLabs Rachel)",
-    description: "ElevenLabs — needs ELEVENLABS_API_KEY (or Telnyx ElevenLabs integration). Falls back to Astra if missing.",
-    texmlVoice: "Polly.Joanna-Neural",
-    callControlVoice: "ElevenLabs.Rachel",
-    qualityRank: 0,
-    requiresElevenLabs: true,
-  },
-  {
-    id: "en-US-ElevenLabs-Adam",
-    label: "Premium · Calm man (ElevenLabs Adam)",
-    description: "ElevenLabs — needs ELEVENLABS_API_KEY. Falls back to Albion if missing.",
-    texmlVoice: "Polly.Matthew-Neural",
-    callControlVoice: "ElevenLabs.Adam",
-    qualityRank: 0,
-    requiresElevenLabs: true,
   },
   {
     id: "en-US-Polly-Joanna",
@@ -111,17 +136,29 @@ export const IVR_VOICE_PERSONA_OPTIONS = [
 
 export type IvrVoicePersonaId = (typeof IVR_VOICE_PERSONA_OPTIONS)[number]["id"]
 
-/** True when ElevenLabs can be attempted (env key present). */
+/** True when ElevenLabs can be attempted (Vercel key and/or Telnyx secret ref). */
 export function elevenLabsKeyConfigured(): boolean {
-  return Boolean(String(process.env.ELEVENLABS_API_KEY || "").trim())
+  return elevenLabsSpeakEnabled()
+}
+
+/**
+ * Default persona for new/empty account settings.
+ * When ElevenLabs is wired, prefer Rachel; otherwise NaturalHD Astra.
+ */
+export function defaultIvrVoiceEngineModel(): string {
+  return elevenLabsKeyConfigured()
+    ? ELEVENLABS_DEFAULT_IVR_VOICE_ENGINE_MODEL
+    : DEFAULT_IVR_VOICE_ENGINE_MODEL
 }
 
 /** Map stored engine model → TeXML <Say voice="…"> (Telnyx/Polly). */
 export function resolveIvrTexmlVoice(engineModel: string | null | undefined): string {
   const raw = String(engineModel || "").trim()
-  if (!raw) return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
+  if (!raw) return IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === defaultIvrVoiceEngineModel())!.texmlVoice
   // Robotic basic engines → neural Joanna (same as Call Control normalize).
-  if (/^(alice|man|woman|male|female)$/i.test(raw)) return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
+  if (/^(alice|man|woman|male|female)$/i.test(raw)) {
+    return IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === DEFAULT_IVR_VOICE_ENGINE_MODEL)!.texmlVoice
+  }
   // Already a Polly / Google voice — pass through.
   if (/^(Polly\.|Google\.|AWS\.Polly\.)/i.test(raw)) return raw
   // Legacy persona ids from older deploys.
@@ -129,17 +166,20 @@ export function resolveIvrTexmlVoice(engineModel: string | null | undefined): st
   if (raw === "en-US-NaturalHD-Aiden") return "Polly.Stephen-Neural"
   const match = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === raw)
   if (match) return match.texmlVoice
-  return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
+  return IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === DEFAULT_IVR_VOICE_ENGINE_MODEL)!.texmlVoice
 }
 
 /**
  * Map stored AI Voice Persona → Call Control Speak `voice`.
- * Prefer NaturalHD / AWS.Polly.*-Neural (never bare `alice` / basic engine).
+ * Prefer NaturalHD / AWS.Polly.*-Neural / ElevenLabs.<model>.<id> (never bare `alice`).
  */
 export function resolveIvrCallControlVoice(engineModel: string | null | undefined): string {
   const raw = String(engineModel || "").trim()
-  if (!raw) return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
-  // Already a Call Control provider voice — keep as-is (with legacy NaturalHD renames).
+  if (!raw) {
+    const def = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === defaultIvrVoiceEngineModel())
+    return def?.callControlVoice || "Telnyx.NaturalHD.astra"
+  }
+  // Already a Call Control provider voice — keep as-is (with legacy NaturalHD / ElevenLabs renames).
   if (
     /^(AWS\.|Azure\.|ElevenLabs\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(
       raw
@@ -147,6 +187,7 @@ export function resolveIvrCallControlVoice(engineModel: string | null | undefine
   ) {
     if (/^Telnyx\.NaturalHD\.abbie$/i.test(raw)) return "Telnyx.NaturalHD.luna"
     if (/^Telnyx\.NaturalHD\.aiden$/i.test(raw)) return "Telnyx.NaturalHD.albion"
+    if (/^ElevenLabs\./i.test(raw)) return normalizeElevenLabsCallControlVoice(raw)
     return raw
   }
   // Twilio-style Polly → AWS Polly on Call Control.
@@ -154,24 +195,26 @@ export function resolveIvrCallControlVoice(engineModel: string | null | undefine
     return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
   }
   if (/^(alice|man|woman|male|female)$/i.test(raw)) {
-    return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
+    return "Telnyx.NaturalHD.astra"
   }
   // Legacy persona ids → current Call Control voices.
   if (raw === "en-US-NaturalHD-Abbie") return "Telnyx.NaturalHD.luna"
   if (raw === "en-US-NaturalHD-Aiden") return "Telnyx.NaturalHD.albion"
   const match = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === raw)
   if (match) return match.callControlVoice
-  return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
+  return "Telnyx.NaturalHD.astra"
 }
 
 /**
- * Resolve Speak voice for a saved persona, with ElevenLabs → NaturalHD fallback when key missing.
+ * Resolve Speak voice for a saved persona, with ElevenLabs → NaturalHD fallback when not configured.
  */
 export function resolveSpeakVoiceForPersona(engineModel: string | null | undefined): string {
   const voice = resolveIvrCallControlVoice(engineModel)
   if (/^ElevenLabs\./i.test(voice) && !elevenLabsKeyConfigured()) {
-    if (/adam/i.test(voice)) return "Telnyx.NaturalHD.albion"
-    return "Telnyx.NaturalHD.astra"
+    return elevenLabsNaturalHdFallback(voice)
+  }
+  if (/^ElevenLabs\./i.test(voice)) {
+    return normalizeElevenLabsCallControlVoice(voice)
   }
   return voice
 }

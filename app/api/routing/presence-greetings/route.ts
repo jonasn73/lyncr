@@ -11,7 +11,8 @@ import {
 import { getAccountHoldSettings, setAccountHoldSettings } from "@/lib/call-queue-db"
 import { holdMaxWaitSecs, holdRePromptIntervalMs } from "@/lib/hold-queue"
 import {
-  DEFAULT_IVR_VOICE_ENGINE_MODEL,
+  defaultIvrVoiceEngineModel,
+  elevenLabsKeyConfigured,
   IVR_VOICE_PERSONA_OPTIONS,
 } from "@/lib/ivr-automation-settings"
 
@@ -69,12 +70,14 @@ function serializePresence(
     defaults: {
       onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
-      ivrVoiceEngineModel: DEFAULT_IVR_VOICE_ENGINE_MODEL,
+      ivrVoiceEngineModel: defaultIvrVoiceEngineModel(),
     },
+    elevenLabsEnabled: elevenLabsKeyConfigured(),
     voicePersonas: IVR_VOICE_PERSONA_OPTIONS.map((o) => ({
       id: o.id,
       label: o.label,
       description: o.description,
+      requiresElevenLabs: "requiresElevenLabs" in o && o.requiresElevenLabs === true,
     })),
   }
 }
@@ -97,11 +100,12 @@ export async function GET(req: NextRequest) {
           onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
           closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
           ivrBypassCode: null,
-          ivrVoiceEngineModel: DEFAULT_IVR_VOICE_ENGINE_MODEL,
+          ivrVoiceEngineModel: defaultIvrVoiceEngineModel(),
           holidayOverrideStart: null,
           holidayOverrideEnd: null,
           holidayGreetingText: null,
           ivrCapacityThreshold: 5,
+          smartBusyEnabled: false,
         },
         null
       ),

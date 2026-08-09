@@ -666,8 +666,9 @@ export function DashboardCallFlowConfigureDrawer({
                   <p className="text-[10px] text-zinc-600">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                       "Tone callers hear on automation Speak."}{" "}
-                    If <span className="font-mono">LYNCR_CALL_CONTROL_SPEAK_VOICE</span> is set in
-                    Vercel, that env voice overrides this persona.
+                    ★ Best options use ElevenLabs when{" "}
+                    <span className="font-mono">ELEVENLABS_API_KEY</span> is set on Vercel.
+                    NaturalHD / Polly work without it.
                   </p>
                 </div>
 

@@ -39,4 +39,4 @@ LYNCR_HOLD_REPROMPT_MS=60000
 - `telnyx-cc-busy-automation-gather` with `maximumTries: 1`
 - `telnyx-cc-hold-music-started` with `mode: "playback_content_kick"` (or `playback_content`) and `gatherToMusicMs` ideally under ~2000
 - `telnyx-cc-hold-entered` with `musicStarted: true` and `softHoldNoTelnyxEnqueue: true`
-- `telnyx-cc-hold-reprompt-speak` with `speakVoice: "Telnyx.NaturalHD.astra"` (or the account persona)
+- `telnyx-cc-hold-reprompt-speak` with `speakVoice` matching Busy gather (ElevenLabs Rachel when configured, else NaturalHD / persona)

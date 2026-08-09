@@ -18,7 +18,8 @@ import {
   setAccountPresenceGreetings,
 } from "@/lib/account-presence"
 import {
-  DEFAULT_IVR_VOICE_ENGINE_MODEL,
+  defaultIvrVoiceEngineModel,
+  elevenLabsKeyConfigured,
   IVR_VOICE_PERSONA_OPTIONS,
 } from "@/lib/ivr-automation-settings"
 import {
@@ -83,12 +84,14 @@ function serializeConfigure(
     defaults: {
       onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
-      ivrVoiceEngineModel: DEFAULT_IVR_VOICE_ENGINE_MODEL,
+      ivrVoiceEngineModel: defaultIvrVoiceEngineModel(),
     },
+    elevenLabsEnabled: elevenLabsKeyConfigured(),
     voicePersonas: IVR_VOICE_PERSONA_OPTIONS.map((o) => ({
       id: o.id,
       label: o.label,
       description: o.description,
+      requiresElevenLabs: "requiresElevenLabs" in o && o.requiresElevenLabs === true,
     })),
   }
 }

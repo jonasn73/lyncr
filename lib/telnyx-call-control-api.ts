@@ -1,5 +1,11 @@
 // Telnyx Call Control REST actions (answer → speak → dial → record → hold queue).
 
+import {
+  elevenLabsNaturalHdFallback,
+  ensureTelnyxElevenLabsIntegrationSecret,
+  getElevenLabsVoiceSettings,
+  normalizeElevenLabsCallControlVoice,
+} from "@/lib/elevenlabs-telnyx"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
   buildCallControlSpeakPayload,
@@ -81,7 +87,14 @@ export async function telnyxCallControlAnswer(
   return postCallAction(callControlId, "answer", { client_state: clientState })
 }
 
-/** Speak TTS greeting on an active call leg (NaturalHD / Polly Neural by default). */
+/** Attach ElevenLabs voice_settings (api_key_ref) when Speak uses ElevenLabs.*. */
+async function speakBodyExtras(voice: string): Promise<Record<string, unknown>> {
+  if (!/^ElevenLabs\./i.test(voice)) return {}
+  await ensureTelnyxElevenLabsIntegrationSecret()
+  return { voice_settings: getElevenLabsVoiceSettings() }
+}
+
+/** Speak TTS greeting on an active call leg (ElevenLabs / NaturalHD / Polly Neural). */
 export async function telnyxCallControlSpeak(
   callControlId: string,
   text: string,
@@ -90,23 +103,28 @@ export async function telnyxCallControlSpeak(
 ): Promise<TelnyxCallControlActionResult> {
   // Persona / env → Call Control voice (AWS.Polly.* / Telnyx.NaturalHD.* / ElevenLabs.*).
   const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts?.voice })
+  const primaryVoice = /^ElevenLabs\./i.test(attrs.voice)
+    ? normalizeElevenLabsCallControlVoice(attrs.voice)
+    : attrs.voice
   const trySpeak = async (voice: string) => {
     const built = buildCallControlSpeakPayload(text, voice)
+    const extras = await speakBodyExtras(voice)
     return postCallAction(callControlId, "speak", {
       payload: built.payload,
       payload_type: built.payloadType,
-      // Premium unlocks neural / NaturalHD quality (basic = robotic).
+      // Premium unlocks neural / NaturalHD / ElevenLabs quality (basic = robotic).
       service_level: "premium",
       voice,
       language: attrs.language,
       client_state: clientState,
+      ...extras,
     })
   }
-  const primary = await trySpeak(attrs.voice)
+  const primary = await trySpeak(primaryVoice)
   if (primary.ok) return primary
-  // ElevenLabs needs API key / Telnyx integration — fall back to NaturalHD.
-  if (/^ElevenLabs\./i.test(attrs.voice)) {
-    const fb = /adam/i.test(attrs.voice) ? "Telnyx.NaturalHD.albion" : "Telnyx.NaturalHD.astra"
+  // ElevenLabs needs Mission Control secret + paid ElevenLabs — fall back to NaturalHD.
+  if (/^ElevenLabs\./i.test(primaryVoice)) {
+    const fb = elevenLabsNaturalHdFallback(primaryVoice)
     console.warn(
       lyncrLog("telnyx-cc-speak-elevenlabs-fallback", {
         callControlId,
@@ -118,7 +136,7 @@ export async function telnyxCallControlSpeak(
     if (elevenFallback.ok) return elevenFallback
   }
   // NaturalHD may be unavailable on some Telnyx accounts — fall back to Polly Neural.
-  if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
+  if (/^Telnyx\.NaturalHD\./i.test(primaryVoice) && primaryVoice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
     console.warn(
       lyncrLog("telnyx-cc-speak-naturalhd-fallback", {
         callControlId,
@@ -156,17 +174,22 @@ export async function telnyxCallControlGatherUsingSpeak(
   }
 ): Promise<TelnyxCallControlActionResult> {
   const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts.voice })
+  const primaryVoice = /^ElevenLabs\./i.test(attrs.voice)
+    ? normalizeElevenLabsCallControlVoice(attrs.voice)
+    : attrs.voice
   const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
   // Default 1 — never rely on Telnyx’s 3× payload replay for Busy / hold.
   const maxTries = Math.max(1, Math.min(3, Math.floor(opts.maximumTries ?? 1) || 1))
   const tryGather = async (voice: string) => {
     const built = buildCallControlSpeakPayload(opts.text, voice)
+    const extras = await speakBodyExtras(voice)
     console.log(
       lyncrLog("telnyx-cc-gather-speak-voice", {
         callControlId,
         voice,
         maximumTries: maxTries,
         textLen: opts.text.length,
+        elevenLabs: Boolean(extras.voice_settings),
       })
     )
     return postCallAction(callControlId, "gather_using_speak", {
@@ -185,12 +208,13 @@ export async function telnyxCallControlGatherUsingSpeak(
       timeout_millis: opts.timeoutMillis ?? 8000,
       inter_digit_timeout_millis: 3000,
       client_state: opts.clientState,
+      ...extras,
     })
   }
-  const primary = await tryGather(attrs.voice)
+  const primary = await tryGather(primaryVoice)
   if (primary.ok) return primary
-  if (/^ElevenLabs\./i.test(attrs.voice)) {
-    const fb = /adam/i.test(attrs.voice) ? "Telnyx.NaturalHD.albion" : "Telnyx.NaturalHD.astra"
+  if (/^ElevenLabs\./i.test(primaryVoice)) {
+    const fb = elevenLabsNaturalHdFallback(primaryVoice)
     console.warn(
       lyncrLog("telnyx-cc-gather-speak-elevenlabs-fallback", {
         callControlId,
@@ -201,7 +225,7 @@ export async function telnyxCallControlGatherUsingSpeak(
     const elevenFallback = await tryGather(fb)
     if (elevenFallback.ok) return elevenFallback
   }
-  if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
+  if (/^Telnyx\.NaturalHD\./i.test(primaryVoice) && primaryVoice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
     console.warn(
       lyncrLog("telnyx-cc-gather-speak-naturalhd-fallback", {
         callControlId,

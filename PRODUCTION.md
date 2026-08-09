@@ -35,9 +35,11 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). Per-account override in Greetings (migration **130**). |
 | `LYNCR_HOLD_REPROMPT_MS` | Optional. Hold music segment length in ms between re-prompts (default **45000**). Per-account seconds override in Greetings (migration **130**). |
 | `LYNCR_HOLD_MAX_CONCURRENT` | Optional. Cap waiting holds per account (default **3**). |
-| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override **only when no AI Voice Persona is saved**, or when `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1`. Saved Greetings persona wins by default (★ Best = **`Telnyx.NaturalHD.astra`** / **`Telnyx.NaturalHD.albion`**). Examples: `AWS.Polly.Joanna-Neural`, `Telnyx.NaturalHD.astra`, `ElevenLabs.Rachel` (needs `ELEVENLABS_API_KEY`). |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override **only when no AI Voice Persona is saved**, or when `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1`. Saved Greetings persona wins by default. ★ Best = **ElevenLabs Rachel** when wired, else **`Telnyx.NaturalHD.astra`**. Examples: `AWS.Polly.Joanna-Neural`, `Telnyx.NaturalHD.astra`, `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`. |
 | `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE` | Set `1` to force `LYNCR_CALL_CONTROL_SPEAK_VOICE` over the saved persona. |
-| `ELEVENLABS_API_KEY` | Optional. Enables Premium ElevenLabs personas in Call Control Speak; otherwise those options fall back to NaturalHD. |
+| `ELEVENLABS_API_KEY` | Optional **server-only** (never `NEXT_PUBLIC_`). Enables ★ Best ElevenLabs personas on Call Control Speak / Busy gather / hold re-prompt. Lyncr auto-creates a Telnyx Mission Control **Integration Secret** named `lyncr_elevenlabs` from this key on first Speak. Without it, ElevenLabs personas fall back to NaturalHD. |
+| `TELNYX_ELEVENLABS_API_KEY_REF` | Optional. Mission Control secret **identifier** passed as `voice_settings.api_key_ref` (default **`lyncr_elevenlabs`**). Set this if you created the secret manually under a different name. |
+| `TELNYX_ELEVENLABS_SKIP_AUTO_SECRET` | Optional. Set `1` to skip auto-create of the Telnyx integration secret (you already pasted the key in Mission Control). |
 | `LYNCR_CALL_CONTROL_SPEAK_RATE` | Optional Polly SSML rate for Call Control (default **`1.05`** — slightly conversational). Set `1` or `off` to disable. NaturalHD ignores this (plain text). |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
 | `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |
@@ -76,6 +78,17 @@ The app was renamed from **Zing**. Runtime still **dual-reads** `ZING_*` when `L
 | `TELNYX_AI_EXPRESSIVE` | Optional. Set **`0`** / **`false`** to skip **`expressive_mode`** when using **`Telnyx.Ultra.*`** voices. Default enables expressive for Ultra. |
 
 Save and **redeploy** the project (Deployments → … → Redeploy).
+
+### ElevenLabs Busy / hold Speak (optional ★ Best voices)
+
+Telnyx Call Control Speak uses **your** ElevenLabs account. Format: `ElevenLabs.eleven_multilingual_v2.<voiceId>` plus `voice_settings.api_key_ref`.
+
+1. **Vercel** → Project → **Settings → Environment Variables** → add **`ELEVENLABS_API_KEY`** (Production; not `NEXT_PUBLIC_`) → Redeploy.
+2. **Automatic (preferred):** On the first Busy Speak, lyncr creates a Telnyx Integration Secret named **`lyncr_elevenlabs`** from that key (needs `TELNYX_API_KEY`).
+3. **Manual (if auto-create fails):** Telnyx Mission Control → **[Integration Secrets](https://portal.telnyx.com/#/app/integration-secrets)** → **Create** → Identifier **`lyncr_elevenlabs`** (or set `TELNYX_ELEVENLABS_API_KEY_REF` to your name) → Type **Bearer** → paste the same ElevenLabs API key → Save.
+4. Greetings → AI Voice Persona → choose **★ Best · Calm woman (ElevenLabs Rachel)** → Save → place a Busy test call.
+
+ElevenLabs **free** plans often reject Telnyx relay traffic — a paid ElevenLabs plan may be required. If Speak fails, lyncr falls back to **NaturalHD Astra/Albion** automatically.
 
 ### AI receptionist (Telnyx Voice AI)
 
