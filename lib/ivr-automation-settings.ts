@@ -44,8 +44,10 @@ export function resolveIvrTexmlVoice(engineModel: string | null | undefined): st
   const raw = String(engineModel || "")
     .trim()
   if (!raw) return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
-  // Already a Polly / alice-style voice — pass through.
-  if (/^(Polly\.|Google\.|alice|man|woman)/i.test(raw)) return raw
+  // Robotic basic engines → neural Joanna (same as Call Control normalize).
+  if (/^(alice|man|woman|male|female)$/i.test(raw)) return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
+  // Already a Polly / Google voice — pass through.
+  if (/^(Polly\.|Google\.|AWS\.Polly\.)/i.test(raw)) return raw
   const match = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === raw)
   if (match) return match.texmlVoice
   return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice

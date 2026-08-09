@@ -48,7 +48,7 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 | Goal | What to check |
 |------|-----------------|
 | Fastest first ring | Keep **line whisper** off unless needed: `ZING_INBOUND_RECEPTIONIST_WHISPER=no` (or disable per user in Settings). Owner leg uses `<Number url=…>` only when whisper is on — that adds an extra HTTP round trip before audio. |
-| Clear TTS | Optional faster speech: `ZING_TEXML_SAY_RATE` (see `lib/texml-say-voice.ts`). |
+| Clear TTS | Call Control Speak uses **`AWS.Polly.Joanna-Neural`** by default (override `ZING_CALL_CONTROL_SPEAK_VOICE`). TeXML `<Say>` uses **`Polly.Joanna-Neural`** (`ZING_TEXML_SAY_VOICE`). Optional faster TeXML speech: `ZING_TEXML_SAY_RATE` (see `lib/texml-say-voice.ts`). Human WAV/MP3 greet: `ZING_INBOUND_INSTANT_GREETING_AUDIO_URL`. |
 | AI without extra spoken steps | Avoid `ZING_AI_HANDOFF_TWO_STEP` (default off). Prefer silent redirect to `/ai-bridge`. |
 | Second DID outbound | Multi-line accounts may use primary DID as PSTN `callerId` when the dialed line is not on the outbound voice profile yet (auto). All numbers should be on the **same Telnyx outbound voice profile** for best attestation. |
 | Callee sees real CLI | Default PSTN `callerId` = inbound caller; `ZING_INBOUND_DIAL_CALLER_ID_USE_BUSINESS_LINE=1` shows business line on teammate phone instead. |

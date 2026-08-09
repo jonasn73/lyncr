@@ -30,6 +30,6 @@ describe("ivr menu settings", () => {
     // Spoken XML uses five oh two; stored script stays 502.
     expect(xml).toContain("Key Squad five oh two")
     expect(xml).toContain("<Gather")
-    expect(xml).toContain('voice="alice"')
+    expect(xml).toContain('voice="Polly.Joanna-Neural"')
   })
 })

@@ -12,7 +12,12 @@ import {
   TELNYX_MENU_CLOSED_PROMPT,
   TELNYX_MENU_ON_JOB_PROMPT,
 } from "@/lib/telnyx-menu"
-import { cleanTextForTTS } from "@/lib/texml-say-voice"
+import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+
+/** Neural Polly default for capture TeXML (not robotic `alice`). */
+function defaultCaptureSayVoice(): string {
+  return getTexmlSayVoiceAttributes().voice
+}
 
 export const INBOUND_CAPTURE_TIMEZONE = "America/New_York"
 
@@ -123,11 +128,12 @@ function escapeTexmlSay(value: string): string {
   return escapeTexml(cleanTextForTTS(value))
 }
 
-export function buildCaptureSayHangupXml(sayText: string, voice = "alice"): string {
+export function buildCaptureSayHangupXml(sayText: string, voice?: string): string {
+  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexml(voice)}">${escapeTexmlSay(sayText)}</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">${escapeTexmlSay(sayText)}</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -138,7 +144,7 @@ export function buildCaptureHangupXml(): string {
 }
 
 /** Night entry Gather — timeout / no digit → action posts without Digits (SMS). */
-export function buildNightCaptureGatherXml(actionUrl: string, voice = "alice"): string {
+export function buildNightCaptureGatherXml(actionUrl: string, voice?: string): string {
   return buildSmsDefaultGatherXml(actionUrl, NIGHT_CAPTURE_PROMPT, voice)
 }
 
@@ -148,9 +154,10 @@ export function buildNightCaptureGatherXml(actionUrl: string, voice = "alice"): 
 export function buildSmsDefaultGatherXml(
   actionUrl: string,
   prompt: string,
-  voice = "alice",
+  voice?: string,
   numDigits = 1
 ): string {
+  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
   const safeAction = escapeTexml(actionUrl)
   const safePrompt = escapeTexmlSay(prompt.trim() || NIGHT_CAPTURE_PROMPT)
   const digits = Math.max(1, Math.min(8, Math.floor(numDigits) || 1))
@@ -158,18 +165,18 @@ export function buildSmsDefaultGatherXml(
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Gather numDigits="${digits}" timeout="8" action="${safeAction}" method="POST">` +
-    `<Say voice="${escapeTexml(voice)}">${safePrompt}</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">${safePrompt}</Say>` +
     `</Gather>` +
     `<Redirect method="POST">${safeAction}</Redirect>` +
     `</Response>`
   )
 }
 
-export function buildCalendarFullDayGatherXml(actionUrl: string, voice = "alice"): string {
+export function buildCalendarFullDayGatherXml(actionUrl: string, voice?: string): string {
   return buildSmsDefaultGatherXml(actionUrl, CALENDAR_FULL_DAY_PROMPT, voice)
 }
 
-export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice = "alice"): string {
+export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice?: string): string {
   return buildSmsDefaultGatherXml(actionUrl, CALENDAR_PARTIAL_BUSY_PROMPT, voice)
 }
 
@@ -177,7 +184,7 @@ export function buildCalendarPartialBusyGatherXml(actionUrl: string, voice = "al
 export function buildPresenceClosedGatherXml(
   actionUrl: string,
   prompt: string = PRESENCE_CLOSED_PROMPT,
-  voice = "alice",
+  voice?: string,
   numDigits = 1
 ): string {
   return buildSmsDefaultGatherXml(
@@ -192,7 +199,7 @@ export function buildPresenceClosedGatherXml(
 export function buildPresenceOnJobGatherXml(
   actionUrl: string,
   prompt: string = PRESENCE_ON_JOB_PROMPT,
-  voice = "alice",
+  voice?: string,
   numDigits = 1
 ): string {
   return buildSmsDefaultGatherXml(
@@ -207,7 +214,7 @@ export function buildPresenceOnJobGatherXml(
 export function buildHolidayOverrideGatherXml(
   actionUrl: string,
   prompt: string,
-  voice = "alice",
+  voice?: string,
   numDigits = 1
 ): string {
   return buildSmsDefaultGatherXml(
@@ -233,7 +240,7 @@ export function buildIvrBypassDialXml(opts: {
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="alice">Connecting you now.</Say>` +
+    `<Say voice="${escapeTexml(defaultCaptureSayVoice())}">Connecting you now.</Say>` +
     `<Dial timeout="${timeout}" answerOnBridge="true"${callerAttr}>` +
     `<Number>${safeNumber}</Number>` +
     `</Dial>` +
@@ -293,14 +300,15 @@ export function clampDayCaptureDialTimeoutSeconds(raw: number | null | undefined
 }
 
 /** Day unanswered → busy Gather (1 = SMS, 2 = hold / voicemail). */
-export function buildDayBusyFallbackGatherXml(actionUrl: string, voice = "alice"): string {
+export function buildDayBusyFallbackGatherXml(actionUrl: string, voice?: string): string {
+  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
   const safeAction = escapeTexml(actionUrl)
   const safePrompt = escapeTexmlSay(DAY_BUSY_FALLBACK_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Gather numDigits="1" timeout="8" action="${safeAction}" method="POST">` +
-    `<Say voice="${escapeTexml(voice)}">${safePrompt}</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">${safePrompt}</Say>` +
     `</Gather>` +
     // Timeout = SMS (same as Press 1).
     `<Redirect method="POST">${safeAction}</Redirect>` +
@@ -309,14 +317,15 @@ export function buildDayBusyFallbackGatherXml(actionUrl: string, voice = "alice"
 }
 
 /** Press 2 day hold — short voice memo then hangup. */
-export function buildDayHoldVoicemailXml(recordingCallbackUrl: string, voice = "alice"): string {
+export function buildDayHoldVoicemailXml(recordingCallbackUrl: string, voice?: string): string {
+  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
   const safeCb = escapeTexml(recordingCallbackUrl)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexml(voice)}">Please leave a short message after the beep and we will get back to you. Press pound when you are finished.</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">Please leave a short message after the beep and we will get back to you. Press pound when you are finished.</Say>` +
     `<Record maxLength="90" playBeep="true" finishOnKey="#" action="${safeCb}" method="POST"/>` +
-    `<Say voice="${escapeTexml(voice)}">Thank you. Goodbye.</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">Thank you. Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -383,7 +392,7 @@ export function isCaptureDialLineBusy(statusRaw: string): boolean {
 /** Say + Hangup after SMS already fired (call-waiting deflection). */
 export function buildCaptureSmsAlreadySentHangupXml(
   prompt: string = LIVE_CALL_WAITING_PROMPT,
-  voice = "alice"
+  voice?: string
 ): string {
   return buildCaptureSayHangupXml(prompt, voice)
 }
@@ -392,8 +401,9 @@ export function buildCaptureSmsAlreadySentHangupXml(
 export function buildHoldQueueGatherXml(
   actionUrl: string,
   remainingMinutes: number,
-  voice = "alice"
+  voice?: string
 ): string {
+  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
   const prompt = buildHoldQueuePrompt(remainingMinutes)
   const safeAction = escapeTexml(actionUrl)
   const safePrompt = escapeTexmlSay(prompt)
@@ -401,7 +411,7 @@ export function buildHoldQueueGatherXml(
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Gather numDigits="1" timeout="30" action="${safeAction}" method="POST">` +
-    `<Say voice="${escapeTexml(voice)}">${safePrompt}</Say>` +
+    `<Say voice="${escapeTexml(sayVoice)}">${safePrompt}</Say>` +
     `</Gather>` +
     `<Redirect method="POST">${safeAction}</Redirect>` +
     `</Response>`

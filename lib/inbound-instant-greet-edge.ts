@@ -12,8 +12,8 @@ export { buildInboundGreetingContinueUrl, inboundGreetingPassDone }
 export const EDGE_GENERIC_GREETING_TEXT =
   "Thank you for calling. Please wait while we connect your call to a team member."
 
-/** Standard Polly on pass 1 — answers on Telnyx immediately (no HTTP fetch like `<Play>`). */
-const EDGE_PASS1_SAY_VOICE = "Polly.Joanna"
+/** Standard Polly Neural on pass 1 — answers on Telnyx immediately (no HTTP fetch like `<Play>`). */
+const EDGE_PASS1_SAY_VOICE = "Polly.Joanna-Neural"
 const DEFAULT_SAY_LANGUAGE = "en-US"
 
 export function isVoiceIncomingWebhookPath(pathname: string): boolean {

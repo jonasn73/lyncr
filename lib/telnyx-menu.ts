@@ -4,7 +4,12 @@
 
 import { defaultIntakeScheduleDate, suggestNextOpenTime, combineDateAndTime } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
-import { cleanTextForTTS } from "@/lib/texml-say-voice"
+import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+
+/** Default TeXML voice — neural Polly (not robotic `alice`). Evaluated per call so env overrides apply. */
+function defaultMenuSayVoice(): string {
+  return getTexmlSayVoiceAttributes().voice
+}
 
 /** Default Gather menu — Key Squad multi-step IVR. */
 export const TELNYX_MENU_PROMPT =
@@ -114,12 +119,13 @@ export function buildTelnyxMenuBookingSms(
 }
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */
-export function buildTelnyxMenuSayHangupXml(sayText: string, voice = "alice"): string {
+export function buildTelnyxMenuSayHangupXml(sayText: string, voice?: string): string {
+  const sayVoice = (voice && voice.trim()) || defaultMenuSayVoice()
   const safe = escapeTexmlSayText(sayText)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexmlText(voice)}">${safe}</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">${safe}</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -131,12 +137,13 @@ export function buildTelnyxMenuHangupXml(): string {
 }
 
 /** Invalid keypress → announce and Redirect back to the menu Gather URL. */
-export function buildTelnyxMenuInvalidRedirectXml(menuUrl: string, voice = "alice"): string {
+export function buildTelnyxMenuInvalidRedirectXml(menuUrl: string, voice?: string): string {
+  const sayVoice = (voice && voice.trim()) || defaultMenuSayVoice()
   const safeUrl = escapeTexmlText(menuUrl)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexmlText(voice)}">Invalid option.</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">Invalid option.</Say>` +
     `<Redirect method="POST">${safeUrl}</Redirect>` +
     `</Response>`
   )
@@ -146,17 +153,18 @@ export function buildTelnyxMenuInvalidRedirectXml(menuUrl: string, voice = "alic
 export function buildTelnyxMenuGatherXml(
   actionUrl: string,
   greetingText: string = TELNYX_MENU_PROMPT,
-  voice = "alice"
+  voice?: string
 ): string {
+  const sayVoice = (voice && voice.trim()) || defaultMenuSayVoice()
   const safeAction = escapeTexmlText(actionUrl)
   const safePrompt = escapeTexmlSayText(greetingText.trim() || TELNYX_MENU_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Gather numDigits="1" timeout="8" action="${safeAction}" method="POST">` +
-    `<Say voice="${escapeTexmlText(voice)}">${safePrompt}</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">${safePrompt}</Say>` +
     `</Gather>` +
-    `<Say voice="${escapeTexmlText(voice)}">We did not receive a selection. Goodbye.</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">We did not receive a selection. Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -190,17 +198,18 @@ export function buildTelnyxMenuDialXml(opts: {
 export function buildTelnyxMenuBusyFallbackGatherXml(
   actionUrl: string,
   prompt: string = TELNYX_MENU_BUSY_FALLBACK_PROMPT,
-  voice = "alice"
+  voice?: string
 ): string {
+  const sayVoice = (voice && voice.trim()) || defaultMenuSayVoice()
   const safeAction = escapeTexmlText(actionUrl)
   const safePrompt = escapeTexmlSayText(prompt.trim() || TELNYX_MENU_BUSY_FALLBACK_PROMPT)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
     `<Gather numDigits="1" timeout="8" action="${safeAction}" method="POST">` +
-    `<Say voice="${escapeTexmlText(voice)}">${safePrompt}</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">${safePrompt}</Say>` +
     `</Gather>` +
-    `<Say voice="${escapeTexmlText(voice)}">Goodbye.</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
   )
@@ -209,15 +218,16 @@ export function buildTelnyxMenuBusyFallbackGatherXml(
 /** Digit action → traditional voicemail record. */
 export function buildTelnyxMenuVoicemailXml(
   recordingCallbackUrl: string,
-  voice = "alice"
+  voice?: string
 ): string {
+  const sayVoice = (voice && voice.trim()) || defaultMenuSayVoice()
   const safeCb = escapeTexmlText(recordingCallbackUrl)
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
-    `<Say voice="${escapeTexmlText(voice)}">Please leave a message after the beep. Press pound when you are finished.</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">Please leave a message after the beep. Press pound when you are finished.</Say>` +
     `<Record maxLength="120" playBeep="true" finishOnKey="#" action="${safeCb}" method="POST"/>` +
-    `<Say voice="${escapeTexmlText(voice)}">Thank you. Goodbye.</Say>` +
+    `<Say voice="${escapeTexmlText(sayVoice)}">Thank you. Goodbye.</Say>` +
     `<Hangup/>` +
     `</Response>`
   )

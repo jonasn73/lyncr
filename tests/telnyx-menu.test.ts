@@ -82,9 +82,9 @@ describe("telnyx menu IVR helpers", () => {
     expect(sms).not.toContain("Here's your booking link:")
   })
 
-  it("builds Digits=1 / Digits=2 Say+Hangup TeXML with alice voice", () => {
+  it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {
     const xml1 = buildTelnyxMenuSayHangupXml(TELNYX_MENU_DIGIT1_SAY)
-    expect(xml1).toContain('voice="alice"')
+    expect(xml1).toContain('voice="Polly.Joanna-Neural"')
     expect(xml1).toContain("Perfect, we just texted that link")
     expect(xml1).toContain("<Hangup/>")
 

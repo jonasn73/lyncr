@@ -1,13 +1,17 @@
 // ============================================
-// TeXML <Say> — less robotic TTS (Telnyx / TwiML-compatible)
+// TeXML <Say> + Call Control Speak — natural TTS
 // ============================================
-// Default Twilio/Telnyx Say uses a basic engine; Polly *-Neural sounds more natural.
-// Optional SSML <prosody rate="…"> slightly speeds delivery (see ZING_TEXML_SAY_RATE).
+// TeXML accepts Twilio-style `Polly.*-Neural`. Call Control Speak needs `AWS.Polly.*-Neural`
+// (or Azure / Telnyx / ElevenLabs). Sending bare `Polly.*` on Call Control often falls back
+// to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
+// Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see ZING_TEXML_SAY_RATE).
 
 import { VoiceResponse } from "@/lib/telnyx"
 
-/** Amazon Polly neural — widely supported on Telnyx TeXML; override with ZING_TEXML_SAY_VOICE. */
+/** Amazon Polly neural — TeXML `<Say voice="…">`; override with ZING_TEXML_SAY_VOICE. */
 const DEFAULT_TEXML_SAY_VOICE = "Polly.Joanna-Neural"
+/** Call Control Speak default — same Joanna Neural, correct Telnyx provider prefix. */
+const DEFAULT_CALL_CONTROL_SPEAK_VOICE = "AWS.Polly.Joanna-Neural"
 const DEFAULT_TEXML_SAY_LANGUAGE = "en-US"
 
 /**
@@ -29,11 +33,54 @@ export function cleanTextForTTS(text: string): string {
   return out
 }
 
-/** Twilio <Say> attributes (Telnyx accepts TwiML-compatible XML). */
+/**
+ * Map a TeXML / legacy voice id into a Call Control Speak `voice` string.
+ * - `Polly.Joanna-Neural` → `AWS.Polly.Joanna-Neural`
+ * - `alice` / `man` / `woman` → neural Joanna (avoid robotic basic engine)
+ * - Already-prefixed AWS / Azure / Telnyx / ElevenLabs / etc. pass through
+ */
+export function normalizeCallControlSpeakVoice(voice: string | null | undefined): string {
+  const raw = String(voice ?? "").trim()
+  if (!raw) return DEFAULT_CALL_CONTROL_SPEAK_VOICE
+  // Already a Call Control provider voice — keep as-is.
+  if (
+    /^(AWS\.|Azure\.|ElevenLabs\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(
+      raw
+    )
+  ) {
+    return raw
+  }
+  // Twilio-style Polly on TeXML → AWS Polly on Call Control Speak.
+  if (/^Polly\./i.test(raw)) {
+    return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
+  }
+  // Basic TeXML engines sound robotic on phones — upgrade to neural Joanna.
+  if (/^(alice|man|woman|male|female)$/i.test(raw)) {
+    return DEFAULT_CALL_CONTROL_SPEAK_VOICE
+  }
+  return raw
+}
+
+/** Twilio <Say> attributes (Telnyx TeXML accepts TwiML-compatible XML). */
 export function getTexmlSayVoiceAttributes(): { voice: string; language: string } {
   const voice = process.env.ZING_TEXML_SAY_VOICE?.trim() || DEFAULT_TEXML_SAY_VOICE
   const language = process.env.ZING_TEXML_SAY_LANGUAGE?.trim() || DEFAULT_TEXML_SAY_LANGUAGE
   return { voice, language }
+}
+
+/**
+ * Call Control `speak` / `gather_using_speak` voice + language.
+ * Override with `ZING_CALL_CONTROL_SPEAK_VOICE` (e.g. `Telnyx.NaturalHD.astra` or
+ * `AWS.Polly.Matthew-Neural`). Falls back to normalizing `ZING_TEXML_SAY_VOICE`.
+ */
+export function getCallControlSpeakVoiceAttributes(): { voice: string; language: string } {
+  const language = process.env.ZING_TEXML_SAY_LANGUAGE?.trim() || DEFAULT_TEXML_SAY_LANGUAGE
+  const explicit = process.env.ZING_CALL_CONTROL_SPEAK_VOICE?.trim()
+  if (explicit) {
+    return { voice: normalizeCallControlSpeakVoice(explicit), language }
+  }
+  const texmlVoice = process.env.ZING_TEXML_SAY_VOICE?.trim() || DEFAULT_TEXML_SAY_VOICE
+  return { voice: normalizeCallControlSpeakVoice(texmlVoice), language }
 }
 
 function parseProsodyRate(): number {

@@ -1,6 +1,6 @@
 // Telnyx Call Control REST actions (answer → speak → dial → record).
 
-import { cleanTextForTTS, getTexmlSayVoiceAttributes } from "@/lib/texml-say-voice"
+import { cleanTextForTTS, getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
@@ -58,13 +58,14 @@ export async function telnyxCallControlAnswer(
   return postCallAction(callControlId, "answer", { client_state: clientState })
 }
 
-/** Speak TTS greeting on an active call leg. */
+/** Speak TTS greeting on an active call leg (AWS Polly Neural by default). */
 export async function telnyxCallControlSpeak(
   callControlId: string,
   text: string,
   clientState: string
 ): Promise<TelnyxCallControlActionResult> {
-  const attrs = getTexmlSayVoiceAttributes()
+  // Call Control needs AWS.Polly.* — bare Polly.* often falls back to a robotic basic voice.
+  const attrs = getCallControlSpeakVoiceAttributes()
   // Phoneticize before Speak — DB stays "Key Squad 502", voice says "five oh two".
   const spoken = cleanTextForTTS(text)
   return postCallAction(callControlId, "speak", {
@@ -92,7 +93,8 @@ export async function telnyxCallControlGatherUsingSpeak(
     validDigits?: string
   }
 ): Promise<TelnyxCallControlActionResult> {
-  const attrs = getTexmlSayVoiceAttributes()
+  // Same neural voice as greetings — Busy press-1 menus must not use robotic fallback TTS.
+  const attrs = getCallControlSpeakVoiceAttributes()
   const spoken = cleanTextForTTS(opts.text)
   const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
   return postCallAction(callControlId, "gather_using_speak", {
