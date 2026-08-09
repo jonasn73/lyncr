@@ -7,7 +7,6 @@ import { PhoneIncoming } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
-import { workspacePresenceChannel } from "@/lib/active-operator"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 
 type QueueCaller = {
@@ -74,7 +73,8 @@ export function HoldQueueWaitingCard({ className }: { className?: string }) {
     if (!ownerUserId) return
     const pusher = getPusherClient()
     if (!pusher) return
-    const channelName = workspacePresenceChannel(ownerUserId)
+    // Same channel name as CallAnsweredModal / live telemetry (keep client-safe — no lib/active-operator).
+    const channelName = `presence-account-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
     const onUpdate = () => void refresh()
     channel.bind("hold-queue-updated", onUpdate)
