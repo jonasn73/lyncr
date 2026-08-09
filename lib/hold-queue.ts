@@ -13,7 +13,7 @@ export function lyncrHoldQueueName(userId: string): string {
   return `lyncr-${id || "unknown"}`
 }
 
-/** How long one music segment plays before we re-speak Busy + gather (ms). */
+/** How long one music segment plays before a short “still in line” reminder (ms). */
 export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): number {
   const fromAccount =
     typeof accountOverrideSecs === "number" && Number.isFinite(accountOverrideSecs)
@@ -22,10 +22,10 @@ export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): num
   const raw =
     fromAccount != null
       ? fromAccount
-      : Number(envLyncrOrZing("HOLD_REPROMPT_MS") || "45000")
-  if (!Number.isFinite(raw)) return 45_000
-  // Keep between 20s and 90s so callers hear updates without thrashing Telnyx.
-  return Math.min(90_000, Math.max(20_000, Math.floor(raw)))
+      : Number(envLyncrOrZing("HOLD_REPROMPT_MS") || "60000")
+  if (!Number.isFinite(raw)) return 60_000
+  // Call-center feel: 45–90s between short reminders (not constant talking).
+  return Math.min(90_000, Math.max(45_000, Math.floor(raw)))
 }
 
 /** Max time a caller may wait in the hold queue (seconds) before one SMS + hangup. */
@@ -124,26 +124,26 @@ export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): 
     if (envAbs?.endsWith(".wav")) push(envAbs.replace(/\.wav$/i, ".mp3"))
   }
 
-  // Bundled Calm WAV (default) + legacy aliases.
+  // Bundled classic-hold WAV (default) + legacy alias — WAV only (PSTN-safe).
   try {
     const base = getAppUrl().replace(/\/$/, "")
     if (base) {
       push(`${base}${HOLD_MUSIC_DEFAULT_PATH}`)
       push(`${base}/audio/hold-music.wav`)
-      push(`${base}/audio/hold-calm.mp3`)
-      push(`${base}/audio/hold-music.mp3`)
     }
   } catch {
     /* getAppUrl may throw in unit tests without NEXT_PUBLIC_APP_URL */
   }
 
-  push(HOLD_MUSIC_PUBLIC_FALLBACK_URL)
   return out
 }
 
-/** Short re-prompt while already on hold (press 1 anytime). */
+/**
+ * Short hold reminder — same idea every time (call-center style).
+ * Do NOT swap in a different full Busy greeting mid-hold.
+ */
 export const HOLD_REPROMPT_DEFAULT =
-  "You're still in line. Thanks for holding. Press 1 any time for a booking text, or stay on the line — we will connect you when someone is free."
+  "You're still in line. Press 1 to book by text, or stay on the line."
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =

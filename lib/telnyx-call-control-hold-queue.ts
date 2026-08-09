@@ -19,7 +19,6 @@ import {
   upsertCallQueueWaiting,
 } from "@/lib/call-queue-db"
 import {
-  HOLD_AWARE_BUSY_PROMPT,
   HOLD_MAX_WAIT_SMS_PROMPT,
   HOLD_REPROMPT_DEFAULT,
   holdMaxConcurrent,
@@ -35,7 +34,6 @@ import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
   telnyxCallControlBridge,
-  telnyxCallControlEnqueue,
   telnyxCallControlGather,
   telnyxCallControlGatherUsingAudio,
   telnyxCallControlGatherUsingSpeak,
@@ -75,7 +73,7 @@ function holdTimedOut(state: TelnyxCallControlClientState): boolean {
   return holdElapsedMs(state) >= holdMaxWaitSecs(state.holdMaxWaitSecs) * 1000
 }
 
-/** Build re-prompt with optional “you’re next” / position (Phase C). */
+/** Build short call-center reminder with optional “you're next” (Phase C). */
 async function buildHoldRepromptText(
   state: TelnyxCallControlClientState,
   callControlId: string
@@ -83,8 +81,8 @@ async function buildHoldRepromptText(
   let hint = ""
   try {
     const pos = await getCallQueuePosition(state.userId, callControlId)
-    if (pos === 1) hint = " You're next in line."
-    else if (pos != null && pos > 1) hint = ` You are number ${pos} in line — you're still in line with us.`
+    if (pos === 1) hint = " You're next."
+    else if (pos != null && pos > 1) hint = ` You are number ${pos} in line.`
   } catch {
     /* position is polish only */
   }
@@ -92,8 +90,11 @@ async function buildHoldRepromptText(
 }
 
 /**
- * After Busy gather timeout (stay on line) — enqueue + soft-hold music loop.
+ * After Busy gather timeout (stay on line) — music ASAP + Neon queue for Lines Answer.
  * Press 1 on the *first* Busy menu still SMS+hangups (handled by inbound before this).
+ *
+ * Soft-hold intentionally skips Telnyx `enqueue` so media is not parked/cleared —
+ * Answer bridges by stored `call_control_id` (see /api/calls/queue/answer).
  */
 export async function enterBusyHoldQueue(params: {
   callControlId: string
@@ -135,6 +136,7 @@ export async function enterBusyHoldQueue(params: {
 
   const queueName = lyncrHoldQueueName(userId)
   const holdStartedAtMs = state.holdStartedAtMs || Date.now()
+  // Snapshot hold settings in parallel with nothing else — keep this fast.
   const holdSettings = await getAccountHoldSettings(userId).catch(() => ({
     holdMusicUrl: null,
     holdMaxWaitSecs: null,
@@ -154,30 +156,11 @@ export async function enterBusyHoldQueue(params: {
     holdRepromptSecs: holdSettings.holdRepromptSecs ?? undefined,
     inboundCallControlId: state.inboundCallControlId || callControlId,
   }
-  const encoded = encodeTelnyxCallControlState(nextState)
 
-  // Soft-hold music FIRST (Telnyx contact-center: play on answered call).
-  // Enqueue after music so queue parking cannot wipe audio before the first play.
+  // 1) Music FIRST — do not wait on Neon / Telnyx queue before the caller hears audio.
   const musicOk = await startHoldMusicGather(callControlId, nextState)
 
-  const enqueueRes = await telnyxCallControlEnqueue(callControlId, {
-    queueName,
-    maxWaitTimeSecs: maxWait,
-    clientState: encoded,
-  })
-  if (!enqueueRes.ok) {
-    console.warn(
-      lyncrLog("telnyx-cc-enqueue-failed", {
-        callControlId,
-        error: enqueueRes.error,
-        note: "soft_hold_music_still_runs_without_native_queue",
-      })
-    )
-  } else if (musicOk) {
-    // Enqueue can clear media — restart once if we already had music going.
-    await startHoldMusicGather(callControlId, nextState)
-  }
-
+  // 2) Lines Answer list (Neon) — not on the critical path for audio.
   await upsertCallQueueWaiting({
     userId,
     callControlId,
@@ -192,15 +175,17 @@ export async function enterBusyHoldQueue(params: {
       callControlId,
       userId,
       queueName,
-      enqueued: enqueueRes.ok,
+      enqueued: false,
+      softHoldNoTelnyxEnqueue: true,
       musicStarted: musicOk,
     })
   )
 }
 
 /**
- * call.enqueued webhook — recovery restart of hold music if media was cleared by enqueue.
- * Music usually already started in enterBusyHoldQueue; restarting is safe/idempotent.
+ * call.enqueued webhook — no-op for music.
+ * Soft-hold no longer uses Telnyx enqueue; if an old path still enqueues, do not
+ * restart playback (that caused late/gappy music).
  */
 export async function handleCallEnqueuedHoldMusic(
   callControlId: string,
@@ -208,13 +193,12 @@ export async function handleCallEnqueuedHoldMusic(
 ): Promise<void> {
   if (state.phase !== "await_busy_hold_loop") return
   console.log(
-    lyncrLog("telnyx-cc-hold-enqueued-start-music", {
+    lyncrLog("telnyx-cc-hold-enqueued-skip-music-restart", {
       callControlId,
       holdSegment: state.holdSegment || null,
-      note: "recovery_restart_after_enqueue",
+      note: "music_already_started_before_enqueue",
     })
   )
-  await startHoldMusicGather(callControlId, state)
 }
 
 /** Play looping hold music + collect digit 1 (or speak-only when every music path fails). */
@@ -257,8 +241,8 @@ export async function startHoldMusicGather(
     })
   )
 
-  // Telnyx contact-center pattern: playback_start (loop) THEN gather for Press 1.
-  // Production: gather_using_audio returned 200 then gather.ended invalid in ~1s (no audible music).
+  // Prefer inline base64 first (no Telnyx→lyncr.app fetch = music sooner),
+  // then Media Storage name, then public HTTPS WAV URLs.
   const tryPlaybackThenGather = async (
     label: string,
     playOpts: {
@@ -271,6 +255,8 @@ export async function startHoldMusicGather(
       ...playOpts,
       clientState: encoded,
       loop: "infinity",
+      // Clear any leftover Busy-speak / prior clip so music starts cleanly.
+      stop: "all",
     })
     if (!playRes.ok) {
       console.warn(
@@ -328,21 +314,21 @@ export async function startHoldMusicGather(
     return false
   }
 
-  // 1) Telnyx Media Storage (no outbound URL fetch) when env is set.
+  // 1) Inline classic-hold clip — fastest path (Telnyx never fetches lyncr.app).
+  const inline = loadHoldMusicPlaybackContentBase64()
+  if (inline) {
+    if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
+  }
+
+  // 2) Telnyx Media Storage when env is set.
   if (mediaName) {
     if (await tryPlaybackThenGather("media_name", { mediaName })) return true
   }
 
-  // 2) Public HTTPS URLs (8 kHz WAV preferred).
+  // 3) Public HTTPS WAV URLs.
   for (const musicUrl of musicCandidates) {
     const ok = await tryPlaybackThenGather("playback_start+gather", { audioUrl: musicUrl })
     if (ok) return true
-  }
-
-  // 3) Inline base64 WAV — Telnyx never has to fetch lyncr.app.
-  const inline = loadHoldMusicPlaybackContentBase64()
-  if (inline) {
-    if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
   }
 
   // 4) Last resort: gather_using_audio (historically flaky — keep as backup).
@@ -406,7 +392,7 @@ export async function startHoldMusicGather(
   return false
 }
 
-/** Stop music briefly and re-speak Busy / position hint, then gather for press 1. */
+/** Stop music briefly for a short consistent reminder, then gather for press 1. */
 export async function startHoldRepromptGather(
   callControlId: string,
   state: TelnyxCallControlClientState
@@ -416,12 +402,12 @@ export async function startHoldRepromptGather(
     return
   }
 
-  // Stop looping hold music so the re-prompt is audible.
+  // Brief pause only — same short script every time (not a second Busy greeting).
   await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
 
   const promptCount = (state.holdPromptCount ?? 0) + 1
-  const base = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
-  const say = promptCount === 1 ? `${HOLD_AWARE_BUSY_PROMPT} ${base}` : base
+  // Always the same short line (+ optional “you're next”); never HOLD_AWARE_BUSY_PROMPT again.
+  const say = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
   const nextState: TelnyxCallControlClientState = {
     ...state,
@@ -435,7 +421,8 @@ export async function startHoldRepromptGather(
     clientState: encodeTelnyxCallControlState(nextState),
     maximumDigits: 1,
     validDigits: "1",
-    timeoutMillis: 8_000,
+    // Short window after the reminder — then back to music quickly.
+    timeoutMillis: 6_000,
   })
   if (!gatherRes.ok) {
     await startHoldMusicGather(callControlId, nextState)

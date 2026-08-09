@@ -1,8 +1,9 @@
 // ============================================
-// Hold music presets — Busy soft-hold playback
+// Hold music presets — classic call-center soft hold
 // ============================================
-// Bundled tracks are Lyncr-authored synthetic ambient loops (royalty-free).
-// Custom URL remains available under Advanced for operators who host their own MP3/WAV.
+// Bundled tracks are Lyncr-authored royalty-free elevator / light-instrumental loops
+// (smooth major arpeggios + warm pad — not beeps or experimental noise).
+// Custom URL remains available under Advanced.
 // Keep this module browser-safe — do not import lib/telnyx or other Node telephony clients.
 
 /** Built-in preset ids (not including custom). */
@@ -22,25 +23,25 @@ export const HOLD_MUSIC_DEFAULT_PRESET: HoldMusicPresetId = "calm"
 
 /**
  * Presets use 8 kHz mono WAV — Telnyx PSTN-friendly.
- * (Prior MP3 @ 16 kHz MPEG-2 L3 returned API-ok then gatherStatus=invalid in ~1s.)
+ * Classic “on hold” style: smooth / elevator / light instrumental.
  */
 export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
   {
     id: "calm",
-    label: "Calm",
-    description: "Soft ambient pad — easy to talk over.",
+    label: "Classic hold",
+    description: "Smooth elevator-style instrumental — standard call-center feel.",
     path: "/audio/hold-calm.wav",
   },
   {
     id: "upbeat",
-    label: "Upbeat",
-    description: "Brighter pulse so callers know the line is live.",
+    label: "Bright hold",
+    description: "Slightly brighter light instrumental, still soft on the ear.",
     path: "/audio/hold-upbeat.wav",
   },
   {
     id: "minimal",
-    label: "Minimal",
-    description: "Sparse soft tones with quiet gaps.",
+    label: "Soft hold",
+    description: "Quieter sparse instrumental for a gentler wait.",
     path: "/audio/hold-minimal.wav",
   },
 ]
@@ -63,7 +64,7 @@ export function matchHoldMusicPreset(
       return p.id
     }
   }
-  // Legacy default file names still map to Calm.
+  // Legacy default file names still map to Classic hold (calm).
   if (lower.includes("/audio/hold-music.wav") || lower.includes("/audio/hold-music.mp3")) {
     return "calm"
   }

@@ -36,8 +36,12 @@ describe("hold-queue helpers", () => {
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("short form")
   })
 
-  it("re-prompt says still in line", () => {
+  it("re-prompt is short and consistent (not a second Busy greeting)", () => {
     expect(HOLD_REPROMPT_DEFAULT.toLowerCase()).toContain("still in line")
+    expect(HOLD_REPROMPT_DEFAULT.toLowerCase()).toContain("press 1")
+    expect(HOLD_REPROMPT_DEFAULT.toLowerCase()).toContain("book")
+    // Keep it one short sentence — not a full alternate greeting.
+    expect(HOLD_REPROMPT_DEFAULT.length).toBeLessThan(120)
   })
 
   it("round-trips hold loop client_state", () => {

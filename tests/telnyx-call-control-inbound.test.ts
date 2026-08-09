@@ -771,7 +771,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(speakCall).toBeTruthy()
   })
 
-  it("call.gather.ended timeout enters hold queue (enqueue + music gather)", async () => {
+  it("call.gather.ended timeout enters soft hold (music ASAP, no Telnyx enqueue)", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -848,9 +848,10 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       },
     })
 
+    // Soft-hold: no Telnyx enqueue (Answer uses call_control_id from Neon).
     const enqueueCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/enqueue"))
-    expect(enqueueCall).toBeTruthy()
-    // Soft-hold: playback_start (loop) before/with enqueue — not gather_using_audio-first.
+    expect(enqueueCall).toBeFalsy()
+    // Music starts immediately via playback_start (or gather_using_audio fallback).
     const musicAfterEnter = fetchMock.mock.calls.find(
       (c) =>
         String(c[0]).includes("/actions/playback_start") ||

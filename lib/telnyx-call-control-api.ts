@@ -352,11 +352,15 @@ export async function telnyxCallControlPlaybackStart(
     clientState: string
     /** "infinity" loops until stop; omit / number for finite plays. */
     loop?: "infinity" | number
+    /** Clear any queued/playing audio before this clip (avoids stacked late starts). */
+    stop?: "current" | "all"
   }
 ): Promise<TelnyxCallControlActionResult> {
   const body: Record<string, unknown> = {
     client_state: opts.clientState,
     cache_audio: true,
+    // Always play on the inbound leg the caller is on.
+    target_legs: "self",
   }
   const mediaName = String(opts.mediaName || "").trim()
   const playbackContent = String(opts.playbackContent || "").trim()
@@ -366,6 +370,7 @@ export async function telnyxCallControlPlaybackStart(
     body.media_name = mediaName
   } else if (playbackContent) {
     body.playback_content = playbackContent
+    body.audio_type = "wav"
   } else if (audioUrl) {
     body.audio_url = audioUrl
     if (/\.mp3(\?|$)/i.test(audioUrl)) body.audio_type = "mp3"
@@ -374,6 +379,7 @@ export async function telnyxCallControlPlaybackStart(
     return { ok: false, status: 400, error: "playback_start needs audioUrl, mediaName, or playbackContent" }
   }
   if (opts.loop !== undefined) body.loop = opts.loop
+  if (opts.stop) body.stop = opts.stop
   return postCallAction(callControlId, "playback_start", body)
 }
 
