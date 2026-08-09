@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       probes,
       howToVerifyLiveCall: [
         "Set Lines to Busy, call the business number, stay on the line (do not hang up during greeting).",
-        "In Vercel logs look for telnyx-cc-hold-music-started with mode playback_start+gather (or playback_content).",
+        "In Vercel logs look for telnyx-cc-hold-music-started with mode playback_content_kick (or playback_content) and gatherToMusicMs.",
         "If you only see gatherStatus=call_hangup then hangup-as-hold — stay on the line past the Busy greeting.",
       ],
     },

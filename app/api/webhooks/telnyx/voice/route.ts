@@ -1,6 +1,7 @@
 // POST /api/webhooks/telnyx/voice — Telnyx Call Control (Voice API v2) event pipeline.
 
 import { NextRequest, NextResponse } from "next/server"
+import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import {
   handleTelnyxCallControlVoiceWebhook,
   readInboundCallControlEnabled,
@@ -9,6 +10,9 @@ import {
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 export const dynamic = "force-dynamic"
+
+// Warm inline hold WAV in memory so Busy stay-on-line is not waiting on disk.
+prefetchHoldMusicPlaybackContent()
 
 export async function POST(req: NextRequest) {
   if (!readInboundCallControlEnabled()) {

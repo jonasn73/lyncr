@@ -97,18 +97,71 @@ async function buildHoldRepromptText(
  *
  * Soft-hold intentionally skips Telnyx `enqueue` so media is not parked/cleared —
  * Answer bridges by stored `call_control_id` (see /api/calls/queue/answer).
+ *
+ * Latency: fire `playback_start` (cached inline WAV) before any Neon awaits.
  */
 export async function enterBusyHoldQueue(params: {
   callControlId: string
   state: TelnyxCallControlClientState
   routing: RoutingLike
   callSessionId?: string | null
+  /** Date.now() when Busy gather.ended was received — for gather→music ms logs. */
+  gatherEndedAtMs?: number
+  /**
+   * True when inbound already kicked `playback_start` (stay-on-line path).
+   * We still attach gather + finish Neon work.
+   */
+  musicAlreadyStarted?: boolean
 }): Promise<void> {
   const { callControlId, state, routing } = params
   const userId = routing.user_id || state.userId
+  const gatherEndedAtMs = params.gatherEndedAtMs ?? Date.now()
+  const queueName = lyncrHoldQueueName(userId)
+  const holdStartedAtMs = state.holdStartedAtMs || Date.now()
 
-  // Cap concurrent holds so orphaned legs / minutes don't runaway.
-  const waiting = await countWaitingCallQueue(userId).catch(() => 0)
+  // Minimal hold state — defaults only. Do NOT await Neon before music.
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    userId,
+    phase: "await_busy_hold_loop",
+    dialReason: "busy_automation",
+    holdQueueName: queueName,
+    holdStartedAtMs,
+    holdPromptCount: 0,
+    holdSegment: "music",
+    holdMaxWaitSecs: holdMaxWaitSecs(null),
+    inboundCallControlId: state.inboundCallControlId || callControlId,
+  }
+
+  // 1) Music FIRST (or finish gather if inbound already started playback).
+  // Skip Neon on this call — inline/bundled paths do not need account settings.
+  let musicOk = params.musicAlreadyStarted
+    ? await attachHoldMusicGatherOnly(callControlId, nextState, gatherEndedAtMs)
+    : await startHoldMusicGather(callControlId, nextState, {
+        gatherEndedAtMs,
+        skipAccountFetch: true,
+      })
+
+  // 2) Cap + settings + Neon queue — AFTER music kicked (parallel).
+  const [waiting, holdSettings] = await Promise.all([
+    countWaitingCallQueue(userId).catch(() => 0),
+    getAccountHoldSettings(userId).catch(() => ({
+      holdMusicUrl: null as string | null,
+      holdMaxWaitSecs: null as number | null,
+      holdRepromptSecs: null as number | null,
+    })),
+  ])
+
+  // If inline/bundled failed and account has a custom URL, retry once with it.
+  if (!musicOk && !params.musicAlreadyStarted && holdSettings.holdMusicUrl) {
+    musicOk = await startHoldMusicGather(callControlId, nextState, {
+      gatherEndedAtMs,
+      skipAccountFetch: true,
+      holdMusicUrl: holdSettings.holdMusicUrl,
+      holdRepromptSecs: holdSettings.holdRepromptSecs,
+    })
+  }
+
   if (waiting >= holdMaxConcurrent()) {
     console.log(
       lyncrLog("telnyx-cc-hold-cap-reached", {
@@ -118,6 +171,7 @@ export async function enterBusyHoldQueue(params: {
         cap: holdMaxConcurrent(),
       })
     )
+    await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
     await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: userId,
@@ -136,41 +190,19 @@ export async function enterBusyHoldQueue(params: {
     return
   }
 
-  const queueName = lyncrHoldQueueName(userId)
-  const holdStartedAtMs = state.holdStartedAtMs || Date.now()
-  // Snapshot hold settings in parallel with nothing else — keep this fast.
-  const holdSettings = await getAccountHoldSettings(userId).catch(() => ({
-    holdMusicUrl: null,
-    holdMaxWaitSecs: null,
-    holdRepromptSecs: null,
-  }))
-  const maxWait = holdMaxWaitSecs(holdSettings.holdMaxWaitSecs)
-  const nextState: TelnyxCallControlClientState = {
-    ...state,
-    userId,
-    phase: "await_busy_hold_loop",
-    dialReason: "busy_automation",
-    holdQueueName: queueName,
-    holdStartedAtMs,
-    holdPromptCount: 0,
-    holdSegment: "music",
-    holdMaxWaitSecs: maxWait,
-    holdRepromptSecs: holdSettings.holdRepromptSecs ?? undefined,
-    inboundCallControlId: state.inboundCallControlId || callControlId,
-  }
+  // Apply account hold tuning on client_state for the next remprompt cycle (music already playing).
+  nextState.holdMaxWaitSecs = holdMaxWaitSecs(holdSettings.holdMaxWaitSecs)
+  nextState.holdRepromptSecs = holdSettings.holdRepromptSecs ?? undefined
 
-  // 1) Music FIRST — do not wait on Neon / Telnyx queue before the caller hears audio.
-  const musicOk = await startHoldMusicGather(callControlId, nextState)
-
-  // 2) Lines Answer list (Neon) — not on the critical path for audio.
-  await upsertCallQueueWaiting({
+  // Lines Answer list + Activity tag — never block audio.
+  void upsertCallQueueWaiting({
     userId,
     callControlId,
     callSessionId: params.callSessionId,
     callerE164: state.callerE164,
     businessLineE164: state.businessLineE164,
-  })
-  await tagHoldQueueCallLog(callControlId)
+  }).catch((e) => console.warn(lyncrLog("hold-queue-upsert-failed", { error: String(e) })))
+  void tagHoldQueueCallLog(callControlId)
 
   console.log(
     lyncrLog("telnyx-cc-hold-entered", {
@@ -180,8 +212,89 @@ export async function enterBusyHoldQueue(params: {
       enqueued: false,
       softHoldNoTelnyxEnqueue: true,
       musicStarted: musicOk,
+      gatherToEnteredMs: Date.now() - gatherEndedAtMs,
+      accountMusicOverride: holdSettings.holdMusicUrl || null,
     })
   )
+}
+
+/**
+ * Fire `playback_start` with cached inline WAV only — no gather, no DB.
+ * Used by inbound stay-on-line to cut gather_ended → audible music gap.
+ */
+export async function kickHoldMusicPlaybackImmediate(params: {
+  callControlId: string
+  state: TelnyxCallControlClientState
+  gatherEndedAtMs?: number
+}): Promise<boolean> {
+  const { callControlId, state } = params
+  const gatherEndedAtMs = params.gatherEndedAtMs ?? Date.now()
+  const inline = loadHoldMusicPlaybackContentBase64()
+  if (!inline) {
+    console.warn(lyncrLog("telnyx-cc-hold-kick-no-inline", { callControlId }))
+    return false
+  }
+  const encoded = encodeTelnyxCallControlState({
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "music",
+    holdStartedAtMs: state.holdStartedAtMs || Date.now(),
+  })
+  const playRes = await telnyxCallControlPlaybackStart(callControlId, {
+    playbackContent: inline,
+    clientState: encoded,
+    loop: "infinity",
+    stop: "all",
+  })
+  const ms = Date.now() - gatherEndedAtMs
+  if (!playRes.ok) {
+    console.warn(
+      lyncrLog("telnyx-cc-hold-kick-failed", {
+        callControlId,
+        error: playRes.error,
+        gatherToMusicMs: ms,
+      })
+    )
+    return false
+  }
+  console.log(
+    lyncrLog("telnyx-cc-hold-music-started", {
+      callControlId,
+      mode: "playback_content_kick",
+      usedPlaybackContent: true,
+      gatherToMusicMs: ms,
+    })
+  )
+  return true
+}
+
+/** Attach DTMF gather after an early playback kick (music already looping). */
+async function attachHoldMusicGatherOnly(
+  callControlId: string,
+  state: TelnyxCallControlClientState,
+  gatherEndedAtMs: number
+): Promise<boolean> {
+  const repromptMs = holdRePromptIntervalMs(state.holdRepromptSecs)
+  const encoded = encodeTelnyxCallControlState({
+    ...state,
+    phase: "await_busy_hold_loop",
+    holdSegment: "music",
+  })
+  const gatherRes = await telnyxCallControlGather(callControlId, {
+    clientState: encoded,
+    timeoutMillis: repromptMs,
+    maximumDigits: 1,
+    validDigits: "1",
+  })
+  console.log(
+    lyncrLog("telnyx-cc-hold-gather-attached", {
+      callControlId,
+      ok: gatherRes.ok,
+      gatherToGatherMs: Date.now() - gatherEndedAtMs,
+      error: gatherRes.ok ? null : gatherRes.error,
+    })
+  )
+  return gatherRes.ok || true
 }
 
 /**
@@ -206,42 +319,51 @@ export async function handleCallEnqueuedHoldMusic(
 /** Play looping hold music + collect digit 1 (or speak-only when every music path fails). */
 export async function startHoldMusicGather(
   callControlId: string,
-  state: TelnyxCallControlClientState
+  state: TelnyxCallControlClientState,
+  opts?: {
+    gatherEndedAtMs?: number
+    /** Skip Neon hold-settings fetch (use state / defaults — music first). */
+    skipAccountFetch?: boolean
+    /** Optional account override already loaded by caller. */
+    holdMusicUrl?: string | null
+    holdRepromptSecs?: number | null
+  }
 ): Promise<boolean> {
   if (holdTimedOut(state)) {
     await finishHoldWithSms(callControlId, state, "timed_out")
     return false
   }
 
-  const accountSettings = await getAccountHoldSettings(state.userId).catch(() => ({
-    holdMusicUrl: null,
-    holdMaxWaitSecs: null,
-    holdRepromptSecs: null,
-  }))
-  const musicCandidates = resolveHoldMusicUrlCandidates(accountSettings.holdMusicUrl)
+  const gatherEndedAtMs = opts?.gatherEndedAtMs ?? Date.now()
+
+  // Defaults first — never block the first playback_start on Neon.
+  let accountMusicUrl = opts?.holdMusicUrl ?? null
+  let accountRepromptSecs = opts?.holdRepromptSecs ?? state.holdRepromptSecs ?? null
+  let accountMaxWait = state.holdMaxWaitSecs ?? null
+
   const mediaName = holdMusicMediaName()
-  const repromptMs = holdRePromptIntervalMs(
-    state.holdRepromptSecs ?? accountSettings.holdRepromptSecs
-  )
+  // Resolve bundled/env URLs without DB (inline path tried before any of these).
+  let musicCandidates = resolveHoldMusicUrlCandidates(accountMusicUrl)
+  let repromptMs = holdRePromptIntervalMs(accountRepromptSecs)
   const nextState: TelnyxCallControlClientState = {
     ...state,
     phase: "await_busy_hold_loop",
     holdSegment: "music",
-    holdMaxWaitSecs: state.holdMaxWaitSecs ?? holdMaxWaitSecs(accountSettings.holdMaxWaitSecs),
-    holdRepromptSecs: state.holdRepromptSecs ?? accountSettings.holdRepromptSecs ?? undefined,
+    holdMaxWaitSecs: state.holdMaxWaitSecs ?? holdMaxWaitSecs(accountMaxWait),
+    holdRepromptSecs: accountRepromptSecs ?? undefined,
   }
-  const encoded = encodeTelnyxCallControlState(nextState)
+  let encoded = encodeTelnyxCallControlState(nextState)
 
-  console.log(
-    lyncrLog("telnyx-cc-hold-music-resolve", {
-      callControlId,
-      musicUrl: musicCandidates[0] || null,
-      candidates: musicCandidates.slice(0, 6),
-      mediaName: mediaName || null,
-      accountOverride: accountSettings.holdMusicUrl || null,
-      repromptMs,
-    })
-  )
+  const logMusicStarted = (label: string, extra: Record<string, unknown> = {}) => {
+    console.log(
+      lyncrLog("telnyx-cc-hold-music-started", {
+        callControlId,
+        mode: label,
+        gatherToMusicMs: Date.now() - gatherEndedAtMs,
+        ...extra,
+      })
+    )
+  }
 
   // Prefer inline base64 first (no Telnyx→lyncr.app fetch = music sooner),
   // then Media Storage name, then public HTTPS WAV URLs.
@@ -270,29 +392,25 @@ export async function startHoldMusicGather(
           musicUrl: playOpts.audioUrl || null,
           mediaName: playOpts.mediaName || null,
           usedPlaybackContent: Boolean(playOpts.playbackContent),
+          gatherToMusicMs: Date.now() - gatherEndedAtMs,
         })
       )
       if (/no longer active/i.test(playRes.error || "")) return false
       return false
     }
+    // Music is audible now — log before gather so latency metrics are honest.
+    logMusicStarted(label, {
+      musicUrl: playOpts.audioUrl || null,
+      mediaName: playOpts.mediaName || null,
+      usedPlaybackContent: Boolean(playOpts.playbackContent),
+    })
     const gatherRes = await telnyxCallControlGather(callControlId, {
       clientState: encoded,
       timeoutMillis: repromptMs,
       maximumDigits: 1,
       validDigits: "1",
     })
-    if (gatherRes.ok) {
-      console.log(
-        lyncrLog("telnyx-cc-hold-music-started", {
-          callControlId,
-          mode: label,
-          musicUrl: playOpts.audioUrl || null,
-          mediaName: playOpts.mediaName || null,
-          usedPlaybackContent: Boolean(playOpts.playbackContent),
-        })
-      )
-      return true
-    }
+    if (gatherRes.ok) return true
     console.warn(
       lyncrLog("telnyx-cc-hold-gather-after-playback-failed", {
         callControlId,
@@ -302,25 +420,44 @@ export async function startHoldMusicGather(
       })
     )
     // Music may still be looping even if gather failed — treat as partial success.
-    if (!/no longer active/i.test(gatherRes.error || "")) {
-      console.log(
-        lyncrLog("telnyx-cc-hold-music-started", {
-          callControlId,
-          mode: `${label}-playback-only`,
-          musicUrl: playOpts.audioUrl || null,
-          note: "gather_failed_music_may_still_play",
-        })
-      )
-      return true
-    }
+    if (!/no longer active/i.test(gatherRes.error || "")) return true
     return false
   }
 
-  // 1) Inline classic-hold clip — fastest path (Telnyx never fetches lyncr.app).
+  // 1) Inline classic-hold clip — fastest path (cached base64, no disk/network on warm instance).
   const inline = loadHoldMusicPlaybackContentBase64()
   if (inline) {
     if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
   }
+
+  // Optional Neon settings only if inline failed and caller did not skip (custom URL path).
+  if (!opts?.skipAccountFetch && accountMusicUrl == null) {
+    const accountSettings = await getAccountHoldSettings(state.userId).catch(() => ({
+      holdMusicUrl: null as string | null,
+      holdMaxWaitSecs: null as number | null,
+      holdRepromptSecs: null as number | null,
+    }))
+    accountMusicUrl = accountSettings.holdMusicUrl
+    accountRepromptSecs = state.holdRepromptSecs ?? accountSettings.holdRepromptSecs
+    accountMaxWait = state.holdMaxWaitSecs ?? accountSettings.holdMaxWaitSecs
+    musicCandidates = resolveHoldMusicUrlCandidates(accountMusicUrl)
+    repromptMs = holdRePromptIntervalMs(accountRepromptSecs)
+    nextState.holdMaxWaitSecs = holdMaxWaitSecs(accountMaxWait)
+    nextState.holdRepromptSecs = accountRepromptSecs ?? undefined
+    encoded = encodeTelnyxCallControlState(nextState)
+  }
+
+  console.log(
+    lyncrLog("telnyx-cc-hold-music-resolve", {
+      callControlId,
+      musicUrl: musicCandidates[0] || null,
+      candidates: musicCandidates.slice(0, 6),
+      mediaName: mediaName || null,
+      accountOverride: accountMusicUrl || null,
+      repromptMs,
+      gatherToResolveMs: Date.now() - gatherEndedAtMs,
+    })
+  )
 
   // 2) Telnyx Media Storage when env is set.
   if (mediaName) {
@@ -343,13 +480,7 @@ export async function startHoldMusicGather(
       validDigits: "1",
     })
     if (audioGather.ok) {
-      console.log(
-        lyncrLog("telnyx-cc-hold-music-started", {
-          callControlId,
-          mode: "gather_using_audio",
-          musicUrl,
-        })
-      )
+      logMusicStarted("gather_using_audio", { musicUrl })
       return true
     }
     console.warn(

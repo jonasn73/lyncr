@@ -1,8 +1,9 @@
 // ============================================
 // Hold music presets — classic call-center soft hold
 // ============================================
-// Bundled tracks are Lyncr-authored royalty-free elevator / light-instrumental loops
-// (smooth major arpeggios + warm pad — not beeps or experimental noise).
+// Bundled tracks are Lyncr-authored royalty-free Muzak-style loops
+// (Rhodes chords + light bass + sparse lead — bank / ISP / doctor-office hold).
+// License: public/audio/PUBLIC-AUDIO-LICENSE.md
 // Custom URL remains available under Advanced.
 // Keep this module browser-safe — do not import lib/telnyx or other Node telephony clients.
 
@@ -23,19 +24,19 @@ export const HOLD_MUSIC_DEFAULT_PRESET: HoldMusicPresetId = "calm"
 
 /**
  * Presets use 8 kHz mono WAV — Telnyx PSTN-friendly.
- * Classic “on hold” style: soft jazz / elevator voicings (not beeps).
+ * Classic US telephone hold (not beeps / experimental noise).
  */
 export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
   {
     id: "calm",
     label: "Classic hold",
-    description: "Soft jazz / elevator voicings — standard contact-center feel.",
+    description: "Bank / doctor-office Muzak — soft Rhodes + light jazz hold.",
     path: "/audio/hold-calm.wav",
   },
   {
     id: "upbeat",
     label: "Bright hold",
-    description: "Slightly brighter light jazz, still soft on the ear.",
+    description: "Slightly brighter lounge jazz, still soft on the ear.",
     path: "/audio/hold-upbeat.wav",
   },
   {

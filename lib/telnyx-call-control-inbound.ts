@@ -7,6 +7,7 @@ import {
   telnyxCallControlDial,
   telnyxCallControlGatherUsingSpeak,
   telnyxCallControlHangup,
+  telnyxCallControlPlaybackStop,
   telnyxCallControlRecordStart,
   telnyxCallControlSpeak,
   telnyxListActiveCalls,
@@ -17,7 +18,9 @@ import {
   enterBusyHoldQueue,
   handleCallEnqueuedHoldMusic,
   handleHoldLoopGatherEnded,
+  kickHoldMusicPlaybackImmediate,
 } from "@/lib/telnyx-call-control-hold-queue"
+import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
 import { HOLD_AWARE_BUSY_PROMPT } from "@/lib/hold-queue"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
@@ -1011,6 +1014,7 @@ async function handleGatherEnded(
 
   const digits = event.digits.replace(/\D/g, "")
   const gatherStatus = event.gatherStatus
+  const gatherEndedAtMs = Date.now()
   console.log(
     lyncrLog("telnyx-cc-busy-gather-ended", {
       callControlId: event.callControlId,
@@ -1035,7 +1039,20 @@ async function handleGatherEnded(
     return
   }
 
-  let routing = await resolveCallControlRouting(state.businessLineE164)
+  // Stay-on-line / timeout: kick hold music in parallel with routing DB (target <1–2s audible).
+  // If after-hours later wins, we stop playback.
+  const musicKickPromise = !digits
+    ? kickHoldMusicPlaybackImmediate({
+        callControlId: event.callControlId,
+        state,
+        gatherEndedAtMs,
+      })
+    : Promise.resolve(false)
+
+  const routingPromise = resolveCallControlRouting(state.businessLineE164)
+
+  const [musicKicked, routingResolved] = await Promise.all([musicKickPromise, routingPromise])
+  let routing = routingResolved
   if (!routing) {
     routing = buildFailsafeRouting({
       userId: state.userId || "00000000-0000-0000-0000-000000000000",
@@ -1044,16 +1061,32 @@ async function handleGatherEnded(
     })
   }
 
-  // Secret bypass or press 2 → ring owner cell (matches TeXML menu / open IVR).
+  // One presence fetch covers bypass + after-hours (was two sequential awaits).
   let bypassMatch = false
+  let skipHoldForAfterHours = false
   try {
     const presence = await getAccountPresence(routing.user_id)
     bypassMatch = digitsMatchIvrBypass(digits, presence.ivrBypassCode)
+    const holidayActive = Boolean(
+      resolveHolidayGreetingText({
+        holidayOverrideStart: presence.holidayOverrideStart,
+        holidayOverrideEnd: presence.holidayOverrideEnd,
+        holidayGreetingText: presence.holidayGreetingText,
+      })
+    )
+    const status = String(presence.presenceStatus || "")
+      .trim()
+      .toUpperCase()
+    skipHoldForAfterHours = holidayActive || status === "CLOSED"
   } catch (e) {
-    console.warn("[telnyx-cc] bypass lookup skipped:", e)
+    console.warn("[telnyx-cc] presence lookup skipped:", e)
   }
 
+  // Secret bypass or press 2 → ring owner cell (matches TeXML menu / open IVR).
   if (digits === "2" || bypassMatch) {
+    if (musicKicked) {
+      await telnyxCallControlPlaybackStop(event.callControlId).catch(() => undefined)
+    }
     const owner =
       normalizePhoneNumberE164(routing.owner_phone || "") ||
       (isReasonablePstnDialString(routing.owner_phone || "")
@@ -1078,6 +1111,9 @@ async function handleGatherEnded(
 
   // Press 1 → booking SMS + hangup (Activity: Booked from hold · press 1).
   if (digits === "1") {
+    if (musicKicked) {
+      await telnyxCallControlPlaybackStop(event.callControlId).catch(() => undefined)
+    }
     void updateCallQueueStatus({
       callControlId: event.callControlId,
       status: "sms_left",
@@ -1096,26 +1132,10 @@ async function handleGatherEnded(
   }
 
   // After-hours (CLOSED) or holiday → straight to form SMS (nobody will Answer from Lines).
-  // ON_JOB / soft-busy → hold music + Lines Answer.
-  let skipHoldForAfterHours = false
-  try {
-    const presence = await getAccountPresence(routing.user_id)
-    const holidayActive = Boolean(
-      resolveHolidayGreetingText({
-        holidayOverrideStart: presence.holidayOverrideStart,
-        holidayOverrideEnd: presence.holidayOverrideEnd,
-        holidayGreetingText: presence.holidayGreetingText,
-      })
-    )
-    const status = String(presence.presenceStatus || "")
-      .trim()
-      .toUpperCase()
-    skipHoldForAfterHours = holidayActive || status === "CLOSED"
-  } catch (e) {
-    console.warn("[telnyx-cc] after-hours check skipped:", e)
-  }
-
   if (skipHoldForAfterHours) {
+    if (musicKicked) {
+      await telnyxCallControlPlaybackStop(event.callControlId).catch(() => undefined)
+    }
     console.log(
       lyncrLog("telnyx-cc-busy-gather-after-hours-sms", {
         callControlId: event.callControlId,
@@ -1134,12 +1154,14 @@ async function handleGatherEnded(
     return
   }
 
-  // Timeout / stay on the line → hold music + Telnyx queue (NOT immediate SMS+hangup).
+  // Timeout / stay on the line → hold music + Neon queue (NOT immediate SMS+hangup).
   await enterBusyHoldQueue({
     callControlId: event.callControlId,
     state,
     routing,
     callSessionId: event.callSessionId,
+    gatherEndedAtMs,
+    musicAlreadyStarted: musicKicked,
   })
 }
 
@@ -1345,6 +1367,9 @@ async function handleCallHangup(
 
 /** Main Call Control webhook switch — returns after scheduling Telnyx actions. */
 export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, unknown>): Promise<void> {
+  // Keep hold WAV base64 warm on this instance (cheap no-op after first load).
+  prefetchHoldMusicPlaybackContent()
+
   const event = parseTelnyxVoiceWebhookEvent(body)
   if (!event) {
     console.warn("[telnyx-cc] unparseable voice webhook")
