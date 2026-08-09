@@ -22,7 +22,7 @@ export const TELNYX_MENU_PROMPT =
  * Default only — custom Greetings text in Neon is left alone.
  */
 export const TELNYX_MENU_BUSY_PROMPT =
-  "Thanks for calling. We're tied up right now. Press 1 and we'll text you a short form to pick a time, or stay on the line and we will keep you updated."
+  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to pick a time, or just stay on the line and we'll keep you updated."
 
 /** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
 export const TELNYX_MENU_ON_JOB_PROMPT = TELNYX_MENU_BUSY_PROMPT

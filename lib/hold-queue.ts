@@ -86,7 +86,8 @@ export function resolveHoldMusicUrl(accountOverride?: string | null): string | n
   // Bundled royalty-free Calm loop — Busy stay-on-the-line is never silent when the app is hosted.
   try {
     const base = getAppUrl().replace(/\/$/, "")
-    if (base) return `${base}/audio/hold-music.wav`
+    // Prefer hold-calm.wav (Calm preset); hold-music.wav is the same loop kept for legacy URLs.
+    if (base) return `${base}/audio/hold-calm.wav`
   } catch {
     /* getAppUrl may throw in unit tests without NEXT_PUBLIC_APP_URL */
   }
@@ -107,4 +108,4 @@ export const HOLD_MAX_WAIT_SMS_PROMPT =
  * Do not overwrite custom Key Squad greetings in the DB — defaults only.
  */
 export const HOLD_AWARE_BUSY_PROMPT =
-  "Thanks for calling. We're tied up right now. Press 1 and we'll text you a short form to pick a time, or stay on the line and we will keep you updated."
+  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to pick a time, or just stay on the line and we'll keep you updated."

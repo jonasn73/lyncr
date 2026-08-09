@@ -21,19 +21,27 @@ export const IVR_VOICE_PERSONA_OPTIONS = [
     id: "en-US-Standard-C",
     label: "Reassuring Female",
     description: "Calm, clear female tone (default).",
+    /** TeXML `<Say voice>` (Twilio-style Polly id). */
     texmlVoice: "Polly.Joanna-Neural",
+    /**
+     * Call Control Speak `voice` — NaturalHD when available (less robotic than basic TTS).
+     * Override globally with `LYNCR_CALL_CONTROL_SPEAK_VOICE`.
+     */
+    callControlVoice: "Telnyx.NaturalHD.astra",
   },
   {
     id: "en-US-Standard-B",
     label: "Professional Male",
     description: "Steady male tone for business callers.",
     texmlVoice: "Polly.Matthew-Neural",
+    callControlVoice: "AWS.Polly.Matthew-Neural",
   },
   {
     id: "en-US-Standard-E",
     label: "Friendly",
     description: "Warm, approachable female tone.",
     texmlVoice: "Polly.Salli-Neural",
+    callControlVoice: "AWS.Polly.Salli-Neural",
   },
 ] as const
 
@@ -51,6 +59,33 @@ export function resolveIvrTexmlVoice(engineModel: string | null | undefined): st
   const match = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === raw)
   if (match) return match.texmlVoice
   return IVR_VOICE_PERSONA_OPTIONS[0].texmlVoice
+}
+
+/**
+ * Map stored AI Voice Persona → Call Control Speak `voice`.
+ * Prefer NaturalHD / AWS.Polly.*-Neural (never bare `alice` / basic engine).
+ */
+export function resolveIvrCallControlVoice(engineModel: string | null | undefined): string {
+  const raw = String(engineModel || "").trim()
+  if (!raw) return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
+  // Already a Call Control provider voice — keep as-is.
+  if (
+    /^(AWS\.|Azure\.|ElevenLabs\.|Telnyx\.|Google\.|Minimax\.|Rime\.|Resemble\.|Inworld\.|FishAudio\.|xAI\.)/i.test(
+      raw
+    )
+  ) {
+    return raw
+  }
+  // Twilio-style Polly → AWS Polly on Call Control.
+  if (/^Polly\./i.test(raw)) {
+    return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
+  }
+  if (/^(alice|man|woman|male|female)$/i.test(raw)) {
+    return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
+  }
+  const match = IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === raw)
+  if (match) return match.callControlVoice
+  return IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice
 }
 
 export function normalizeIvrBypassCode(raw: unknown): string | null {

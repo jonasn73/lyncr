@@ -1,7 +1,11 @@
 // Telnyx Call Control REST actions (answer → speak → dial → record → hold queue).
 
 import { lyncrLog } from "@/lib/lyncr-env"
-import { cleanTextForTTS, getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
+import {
+  buildCallControlSpeakPayload,
+  CALL_CONTROL_POLLY_NEURAL_FALLBACK,
+  getCallControlSpeakVoiceAttributes,
+} from "@/lib/texml-say-voice"
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
 const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
@@ -18,10 +22,14 @@ async function postCallAction(
 ): Promise<TelnyxCallControlActionResult> {
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
+  // Surface media URLs in logs so silent hold music is diagnosable from Vercel logs.
+  const audioUrl = typeof body.audio_url === "string" ? body.audio_url : undefined
   console.log(
     lyncrLog("telnyx-cc-api-post", {
       action,
       callControlId: id,
+      audioUrl: audioUrl || undefined,
+      voice: typeof body.voice === "string" ? body.voice : undefined,
       apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
     })
   )
@@ -31,7 +39,7 @@ async function postCallAction(
     body: JSON.stringify(body),
   })
   if (res.ok) {
-    console.log(lyncrLog("telnyx-cc-api-ok", { action, callControlId: id }))
+    console.log(lyncrLog("telnyx-cc-api-ok", { action, callControlId: id, audioUrl: audioUrl || undefined }))
     return { ok: true }
   }
   const errBody = await res.json().catch(() => ({}))
@@ -44,6 +52,7 @@ async function postCallAction(
       callControlId: id,
       status: res.status,
       error: detail || res.statusText,
+      audioUrl: audioUrl || undefined,
     })
   )
   return { ok: false, status: res.status, error: detail || res.statusText }
@@ -57,23 +66,41 @@ export async function telnyxCallControlAnswer(
   return postCallAction(callControlId, "answer", { client_state: clientState })
 }
 
-/** Speak TTS greeting on an active call leg (AWS Polly Neural by default). */
+/** Speak TTS greeting on an active call leg (NaturalHD / Polly Neural by default). */
 export async function telnyxCallControlSpeak(
   callControlId: string,
   text: string,
-  clientState: string
+  clientState: string,
+  opts?: { voice?: string | null }
 ): Promise<TelnyxCallControlActionResult> {
-  // Call Control needs AWS.Polly.* — bare Polly.* often falls back to a robotic basic voice.
-  const attrs = getCallControlSpeakVoiceAttributes()
-  // Phoneticize before Speak — DB stays "Key Squad 502", voice says "five oh two".
-  const spoken = cleanTextForTTS(text)
-  return postCallAction(callControlId, "speak", {
-    payload: spoken,
-    payload_type: "text",
-    voice: attrs.voice,
-    language: attrs.language,
-    client_state: clientState,
-  })
+  // Persona / env → Call Control voice (AWS.Polly.* or Telnyx.NaturalHD.*).
+  const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts?.voice })
+  const trySpeak = async (voice: string) => {
+    const built = buildCallControlSpeakPayload(text, voice)
+    return postCallAction(callControlId, "speak", {
+      payload: built.payload,
+      payload_type: built.payloadType,
+      // Premium unlocks neural / NaturalHD quality (basic = robotic).
+      service_level: "premium",
+      voice,
+      language: attrs.language,
+      client_state: clientState,
+    })
+  }
+  const primary = await trySpeak(attrs.voice)
+  if (primary.ok) return primary
+  // NaturalHD may be unavailable on some Telnyx accounts — fall back to Polly Neural.
+  if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
+    console.warn(
+      lyncrLog("telnyx-cc-speak-naturalhd-fallback", {
+        callControlId,
+        error: primary.error,
+        fallback: CALL_CONTROL_POLLY_NEURAL_FALLBACK,
+      })
+    )
+    return trySpeak(CALL_CONTROL_POLLY_NEURAL_FALLBACK)
+  }
+  return primary
 }
 
 /**
@@ -90,26 +117,43 @@ export async function telnyxCallControlGatherUsingSpeak(
     /** Milliseconds to wait after speak for a digit (TeXML uses ~8s). */
     timeoutMillis?: number
     validDigits?: string
+    /** Saved AI Voice Persona → Call Control voice (optional). */
+    voice?: string | null
   }
 ): Promise<TelnyxCallControlActionResult> {
-  // Same neural voice as greetings — Busy press-1 menus must not use robotic fallback TTS.
-  const attrs = getCallControlSpeakVoiceAttributes()
-  const spoken = cleanTextForTTS(opts.text)
+  const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts.voice })
   const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
-  return postCallAction(callControlId, "gather_using_speak", {
-    payload: spoken,
-    payload_type: "text",
-    voice: attrs.voice,
-    language: attrs.language,
-    minimum_digits: 1,
-    maximum_digits: maxDigits,
-    // Interrupting digit ends gather early when maximum_digits is 1.
-    terminating_digit: "#",
-    valid_digits: opts.validDigits || "0123456789",
-    timeout_millis: opts.timeoutMillis ?? 8000,
-    inter_digit_timeout_millis: 3000,
-    client_state: opts.clientState,
-  })
+  const tryGather = async (voice: string) => {
+    const built = buildCallControlSpeakPayload(opts.text, voice)
+    return postCallAction(callControlId, "gather_using_speak", {
+      payload: built.payload,
+      payload_type: built.payloadType,
+      service_level: "premium",
+      voice,
+      language: attrs.language,
+      minimum_digits: 1,
+      maximum_digits: maxDigits,
+      // Interrupting digit ends gather early when maximum_digits is 1.
+      terminating_digit: "#",
+      valid_digits: opts.validDigits || "0123456789",
+      timeout_millis: opts.timeoutMillis ?? 8000,
+      inter_digit_timeout_millis: 3000,
+      client_state: opts.clientState,
+    })
+  }
+  const primary = await tryGather(attrs.voice)
+  if (primary.ok) return primary
+  if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
+    console.warn(
+      lyncrLog("telnyx-cc-gather-speak-naturalhd-fallback", {
+        callControlId,
+        error: primary.error,
+        fallback: CALL_CONTROL_POLLY_NEURAL_FALLBACK,
+      })
+    )
+    return tryGather(CALL_CONTROL_POLLY_NEURAL_FALLBACK)
+  }
+  return primary
 }
 
 /**
@@ -299,6 +343,32 @@ export async function telnyxCallControlGatherUsingAudio(
     valid_digits: opts.validDigits || "0123456789",
     timeout_millis: opts.timeoutMillis ?? 45_000,
     inter_digit_timeout_millis: 3000,
+    client_state: opts.clientState,
+  })
+}
+
+/**
+ * Collect DTMF without speaking (music already playing via playback_start).
+ * Webhook: call.gather.ended — same handler as gather_using_*.
+ */
+export async function telnyxCallControlGather(
+  callControlId: string,
+  opts: {
+    clientState: string
+    timeoutMillis?: number
+    maximumDigits?: number
+    validDigits?: string
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
+  return postCallAction(callControlId, "gather", {
+    minimum_digits: 1,
+    maximum_digits: maxDigits,
+    terminating_digit: "#",
+    valid_digits: opts.validDigits || "0123456789",
+    timeout_millis: opts.timeoutMillis ?? 45_000,
+    inter_digit_timeout_millis: 3000,
+    initial_timeout_millis: opts.timeoutMillis ?? 45_000,
     client_state: opts.clientState,
   })
 }

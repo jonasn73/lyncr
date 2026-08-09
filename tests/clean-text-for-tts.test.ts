@@ -36,9 +36,9 @@ describe("normalizeCallControlSpeakVoice", () => {
     expect(normalizeCallControlSpeakVoice("Polly.Matthew-Neural")).toBe("AWS.Polly.Matthew-Neural")
   })
 
-  it("upgrades robotic alice / man / woman to neural Joanna", () => {
-    expect(normalizeCallControlSpeakVoice("alice")).toBe("AWS.Polly.Joanna-Neural")
-    expect(normalizeCallControlSpeakVoice("woman")).toBe("AWS.Polly.Joanna-Neural")
+  it("upgrades robotic alice / man / woman to NaturalHD astra", () => {
+    expect(normalizeCallControlSpeakVoice("alice")).toBe("Telnyx.NaturalHD.astra")
+    expect(normalizeCallControlSpeakVoice("woman")).toBe("Telnyx.NaturalHD.astra")
   })
 
   it("leaves already-prefixed provider voices alone", () => {
@@ -50,18 +50,45 @@ describe("normalizeCallControlSpeakVoice", () => {
     )
   })
 
-  it("defaults Call Control speak attrs to AWS.Polly.Joanna-Neural", () => {
+  it("defaults Call Control speak attrs to Telnyx.NaturalHD.astra", () => {
     const prevCc = process.env.ZING_CALL_CONTROL_SPEAK_VOICE
+    const prevLyncrCc = process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
     const prevTexml = process.env.ZING_TEXML_SAY_VOICE
+    const prevLyncrTexml = process.env.LYNCR_TEXML_SAY_VOICE
     delete process.env.ZING_CALL_CONTROL_SPEAK_VOICE
+    delete process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
     delete process.env.ZING_TEXML_SAY_VOICE
+    delete process.env.LYNCR_TEXML_SAY_VOICE
     try {
-      expect(getCallControlSpeakVoiceAttributes().voice).toBe("AWS.Polly.Joanna-Neural")
+      expect(getCallControlSpeakVoiceAttributes().voice).toBe("Telnyx.NaturalHD.astra")
     } finally {
       if (prevCc === undefined) delete process.env.ZING_CALL_CONTROL_SPEAK_VOICE
       else process.env.ZING_CALL_CONTROL_SPEAK_VOICE = prevCc
+      if (prevLyncrCc === undefined) delete process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
+      else process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE = prevLyncrCc
       if (prevTexml === undefined) delete process.env.ZING_TEXML_SAY_VOICE
       else process.env.ZING_TEXML_SAY_VOICE = prevTexml
+      if (prevLyncrTexml === undefined) delete process.env.LYNCR_TEXML_SAY_VOICE
+      else process.env.LYNCR_TEXML_SAY_VOICE = prevLyncrTexml
+    }
+  })
+
+  it("uses personaVoice when env override is unset", () => {
+    const prevCc = process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
+    const prevZing = process.env.ZING_CALL_CONTROL_SPEAK_VOICE
+    delete process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
+    delete process.env.ZING_CALL_CONTROL_SPEAK_VOICE
+    try {
+      expect(
+        getCallControlSpeakVoiceAttributes({
+          personaVoice: "AWS.Polly.Matthew-Neural",
+        }).voice
+      ).toBe("AWS.Polly.Matthew-Neural")
+    } finally {
+      if (prevCc === undefined) delete process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE
+      else process.env.LYNCR_CALL_CONTROL_SPEAK_VOICE = prevCc
+      if (prevZing === undefined) delete process.env.ZING_CALL_CONTROL_SPEAK_VOICE
+      else process.env.ZING_CALL_CONTROL_SPEAK_VOICE = prevZing
     }
   })
 })

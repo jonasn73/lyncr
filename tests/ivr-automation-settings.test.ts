@@ -5,6 +5,7 @@ import {
   normalizeIvrBypassCode,
   resolveAutomationGatherNumDigits,
   resolveHolidayGreetingText,
+  resolveIvrCallControlVoice,
   resolveIvrTexmlVoice,
 } from "@/lib/ivr-automation-settings"
 import { buildAutomationPresenceGatherXml } from "@/lib/ivr-automation-texml"
@@ -15,6 +16,13 @@ describe("ivr automation settings", () => {
     expect(resolveIvrTexmlVoice("en-US-Standard-C")).toBe("Polly.Joanna-Neural")
     expect(resolveIvrTexmlVoice("en-US-Standard-B")).toBe("Polly.Matthew-Neural")
     expect(resolveIvrTexmlVoice("Polly.Joanna-Neural")).toBe("Polly.Joanna-Neural")
+  })
+
+  it("maps voice personas to Call Control Speak voices", () => {
+    expect(resolveIvrCallControlVoice("en-US-Standard-C")).toBe("Telnyx.NaturalHD.astra")
+    expect(resolveIvrCallControlVoice("en-US-Standard-B")).toBe("AWS.Polly.Matthew-Neural")
+    expect(resolveIvrCallControlVoice("en-US-Standard-E")).toBe("AWS.Polly.Salli-Neural")
+    expect(resolveIvrCallControlVoice("Polly.Joanna-Neural")).toBe("AWS.Polly.Joanna-Neural")
   })
 
   it("normalizes bypass codes and match digits", () => {

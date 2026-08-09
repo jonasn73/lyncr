@@ -11,8 +11,14 @@ import { envLyncrOrZing } from "@/lib/lyncr-env"
 
 /** Amazon Polly neural — TeXML `<Say voice="…">`; override with LYNCR_TEXML_SAY_VOICE. */
 const DEFAULT_TEXML_SAY_VOICE = "Polly.Joanna-Neural"
-/** Call Control Speak default — same Joanna Neural, correct Telnyx provider prefix. */
-const DEFAULT_CALL_CONTROL_SPEAK_VOICE = "AWS.Polly.Joanna-Neural"
+/**
+ * Call Control Speak default when no persona / env is set.
+ * NaturalHD sounds more conversational on Busy gather than basic / robotic engines.
+ * Override: `LYNCR_CALL_CONTROL_SPEAK_VOICE` (e.g. `AWS.Polly.Joanna-Neural`).
+ */
+const DEFAULT_CALL_CONTROL_SPEAK_VOICE = "Telnyx.NaturalHD.astra"
+/** Polly neural fallback if NaturalHD is rejected by the account. */
+export const CALL_CONTROL_POLLY_NEURAL_FALLBACK = "AWS.Polly.Joanna-Neural"
 const DEFAULT_TEXML_SAY_LANGUAGE = "en-US"
 
 /**
@@ -37,7 +43,7 @@ export function cleanTextForTTS(text: string): string {
 /**
  * Map a TeXML / legacy voice id into a Call Control Speak `voice` string.
  * - `Polly.Joanna-Neural` → `AWS.Polly.Joanna-Neural`
- * - `alice` / `man` / `woman` → neural Joanna (avoid robotic basic engine)
+ * - `alice` / `man` / `woman` → NaturalHD astra (avoid robotic basic engine)
  * - Already-prefixed AWS / Azure / Telnyx / ElevenLabs / etc. pass through
  */
 export function normalizeCallControlSpeakVoice(voice: string | null | undefined): string {
@@ -55,7 +61,7 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
   if (/^Polly\./i.test(raw)) {
     return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
   }
-  // Basic TeXML engines sound robotic on phones — upgrade to neural Joanna.
+  // Basic TeXML engines sound robotic on phones — upgrade to NaturalHD.
   if (/^(alice|man|woman|male|female)$/i.test(raw)) {
     return DEFAULT_CALL_CONTROL_SPEAK_VOICE
   }
@@ -72,17 +78,63 @@ export function getTexmlSayVoiceAttributes(): { voice: string; language: string 
 
 /**
  * Call Control `speak` / `gather_using_speak` voice + language.
- * Override with `LYNCR_CALL_CONTROL_SPEAK_VOICE` (e.g. `Telnyx.NaturalHD.astra` or
- * `AWS.Polly.Matthew-Neural`). Falls back to normalizing `LYNCR_TEXML_SAY_VOICE`.
+ *
+ * Priority:
+ * 1. `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy `ZING_*`) — ops override
+ * 2. `personaVoice` — saved AI Voice Persona from Greetings (`ivr_voice_engine_model`)
+ * 3. Normalize `LYNCR_TEXML_SAY_VOICE`, else NaturalHD astra
  */
-export function getCallControlSpeakVoiceAttributes(): { voice: string; language: string } {
+export function getCallControlSpeakVoiceAttributes(opts?: {
+  /** Already-resolved Call Control voice from account persona (optional). */
+  personaVoice?: string | null
+}): { voice: string; language: string } {
   const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
   const explicit = envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE")
   if (explicit) {
     return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
-  const texmlVoice = envLyncrOrZing("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
-  return { voice: normalizeCallControlSpeakVoice(texmlVoice), language }
+  const persona = String(opts?.personaVoice || "").trim()
+  if (persona) {
+    return { voice: normalizeCallControlSpeakVoice(persona), language }
+  }
+  const texmlVoice = envLyncrOrZing("TEXML_SAY_VOICE")
+  if (texmlVoice) {
+    return { voice: normalizeCallControlSpeakVoice(texmlVoice), language }
+  }
+  return { voice: DEFAULT_CALL_CONTROL_SPEAK_VOICE, language }
+}
+
+/**
+ * Slightly conversational Busy speak rate for Polly SSML (1.0 = off).
+ * NaturalHD ignores this (plain text). Override with `LYNCR_CALL_CONTROL_SPEAK_RATE`.
+ */
+export function getCallControlSpeakProsodyRate(): number {
+  const raw = (envLyncrOrZing("CALL_CONTROL_SPEAK_RATE") ?? "1.05").trim()
+  if (raw === "" || raw === "1" || raw === "off" || raw === "false") return 1
+  const n = parseFloat(raw)
+  if (!Number.isFinite(n) || n < 0.85 || n > 1.25) return 1.05
+  return n
+}
+
+/** Build Speak payload — plain text, or SSML prosody for AWS Polly neural. */
+export function buildCallControlSpeakPayload(
+  plainText: string,
+  voice: string
+): { payload: string; payloadType: "text" | "ssml" } {
+  const spoken = cleanTextForTTS(plainText)
+  // NaturalHD / non-Polly: keep plain text (SSML can be read aloud on some engines).
+  if (!/^AWS\.Polly\./i.test(voice)) {
+    return { payload: spoken, payloadType: "text" }
+  }
+  if (envLyncrOrZing("CALL_CONTROL_SPEAK_SSML") === "0" || envLyncrOrZing("CALL_CONTROL_SPEAK_SSML") === "false") {
+    return { payload: spoken, payloadType: "text" }
+  }
+  const rate = getCallControlSpeakProsodyRate()
+  if (rate === 1) return { payload: spoken, payloadType: "text" }
+  return {
+    payload: `<speak><prosody rate="${rate}">${escapeXmlForSsml(spoken)}</prosody></speak>`,
+    payloadType: "ssml",
+  }
 }
 
 function parseProsodyRate(): number {

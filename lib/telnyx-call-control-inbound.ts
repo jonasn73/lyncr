@@ -15,6 +15,7 @@ import {
   abandonHoldQueue,
   bridgeAgentToHoldQueue,
   enterBusyHoldQueue,
+  handleCallEnqueuedHoldMusic,
   handleHoldLoopGatherEnded,
 } from "@/lib/telnyx-call-control-hold-queue"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
@@ -62,7 +63,12 @@ import {
   getAccountPresence,
   resolvePresenceAutomationGreeting,
 } from "@/lib/account-presence"
-import { digitsMatchIvrBypass, resolveAutomationGatherNumDigits, resolveHolidayGreetingText } from "@/lib/ivr-automation-settings"
+import {
+  digitsMatchIvrBypass,
+  resolveAutomationGatherNumDigits,
+  resolveHolidayGreetingText,
+  resolveIvrCallControlVoice,
+} from "@/lib/ivr-automation-settings"
 import {
   getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
@@ -242,6 +248,8 @@ async function startBusyAutomationFlow(
   // Soft default matches real hold-queue behavior (stay on line = wait, not hangup).
   let say = HOLD_AWARE_BUSY_PROMPT
   let maxDigits = 1
+  // AI Voice Persona from Greetings → Call Control Speak voice (NaturalHD / Polly).
+  let speakVoice: string | undefined
   try {
     const presence = await getAccountPresence(routing.user_id)
     // Holiday window wins when active (TeXML parity).
@@ -263,6 +271,7 @@ async function startBusyAutomationFlow(
       say = `${say.trim()} Press 1 and we'll text you a short form, or stay on the line.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
+    speakVoice = resolveIvrCallControlVoice(presence.ivrVoiceEngineModel)
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
@@ -277,6 +286,7 @@ async function startBusyAutomationFlow(
       callControlId,
       userId: routing.user_id,
       maxDigits,
+      speakVoice: speakVoice || null,
     })
   )
   // Soft Lines preview while the Busy menu speaks — before full hold enqueue.
@@ -293,6 +303,7 @@ async function startBusyAutomationFlow(
     clientState: nextState,
     maximumDigits: maxDigits,
     timeoutMillis: 8000,
+    voice: speakVoice,
   })
   if (!gatherRes.ok) {
     console.error(lyncrLog("telnyx-cc-busy-gather-failed", { error: gatherRes.error }))
@@ -831,7 +842,20 @@ async function handleCallAnswered(
       ...enrichedState,
       phase: "await_greeting_end",
     })
-    const speakRes = await telnyxCallControlSpeak(event.callControlId, greetingText, nextState)
+    // Same AI Voice Persona as Busy gather (saved under Greetings).
+    let greetVoice: string | undefined
+    try {
+      const presence = await getAccountPresence(routing.user_id)
+      greetVoice = resolveIvrCallControlVoice(presence.ivrVoiceEngineModel)
+    } catch {
+      /* persona lookup is optional for branded greet */
+    }
+    const speakRes = await telnyxCallControlSpeak(
+      event.callControlId,
+      greetingText,
+      nextState,
+      { voice: greetVoice }
+    )
     if (!speakRes.ok) {
       console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
       if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
@@ -1332,6 +1356,12 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       break
     case "call.gather.ended":
       await handleGatherEnded(event)
+      break
+    case "call.enqueued":
+      // Hold music starts here after enqueue (avoids gather/playback race during queue transition).
+      if (event.clientState) {
+        await handleCallEnqueuedHoldMusic(event.callControlId, event.clientState)
+      }
       break
     case "call.bridged":
       await handleCallBridged(event)

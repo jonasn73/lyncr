@@ -4,11 +4,13 @@ Busy “stay on the line” plays bundled **royalty-free** Lyncr-authored WAV lo
 
 | Preset | File |
 |--------|------|
-| Calm (default) | `hold-calm.wav` / `hold-music.wav` |
+| Calm (default) | `hold-calm.wav` (legacy alias: `hold-music.wav`) |
 | Upbeat | `hold-upbeat.wav` |
 | Minimal | `hold-minimal.wav` |
 
 Pick a preset under **Lines → Greetings → Hold music**. **Custom URL…** (Advanced) accepts any public HTTPS MP3/WAV.
+
+Call Control plays music via `playback_start` (loop) after Telnyx `call.enqueued`, then a plain `gather` for Press 1. Files must be public HTTPS that Telnyx can GET (e.g. `https://lyncr.app/audio/hold-calm.wav`).
 
 Env override (optional):
 

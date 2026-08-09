@@ -71,7 +71,7 @@ describe("hold-queue helpers", () => {
     expect(resolveHoldMusicUrl("/audio/hold-calm.wav")).toBe(
       "https://lyncr.app/audio/hold-calm.wav"
     )
-    expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-music.wav")
+    expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-calm.wav")
   })
 })
 
