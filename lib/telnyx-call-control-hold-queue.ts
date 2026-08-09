@@ -60,6 +60,9 @@ async function tagHoldQueueCallLog(callControlId: string): Promise<void> {
     await updateCallLog(callControlId, {
       routed_to_name: CAPTURE_STATUS_HOLD_QUEUE,
       status: "in-progress",
+      // Waiting on soft-hold is NOT a human pickup — clear any false answered_at stamp
+      // so answered-recent poll / CALL ANSWERED intake never opens while they wait.
+      answered_at: null,
     })
   } catch (e) {
     console.warn(lyncrLog("hold-queue-tag-log-failed", { error: String(e) }))

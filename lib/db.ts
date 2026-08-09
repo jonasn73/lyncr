@@ -3423,6 +3423,7 @@ async function notifyInboundCallAnsweredTelemetry(params: {
   fromNumber: string
   toNumber: string
   answeredAt: string | null
+  routedToName?: string | null
 }): Promise<void> {
   try {
     const { broadcastCallAnswered } = await import("@/lib/call-telemetry-realtime")
@@ -3434,6 +3435,7 @@ async function notifyInboundCallAnsweredTelemetry(params: {
       toNumber: params.toNumber,
       organizationId: null,
       answeredAt: params.answeredAt,
+      routedToName: params.routedToName ?? null,
     })
   } catch (e) {
     console.warn("[db] call-answered telemetry publish failed:", e)
@@ -3703,7 +3705,7 @@ export async function recordCallStatusEvent(
   try {
     const rows = await sql`
       WITH target AS (
-        SELECT id, user_id, from_number, to_number, call_type, answered_at
+        SELECT id, user_id, from_number, to_number, call_type, answered_at, routed_to_name
         FROM call_logs
         WHERE provider_call_sid = ${providerSid} OR twilio_call_sid = ${providerSid}
         LIMIT 1
@@ -3742,7 +3744,7 @@ export async function recordCallStatusEvent(
           END
         FROM target t
         WHERE cl.id = t.id
-        RETURNING cl.id, cl.user_id, cl.from_number, cl.to_number, cl.call_type, cl.answered_at
+        RETURNING cl.id, cl.user_id, cl.from_number, cl.to_number, cl.call_type, cl.answered_at, cl.routed_to_name
       )
       SELECT
         u.id,
@@ -3751,6 +3753,7 @@ export async function recordCallStatusEvent(
         u.to_number,
         u.call_type,
         u.answered_at,
+        u.routed_to_name,
         (t.answered_at IS NULL AND u.answered_at IS NOT NULL) AS newly_answered
       FROM updated u
       JOIN target t ON t.id = u.id
@@ -3763,6 +3766,7 @@ export async function recordCallStatusEvent(
           to_number: string
           call_type: string
           answered_at: Date | string | null
+          routed_to_name: string | null
           newly_answered: boolean | string | number
         }
       | undefined
@@ -3772,14 +3776,24 @@ export async function recordCallStatusEvent(
       row.call_type === "incoming" &&
       !options?.skipAnsweredTelemetry
     ) {
-      void notifyInboundCallAnsweredTelemetry({
-        ownerUserId: String(row.user_id),
-        callSid: providerSid,
-        callLogId: String(row.id),
-        fromNumber: String(row.from_number ?? ""),
-        toNumber: String(row.to_number ?? ""),
-        answeredAt: row.answered_at ? String(row.answered_at) : null,
-      })
+      // Soft-hold / Busy menu — never fire call-answered intake while waiting.
+      const { shouldOpenOwnerAnsweredIntake } = await import("@/lib/realtime/owner-call-event-types")
+      if (
+        shouldOpenOwnerAnsweredIntake({
+          routed_to_name: row.routed_to_name != null ? String(row.routed_to_name) : null,
+          dial_reason: null,
+        })
+      ) {
+        void notifyInboundCallAnsweredTelemetry({
+          ownerUserId: String(row.user_id),
+          callSid: providerSid,
+          callLogId: String(row.id),
+          fromNumber: String(row.from_number ?? ""),
+          toNumber: String(row.to_number ?? ""),
+          answeredAt: row.answered_at ? String(row.answered_at) : null,
+          routedToName: row.routed_to_name != null ? String(row.routed_to_name) : null,
+        })
+      }
     }
   } catch (e) {
     // scripts/007 timing columns not migrated yet — fall back to status + duration only.
@@ -4879,6 +4893,12 @@ export async function listRecentlyAnsweredIncomingCalls(
         AND cl.answered_at IS NOT NULL
         AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
         AND cl.owner_intake_dismissed_at IS NULL
+        -- Soft-hold / Busy menu / press-1 — waiting or SMS left; not a live Answer bridge.
+        -- “Answered from queue” is a real Lines Answer and must still open intake.
+        AND NOT (
+          lower(COALESCE(cl.routed_to_name, '')) ~*
+          '(^hold queue$|hold menu|booked from hold|busy · hold)'
+        )
         AND NOT EXISTS (
           SELECT 1 FROM ai_leads l
           WHERE l.user_id = cl.user_id
@@ -4904,6 +4924,10 @@ export async function listRecentlyAnsweredIncomingCalls(
               AND cl.call_type = 'incoming'
               AND cl.answered_at IS NOT NULL
               AND cl.answered_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
+              AND NOT (
+                lower(COALESCE(cl.routed_to_name, '')) ~*
+                '(^hold queue$|hold menu|booked from hold|busy · hold)'
+              )
               AND NOT EXISTS (
                 SELECT 1 FROM ai_leads l
                 WHERE l.user_id = cl.user_id

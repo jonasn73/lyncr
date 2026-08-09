@@ -1,5 +1,9 @@
 // Typed payloads for owner-{userId} Pusher call telemetry events (client + server).
 
+import {
+  isAnsweredFromQueueStatus,
+  isHoldAutomationStatus,
+} from "@/lib/inbound-time-capture"
 import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 
 /** Fired when a new inbound call row is created (ringing). */
@@ -57,6 +61,26 @@ export function shouldOpenOwnerRingingIntake(payload: {
   return true
 }
 
+/**
+ * True when CALL ANSWERED / New Intake should open after a bridge (or Answer from Lines).
+ * False while the caller is only waiting on hold / Busy menu (same class as ringing suppress).
+ */
+export function shouldOpenOwnerAnsweredIntake(payload: {
+  routed_to_name?: string | null
+  dial_reason?: string | null
+}): boolean {
+  const reason = String(payload.dial_reason ?? "")
+    .trim()
+    .toLowerCase()
+  // Owner/teammate tapped Answer on Lines and the bridge connected.
+  if (reason === "queue_answer") return true
+  if (isAnsweredFromQueueStatus(payload.routed_to_name)) return true
+  // Soft-hold / Busy automation — still waiting; do not show CALL ANSWERED.
+  if (reason === "busy_automation") return false
+  if (isHoldAutomationStatus(payload.routed_to_name)) return false
+  return true
+}
+
 /** Fired when an inbound call is bridged / picked up — drives the intake sheet immediately. */
 export type OwnerCallAnsweredPayload = {
   call_sid: string
@@ -65,6 +89,10 @@ export type OwnerCallAnsweredPayload = {
   to_number?: string | null
   organization_id?: string | null
   answered_at?: string | null
+  /** Who owns the leg (Hold Queue vs Owner vs Answered from queue). */
+  routed_to_name?: string | null
+  /** Call Control dial reason — busy_automation must not open New Intake. */
+  dial_reason?: string | null
 }
 
 /** Fired when a call reaches a terminal status (hangup / no-answer / etc.). */

@@ -873,4 +873,92 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(playbackStart).toBeTruthy()
   })
+
+  it("call.gather.ended hold max-wait sends soft SMS and leaves (no forever hold)", async () => {
+    const sendSms = vi.fn(() => Promise.resolve())
+    const updateQueue = vi.fn(() => Promise.resolve())
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      updateCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: sendSms,
+    }))
+    vi.doMock("@/lib/call-queue-db", () => ({
+      countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
+      upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldMusicUrl: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldSettings: vi.fn(() =>
+        Promise.resolve({
+          holdMusicUrl: null,
+          holdMaxWaitSecs: 120,
+          holdRepromptSecs: null,
+        })
+      ),
+      getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
+      updateCallQueueStatus: updateQueue,
+      listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
+    }))
+
+    // Past max wait (120s) — soft SMS + leave, not infinite music.
+    const holdState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_busy_hold_loop",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15128801744",
+      dialReason: "busy_automation",
+      holdSegment: "music",
+      holdStartedAtMs: Date.now() - 200_000,
+      holdMaxWaitSecs: 120,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.gather.ended",
+        id: "evt-hold-max-wait",
+        payload: {
+          call_control_id: "cc-hold-max",
+          from: "+15128801744",
+          to: "+15025571219",
+          digits: "",
+          status: "timeout",
+          client_state: holdState,
+        },
+      },
+    })
+
+    expect(sendSms).toHaveBeenCalled()
+    expect(updateQueue).toHaveBeenCalledWith(
+      expect.objectContaining({ callControlId: "cc-hold-max", status: "timed_out" })
+    )
+    const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
+    expect(speakCall).toBeTruthy()
+  })
 })

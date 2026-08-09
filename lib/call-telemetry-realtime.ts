@@ -45,6 +45,9 @@ export async function broadcastCallAnswered(params: {
   toNumber?: string | null
   organizationId?: string | null
   answeredAt?: string | null
+  /** Hold Queue / Busy menu — client suppresses New Intake until real Answer. */
+  routedToName?: string | null
+  dialReason?: string | null
 }): Promise<void> {
   const payload: OwnerCallAnsweredPayload = {
     call_sid: params.callSid,
@@ -53,6 +56,8 @@ export async function broadcastCallAnswered(params: {
     to_number: params.toNumber ?? null,
     organization_id: params.organizationId ?? null,
     answered_at: params.answeredAt ?? null,
+    routed_to_name: params.routedToName ?? null,
+    dial_reason: params.dialReason ?? null,
   }
   await publishOwnerEvent(params.ownerUserId, "call-answered", payload)
 }
@@ -134,6 +139,16 @@ export async function broadcastCallAnsweredBySid(callSid: string): Promise<void>
   if (!snapshot) return
   if (!snapshot.answered_at) return
   if (snapshot.call_type === "voicemail" || snapshot.call_type === "outgoing") return
+  // Waiting on hold / Busy menu must never pop CALL ANSWERED intake.
+  const { shouldOpenOwnerAnsweredIntake } = await import("@/lib/realtime/owner-call-event-types")
+  if (
+    !shouldOpenOwnerAnsweredIntake({
+      routed_to_name: snapshot.routed_to_name,
+      dial_reason: null,
+    })
+  ) {
+    return
+  }
   await broadcastCallAnswered({
     ownerUserId: snapshot.user_id,
     callSid,
@@ -142,6 +157,7 @@ export async function broadcastCallAnsweredBySid(callSid: string): Promise<void>
     toNumber: snapshot.to_number,
     organizationId: snapshot.organization_id,
     answeredAt: snapshot.answered_at,
+    routedToName: snapshot.routed_to_name,
   })
 }
 

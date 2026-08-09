@@ -165,6 +165,12 @@ export function ownerLiveAnswered(input: MissedCallRecordInput): boolean {
 
   if (isAutomatedCallHandler(input.routed_to_name)) return false
 
+  // Soft-hold / Busy menu / press-1 — caller is waiting or texted a link, not a live bridge.
+  // Exception: Answered from queue is a real Lines Answer pickup (checked below).
+  if (isHoldAutomationStatus(input.routed_to_name) && !isAnsweredFromQueueStatus(input.routed_to_name)) {
+    return false
+  }
+
   // Live answer requires answered_at. Ring time + "Owner" label must not invent a pickup
   // (Activities used to default empty routed_to_name → "Owner" and paint every miss green).
   if (!input.answered_at?.trim()) return false

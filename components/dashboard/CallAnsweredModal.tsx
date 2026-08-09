@@ -84,6 +84,7 @@ import type {
 import {
   isMissedCallTelemetry,
   normalizeCallEventPhoneDigits,
+  shouldOpenOwnerAnsweredIntake,
   shouldOpenOwnerRingingIntake,
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
@@ -1006,6 +1007,9 @@ function callLogRowFromApi(row: {
   caller_name?: string | null
   answered_at?: string | null
   recording_url?: string | null
+  routed_to_name?: string | null
+  call_type?: string | null
+  status?: string | null
 }): ActiveCallRow {
   return {
     id: row.id,
@@ -1014,6 +1018,9 @@ function callLogRowFromApi(row: {
     caller_name: row.caller_name ?? null,
     answered_at: row.answered_at ?? null,
     recording_url: row.recording_url ?? null,
+    routed_to_name: row.routed_to_name ?? null,
+    call_type: row.call_type ?? null,
+    status: row.status ?? null,
   }
 }
 
@@ -1037,6 +1044,15 @@ function fetchFirstUnseenAnsweredCall(seen: Set<string>): Promise<ActiveCallRow 
       const calls = Array.isArray(data.calls) ? data.calls : []
       for (const row of calls) {
         if (!seen.has(row.id)) {
+          // Belt-and-suspenders: API should already exclude hold waiters.
+          if (
+            !shouldOpenOwnerAnsweredIntake({
+              routed_to_name: row.routed_to_name,
+              dial_reason: null,
+            })
+          ) {
+            continue
+          }
           return callLogRowFromApi(row)
         }
       }
@@ -2047,6 +2063,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 </ToastAction>
               ),
             })
+            // Do NOT poll answered-recent — waiting hold must not open CALL ANSWERED intake.
+            return
           }
           scheduleRingingLookups()
           return
@@ -2087,6 +2105,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
       oncePerSid(`a:${String(payload.call_sid ?? payload.call_log_id ?? "")}`, () => {
+        // Soft-hold / Busy waiting — never open CALL ANSWERED until Lines Answer bridges.
+        if (!shouldOpenOwnerAnsweredIntake(payload)) {
+          return
+        }
         const row = rowFromAnsweredPayload(payload)
         if (!row) return
         stopRingingFastPoll()
@@ -2121,6 +2143,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           return {
             ...row,
             caller_name: row.caller_name ?? prev?.caller_name ?? null,
+            routed_to_name: payload.routed_to_name ?? prev?.routed_to_name ?? null,
           }
         })
       })

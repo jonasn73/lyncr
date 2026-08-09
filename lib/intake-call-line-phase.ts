@@ -1,6 +1,10 @@
 // Intake sheet header / badge phase — human answer vs ringing / missed / voicemail.
 
 import {
+  isAnsweredFromQueueStatus,
+  isHoldAutomationStatus,
+} from "@/lib/inbound-time-capture"
+import {
   isAutomatedCallHandler,
   isMissedCallRecord,
   ownerLiveAnswered,
@@ -46,6 +50,12 @@ export function resolveIntakeCallLinePhase(input: IntakeCallLinePhaseInput): Int
 
   const ended =
     manual === "completed" || Boolean(input.ended_at?.trim()) || isTerminalStatus(status)
+
+  // Soft-hold / Busy menu — still waiting (or press-1 left). Check BEFORE automated
+  // (Hold Queue is also tagged as capture/automation for Activity metrics).
+  if (isHoldAutomationStatus(input.routed_to_name) && !isAnsweredFromQueueStatus(input.routed_to_name)) {
+    return ended ? "ended" : "ringing"
+  }
 
   // AI / IVR / capture paths are not human-answered.
   if (isAutomatedCallHandler(input.routed_to_name)) {

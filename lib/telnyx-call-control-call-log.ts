@@ -130,16 +130,20 @@ export async function persistCallControlBridged(
       ? resolveRoutedToLabel(routing)
       : "Owner"
   try {
-    await notifyOwnerInboundCallAnswered({
-      providerCallSid: inboundCallSid,
-      occurredAtIso: occurredAtIso || undefined,
-    }).catch((e) => {
-      console.warn("[telnyx-cc] call-answered broadcast failed:", e)
-    })
+    // Tag Activity BEFORE call-answered Pusher so the client never sees “Hold Queue” as ANSWERED.
     await updateCallLog(inboundCallSid, {
       status: "in-progress",
       routed_to_name: routedToName,
       call_type: "incoming",
+    })
+    await notifyOwnerInboundCallAnswered({
+      providerCallSid: inboundCallSid,
+      occurredAtIso: occurredAtIso || undefined,
+      // So New Intake opens only for a real bridge (including Answer from Lines).
+      dialReason: fromQueue ? "queue_answer" : state.dialReason ?? null,
+      routedToName,
+    }).catch((e) => {
+      console.warn("[telnyx-cc] call-answered broadcast failed:", e)
     })
     console.log(
       JSON.stringify({
