@@ -8,6 +8,7 @@ import {
   getAccountPresence,
   setAccountPresenceGreetings,
 } from "@/lib/account-presence"
+import { getAccountHoldMusicUrl, setAccountHoldMusicUrl } from "@/lib/call-queue-db"
 import {
   DEFAULT_IVR_VOICE_ENGINE_MODEL,
   IVR_VOICE_PERSONA_OPTIONS,
@@ -34,7 +35,10 @@ function pickNullableString(body: Record<string, unknown>, keys: string[]): stri
   return undefined
 }
 
-function serializePresence(presence: Awaited<ReturnType<typeof getAccountPresence>>) {
+function serializePresence(
+  presence: Awaited<ReturnType<typeof getAccountPresence>>,
+  holdMusicUrl: string | null = null
+) {
   return {
     onJobGreetingText: presence.onJobGreetingText,
     closedGreetingText: presence.closedGreetingText,
@@ -50,6 +54,8 @@ function serializePresence(presence: Awaited<ReturnType<typeof getAccountPresenc
     holiday_override_end: presence.holidayOverrideEnd,
     holidayGreetingText: presence.holidayGreetingText,
     holiday_greeting_text: presence.holidayGreetingText,
+    holdMusicUrl,
+    hold_music_url: holdMusicUrl,
     defaults: {
       onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
@@ -69,22 +75,26 @@ export async function GET(req: NextRequest) {
 
   try {
     const presence = await getAccountPresence(userId)
-    return NextResponse.json({ data: serializePresence(presence) })
+    const holdMusicUrl = await getAccountHoldMusicUrl(userId).catch(() => null)
+    return NextResponse.json({ data: serializePresence(presence, holdMusicUrl) })
   } catch (e) {
     console.error("[GET /api/routing/presence-greetings]", e)
     return NextResponse.json({
-      data: serializePresence({
-        presenceStatus: "AVAILABLE",
-        presenceClosedManual: false,
-        onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
-        closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
-        ivrBypassCode: null,
-        ivrVoiceEngineModel: DEFAULT_IVR_VOICE_ENGINE_MODEL,
-        holidayOverrideStart: null,
-        holidayOverrideEnd: null,
-        holidayGreetingText: null,
-        ivrCapacityThreshold: 5,
-      }),
+      data: serializePresence(
+        {
+          presenceStatus: "AVAILABLE",
+          presenceClosedManual: false,
+          onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
+          closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
+          ivrBypassCode: null,
+          ivrVoiceEngineModel: DEFAULT_IVR_VOICE_ENGINE_MODEL,
+          holidayOverrideStart: null,
+          holidayOverrideEnd: null,
+          holidayGreetingText: null,
+          ivrCapacityThreshold: 5,
+        },
+        null
+      ),
     })
   }
 }
@@ -127,6 +137,7 @@ export async function PUT(req: NextRequest) {
     "holidayGreetingText",
     "holiday_greeting_text",
   ])
+  const holdMusicRaw = pickNullableString(body, ["holdMusicUrl", "hold_music_url"])
 
   try {
     const saved = await setAccountPresenceGreetings({
@@ -145,7 +156,28 @@ export async function PUT(req: NextRequest) {
       holidayGreetingText:
         holidayTextRaw !== undefined ? holidayTextRaw : existing.holidayGreetingText,
     })
-    return NextResponse.json({ data: serializePresence(saved) })
+    if (holdMusicRaw !== undefined) {
+      try {
+        await setAccountHoldMusicUrl(userId, holdMusicRaw)
+      } catch (hmErr) {
+        const hmCode =
+          hmErr instanceof Error && "code" in hmErr
+            ? String((hmErr as { code?: string }).code)
+            : ""
+        if (hmCode === "HOLD_QUEUE_MIGRATION_REQUIRED") {
+          return NextResponse.json(
+            {
+              error: hmErr instanceof Error ? hmErr.message : "Hold music save needs migration",
+              migration: "scripts/129-call-queue.sql",
+            },
+            { status: 400 }
+          )
+        }
+        throw hmErr
+      }
+    }
+    const holdMusicUrl = await getAccountHoldMusicUrl(userId).catch(() => null)
+    return NextResponse.json({ data: serializePresence(saved, holdMusicUrl) })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Save failed"
     const code = e instanceof Error && "code" in e ? String((e as { code?: string }).code) : ""

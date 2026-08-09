@@ -2,8 +2,8 @@
 // POST /api/auth/repair-bootstrap-admin
 // ============================================
 // One-time production fix: sets bcrypt password + platform admin for the bootstrap email
-// without pasting hashes into Neon. Requires `ZING_BOOTSTRAP_ADMIN_SECRET` (24+ chars) in
-// Vercel and the same value in JSON `{ "secret": "..." }`. Remove the env var after use.
+// without pasting hashes into Neon. Requires `LYNCR_BOOTSTRAP_ADMIN_SECRET` (24+ chars) in
+// Vercel (legacy `ZING_BOOTSTRAP_ADMIN_SECRET` still works) and the same value in JSON `{ "secret": "..." }`. Remove the env var after use.
 
 import { createHash, timingSafeEqual } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
@@ -22,7 +22,9 @@ function bootstrapSecretsMatch(attempt: string, expected: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.ZING_BOOTSTRAP_ADMIN_SECRET?.trim()
+  const expected =
+    process.env.LYNCR_BOOTSTRAP_ADMIN_SECRET?.trim() ||
+    process.env.ZING_BOOTSTRAP_ADMIN_SECRET?.trim()
   if (!expected || expected.length < 24) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
@@ -39,8 +41,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const email = (process.env.ZING_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() || "admin@lyncr.app").toLowerCase()
-  const passwordPlain = process.env.ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD?.trim() || "admin"
+  const email = (
+    process.env.LYNCR_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() ||
+    process.env.ZING_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase() ||
+    "admin@lyncr.app"
+  ).toLowerCase()
+  const passwordPlain =
+    process.env.LYNCR_BOOTSTRAP_ADMIN_TEMP_PASSWORD?.trim() ||
+    process.env.ZING_BOOTSTRAP_ADMIN_TEMP_PASSWORD?.trim() ||
+    "admin"
 
   try {
     const passwordHash = await bcrypt.hash(passwordPlain, 10)
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
         email,
         created: result.created,
         message:
-          "Login with this email and password, then remove ZING_BOOTSTRAP_ADMIN_SECRET from Vercel.",
+          "Login with this email and password, then remove LYNCR_BOOTSTRAP_ADMIN_SECRET from Vercel.",
       },
     })
   } catch (e) {

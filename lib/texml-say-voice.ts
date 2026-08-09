@@ -4,11 +4,12 @@
 // TeXML accepts Twilio-style `Polly.*-Neural`. Call Control Speak needs `AWS.Polly.*-Neural`
 // (or Azure / Telnyx / ElevenLabs). Sending bare `Polly.*` on Call Control often falls back
 // to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
-// Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see ZING_TEXML_SAY_RATE).
+// Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see LYNCR_TEXML_SAY_RATE).
 
 import { VoiceResponse } from "@/lib/telnyx"
+import { envLyncrOrZing } from "@/lib/lyncr-env"
 
-/** Amazon Polly neural — TeXML `<Say voice="…">`; override with ZING_TEXML_SAY_VOICE. */
+/** Amazon Polly neural — TeXML `<Say voice="…">`; override with LYNCR_TEXML_SAY_VOICE. */
 const DEFAULT_TEXML_SAY_VOICE = "Polly.Joanna-Neural"
 /** Call Control Speak default — same Joanna Neural, correct Telnyx provider prefix. */
 const DEFAULT_CALL_CONTROL_SPEAK_VOICE = "AWS.Polly.Joanna-Neural"
@@ -63,29 +64,30 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
 
 /** Twilio <Say> attributes (Telnyx TeXML accepts TwiML-compatible XML). */
 export function getTexmlSayVoiceAttributes(): { voice: string; language: string } {
-  const voice = process.env.ZING_TEXML_SAY_VOICE?.trim() || DEFAULT_TEXML_SAY_VOICE
-  const language = process.env.ZING_TEXML_SAY_LANGUAGE?.trim() || DEFAULT_TEXML_SAY_LANGUAGE
+  // Prefer LYNCR_*; legacy ZING_* still works until Vercel env is renamed.
+  const voice = envLyncrOrZing("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
+  const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
   return { voice, language }
 }
 
 /**
  * Call Control `speak` / `gather_using_speak` voice + language.
- * Override with `ZING_CALL_CONTROL_SPEAK_VOICE` (e.g. `Telnyx.NaturalHD.astra` or
- * `AWS.Polly.Matthew-Neural`). Falls back to normalizing `ZING_TEXML_SAY_VOICE`.
+ * Override with `LYNCR_CALL_CONTROL_SPEAK_VOICE` (e.g. `Telnyx.NaturalHD.astra` or
+ * `AWS.Polly.Matthew-Neural`). Falls back to normalizing `LYNCR_TEXML_SAY_VOICE`.
  */
 export function getCallControlSpeakVoiceAttributes(): { voice: string; language: string } {
-  const language = process.env.ZING_TEXML_SAY_LANGUAGE?.trim() || DEFAULT_TEXML_SAY_LANGUAGE
-  const explicit = process.env.ZING_CALL_CONTROL_SPEAK_VOICE?.trim()
+  const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
+  const explicit = envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE")
   if (explicit) {
     return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
-  const texmlVoice = process.env.ZING_TEXML_SAY_VOICE?.trim() || DEFAULT_TEXML_SAY_VOICE
+  const texmlVoice = envLyncrOrZing("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
   return { voice: normalizeCallControlSpeakVoice(texmlVoice), language }
 }
 
 function parseProsodyRate(): number {
   // Coalesce missing env to "" so "unset" matches the empty branch below (optional `.trim()` alone yields `undefined`, which skipped that branch and forced rate 1.08 — Telnyx then spoke "<prosody …>" aloud).
-  const raw = (process.env.ZING_TEXML_SAY_RATE ?? "").trim()
+  const raw = (envLyncrOrZing("TEXML_SAY_RATE") ?? "").trim()
   if (raw === "" || raw === "1" || raw === "off" || raw === "false") return 1
   const n = parseFloat(raw)
   if (!Number.isFinite(n) || n < 0.85 || n > 1.35) return 1
@@ -104,7 +106,7 @@ export function escapeXmlForSsml(text: string): string {
 export function texmlSayMessageBody(plainText: string): string {
   // Always phoneticize before TTS — DB stays "502", speech becomes "five oh two".
   const spoken = cleanTextForTTS(plainText)
-  if (process.env.ZING_TEXML_SAY_SSML === "0" || process.env.ZING_TEXML_SAY_SSML === "false") {
+  if (envLyncrOrZing("TEXML_SAY_SSML") === "0" || envLyncrOrZing("TEXML_SAY_SSML") === "false") {
     return spoken
   }
   const rate = parseProsodyRate()

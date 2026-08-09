@@ -10,6 +10,7 @@ import {
   verifySessionCookie,
   createSessionCookie,
   getSessionCookieName,
+  getLegacySessionCookieName,
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { getUser, userFacingDatabaseError } from "@/lib/db"
@@ -23,12 +24,16 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    // Read session cookie (try both methods so it works across refresh / different Next.js contexts)
+    // Prefer lyncr_session; still accept legacy zing_session until browsers refresh.
     const cookieStore = await cookies()
-    let cookieValue = cookieStore.get("zing_session")?.value
+    let cookieValue =
+      cookieStore.get(getSessionCookieName())?.value ||
+      cookieStore.get(getLegacySessionCookieName())?.value
     if (!cookieValue && req.headers.get("cookie")) {
-      const match = req.headers.get("cookie")!.match(/zing_session=([^;]+)/)
-      cookieValue = match?.[1]?.trim()
+      const header = req.headers.get("cookie")!
+      const lyncr = header.match(new RegExp(`${getSessionCookieName()}=([^;]+)`))
+      const legacy = header.match(new RegExp(`${getLegacySessionCookieName()}=([^;]+)`))
+      cookieValue = lyncr?.[1]?.trim() || legacy?.[1]?.trim()
     }
     const userId = verifySessionCookie(cookieValue)
     if (!userId) {
@@ -40,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     // Dev bypass: no DB call for dev-user (used when database is not connected)
     if (process.env.NODE_ENV === "development" && userId === "dev-user") {
-      const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase() ?? "dev@zing.local"
+      const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase() ?? "dev@lyncr.local"
       const devUser = {
         id: "dev-user",
         email: devEmail,

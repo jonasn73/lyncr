@@ -131,12 +131,13 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 126 | `126-latest-attention-book-form.sql` | **Book-form Latest SMS.** Extends **`latest_attention_sms_sent`** so `event_type` may be **`book_form`** (customer finished public `/book` ASAP or window). **Required** for owner SMS when a book form is submitted (with `sms_latest_enabled`). |
 | 127 | `127-admin-support-emails.sql` | **Admin support email inbox.** Creates **`admin_support_emails`** for inbound `support@lyncr.app` messages (Resend `email.received` webhook → Neon). **Required** for Admin → Support → Emails. Zoho keeps root MX — see **`ADMIN-SUPPORT-INBOX.md`** (forward support@ to Resend subdomain / `*.resend.app`; do **not** point `lyncr.app` MX at Resend). |
 | 128 | `128-support-chat.sql` | **In-app Support chat.** Creates **`support_chat_threads`**, **`support_chat_messages`**, **`support_chat_attachments`**. Powers Help → Chat with Lyncr Support and Admin → Support → Live chat (text + file uploads via Vercel Blob). **Required** for live chat; also set **`BLOB_READ_WRITE_TOKEN`** in Vercel for attachments. |
+| 129 | `129-call-queue.sql` | **Busy hold queue.** Creates **`call_queue`** (waiting callers for Lines Answer) and **`account_settings.hold_music_url`**. Powers Call Control `enqueue` + Lines “N waiting” + Answer bridge. **Required** for hold-queue UI and Answer; voice soft-hold still attempts Telnyx enqueue without this table (UI stays empty until migrated). |
 
 ## Platform admin (`admin@lyncr.app`)
 
 After migrations **31** then **32**, sign in at **`/login`** with **admin@lyncr.app** / **admin** and open **`/admin`**. Only that email may access the operator dashboard and `/api/admin/*` routes.
 
-If login says **Invalid email or password**, run **`033-fix-lyncr-admin-password.sql`** in Neon (or re-run **032**). Alternatively set **`ZING_BOOTSTRAP_ADMIN_SECRET`** in Vercel and `POST /api/auth/repair-bootstrap-admin` with `{ "secret": "…" }` (defaults to **admin@lyncr.app** / **admin**).
+If login says **Invalid email or password**, run **`033-fix-lyncr-admin-password.sql`** in Neon (or re-run **032**). Alternatively set **`LYNCR_BOOTSTRAP_ADMIN_SECRET`** (legacy **`ZING_BOOTSTRAP_ADMIN_SECRET`** still works) in Vercel and `POST /api/auth/repair-bootstrap-admin` with `{ "secret": "…" }` (defaults to **admin@lyncr.app** / **admin**).
 
 The old **admin@getzingapp.com** bootstrap (**`020-bootstrap-admin-getzingapp.sql`**) is deprecated — run **031** to remove it.
 

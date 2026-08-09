@@ -1,6 +1,10 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { verifySessionCookie, getSessionCookieName } from "@/lib/auth"
+import {
+  verifySessionCookie,
+  getSessionCookieName,
+  getLegacySessionCookieName,
+} from "@/lib/auth"
 import { getSessionUser } from "@/lib/server-session-user"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { resolvePostAuthPath } from "@/lib/post-auth-redirect"
@@ -14,7 +18,9 @@ export const dynamic = "force-dynamic"
  */
 export default async function Home() {
   const cookieStore = await cookies()
-  const raw = cookieStore.get(getSessionCookieName())?.value
+  const raw =
+    cookieStore.get(getSessionCookieName())?.value ||
+    cookieStore.get(getLegacySessionCookieName())?.value
   if (!verifySessionCookie(raw)) {
     return <HomeClient />
   }

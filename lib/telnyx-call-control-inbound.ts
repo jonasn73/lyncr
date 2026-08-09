@@ -11,6 +11,14 @@ import {
   telnyxCallControlSpeak,
   telnyxListActiveCalls,
 } from "@/lib/telnyx-call-control-api"
+import {
+  abandonHoldQueue,
+  bridgeAgentToHoldQueue,
+  enterBusyHoldQueue,
+  handleHoldLoopGatherEnded,
+} from "@/lib/telnyx-call-control-hold-queue"
+import { HOLD_AWARE_BUSY_PROMPT } from "@/lib/hold-queue"
+import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
 import {
   encodeTelnyxCallControlState,
@@ -218,15 +226,16 @@ async function resolveCallControlInboundDialPlan(
 
 /**
  * Busy / miss → Gather menu (parity with TeXML capture).
- * Press 1 or timeout → booking SMS. Press 2 / bypass → dial owner cell.
+ * Press 1 → booking SMS. Timeout / stay on line → hold queue (music + Lines Answer).
+ * Press 2 / bypass → dial owner cell.
  */
 async function startBusyAutomationFlow(
   callControlId: string,
   state: TelnyxCallControlClientState,
   routing: IncomingRoutingRow
 ): Promise<void> {
-  let say =
-    "Thanks for calling. We're tied up right now. Press 1 for a booking text, or press 2 to ring our phone."
+  // Soft default matches real hold-queue behavior (stay on line = wait, not hangup).
+  let say = HOLD_AWARE_BUSY_PROMPT
   let maxDigits = 1
   try {
     const presence = await getAccountPresence(routing.user_id)
@@ -235,10 +244,10 @@ async function startBusyAutomationFlow(
       onJobGreetingText: presence.onJobGreetingText,
       closedGreetingText: presence.closedGreetingText,
     })
-    // Ensure press-1 / press-2 instructions exist even when custom greeting is short.
+    // Ensure press-1 instructions exist even when custom greeting is short.
     const lower = say.toLowerCase()
     if (!lower.includes("press 1") && !lower.includes("press one")) {
-      say = `${say.trim()} Press 1 for a booking text, or press 2 to ring our phone.`
+      say = `${say.trim()} Press 1 for a booking text, or stay on the line.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
   } catch (e) {
@@ -251,8 +260,7 @@ async function startBusyAutomationFlow(
     dialReason: "busy_automation",
   })
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-busy-automation-gather",
+    lyncrLog("telnyx-cc-busy-automation-gather", {
       callControlId,
       userId: routing.user_id,
       maxDigits,
@@ -265,7 +273,7 @@ async function startBusyAutomationFlow(
     timeoutMillis: 8000,
   })
   if (!gatherRes.ok) {
-    console.error(JSON.stringify({ zing: "telnyx-cc-busy-gather-failed", error: gatherRes.error }))
+    console.error(lyncrLog("telnyx-cc-busy-gather-failed", { error: gatherRes.error }))
     // Fallback: still try to SMS then hang up so callers are not stranded.
     await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
@@ -723,6 +731,14 @@ async function handleCallAnswered(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
+  // Lines Answer — agent cell picked up → bridge into the hold queue.
+  if (state?.phase === "await_queue_agent_answer") {
+    await bridgeAgentToHoldQueue({
+      agentCallControlId: event.callControlId,
+      state,
+    })
+    return
+  }
   if (!state || state.phase !== "await_caller_answered") return
   // Telnyx often omits direction on call.answered; rely on client_state phase instead.
   if (event.direction && !isInboundDirection(event.direction)) return
@@ -896,13 +912,25 @@ async function handleGatherEnded(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
 ): Promise<void> {
   const state = event.clientState
-  if (!state || state.phase !== "await_busy_gather_end") return
+  if (!state) return
+
+  // Soft hold / queue re-prompt loop (music ↔ Busy message).
+  if (state.phase === "await_busy_hold_loop") {
+    await handleHoldLoopGatherEnded({
+      callControlId: event.callControlId,
+      state,
+      digits: event.digits.replace(/\D/g, ""),
+      gatherStatus: event.gatherStatus,
+    })
+    return
+  }
+
+  if (state.phase !== "await_busy_gather_end") return
 
   const digits = event.digits.replace(/\D/g, "")
   const gatherStatus = event.gatherStatus
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-busy-gather-ended",
+    lyncrLog("telnyx-cc-busy-gather-ended", {
       callControlId: event.callControlId,
       digits: digits || null,
       gatherStatus: gatherStatus || null,
@@ -940,8 +968,7 @@ async function handleGatherEnded(
       receptionistId: undefined,
     }
     console.log(
-      JSON.stringify({
-        zing: "telnyx-cc-busy-gather-press2-or-bypass",
+      lyncrLog("telnyx-cc-busy-gather-press2-or-bypass", {
         callControlId: event.callControlId,
         bypassMatch,
         ownerTail4: owner.replace(/\D/g, "").slice(-4),
@@ -951,16 +978,27 @@ async function handleGatherEnded(
     return
   }
 
-  // Press 1, timeout, empty digits, or anything else → booking SMS (TeXML capture parity).
-  await sendInboundBookingSmsAndTag({
-    fromE164: state.callerE164,
-    ownerUserId: routing.user_id,
-    businessLineE164: state.businessLineE164,
-    callSid: event.callControlId,
-    routedToName: CAPTURE_STATUS_ON_JOB_LINK,
-    source: digits === "1" ? "cc_busy_press1" : "cc_busy_timeout",
+  // Press 1 → booking SMS + hangup (unchanged).
+  if (digits === "1") {
+    await sendInboundBookingSmsAndTag({
+      fromE164: state.callerE164,
+      ownerUserId: routing.user_id,
+      businessLineE164: state.businessLineE164,
+      callSid: event.callControlId,
+      routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+      source: "cc_busy_press1",
+    })
+    await confirmBusySmsAndHangup(event.callControlId, state)
+    return
+  }
+
+  // Timeout / stay on the line → hold music + Telnyx queue (NOT immediate SMS+hangup).
+  await enterBusyHoldQueue({
+    callControlId: event.callControlId,
+    state,
+    routing,
+    callSessionId: event.callSessionId,
   })
-  await confirmBusySmsAndHangup(event.callControlId, state)
 }
 
 async function handleCallBridged(
@@ -1135,12 +1173,22 @@ async function handleCallHangup(
   // Also covers greeting-phase hangups where client_state is stale but Dial already started.
   await hangupCompanionOutboundLeg(event.callControlId, state, event.callSessionId)
 
+  // Abandon hold queue row + Telnyx leave_queue when the waiting caller disconnects.
+  if (
+    state?.phase === "await_busy_hold_loop" ||
+    state?.holdQueueName ||
+    state?.dialReason === "busy_automation"
+  ) {
+    await abandonHoldQueue(event.callControlId).catch(() => undefined)
+  }
+
   const hadConversation =
     event.hangupCause === "normal_clearing" &&
     state?.phase !== "recording" &&
     state?.phase !== "await_voicemail_prompt_end" &&
     state?.phase !== "await_busy_gather_end" &&
     state?.phase !== "await_busy_sms_confirm_end" &&
+    state?.phase !== "await_busy_hold_loop" &&
     (Boolean(state?.inboundCallControlId) || state?.phase === "await_dial_end")
 
   await finalizeCallControlCallLog(inboundSid, event, {
@@ -1158,8 +1206,7 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
   }
 
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-event",
+    lyncrLog("telnyx-cc-event", {
       eventType: event.eventType,
       direction: event.direction,
       phase: event.clientState?.phase ?? null,
@@ -1197,6 +1244,6 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
 }
 
 export function readInboundCallControlEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_CALL_CONTROL || "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+  // Prefer LYNCR_INBOUND_CALL_CONTROL; still accept legacy ZING_* until Vercel is renamed.
+  return envFlagOn("INBOUND_CALL_CONTROL")
 }

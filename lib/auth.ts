@@ -8,7 +8,9 @@
 import { createHmac, timingSafeEqual } from "crypto"
 import { env } from "@/lib/env" // Type-safe, validated env manager (replaces raw process.env).
 
-const COOKIE_NAME = "zing_session"
+const COOKIE_NAME = "lyncr_session"
+/** Legacy cookie from the Zing rename — still accepted so logins survive deploy. */
+const LEGACY_COOKIE_NAME = "zing_session"
 const MAX_AGE_SEC = 60 * 60 * 24 * 30 // 30 days so session survives refreshes and long gaps
 
 function getSecret(): string {
@@ -59,6 +61,11 @@ export function getSessionCookieName(): string {
   return COOKIE_NAME
 }
 
+/** Legacy Zing cookie — clear on logout so both names die. */
+export function getLegacySessionCookieName(): string {
+  return LEGACY_COOKIE_NAME
+}
+
 export function getSessionCookieOptions(): {
   httpOnly: boolean
   secure: boolean
@@ -101,7 +108,12 @@ export function getLogoutCookieClearOptions(): {
 /** Read session from request cookies (for API routes). Returns userId or null. */
 export function getUserIdFromRequest(cookieHeader: string | null): string | null {
   if (!cookieHeader) return null
-  const match = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`))
-  const value = match?.[1]?.trim()
-  return verifySessionCookie(value ?? undefined)
+  // Prefer lyncr_session; fall back to legacy zing_session until all browsers refresh.
+  const lyncr = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`))
+  const legacy = cookieHeader.match(new RegExp(`${LEGACY_COOKIE_NAME}=([^;]+)`))
+  return (
+    verifySessionCookie(lyncr?.[1]?.trim()) ||
+    verifySessionCookie(legacy?.[1]?.trim()) ||
+    null
+  )
 }

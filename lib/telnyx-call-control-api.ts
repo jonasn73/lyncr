@@ -1,5 +1,6 @@
-// Telnyx Call Control REST actions (answer → speak → dial → record).
+// Telnyx Call Control REST actions (answer → speak → dial → record → hold queue).
 
+import { lyncrLog } from "@/lib/lyncr-env"
 import { cleanTextForTTS, getCallControlSpeakVoiceAttributes } from "@/lib/texml-say-voice"
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
@@ -18,8 +19,7 @@ async function postCallAction(
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-api-post",
+    lyncrLog("telnyx-cc-api-post", {
       action,
       callControlId: id,
       apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
@@ -31,7 +31,7 @@ async function postCallAction(
     body: JSON.stringify(body),
   })
   if (res.ok) {
-    console.log(JSON.stringify({ zing: "telnyx-cc-api-ok", action, callControlId: id }))
+    console.log(lyncrLog("telnyx-cc-api-ok", { action, callControlId: id }))
     return { ok: true }
   }
   const errBody = await res.json().catch(() => ({}))
@@ -39,8 +39,7 @@ async function postCallAction(
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
   console.error(
-    JSON.stringify({
-      zing: "telnyx-cc-api-failed",
+    lyncrLog("telnyx-cc-api-failed", {
       action,
       callControlId: id,
       status: res.status,
@@ -188,8 +187,7 @@ export async function telnyxListActiveCalls(
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}))
     console.warn(
-      JSON.stringify({
-        zing: "telnyx-cc-list-active-calls-failed",
+      lyncrLog("telnyx-cc-list-active-calls-failed", {
         status: res.status,
         error:
           (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
@@ -219,8 +217,7 @@ export async function telnyxCallControlClientStateUpdate(
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-api-post",
+    lyncrLog("telnyx-cc-api-post", {
       action: "client_state_update",
       callControlId: id,
       apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
@@ -232,7 +229,7 @@ export async function telnyxCallControlClientStateUpdate(
     body: JSON.stringify({ client_state: clientState }),
   })
   if (res.ok) {
-    console.log(JSON.stringify({ zing: "telnyx-cc-api-ok", action: "client_state_update", callControlId: id }))
+    console.log(lyncrLog("telnyx-cc-api-ok", { action: "client_state_update", callControlId: id }))
     return { ok: true }
   }
   const errBody = await res.json().catch(() => ({}))
@@ -240,8 +237,7 @@ export async function telnyxCallControlClientStateUpdate(
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
   console.error(
-    JSON.stringify({
-      zing: "telnyx-cc-api-failed",
+    lyncrLog("telnyx-cc-api-failed", {
       action: "client_state_update",
       callControlId: id,
       status: res.status,
@@ -254,4 +250,98 @@ export async function telnyxCallControlClientStateUpdate(
 /** Park an inbound leg on hold (Call Control) — used for secondary-ring intercept. */
 export async function telnyxCallControlHold(callControlId: string): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "hold", {})
+}
+
+/** Start hold music (or any public audio URL). Prefer finite clips so playback.ended drives re-prompt. */
+export async function telnyxCallControlPlaybackStart(
+  callControlId: string,
+  opts: {
+    audioUrl: string
+    clientState: string
+    /** "infinity" loops until stop; omit / number for finite plays. */
+    loop?: "infinity" | number
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const body: Record<string, unknown> = {
+    audio_url: opts.audioUrl,
+    client_state: opts.clientState,
+  }
+  if (opts.loop !== undefined) body.loop = opts.loop
+  return postCallAction(callControlId, "playback_start", body)
+}
+
+export async function telnyxCallControlPlaybackStop(
+  callControlId: string
+): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "playback_stop", {})
+}
+
+/**
+ * Play hold music and collect DTMF — Telnyx owns the ~45s timer (serverless-safe).
+ * Webhook: call.gather.ended (digits or timeout).
+ */
+export async function telnyxCallControlGatherUsingAudio(
+  callControlId: string,
+  opts: {
+    audioUrl: string
+    clientState: string
+    timeoutMillis?: number
+    maximumDigits?: number
+    validDigits?: string
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
+  return postCallAction(callControlId, "gather_using_audio", {
+    audio_url: opts.audioUrl,
+    minimum_digits: 1,
+    maximum_digits: maxDigits,
+    terminating_digit: "#",
+    valid_digits: opts.validDigits || "0123456789",
+    timeout_millis: opts.timeoutMillis ?? 45_000,
+    inter_digit_timeout_millis: 3000,
+    client_state: opts.clientState,
+  })
+}
+
+/** Put caller into Telnyx native queue (Phase B). Music / gather still run separately. */
+export async function telnyxCallControlEnqueue(
+  callControlId: string,
+  opts: {
+    queueName: string
+    maxWaitTimeSecs?: number
+    clientState?: string
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const body: Record<string, unknown> = {
+    queue_name: opts.queueName,
+  }
+  if (opts.maxWaitTimeSecs != null) body.max_wait_time_secs = opts.maxWaitTimeSecs
+  if (opts.clientState) body.client_state = opts.clientState
+  return postCallAction(callControlId, "enqueue", body)
+}
+
+/** Remove caller from any Telnyx queue (press 1 / hangup / SMS leave). */
+export async function telnyxCallControlLeaveQueue(
+  callControlId: string
+): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "leave_queue", {})
+}
+
+/**
+ * Bridge this leg to another call_control_id OR to the head of a named queue.
+ * Answer-from-Lines: dial agent → on answer bridge({ queue }) or bridge({ call_control_id }).
+ */
+export async function telnyxCallControlBridge(
+  callControlId: string,
+  opts: {
+    queue?: string
+    callControlId?: string
+    clientState?: string
+  }
+): Promise<TelnyxCallControlActionResult> {
+  const body: Record<string, unknown> = {}
+  if (opts.queue?.trim()) body.queue = opts.queue.trim()
+  if (opts.callControlId?.trim()) body.call_control_id = opts.callControlId.trim()
+  if (opts.clientState) body.client_state = opts.clientState
+  return postCallAction(callControlId, "bridge", body)
 }

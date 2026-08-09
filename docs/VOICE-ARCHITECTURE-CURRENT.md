@@ -106,6 +106,18 @@ Run these on environments that already have existing data:
 - API: `/api/voice/quality`
   - summary + insights payload
 
+## Busy hold queue (Call Control)
+
+When Presence is **Busy** (and no Available teammate answers first):
+
+1. Busy greeting `gather_using_speak` (press 1 = booking SMS).
+2. **Timeout / stay on the line** → Telnyx `enqueue` (`lyncr-{userId}`) + soft-hold music gather (~45s) + re-prompt loop.
+3. Lines shows **N waiting** with caller preview → **Answer** dials owner/Available teammate → `bridge` to queue.
+4. Press **1** anytime → `leave_queue` + booking SMS + confirm.
+5. Max wait (~10 min) or hold cap → one SMS + hangup.
+
+Neon: run **`scripts/129-call-queue.sql`**. Env: **`LYNCR_HOLD_MUSIC_URL`**, **`LYNCR_INBOUND_CALL_CONTROL`** (legacy `ZING_*` still dual-read via `lib/lyncr-env.ts`).
+
 ## Legacy components and naming
 
 - `lib/twilio.ts` and `lib/twilio-porting.ts` are compatibility re-export files.

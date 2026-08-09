@@ -17,10 +17,11 @@ import {
 } from "@/lib/db"
 import type { CallLog, ReceptionistLedgerRow, ReceptionistLiveStatus, ReceptionistPortalDashboard } from "@/lib/types"
 
+import { envFlagOn } from "@/lib/lyncr-env"
+
 /** Mirror of readInboundCallControlEnabled — kept local to avoid pulling the voice webhook module into portal. */
 function isCallControlInboundEnabled(): boolean {
-  const raw = (process.env.ZING_INBOUND_CALL_CONTROL || "").trim().toLowerCase()
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+  return envFlagOn("INBOUND_CALL_CONTROL")
 }
 
 function startOfUtcDayIso(date = new Date()): string {

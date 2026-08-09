@@ -29,6 +29,26 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `SANDBOX_SMS_DISPATCH_E164` | Optional: your **real cell** (E.164) for **Admin → Dev sandbox** lead-alert SMS tests. If unset, sandbox uses the first real phone on your platform account. |
 | `PUSHER_APP_ID` / `PUSHER_KEY` / `PUSHER_SECRET` / `PUSHER_CLUSTER` | Optional **realtime** for the receptionist HUD. When set, the moment a receptionist's cell **answers**, their HUD instantly pops the **live intake form** (no 15s wait). Create a free app at **dashboard.pusher.com → Channels**. When unset, the HUD silently falls back to 15s polling. |
 | `NEXT_PUBLIC_PUSHER_KEY` / `NEXT_PUBLIC_PUSHER_CLUSTER` | **Build-time** copies of `PUSHER_KEY` / `PUSHER_CLUSTER` for the browser. Must be set **before** the Vercel build so they're inlined into the client bundle. |
+| `LYNCR_INBOUND_CALL_CONTROL` | Prefer this over legacy `ZING_INBOUND_CALL_CONTROL` (still dual-read). `1` / `true` → Call Control inbound. |
+| `LYNCR_HOLD_MUSIC_URL` | Public HTTPS MP3/WAV for Busy hold music. Or place `public/audio/hold-music.mp3`, or set per-account URL in Greetings. |
+| `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). |
+| `LYNCR_HOLD_MAX_CONCURRENT` | Optional. Cap waiting holds per account (default **3**). |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for Call Control Speak / Busy menus. Default **`AWS.Polly.Joanna-Neural`**. Legacy `ZING_CALL_CONTROL_SPEAK_VOICE` still works. |
+| `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
+| `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |
+
+### Deprecated `ZING_*` names
+
+The app was renamed from **Zing**. Runtime still **dual-reads** `ZING_*` when `LYNCR_*` is unset (`lib/lyncr-env.ts`). Prefer renaming Vercel env vars to `LYNCR_*`. Session cookie is now **`lyncr_session`** (legacy `zing_session` still accepted).
+
+| Legacy | Prefer |
+|--------|--------|
+| `ZING_INBOUND_CALL_CONTROL` | `LYNCR_INBOUND_CALL_CONTROL` |
+| `ZING_CALL_CONTROL_SPEAK_VOICE` | `LYNCR_CALL_CONTROL_SPEAK_VOICE` |
+| `ZING_TEXML_SAY_VOICE` | `LYNCR_TEXML_SAY_VOICE` |
+| `ZING_VOICE_DEBUG_LOGS` | `LYNCR_VOICE_DEBUG_LOGS` |
+| `ZING_AI_*` / other `ZING_*` | Matching `LYNCR_*` where dual-read is wired; otherwise still `ZING_*` until migrated |
+
 | `ZING_AI_RING_OWNER_FIRST` | Optional global override (same as dashboard **Ring my phone first**). Stored on the **default** `routing_config` row (`business_number` null) so it applies even when you use **per-number** routing. Run **`015`**. **Default:** straight to Voice AI when off. |
 | `ZING_AI_HANDOFF_TWO_STEP` | Optional. If `true` / `1`: **Say + Pause + Redirect** to **`/ai-bridge`** from `/incoming`. Default is a **silent** Redirect (no Say) to **`/ai-bridge`** — avoids **dead air** from `<Connect>` on the first `/incoming` response and avoids a **repeating hold line** if Telnyx re-requests `/incoming`. |
 | `ZING_AI_FALLBACK_SPOKEN_HANDOFF` | Optional. If `true` / `1`: after a **no-answer Dial**, play the spoken “please hold…” line before redirecting to Voice AI. **Default is off** (silent Redirect only) — avoids **garbled / noisy audio** some Telnyx builds play when TTS runs right before `<Connect><AIAssistant>`. |

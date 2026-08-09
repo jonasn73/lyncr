@@ -17,6 +17,7 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
+import { HoldQueueWaitingCard } from "@/components/dashboard/hold-queue-waiting-card"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
 import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
@@ -450,6 +451,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             onOpenAbout={() => setDashboardStoryKey("dashboard-call-flow")}
             loading={routingLineDetailLoading}
           />
+          <HoldQueueWaitingCard />
         </div>
       )}
 

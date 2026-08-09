@@ -33,6 +33,8 @@ type GreetingsPayload = {
   holiday_override_end?: string | null
   holidayGreetingText?: string | null
   holiday_greeting_text?: string | null
+  holdMusicUrl?: string | null
+  hold_music_url?: string | null
 }
 
 type DraftState = {
@@ -43,6 +45,8 @@ type DraftState = {
   holidayStart: string
   holidayEnd: string
   holidayText: string
+  /** Optional public HTTPS MP3/WAV for Busy hold music (Phase C). */
+  holdMusicUrl: string
 }
 
 function payloadToDraft(data: GreetingsPayload): DraftState {
@@ -60,6 +64,7 @@ function payloadToDraft(data: GreetingsPayload): DraftState {
       data.holidayOverrideEnd || data.holiday_override_end || null
     ),
     holidayText: data.holidayGreetingText || data.holiday_greeting_text || "",
+    holdMusicUrl: String(data.holdMusicUrl ?? data.hold_music_url ?? "").trim(),
   }
 }
 
@@ -121,6 +126,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           holiday_override_end: draft.holidayEnd || null,
           holidayGreetingText: draft.holidayText.trim() || null,
           holiday_greeting_text: draft.holidayText.trim() || null,
+          holdMusicUrl: draft.holdMusicUrl.trim() || null,
+          hold_music_url: draft.holdMusicUrl.trim() || null,
         }),
       })
       const json = (await res.json()) as {
@@ -236,7 +243,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               Busy greeting
             </label>
             <p className="text-[10px] text-zinc-600">
-              Played when Presence is Busy — your phone does not ring; callers can text-book.
+              Played when Presence is Busy — press 1 texts a booking link; stay on the line enters
+              the hold queue (music + Lines Answer).
             </p>
             <textarea
               id="busy-greeting-text"
@@ -245,6 +253,25 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
               className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-2.5")}
               placeholder={DEFAULT_BUSY_GREETING_TEXT}
+            />
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
+            <label htmlFor="hold-music-url" className="text-xs font-semibold text-zinc-300">
+              Hold music URL (optional)
+            </label>
+            <p className="text-[10px] text-zinc-600">
+              Public HTTPS MP3/WAV while callers stay on the line. Blank uses{" "}
+              <code className="text-zinc-400">LYNCR_HOLD_MUSIC_URL</code> or{" "}
+              <code className="text-zinc-400">/audio/hold-music.mp3</code>.
+            </p>
+            <input
+              id="hold-music-url"
+              type="url"
+              value={draft.holdMusicUrl}
+              onChange={(e) => setDraft((d) => ({ ...d, holdMusicUrl: e.target.value }))}
+              className={cn(fieldClass, "min-h-11 px-3 py-2")}
+              placeholder="https://…/hold-music.mp3"
             />
           </div>
 

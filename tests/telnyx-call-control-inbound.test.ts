@@ -770,4 +770,84 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeTruthy()
   })
+
+  it("call.gather.ended timeout enters hold queue (enqueue + music gather)", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "voicemail",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: false,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      updateCallLog: vi.fn(),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => {
+        const d = p.replace(/\D/g, "")
+        if (d.length === 10) return `+1${d}`
+        return p.startsWith("+") ? p : `+${d}`
+      },
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve()),
+    }))
+    vi.doMock("@/lib/call-queue-db", () => ({
+      countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
+      upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldMusicUrl: vi.fn(() => Promise.resolve(null)),
+      getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
+      updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
+    }))
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://lyncr.app")
+    vi.stubEnv("LYNCR_HOLD_MUSIC_URL", "https://cdn.example/hold.mp3")
+
+    const gatherState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_busy_gather_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialReason: "busy_automation",
+      fallbackType: "voicemail",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.gather.ended",
+        id: "evt-gather-timeout",
+        payload: {
+          call_control_id: "cc-gather-to",
+          from: "+15025369252",
+          to: "+15025571219",
+          digits: "",
+          status: "timeout",
+          client_state: gatherState,
+        },
+      },
+    })
+
+    const enqueueCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/enqueue"))
+    expect(enqueueCall).toBeTruthy()
+    const musicGather = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_audio")
+    )
+    expect(musicGather).toBeTruthy()
+    const smsHangup = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
+    expect(smsHangup).toBeFalsy()
+  })
 })

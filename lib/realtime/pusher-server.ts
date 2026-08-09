@@ -88,6 +88,8 @@ export type OwnerChannelEvent =
   | "live-gps"
   | "ticket.photos_updated"
   | "notification.photo_uploaded"
+  /** Busy hold queue — Lines “N waiting” + Answer list. */
+  | "hold-queue-updated"
 
 /** Live call HUD events — must not await Neon before trigger (intake modal latency). */
 const OWNER_INBOUND_TELEMETRY: ReadonlySet<OwnerChannelEvent> = new Set([
@@ -98,6 +100,7 @@ const OWNER_INBOUND_TELEMETRY: ReadonlySet<OwnerChannelEvent> = new Set([
   "live-gps",
   "ticket.photos_updated",
   "notification.photo_uploaded",
+  "hold-queue-updated",
 ])
 
 /** Publish an event to a business owner's channel (e.g. live booking alerts). Safe no-op when unconfigured. */

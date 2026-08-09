@@ -13,8 +13,9 @@ import {
   shouldEdgeInstantGreetingIntercept,
 } from "@/lib/inbound-instant-greet-edge"
 
-/** Must match lib/auth.ts COOKIE_NAME */
-const ZING_SESSION = "zing_session"
+/** Must match lib/auth.ts COOKIE_NAME (plus legacy zing_session dual-read). */
+const LYNCR_SESSION = "lyncr_session"
+const LEGACY_ZING_SESSION = "zing_session"
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -57,7 +58,9 @@ export function middleware(request: NextRequest) {
       request: { headers: requestHeaders },
     })
   }
-  const raw = request.cookies.get(ZING_SESSION)?.value
+  const raw =
+    request.cookies.get(LYNCR_SESSION)?.value ||
+    request.cookies.get(LEGACY_ZING_SESSION)?.value
   if (!raw || !raw.includes(".")) {
     const login = new URL("/login", request.url)
     login.searchParams.set("next", pathname)

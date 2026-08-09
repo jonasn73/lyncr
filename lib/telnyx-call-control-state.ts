@@ -9,6 +9,13 @@ export type TelnyxCallControlPhase =
   | "await_busy_gather_end"
   /** After booking SMS — speak confirmation then hang up. */
   | "await_busy_sms_confirm_end"
+  /**
+   * Soft hold / Telnyx queue — music gather (or speak re-prompt).
+   * Timeout → re-prompt; press 1 → SMS + leave; max wait → SMS once.
+   */
+  | "await_busy_hold_loop"
+  /** Agent cell dialed from Lines Answer — bridge to queue when they pick up. */
+  | "await_queue_agent_answer"
   | "recording"
 
 /** Why Call Control chose this PSTN target (Busy backup vs owner day dial). */
@@ -22,6 +29,8 @@ export type TelnyxCallControlDialReason =
   | "legacy_recv"
   | "legacy_owner"
   | "failsafe"
+  /** Owner/agent answering a waiting hold-queue caller from Lines. */
+  | "queue_answer"
 
 export type TelnyxCallControlClientState = {
   v: 1
@@ -40,6 +49,18 @@ export type TelnyxCallControlClientState = {
   dialReason?: TelnyxCallControlDialReason
   /** Private receptionist being dialed (Busy backup or team mode). */
   receptionistId?: string
+  /** Telnyx queue name (lyncr-{userId}) while on hold. */
+  holdQueueName?: string
+  /** Unix ms when this caller entered the hold loop (max-wait clock). */
+  holdStartedAtMs?: number
+  /** How many soft-hold re-prompts have played (position / ETA polish). */
+  holdPromptCount?: number
+  /** What the current gather is playing — drives the next timeout action. */
+  holdSegment?: "music" | "reprompt"
+  /** Waiting caller call_control_id when this leg is an Answer-from-Lines agent dial. */
+  queueTargetCallControlId?: string
+  /** Neon call_queue.id for the Answer target (optional). */
+  queueEntryId?: string
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {
