@@ -1104,7 +1104,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   href={telHref}
                   onClick={(e) => {
                     e.stopPropagation()
-                    if (needsRevenueRescue(call)) {
+                    if (needsRevenueRescue(call) || isHoldActivityStatus(st) || st === "hold_press1") {
                       openIntakeForActivityCall(inbound, call)
                     }
                   }}
@@ -1112,13 +1112,38 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]",
                     missed
                       ? "border-rose-500/45 bg-rose-500/15 text-rose-100"
-                      : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
+                      : isHoldActivityStatus(st) || st === "hold_press1"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                        : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
                   )}
-                  aria-label={missed ? "Call back" : "Call"}
-                  title={missed ? "Call back" : "Call"}
+                  aria-label={missed || isHoldActivityStatus(st) || st === "hold_press1" ? "Call back" : "Call"}
+                  title={missed || isHoldActivityStatus(st) || st === "hold_press1" ? "Call back" : "Call"}
                 >
                   <Phone className="h-4 w-4" aria-hidden />
                 </a>
+              ) : null}
+              {(isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber ? (
+                <SendBookLinkButton
+                  phone={call.callerNumber}
+                  callerName={call.callerName}
+                  businessLine={call.targetLineE164}
+                  callLogId={call.id}
+                  compact
+                  className="!h-9 !min-h-0 !w-auto shrink-0 px-2 text-[10px]"
+                />
+              ) : null}
+              {(isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
+              call.callerNumber &&
+              call.callerNumber !== "—" ? (
+                <Link
+                  href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2 text-[10px] font-semibold text-zinc-300 hover:border-zinc-500"
+                  aria-label="Open CRM"
+                  title="CRM"
+                >
+                  CRM
+                </Link>
               ) : null}
             </div>
 

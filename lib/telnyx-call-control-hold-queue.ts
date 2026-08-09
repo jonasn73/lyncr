@@ -80,7 +80,7 @@ async function buildHoldRepromptText(
   try {
     const pos = await getCallQueuePosition(state.userId, callControlId)
     if (pos === 1) hint = " You're next in line."
-    else if (pos != null && pos > 1) hint = ` You are number ${pos} in line.`
+    else if (pos != null && pos > 1) hint = ` You are number ${pos} in line — you're still in line with us.`
   } catch {
     /* position is polish only */
   }

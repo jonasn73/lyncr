@@ -128,6 +128,68 @@ export async function listWaitingCallQueue(userId: string): Promise<CallQueueRow
   }
 }
 
+/**
+ * Soft preview while the Busy gather plays (before Telnyx enqueue).
+ * Status `holding` shows on Lines as “In Busy menu” — Answer stays disabled until `waiting`.
+ */
+export async function upsertCallQueueBusyMenu(params: {
+  userId: string
+  callControlId: string
+  callSessionId?: string | null
+  callerE164?: string | null
+  businessLineE164?: string | null
+  callLogId?: string | null
+}): Promise<CallQueueRow | null> {
+  const queueName = lyncrHoldQueueName(params.userId)
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      INSERT INTO call_queue (
+        user_id, call_control_id, call_session_id, call_log_id,
+        caller_e164, business_line_e164, queue_name, status, enqueued_at, updated_at
+      )
+      VALUES (
+        ${params.userId},
+        ${params.callControlId},
+        ${params.callSessionId ?? null},
+        ${params.callLogId ?? null},
+        ${params.callerE164 ?? null},
+        ${params.businessLineE164 ?? null},
+        ${queueName},
+        'holding',
+        now(),
+        now()
+      )
+      ON CONFLICT (call_control_id) DO UPDATE SET
+        -- Do not downgrade an already-waiting / bridging caller back to menu-only.
+        status = CASE
+          WHEN call_queue.status IN ('waiting', 'bridging', 'answered') THEN call_queue.status
+          ELSE 'holding'
+        END,
+        queue_name = EXCLUDED.queue_name,
+        caller_e164 = COALESCE(EXCLUDED.caller_e164, call_queue.caller_e164),
+        business_line_e164 = COALESCE(EXCLUDED.business_line_e164, call_queue.business_line_e164),
+        call_session_id = COALESCE(EXCLUDED.call_session_id, call_queue.call_session_id),
+        left_at = NULL,
+        updated_at = now()
+      RETURNING *
+    `
+    const row = rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null
+    void broadcastQueue(params.userId)
+    return row
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) {
+      console.warn(
+        lyncrLog("call-queue-table-missing", {
+          hint: "Run scripts/129-call-queue.sql in Neon",
+        })
+      )
+      return null
+    }
+    throw e
+  }
+}
+
 /** Insert or refresh a waiting row when a caller enters the hold queue. */
 export async function upsertCallQueueWaiting(params: {
   userId: string
@@ -299,7 +361,9 @@ export async function getAccountHoldSettings(userId: string): Promise<AccountHol
         ? Math.floor(Number(row.hold_reprompt_secs))
         : null
     return {
-      holdMusicUrl: url.startsWith("http") ? url : null,
+      // Presets store portable /audio/… paths; custom hosts use https://…
+      holdMusicUrl:
+        url.startsWith("http") || url.startsWith("/audio/") ? url : null,
       holdMaxWaitSecs: maxWait,
       holdRepromptSecs: reprompt,
     }
@@ -315,7 +379,8 @@ export async function getAccountHoldSettings(userId: string): Promise<AccountHol
           ? String((rows[0] as { hold_music_url?: string | null }).hold_music_url || "").trim()
           : ""
         return {
-          holdMusicUrl: url.startsWith("http") ? url : null,
+          holdMusicUrl:
+            url.startsWith("http") || url.startsWith("/audio/") ? url : null,
           holdMaxWaitSecs: null,
           holdRepromptSecs: null,
         }
@@ -351,7 +416,9 @@ export async function setAccountHoldSettings(
   const cleanedMusic =
     patch.holdMusicUrl === undefined
       ? undefined
-      : typeof patch.holdMusicUrl === "string" && patch.holdMusicUrl.trim().startsWith("http")
+      : typeof patch.holdMusicUrl === "string" &&
+          (patch.holdMusicUrl.trim().startsWith("http") ||
+            patch.holdMusicUrl.trim().startsWith("/audio/"))
         ? patch.holdMusicUrl.trim()
         : null
   const cleanedMax =

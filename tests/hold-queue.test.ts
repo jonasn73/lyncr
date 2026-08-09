@@ -4,7 +4,14 @@ import {
   holdMaxWaitSecs,
   holdMaxConcurrent,
   HOLD_AWARE_BUSY_PROMPT,
+  HOLD_REPROMPT_DEFAULT,
+  resolveHoldMusicUrl,
 } from "@/lib/hold-queue"
+import {
+  HOLD_MUSIC_PRESETS,
+  holdMusicValueForPreset,
+  matchHoldMusicPreset,
+} from "@/lib/hold-music-presets"
 import { envLyncrOrZing, envFlagOn } from "@/lib/lyncr-env"
 import {
   encodeTelnyxCallControlState,
@@ -29,6 +36,10 @@ describe("hold-queue helpers", () => {
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("short form")
   })
 
+  it("re-prompt says still in line", () => {
+    expect(HOLD_REPROMPT_DEFAULT.toLowerCase()).toContain("still in line")
+  })
+
   it("round-trips hold loop client_state", () => {
     const raw = encodeTelnyxCallControlState({
       v: 1,
@@ -46,9 +57,29 @@ describe("hold-queue helpers", () => {
     expect(decoded?.holdSegment).toBe("music")
     expect(decoded?.holdQueueName).toBe("lyncr-u1")
   })
+
+  it("maps hold music presets to /audio paths", () => {
+    expect(HOLD_MUSIC_PRESETS.length).toBeGreaterThanOrEqual(3)
+    expect(holdMusicValueForPreset("calm")).toBe("/audio/hold-calm.wav")
+    expect(matchHoldMusicPreset("/audio/hold-upbeat.wav")).toBe("upbeat")
+    expect(matchHoldMusicPreset("")).toBe("default")
+    expect(matchHoldMusicPreset("https://cdn.example/custom.mp3")).toBe("custom")
+  })
+
+  it("resolves relative preset paths against app URL when set", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://lyncr.app")
+    expect(resolveHoldMusicUrl("/audio/hold-calm.wav")).toBe(
+      "https://lyncr.app/audio/hold-calm.wav"
+    )
+    expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-music.wav")
+  })
 })
 
 describe("envLyncrOrZing", () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   afterEach(() => {
     vi.unstubAllEnvs()
   })

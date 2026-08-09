@@ -67,8 +67,10 @@ export type UseRealTimeStatsResult = {
   bookingRatePercent: number
   /** Average minutes from call end → dispatched job today. */
   avgDispatchSpeedMinutes: number | null
-  /** Today's open salvage-pending quote total in cents (created or denied today). */
+  /** Today's open salvage + hold-path booked quotes in cents. */
   rescueRevenueCents: number
+  /** Busy menu / Hold / Press 1 call legs today (handled automation). */
+  holdPathCalls: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
   /** In-progress calls on the selected line (drives Step 1 badge). */
@@ -90,6 +92,7 @@ function applySnapshot(
   setters: {
     setDailyCalls: (n: number) => void
     setMissedCalls: (n: number) => void
+    setHoldPathCalls: (n: number) => void
     setDailyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setMonthlyTalkSeconds: (n: number | ((prev: number) => number)) => void
@@ -112,6 +115,7 @@ function applySnapshot(
 
   setters.setDailyCalls(snapDayKey === currentDayKey ? snap.dailyCalls : 0)
   setters.setMissedCalls(snapDayKey === currentDayKey ? snap.missedCalls : 0)
+  setters.setHoldPathCalls(snapDayKey === currentDayKey ? snap.holdPathCalls ?? 0 : 0)
   // Local calendar day — zero talk when the cached snapshot is from a prior day.
   setters.setDailyTalkSeconds(snapDayKey === currentDayKey ? snap.dailyTalkSeconds : 0)
   if (mergeTalk && snapWeekKey === currentWeekKey) {
@@ -156,6 +160,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
 
   const [dailyCalls, setDailyCalls] = useState(() => seed.dailyCalls)
   const [missedCalls, setMissedCalls] = useState(() => seed.missedCalls)
+  const [holdPathCalls, setHoldPathCalls] = useState(() => seed.holdPathCalls ?? 0)
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(() => seed.dailyTalkSeconds)
   const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(() => seed.weeklyTalkSeconds)
   const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(() => seed.monthlyTalkSeconds)
@@ -217,6 +222,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         data?: {
           daily_calls?: number
           missed_calls?: number
+          hold_path_calls?: number
           daily_talk_seconds?: number
           weekly_talk_seconds?: number
           monthly_talk_seconds?: number
@@ -246,6 +252,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       const snap: RoutingTelemetrySnapshot = {
         dailyCalls: Number(data.daily_calls ?? 0),
         missedCalls: Number(data.missed_calls ?? 0),
+        holdPathCalls: Number(data.hold_path_calls ?? 0),
         dailyTalkSeconds: parsedDailyTalk,
         weeklyTalkSeconds: parsedWeeklyTalk,
         monthlyTalkSeconds: parsedMonthlyTalk,
@@ -264,6 +271,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         {
           setDailyCalls,
           setMissedCalls,
+          setHoldPathCalls,
           setDailyTalkSeconds,
           setWeeklyTalkSeconds,
           setMonthlyTalkSeconds,
@@ -319,6 +327,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       {
         setDailyCalls,
         setMissedCalls,
+        setHoldPathCalls,
         setDailyTalkSeconds,
         setWeeklyTalkSeconds,
         setMonthlyTalkSeconds,
@@ -467,6 +476,13 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setActiveCallSessions((prev) => prev.filter((s) => s.callSid !== callSid))
         if (isMissedCallTelemetry(raw)) {
           setMissedCalls((prev) => prev + 1)
+        } else {
+          const routed = String(raw.routed_to_name ?? "").toLowerCase()
+          if (
+            /hold queue|booked from hold|busy · hold|answered from queue|press 1/.test(routed)
+          ) {
+            setHoldPathCalls((prev) => prev + 1)
+          }
         }
         const talkSec = talkSecondsFromCompletedPayload(raw)
         if (talkSec > 0) {
@@ -565,6 +581,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     () => ({
       dailyCalls,
       missedCalls,
+      holdPathCalls,
       dailyTalkSeconds,
       weeklyTalkSeconds,
       monthlyTalkSeconds,
@@ -584,6 +601,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     [
       dailyCalls,
       missedCalls,
+      holdPathCalls,
       dailyTalkSeconds,
       weeklyTalkSeconds,
       monthlyTalkSeconds,

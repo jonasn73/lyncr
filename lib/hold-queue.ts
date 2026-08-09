@@ -51,22 +51,42 @@ export function holdMaxConcurrent(): number {
 }
 
 /**
+ * Turn a stored account hold-music value into a public HTTPS play URL.
+ * Accepts full https://… or portable /audio/… paths from presets.
+ */
+function absoluteHoldMusicUrl(raw: string): string | null {
+  const value = raw.trim()
+  if (!value) return null
+  if (value.startsWith("http://") || value.startsWith("https://")) return value
+  if (value.startsWith("/audio/")) {
+    try {
+      const base = getAppUrl().replace(/\/$/, "")
+      if (base) return `${base}${value}`
+    } catch {
+      /* unit tests may lack NEXT_PUBLIC_APP_URL */
+    }
+  }
+  return null
+}
+
+/**
  * Public HTTPS URL for hold music (MP3/WAV).
- * Order: env LYNCR_HOLD_MUSIC_URL → legacy ZING_ → per-account override → app /audio/hold-music.mp3
+ * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm default.
  */
 export function resolveHoldMusicUrl(accountOverride?: string | null): string | null {
-  const fromAccount =
-    typeof accountOverride === "string" && accountOverride.trim().startsWith("http")
-      ? accountOverride.trim()
-      : ""
-  if (fromAccount) return fromAccount
+  if (typeof accountOverride === "string" && accountOverride.trim()) {
+    const fromAccount = absoluteHoldMusicUrl(accountOverride)
+    if (fromAccount) return fromAccount
+  }
   const fromEnv = envLyncrOrZing("HOLD_MUSIC_URL")
-  if (fromEnv && fromEnv.startsWith("http")) return fromEnv
-  // Documented default path — place a royalty-free MP3 at public/audio/hold-music.mp3
-  // or set LYNCR_HOLD_MUSIC_URL. Without a reachable file, soft-hold still re-prompts via Speak.
+  if (fromEnv) {
+    const envUrl = absoluteHoldMusicUrl(fromEnv)
+    if (envUrl) return envUrl
+  }
+  // Bundled royalty-free Calm loop — Busy stay-on-the-line is never silent when the app is hosted.
   try {
     const base = getAppUrl().replace(/\/$/, "")
-    if (base) return `${base}/audio/hold-music.mp3`
+    if (base) return `${base}/audio/hold-music.wav`
   } catch {
     /* getAppUrl may throw in unit tests without NEXT_PUBLIC_APP_URL */
   }
@@ -75,7 +95,7 @@ export function resolveHoldMusicUrl(accountOverride?: string | null): string | n
 
 /** Short re-prompt while already on hold (press 1 anytime). */
 export const HOLD_REPROMPT_DEFAULT =
-  "Thanks for holding. Press 1 any time for a booking text, or stay on the line — we will connect you when someone is free."
+  "You're still in line. Thanks for holding. Press 1 any time for a booking text, or stay on the line — we will connect you when someone is free."
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =

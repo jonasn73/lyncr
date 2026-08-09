@@ -36,6 +36,8 @@ export type RoutingTelemetryPaintSeed = {
 export type RoutingTelemetrySnapshot = {
   dailyCalls: number
   missedCalls: number
+  /** Busy menu / Hold / Press 1 legs today (handled — not classic misses). */
+  holdPathCalls?: number
   /** Raw seconds from API — display is derived via formatTalkTime. */
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
@@ -44,7 +46,9 @@ export type RoutingTelemetrySnapshot = {
   bookingRatePercent: number
   /** Average minutes from call end → dispatched job today (null when no samples). */
   avgDispatchSpeedMinutes: number | null
-  /** Today's open salvage-pending quote total in cents (created or denied today). */
+  /**
+   * Rescue $ today: salvage_pending quotes + booked-after-hold/press-1 quotes (cents).
+   */
   rescueRevenueCents: number
   ownerUserId: string | null
   /** When the snapshot was taken — used to drop stale week/month/day counters. */
@@ -73,6 +77,7 @@ export function normalizeRoutingTelemetrySnapshot(
   return {
     dailyCalls: sameDay ? raw.dailyCalls : 0,
     missedCalls: sameDay ? raw.missedCalls : 0,
+    holdPathCalls: sameDay ? raw.holdPathCalls ?? 0 : 0,
     dailyTalkSeconds: sameDay ? raw.dailyTalkSeconds : 0,
     weeklyTalkSeconds: cachedWeekKey === weekKey ? raw.weeklyTalkSeconds : 0,
     monthlyTalkSeconds: cachedMonthKey === monthKey ? raw.monthlyTalkSeconds : 0,
@@ -93,6 +98,7 @@ function parseTelemetryRaw(
   const parsed: RoutingTelemetrySnapshot = {
     dailyCalls: raw.dailyCalls,
     missedCalls: raw.missedCalls,
+    holdPathCalls: typeof raw.holdPathCalls === "number" ? raw.holdPathCalls : 0,
     dailyTalkSeconds:
       typeof raw.dailyTalkSeconds === "number"
         ? raw.dailyTalkSeconds
@@ -174,6 +180,7 @@ export function emptyRoutingTelemetrySnapshot(): RoutingTelemetrySnapshot {
   return {
     dailyCalls: 0,
     missedCalls: 0,
+    holdPathCalls: 0,
     dailyTalkSeconds: 0,
     weeklyTalkSeconds: 0,
     monthlyTalkSeconds: 0,

@@ -11,6 +11,7 @@ const RealTimeStatsContext = createContext<UseRealTimeStatsResult | null>(null)
 const EMPTY_STATS: UseRealTimeStatsResult = {
   dailyCalls: 0,
   missedCalls: 0,
+  holdPathCalls: 0,
   dailyTalkSeconds: 0,
   weeklyTalkSeconds: 0,
   monthlyTalkSeconds: 0,

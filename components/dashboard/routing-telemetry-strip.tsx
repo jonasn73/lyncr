@@ -160,6 +160,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const {
     dailyCalls,
     missedCalls,
+    holdPathCalls,
     liveLineCount,
     bookingRatePercent,
     avgDispatchSpeedMinutes,
@@ -180,6 +181,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const callsDisplay = baselineReady ? dailyCalls : "—"
   const missedDisplay = baselineReady ? missedCalls : "—"
   const linesDisplay = baselineReady ? liveLineCount : "—"
+  const holdPathDisplay = baselineReady ? holdPathCalls : null
 
   // Prefer seeded/fetched unique-lead count; fall back to missedCalls only while truly unknown.
   // uniqueMissedLeadsReady is true from cookie/session seed — do not wait for /api/calls.
@@ -188,13 +190,18 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const uniqueLeads = hasSeededLeads ? uniqueMissedLeads : missedCalls
   const missedLeadCollapse = hasSeededLeads && uniqueLeads > 0 && uniqueLeads < missedCalls
   const missedTickerLabel = formatMissedTickerLabel(missedCalls, uniqueLeads)
-  // Show last seeded “N leads” as soon as ready — independent of slow insights fetch.
-  const missedTickerSublabel = hasSeededLeads
-    ? formatMissedTickerSublabel(missedCalls, uniqueLeads)
-    : null
+  // Hold-path sublabel replaces classic “leads” note when soft-queue handled callers today.
+  const missedTickerSublabel =
+    baselineReady && holdPathDisplay != null && holdPathDisplay > 0
+      ? `${holdPathDisplay} hold path`
+      : hasSeededLeads
+        ? formatMissedTickerSublabel(missedCalls, uniqueLeads)
+        : null
   const missedDesktopLabel = missedLeadCollapse
-    ? `${missedCalls} missed today (${uniqueLeads} leads)`
-    : "Missed today"
+    ? `${missedCalls} unanswered (${uniqueLeads} leads)`
+    : holdPathDisplay && holdPathDisplay > 0
+      ? `Unanswered · ${holdPathDisplay} hold path`
+      : "Unanswered"
 
   const openCallHistory = useCallback((filter: CallHistoryFilter) => {
     setHistoryFilter(filter)
@@ -279,6 +286,12 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
+        <p className="px-1 text-[10px] leading-snug text-zinc-500">
+          <span className="font-medium text-zinc-400">Missed</span> = true unanswered (hold / press-1
+          excluded). <span className="font-medium text-zinc-400">Booking %</span> includes press-1 /
+          book-from-hold. <span className="font-medium text-zinc-400">Rescue $</span> = salvage quotes
+          plus jobs booked after hold or press 1.
+        </p>
       </section>
 
       {/* Lazy-mount dialogs — closed Radix roots still ran effects/close buttons

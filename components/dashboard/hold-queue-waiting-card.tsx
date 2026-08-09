@@ -145,14 +145,19 @@ export function HoldQueueWaitingCard({
         return
       }
       setCallers((prev) => prev.filter((c) => c.id !== id))
-      // Open intake/CRM for this caller as soon as Answer dial succeeds (bridge follows).
+      // Open full intake reliably after Answer — slight delay lets the dial settle,
+      // then force a fresh manual row so a prior dismiss cannot swallow it.
       if (inbound && waiting?.callerE164) {
-        inbound.openManualCallPanel({
-          phoneNumber: waiting.callerE164,
-          toNumber: waiting.businessLineE164 || undefined,
-          callStatus: "answered",
-          intakeMode: "full",
-        })
+        const openIntake = () => {
+          inbound.openManualCallPanel({
+            phoneNumber: waiting.callerE164!,
+            toNumber: waiting.businessLineE164 || undefined,
+            callStatus: "answered",
+            intakeMode: "full",
+          })
+        }
+        openIntake()
+        window.setTimeout(openIntake, 250)
       }
     } catch {
       setError("Answer failed")
@@ -219,10 +224,20 @@ export function HoldQueueWaitingCard({
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">
-            {callers.length} waiting
+            {(() => {
+              const answerable = callers.filter((c) => c.status === "waiting" || c.status === "bridging")
+              const inMenu = callers.filter((c) => c.status === "holding")
+              if (answerable.length > 0 && inMenu.length > 0) {
+                return `${answerable.length} waiting · ${inMenu.length} in Busy menu`
+              }
+              if (inMenu.length > 0 && answerable.length === 0) {
+                return `${inMenu.length} in Busy menu`
+              }
+              return `${callers.length} waiting`
+            })()}
           </h3>
           <p className="hidden text-[11px] text-muted-foreground md:block">
-            Answer rings your phone, then connects the caller on hold
+            Answer rings your phone after they stay on the line; Busy menu shows while the greeting plays
           </p>
         </div>
       </div>
@@ -236,6 +251,8 @@ export function HoldQueueWaitingCard({
       <ul className="space-y-2">
         {callers.map((c, idx) => {
           const crmHref = crmHrefForCaller(c.callerE164)
+          const inBusyMenu = c.status === "holding"
+          const canAnswer = c.status === "waiting"
           return (
             <li
               key={c.id}
@@ -243,11 +260,13 @@ export function HoldQueueWaitingCard({
             >
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">
-                  {idx === 0 ? "Next · " : ""}
+                  {!inBusyMenu && idx === 0 ? "Next · " : ""}
                   {formatCallerPreview(c.callerE164)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Waiting {waitHint(c.enqueuedAt)}
+                  {inBusyMenu
+                    ? `In Busy menu · ${waitHint(c.enqueuedAt)}`
+                    : `Waiting ${waitHint(c.enqueuedAt)}`}
                   {c.status === "bridging" ? " · connecting…" : ""}
                   {crmHref ? (
                     <>
@@ -271,17 +290,23 @@ export function HoldQueueWaitingCard({
                     className="!h-9 !min-h-0 px-2 text-[10px]"
                   />
                 ) : null}
-                <button
-                  type="button"
-                  disabled={answeringId === c.id || c.status === "bridging"}
-                  onClick={() => void answerCaller(c.id)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
-                    MOBILE_TAP_TARGET
-                  )}
-                >
-                  {answeringId === c.id ? "Ringing…" : "Answer"}
-                </button>
+                {inBusyMenu ? (
+                  <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-200">
+                    Listening…
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={answeringId === c.id || !canAnswer || c.status === "bridging"}
+                    onClick={() => void answerCaller(c.id)}
+                    className={cn(
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
+                      MOBILE_TAP_TARGET
+                    )}
+                  >
+                    {answeringId === c.id ? "Ringing…" : "Answer"}
+                  </button>
+                )}
               </div>
             </li>
           )

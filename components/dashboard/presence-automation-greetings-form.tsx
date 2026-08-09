@@ -11,7 +11,7 @@ import {
   IVR_VOICE_PERSONA_OPTIONS,
   toDatetimeLocalValue,
 } from "@/lib/ivr-automation-settings"
-import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
+import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 
 const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
@@ -281,24 +281,11 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             />
           </div>
 
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-            <label htmlFor="hold-music-url" className="text-xs font-semibold text-zinc-300">
-              Hold music URL (optional)
-            </label>
-            <p className="hidden text-[10px] text-zinc-600 md:block">
-              Public HTTPS MP3/WAV while callers stay on the line. Blank uses{" "}
-              <code className="text-zinc-400">LYNCR_HOLD_MUSIC_URL</code> or{" "}
-              <code className="text-zinc-400">/audio/hold-music.mp3</code>.
-            </p>
-            <input
-              id="hold-music-url"
-              type="url"
-              value={draft.holdMusicUrl}
-              onChange={(e) => setDraft((d) => ({ ...d, holdMusicUrl: e.target.value }))}
-              className={cn(fieldClass, "min-h-11 px-3 py-2")}
-              placeholder="https://…/hold-music.mp3"
-            />
-          </div>
+          <HoldMusicPresetPicker
+            idPrefix="hold-music"
+            value={draft.holdMusicUrl}
+            onChange={(next) => setDraft((d) => ({ ...d, holdMusicUrl: next }))}
+          />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

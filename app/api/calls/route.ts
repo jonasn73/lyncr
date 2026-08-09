@@ -41,10 +41,12 @@ export async function GET(req: NextRequest) {
 
     let leadRows: Record<string, unknown>[] = []
     let customerCallLogIds = new Set<string>()
+    let customerNameByPhone = new Map<string, string>()
     try {
       const enrichment = await fetchCallActivityEnrichmentRows(userId, callLogIds, callerPhonesE164)
       leadRows = enrichment.leadRows
       customerCallLogIds = enrichment.customerCallLogIds
+      customerNameByPhone = enrichment.customerNameByPhone
     } catch (enrichError) {
       console.error("[GET /api/calls] activity enrichment failed:", enrichError)
     }
@@ -61,10 +63,21 @@ export async function GET(req: NextRequest) {
       phoneE164ByCallId,
     })
 
-    const enrichedCalls = calls.map((call) => ({
-      ...call,
-      activity: activityByCallId.get(call.id) ?? null,
-    }))
+    const enrichedCalls = calls.map((call) => {
+      const phone = phoneE164ByCallId.get(call.id) ?? ""
+      const crmName = phone ? customerNameByPhone.get(phone) : undefined
+      const existingName = String(call.caller_name || "").trim()
+      const looksUnknown =
+        !existingName ||
+        /^unknown(\s+caller)?$/i.test(existingName) ||
+        existingName === "—"
+      return {
+        ...call,
+        // Prefer CRM display name when the log still says Unknown Caller.
+        caller_name: looksUnknown && crmName ? crmName : call.caller_name,
+        activity: activityByCallId.get(call.id) ?? null,
+      }
+    })
 
     return NextResponse.json({ calls: enrichedCalls })
   } catch (error) {

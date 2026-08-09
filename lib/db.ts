@@ -3918,6 +3918,8 @@ export async function getDailyCallTelemetryForOwner(
 ): Promise<{
   daily_calls: number
   missed_calls: number
+  /** Today's Busy menu / Hold Queue / Press 1 legs (handled automation — not classic misses). */
+  hold_path_calls: number
   avg_talk_seconds: number
   daily_talk_seconds: number
   weekly_talk_seconds: number
@@ -3949,6 +3951,7 @@ export async function getDailyCallTelemetryForOwner(
       return {
         daily_calls: 0,
         missed_calls: 0,
+        hold_path_calls: 0,
         avg_talk_seconds: 0,
         daily_talk_seconds: 0,
         weekly_talk_seconds: 0,
@@ -3963,6 +3966,11 @@ export async function getDailyCallTelemetryForOwner(
     AND call_type IS DISTINCT FROM 'missed'
     AND call_type IS DISTINCT FROM 'voicemail'
     AND NOT (lower(COALESCE(routed_to_name, '')) ~* '(ivr|voicemail|ai receptionist|voice ai|assistant|smart overflow|keypad)')
+  `
+
+  /** Hold / Press 1 / Busy menu — handled soft-queue path (not a classic miss). */
+  const holdPathWhere = sql`
+    lower(COALESCE(routed_to_name, '')) ~* '(hold queue|booked from hold|busy · hold menu|busy · hold|answered from queue|press 1)'
   `
 
   const missedWhere = sql`
@@ -3980,6 +3988,10 @@ export async function getDailyCallTelemetryForOwner(
         AND lower(COALESCE(status, '')) IN ('completed', 'canceled', 'cancelled')
         AND (answered_at IS NULL OR COALESCE(duration_seconds, 0) < 5)
       )
+    )
+    -- Hold / Press 1 / Busy menu handled the caller — not a classic unanswered miss.
+    AND NOT (
+      lower(COALESCE(routed_to_name, '')) ~* '(hold queue|booked from hold|busy · hold menu|busy · hold|answered from queue|press 1)'
     )
   `
 
@@ -4025,6 +4037,10 @@ export async function getDailyCallTelemetryForOwner(
             WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${holdPathWhere})
+          )::int AS hold_path_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
               WHERE ${localDayMatch} AND ${talkableWhere}
@@ -4083,6 +4099,10 @@ export async function getDailyCallTelemetryForOwner(
             WHERE ${localDayMatch}
               AND (${missedWhere})
           )::int AS missed_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${holdPathWhere})
+          )::int AS hold_path_calls,
           COALESCE(
             AVG(talk_seconds) FILTER (
               WHERE ${localDayMatch} AND ${talkableWhere}
@@ -4114,6 +4134,7 @@ export async function getDailyCallTelemetryForOwner(
   return {
     daily_calls: Number(row?.daily_calls ?? 0),
     missed_calls: Number(row?.missed_calls ?? 0),
+    hold_path_calls: Number(row?.hold_path_calls ?? 0),
     avg_talk_seconds: Number(row?.avg_talk_seconds ?? 0),
     daily_talk_seconds: Number(row?.daily_talk_seconds ?? 0),
     weekly_talk_seconds: Number(row?.weekly_talk_seconds ?? 0),
@@ -4150,7 +4171,9 @@ export async function getDispatchPerformanceTelemetry(
   }
 
   try {
-    // Booking rate = jobs created today / unique callers today (local calendar day).
+    // Booking rate = (jobs booked today + press-1 / book-from-hold intents without a job yet)
+    // ÷ unique callers today. Press-1 SMS alone does not count until tagged on the call log;
+    // form submits that create BOOKED/PENDING_TIME leads are already in jobs_created.
     const bookingRows = await sql`
       WITH callers AS (
         SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(from_number, ''), '\\D', '', 'g'), ''))::int AS unique_callers
@@ -4173,14 +4196,36 @@ export async function getDispatchPerformanceTelemetry(
             OR organization_id IS NULL
             OR organization_id = ${orgUuid}::uuid
           )
+      ),
+      -- Press-1 / book-from-hold phones that already have a booked lead today are not double-counted.
+      hold_book AS (
+        SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(cl.from_number, ''), '\\D', '', 'g'), ''))::int AS press1_phones
+        FROM call_logs cl
+        WHERE cl.user_id = ${telemetryOwnerUserId}
+          AND date_trunc('day', timezone(${tz}, cl.created_at)) = date_trunc('day', timezone(${tz}, now()))
+          AND lower(COALESCE(cl.routed_to_name, '')) ~* '(booked from hold|press 1)'
+          AND NOT EXISTS (
+            SELECT 1 FROM ai_leads l
+            WHERE l.user_id = ${telemetryOwnerUserId}
+              AND date_trunc('day', timezone(${tz}, l.created_at)) = date_trunc('day', timezone(${tz}, now()))
+              AND (
+                disposition IN ('BOOKED', 'PENDING_TIME')
+                OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+              )
+              AND right(regexp_replace(COALESCE(l.caller_e164, ''), '\\D', '', 'g'), 10)
+                = right(regexp_replace(COALESCE(cl.from_number, ''), '\\D', '', 'g'), 10)
+          )
       )
-      SELECT callers.unique_callers, jobs.jobs_created
-      FROM callers, jobs
+      SELECT callers.unique_callers, jobs.jobs_created, hold_book.press1_phones
+      FROM callers, jobs, hold_book
     `
     const uniqueCallers = Number(bookingRows[0]?.unique_callers ?? 0)
     const jobsCreated = Number(bookingRows[0]?.jobs_created ?? 0)
+    const press1Booked = Number(bookingRows[0]?.press1_phones ?? 0)
     const booking_rate_percent =
-      uniqueCallers > 0 ? Math.min(100, Math.round((jobsCreated / uniqueCallers) * 100)) : 0
+      uniqueCallers > 0
+        ? Math.min(100, Math.round(((jobsCreated + press1Booked) / uniqueCallers) * 100))
+        : 0
 
     // Avg minutes from call end → job created with a tech (today only — matches strip day scope).
     let avg_dispatch_speed_minutes: number | null = null
@@ -4264,6 +4309,51 @@ export async function getDispatchPerformanceTelemetry(
           )
       `
       rescue_revenue_cents = Number(rescueRows[0]?.rescue_cents ?? 0)
+      // Also count quoted $ booked today after Hold / Press 1 (recovered via soft queue).
+      try {
+        const holdRescueRows = await sql`
+          SELECT COALESCE(
+            SUM(
+              GREATEST(
+                0,
+                COALESCE(
+                  NULLIF(trim(l.collected->>'quoted_price_cents'), '')::int,
+                  NULLIF(trim(l.collected->>'last_quoted_price_cents'), '')::int,
+                  NULLIF(trim(l.collected->>'baseline_quoted_price_cents'), '')::int,
+                  0
+                )
+              )
+            ),
+            0
+          )::int AS hold_rescue_cents
+          FROM ai_leads l
+          WHERE l.user_id = ${telemetryOwnerUserId}
+            AND date_trunc('day', timezone(${tz}, l.created_at)) = date_trunc('day', timezone(${tz}, now()))
+            AND (
+              l.disposition IN ('BOOKED', 'PENDING_TIME')
+              OR l.collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            )
+            AND lower(trim(COALESCE(l.dispatch_status, ''))) IS DISTINCT FROM 'salvage_pending'
+            AND EXISTS (
+              SELECT 1 FROM call_logs cl
+              WHERE cl.user_id = ${telemetryOwnerUserId}
+                AND date_trunc('day', timezone(${tz}, cl.created_at)) = date_trunc('day', timezone(${tz}, now()))
+                AND lower(COALESCE(cl.routed_to_name, '')) ~* '(hold queue|booked from hold|press 1|answered from queue)'
+                AND right(regexp_replace(COALESCE(cl.from_number, ''), '\\D', '', 'g'), 10)
+                  = right(regexp_replace(COALESCE(l.caller_e164, ''), '\\D', '', 'g'), 10)
+            )
+            AND (
+              ${orgUuid}::uuid IS NULL
+              OR l.organization_id IS NULL
+              OR l.organization_id = ${orgUuid}::uuid
+            )
+        `
+        rescue_revenue_cents += Number(holdRescueRows[0]?.hold_rescue_cents ?? 0)
+      } catch (e2) {
+        if (pgErrorCode(e2) !== "42703" && !isUndefinedRelationError(e2, "ai_leads")) {
+          console.warn("[getDispatchPerformanceTelemetry] hold rescue skipped:", e2)
+        }
+      }
     } catch (e) {
       if (pgErrorCode(e) !== "42703" && !isUndefinedRelationError(e, "ai_leads")) {
         console.warn("[getDispatchPerformanceTelemetry] rescue revenue skipped:", e)
@@ -4569,13 +4659,15 @@ export async function fetchCallActivityEnrichmentRows(
 ): Promise<{
   leadRows: Record<string, unknown>[]
   customerCallLogIds: Set<string>
+  /** phone E.164 → CRM display_name when known. */
+  customerNameByPhone: Map<string, string>
 }> {
   const sql = getSql()
   const ids = [...new Set(callLogIds.map((id) => id.trim()).filter(Boolean))]
   const phones = [...new Set(callerPhonesE164.map((p) => p.trim()).filter(Boolean))]
   const vapiKeys = ids.map((id) => `${id}-intake-job`)
   if (ids.length === 0 && phones.length === 0) {
-    return { leadRows: [], customerCallLogIds: new Set() }
+    return { leadRows: [], customerCallLogIds: new Set(), customerNameByPhone: new Map() }
   }
 
   let leadRows: Record<string, unknown>[] = []
@@ -4670,6 +4762,7 @@ export async function fetchCallActivityEnrichmentRows(
   }
 
   const customerCallLogIds = new Set<string>()
+  const customerNameByPhone = new Map<string, string>()
   if (ids.length > 0) {
     try {
       const customerRows = await sql`
@@ -4689,9 +4782,31 @@ export async function fetchCallActivityEnrichmentRows(
     }
   }
 
+  if (phones.length > 0) {
+    try {
+      const nameRows = await sql`
+        SELECT phone_e164, display_name
+        FROM customers
+        WHERE user_id = ${userId}
+          AND phone_e164 = ANY(${phones})
+          AND NULLIF(trim(display_name), '') IS NOT NULL
+      `
+      for (const row of nameRows as Record<string, unknown>[]) {
+        const phone = row.phone_e164 ? String(row.phone_e164).trim() : ""
+        const name = row.display_name ? String(row.display_name).trim() : ""
+        if (phone && name) customerNameByPhone.set(phone, name)
+      }
+    } catch (e) {
+      if (!isUndefinedRelationError(e, "customers")) {
+        console.warn("[db] fetchCallActivityEnrichmentRows customer names failed:", e)
+      }
+    }
+  }
+
   return {
     leadRows,
     customerCallLogIds,
+    customerNameByPhone,
   }
 }
 

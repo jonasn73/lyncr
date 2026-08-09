@@ -40,16 +40,24 @@ export async function POST(req: NextRequest) {
       answerAsE164?: string
     }
 
-    // Prefer a specific waiting row; otherwise take the oldest waiting caller.
+    // Prefer a specific waiting row; otherwise take the oldest Answer-ready caller.
     let target = body.queueEntryId
       ? await getCallQueueById(String(body.queueEntryId), userId)
       : null
     if (!target) {
       const waiting = await listWaitingCallQueue(userId)
-      target = waiting[0] ?? null
+      target = waiting.find((w) => w.status === "waiting") ?? null
     }
-    if (!target || !["waiting", "holding", "bridging"].includes(target.status)) {
-      return NextResponse.json({ error: "No caller waiting in the hold queue" }, { status: 404 })
+    if (!target || !["waiting", "bridging"].includes(target.status)) {
+      return NextResponse.json(
+        {
+          error:
+            target?.status === "holding"
+              ? "Caller is still in the Busy menu — Answer unlocks when they stay on the line"
+              : "No caller waiting in the hold queue",
+        },
+        { status: 404 }
+      )
     }
 
     // Who rings for Answer: Available teammate first (same dial-plan spirit), else owner cell.

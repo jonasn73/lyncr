@@ -17,6 +17,7 @@ import {
   enterBusyHoldQueue,
   handleHoldLoopGatherEnded,
 } from "@/lib/telnyx-call-control-hold-queue"
+import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
 import { HOLD_AWARE_BUSY_PROMPT } from "@/lib/hold-queue"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -277,6 +278,15 @@ async function startBusyAutomationFlow(
       maxDigits,
     })
   )
+  // Soft Lines preview while the Busy menu speaks — before full hold enqueue.
+  void upsertCallQueueBusyMenu({
+    userId: routing.user_id,
+    callControlId,
+    callerE164: state.callerE164,
+    businessLineE164: state.businessLineE164,
+  }).catch((e) => {
+    console.warn(lyncrLog("telnyx-cc-busy-menu-queue-preview-failed", { error: String(e) }))
+  })
   const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text: say,
     clientState: nextState,
@@ -1022,6 +1032,10 @@ async function handleGatherEnded(
 
   // Press 1 → booking SMS + hangup (Activity: Booked from hold · press 1).
   if (digits === "1") {
+    void updateCallQueueStatus({
+      callControlId: event.callControlId,
+      status: "sms_left",
+    })
     await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: routing.user_id,

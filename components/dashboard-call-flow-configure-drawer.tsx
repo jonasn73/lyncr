@@ -26,6 +26,7 @@ import {
 import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 import { formatPhoneDisplay, snapDashboardRingTimeoutSec } from "@/lib/dashboard-routing-utils"
 import type { FallbackOption } from "@/lib/dashboard-routing-utils"
+import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 
 const fieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
@@ -119,6 +120,8 @@ export function DashboardCallFlowConfigureDrawer({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [holidayOpen, setHolidayOpen] = useState(false)
+  /** Lyncr Pool / Custom Routing — collapsed so the first screen stays simple. */
+  const [moreRoutingOpen, setMoreRoutingOpen] = useState(false)
   const [draft, setDraft] = useState<ConfigureDraft>(DEFAULT_DRAFT)
   const baselineRef = useRef(draftSnapshot(DEFAULT_DRAFT))
   /** Product defaults from API (for placeholders). */
@@ -224,6 +227,7 @@ export function DashboardCallFlowConfigureDrawer({
       setDraft(next)
       baselineRef.current = draftSnapshot(next)
       if (next.holidayStart || next.holidayEnd || next.holidayText) setHolidayOpen(true)
+      if (next.mode === "lyncr_pool" || next.mode === "custom_routing") setMoreRoutingOpen(true)
     } catch {
       setDraft(DEFAULT_DRAFT)
       baselineRef.current = draftSnapshot(DEFAULT_DRAFT)
@@ -243,6 +247,27 @@ export function DashboardCallFlowConfigureDrawer({
   }, [onRegisterDiscard, load])
 
   const dirty = useMemo(() => draftSnapshot(draft) !== baselineRef.current, [draft])
+
+  const sheetTitle =
+    currentTab === "greetings"
+      ? "Greetings"
+      : currentTab === "security"
+        ? "Advanced Rules"
+        : "Who answers"
+
+  const sheetSubtitle =
+    currentTab === "greetings"
+      ? `Busy greeting, hold music, and voice for ${ownerPhoneDisplay || "this line"}.`
+      : currentTab === "security"
+        ? `Bypass digit and emergency fallback for ${ownerPhoneDisplay || "this line"}.`
+        : `Who rings first for ${ownerPhoneDisplay || "this line"}.`
+
+  const primaryRoutingModes = ACTIVE_ROUTING_MODE_OPTIONS.filter(
+    (o) => o.value === "your_phone" || o.value === "team_receptionist" || o.value === "smart_ivr"
+  )
+  const advancedRoutingModes = ACTIVE_ROUTING_MODE_OPTIONS.filter(
+    (o) => o.value === "lyncr_pool" || o.value === "custom_routing"
+  )
 
   async function handleSave() {
     setSaving(true)
@@ -338,8 +363,8 @@ export function DashboardCallFlowConfigureDrawer({
       }}
     >
       <DrawerStepHeader
-        title="Configure call flow"
-        subtitle={`Settings for ${ownerPhoneDisplay || "this line"} — routing, voice greetings, and advanced rules.`}
+        title={sheetTitle}
+        subtitle={sheetSubtitle}
         lineLabel={lineLabel}
       />
 
@@ -388,7 +413,7 @@ export function DashboardCallFlowConfigureDrawer({
                     Who answers first
                   </legend>
                   <div role="radiogroup" aria-label="Active routing mode" className="space-y-2">
-                    {ACTIVE_ROUTING_MODE_OPTIONS.map((opt) => {
+                    {primaryRoutingModes.map((opt) => {
                       const active = draft.mode === opt.value
                       return (
                         <div key={opt.value} className="space-y-2">
@@ -426,35 +451,6 @@ export function DashboardCallFlowConfigureDrawer({
                               </span>
                             </span>
                           </button>
-
-                          {/* Custom phone sits immediately under its selector */}
-                          {opt.value === "custom_routing" && active ? (
-                            <section className="ml-1 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                              <label
-                                htmlFor="configure-custom-phone"
-                                className="text-xs font-semibold text-zinc-300"
-                              >
-                                Target 10-digit phone number
-                              </label>
-                              <input
-                                id="configure-custom-phone"
-                                type="tel"
-                                inputMode="numeric"
-                                placeholder="5025551234"
-                                value={draft.customPhone}
-                                onChange={(e) =>
-                                  setDraft((d) => ({
-                                    ...d,
-                                    customPhone: e.target.value.replace(/\D/g, "").slice(0, 10),
-                                  }))
-                                }
-                                className={cn(fieldClass, "h-11")}
-                              />
-                              <p className="text-[10px] text-zinc-600">
-                                Every inbound call to this business line forwards to this number.
-                              </p>
-                            </section>
-                          ) : null}
 
                           {opt.value === "team_receptionist" && active ? (
                             <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
@@ -542,15 +538,108 @@ export function DashboardCallFlowConfigureDrawer({
                               </div>
                             </section>
                           ) : null}
-
-                          {opt.value === "lyncr_pool" && active ? (
-                            <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200/90">
-                              Lyncr Pool is active — certified shared agents answer in-browser.
-                            </p>
-                          ) : null}
                         </div>
                       )
                     })}
+
+                    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/30">
+                      <button
+                        type="button"
+                        onClick={() => setMoreRoutingOpen((o) => !o)}
+                        className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                        aria-expanded={moreRoutingOpen}
+                      >
+                        <span className="text-xs font-semibold text-zinc-400">
+                          More options · Lyncr Pool / Custom
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+                            moreRoutingOpen && "rotate-180"
+                          )}
+                          aria-hidden
+                        />
+                      </button>
+                      {moreRoutingOpen ? (
+                        <div className="space-y-2 border-t border-zinc-800 px-2 pb-3 pt-2">
+                          {advancedRoutingModes.map((opt) => {
+                            const active = draft.mode === opt.value
+                            return (
+                              <div key={opt.value} className="space-y-2">
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={active}
+                                  onClick={() => setDraft((d) => ({ ...d, mode: opt.value }))}
+                                  className={cn(
+                                    "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
+                                    active
+                                      ? "border-emerald-500/40 bg-emerald-500/10"
+                                      : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                  )}
+                                >
+                                  <span
+                                    aria-hidden
+                                    className={cn(
+                                      "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                                      active
+                                        ? "border-emerald-400 bg-emerald-500/20"
+                                        : "border-zinc-600 bg-transparent"
+                                    )}
+                                  >
+                                    {active ? (
+                                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                    ) : null}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-foreground">
+                                      {opt.label}
+                                    </span>
+                                    <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
+                                      {opt.description}
+                                    </span>
+                                  </span>
+                                </button>
+
+                                {opt.value === "custom_routing" && active ? (
+                                  <section className="ml-1 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                                    <label
+                                      htmlFor="configure-custom-phone"
+                                      className="text-xs font-semibold text-zinc-300"
+                                    >
+                                      Target 10-digit phone number
+                                    </label>
+                                    <input
+                                      id="configure-custom-phone"
+                                      type="tel"
+                                      inputMode="numeric"
+                                      placeholder="5025551234"
+                                      value={draft.customPhone}
+                                      onChange={(e) =>
+                                        setDraft((d) => ({
+                                          ...d,
+                                          customPhone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                                        }))
+                                      }
+                                      className={cn(fieldClass, "h-11")}
+                                    />
+                                    <p className="text-[10px] text-zinc-600">
+                                      Every inbound call to this business line forwards to this number.
+                                    </p>
+                                  </section>
+                                ) : null}
+
+                                {opt.value === "lyncr_pool" && active ? (
+                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200/90">
+                                    Lyncr Pool is active — certified shared agents answer in-browser.
+                                  </p>
+                                ) : null}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </fieldset>
               </div>
@@ -597,24 +686,11 @@ export function DashboardCallFlowConfigureDrawer({
                   />
                 </div>
 
-                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-                  <label htmlFor="configure-hold-music" className="text-xs font-semibold text-zinc-300">
-                    Hold music URL
-                  </label>
-                  <p className="hidden text-[10px] text-zinc-600 md:block">
-                    Public HTTPS MP3/WAV while callers wait. Blank uses{" "}
-                    <code className="text-zinc-400">LYNCR_HOLD_MUSIC_URL</code> or{" "}
-                    <code className="text-zinc-400">/audio/hold-music.mp3</code>.
-                  </p>
-                  <input
-                    id="configure-hold-music"
-                    type="url"
-                    value={draft.holdMusicUrl}
-                    onChange={(e) => setDraft((d) => ({ ...d, holdMusicUrl: e.target.value }))}
-                    className={cn(fieldClass, "min-h-11")}
-                    placeholder="https://…/hold-music.mp3"
-                  />
-                </div>
+                <HoldMusicPresetPicker
+                  idPrefix="configure-hold-music"
+                  value={draft.holdMusicUrl}
+                  onChange={(next) => setDraft((d) => ({ ...d, holdMusicUrl: next }))}
+                />
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
