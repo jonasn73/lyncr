@@ -1,11 +1,11 @@
 // Telnyx Call Control REST actions (answer → speak → dial → record → hold queue).
 
+import { ensureTelnyxElevenLabsIntegrationSecret } from "@/lib/elevenlabs-telnyx"
 import {
   elevenLabsNaturalHdFallback,
-  ensureTelnyxElevenLabsIntegrationSecret,
   getElevenLabsVoiceSettings,
   normalizeElevenLabsCallControlVoice,
-} from "@/lib/elevenlabs-telnyx"
+} from "@/lib/elevenlabs-voices"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
   buildCallControlSpeakPayload,

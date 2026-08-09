@@ -6,7 +6,7 @@ import {
   elevenLabsNaturalHdFallback,
   elevenLabsSpeakEnabled,
   normalizeElevenLabsCallControlVoice,
-} from "@/lib/elevenlabs-telnyx"
+} from "@/lib/elevenlabs-voices"
 import {
   TELNYX_MENU_CLOSED_PROMPT,
   TELNYX_MENU_DEFAULT_RING_E164,

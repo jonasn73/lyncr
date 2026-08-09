@@ -6,7 +6,7 @@
 // to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
 // Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see LYNCR_TEXML_SAY_RATE).
 
-import { normalizeElevenLabsCallControlVoice } from "@/lib/elevenlabs-telnyx"
+import { normalizeElevenLabsCallControlVoice } from "@/lib/elevenlabs-voices"
 import { VoiceResponse } from "@/lib/telnyx"
 import { envLyncrOrZing } from "@/lib/lyncr-env"
 

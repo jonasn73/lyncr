@@ -18,7 +18,7 @@ import {
   ELEVENLABS_VOICE_IDS,
   elevenLabsCallControlVoice,
   normalizeElevenLabsCallControlVoice,
-} from "@/lib/elevenlabs-telnyx"
+} from "@/lib/elevenlabs-voices"
 
 describe("ivr automation settings", () => {
   const prevEleven = process.env.ELEVENLABS_API_KEY
