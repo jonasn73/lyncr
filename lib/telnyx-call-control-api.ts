@@ -145,14 +145,30 @@ export async function telnyxCallControlGatherUsingSpeak(
     /** Milliseconds to wait after speak for a digit (TeXML uses ~8s). */
     timeoutMillis?: number
     validDigits?: string
+    /**
+     * How many times Telnyx re-speaks the payload when no digit arrives.
+     * Telnyx defaults to 3 — that made Busy greeting play three times before hold.
+     * Soft-hold rempromts are our job; Busy stay-on-line must be try-once then music.
+     */
+    maximumTries?: number
     /** Saved AI Voice Persona → Call Control voice (optional). */
     voice?: string | null
   }
 ): Promise<TelnyxCallControlActionResult> {
   const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts.voice })
   const maxDigits = Math.max(1, Math.min(8, Math.floor(opts.maximumDigits ?? 1) || 1))
+  // Default 1 — never rely on Telnyx’s 3× payload replay for Busy / hold.
+  const maxTries = Math.max(1, Math.min(3, Math.floor(opts.maximumTries ?? 1) || 1))
   const tryGather = async (voice: string) => {
     const built = buildCallControlSpeakPayload(opts.text, voice)
+    console.log(
+      lyncrLog("telnyx-cc-gather-speak-voice", {
+        callControlId,
+        voice,
+        maximumTries: maxTries,
+        textLen: opts.text.length,
+      })
+    )
     return postCallAction(callControlId, "gather_using_speak", {
       payload: built.payload,
       payload_type: built.payloadType,
@@ -161,6 +177,8 @@ export async function telnyxCallControlGatherUsingSpeak(
       language: attrs.language,
       minimum_digits: 1,
       maximum_digits: maxDigits,
+      // 1 = speak once; stay-on-line → gather.ended → our hold music (not 3 greets).
+      maximum_tries: maxTries,
       // Interrupting digit ends gather early when maximum_digits is 1.
       terminating_digit: "#",
       valid_digits: opts.validDigits || "0123456789",
@@ -409,6 +427,8 @@ export async function telnyxCallControlGatherUsingAudio(
     audio_url: opts.audioUrl,
     minimum_digits: 1,
     maximum_digits: maxDigits,
+    // Play the clip once per gather; our hold loop restarts music on timeout.
+    maximum_tries: 1,
     // No terminating_digit — "#" was ending gather oddly on some legs.
     valid_digits: opts.validDigits || "0123456789",
     timeout_millis: opts.timeoutMillis ?? 45_000,

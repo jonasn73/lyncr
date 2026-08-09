@@ -18,6 +18,7 @@ import {
   updateCallQueueStatus,
   upsertCallQueueWaiting,
 } from "@/lib/call-queue-db"
+import { getAccountPresence } from "@/lib/account-presence"
 import {
   HOLD_MAX_WAIT_SMS_PROMPT,
   HOLD_REPROMPT_DEFAULT,
@@ -31,6 +32,7 @@ import {
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
   telnyxCallControlBridge,
@@ -375,12 +377,29 @@ export async function startHoldMusicGather(
 
   // No music (or all paths failed) — speak a short hold line and wait for press 1.
   const text = await buildHoldRepromptText(state, callControlId)
+  let fallbackVoice = state.holdSpeakVoice?.trim() || ""
+  if (!fallbackVoice) {
+    try {
+      const presence = await getAccountPresence(state.userId)
+      fallbackVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
+    } catch {
+      fallbackVoice = "Telnyx.NaturalHD.astra"
+    }
+  }
+  console.log(
+    lyncrLog("telnyx-cc-hold-music-fallback-speak", {
+      callControlId,
+      speakVoice: fallbackVoice || null,
+    })
+  )
   const speakGather = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text,
     clientState: encoded,
     maximumDigits: 1,
     validDigits: "1",
     timeoutMillis: repromptMs,
+    maximumTries: 1,
+    voice: fallbackVoice || "Telnyx.NaturalHD.astra",
   })
   if (!speakGather.ok) {
     console.error(lyncrLog("telnyx-cc-hold-speak-gather-failed", { error: speakGather.error }))
@@ -409,12 +428,33 @@ export async function startHoldRepromptGather(
   // Always the same short line (+ optional “you're next”); never HOLD_AWARE_BUSY_PROMPT again.
   const say = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
+  // Same premium voice as Busy gather — snapshot, then live persona, then NaturalHD astra.
+  let speakVoice = state.holdSpeakVoice?.trim() || ""
+  if (!speakVoice) {
+    try {
+      const presence = await getAccountPresence(state.userId)
+      speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
+    } catch {
+      speakVoice = "Telnyx.NaturalHD.astra"
+    }
+  }
+
   const nextState: TelnyxCallControlClientState = {
     ...state,
     phase: "await_busy_hold_loop",
     holdSegment: "reprompt",
     holdPromptCount: promptCount,
+    holdSpeakVoice: speakVoice || state.holdSpeakVoice,
   }
+
+  console.log(
+    lyncrLog("telnyx-cc-hold-reprompt-speak", {
+      callControlId,
+      speakVoice: speakVoice || null,
+      promptCount,
+      textLen: say.length,
+    })
+  )
 
   const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text: say,
@@ -423,6 +463,9 @@ export async function startHoldRepromptGather(
     validDigits: "1",
     // Short window after the reminder — then back to music quickly.
     timeoutMillis: 6_000,
+    // One short reminder only — never Telnyx’s default 3× replay.
+    maximumTries: 1,
+    voice: speakVoice || "Telnyx.NaturalHD.astra",
   })
   if (!gatherRes.ok) {
     await startHoldMusicGather(callControlId, nextState)

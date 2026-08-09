@@ -42,6 +42,9 @@ describe("hold-queue helpers", () => {
     expect(HOLD_REPROMPT_DEFAULT.toLowerCase()).toContain("book")
     // Keep it one short sentence — not a full alternate greeting.
     expect(HOLD_REPROMPT_DEFAULT.length).toBeLessThan(120)
+    // Full Busy prompt must stay longer / distinct so rempromts never reuse it.
+    expect(HOLD_AWARE_BUSY_PROMPT.length).toBeGreaterThan(HOLD_REPROMPT_DEFAULT.length)
+    expect(HOLD_REPROMPT_DEFAULT).not.toContain("tied up at the moment")
   })
 
   it("round-trips hold loop client_state", () => {

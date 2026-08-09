@@ -61,6 +61,11 @@ export type TelnyxCallControlClientState = {
   holdMaxWaitSecs?: number
   /** Account override for music segment length (seconds) — snapshotted at enqueue. */
   holdRepromptSecs?: number
+  /**
+   * Call Control Speak voice used for the Busy gather (NaturalHD / Polly neural).
+   * Hold rempromts reuse this so reminders match the Busy greeting persona.
+   */
+  holdSpeakVoice?: string
   /** Waiting caller call_control_id when this leg is an Answer-from-Lines agent dial. */
   queueTargetCallControlId?: string
   /** Neon call_queue.id for the Answer target (optional). */

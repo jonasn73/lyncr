@@ -23,25 +23,25 @@ export const HOLD_MUSIC_DEFAULT_PRESET: HoldMusicPresetId = "calm"
 
 /**
  * Presets use 8 kHz mono WAV — Telnyx PSTN-friendly.
- * Classic “on hold” style: smooth / elevator / light instrumental.
+ * Classic “on hold” style: soft jazz / elevator voicings (not beeps).
  */
 export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
   {
     id: "calm",
     label: "Classic hold",
-    description: "Smooth elevator-style instrumental — standard call-center feel.",
+    description: "Soft jazz / elevator voicings — standard contact-center feel.",
     path: "/audio/hold-calm.wav",
   },
   {
     id: "upbeat",
     label: "Bright hold",
-    description: "Slightly brighter light instrumental, still soft on the ear.",
+    description: "Slightly brighter light jazz, still soft on the ear.",
     path: "/audio/hold-upbeat.wav",
   },
   {
     id: "minimal",
     label: "Soft hold",
-    description: "Quieter sparse instrumental for a gentler wait.",
+    description: "Quieter sparse pad for a gentler wait.",
     path: "/audio/hold-minimal.wav",
   },
 ]

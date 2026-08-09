@@ -280,6 +280,8 @@ async function startBusyAutomationFlow(
     phase: "await_busy_gather_end",
     dialTargetE164: undefined,
     dialReason: "busy_automation",
+    // Snapshot persona so hold rempromts use the same premium voice (not a fallback).
+    holdSpeakVoice: speakVoice || undefined,
   })
   console.log(
     lyncrLog("telnyx-cc-busy-automation-gather", {
@@ -287,6 +289,7 @@ async function startBusyAutomationFlow(
       userId: routing.user_id,
       maxDigits,
       speakVoice: speakVoice || null,
+      maximumTries: 1,
     })
   )
   // Soft Lines preview while the Busy menu speaks — before full hold enqueue.
@@ -303,6 +306,8 @@ async function startBusyAutomationFlow(
     clientState: nextState,
     maximumDigits: maxDigits,
     timeoutMillis: 8000,
+    // Telnyx defaults to 3 tries — that replayed the full Busy greeting before music.
+    maximumTries: 1,
     voice: speakVoice,
   })
   if (!gatherRes.ok) {

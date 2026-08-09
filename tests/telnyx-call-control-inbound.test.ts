@@ -701,6 +701,13 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       String(c[0]).includes("/actions/gather_using_speak")
     )
     expect(gatherCall).toBeTruthy()
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as {
+      maximum_tries?: number
+      voice?: string
+    }
+    // Telnyx defaults to 3 — we must force 1 so Busy does not replay before music.
+    expect(gatherBody.maximum_tries).toBe(1)
+    expect(gatherBody.voice).toBeTruthy()
     const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
     expect(hangupCall).toBeFalsy()
   })

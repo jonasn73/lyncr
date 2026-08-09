@@ -49,8 +49,8 @@ export function HoldMusicPresetPicker({
         Hold music
       </label>
       <p className="hidden text-[10px] text-zinc-600 md:block">
-        Classic call-center style while callers stay on the line. Royalty-free Lyncr loops — Busy is
-        never silent by default (Classic hold).
+        Classic call-center style while callers stay on the line. Royalty-free soft jazz /
+        elevator loops — Busy is never silent by default (Classic hold).
       </p>
       <select
         id={`${idPrefix}-preset`}
