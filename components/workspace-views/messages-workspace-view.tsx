@@ -3,8 +3,8 @@
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { ArrowLeft, Loader2, MessageSquare, Send } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,6 +15,11 @@ import {
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import {
+  bookFormHandoffMatchesPhone,
+  peekBookFormDetailsHandoff,
+  requestReopenBookFormDetail,
+} from "@/lib/book-form-details-handoff"
 import { buildTelHref } from "@/lib/phone-e164"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
@@ -115,6 +120,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 }) {
   const { activeOrganizationId } = useDashboardWorkspace()
   const searchParams = useSearchParams()
+  const router = useRouter()
   // Pause when Messages pane OR browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
   const orgId =
@@ -265,6 +271,22 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const threadPhoneLabel = activeThread
     ? formatPhoneDisplay(activeThread.customerPhone)
     : ""
+
+  // Book-form alert context: offer a way back to submitted fields (SMS alone won’t show them).
+  const showBookingDetailsBanner = Boolean(
+    isActive &&
+      selectedPhone &&
+      bookFormHandoffMatchesPhone(selectedPhone)
+  )
+  const bookingHandoffPreview = showBookingDetailsBanner
+    ? peekBookFormDetailsHandoff()
+    : null
+
+  /** Leave Messages and reopen the Lines booking-details sheet. */
+  const openBookingDetailsFromBanner = useCallback(() => {
+    requestReopenBookFormDetail()
+    router.push("/dashboard")
+  }, [router])
 
   // Opening a thread clears the Latest unread dot for that phone.
   useEffect(() => {
@@ -504,6 +526,28 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                   </p>
                 </div>
               </div>
+
+              {showBookingDetailsBanner ? (
+                // Escape hatch: SMS only has the pick-a-time link — form data lives on Lines.
+                <div className="shrink-0 border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
+                  <p className="text-[11px] font-medium text-orange-100/90">
+                    {bookingHandoffPreview?.customerName
+                      ? `${bookingHandoffPreview.customerName} submitted a booking`
+                      : "Customer submitted a booking"}
+                    {bookingHandoffPreview?.preview
+                      ? ` · ${bookingHandoffPreview.preview}`
+                      : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openBookingDetailsFromBanner}
+                    className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    View booking details
+                  </button>
+                </div>
+              ) : null}
 
               <div
                 ref={messagesScrollRef}

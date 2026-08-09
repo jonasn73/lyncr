@@ -687,7 +687,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Boolean(target.has_job_address) || crmCustomerAddressReady(selected),
             displayName: customerName,
           })
-          // Same rich hydrate as Latest book-form alert → Continue intake.
+          // Same rich hydrate as Latest book-form alert → Schedule job.
           const fromBook = Boolean(
             target.filled_by_customer || isBookFormIntakeSource(target.intake_source)
           )

@@ -2,11 +2,22 @@
 
 // Lines Alerts — unreplied inbound, customer payments, jobs needing review SMS.
 // Hidden when empty; opening an alert clears it from the list (except job_finished).
+// Book-form rows open a booking-details sheet (not “new intake”); Schedule job continues work.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
-import { ClipboardList, CheckCircle2, ChevronRight, Eye, Loader2, MessageSquare, Star } from "lucide-react"
+import {
+  CalendarCheck,
+  CheckCircle2,
+  ChevronRight,
+  Eye,
+  Loader2,
+  MessageSquare,
+  Phone,
+  Star,
+  UserRound,
+} from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   Sheet,
@@ -17,7 +28,17 @@ import {
 import { ToastAction } from "@/components/ui/toast"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { serviceQuoteTypeIdFromBookJobKind } from "@/lib/book-customer-request"
+import {
+  BOOK_JOB_KIND_OPTIONS,
+  serviceQuoteTypeIdFromBookJobKind,
+} from "@/lib/book-customer-request"
+import {
+  clearBookFormDetailsHandoff,
+  consumeBookFormReopenPending,
+  LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT,
+  peekBookFormDetailsHandoff,
+  writeBookFormDetailsHandoff,
+} from "@/lib/book-form-details-handoff"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import {
@@ -28,12 +49,34 @@ import {
   markLatestReplySeen,
 } from "@/lib/latest-seen"
 import { LINES_MOBILE_SECTION_LABEL } from "@/lib/mobile-shell"
+import { buildTelHref } from "@/lib/phone-e164"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
+
+/** Human service label from book-form chips (Key copy, Lockout, …). */
+function bookFormServiceLabel(item: LatestCustomerAction): string {
+  // Prefer the short chip the customer tapped on /book.
+  const kind = String(item.bookFormJobKind ?? "")
+    .trim()
+    .toLowerCase()
+  const fromChip = BOOK_JOB_KIND_OPTIONS.find((o) => o.id === kind)?.chip
+  if (fromChip) return fromChip
+  // Fall back to stored job_type text, then a generic label.
+  const typed = String(item.bookFormJobType ?? "").trim()
+  return typed || "Service"
+}
+
+/** Year · make · model from submitted book-form fields. */
+function bookFormVehicleLabel(item: LatestCustomerAction): string {
+  return [item.bookFormVehicleYear, item.bookFormVehicleMake, item.bookFormVehicleModel]
+    .map((p) => String(p ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+}
 
 /** Last 10 digits — matches Messages inbox / Activity deep-links across formats. */
 function phoneMatchKey(phone: string): string {
@@ -82,6 +125,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 }) {
   const { toast } = useToast()
   const router = useRouter()
+  const pathname = usePathname()
   const { activeOrganizationId } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
@@ -160,6 +204,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     (item: LatestCustomerAction) => {
       // Opening detail counts as read → leaves Latest (except job_finished).
       markAttentionOpened(item)
+      // Stash book-form fields so Messages can offer “View booking details”.
+      if (item.event === "book_form") writeBookFormDetailsHandoff(item)
       setSelected(item)
     },
     [markAttentionOpened]
@@ -244,8 +290,12 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [load, toast]
   )
 
+  /** Open Messages; stash book-form context so SMS can link back to booking details. */
   const openInMessages = useCallback(
-    (phone: string) => {
+    (phone: string, bookItem?: LatestCustomerAction | null) => {
+      if (bookItem?.event === "book_form") {
+        writeBookFormDetailsHandoff(bookItem)
+      }
       if (phone.trim()) markSeen(phone)
       setSelected(null)
       router.push(`/dashboard/messages?phone=${encodeURIComponent(phone)}`)
@@ -253,12 +303,26 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [markSeen, router]
   )
 
-  /** Open Call Answered intake with this book-form lead — profile-first, already filled. */
+  /** Open CRM profile for this phone (secondary action from booking sheet). */
+  const openInCrm = useCallback(
+    (phone: string) => {
+      if (!phone.trim()) return
+      setSelected(null)
+      router.push(`/dashboard/customers?phone=${encodeURIComponent(phone)}`)
+    },
+    [router]
+  )
+
+  /**
+   * Continue work on a submitted book form — hydrate intake / schedule (not “new intake”).
+   * Primary CTA label in the sheet is “Schedule job”.
+   */
   const openBookIntake = useCallback(
     (item: LatestCustomerAction) => {
       const phone = (item.customerPhone || "").trim()
       if (!phone) return
       setSelected(null)
+      clearBookFormDetailsHandoff()
       // Persist seen + drop from Latest even if intake hydrate is still catching up.
       markAttentionOpened(item)
       // Resolve calculator id from chip / stored type (AKL chip beats Lockout default).
@@ -292,6 +356,35 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     },
     [inbound, markAttentionOpened]
   )
+
+  /** Reopen booking details after “View booking details” from Messages. */
+  const tryReopenBookFormDetail = useCallback(() => {
+    // Only reopen on Lines — never open the sheet while Messages is still active.
+    const path =
+      typeof window !== "undefined" ? window.location.pathname : pathname
+    const onLines = path === "/dashboard" || path === "/dashboard/"
+    if (!onLines) return
+    if (!consumeBookFormReopenPending()) return
+    const item = peekBookFormDetailsHandoff()
+    if (!item || item.event !== "book_form") return
+    setSelected(item)
+  }, [pathname])
+
+  useEffect(() => {
+    // Lines tab visible again after Messages handoff.
+    tryReopenBookFormDetail()
+  }, [pathname, tryReopenBookFormDetail])
+
+  useEffect(() => {
+    // Same-tab signal when Lines is already mounted under the presence host.
+    window.addEventListener(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT, tryReopenBookFormDetail)
+    return () => {
+      window.removeEventListener(
+        LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT,
+        tryReopenBookFormDetail
+      )
+    }
+  }, [tryReopenBookFormDetail])
 
   // Re-filter when returning to the tab or when Messages marks a thread seen.
   useEffect(() => {
@@ -436,12 +529,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          openBookIntake(item)
+                          // Same as tapping the row — open booking details (not new intake).
+                          openDetail(item)
                         }}
                         className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
                       >
-                        <ClipboardList className="h-3.5 w-3.5" />
-                        Intake
+                        <Eye className="h-3.5 w-3.5" />
+                        View booking
                       </button>
                     ) : null}
                     {isPaid ? (
@@ -516,6 +610,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               onOpenMessages={openInMessages}
               onOpenJob={openJobDrawer}
               onOpenBookIntake={openBookIntake}
+              onOpenCrm={openInCrm}
             />
           </SheetContent>
         </Sheet>
@@ -535,6 +630,7 @@ function LatestActionDetail({
   onOpenMessages,
   onOpenJob,
   onOpenBookIntake,
+  onOpenCrm,
 }: {
   item: LatestCustomerAction
   organizationId: string | null
@@ -543,9 +639,10 @@ function LatestActionDetail({
   sendFailed: boolean
   onSendThanks: (jobId: string) => void
   onMarkReviewOpened: (jobId: string) => void
-  onOpenMessages: (phone: string) => void
+  onOpenMessages: (phone: string, bookItem?: LatestCustomerAction | null) => void
   onOpenJob: (jobId: string) => void
   onOpenBookIntake: (item: LatestCustomerAction) => void
+  onOpenCrm: (phone: string) => void
 }) {
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
@@ -555,6 +652,20 @@ function LatestActionDetail({
   const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
   const isPaidEvent = item.event === "customer_paid"
   const isBookEvent = item.event === "book_form"
+  // tel: link for one-tap call from the booking sheet.
+  const telHref = item.customerPhone ? buildTelHref(item.customerPhone) : null
+  // Submitted fields for book-form / book-from-hold (front and center).
+  const bookService = isBookEvent ? bookFormServiceLabel(item) : ""
+  const bookVehicle = isBookEvent ? bookFormVehicleLabel(item) : ""
+  const bookAddress = isBookEvent
+    ? String(item.bookFormAddressLine1 ?? "").trim()
+    : ""
+  const bookWhen =
+    isBookEvent && item.bookFormUrgency === "asap"
+      ? "ASAP / emergency"
+      : isBookEvent
+        ? "Preferred window"
+        : ""
   // Simple delivery / open status when 119 columns are present on the last outbound.
   const reviewDeliveryLabel = item.lastOutbound
     ? formatSmsDeliveryLabel({ ...item.lastOutbound, direction: "outbound" })
@@ -628,37 +739,7 @@ function LatestActionDetail({
       })
     }
   }
-  if (item.event === "book_form") {
-    steps.push({
-      label: "Book form submitted",
-      done: true,
-      detail: formatTimeAgo(item.at),
-    })
-    steps.push({
-      label: item.bookFormUrgency === "asap" ? "Urgency · ASAP" : "Urgency · window",
-      done: true,
-      detail: item.preview || undefined,
-    })
-    // Structured submitted details (same fields Continue intake will hydrate).
-    const ymm = [
-      item.bookFormVehicleYear,
-      item.bookFormVehicleMake,
-      item.bookFormVehicleModel,
-    ]
-      .map((p) => String(p ?? "").trim())
-      .filter(Boolean)
-      .join(" ")
-    if (ymm) {
-      steps.push({ label: "Vehicle", done: true, detail: ymm })
-    }
-    if (item.bookFormAddressLine1?.trim()) {
-      steps.push({
-        label: "Address",
-        done: true,
-        detail: item.bookFormAddressLine1.trim(),
-      })
-    }
-  }
+  // Book-form rows use a dedicated “Submitted request” block — skip status chips.
   if (item.event === "job_finished") {
     steps.push({
       label: "Job finished",
@@ -739,11 +820,26 @@ function LatestActionDetail({
   return (
     <div className="flex h-full flex-col">
       <SheetHeader className="shrink-0 border-b border-border/60 px-5 py-4 text-left">
-        <SheetTitle className="text-base font-semibold text-foreground">
-          {item.customerName}
-        </SheetTitle>
-        <p className="text-sm text-zinc-500">{phoneLabel}</p>
-        <p className="mt-1 text-sm font-medium text-foreground">{item.headline}</p>
+        {isBookEvent ? (
+          <>
+            {/* Booking sheet: title = what happened; name/phone are submitted fields. */}
+            <SheetTitle className="text-base font-semibold text-foreground">
+              Booking request
+            </SheetTitle>
+            <p className="mt-1 text-sm font-medium text-orange-100">{item.headline}</p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Submitted {formatTimeAgo(item.at)}
+            </p>
+          </>
+        ) : (
+          <>
+            <SheetTitle className="text-base font-semibold text-foreground">
+              {item.customerName}
+            </SheetTitle>
+            <p className="text-sm text-zinc-500">{phoneLabel}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{item.headline}</p>
+          </>
+        )}
         {item.event === "replied" ? (
           <p className="mt-1 text-xs font-semibold text-sky-300">Needs reply</p>
         ) : null}
@@ -762,43 +858,86 @@ function LatestActionDetail({
       </SheetHeader>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-        <section>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Status
-          </p>
-          <ul className="mt-2 space-y-2">
-            {steps.map((step) => (
-              <li
-                key={step.label}
-                className={cn(
-                  "rounded-xl border px-3 py-2.5",
-                  step.done
-                    ? "border-emerald-500/25 bg-emerald-500/5"
-                    : step.label === "Needs reply"
-                      ? "border-sky-500/35 bg-sky-500/10"
-                      : "border-border/60 bg-muted/20"
-                )}
-              >
-                <p
+        {isBookEvent ? (
+          // Submitted fields front and center — not buried in “Continue intake”.
+          <section className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-200/90">
+              Customer booked
+            </p>
+            <dl className="mt-2.5 space-y-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Name</dt>
+                <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Phone</dt>
+                <dd className="min-w-0 text-zinc-200">{phoneLabel}</dd>
+              </div>
+              {bookService ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Service</dt>
+                  <dd className="min-w-0 font-medium text-slate-100">{bookService}</dd>
+                </div>
+              ) : null}
+              {bookVehicle ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Vehicle</dt>
+                  <dd className="min-w-0 text-zinc-200">{bookVehicle}</dd>
+                </div>
+              ) : null}
+              {bookAddress ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Address</dt>
+                  <dd className="min-w-0 text-zinc-200">{bookAddress}</dd>
+                </div>
+              ) : null}
+              {bookWhen ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">When</dt>
+                  <dd className="min-w-0 text-zinc-200">{bookWhen}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
+        ) : (
+          <section>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Status
+            </p>
+            <ul className="mt-2 space-y-2">
+              {steps.map((step) => (
+                <li
+                  key={step.label}
                   className={cn(
-                    "text-sm font-medium",
+                    "rounded-xl border px-3 py-2.5",
                     step.done
-                      ? "text-emerald-200"
+                      ? "border-emerald-500/25 bg-emerald-500/5"
                       : step.label === "Needs reply"
-                        ? "text-sky-200"
-                        : "text-zinc-400"
+                        ? "border-sky-500/35 bg-sky-500/10"
+                        : "border-border/60 bg-muted/20"
                   )}
                 >
-                  {step.done ? "✓ " : "○ "}
-                  {step.label}
-                </p>
-                {step.detail ? (
-                  <p className="mt-0.5 text-xs text-zinc-500">{step.detail}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
+                  <p
+                    className={cn(
+                      "text-sm font-medium",
+                      step.done
+                        ? "text-emerald-200"
+                        : step.label === "Needs reply"
+                          ? "text-sky-200"
+                          : "text-zinc-400"
+                    )}
+                  >
+                    {step.done ? "✓ " : "○ "}
+                    {step.label}
+                  </p>
+                  {step.detail ? (
+                    <p className="mt-0.5 text-xs text-zinc-500">{step.detail}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {showSmsThread ? (
           <section>
@@ -891,16 +1030,56 @@ function LatestActionDetail({
           </p>
         ) : null}
         {isBookEvent ? (
-          <button
-            type="button"
-            onClick={() => onOpenBookIntake(item)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
-          >
-            <ClipboardList className="h-4 w-4" />
-            Continue intake
-          </button>
+          <>
+            {/* Primary: continue the booking (schedule / create job) — form already submitted. */}
+            <button
+              type="button"
+              onClick={() => onOpenBookIntake(item)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
+            >
+              <CalendarCheck className="h-4 w-4" />
+              Schedule job
+            </button>
+            {/* Secondary: Call / CRM / Messages — smaller, not the path to form data. */}
+            <div className="grid grid-cols-3 gap-2">
+              {telHref ? (
+                <a
+                  href={telHref}
+                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-[11px] font-semibold text-zinc-600">
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => item.customerPhone && onOpenCrm(item.customerPhone)}
+                disabled={!item.customerPhone}
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40 disabled:opacity-40"
+              >
+                <UserRound className="h-3.5 w-3.5" />
+                CRM
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  item.customerPhone && onOpenMessages(item.customerPhone, item)
+                }
+                disabled={!item.customerPhone}
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2 py-2 text-[11px] font-semibold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Messages
+              </button>
+            </div>
+          </>
         ) : null}
-        {item.customerPhone && !isPaidEvent ? (
+        {item.customerPhone && !isPaidEvent && !isBookEvent ? (
           <button
             type="button"
             onClick={() => onOpenMessages(item.customerPhone)}

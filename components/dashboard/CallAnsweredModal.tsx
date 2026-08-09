@@ -3198,9 +3198,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
           ? ` · ${formatCrmQuoteChip(crmOpenLeadQuoteCents)}`
           : ""
-      // Book-form Latest taps: "Continue intake" (prefilled) — same spirit as profile-first.
+      // Book-form Latest taps: “Schedule job” (prefilled) — form already submitted.
       return {
-        label: fromBookFormOpen ? `Continue intake${money}` : `Continue quote${money}`,
+        label: fromBookFormOpen ? `Schedule job${money}` : `Continue quote${money}`,
         action: "continue_quote" as const,
       }
     }

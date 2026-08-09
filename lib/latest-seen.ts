@@ -1,6 +1,6 @@
 // Track which Latest attention items the owner already opened (localStorage).
 // Read replies leave Latest until a newer inbound arrives.
-// Book-form + payment rows leave Latest once opened (detail / Intake / View).
+// Book-form + payment rows leave Latest once opened (detail / View booking / View).
 
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
@@ -105,7 +105,7 @@ export function getLatestItemSeenAt(itemId: string): string | null {
 }
 
 /**
- * Mark a Latest attention row as seen (detail sheet, Intake, or View).
+ * Mark a Latest attention row as seen (detail sheet, View booking, or View).
  * Persists so the row stays gone after refresh / next poll.
  */
 export function markLatestItemSeen(itemId: string, at = new Date().toISOString()): void {
