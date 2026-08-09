@@ -13,7 +13,7 @@
 
 import {
   countWaitingCallQueue,
-  getAccountHoldMusicUrl,
+  getAccountHoldSettings,
   getCallQueuePosition,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
@@ -68,7 +68,7 @@ function holdElapsedMs(state: TelnyxCallControlClientState): number {
 }
 
 function holdTimedOut(state: TelnyxCallControlClientState): boolean {
-  return holdElapsedMs(state) >= holdMaxWaitSecs() * 1000
+  return holdElapsedMs(state) >= holdMaxWaitSecs(state.holdMaxWaitSecs) * 1000
 }
 
 /** Build re-prompt with optional “you’re next” / position (Phase C). */
@@ -130,6 +130,12 @@ export async function enterBusyHoldQueue(params: {
 
   const queueName = lyncrHoldQueueName(userId)
   const holdStartedAtMs = state.holdStartedAtMs || Date.now()
+  const holdSettings = await getAccountHoldSettings(userId).catch(() => ({
+    holdMusicUrl: null,
+    holdMaxWaitSecs: null,
+    holdRepromptSecs: null,
+  }))
+  const maxWait = holdMaxWaitSecs(holdSettings.holdMaxWaitSecs)
   const nextState: TelnyxCallControlClientState = {
     ...state,
     userId,
@@ -139,6 +145,8 @@ export async function enterBusyHoldQueue(params: {
     holdStartedAtMs,
     holdPromptCount: 0,
     holdSegment: "music",
+    holdMaxWaitSecs: maxWait,
+    holdRepromptSecs: holdSettings.holdRepromptSecs ?? undefined,
     inboundCallControlId: state.inboundCallControlId || callControlId,
   }
   const encoded = encodeTelnyxCallControlState(nextState)
@@ -146,7 +154,7 @@ export async function enterBusyHoldQueue(params: {
   // Phase B — Telnyx native queue (Answer bridge uses this name).
   const enqueueRes = await telnyxCallControlEnqueue(callControlId, {
     queueName,
-    maxWaitTimeSecs: holdMaxWaitSecs(),
+    maxWaitTimeSecs: maxWait,
     clientState: encoded,
   })
   if (!enqueueRes.ok) {
@@ -189,12 +197,21 @@ export async function startHoldMusicGather(
     return
   }
 
-  const accountMusic = await getAccountHoldMusicUrl(state.userId).catch(() => null)
-  const musicUrl = resolveHoldMusicUrl(accountMusic)
+  const accountSettings = await getAccountHoldSettings(state.userId).catch(() => ({
+    holdMusicUrl: null,
+    holdMaxWaitSecs: null,
+    holdRepromptSecs: null,
+  }))
+  const musicUrl = resolveHoldMusicUrl(accountSettings.holdMusicUrl)
+  const repromptMs = holdRePromptIntervalMs(
+    state.holdRepromptSecs ?? accountSettings.holdRepromptSecs
+  )
   const nextState: TelnyxCallControlClientState = {
     ...state,
     phase: "await_busy_hold_loop",
     holdSegment: "music",
+    holdMaxWaitSecs: state.holdMaxWaitSecs ?? holdMaxWaitSecs(accountSettings.holdMaxWaitSecs),
+    holdRepromptSecs: state.holdRepromptSecs ?? accountSettings.holdRepromptSecs ?? undefined,
   }
   const encoded = encodeTelnyxCallControlState(nextState)
 
@@ -202,7 +219,7 @@ export async function startHoldMusicGather(
     const gatherRes = await telnyxCallControlGatherUsingAudio(callControlId, {
       audioUrl: musicUrl,
       clientState: encoded,
-      timeoutMillis: holdRePromptIntervalMs(),
+      timeoutMillis: repromptMs,
       maximumDigits: 1,
       validDigits: "1",
     })
@@ -223,7 +240,7 @@ export async function startHoldMusicGather(
     clientState: encoded,
     maximumDigits: 1,
     validDigits: "1",
-    timeoutMillis: holdRePromptIntervalMs(),
+    timeoutMillis: repromptMs,
   })
   if (!speakGather.ok) {
     console.error(lyncrLog("telnyx-cc-hold-speak-gather-failed", { error: speakGather.error }))

@@ -31,7 +31,8 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `NEXT_PUBLIC_PUSHER_KEY` / `NEXT_PUBLIC_PUSHER_CLUSTER` | **Build-time** copies of `PUSHER_KEY` / `PUSHER_CLUSTER` for the browser. Must be set **before** the Vercel build so they're inlined into the client bundle. |
 | `LYNCR_INBOUND_CALL_CONTROL` | Prefer this over legacy `ZING_INBOUND_CALL_CONTROL` (still dual-read). `1` / `true` → Call Control inbound. |
 | `LYNCR_HOLD_MUSIC_URL` | Public HTTPS MP3/WAV for Busy hold music. Or place `public/audio/hold-music.mp3`, or set per-account URL in Greetings. |
-| `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). |
+| `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). Per-account override in Greetings (migration **130**). |
+| `LYNCR_HOLD_REPROMPT_MS` | Optional. Hold music segment length in ms between re-prompts (default **45000**). Per-account seconds override in Greetings (migration **130**). |
 | `LYNCR_HOLD_MAX_CONCURRENT` | Optional. Cap waiting holds per account (default **3**). |
 | `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional. Voice for Call Control Speak / Busy menus. Default **`AWS.Polly.Joanna-Neural`**. Legacy `ZING_CALL_CONTROL_SPEAK_VOICE` still works. |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |

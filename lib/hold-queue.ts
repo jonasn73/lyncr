@@ -14,16 +14,30 @@ export function lyncrHoldQueueName(userId: string): string {
 }
 
 /** How long one music segment plays before we re-speak Busy + gather (ms). */
-export function holdRePromptIntervalMs(): number {
-  const raw = Number(envLyncrOrZing("HOLD_REPROMPT_MS") || "45000")
+export function holdRePromptIntervalMs(accountOverrideSecs?: number | null): number {
+  const fromAccount =
+    typeof accountOverrideSecs === "number" && Number.isFinite(accountOverrideSecs)
+      ? Math.floor(accountOverrideSecs) * 1000
+      : null
+  const raw =
+    fromAccount != null
+      ? fromAccount
+      : Number(envLyncrOrZing("HOLD_REPROMPT_MS") || "45000")
   if (!Number.isFinite(raw)) return 45_000
   // Keep between 20s and 90s so callers hear updates without thrashing Telnyx.
   return Math.min(90_000, Math.max(20_000, Math.floor(raw)))
 }
 
 /** Max time a caller may wait in the hold queue (seconds) before one SMS + hangup. */
-export function holdMaxWaitSecs(): number {
-  const raw = Number(envLyncrOrZing("HOLD_MAX_WAIT_SECS") || "600")
+export function holdMaxWaitSecs(accountOverrideSecs?: number | null): number {
+  const fromAccount =
+    typeof accountOverrideSecs === "number" && Number.isFinite(accountOverrideSecs)
+      ? Math.floor(accountOverrideSecs)
+      : null
+  const raw =
+    fromAccount != null
+      ? fromAccount
+      : Number(envLyncrOrZing("HOLD_MAX_WAIT_SECS") || "600")
   if (!Number.isFinite(raw)) return 600
   // 2–15 minutes — long enough for Answer from Lines, short enough for carrier spend.
   return Math.min(900, Math.max(120, Math.floor(raw)))

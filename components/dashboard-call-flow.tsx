@@ -441,6 +441,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             active={adminOverrideActive}
             phone={adminRoutingOverridePhone?.trim() ?? ""}
           />
+          {/* Live queue first glance when Busy — collapses to null/quiet when empty. */}
+          <HoldQueueWaitingCard showEmptyHint={presenceBypass} />
           <WhoRingsConsole
             ringsNow={ringsNowStrip.ringsNow}
             ifNoAnswer={ringsNowStrip.ifNoAnswer}
@@ -451,7 +453,6 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             onOpenAbout={() => setDashboardStoryKey("dashboard-call-flow")}
             loading={routingLineDetailLoading}
           />
-          <HoldQueueWaitingCard />
         </div>
       )}
 

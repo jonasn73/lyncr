@@ -38,11 +38,11 @@ describe("planInboundDial", () => {
     expect(plan.busyBackupLive).toBe(true)
     expect(plan.ivrLive).toBe(false)
     expect(plan.ringsNowLabel).toBe("Alex Jonas")
-    expect(plan.ifNoAnswerLabel).toBe("Booking menu")
+    expect(plan.ifNoAnswerLabel).toBe("Hold queue")
     expect(plan.presenceStatusLabel).toBe("Busy")
   })
 
-  it("Busy + no teammate → IVR / booking menu", () => {
+  it("Busy + no teammate → hold queue (stay on line)", () => {
     const plan = planInboundDial({
       mode: "smart_ivr",
       ownerPhoneE164: owner,
@@ -53,7 +53,8 @@ describe("planInboundDial", () => {
     expect(plan.dialTargetE164).toBeNull()
     expect(plan.ivrLive).toBe(true)
     expect(plan.busyBackupLive).toBe(false)
-    expect(plan.ringsNowLabel).toBe("Booking menu")
+    expect(plan.ringsNowLabel).toBe("Hold queue")
+    expect(plan.ifNoAnswerLabel).toBe("Booking text")
     expect(plan.presenceStatusLabel).toBe("Busy")
   })
 
@@ -117,11 +118,11 @@ describe("deriveRingsNowStrip", () => {
       ownerLabel: "Your phone",
     })
     expect(strip.ringsNow).toBe("Alex Jonas")
-    expect(strip.ifNoAnswer).toBe("Booking menu")
+    expect(strip.ifNoAnswer).toBe("Hold queue")
     expect(strip.statusLabel).toBe("Busy")
   })
 
-  it("Busy alone shows booking menu (after roster ready)", () => {
+  it("Busy alone shows hold queue (after roster ready)", () => {
     const strip = deriveRingsNowStrip({
       presenceBypass: true,
       presenceReady: true,
@@ -129,11 +130,12 @@ describe("deriveRingsNowStrip", () => {
       busyBackupName: null,
       ownerLabel: "Your phone",
     })
-    expect(strip.ringsNow).toBe("Booking menu")
+    expect(strip.ringsNow).toBe("Hold queue")
+    expect(strip.ifNoAnswer).toBe("Booking text")
     expect(strip.statusLabel).toBe("Busy")
   })
 
-  it("Busy before roster ready does not flash Booking menu", () => {
+  it("Busy before roster ready does not flash Hold queue", () => {
     const strip = deriveRingsNowStrip({
       presenceBypass: true,
       presenceReady: true,

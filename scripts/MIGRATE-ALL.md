@@ -132,6 +132,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 127 | `127-admin-support-emails.sql` | **Admin support email inbox.** Creates **`admin_support_emails`** for inbound `support@lyncr.app` messages (Resend `email.received` webhook → Neon). **Required** for Admin → Support → Emails. Zoho keeps root MX — see **`ADMIN-SUPPORT-INBOX.md`** (forward support@ to Resend subdomain / `*.resend.app`; do **not** point `lyncr.app` MX at Resend). |
 | 128 | `128-support-chat.sql` | **In-app Support chat.** Creates **`support_chat_threads`**, **`support_chat_messages`**, **`support_chat_attachments`**. Powers Help → Chat with Lyncr Support and Admin → Support → Live chat (text + file uploads via Vercel Blob). **Required** for live chat; also set **`BLOB_READ_WRITE_TOKEN`** in Vercel for attachments. |
 | 129 | `129-call-queue.sql` | **Busy hold queue.** Creates **`call_queue`** (waiting callers for Lines Answer) and **`account_settings.hold_music_url`**. Powers Call Control `enqueue` + Lines “N waiting” + Answer bridge. **Required** for hold-queue UI and Answer; voice soft-hold still attempts Telnyx enqueue without this table (UI stays empty until migrated). |
+| 130 | `130-hold-queue-tuning.sql` | **Hold queue tuning.** Adds **`account_settings.hold_max_wait_secs`** + **`hold_reprompt_secs`** for Greetings max wait / re-prompt interval (null = `LYNCR_HOLD_*` env defaults). Requires **129** first. |
 
 ## Platform admin (`admin@lyncr.app`)
 

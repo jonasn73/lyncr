@@ -51,6 +51,11 @@ function isMissingHoldMusicColumn(e: unknown): boolean {
   return msg.includes("hold_music_url")
 }
 
+function isMissingHoldTuningColumn(e: unknown): boolean {
+  const msg = String((e as { message?: string })?.message || e || "").toLowerCase()
+  return msg.includes("hold_max_wait_secs") || msg.includes("hold_reprompt_secs")
+}
+
 function mapRow(r: Record<string, unknown>): CallQueueRow {
   return {
     id: String(r.id),
@@ -251,17 +256,79 @@ export async function getCallQueuePosition(
 
 /** Optional per-account hold music from Greetings (migration 129). */
 export async function getAccountHoldMusicUrl(userId: string): Promise<string | null> {
+  const settings = await getAccountHoldSettings(userId)
+  return settings.holdMusicUrl
+}
+
+export type AccountHoldSettings = {
+  holdMusicUrl: string | null
+  /** Null = use env / product default. */
+  holdMaxWaitSecs: number | null
+  /** Null = use env / product default (seconds between re-prompts). */
+  holdRepromptSecs: number | null
+}
+
+/** Hold music + optional max-wait / re-prompt (129 + 130). */
+export async function getAccountHoldSettings(userId: string): Promise<AccountHoldSettings> {
+  const empty: AccountHoldSettings = {
+    holdMusicUrl: null,
+    holdMaxWaitSecs: null,
+    holdRepromptSecs: null,
+  }
   try {
     const sql = getSql()
     const rows = await sql`
-      SELECT hold_music_url FROM account_settings WHERE user_id = ${userId} LIMIT 1
+      SELECT hold_music_url, hold_max_wait_secs, hold_reprompt_secs
+      FROM account_settings WHERE user_id = ${userId} LIMIT 1
     `
-    const url = rows[0] ? String((rows[0] as { hold_music_url?: string | null }).hold_music_url || "").trim() : ""
-    return url.startsWith("http") ? url : null
+    const row = rows[0] as
+      | {
+          hold_music_url?: string | null
+          hold_max_wait_secs?: number | null
+          hold_reprompt_secs?: number | null
+        }
+      | undefined
+    if (!row) return empty
+    const url = String(row.hold_music_url || "").trim()
+    const maxWait =
+      row.hold_max_wait_secs != null && Number.isFinite(Number(row.hold_max_wait_secs))
+        ? Math.floor(Number(row.hold_max_wait_secs))
+        : null
+    const reprompt =
+      row.hold_reprompt_secs != null && Number.isFinite(Number(row.hold_reprompt_secs))
+        ? Math.floor(Number(row.hold_reprompt_secs))
+        : null
+    return {
+      holdMusicUrl: url.startsWith("http") ? url : null,
+      holdMaxWaitSecs: maxWait,
+      holdRepromptSecs: reprompt,
+    }
   } catch (e) {
-    if (isMissingHoldMusicColumn(e) || isMissingCallQueueTable(e)) return null
+    // 130 not applied yet — fall back to music-only query from 129.
+    if (isMissingHoldTuningColumn(e)) {
+      try {
+        const sql = getSql()
+        const rows = await sql`
+          SELECT hold_music_url FROM account_settings WHERE user_id = ${userId} LIMIT 1
+        `
+        const url = rows[0]
+          ? String((rows[0] as { hold_music_url?: string | null }).hold_music_url || "").trim()
+          : ""
+        return {
+          holdMusicUrl: url.startsWith("http") ? url : null,
+          holdMaxWaitSecs: null,
+          holdRepromptSecs: null,
+        }
+      } catch (e2) {
+        if (isMissingHoldMusicColumn(e2) || isMissingCallQueueTable(e2)) return empty
+        const msg = String((e2 as { message?: string })?.message || e2 || "").toLowerCase()
+        if (msg.includes("account_settings") && msg.includes("does not exist")) return empty
+        throw e2
+      }
+    }
+    if (isMissingHoldMusicColumn(e) || isMissingCallQueueTable(e)) return empty
     const msg = String((e as { message?: string })?.message || e || "").toLowerCase()
-    if (msg.includes("account_settings") && msg.includes("does not exist")) return null
+    if (msg.includes("account_settings") && msg.includes("does not exist")) return empty
     throw e
   }
 }
@@ -270,20 +337,92 @@ export async function setAccountHoldMusicUrl(
   userId: string,
   holdMusicUrl: string | null
 ): Promise<void> {
-  const cleaned =
-    typeof holdMusicUrl === "string" && holdMusicUrl.trim().startsWith("http")
-      ? holdMusicUrl.trim()
-      : null
+  await setAccountHoldSettings(userId, { holdMusicUrl })
+}
+
+export async function setAccountHoldSettings(
+  userId: string,
+  patch: {
+    holdMusicUrl?: string | null
+    holdMaxWaitSecs?: number | null
+    holdRepromptSecs?: number | null
+  }
+): Promise<void> {
+  const cleanedMusic =
+    patch.holdMusicUrl === undefined
+      ? undefined
+      : typeof patch.holdMusicUrl === "string" && patch.holdMusicUrl.trim().startsWith("http")
+        ? patch.holdMusicUrl.trim()
+        : null
+  const cleanedMax =
+    patch.holdMaxWaitSecs === undefined
+      ? undefined
+      : patch.holdMaxWaitSecs == null
+        ? null
+        : Math.min(900, Math.max(120, Math.floor(Number(patch.holdMaxWaitSecs))))
+  const cleanedReprompt =
+    patch.holdRepromptSecs === undefined
+      ? undefined
+      : patch.holdRepromptSecs == null
+        ? null
+        : Math.min(90, Math.max(20, Math.floor(Number(patch.holdRepromptSecs))))
+
   try {
     const sql = getSql()
+    const existing = await getAccountHoldSettings(userId)
+    const nextMusic = cleanedMusic !== undefined ? cleanedMusic : existing.holdMusicUrl
+    const nextMax = cleanedMax !== undefined ? cleanedMax : existing.holdMaxWaitSecs
+    const nextReprompt =
+      cleanedReprompt !== undefined ? cleanedReprompt : existing.holdRepromptSecs
+
     await sql`
-      INSERT INTO account_settings (user_id, presence_status, presence_closed_manual, hold_music_url, updated_at)
-      VALUES (${userId}, 'AVAILABLE', false, ${cleaned}, now())
+      INSERT INTO account_settings (
+        user_id, presence_status, presence_closed_manual,
+        hold_music_url, hold_max_wait_secs, hold_reprompt_secs, updated_at
+      )
+      VALUES (
+        ${userId}, 'AVAILABLE', false,
+        ${nextMusic}, ${nextMax}, ${nextReprompt}, now()
+      )
       ON CONFLICT (user_id) DO UPDATE SET
         hold_music_url = EXCLUDED.hold_music_url,
+        hold_max_wait_secs = EXCLUDED.hold_max_wait_secs,
+        hold_reprompt_secs = EXCLUDED.hold_reprompt_secs,
         updated_at = now()
     `
   } catch (e) {
+    if (isMissingHoldTuningColumn(e)) {
+      // 130 not applied — save music only (129).
+      if (cleanedMusic !== undefined) {
+        try {
+          const sql = getSql()
+          await sql`
+            INSERT INTO account_settings (user_id, presence_status, presence_closed_manual, hold_music_url, updated_at)
+            VALUES (${userId}, 'AVAILABLE', false, ${cleanedMusic}, now())
+            ON CONFLICT (user_id) DO UPDATE SET
+              hold_music_url = EXCLUDED.hold_music_url,
+              updated_at = now()
+          `
+        } catch (e2) {
+          if (isMissingHoldMusicColumn(e2)) {
+            const err = new Error(
+              "hold_music_url missing — run scripts/129-call-queue.sql in Neon."
+            )
+            ;(err as Error & { code?: string }).code = "HOLD_QUEUE_MIGRATION_REQUIRED"
+            throw err
+          }
+          throw e2
+        }
+      }
+      if (cleanedMax !== undefined || cleanedReprompt !== undefined) {
+        const err = new Error(
+          "Hold wait settings need scripts/130-hold-queue-tuning.sql in Neon."
+        )
+        ;(err as Error & { code?: string }).code = "HOLD_TUNING_MIGRATION_REQUIRED"
+        throw err
+      }
+      return
+    }
     if (isMissingHoldMusicColumn(e)) {
       const err = new Error(
         "hold_music_url missing — run scripts/129-call-queue.sql in Neon."
@@ -294,3 +433,4 @@ export async function setAccountHoldMusicUrl(
     throw e
   }
 }
+

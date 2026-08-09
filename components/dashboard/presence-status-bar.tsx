@@ -47,7 +47,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           </div>
           <p className="mt-0.5 text-[11px] font-normal text-slate-500">
             {isBusy
-              ? "Skip your phone → Available team, then booking"
+              ? "Skip your phone → Available team, then hold queue"
               : "Your phone rings first"}
           </p>
         </div>

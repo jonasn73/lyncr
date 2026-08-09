@@ -57,6 +57,10 @@ export type TelnyxCallControlClientState = {
   holdPromptCount?: number
   /** What the current gather is playing — drives the next timeout action. */
   holdSegment?: "music" | "reprompt"
+  /** Account override for max hold wait (seconds) — snapshotted at enqueue. */
+  holdMaxWaitSecs?: number
+  /** Account override for music segment length (seconds) — snapshotted at enqueue. */
+  holdRepromptSecs?: number
   /** Waiting caller call_control_id when this leg is an Answer-from-Lines agent dial. */
   queueTargetCallControlId?: string
   /** Neon call_queue.id for the Answer target (optional). */

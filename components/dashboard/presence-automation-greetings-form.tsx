@@ -35,6 +35,11 @@ type GreetingsPayload = {
   holiday_greeting_text?: string | null
   holdMusicUrl?: string | null
   hold_music_url?: string | null
+  holdMaxWaitSecs?: number | null
+  hold_max_wait_secs?: number | null
+  holdRepromptSecs?: number | null
+  hold_reprompt_secs?: number | null
+  holdDefaults?: { maxWaitSecs?: number; repromptSecs?: number }
 }
 
 type DraftState = {
@@ -47,11 +52,15 @@ type DraftState = {
   holidayText: string
   /** Optional public HTTPS MP3/WAV for Busy hold music (Phase C). */
   holdMusicUrl: string
+  holdMaxWaitSecs: string
+  holdRepromptSecs: string
 }
 
 function payloadToDraft(data: GreetingsPayload): DraftState {
   const onJob = data.onJobGreetingText || data.on_job_greeting_text || ""
   const closed = data.closedGreetingText || data.closed_greeting_text || ""
+  const maxWait = data.holdMaxWaitSecs ?? data.hold_max_wait_secs
+  const reprompt = data.holdRepromptSecs ?? data.hold_reprompt_secs
   return {
     busy: (onJob || closed || DEFAULT_BUSY_GREETING_TEXT).trim() || DEFAULT_BUSY_GREETING_TEXT,
     bypass: String(data.ivrBypassCode ?? data.ivr_bypass_code ?? ""),
@@ -65,6 +74,9 @@ function payloadToDraft(data: GreetingsPayload): DraftState {
     ),
     holidayText: data.holidayGreetingText || data.holiday_greeting_text || "",
     holdMusicUrl: String(data.holdMusicUrl ?? data.hold_music_url ?? "").trim(),
+    holdMaxWaitSecs: maxWait != null && Number.isFinite(Number(maxWait)) ? String(maxWait) : "",
+    holdRepromptSecs:
+      reprompt != null && Number.isFinite(Number(reprompt)) ? String(reprompt) : "",
   }
 }
 
@@ -77,12 +89,19 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
     payloadToDraft({})
   )
   const [baseline, setBaseline] = useState("")
+  const [holdDefaults, setHoldDefaults] = useState({ maxWaitSecs: 600, repromptSecs: 45 })
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch("/api/routing/presence-greetings", { credentials: "include" })
       const json = (await res.json()) as { data?: GreetingsPayload; error?: string }
+      if (json.data?.holdDefaults?.maxWaitSecs || json.data?.holdDefaults?.repromptSecs) {
+        setHoldDefaults({
+          maxWaitSecs: json.data.holdDefaults.maxWaitSecs || 600,
+          repromptSecs: json.data.holdDefaults.repromptSecs || 45,
+        })
+      }
       const next = payloadToDraft(json.data || {})
       setDraft(next)
       setBaseline(JSON.stringify(next))
@@ -128,6 +147,12 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           holiday_greeting_text: draft.holidayText.trim() || null,
           holdMusicUrl: draft.holdMusicUrl.trim() || null,
           hold_music_url: draft.holdMusicUrl.trim() || null,
+          holdMaxWaitSecs: draft.holdMaxWaitSecs.trim()
+            ? Number(draft.holdMaxWaitSecs)
+            : null,
+          holdRepromptSecs: draft.holdRepromptSecs.trim()
+            ? Number(draft.holdRepromptSecs)
+            : null,
         }),
       })
       const json = (await res.json()) as {
@@ -178,9 +203,9 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         >
           🤖 Automation Voice Greetings
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
-          Edit the Busy greeting callers hear when your phone is skipped, plus voice, bypass, and
-          holiday closures.
+        <p className="hidden mt-0.5 text-[11px] leading-snug text-zinc-500 md:block">
+          Edit the Busy greeting callers hear when Presence is Busy — press 1 texts a booking link;
+          stay on the line enters the hold queue — plus voice, bypass, and holiday closures.
         </p>
       </div>
 
@@ -242,7 +267,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-zinc-300">
               Busy greeting
             </label>
-            <p className="text-[10px] text-zinc-600">
+            <p className="hidden text-[10px] text-zinc-600 md:block">
               Played when Presence is Busy — press 1 texts a booking link; stay on the line enters
               the hold queue (music + Lines Answer).
             </p>
@@ -260,7 +285,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             <label htmlFor="hold-music-url" className="text-xs font-semibold text-zinc-300">
               Hold music URL (optional)
             </label>
-            <p className="text-[10px] text-zinc-600">
+            <p className="hidden text-[10px] text-zinc-600 md:block">
               Public HTTPS MP3/WAV while callers stay on the line. Blank uses{" "}
               <code className="text-zinc-400">LYNCR_HOLD_MUSIC_URL</code> or{" "}
               <code className="text-zinc-400">/audio/hold-music.mp3</code>.
@@ -273,6 +298,51 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               className={cn(fieldClass, "min-h-11 px-3 py-2")}
               placeholder="https://…/hold-music.mp3"
             />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-zinc-300">
+                Re-prompt every (sec)
+              </label>
+              <input
+                id="hold-reprompt-secs"
+                type="number"
+                inputMode="numeric"
+                min={20}
+                max={90}
+                value={draft.holdRepromptSecs}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    holdRepromptSecs: e.target.value.replace(/[^\d]/g, ""),
+                  }))
+                }
+                className={cn(fieldClass, "min-h-11 px-3 py-2")}
+                placeholder={String(holdDefaults.repromptSecs)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-zinc-300">
+                Max wait (sec)
+              </label>
+              <input
+                id="hold-max-wait-secs"
+                type="number"
+                inputMode="numeric"
+                min={120}
+                max={900}
+                value={draft.holdMaxWaitSecs}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    holdMaxWaitSecs: e.target.value.replace(/[^\d]/g, ""),
+                  }))
+                }
+                className={cn(fieldClass, "min-h-11 px-3 py-2")}
+                placeholder={String(holdDefaults.maxWaitSecs)}
+              />
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">

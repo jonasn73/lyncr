@@ -8,7 +8,8 @@ import {
   getAccountPresence,
   setAccountPresenceGreetings,
 } from "@/lib/account-presence"
-import { getAccountHoldMusicUrl, setAccountHoldMusicUrl } from "@/lib/call-queue-db"
+import { getAccountHoldSettings, setAccountHoldSettings } from "@/lib/call-queue-db"
+import { holdMaxWaitSecs, holdRePromptIntervalMs } from "@/lib/hold-queue"
 import {
   DEFAULT_IVR_VOICE_ENGINE_MODEL,
   IVR_VOICE_PERSONA_OPTIONS,
@@ -37,8 +38,9 @@ function pickNullableString(body: Record<string, unknown>, keys: string[]): stri
 
 function serializePresence(
   presence: Awaited<ReturnType<typeof getAccountPresence>>,
-  holdMusicUrl: string | null = null
+  hold: Awaited<ReturnType<typeof getAccountHoldSettings>> | null = null
 ) {
+  const holdMusicUrl = hold?.holdMusicUrl ?? null
   return {
     onJobGreetingText: presence.onJobGreetingText,
     closedGreetingText: presence.closedGreetingText,
@@ -56,6 +58,14 @@ function serializePresence(
     holiday_greeting_text: presence.holidayGreetingText,
     holdMusicUrl,
     hold_music_url: holdMusicUrl,
+    holdMaxWaitSecs: hold?.holdMaxWaitSecs ?? null,
+    hold_max_wait_secs: hold?.holdMaxWaitSecs ?? null,
+    holdRepromptSecs: hold?.holdRepromptSecs ?? null,
+    hold_reprompt_secs: hold?.holdRepromptSecs ?? null,
+    holdDefaults: {
+      maxWaitSecs: holdMaxWaitSecs(),
+      repromptSecs: Math.round(holdRePromptIntervalMs() / 1000),
+    },
     defaults: {
       onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
@@ -75,8 +85,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const presence = await getAccountPresence(userId)
-    const holdMusicUrl = await getAccountHoldMusicUrl(userId).catch(() => null)
-    return NextResponse.json({ data: serializePresence(presence, holdMusicUrl) })
+    const hold = await getAccountHoldSettings(userId).catch(() => null)
+    return NextResponse.json({ data: serializePresence(presence, hold) })
   } catch (e) {
     console.error("[GET /api/routing/presence-greetings]", e)
     return NextResponse.json({
@@ -138,6 +148,8 @@ export async function PUT(req: NextRequest) {
     "holiday_greeting_text",
   ])
   const holdMusicRaw = pickNullableString(body, ["holdMusicUrl", "hold_music_url"])
+  const holdMaxWaitRaw = body.holdMaxWaitSecs ?? body.hold_max_wait_secs
+  const holdRepromptRaw = body.holdRepromptSecs ?? body.hold_reprompt_secs
 
   try {
     const saved = await setAccountPresenceGreetings({
@@ -156,19 +168,47 @@ export async function PUT(req: NextRequest) {
       holidayGreetingText:
         holidayTextRaw !== undefined ? holidayTextRaw : existing.holidayGreetingText,
     })
-    if (holdMusicRaw !== undefined) {
+    if (
+      holdMusicRaw !== undefined ||
+      holdMaxWaitRaw !== undefined ||
+      holdRepromptRaw !== undefined
+    ) {
       try {
-        await setAccountHoldMusicUrl(userId, holdMusicRaw)
+        await setAccountHoldSettings(userId, {
+          ...(holdMusicRaw !== undefined ? { holdMusicUrl: holdMusicRaw } : {}),
+          ...(holdMaxWaitRaw !== undefined
+            ? {
+                holdMaxWaitSecs:
+                  holdMaxWaitRaw == null || holdMaxWaitRaw === ""
+                    ? null
+                    : Number(holdMaxWaitRaw),
+              }
+            : {}),
+          ...(holdRepromptRaw !== undefined
+            ? {
+                holdRepromptSecs:
+                  holdRepromptRaw == null || holdRepromptRaw === ""
+                    ? null
+                    : Number(holdRepromptRaw),
+              }
+            : {}),
+        })
       } catch (hmErr) {
         const hmCode =
           hmErr instanceof Error && "code" in hmErr
             ? String((hmErr as { code?: string }).code)
             : ""
-        if (hmCode === "HOLD_QUEUE_MIGRATION_REQUIRED") {
+        if (
+          hmCode === "HOLD_QUEUE_MIGRATION_REQUIRED" ||
+          hmCode === "HOLD_TUNING_MIGRATION_REQUIRED"
+        ) {
           return NextResponse.json(
             {
-              error: hmErr instanceof Error ? hmErr.message : "Hold music save needs migration",
-              migration: "scripts/129-call-queue.sql",
+              error: hmErr instanceof Error ? hmErr.message : "Hold settings need migration",
+              migration:
+                hmCode === "HOLD_TUNING_MIGRATION_REQUIRED"
+                  ? "scripts/130-hold-queue-tuning.sql"
+                  : "scripts/129-call-queue.sql",
             },
             { status: 400 }
           )
@@ -176,8 +216,8 @@ export async function PUT(req: NextRequest) {
         throw hmErr
       }
     }
-    const holdMusicUrl = await getAccountHoldMusicUrl(userId).catch(() => null)
-    return NextResponse.json({ data: serializePresence(saved, holdMusicUrl) })
+    const hold = await getAccountHoldSettings(userId).catch(() => null)
+    return NextResponse.json({ data: serializePresence(saved, hold) })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Save failed"
     const code = e instanceof Error && "code" in e ? String((e as { code?: string }).code) : ""

@@ -31,6 +31,9 @@ export function WhoRingsConsole({
   loading = false,
   className,
 }: WhoRingsConsoleProps) {
+  // Busy alone → hold queue first; Press 1 is booking text. Busy + teammate → “If no answer”.
+  const fallbackDt =
+    statusLabel === "Busy" && ringsNow === "Hold queue" ? "Press 1" : "If no answer"
   const statusTone =
     statusLabel === "Busy"
       ? "text-amber-700 dark:text-amber-400"
@@ -78,7 +81,7 @@ export function WhoRingsConsole({
         </div>
         <div className="flex items-baseline justify-between gap-3">
           <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            If no answer
+            {fallbackDt}
           </dt>
           <dd className="min-w-0 text-right text-sm font-medium text-foreground [overflow-wrap:anywhere]">
             {ifNoAnswer}

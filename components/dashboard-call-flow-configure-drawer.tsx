@@ -54,6 +54,12 @@ type ConfigureDraft = {
   holidayText: string
   bypass: string
   fallbackType: FallbackOption
+  /** Optional public HTTPS MP3/WAV for Busy hold music. */
+  holdMusicUrl: string
+  /** Blank = product/env default. Seconds before SMS + hangup. */
+  holdMaxWaitSecs: string
+  /** Blank = product/env default. Seconds of music between re-prompts. */
+  holdRepromptSecs: string
 }
 
 const DEFAULT_DRAFT: ConfigureDraft = {
@@ -68,6 +74,9 @@ const DEFAULT_DRAFT: ConfigureDraft = {
   holidayText: "",
   bypass: "",
   fallbackType: "owner",
+  holdMusicUrl: "",
+  holdMaxWaitSecs: "",
+  holdRepromptSecs: "",
 }
 
 function draftSnapshot(d: ConfigureDraft): string {
@@ -112,6 +121,8 @@ export function DashboardCallFlowConfigureDrawer({
   const [holidayOpen, setHolidayOpen] = useState(false)
   const [draft, setDraft] = useState<ConfigureDraft>(DEFAULT_DRAFT)
   const baselineRef = useRef(draftSnapshot(DEFAULT_DRAFT))
+  /** Product defaults from API (for placeholders). */
+  const [holdDefaults, setHoldDefaults] = useState({ maxWaitSecs: 600, repromptSecs: 45 })
   // Team list for the receptionist picker (id + name + availability).
   const [teamMembers, setTeamMembers] = useState<
     { id: string; name: string; is_active: boolean }[]
@@ -147,6 +158,13 @@ export function DashboardCallFlowConfigureDrawer({
           holidayOverrideStart?: string | null
           holidayOverrideEnd?: string | null
           holidayGreetingText?: string | null
+          holdMusicUrl?: string | null
+          hold_music_url?: string | null
+          holdMaxWaitSecs?: number | null
+          hold_max_wait_secs?: number | null
+          holdRepromptSecs?: number | null
+          hold_reprompt_secs?: number | null
+          holdDefaults?: { maxWaitSecs?: number; repromptSecs?: number }
         }
       }
       const teamJson = (await teamRes.json()) as {
@@ -162,6 +180,12 @@ export function DashboardCallFlowConfigureDrawer({
       setTeamMembers(members)
 
       const d = json.data || {}
+      if (d.holdDefaults?.maxWaitSecs || d.holdDefaults?.repromptSecs) {
+        setHoldDefaults({
+          maxWaitSecs: d.holdDefaults.maxWaitSecs || 600,
+          repromptSecs: d.holdDefaults.repromptSecs || 45,
+        })
+      }
       const nextRing = Number(d.ringTimeoutSeconds ?? 30)
       const ring = RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30
       const fb = String(d.fallbackType || "owner").toLowerCase()
@@ -171,6 +195,10 @@ export function DashboardCallFlowConfigureDrawer({
         typeof d.selectedReceptionistId === "string" && d.selectedReceptionistId.trim()
           ? d.selectedReceptionistId.trim()
           : null
+      const maxWait =
+        d.holdMaxWaitSecs ?? d.hold_max_wait_secs
+      const reprompt =
+        d.holdRepromptSecs ?? d.hold_reprompt_secs
       const next: ConfigureDraft = {
         mode: normalizeActiveRoutingMode(d.activeRoutingMode),
         customPhone: phoneDigits10(d.customRoutingPhone),
@@ -188,6 +216,10 @@ export function DashboardCallFlowConfigureDrawer({
         holidayText: d.holidayGreetingText || "",
         bypass: String(d.ivrBypassCode || ""),
         fallbackType,
+        holdMusicUrl: String(d.holdMusicUrl ?? d.hold_music_url ?? "").trim(),
+        holdMaxWaitSecs: maxWait != null && Number.isFinite(Number(maxWait)) ? String(maxWait) : "",
+        holdRepromptSecs:
+          reprompt != null && Number.isFinite(Number(reprompt)) ? String(reprompt) : "",
       }
       setDraft(next)
       baselineRef.current = draftSnapshot(next)
@@ -237,6 +269,14 @@ export function DashboardCallFlowConfigureDrawer({
           holidayOverrideStart: draft.holidayStart || null,
           holidayOverrideEnd: draft.holidayEnd || null,
           holidayGreetingText: draft.holidayText.trim() || null,
+          holdMusicUrl: draft.holdMusicUrl.trim() || null,
+          hold_music_url: draft.holdMusicUrl.trim() || null,
+          holdMaxWaitSecs: draft.holdMaxWaitSecs.trim()
+            ? Number(draft.holdMaxWaitSecs)
+            : null,
+          holdRepromptSecs: draft.holdRepromptSecs.trim()
+            ? Number(draft.holdRepromptSecs)
+            : null,
         }),
       })
       const json = (await res.json()) as { error?: string; migration?: string }
@@ -544,8 +584,9 @@ export function DashboardCallFlowConfigureDrawer({
                   <label htmlFor="configure-busy" className="text-xs font-semibold text-zinc-300">
                     Busy greeting
                   </label>
-                  <p className="text-[10px] text-zinc-600">
-                    Heard when Presence is Busy — phone skipped, booking by text.
+                  <p className="hidden text-[10px] text-zinc-600 md:block">
+                    Played when Presence is Busy — press 1 texts a booking link; stay on the line
+                    enters the hold queue (music + Lines Answer).
                   </p>
                   <textarea
                     id="configure-busy"
@@ -554,6 +595,76 @@ export function DashboardCallFlowConfigureDrawer({
                     onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
                     className={cn(fieldClass, "min-h-[7.5rem] resize-y")}
                   />
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
+                  <label htmlFor="configure-hold-music" className="text-xs font-semibold text-zinc-300">
+                    Hold music URL
+                  </label>
+                  <p className="hidden text-[10px] text-zinc-600 md:block">
+                    Public HTTPS MP3/WAV while callers wait. Blank uses{" "}
+                    <code className="text-zinc-400">LYNCR_HOLD_MUSIC_URL</code> or{" "}
+                    <code className="text-zinc-400">/audio/hold-music.mp3</code>.
+                  </p>
+                  <input
+                    id="configure-hold-music"
+                    type="url"
+                    value={draft.holdMusicUrl}
+                    onChange={(e) => setDraft((d) => ({ ...d, holdMusicUrl: e.target.value }))}
+                    className={cn(fieldClass, "min-h-11")}
+                    placeholder="https://…/hold-music.mp3"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-zinc-300">
+                      Re-prompt every (sec)
+                    </label>
+                    <input
+                      id="configure-hold-reprompt"
+                      type="number"
+                      inputMode="numeric"
+                      min={20}
+                      max={90}
+                      value={draft.holdRepromptSecs}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          holdRepromptSecs: e.target.value.replace(/[^\d]/g, ""),
+                        }))
+                      }
+                      className={cn(fieldClass, "min-h-11")}
+                      placeholder={String(holdDefaults.repromptSecs)}
+                    />
+                    <p className="hidden text-[10px] text-zinc-600 md:block">
+                      Music length before we re-speak Busy (20–90). Blank = {holdDefaults.repromptSecs}s.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-zinc-300">
+                      Max wait (sec)
+                    </label>
+                    <input
+                      id="configure-hold-maxwait"
+                      type="number"
+                      inputMode="numeric"
+                      min={120}
+                      max={900}
+                      value={draft.holdMaxWaitSecs}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          holdMaxWaitSecs: e.target.value.replace(/[^\d]/g, ""),
+                        }))
+                      }
+                      className={cn(fieldClass, "min-h-11")}
+                      placeholder={String(holdDefaults.maxWaitSecs)}
+                    />
+                    <p className="hidden text-[10px] text-zinc-600 md:block">
+                      Then one booking SMS + hangup (120–900). Blank = {holdDefaults.maxWaitSecs}s.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
@@ -736,6 +847,20 @@ export function DashboardCallFlowConfigureDrawer({
                       )
                     })}
                   </div>
+                </section>
+
+                <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                    Hold queue (advanced)
+                  </p>
+                  <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
+                    Position hints play automatically on re-prompts. Concurrent wait caps use{" "}
+                    <code className="text-zinc-400">LYNCR_HOLD_MAX_CONCURRENT</code> (default 3) —
+                    tune in Vercel env, not per-line.
+                  </p>
+                  <p className="text-[11px] text-zinc-500 md:hidden">
+                    Concurrent wait cap is env-only (default 3). Music + max wait live under Greetings.
+                  </p>
                 </section>
               </div>
             ) : null}

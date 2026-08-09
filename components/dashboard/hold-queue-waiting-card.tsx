@@ -37,12 +37,25 @@ function waitHint(enqueuedAt: string): string {
   return `${mins}m`
 }
 
-export function HoldQueueWaitingCard({ className }: { className?: string }) {
+export type HoldQueueWaitingCardProps = {
+  className?: string
+  /**
+   * When Busy and nobody is waiting, show a quiet one-line hint so operators know
+   * where Answer will appear. Hidden when Available (null = no empty chrome).
+   */
+  showEmptyHint?: boolean
+}
+
+export function HoldQueueWaitingCard({
+  className,
+  showEmptyHint = false,
+}: HoldQueueWaitingCardProps) {
   const session = useDashboardSessionOptional()
   const ownerUserId = session?.companyUserId?.trim() || ""
   const [callers, setCallers] = useState<QueueCaller[]>([])
   const [answeringId, setAnsweringId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
 
   const refresh = useCallback(async () => {
     try {
@@ -67,6 +80,13 @@ export function HoldQueueWaitingCard({ className }: { className?: string }) {
     const poll = window.setInterval(() => void refresh(), 8_000)
     return () => window.clearInterval(poll)
   }, [refresh])
+
+  // Refresh wait-time labels every 5s while someone is holding.
+  useEffect(() => {
+    if (callers.length === 0) return
+    const id = window.setInterval(() => setTick((n) => n + 1), 5_000)
+    return () => window.clearInterval(id)
+  }, [callers.length])
 
   // Live updates when Pusher is configured (same workspace channel as call telemetry).
   useEffect(() => {
@@ -109,7 +129,29 @@ export function HoldQueueWaitingCard({ className }: { className?: string }) {
     }
   }
 
-  if (callers.length === 0 && !error) return null
+  // Quiet when empty — optional Busy hint only (no amber flash).
+  if (callers.length === 0 && !error) {
+    if (!showEmptyHint) return null
+    return (
+      <section
+        className={cn(
+          "rounded-xl border border-border/40 bg-muted/10 px-3 py-2 sm:px-4",
+          className
+        )}
+        aria-label="Hold queue empty"
+      >
+        <p className="text-xs font-medium text-muted-foreground">
+          Hold queue · nobody waiting
+        </p>
+        <p className="hidden text-[11px] text-muted-foreground/80 md:block">
+          Stay-on-the-line callers appear here with Answer
+        </p>
+      </section>
+    )
+  }
+
+  // Keep tick referenced so wait labels re-render on the interval.
+  void tick
 
   return (
     <section
@@ -118,6 +160,7 @@ export function HoldQueueWaitingCard({ className }: { className?: string }) {
         className
       )}
       aria-label="Hold queue waiting"
+      aria-live="polite"
     >
       <div className="mb-2.5 flex items-center gap-2">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
@@ -128,7 +171,7 @@ export function HoldQueueWaitingCard({ className }: { className?: string }) {
             {callers.length} waiting
           </h3>
           <p className="hidden text-[11px] text-muted-foreground md:block">
-            Busy hold queue — Answer rings your phone, then connects the caller
+            Answer rings your phone, then connects the caller on hold
           </p>
         </div>
       </div>

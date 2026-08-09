@@ -181,15 +181,18 @@ function finish(
   const presenceStatusLabel: "Available" | "Busy" = ownerAvailable ? "Available" : "Busy"
 
   let ringsNowLabel = primary.name || "—"
-  if (primary.type === "ivr") ringsNowLabel = "Booking menu"
+  // Busy automation first hop = hold queue (stay on line), not a “booking menu” brand.
+  if (primary.type === "ivr") ringsNowLabel = "Hold queue"
   if (primary.type === "custom") ringsNowLabel = primary.name || "Custom number"
   if (primary.type === "pool") ringsNowLabel = "Lyncr Pool"
 
   let ifNoAnswerLabel = fallback.name || "—"
-  if (fallback.type === "ivr") ifNoAnswerLabel = "Booking menu"
+  // Available miss → classic booking menu label; Busy miss → hold queue.
+  if (fallback.type === "ivr") ifNoAnswerLabel = ownerAvailable ? "Booking menu" : "Hold queue"
   if (fallback.type === "owner") ifNoAnswerLabel = "Owner cell"
   if (fallback.type === "none") ifNoAnswerLabel = "Hang up"
-  if (primary.type === "ivr") ifNoAnswerLabel = "Text booking link"
+  // Primary is Busy automation — Press 1 texts a booking link; stay on line = hold.
+  if (primary.type === "ivr") ifNoAnswerLabel = "Booking text"
 
   return {
     ...partial,
@@ -381,14 +384,15 @@ export function deriveRingsNowStrip(params: {
     if (params.teamReceptionistActive && teamName) {
       return {
         ringsNow: teamName,
-        ifNoAnswer: busy ? "Booking menu" : owner,
+        // Busy: after team miss → hold queue. Available: owner cell next.
+        ifNoAnswer: busy ? "Hold queue" : owner,
         statusLabel: busy ? "Busy" : "Available",
       }
     }
     if (!busy) {
       return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }
     }
-    return { ringsNow: "Booking menu", ifNoAnswer: "Text booking link", statusLabel: "Busy" }
+    return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Busy" }
   }
 
   if (busy) {
@@ -396,9 +400,10 @@ export function deriveRingsNowStrip(params: {
       return { ringsNow: "…", ifNoAnswer: "…", statusLabel: "Busy" }
     }
     if (backup) {
-      return { ringsNow: backup, ifNoAnswer: "Booking menu", statusLabel: "Busy" }
+      // Available teammate rings first; miss → Busy hold queue (Press 1 = booking text).
+      return { ringsNow: backup, ifNoAnswer: "Hold queue", statusLabel: "Busy" }
     }
-    return { ringsNow: "Booking menu", ifNoAnswer: "Text booking link", statusLabel: "Busy" }
+    return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Busy" }
   }
 
   return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }

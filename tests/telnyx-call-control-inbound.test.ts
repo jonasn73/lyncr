@@ -808,6 +808,13 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
       upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
       getAccountHoldMusicUrl: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldSettings: vi.fn(() =>
+        Promise.resolve({
+          holdMusicUrl: null,
+          holdMaxWaitSecs: null,
+          holdRepromptSecs: null,
+        })
+      ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
