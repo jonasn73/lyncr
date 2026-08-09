@@ -3,8 +3,7 @@
 // ============================================
 // Bundled tracks are Lyncr-authored synthetic ambient loops (royalty-free).
 // Custom URL remains available under Advanced for operators who host their own MP3/WAV.
-
-import { getAppUrl } from "@/lib/telnyx"
+// Keep this module browser-safe — do not import lib/telnyx or other Node telephony clients.
 
 /** Built-in preset ids (not including custom). */
 export type HoldMusicPresetId = "calm" | "upbeat" | "minimal"
@@ -42,19 +41,6 @@ export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
   },
 ]
 
-/** Absolute HTTPS URL for a preset path (or null if app URL unknown). */
-export function holdMusicPresetAbsoluteUrl(presetId: HoldMusicPresetId): string | null {
-  const preset = HOLD_MUSIC_PRESETS.find((p) => p.id === presetId)
-  if (!preset) return null
-  try {
-    const base = getAppUrl().replace(/\/$/, "")
-    if (!base) return null
-    return `${base}${preset.path}`
-  } catch {
-    return null
-  }
-}
-
 /** Resolve a stored account value → which preset (or custom / empty). */
 export function matchHoldMusicPreset(
   storedUrl: string | null | undefined
@@ -63,7 +49,8 @@ export function matchHoldMusicPreset(
   if (!raw) return "default"
   const lower = raw.toLowerCase()
   for (const p of HOLD_MUSIC_PRESETS) {
-    if (lower.includes(p.path.toLowerCase()) || lower.endsWith(p.path.split("/").pop()!)) {
+    const file = p.path.split("/").pop()
+    if (lower.includes(p.path.toLowerCase()) || (file && lower.endsWith(file))) {
       return p.id
     }
   }
