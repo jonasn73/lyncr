@@ -40,6 +40,7 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `ELEVENLABS_API_KEY` | Optional **server-only** (never `NEXT_PUBLIC_`). Enables ★ Best ElevenLabs personas on Call Control Speak / Busy gather / hold re-prompt. Lyncr auto-creates a Telnyx Mission Control **Integration Secret** named `lyncr_elevenlabs` from this key on first Speak. Without it, ElevenLabs personas fall back to NaturalHD. |
 | `TELNYX_ELEVENLABS_API_KEY_REF` | Optional. Mission Control secret **identifier** passed as `voice_settings.api_key_ref` (default **`lyncr_elevenlabs`**). Set this if you created the secret manually under a different name. |
 | `TELNYX_ELEVENLABS_SKIP_AUTO_SECRET` | Optional. Set `1` to skip auto-create of the Telnyx integration secret (you already pasted the key in Mission Control). |
+| `LYNCR_ELEVENLABS_DISABLED` | Optional. Set `1` to **never** use ElevenLabs Speak (always NaturalHD for ★ Best personas). Use until a paid ElevenLabs plan works with Telnyx. |
 | `LYNCR_CALL_CONTROL_SPEAK_RATE` | Optional Polly SSML rate for Call Control (default **`1.05`** — slightly conversational). Set `1` or `off` to disable. NaturalHD ignores this (plain text). |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
 | `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |
@@ -88,7 +89,13 @@ Telnyx Call Control Speak uses **your** ElevenLabs account. Format: `ElevenLabs.
 3. **Manual (if auto-create fails):** Telnyx Mission Control → **[Integration Secrets](https://portal.telnyx.com/#/app/integration-secrets)** → **Create** → Identifier **`lyncr_elevenlabs`** (or set `TELNYX_ELEVENLABS_API_KEY_REF` to your name) → Type **Bearer** → paste the same ElevenLabs API key → Save.
 4. Greetings → AI Voice Persona → choose **★ Best · Calm woman (ElevenLabs Rachel)** → Save → place a Busy test call.
 
-ElevenLabs **free** plans often reject Telnyx relay traffic — a paid ElevenLabs plan may be required. If Speak fails, lyncr falls back to **NaturalHD Astra/Albion** automatically.
+ElevenLabs **free** plans often reject Telnyx relay traffic — a **paid ElevenLabs plan** is usually required. Telnyx may return HTTP 200 on `gather_using_speak`, then fire **`call.speak.failed`** (silent greeting). Lyncr then:
+
+1. Retries the **same Busy call** immediately with **NaturalHD Astra/Albion** (so the greeting still plays).
+2. Opens a short-lived **circuit** so later Speak/reprompts on that instance skip ElevenLabs.
+3. Honors **`LYNCR_ELEVENLABS_DISABLED=1`** on Vercel to never attempt ElevenLabs until you upgrade the plan.
+
+Also needs a Telnyx Mission Control **Integration Secret** (`lyncr_elevenlabs` / `TELNYX_ELEVENLABS_API_KEY_REF`) — auto-created from `ELEVENLABS_API_KEY` when possible.
 
 ### AI receptionist (Telnyx Voice AI)
 

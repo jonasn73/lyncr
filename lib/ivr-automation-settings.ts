@@ -5,7 +5,9 @@ import {
   elevenLabsCallControlVoice,
   elevenLabsNaturalHdFallback,
   elevenLabsSpeakEnabled,
+  elevenLabsSpeakRuntimeAllowed,
   normalizeElevenLabsCallControlVoice,
+  preferWorkingSpeakVoice,
 } from "@/lib/elevenlabs-voices"
 import {
   TELNYX_MENU_CLOSED_PROMPT,
@@ -206,15 +208,19 @@ export function resolveIvrCallControlVoice(engineModel: string | null | undefine
 }
 
 /**
- * Resolve Speak voice for a saved persona, with ElevenLabs → NaturalHD fallback when not configured.
+ * Resolve Speak voice for a saved persona.
+ * ElevenLabs → NaturalHD when key missing, env disabled, or runtime circuit open
+ * (Telnyx often returns HTTP 200 then `call.speak.failed` on free ElevenLabs plans).
  */
 export function resolveSpeakVoiceForPersona(engineModel: string | null | undefined): string {
   const voice = resolveIvrCallControlVoice(engineModel)
-  if (/^ElevenLabs\./i.test(voice) && !elevenLabsKeyConfigured()) {
-    return elevenLabsNaturalHdFallback(voice)
-  }
   if (/^ElevenLabs\./i.test(voice)) {
-    return normalizeElevenLabsCallControlVoice(voice)
+    const normalized = normalizeElevenLabsCallControlVoice(voice)
+    // Key missing / kill-switch / prior speak.failed → NaturalHD so callers never sit in silence.
+    if (!elevenLabsSpeakRuntimeAllowed()) {
+      return elevenLabsNaturalHdFallback(normalized)
+    }
+    return preferWorkingSpeakVoice(normalized)
   }
   return voice
 }

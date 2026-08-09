@@ -24,12 +24,63 @@ export function elevenLabsCallControlVoice(
   return `ElevenLabs.${model}.${id}`
 }
 
-/** True when we should attempt ElevenLabs Speak (Vercel key and/or Telnyx secret ref). */
+/**
+ * In-memory circuit: after Telnyx `call.speak.failed` / secret errors, skip ElevenLabs
+ * for the rest of this serverless instance so Busy always uses NaturalHD.
+ * null = unknown (try), true = heard success once, false = prefer NaturalHD.
+ */
+let elevenLabsRuntimeOk: boolean | null = null
+
+/** Ops kill switch — set LYNCR_ELEVENLABS_DISABLED=1 on Vercel until a paid ElevenLabs plan works. */
+export function elevenLabsDisabledByEnv(): boolean {
+  const v = String(process.env.LYNCR_ELEVENLABS_DISABLED || "").trim().toLowerCase()
+  return v === "1" || v === "true" || v === "yes"
+}
+
+/** True when we have a key/secret ref configured (does not mean Speak will succeed). */
 export function elevenLabsSpeakEnabled(): boolean {
+  if (elevenLabsDisabledByEnv()) return false
   return Boolean(
     String(process.env.ELEVENLABS_API_KEY || "").trim() ||
       String(process.env.TELNYX_ELEVENLABS_API_KEY_REF || "").trim()
   )
+}
+
+/** True when Call Control should attempt ElevenLabs.* (key present + circuit not open). */
+export function elevenLabsSpeakRuntimeAllowed(): boolean {
+  if (!elevenLabsSpeakEnabled()) return false
+  if (elevenLabsRuntimeOk === false) return false
+  return true
+}
+
+/** After `call.speak.failed` or secret create failure — prefer NaturalHD until cold start / success. */
+export function markElevenLabsSpeakFailed(reason: string): void {
+  elevenLabsRuntimeOk = false
+  console.warn(
+    JSON.stringify({
+      lyncr: "elevenlabs-speak-circuit-open",
+      reason: String(reason || "unknown").slice(0, 200),
+    })
+  )
+}
+
+/** Optional: reopen circuit after a proven ElevenLabs Speak (HTTP path is not enough). */
+export function markElevenLabsSpeakSucceeded(): void {
+  elevenLabsRuntimeOk = true
+}
+
+/** Test helper — reset circuit to unknown between Vitest cases. */
+export function resetElevenLabsSpeakCircuitForTests(): void {
+  elevenLabsRuntimeOk = null
+}
+
+/** Remap ElevenLabs.* → NaturalHD when the runtime circuit is open / env disabled. */
+export function preferWorkingSpeakVoice(voice: string): string {
+  const v = String(voice || "").trim()
+  if (/^ElevenLabs\./i.test(v) && !elevenLabsSpeakRuntimeAllowed()) {
+    return elevenLabsNaturalHdFallback(v)
+  }
+  return v
 }
 
 /** Mission Control secret identifier passed as voice_settings.api_key_ref. */

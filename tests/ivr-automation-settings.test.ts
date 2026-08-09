@@ -17,18 +17,24 @@ import { DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
 import {
   ELEVENLABS_VOICE_IDS,
   elevenLabsCallControlVoice,
+  markElevenLabsSpeakFailed,
   normalizeElevenLabsCallControlVoice,
+  resetElevenLabsSpeakCircuitForTests,
 } from "@/lib/elevenlabs-voices"
 
 describe("ivr automation settings", () => {
   const prevEleven = process.env.ELEVENLABS_API_KEY
   const prevRef = process.env.TELNYX_ELEVENLABS_API_KEY_REF
+  const prevDisabled = process.env.LYNCR_ELEVENLABS_DISABLED
 
   afterEach(() => {
     if (prevEleven === undefined) delete process.env.ELEVENLABS_API_KEY
     else process.env.ELEVENLABS_API_KEY = prevEleven
     if (prevRef === undefined) delete process.env.TELNYX_ELEVENLABS_API_KEY_REF
     else process.env.TELNYX_ELEVENLABS_API_KEY_REF = prevRef
+    if (prevDisabled === undefined) delete process.env.LYNCR_ELEVENLABS_DISABLED
+    else process.env.LYNCR_ELEVENLABS_DISABLED = prevDisabled
+    resetElevenLabsSpeakCircuitForTests()
   })
 
   it("maps voice personas to Polly TeXML voices", () => {
@@ -73,17 +79,33 @@ describe("ivr automation settings", () => {
   it("falls back ElevenLabs personas to NaturalHD when API key missing", () => {
     delete process.env.ELEVENLABS_API_KEY
     delete process.env.TELNYX_ELEVENLABS_API_KEY_REF
+    delete process.env.LYNCR_ELEVENLABS_DISABLED
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Bella")).toBe("Telnyx.NaturalHD.astra")
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
   })
 
-  it("keeps ElevenLabs Speak voice when API key present", () => {
+  it("keeps ElevenLabs Speak voice when API key present and circuit open not set", () => {
     process.env.ELEVENLABS_API_KEY = "test-key"
+    delete process.env.LYNCR_ELEVENLABS_DISABLED
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe(
       elevenLabsCallControlVoice(ELEVENLABS_VOICE_IDS.rachel)
     )
     expect(defaultIvrVoiceEngineModel()).toBe(ELEVENLABS_DEFAULT_IVR_VOICE_ENGINE_MODEL)
+  })
+
+  it("forces NaturalHD when LYNCR_ELEVENLABS_DISABLED=1", () => {
+    process.env.ELEVENLABS_API_KEY = "test-key"
+    process.env.LYNCR_ELEVENLABS_DISABLED = "1"
+    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
+  })
+
+  it("forces NaturalHD after runtime speak.failed circuit opens", () => {
+    process.env.ELEVENLABS_API_KEY = "test-key"
+    delete process.env.LYNCR_ELEVENLABS_DISABLED
+    markElevenLabsSpeakFailed("test")
+    expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
   })
 
   it("orders personas with ElevenLabs Best labels first", () => {

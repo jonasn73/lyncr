@@ -32,6 +32,7 @@ import {
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { preferWorkingSpeakVoice } from "@/lib/elevenlabs-voices"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
@@ -508,15 +509,16 @@ export async function startHoldMusicGather(
 
   // No music (or all paths failed) — speak a short hold line and wait for press 1.
   const text = await buildHoldRepromptText(state, callControlId)
-  let fallbackVoice = state.holdSpeakVoice?.trim() || ""
+  let fallbackVoice = preferWorkingSpeakVoice(state.holdSpeakVoice?.trim() || "")
   if (!fallbackVoice) {
     try {
       const presence = await getAccountPresence(state.userId)
-      fallbackVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
+      fallbackVoice = preferWorkingSpeakVoice(resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel))
     } catch {
       fallbackVoice = "Telnyx.NaturalHD.astra"
     }
   }
+  if (!fallbackVoice) fallbackVoice = "Telnyx.NaturalHD.astra"
   console.log(
     lyncrLog("telnyx-cc-hold-music-fallback-speak", {
       callControlId,
@@ -559,23 +561,24 @@ export async function startHoldRepromptGather(
   // Always the same short line (+ optional “you're next”); never HOLD_AWARE_BUSY_PROMPT again.
   const say = await buildHoldRepromptText({ ...state, holdPromptCount: promptCount }, callControlId)
 
-  // Same premium voice as Busy gather — snapshot, then live persona, then NaturalHD astra.
-  let speakVoice = state.holdSpeakVoice?.trim() || ""
+  // Same premium voice as Busy gather — but never re-use a broken ElevenLabs snapshot.
+  let speakVoice = preferWorkingSpeakVoice(state.holdSpeakVoice?.trim() || "")
   if (!speakVoice) {
     try {
       const presence = await getAccountPresence(state.userId)
-      speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
+      speakVoice = preferWorkingSpeakVoice(resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel))
     } catch {
       speakVoice = "Telnyx.NaturalHD.astra"
     }
   }
+  if (!speakVoice) speakVoice = "Telnyx.NaturalHD.astra"
 
   const nextState: TelnyxCallControlClientState = {
     ...state,
     phase: "await_busy_hold_loop",
     holdSegment: "reprompt",
     holdPromptCount: promptCount,
-    holdSpeakVoice: speakVoice || state.holdSpeakVoice,
+    holdSpeakVoice: speakVoice,
   }
 
   console.log(

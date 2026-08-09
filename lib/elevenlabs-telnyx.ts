@@ -4,6 +4,7 @@
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
   getTelnyxElevenLabsApiKeyRef,
+  markElevenLabsSpeakFailed,
 } from "@/lib/elevenlabs-voices"
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
@@ -76,6 +77,8 @@ async function createSecretOnce(identifier: string, token: string): Promise<bool
         error: JSON.stringify(errBody).slice(0, 400),
       })
     )
+    // Don't keep sending ElevenLabs Speak with a missing secret — NaturalHD instead.
+    markElevenLabsSpeakFailed(`secret_create_${res.status}`)
     ensureSecretPromise = null
     return false
   } catch (e) {
@@ -85,6 +88,7 @@ async function createSecretOnce(identifier: string, token: string): Promise<bool
         error: e instanceof Error ? e.message : String(e),
       })
     )
+    markElevenLabsSpeakFailed("secret_create_error")
     ensureSecretPromise = null
     return false
   }
@@ -97,8 +101,13 @@ export {
   ELEVENLABS_VOICE_IDS,
   elevenLabsCallControlVoice,
   elevenLabsNaturalHdFallback,
+  elevenLabsDisabledByEnv,
   elevenLabsSpeakEnabled,
+  elevenLabsSpeakRuntimeAllowed,
   getElevenLabsVoiceSettings,
   getTelnyxElevenLabsApiKeyRef,
+  markElevenLabsSpeakFailed,
+  markElevenLabsSpeakSucceeded,
   normalizeElevenLabsCallControlVoice,
+  preferWorkingSpeakVoice,
 } from "@/lib/elevenlabs-voices"

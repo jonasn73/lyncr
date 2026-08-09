@@ -66,6 +66,11 @@ export type TelnyxCallControlClientState = {
    * Hold rempromts reuse this so reminders match the Busy greeting persona.
    */
   holdSpeakVoice?: string
+  /**
+   * True after we already retried Busy gather with NaturalHD because ElevenLabs speak failed.
+   * Prevents an infinite invalid→retry loop.
+   */
+  busySpeakFallbackTried?: boolean
   /** Waiting caller call_control_id when this leg is an Answer-from-Lines agent dial. */
   queueTargetCallControlId?: string
   /** Neon call_queue.id for the Answer target (optional). */
