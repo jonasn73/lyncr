@@ -2,7 +2,7 @@
 
 // Lines Alerts — unreplied inbound, customer payments, jobs needing review SMS.
 // Hidden when empty; opening an alert clears it from the list (except job_finished).
-// Book-form rows open a booking-details sheet (not “new intake”); Schedule job continues work.
+// Book-form rows open a booking-details sheet (not “new intake”); Book job continues work.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
@@ -32,6 +32,11 @@ import {
   BOOK_JOB_KIND_OPTIONS,
   serviceQuoteTypeIdFromBookJobKind,
 } from "@/lib/book-customer-request"
+import { continueOpenQuoteStep } from "@/lib/callback-intake-chooser"
+import { isSubstantialStreetAddress } from "@/lib/intake-address-helpers"
+import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
+import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
+import { buildUnreachableFollowUpSms } from "@/lib/unreachable-follow-up"
 import {
   clearBookFormDetailsHandoff,
   consumeBookFormReopenPending,
@@ -314,8 +319,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   )
 
   /**
-   * Continue work on a submitted book form — hydrate intake / schedule (not “new intake”).
-   * Primary CTA label in the sheet is “Schedule job”.
+   * Book job — same path as CRM: scheduler job sheet when address + vehicle are ready;
+   * otherwise open intake already on the first incomplete step (prefilled).
    */
   const openBookIntake = useCallback(
     (item: LatestCustomerAction) => {
@@ -328,25 +333,48 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       // Resolve calculator id from chip / stored type (AKL chip beats Lockout default).
       const fromKind = serviceQuoteTypeIdFromBookJobKind(item.bookFormJobKind)
       const rawStored = String(item.bookFormServiceQuoteTypeId ?? "").trim()
-      const serviceId =
+      const serviceId = (
         fromKind && fromKind !== "lockout"
           ? fromKind
-          : rawStored || fromKind || undefined
+          : rawStored || fromKind || ""
+      ) as ServiceQuoteTypeId | ""
+      const year = String(item.bookFormVehicleYear ?? "").trim()
+      const make = String(item.bookFormVehicleMake ?? "").trim()
+      const model = String(item.bookFormVehicleModel ?? "").trim()
+      const address = String(item.bookFormAddressLine1 ?? "").trim()
+      const addressReady = isSubstantialStreetAddress(address)
+      const ymmComplete = Boolean(year && make && model)
+      const needsVehicle = serviceId ? serviceTypeRequiresVehicle(serviceId) : true
+      const leadId = String(item.bookFormLeadId ?? "").trim()
+      // Pool-ready submitted request → same Quote / job sheet CRM Book job uses.
+      if (leadId && addressReady && (!needsVehicle || ymmComplete) && serviceId) {
+        router.push(buildSchedulerFocusUrl(leadId, { schedule: true }))
+        return
+      }
       const asapNote =
         item.bookFormUrgency === "asap" ? "Customer urgency: ASAP / emergency" : ""
+      const startStep = continueOpenQuoteStep({
+        serviceTypeId: serviceId,
+        vehicleYear: year,
+        vehicleMake: make,
+        vehicleModel: model,
+        addressReady,
+        displayName: item.customerName || "",
+      })
       inbound?.openManualCallPanel({
         phoneNumber: phone,
         customerName: item.customerName || undefined,
-        leadId: item.bookFormLeadId || undefined,
+        leadId: leadId || undefined,
         callStatus: "answered",
-        // Profile-first — do NOT auto-jump Continue into empty Service.
         fromBookForm: true,
-        continueOpenQuote: false,
-        serviceQuoteTypeId: serviceId,
-        vehicleYear: item.bookFormVehicleYear || undefined,
-        vehicleMake: item.bookFormVehicleMake || undefined,
-        vehicleModel: item.bookFormVehicleModel || undefined,
-        addressLine1: item.bookFormAddressLine1 || undefined,
+        // Jump to first incomplete step — do not dump on blank Location.
+        continueOpenQuote: true,
+        intakeStartStep: startStep,
+        serviceQuoteTypeId: serviceId || undefined,
+        vehicleYear: year || undefined,
+        vehicleMake: make || undefined,
+        vehicleModel: model || undefined,
+        addressLine1: address || undefined,
         notes: asapNote || undefined,
         quotedPriceCents:
           item.bookFormQuotedPriceCents != null && item.bookFormQuotedPriceCents > 0
@@ -354,7 +382,73 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             : undefined,
       })
     },
-    [inbound, markAttentionOpened]
+    [inbound, markAttentionOpened, router]
+  )
+
+  /** One-tap unreachable SMS + mark Called · no answer on the lead. */
+  const sendUnreachableSms = useCallback(
+    async (item: LatestCustomerAction) => {
+      const phone = (item.customerPhone || "").trim()
+      const leadId = String(item.bookFormLeadId ?? "").trim()
+      if (!phone || !leadId) {
+        toast({
+          title: "Missing phone or lead",
+          description: "Open CRM to text this customer.",
+          variant: "destructive",
+        })
+        return
+      }
+      setBusyJobId(leadId)
+      try {
+        const res = await fetch(
+          `/api/owner/jobs/${encodeURIComponent(leadId)}/unreachable`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_phone: phone,
+              customer_name: item.customerName,
+              send_sms: true,
+            }),
+          }
+        )
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string
+          data?: { skipped?: boolean; reason?: string; text?: string }
+        }
+        if (!res.ok) {
+          toast({
+            title: "Could not send",
+            description: json.error || "Try again from Messages.",
+            variant: "destructive",
+          })
+          return
+        }
+        if (json.data?.skipped) {
+          toast({
+            title: "Marked Called · no answer",
+            description: "A text was already sent recently — open Messages if you need another.",
+          })
+          return
+        }
+        toast({
+          title: "Text sent",
+          description:
+            json.data?.text ||
+            buildUnreachableFollowUpSms({ customerName: item.customerName }),
+        })
+      } catch {
+        toast({
+          title: "Could not send",
+          description: "Check your connection and try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setBusyJobId(null)
+      }
+    },
+    [toast]
   )
 
   /** Reopen booking details after “View booking details” from Messages. */
@@ -610,6 +704,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               onOpenMessages={openInMessages}
               onOpenJob={openJobDrawer}
               onOpenBookIntake={openBookIntake}
+              onSendUnreachable={(it) => void sendUnreachableSms(it)}
               onOpenCrm={openInCrm}
             />
           </SheetContent>
@@ -630,6 +725,7 @@ function LatestActionDetail({
   onOpenMessages,
   onOpenJob,
   onOpenBookIntake,
+  onSendUnreachable,
   onOpenCrm,
 }: {
   item: LatestCustomerAction
@@ -642,6 +738,7 @@ function LatestActionDetail({
   onOpenMessages: (phone: string, bookItem?: LatestCustomerAction | null) => void
   onOpenJob: (jobId: string) => void
   onOpenBookIntake: (item: LatestCustomerAction) => void
+  onSendUnreachable: (item: LatestCustomerAction) => void
   onOpenCrm: (phone: string) => void
 }) {
   const phoneLabel = item.customerPhone
@@ -1031,17 +1128,17 @@ function LatestActionDetail({
         ) : null}
         {isBookEvent ? (
           <>
-            {/* Primary: continue the booking (schedule / create job) — form already submitted. */}
+            {/* Primary: Book job — same destination as CRM when the form is complete. */}
             <button
               type="button"
               onClick={() => onOpenBookIntake(item)}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
             >
               <CalendarCheck className="h-4 w-4" />
-              Schedule job
+              Book job
             </button>
-            {/* Secondary: Call / CRM / Messages — smaller, not the path to form data. */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Secondary: Call + couldn’t-reach text. */}
+            <div className="grid grid-cols-2 gap-2">
               {telHref ? (
                 <a
                   href={telHref}
@@ -1056,6 +1153,25 @@ function LatestActionDetail({
                   Call
                 </span>
               )}
+              <button
+                type="button"
+                onClick={() => onSendUnreachable(item)}
+                disabled={
+                  !item.customerPhone ||
+                  !item.bookFormLeadId ||
+                  busyJobId === item.bookFormLeadId
+                }
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-40"
+              >
+                {busyJobId === item.bookFormLeadId ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5" />
+                )}
+                Couldn’t reach — text
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => item.customerPhone && onOpenCrm(item.customerPhone)}

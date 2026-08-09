@@ -103,9 +103,9 @@ function buildManualRow(input?: OpenManualCallPanelInput): ActiveCallRow {
     // Missed Activities → quick note; everything else uses the full wizard.
     intakeMode: input?.intakeMode === "quick" ? "quick" : "full",
     serviceQuoteTypeId: input?.serviceQuoteTypeId?.trim() || undefined,
-    // Thin CRM Book → same Continue-quote path as the callback chooser.
-    // Book-form Latest taps stay profile-first (fromBookForm) — never auto-jump Service.
-    continueOpenQuote: input?.continueOpenQuote === true && input?.fromBookForm !== true,
+    // Thin CRM Book / book-form Continue — skip Service and land on the first incomplete step.
+    // fromBookForm alone used to block Continue; Book job now opts in via continueOpenQuote.
+    continueOpenQuote: input?.continueOpenQuote === true,
     intakeStartStep: input?.intakeStartStep,
     fromBookForm: input?.fromBookForm === true,
   }

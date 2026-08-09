@@ -18,8 +18,14 @@ describe("intake address helpers", () => {
     ).toBe("5010 Roy William Place, Louisville, KY, 40228")
   })
 
-  it("returns null when street or city is missing", () => {
-    expect(buildFlatAddressQuery({ addressLine1: "123 Main", city: "", postalCode: "40228" })).toBeNull()
+  it("seeds Location from a book-form single line when city is missing", () => {
+    expect(
+      buildFlatAddressQuery({ addressLine1: "1079 Cherokee rd 40204", city: "", postalCode: "" })
+    ).toBe("1079 Cherokee rd 40204")
+  })
+
+  it("returns null when street is missing", () => {
+    expect(buildFlatAddressQuery({ addressLine1: "", city: "Louisville", postalCode: "40228" })).toBeNull()
   })
 
   it("parses a typed comma-separated address", () => {
@@ -29,6 +35,24 @@ describe("intake address helpers", () => {
       region: "KY",
       postalCode: "40228",
     })
+  })
+
+  it("parses a single-line book-form address with city state zip", () => {
+    const parsed = parseLooseAddressQuery("2440 Bardstown rd Louisville KY 40205")
+    expect(parsed.postalCode).toBe("40205")
+    expect(parsed.region).toBe("KY")
+    expect(parsed.city.toLowerCase()).toBe("louisville")
+    expect(parsed.addressLine1.toLowerCase()).toContain("bardstown")
+  })
+
+  it("treats a substantial street-only book-form line as dispatch-ready", () => {
+    expect(
+      isIntakeAddressReady({
+        serviceAddress: null,
+        addressLine1: "1079 Cherokee rd 40204",
+        city: "",
+      })
+    ).toBe(true)
   })
 
   it("accepts flat street + city for dispatch readiness", () => {

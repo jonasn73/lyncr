@@ -8,12 +8,25 @@ import {
 
 type AddressSuggestion = StructuredAddress & { place_id?: string | null; label?: string }
 
-/** Street + city is enough to dispatch — server geocodes the map pin if needed. */
-export function isFlatAddressReadyForDispatch(parts: { addressLine1: string; city: string }): boolean {
-  return Boolean(parts.addressLine1.trim() && parts.city.trim())
+/**
+ * Book forms often store one line (“1079 Cherokee rd 40204”) without a separate city.
+ * A street with a number (or ZIP) is enough to continue booking — geocode can refine later.
+ */
+export function isSubstantialStreetAddress(line1: string): boolean {
+  const t = line1.trim()
+  if (t.length < 8) return false
+  return /\d/.test(t)
 }
 
-/** Structured autocomplete pick OR saved CRM street + city. */
+/** Street + city, or a substantial single-line book-form address. */
+export function isFlatAddressReadyForDispatch(parts: { addressLine1: string; city: string }): boolean {
+  const line1 = parts.addressLine1.trim()
+  const city = parts.city.trim()
+  if (line1 && city) return true
+  return isSubstantialStreetAddress(line1)
+}
+
+/** Structured autocomplete pick OR saved CRM / book-form street. */
 export function isIntakeAddressReady(input: {
   serviceAddress: StructuredAddress | null
   addressLine1: string
@@ -32,8 +45,13 @@ export function buildFlatAddressQuery(parts: {
   postalCode?: string
 }): string | null {
   const line1 = parts.addressLine1.trim()
+  if (!line1) return null
   const city = parts.city.trim()
-  if (!line1 || !city) return null
+  // Book-form single lines: still seed the Location box even when city is blank.
+  if (!city) {
+    const zip = parts.postalCode?.trim()
+    return zip ? `${line1}, ${zip}` : line1
+  }
   const chunks = [line1, parts.addressLine2?.trim(), city, parts.region?.trim(), parts.postalCode?.trim()].filter(
     Boolean
   )
@@ -110,28 +128,73 @@ export async function resolveStructuredAddressFromQuery(
   }
 }
 
-/** Best-effort parse when the user typed/pasted an address without picking a suggestion. */
+/**
+ * Best-effort parse when the user typed/pasted an address without picking a suggestion.
+ * Handles comma-separated lines and single-line book forms with city / state / ZIP at the end.
+ */
 export function parseLooseAddressQuery(raw: string): {
   addressLine1: string
   city: string
   region: string
   postalCode: string
 } {
-  const segments = raw
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return { addressLine1: "", city: "", region: "", postalCode: "" }
+  }
+
+  const segments = trimmed
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-  const addressLine1 = segments[0] ?? raw.trim()
-  let city = ""
+
+  // Comma-separated: "123 Main St, Louisville, KY 40205"
+  if (segments.length >= 2) {
+    const addressLine1 = segments[0] ?? trimmed
+    let city = segments[1] ?? ""
+    let region = ""
+    let postalCode = ""
+    if (segments.length >= 3) {
+      const tail = segments.slice(2).join(" ")
+      const zipMatch = tail.match(/\b(\d{5})(?:-\d{4})?\b/)
+      if (zipMatch) postalCode = zipMatch[1]!
+      const stateMatch = tail.match(/\b([A-Za-z]{2})\b/)
+      if (stateMatch) region = stateMatch[1]!.toUpperCase()
+    } else {
+      // "123 Main, Louisville KY 40205" — city segment may include state/zip.
+      const zipMatch = city.match(/\b(\d{5})(?:-\d{4})?\b/)
+      if (zipMatch) {
+        postalCode = zipMatch[1]!
+        city = city.replace(zipMatch[0], "").trim()
+      }
+      const stateMatch = city.match(/\b([A-Za-z]{2})\b\s*$/)
+      if (stateMatch) {
+        region = stateMatch[1]!.toUpperCase()
+        city = city.replace(stateMatch[0], "").trim()
+      }
+    }
+    return { addressLine1, city, region, postalCode }
+  }
+
+  // Single line: "2440 Bardstown rd Louisville KY 40205" or "1079 Cherokee rd 40204"
+  const zipMatch = trimmed.match(/\b(\d{5})(?:-\d{4})?\b/)
+  const postalCode = zipMatch?.[1] ?? ""
+  let withoutZip = zipMatch ? trimmed.replace(zipMatch[0], "").replace(/\s+/g, " ").trim() : trimmed
+  const stateMatch = withoutZip.match(/\b([A-Za-z]{2})\b\s*$/)
   let region = ""
-  let postalCode = ""
-  if (segments.length >= 2) city = segments[1] ?? ""
-  if (segments.length >= 3) {
-    const tail = segments.slice(2).join(" ")
-    const zipMatch = tail.match(/\b(\d{5})(?:-\d{4})?\b/)
-    if (zipMatch) postalCode = zipMatch[1]!
-    const stateMatch = tail.match(/\b([A-Za-z]{2})\b/)
-    if (stateMatch) region = stateMatch[1]!.toUpperCase()
+  if (stateMatch) {
+    region = stateMatch[1]!.toUpperCase()
+    withoutZip = withoutZip.replace(stateMatch[0], "").replace(/\s+/g, " ").trim()
+  }
+  // Last word after street number + street name is often the city (when state/zip were present).
+  let city = ""
+  let addressLine1 = withoutZip
+  if (region || postalCode) {
+    const tokens = withoutZip.split(/\s+/).filter(Boolean)
+    if (tokens.length >= 3) {
+      city = tokens[tokens.length - 1]!
+      addressLine1 = tokens.slice(0, -1).join(" ")
+    }
   }
   return { addressLine1, city, region, postalCode }
 }

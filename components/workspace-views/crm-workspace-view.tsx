@@ -31,6 +31,8 @@ import {
   resolveOpenQuoteYmm,
   serviceQuoteTypeIdFromCrmHistory,
 } from "@/lib/callback-intake-chooser"
+import { isSubstantialStreetAddress } from "@/lib/intake-address-helpers"
+import { buildUnreachableFollowUpSms } from "@/lib/unreachable-follow-up"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import type {
   CrmCustomerListItem,
@@ -123,7 +125,8 @@ function crmUrgencyLabel(item: CrmServiceHistoryItem): string | null {
 type CrmJobNavAction = "Book job" | "Open job" | "View job" | "Recover"
 
 const TERMINAL_HISTORY_LABELS = new Set([
-  "Done",
+  "Complete",
+  "Done", // legacy rows before Complete rename
   "Completed", // legacy rows before operator glossary rename
   "Cancelled",
   "Referred",
@@ -147,6 +150,7 @@ function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
     item.status_label === "Paused" ||
     item.status_label === "Active" || // legacy
     item.status_label === "Booked" || // legacy
+    item.status_label.startsWith("Booked ·") ||
     item.status_label === "Job"
   ) {
     return "Open job"
@@ -183,12 +187,15 @@ function crmJobNavTitle(action: CrmJobNavAction): string {
   }
 }
 
-/** Customer street + city is enough for Book pool-ready when lead collected has no address. */
+/** Customer street is enough for Book pool-ready when lead collected has no address. */
 function crmCustomerAddressReady(customer: {
   address_line1?: string | null
   city?: string | null
 }): boolean {
-  return Boolean(String(customer.address_line1 ?? "").trim() && String(customer.city ?? "").trim())
+  const line1 = String(customer.address_line1 ?? "").trim()
+  const city = String(customer.city ?? "").trim()
+  if (line1 && city) return true
+  return isSubstantialStreetAddress(line1)
 }
 
 function formatMoney(cents: number): string {
@@ -348,6 +355,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [smsPreviewKind, setSmsPreviewKind] = useState<"follow_up" | "rescue">("follow_up")
   const [smsPreviewDraft, setSmsPreviewDraft] = useState("")
   const [smsPreviewSending, setSmsPreviewSending] = useState(false)
+  /** Busy flag while marking Called · no answer / sending unreachable SMS. */
+  const [unreachableBusy, setUnreachableBusy] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -650,6 +659,85 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   }
 
   /**
+   * Mark Called · no answer and optionally send the unreachable follow-up SMS.
+   * Updates the local history badge immediately so Needs call clears.
+   */
+  const markUnreachable = useCallback(
+    async (lead: CrmServiceHistoryItem, sendSms: boolean) => {
+      if (!selected || unreachableBusy) return
+      setUnreachableBusy(true)
+      try {
+        const res = await fetch(
+          `/api/owner/jobs/${encodeURIComponent(lead.id)}/unreachable`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_phone: selected.phone_e164,
+              customer_name: editName.trim() || selected.display_name,
+              send_sms: sendSms,
+            }),
+          }
+        )
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string
+          data?: { skipped?: boolean; sms_sent?: boolean; text?: string }
+        }
+        if (!res.ok) {
+          toast({
+            title: sendSms ? "Could not send text" : "Could not update",
+            description: json.error || "Try again.",
+            variant: "destructive",
+          })
+          return
+        }
+        // Flip Needs call → Called · no answer in the open profile.
+        setHistory((prev) =>
+          prev.map((h) =>
+            h.id === lead.id
+              ? { ...h, status_label: "Called · no answer", status_tone: "amber" as const }
+              : h
+          )
+        )
+        if (sendSms && json.data?.skipped) {
+          toast({
+            title: "Marked Called · no answer",
+            description: "A text was already sent recently — open Messages if you need another.",
+          })
+          return
+        }
+        if (sendSms && json.data?.sms_sent) {
+          toast({
+            title: "Text sent",
+            description:
+              json.data.text ||
+              buildUnreachableFollowUpSms({
+                customerName: editName.trim() || selected.display_name,
+              }),
+          })
+          setSaveMsg("Unreachable SMS sent")
+          return
+        }
+        toast({
+          title: "Called · no answer",
+          description: "Status updated on this request.",
+        })
+        setSaveMsg("Called · no answer")
+      } catch {
+        toast({
+          title: sendSms ? "Could not send text" : "Could not update",
+          description: "Check your connection and try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setUnreachableBusy(false)
+      }
+    },
+    [selected, unreachableBusy, editName, toast]
+  )
+
+  /**
    * Universal job sheet: Open/View (and pool-ready Book) → Scheduler JobDetailDrawer.
    * Thin Book / Recover → Continue-intake with existing_lead_id (upgrade, not blank Service/Lockout).
    * Always close the CRM profile first so Dialog z-[7000] cannot bury the drawer/intake.
@@ -678,16 +766,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         if (!poolReady) {
           const ymm = resolveOpenQuoteYmm({ lead: target, garage: garageHead })
           const serviceId = serviceQuoteTypeIdFromCrmHistory(target) ?? ""
+          const addressReady =
+            Boolean(target.has_job_address) ||
+            crmCustomerAddressReady(selected) ||
+            isSubstantialStreetAddress(String(target.address_line1 ?? ""))
           const startStep = continueOpenQuoteStep({
             serviceTypeId: serviceId,
             vehicleYear: ymm.year,
             vehicleMake: ymm.make,
             vehicleModel: ymm.model,
-            addressReady:
-              Boolean(target.has_job_address) || crmCustomerAddressReady(selected),
+            addressReady,
             displayName: customerName,
           })
-          // Same rich hydrate as Latest book-form alert → Schedule job.
+          // Same rich hydrate as Latest book-form alert → Book job.
           const fromBook = Boolean(
             target.filled_by_customer || isBookFormIntakeSource(target.intake_source)
           )
@@ -715,10 +806,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 : undefined,
             serviceQuoteTypeId: serviceId || undefined,
             leadId: target.id,
-            continueOpenQuote: !fromBook,
+            // Thin book forms and thin quotes both Continue into the first incomplete step.
+            continueOpenQuote: true,
             fromBookForm: fromBook,
-            // Profile-first for book forms — do not auto-jump into empty Service.
-            intakeStartStep: fromBook ? undefined : startStep,
+            intakeStartStep: startStep,
             addressLine1: target.address_line1 || undefined,
             notes: notesParts.join("\n") || undefined,
           })
@@ -731,7 +822,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setSelected(null)
       if (target?.id) {
         router.push(
-          buildSchedulerFocusUrl(target.id, { fromCrm: true, customerId })
+          buildSchedulerFocusUrl(target.id, {
+            fromCrm: true,
+            customerId,
+            // Open schedule picker when booking a submitted / open lead.
+            schedule: action === "Book job" || action === "Recover",
+          })
         )
         return
       }
@@ -1210,20 +1306,58 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               ) : null}
             </dl>
             {headerJobAction ? (
-              <button
-                type="button"
-                onClick={() => openJobOnScheduler(headerJobTarget)}
-                className={cn(
-                  "mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold sm:w-auto",
-                  headerJobAction === "Recover"
-                    ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
-                    : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => openJobOnScheduler(headerJobTarget)}
+                  className={cn(
+                    "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
+                    headerJobAction === "Recover"
+                      ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
+                      : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+                  )}
+                  title={crmJobNavTitle(headerJobAction)}
+                >
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
+                </button>
+                {/* Needs call / Called · no answer — easy follow-up without digging. */}
+                {(headerJobTarget.status_label === "Needs call" ||
+                  headerJobTarget.status_label === "Called · no answer") && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {headerJobTarget.status_label === "Needs call" ? (
+                      <button
+                        type="button"
+                        disabled={unreachableBusy}
+                        onClick={() => void markUnreachable(headerJobTarget, false)}
+                        className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+                      >
+                        {unreachableBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : null}
+                        Called · no answer
+                      </button>
+                    ) : (
+                      <span className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-500/25 bg-amber-500/5 px-2 text-[11px] font-semibold text-amber-200/80">
+                        Called · no answer
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={unreachableBusy}
+                      onClick={() => void markUnreachable(headerJobTarget, true)}
+                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50"
+                    >
+                      {unreachableBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      )}
+                      Couldn’t reach — text
+                    </button>
+                  </div>
                 )}
-                title={crmJobNavTitle(headerJobAction)}
-              >
-                <CalendarCheck className="h-3.5 w-3.5" />
-                {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
-              </button>
+              </div>
             ) : null}
           </div>
         ) : null}

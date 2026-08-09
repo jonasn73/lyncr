@@ -497,6 +497,9 @@ export function useActiveCallForm(
         ? Math.round(current.quotedPriceCents)
         : 0
     const seededService = current.serviceQuoteTypeId?.trim() || ""
+    // Book forms often ship one address line — split city / ZIP so Location shows + is ready.
+    const rawAddress = current.addressLine1?.trim() || ""
+    const parsedAddress = rawAddress ? parseLooseAddressQuery(rawAddress) : null
     setForm({
       ...EMPTY_FORM,
       scheduledDate: defaultIntakeScheduleDate(),
@@ -506,7 +509,10 @@ export function useActiveCallForm(
       vehicleYear: current.vehicleYear?.trim() || "",
       vehicleMake: current.vehicleMake?.trim() || "",
       vehicleModel: current.vehicleModel?.trim() || "",
-      addressLine1: current.addressLine1?.trim() || "",
+      addressLine1: parsedAddress?.addressLine1 || rawAddress,
+      city: parsedAddress?.city || "",
+      region: parsedAddress?.region || "",
+      postalCode: parsedAddress?.postalCode || "",
       notes: current.notes?.trim() || "",
       // CRM Book / Continue-quote / book-form seed — never leave blank form as Lockout default.
       serviceQuoteTypeId: seededService,

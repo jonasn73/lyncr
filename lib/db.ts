@@ -5684,11 +5684,25 @@ export async function listCrmServiceHistoryForCustomer(params: {
           ds === UNASSIGNED_CALLBACK_STATUS ||
           ds === "salvage_pending" ||
           js.includes("price"))
-      // Same human glossary as Scheduler (Quote → In pool → Scheduled → … → Done).
+      const techName =
+        collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null
+      const scheduledAt =
+        row.scheduled_at instanceof Date
+          ? row.scheduled_at.toISOString()
+          : row.scheduled_at
+            ? String(row.scheduled_at)
+            : null
+      // Called · no answer — owner marked after dialing (or sent unreachable SMS).
+      const calledNoAnswer =
+        String(collected.callback_outcome ?? "")
+          .trim()
+          .toLowerCase() === "called_no_answer" ||
+        Boolean(String(collected.called_no_answer_at ?? "").trim())
+      // Same human glossary: Needs call → Called · no answer → Booked · time → Complete.
       let status_label = "Job"
       let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
       if (js === "completed" || js === "done" || js === "paid" || ds === "completed") {
-        status_label = "Done"
+        status_label = "Complete"
         status_tone = "emerald"
       } else if (js === "cancelled" || js === "canceled" || ds === "cancelled" || ds === "canceled") {
         status_label = "Cancelled"
@@ -5713,24 +5727,35 @@ export async function listCrmServiceHistoryForCustomer(params: {
         status_label =
           ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
         status_tone = "rose"
-      } else if (ds === UNASSIGNED_POOL_STATUS) {
+      } else if (ds === UNASSIGNED_POOL_STATUS && !scheduledAt) {
         status_label = "In pool"
         status_tone = "amber"
-      } else if (ds === "dispatched" || Boolean(row.scheduled_at)) {
-        status_label = "Scheduled"
+      } else if (ds === "dispatched" || Boolean(scheduledAt)) {
+        // Prefer “Booked · {time}” when we have an appointment window.
+        if (scheduledAt) {
+          const d = new Date(scheduledAt)
+          status_label = Number.isNaN(d.getTime())
+            ? "Booked"
+            : `Booked · ${d.toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}`
+        } else {
+          status_label = "Booked"
+        }
         status_tone = "sky"
+      } else if (
+        (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&
+        calledNoAnswer
+      ) {
+        status_label = "Called · no answer"
+        status_tone = "amber"
       } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
         status_label = "Needs call"
         status_tone = "amber"
       }
-      const techName =
-        collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null
-      const scheduledAt =
-        row.scheduled_at instanceof Date
-          ? row.scheduled_at.toISOString()
-          : row.scheduled_at
-            ? String(row.scheduled_at)
-            : null
       // Call/lead created time — keep separate from structured appointment (scheduled_at).
       const at =
         row.created_at instanceof Date
@@ -8131,6 +8156,34 @@ export async function insertAiLead(params: {
     )
   `
   return id
+}
+
+/**
+ * Stamp an open lead as Called · no answer (CRM badge).
+ * Stored in collected JSON — no schema migration required.
+ */
+export async function markLeadCalledNoAnswer(params: {
+  ownerUserId: string
+  leadId: string
+}): Promise<boolean> {
+  const sql = getSql()
+  const now = new Date().toISOString()
+  const patch = JSON.stringify({
+    callback_outcome: "called_no_answer",
+    called_no_answer_at: now,
+  })
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected = coalesce(collected, '{}'::jsonb) || ${patch}::jsonb
+      WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "ai_leads")) return false
+    throw e
+  }
 }
 
 /** Update SMS delivery outcome on a saved ai_leads row. */
