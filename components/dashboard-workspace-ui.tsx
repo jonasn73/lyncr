@@ -201,6 +201,7 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
 
 export type ActivityCallStatus =
   | "answered"
+  | "answered_from_queue"
   | "ai_handled"
   | "missed"
   | "missed_ivr"
@@ -209,6 +210,9 @@ export type ActivityCallStatus =
   | "day_link"
   | "day_off_link"
   | "busy_link"
+  | "hold_queue"
+  | "hold_press1"
+  | "busy_menu"
   | "emergency"
 
 /** Unanswered / rescue family — used for card accents vs answered green. */
@@ -224,6 +228,11 @@ export function isMissedActivityStatus(status: ActivityCallStatus): boolean {
   )
 }
 
+/** Hold / press-1 automation — amber accent (not rose Missed). */
+export function isHoldActivityStatus(status: ActivityCallStatus): boolean {
+  return status === "hold_queue" || status === "hold_press1" || status === "busy_menu"
+}
+
 export function ActivityStatusPill({
   status,
   /** Dense list rows: shorter label, no glow so more numbers fit. */
@@ -234,6 +243,8 @@ export function ActivityStatusPill({
 }) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
+      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+    answered_from_queue:
       "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     emergency:
       "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
@@ -251,11 +262,18 @@ export function ActivityStatusPill({
       "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     busy_link:
       "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+    hold_queue:
+      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+    hold_press1:
+      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+    busy_menu:
+      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
       "border-rose-500/60 bg-rose-500/20 text-rose-50 shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
+    answered_from_queue: dense ? "From queue" : "Answered from queue",
     emergency: dense ? "Emergency" : "Emergency answered",
     ai_handled: dense ? "AI" : "AI handled",
     voicemail: "Voicemail",
@@ -264,14 +282,17 @@ export function ActivityStatusPill({
     day_link: dense ? "Missed" : "Missed · day link",
     day_off_link: dense ? "Missed" : "Missed · day-off link",
     busy_link: dense ? "Missed" : "Missed · busy link",
+    hold_queue: dense ? "On hold" : "Hold queue",
+    hold_press1: dense ? "Press 1" : "Press 1 · booking text",
+    busy_menu: dense ? "Busy" : "Busy · hold menu",
     missed: "Missed",
   }
   const Icon =
-    status === "answered" || status === "emergency"
+    status === "answered" || status === "answered_from_queue" || status === "emergency"
       ? Phone
       : status === "voicemail"
         ? Voicemail
-        : status === "ai_handled"
+        : status === "ai_handled" || isHoldActivityStatus(status)
           ? Phone
           : PhoneMissed
 
@@ -295,11 +316,14 @@ export function ActivityStatusPill({
 
 /** Soft card chrome so missed rows never look like answered emerald cards. */
 export function activityRowAccentClass(status: ActivityCallStatus): string {
-  if (status === "answered" || status === "emergency") {
+  if (status === "answered" || status === "answered_from_queue" || status === "emergency") {
     return "border-l-[3px] border-l-emerald-500/70 bg-emerald-500/[0.04]"
   }
   if (status === "ai_handled") {
     return "border-l-[3px] border-l-violet-500/60 bg-violet-500/[0.04]"
+  }
+  if (isHoldActivityStatus(status)) {
+    return "border-l-[3px] border-l-amber-500/70 bg-amber-500/[0.06]"
   }
   if (isMissedActivityStatus(status)) {
     return "border-l-[3px] border-l-rose-500 bg-rose-500/[0.07]"

@@ -4836,6 +4836,11 @@ export async function listRecentlyRingingIncomingCalls(
         AND cl.owner_intake_dismissed_at IS NULL
         -- Owner intake is for owner-cell rings only; teammate Busy backup should not open it.
         AND cl.routed_to_receptionist_id IS NULL
+        -- Busy → hold / press-1 / IVR automation — never open Incoming Call as RINGING.
+        AND NOT (
+          lower(COALESCE(cl.routed_to_name, '')) ~*
+          '(hold queue|hold menu|booked from hold|presence closed|presence on-job|presence on job|ivr|voicemail|ai receptionist|sent night link|sent day link|sent busy link)'
+        )
       ORDER BY cl.created_at DESC
       LIMIT 20
     `
@@ -4853,6 +4858,10 @@ export async function listRecentlyRingingIncomingCalls(
               AND answered_at IS NULL
               AND created_at > (now() - (${withinMinutes}::numeric * interval '1 minute'))
               AND routed_to_receptionist_id IS NULL
+              AND NOT (
+                lower(COALESCE(routed_to_name, '')) ~*
+                '(hold queue|hold menu|booked from hold|presence closed|presence on-job|presence on job|ivr|voicemail|ai receptionist|sent night link|sent day link|sent busy link)'
+              )
             ORDER BY created_at DESC
             LIMIT 20
           `

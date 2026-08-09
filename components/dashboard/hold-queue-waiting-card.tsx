@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
 
 type QueueCaller = {
   id: string
@@ -68,6 +70,7 @@ export function HoldQueueWaitingCard({
   showEmptyHint = false,
 }: HoldQueueWaitingCardProps) {
   const session = useDashboardSessionOptional()
+  const inbound = useInboundCallPanelOptional()
   const ownerUserId = session?.companyUserId?.trim() || ""
   const [callers, setCallers] = useState<QueueCaller[]>([])
   const [stats, setStats] = useState<QueueStats | null>(null)
@@ -125,6 +128,7 @@ export function HoldQueueWaitingCard({
   async function answerCaller(id: string) {
     setAnsweringId(id)
     setError(null)
+    const waiting = callers.find((c) => c.id === id)
     try {
       const res = await fetch("/api/calls/queue/answer", {
         method: "POST",
@@ -132,12 +136,24 @@ export function HoldQueueWaitingCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ queueEntryId: id }),
       })
-      const json = (await res.json()) as { error?: string; data?: { ringingE164?: string } }
+      const json = (await res.json()) as {
+        error?: string
+        data?: { ringingE164?: string; queueEntryId?: string }
+      }
       if (!res.ok) {
         setError(json.error || "Answer failed")
         return
       }
       setCallers((prev) => prev.filter((c) => c.id !== id))
+      // Open intake/CRM for this caller as soon as Answer dial succeeds (bridge follows).
+      if (inbound && waiting?.callerE164) {
+        inbound.openManualCallPanel({
+          phoneNumber: waiting.callerE164,
+          toNumber: waiting.businessLineE164 || undefined,
+          callStatus: "answered",
+          intakeMode: "full",
+        })
+      }
     } catch {
       setError("Answer failed")
     } finally {
@@ -246,17 +262,27 @@ export function HoldQueueWaitingCard({
                   ) : null}
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={answeringId === c.id || c.status === "bridging"}
-                onClick={() => void answerCaller(c.id)}
-                className={cn(
-                  "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
-                  MOBILE_TAP_TARGET
-                )}
-              >
-                {answeringId === c.id ? "Ringing…" : "Answer"}
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {c.callerE164 ? (
+                  <SendBookLinkButton
+                    phone={c.callerE164}
+                    businessLine={c.businessLineE164}
+                    compact
+                    className="!h-9 !min-h-0 px-2 text-[10px]"
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  disabled={answeringId === c.id || c.status === "bridging"}
+                  onClick={() => void answerCaller(c.id)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
+                    MOBILE_TAP_TARGET
+                  )}
+                >
+                  {answeringId === c.id ? "Ringing…" : "Answer"}
+                </button>
+              </div>
             </li>
           )
         })}

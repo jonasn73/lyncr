@@ -84,6 +84,7 @@ import type {
 import {
   isMissedCallTelemetry,
   normalizeCallEventPhoneDigits,
+  shouldOpenOwnerRingingIntake,
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import {
@@ -97,6 +98,7 @@ import {
 } from "@/lib/dispatch-map-focus"
 import type { PageId } from "@/components/app-shell"
 import { useToast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { useRepeatCallerUrgency } from "@/lib/hooks/use-repeat-caller-urgency"
 import { formatRepeatCallerHistoryLine } from "@/lib/repeat-caller-urgency"
@@ -2026,9 +2028,26 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
       oncePerSid(`i:${String(payload.call_sid ?? "")}`, () => {
-        // Teammate is ringing (Busy backup / team mode) — do not pop owner Incoming Call as RINGING.
-        const teamDialing = Boolean(String(payload.routed_to_receptionist_id ?? "").trim())
-        if (teamDialing) {
+        // Teammate Dial / Busy→hold / press-1 — do not pop owner Incoming Call as RINGING.
+        if (!shouldOpenOwnerRingingIntake(payload)) {
+          const routed = String(payload.routed_to_name ?? "").toLowerCase()
+          const reason = String(payload.dial_reason ?? "").toLowerCase()
+          // Compact toast → Lines (not New Intake wizard).
+          if (
+            reason === "busy_automation" ||
+            routed.includes("hold") ||
+            routed.includes("busy ·")
+          ) {
+            toast({
+              title: routed.includes("hold queue") ? "Caller on hold" : "Caller on Busy path",
+              description: "Press 1 texts a booking link · stay on the line waits in Lines.",
+              action: (
+                <ToastAction altText="Open Lines" onClick={() => router.push("/dashboard")}>
+                  Lines
+                </ToastAction>
+              ),
+            })
+          }
           scheduleRingingLookups()
           return
         }

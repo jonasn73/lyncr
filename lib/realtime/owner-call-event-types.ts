@@ -17,6 +17,44 @@ export type OwnerCallInitiatedPayload = {
   routed_to_receptionist_id?: string | null
   /** Display name for the live Dial target (e.g. Alex Jonas). */
   routed_to_name?: string | null
+  /**
+   * Dial-plan reason from Call Control (e.g. busy_automation, day_dial, busy_backup_recv).
+   * When busy_automation / hold path, owner Incoming Call sheet must stay closed.
+   */
+  dial_reason?: string | null
+}
+
+/**
+ * True when the owner dashboard should open the full RINGING / New Intake sheet.
+ * False for Busy→hold, press-1 automation, or teammate Dial (owner is not the ring target).
+ */
+export function shouldOpenOwnerRingingIntake(payload: {
+  routed_to_receptionist_id?: string | null
+  routed_to_name?: string | null
+  dial_reason?: string | null
+}): boolean {
+  // Teammate cell is the Dial target.
+  if (String(payload.routed_to_receptionist_id ?? "").trim()) return false
+  const reason = String(payload.dial_reason ?? "")
+    .trim()
+    .toLowerCase()
+  if (reason === "busy_automation" || reason === "queue_answer") return false
+  const routed = String(payload.routed_to_name ?? "").trim().toLowerCase()
+  if (!routed) return true
+  // Hold / press-1 / busy menu tags — automation owns the caller, not the owner phone.
+  if (routed === "hold queue" || routed.includes("hold menu") || routed.includes("booked from hold")) {
+    return false
+  }
+  if (routed.includes("presence closed") || routed.includes("presence on-job") || routed.includes("presence on job")) {
+    return false
+  }
+  if (routed.includes("sent night link") || routed.includes("sent day link") || routed.includes("sent busy link")) {
+    return false
+  }
+  if (routed.includes("ivr") || routed.includes("voicemail") || routed.includes("ai receptionist")) {
+    return false
+  }
+  return true
 }
 
 /** Fired when an inbound call is bridged / picked up — drives the intake sheet immediately. */

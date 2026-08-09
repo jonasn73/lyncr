@@ -1501,6 +1501,7 @@ async function tryFastInboundReceptionistResponse(
 
         let earlyCallLogId: string | null = null
         if (callSidEarly && routing.user_id) {
+          const isBusyAutomation = dialPlan.reason === "busy_automation"
           try {
             earlyCallLogId = await insertCallLog({
               user_id: routing.user_id,
@@ -1509,7 +1510,7 @@ async function tryFastInboundReceptionistResponse(
               to_number: businessLineE164Early,
               caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
               call_type: "incoming",
-              status: "ringing",
+              status: isBusyAutomation ? "in-progress" : "ringing",
               duration_seconds: 0,
               routed_to_receptionist_id: dialPlan.receptionistId,
               routed_to_name: initialRoutedName,
@@ -1529,6 +1530,7 @@ async function tryFastInboundReceptionistResponse(
             organizationId: lineOrganizationId,
             routedToReceptionistId: dialPlan.receptionistId,
             routedToName: initialRoutedName,
+            dialReason: dialPlan.reason,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
           })
@@ -1672,6 +1674,7 @@ async function tryFastInboundReceptionistResponse(
 
         let earlyCallLogId: string | null = null
         if (callSidEarly && routing.user_id) {
+          const isBusyAutomation = dialPlan.reason === "busy_automation"
           try {
             earlyCallLogId = await insertCallLog({
               user_id: routing.user_id,
@@ -1680,7 +1683,8 @@ async function tryFastInboundReceptionistResponse(
               to_number: businessLineE164Early,
               caller_name: pickField(fields, ["CallerName", "caller_name"]) || null,
               call_type: initialCallType,
-              status: "ringing",
+              // Busy automation must not look like an owner-cell ring (Incoming Call sheet).
+              status: isBusyAutomation ? "in-progress" : "ringing",
               duration_seconds: 0,
               routed_to_receptionist_id: dialPlan.receptionistId,
               routed_to_name: initialRoutedName,
@@ -1717,6 +1721,7 @@ async function tryFastInboundReceptionistResponse(
             organizationId: lineOrganizationId,
             routedToReceptionistId: dialPlan.receptionistId,
             routedToName: initialRoutedName,
+            dialReason: dialPlan.reason,
           }).catch((e) => {
             console.warn("[telnyx-incoming] call-initiated broadcast failed:", e)
           })

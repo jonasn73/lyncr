@@ -113,6 +113,10 @@ export const CAPTURE_STATUS_CALL_WAITING = "Missed - Call Waiting Link"
 export const CAPTURE_STATUS_HOLD_QUEUE = "Hold Queue"
 /** Press 1 from Busy / hold / on-call soft-busy — Activity shows this label. */
 export const CAPTURE_STATUS_HOLD_PRESS1 = "Booked from hold · press 1"
+/** Busy gather (press 1 / stay on line) before enqueue — not an owner ring. */
+export const CAPTURE_STATUS_BUSY_MENU = "Busy · hold menu"
+/** Owner/teammate Answered a waiting caller from Lines hold queue. */
+export const CAPTURE_STATUS_ANSWERED_FROM_QUEUE = "Answered from queue"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
@@ -420,6 +424,28 @@ export function buildHoldQueueGatherXml(
   )
 }
 
+/**
+ * Busy → hold / press-1 path (not a classic miss, not a live owner answer).
+ * Used by Activity pills + Missed-today counters.
+ */
+export function isHoldAutomationStatus(routedToName: string | null | undefined): boolean {
+  const n = String(routedToName ?? "").trim()
+  return (
+    n === CAPTURE_STATUS_HOLD_QUEUE ||
+    n === CAPTURE_STATUS_HOLD_PRESS1 ||
+    n === CAPTURE_STATUS_BUSY_MENU ||
+    /^hold queue$/i.test(n) ||
+    /booked from hold/i.test(n) ||
+    /busy · hold menu/i.test(n)
+  )
+}
+
+/** Live pickup from the Lines hold-queue Answer button. */
+export function isAnsweredFromQueueStatus(routedToName: string | null | undefined): boolean {
+  const n = String(routedToName ?? "").trim()
+  return n === CAPTURE_STATUS_ANSWERED_FROM_QUEUE || /answered from queue/i.test(n)
+}
+
 /** Night/day/calendar SMS + menu labels count as automated (never green Answered). */
 export function isCaptureMissedLinkStatus(routedToName: string | null | undefined): boolean {
   const n = String(routedToName ?? "").trim()
@@ -438,7 +464,8 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_ON_JOB_LINK ||
     n === CAPTURE_STATUS_CALL_WAITING ||
     n === CAPTURE_STATUS_HOLD_QUEUE ||
-    n === CAPTURE_STATUS_HOLD_PRESS1
+    n === CAPTURE_STATUS_HOLD_PRESS1 ||
+    n === CAPTURE_STATUS_BUSY_MENU
   )
 }
 

@@ -10,6 +10,8 @@ import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import type { CallType } from "@/lib/types"
+import { CAPTURE_STATUS_ANSWERED_FROM_QUEUE } from "@/lib/inbound-time-capture"
+import { isHoldAutomationStatus } from "@/lib/inbound-time-capture"
 
 /** Inbound caller leg SID — the row created on call.initiated. */
 export function resolveInboundCallLogSid(event: TelnyxVoiceWebhookEvent): string {
@@ -120,7 +122,13 @@ export async function persistCallControlBridged(
   occurredAtIso: string
 ): Promise<void> {
   const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164).catch(() => null)
-  const routedToName = routing ? resolveRoutedToLabel(routing) : "Owner"
+  // Lines Answer from hold queue — keep a clear Activity label (not plain "Owner").
+  const fromQueue = state.dialReason === "queue_answer"
+  const routedToName = fromQueue
+    ? CAPTURE_STATUS_ANSWERED_FROM_QUEUE
+    : routing
+      ? resolveRoutedToLabel(routing)
+      : "Owner"
   try {
     await notifyOwnerInboundCallAnswered({
       providerCallSid: inboundCallSid,
@@ -131,12 +139,14 @@ export async function persistCallControlBridged(
     await updateCallLog(inboundCallSid, {
       status: "in-progress",
       routed_to_name: routedToName,
+      call_type: "incoming",
     })
     console.log(
       JSON.stringify({
         zing: "telnyx-cc-call-log-bridged",
         inboundCallSid,
         routedToName,
+        fromQueue,
       })
     )
   } catch (e) {
@@ -170,7 +180,12 @@ export async function finalizeCallControlCallLog(
   opts?: { callType?: CallType; hadConversation?: boolean }
 ): Promise<void> {
   const snapshot = await getCallLogSnapshotForTelemetry(inboundCallSid).catch(() => null)
-  const ownerLiveAnswered = Boolean(snapshot?.routed_to_name?.trim())
+  const routedLabel = snapshot?.routed_to_name?.trim() || ""
+  const holdPath = isHoldAutomationStatus(routedLabel)
+  const ownerLiveAnswered =
+    Boolean(routedLabel) &&
+    !holdPath &&
+    !/ivr|voicemail|ai receptionist|busy · hold/i.test(routedLabel)
   const hadConversation =
     opts?.hadConversation ??
     (ownerLiveAnswered || event.clientState?.phase === "recording")
@@ -178,12 +193,19 @@ export async function finalizeCallControlCallLog(
   const status = mapHangupCauseToStatus(event.hangupCause, hadConversation)
   let callType: CallType = opts?.callType ?? "incoming"
   if (!opts?.callType) {
-    if (status === "no-answer" || status === "busy" || status === "canceled") callType = "missed"
+    // Hold / press-1 automation — keep as incoming so Activity can show Hold / Press 1 (not MISSED).
+    if (holdPath || event.clientState?.dialReason === "busy_automation") {
+      callType = "incoming"
+    } else if (status === "no-answer" || status === "busy" || status === "canceled") {
+      callType = "missed"
+    }
     if (event.clientState?.phase === "recording") callType = "voicemail"
     if (status === "completed" && hadConversation) callType = "incoming"
     if (
       (status === "completed" || status === "canceled") &&
       !ownerLiveAnswered &&
+      !holdPath &&
+      event.clientState?.dialReason !== "busy_automation" &&
       event.clientState?.phase !== "recording"
     ) {
       callType = "missed"

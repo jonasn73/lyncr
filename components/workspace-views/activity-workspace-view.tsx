@@ -19,11 +19,17 @@ import { buildTelHref, toE164 } from "@/lib/phone-e164"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { isMissedCallRecord, isMissedCallTodayRecord, isIvrMenuHandler, type MissedCallRecordInput } from "@/lib/missed-call-telemetry"
 import {
+  CAPTURE_STATUS_ANSWERED_FROM_QUEUE,
   CAPTURE_STATUS_BUSY_LINK,
+  CAPTURE_STATUS_BUSY_MENU,
   CAPTURE_STATUS_DAY_LINK,
   CAPTURE_STATUS_EMERGENCY_ANSWERED,
   CAPTURE_STATUS_FULL_DAY_LINK,
+  CAPTURE_STATUS_HOLD_PRESS1,
+  CAPTURE_STATUS_HOLD_QUEUE,
   CAPTURE_STATUS_NIGHT_LINK,
+  isAnsweredFromQueueStatus,
+  isHoldAutomationStatus,
 } from "@/lib/inbound-time-capture"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
@@ -43,6 +49,7 @@ import {
   WorkspaceTd,
   ActivityStatusPill,
   activityRowAccentClass,
+  isHoldActivityStatus,
   isMissedActivityStatus,
   WORKSPACE_TABLE_ROW_CLASS,
   type ActivityCallStatus,
@@ -275,13 +282,25 @@ function missedRecordFromUiCall(call: UiCallRecord): MissedCallRecordInput {
 function classifyCall(call: UiCallRecord): ActivityCallStatus {
   const routed = call.routedTo ?? ""
   if (routed === CAPTURE_STATUS_EMERGENCY_ANSWERED) return "emergency"
+  if (isAnsweredFromQueueStatus(routed) || routed === CAPTURE_STATUS_ANSWERED_FROM_QUEUE) {
+    return "answered_from_queue"
+  }
+  if (routed === CAPTURE_STATUS_HOLD_PRESS1 || /booked from hold/i.test(routed)) {
+    return "hold_press1"
+  }
+  if (routed === CAPTURE_STATUS_HOLD_QUEUE || /^hold queue$/i.test(routed)) {
+    return "hold_queue"
+  }
+  if (routed === CAPTURE_STATUS_BUSY_MENU || /busy · hold menu/i.test(routed)) {
+    return "busy_menu"
+  }
   if (routed === CAPTURE_STATUS_NIGHT_LINK) return "night_link"
   if (routed === CAPTURE_STATUS_DAY_LINK) return "day_link"
   if (routed === CAPTURE_STATUS_FULL_DAY_LINK) return "day_off_link"
   if (routed === CAPTURE_STATUS_BUSY_LINK) return "busy_link"
   if (call.type === "voicemail" || /voicemail/i.test(routed)) return "voicemail"
   // IVR / keypad — amber Missed (IVR), never green Answered.
-  if (isIvrMenuHandler(routed)) return "missed_ivr"
+  if (isIvrMenuHandler(routed) && !isHoldAutomationStatus(routed)) return "missed_ivr"
   if (/ai receptionist|voice ai|assistant/i.test(routed)) return "ai_handled"
   // Your Phone / human answer — requires answered_at (or shared missed rules say not missed).
   if (!isMissedCallRecord(missedRecordFromUiCall(call)) && Boolean(call.answeredAt)) {
@@ -294,7 +313,7 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
   return "missed"
 }
 
-type ActivityCallFilter = "all" | "missed"
+type ActivityCallFilter = "all" | "missed" | "hold" | "press1"
 
 function isMissedActivityCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
@@ -309,6 +328,17 @@ function isMissedActivityCall(call: UiCallRecord): boolean {
     status === "day_off_link" ||
     status === "busy_link"
   )
+}
+
+function isHoldFilterCall(call: UiCallRecord): boolean {
+  if (call.type === "outgoing") return false
+  const st = classifyCall(call)
+  return st === "hold_queue" || st === "busy_menu" || st === "answered_from_queue"
+}
+
+function isPress1FilterCall(call: UiCallRecord): boolean {
+  if (call.type === "outgoing") return false
+  return classifyCall(call) === "hold_press1"
 }
 
 /** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */
@@ -460,15 +490,21 @@ function CallBackButton({
 function ActivityCallFilterBar({
   filter,
   missedCount,
+  holdCount,
+  press1Count,
   onChange,
 }: {
   filter: ActivityCallFilter
   missedCount: number
+  holdCount: number
+  press1Count: number
   onChange: (next: ActivityCallFilter) => void
 }) {
   const chips: { id: ActivityCallFilter; label: string; badge?: number }[] = [
     { id: "all", label: "All activity" },
     { id: "missed", label: "Missed today", badge: missedCount },
+    { id: "hold", label: "Hold", badge: holdCount },
+    { id: "press1", label: "Press 1", badge: press1Count },
   ]
 
   return (
@@ -491,7 +527,9 @@ function ActivityCallFilterBar({
               active
                 ? chip.id === "missed"
                   ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
-                  : "border-primary/40 bg-primary/15 text-primary"
+                  : chip.id === "hold" || chip.id === "press1"
+                    ? "border-amber-500/35 bg-amber-500/12 text-amber-100"
+                    : "border-primary/40 bg-primary/15 text-primary"
                 : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-zinc-600 hover:bg-slate-800 hover:text-zinc-100"
             )}
           >
@@ -514,6 +552,39 @@ function ActivityCallFilterBar({
   )
 }
 
+/** Short actions timeline for expanded Activity rows (hold / press-1 / answer). */
+function buildCallActionsTimeline(call: UiCallRecord): string[] {
+  const st = classifyCall(call)
+  const lines: string[] = []
+  if (st === "busy_menu") {
+    lines.push("Entered Busy menu (press 1 or stay on the line)")
+  }
+  if (st === "hold_queue" || st === "answered_from_queue") {
+    lines.push("Entered hold queue")
+  }
+  if (st === "hold_press1") {
+    lines.push("Press 1 · booking text sent")
+  }
+  if (st === "answered_from_queue") {
+    lines.push("Answered from queue")
+  }
+  if (st === "answered" || st === "emergency") {
+    const who = (call.routedTo || "").trim()
+    lines.push(who ? `Answered by ${who}` : "Answered")
+  }
+  const action = call.activity?.intakeAction
+  if (action && action !== "No intake recorded" && action !== "Pending time") {
+    lines.push(action)
+  }
+  if (call.activity?.intakeDetail) {
+    lines.push(call.activity.intakeDetail)
+  }
+  if (lines.length === 0 && isMissedActivityStatus(st)) {
+    lines.push("No answer · no hold / press-1 handling")
+  }
+  return lines
+}
+
 type CallAgent = { label: string; kind: "operator" | "ai" | "owner" | "none" }
 
 /** Resolve who handled the call traffic for the Agent badge. */
@@ -521,6 +592,9 @@ function resolveCallAgent(call: UiCallRecord): CallAgent {
   const st = classifyCall(call)
   const routed = (call.routedTo ?? "").trim()
   if (st === "voicemail") return { label: "Voicemail", kind: "none" }
+  if (st === "hold_press1") return { label: "Press 1 SMS", kind: "none" }
+  if (st === "hold_queue" || st === "busy_menu") return { label: "Hold queue", kind: "none" }
+  if (st === "answered_from_queue") return { label: "You (from queue)", kind: "owner" }
   if (st === "missed") return { label: "Unanswered", kind: "none" }
   if (st === "ai_handled" || /ai receptionist|voice ai|assistant/i.test(routed)) {
     return { label: "Lyncr AI", kind: "ai" }
@@ -578,9 +652,22 @@ function AgentBadge({
 
 /** Plain-language recap of who handled the call and what was captured. */
 function buildCallSummary(call: UiCallRecord): string {
-  const agent = resolveCallAgent(call)
+  const st = classifyCall(call)
   const dur = formatDuration(call.durationSeconds)
   const caller = `${call.callerName} (${call.callerNumber})`
+  if (st === "hold_press1") {
+    return `${caller} chose Press 1 while you were Busy — a booking text was sent. Duration ${dur}.`
+  }
+  if (st === "hold_queue") {
+    return `${caller} waited in the hold queue (${dur}) and left before someone Answered from Lines.`
+  }
+  if (st === "busy_menu") {
+    return `${caller} reached your Busy menu (${dur}) and hung up before press 1 or hold.`
+  }
+  if (st === "answered_from_queue") {
+    return `${caller} was Answered from the hold queue. The conversation lasted ${dur}.`
+  }
+  const agent = resolveCallAgent(call)
   if (agent.kind === "none") {
     return call.type === "voicemail"
       ? `${caller} reached your line and left a voicemail. No live operator picked up — follow up to recover this lead.`
@@ -948,6 +1035,11 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
           call.activity?.intakeAction === "No intake recorded"
             ? "No intake"
             : call.activity?.intakeAction || null
+        // Don't show “Pending time” on hold/missed rows when it came from another lead on this phone.
+        const showIntakeShort =
+          intakeShort &&
+          intakeShort !== "No intake" &&
+          !(intakeShort === "Pending time" && (isMissedActivityStatus(st) || isHoldActivityStatus(st)))
         return (
           <li
             key={call.id}
@@ -977,7 +1069,11 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     <span
                       className={cn(
                         "truncate font-medium",
-                        missed ? "text-rose-300/90" : "text-cyan-400/90"
+                        missed
+                          ? "text-rose-300/90"
+                          : isHoldActivityStatus(st)
+                            ? "text-amber-300/90"
+                            : "text-cyan-400/90"
                       )}
                     >
                       {call.callerNumber}
@@ -986,7 +1082,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     <span className="shrink-0 tabular-nums text-zinc-500">
                       {formatDuration(call.durationSeconds)}
                     </span>
-                    {intakeShort && intakeShort !== "No intake" ? (
+                    {showIntakeShort ? (
                       <>
                         <span className="shrink-0 text-zinc-600">·</span>
                         <span className="truncate text-zinc-500">{intakeShort}</span>
@@ -1066,6 +1162,20 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     call={call}
                   />
                 ) : null}
+                {(() => {
+                  const timeline = buildCallActionsTimeline(call)
+                  if (timeline.length === 0) return null
+                  return (
+                    <ul className="space-y-0.5 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-2">
+                      {timeline.map((line, i) => (
+                        <li key={`${call.id}-act-${i}`} className="flex gap-2 text-[11px] text-zinc-400">
+                          <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                })()}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {call.count > 1 ? (
@@ -1339,11 +1449,23 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     () => scopedCalls.filter((c) => isMissedActivityCallToday(c)).length,
     [scopedCalls]
   )
+  const holdCount = useMemo(
+    () => scopedCalls.filter((c) => isHoldFilterCall(c)).length,
+    [scopedCalls]
+  )
+  const press1Count = useMemo(
+    () => scopedCalls.filter((c) => isPress1FilterCall(c)).length,
+    [scopedCalls]
+  )
 
   const rows = useMemo(() => {
     let list = scopedCalls
     if (filter === "missed") {
       list = list.filter((c) => isMissedActivityCallToday(c))
+    } else if (filter === "hold") {
+      list = list.filter((c) => isHoldFilterCall(c))
+    } else if (filter === "press1") {
+      list = list.filter((c) => isPress1FilterCall(c))
     }
     const sorted = [...list].sort((a, b) => {
       const aTs = a.createdAt || `${a.date} ${a.time}`
@@ -1358,7 +1480,15 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     <WorkspacePage>
       <WorkspacePageHeader
         eyebrow="Call history"
-        title={filter === "missed" ? "Missed calls today" : "Activities"}
+        title={
+          filter === "missed"
+            ? "Missed calls today"
+            : filter === "hold"
+              ? "Hold queue"
+              : filter === "press1"
+                ? "Press 1 bookings"
+                : "Activities"
+        }
       />
       {/* Desktop-only shortcuts — kept out of the header so mobile never gets a status row under the title. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex">
@@ -1378,7 +1508,13 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       </div>
 
       {/* Call activity only — assign / pins live on Map + Scheduler. */}
-      <ActivityCallFilterBar filter={filter} missedCount={missedCount} onChange={onFilterChange} />
+      <ActivityCallFilterBar
+        filter={filter}
+        missedCount={missedCount}
+        holdCount={holdCount}
+        press1Count={press1Count}
+        onChange={onFilterChange}
+      />
       {filter === "missed" && rows.length === 0 && !loading ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
           <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
@@ -1431,6 +1567,8 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
   const [filter, setFilter] = useState<ActivityCallFilter>(() => {
     const param = searchParams.get("filter")
     if (param === "missed" || param === "missed_leads") return "missed"
+    if (param === "hold") return "hold"
+    if (param === "press1") return "press1"
     return "all"
   })
   useBookingAlerts(pollEnabled)
@@ -1438,6 +1576,8 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
   useEffect(() => {
     const param = searchParams.get("filter")
     if (param === "missed" || param === "missed_leads") setFilter("missed")
+    else if (param === "hold") setFilter("hold")
+    else if (param === "press1") setFilter("press1")
     else if (param === "all") setFilter("all")
   }, [searchParams])
 

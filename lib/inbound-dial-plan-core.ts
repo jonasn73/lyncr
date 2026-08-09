@@ -2,6 +2,7 @@
 // Call Control + TeXML load teammates via resolveInboundDialPlan in inbound-dial-plan.ts.
 
 import { toE164 } from "@/lib/phone-e164"
+import { CAPTURE_STATUS_BUSY_MENU } from "@/lib/inbound-time-capture"
 
 /** Why the planner chose this hop (mirrors Call Control dialReason). */
 export type InboundDialReason =
@@ -102,14 +103,6 @@ function isReasonablePstn(e164: string): boolean {
   return d.length >= 10 && d.length <= 15
 }
 
-function captureRoutedName(kind: InboundCaptureKind): string {
-  if (kind === "presence_closed") return "Presence Closed"
-  if (kind === "presence_on_job") return "Presence On-Job"
-  if (kind === "calendar_full_day") return "Calendar Day Off"
-  if (kind === "calendar_partial") return "Calendar Busy"
-  return "Owner"
-}
-
 function normalizeDialPhone(raw: string | null | undefined, failsafe: string): string {
   const trimmed = (raw || "").trim()
   if (!trimmed) return failsafe
@@ -124,10 +117,13 @@ function normalizeDialPhone(raw: string | null | undefined, failsafe: string): s
 }
 
 function ivrHop(captureKind: InboundCaptureKind): InboundDialHop {
+  // Always tag Busy automation as the hold-menu path so Activity / intake
+  // never treat it like an owner-cell ring ("Owner" / ringing sheet).
+  void captureKind
   return {
     type: "ivr",
     phoneE164: null,
-    name: captureRoutedName(captureKind),
+    name: CAPTURE_STATUS_BUSY_MENU,
     receptionistId: null,
     reason: "busy_automation",
   }

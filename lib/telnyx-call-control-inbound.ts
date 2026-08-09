@@ -609,15 +609,18 @@ async function handleCallInitiated(
     )
 
     // Fire-and-forget call log — never block Answer / dial-plan updates.
+    // Busy automation: never mark as "ringing" (that opens owner Incoming Call / New Intake).
     if (routing.user_id && routing.user_id !== "00000000-0000-0000-0000-000000000000") {
+      const isBusyAutomation = dialPlan.reason === "busy_automation"
+      const ownerUserId = routing.user_id
       void insertCallLog({
-        user_id: routing.user_id,
+        user_id: ownerUserId,
         provider_call_sid: callControlId,
         from_number: callerE164,
         to_number: businessLineE164,
         caller_name: null,
         call_type: "incoming",
-        status: "ringing",
+        status: isBusyAutomation ? "in-progress" : "ringing",
         duration_seconds: 0,
         routed_to_receptionist_id: dialPlan.receptionistId,
         routed_to_name: dialPlan.routedToName,
@@ -625,8 +628,26 @@ async function handleCallInitiated(
         recording_url: null,
         recording_duration_seconds: null,
       })
-        .then(() => {
+        .then(async (callLogId) => {
           console.log(JSON.stringify({ zing: "telnyx-cc-initiated-call-log-ok", callControlId }))
+          // Still notify the dashboard (toast / Lines) — client suppresses the RINGING sheet.
+          if (isBusyAutomation) {
+            try {
+              const { broadcastCallInitiated } = await import("@/lib/call-telemetry-realtime")
+              await broadcastCallInitiated({
+                ownerUserId,
+                callSid: callControlId,
+                callLogId,
+                fromNumber: callerE164,
+                toNumber: businessLineE164,
+                routedToReceptionistId: dialPlan.receptionistId,
+                routedToName: dialPlan.routedToName,
+                dialReason: "busy_automation",
+              })
+            } catch (e) {
+              console.warn("[telnyx-cc] busy call-initiated broadcast failed:", e)
+            }
+          }
         })
         .catch((e) => console.error("[telnyx-cc] call log insert failed:", e))
     } else {

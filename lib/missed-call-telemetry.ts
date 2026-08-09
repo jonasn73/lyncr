@@ -2,8 +2,10 @@
 
 import { isLocalCalendarToday } from "@/lib/daily-call-telemetry"
 import {
+  isAnsweredFromQueueStatus,
   isCaptureEmergencyAnswered,
   isCaptureMissedLinkStatus,
+  isHoldAutomationStatus,
 } from "@/lib/inbound-time-capture"
 
 export {
@@ -187,6 +189,14 @@ export function isMissedCallRecord(input: MissedCallRecordInput): boolean {
   // Lyncr / carrier voicemail is never a human pickup — even if a cell-VM leg stamped answered_at.
   if (type === "voicemail") return true
 
+  // Busy → hold / press-1 handled the caller — not a classic "rang someone, no answer" miss.
+  if (isHoldAutomationStatus(input.routed_to_name)) return false
+
+  // Answered from Lines hold queue is a live pickup.
+  if (isAnsweredFromQueueStatus(input.routed_to_name) && input.answered_at?.trim()) {
+    return false
+  }
+
   // Explicit missed without a proven live bridge — always missed (check before
   // ownerLiveAnswered so ring duration + a UI "Owner" default cannot override).
   if (type === "missed" && !input.answered_at?.trim()) {
@@ -241,5 +251,9 @@ export function formatCaptureRoutedStatus(routedToName: string | null | undefine
   if (n === "Missed - Sent Closed Link") return n
   if (n === "Missed - Sent On-Job Link") return n
   if (n === "Emergency Answered") return n
+  if (n === "Hold Queue") return "On hold / Hold queue"
+  if (n === "Busy · hold menu") return "Busy · hold menu"
+  if (n === "Booked from hold · press 1") return "Press 1 · booking text sent"
+  if (n === "Answered from queue") return "Answered from queue"
   return null
 }
