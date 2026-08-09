@@ -15,33 +15,67 @@ export const IVR_BYPASS_DIAL_E164 = TELNYX_MENU_DEFAULT_RING_E164
 export const DEFAULT_ON_JOB_GREETING_TEXT = TELNYX_MENU_ON_JOB_PROMPT
 export const DEFAULT_CLOSED_GREETING_TEXT = TELNYX_MENU_CLOSED_PROMPT
 
-/** Dashboard "AI Voice Persona" options → stored engine model ids. */
+/**
+ * Dashboard "AI Voice Persona" options → stored engine model ids.
+ * Labels are human (“Calm woman”) — Call Control Speak uses NaturalHD / AWS Polly Neural.
+ * Note: `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy ZING_*) overrides the persona for all Speak.
+ */
 export const IVR_VOICE_PERSONA_OPTIONS = [
   {
     id: "en-US-Standard-C",
-    label: "Reassuring Female",
-    description: "Calm, clear female tone (default).",
-    /** TeXML `<Say voice>` (Twilio-style Polly id). */
+    label: "Calm woman",
+    description: "NaturalHD Astra — calm, clear default.",
     texmlVoice: "Polly.Joanna-Neural",
-    /**
-     * Call Control Speak `voice` — NaturalHD when available (less robotic than basic TTS).
-     * Override globally with `LYNCR_CALL_CONTROL_SPEAK_VOICE`.
-     */
     callControlVoice: "Telnyx.NaturalHD.astra",
   },
   {
+    id: "en-US-NaturalHD-Abbie",
+    label: "Warm woman",
+    description: "NaturalHD Abbie — warm, conversational.",
+    texmlVoice: "Polly.Salli-Neural",
+    callControlVoice: "Telnyx.NaturalHD.abbie",
+  },
+  {
+    id: "en-US-Polly-Joanna",
+    label: "Soft woman (Joanna)",
+    description: "AWS Polly Neural Joanna — soft and steady.",
+    texmlVoice: "Polly.Joanna-Neural",
+    callControlVoice: "AWS.Polly.Joanna-Neural",
+  },
+  {
+    id: "en-US-Standard-E",
+    label: "Friendly woman",
+    description: "AWS Polly Neural Salli — bright and approachable.",
+    texmlVoice: "Polly.Salli-Neural",
+    callControlVoice: "AWS.Polly.Salli-Neural",
+  },
+  {
+    id: "en-US-Polly-Ruth",
+    label: "Gentle woman (Ruth)",
+    description: "AWS Polly Neural Ruth — gentle, unhurried.",
+    texmlVoice: "Polly.Ruth-Neural",
+    callControlVoice: "AWS.Polly.Ruth-Neural",
+  },
+  {
     id: "en-US-Standard-B",
-    label: "Professional Male",
-    description: "Steady male tone for business callers.",
+    label: "Warm man",
+    description: "AWS Polly Neural Matthew — steady business tone.",
     texmlVoice: "Polly.Matthew-Neural",
     callControlVoice: "AWS.Polly.Matthew-Neural",
   },
   {
-    id: "en-US-Standard-E",
-    label: "Friendly",
-    description: "Warm, approachable female tone.",
-    texmlVoice: "Polly.Salli-Neural",
-    callControlVoice: "AWS.Polly.Salli-Neural",
+    id: "en-US-NaturalHD-Aiden",
+    label: "Calm man",
+    description: "NaturalHD Aiden — calm male receptionist.",
+    texmlVoice: "Polly.Stephen-Neural",
+    callControlVoice: "Telnyx.NaturalHD.aiden",
+  },
+  {
+    id: "en-US-Polly-Stephen",
+    label: "Clear man (Stephen)",
+    description: "AWS Polly Neural Stephen — clear and natural.",
+    texmlVoice: "Polly.Stephen-Neural",
+    callControlVoice: "AWS.Polly.Stephen-Neural",
   },
 ] as const
 

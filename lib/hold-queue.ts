@@ -70,28 +70,66 @@ function absoluteHoldMusicUrl(raw: string): string | null {
 }
 
 /**
- * Public HTTPS URL for hold music (MP3/WAV).
- * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm default.
+ * Last-resort public royalty-free sample (Internet Archive) if lyncr.app assets are unreachable.
+ * Prefer bundled /audio/hold-*.mp3 — this is only used when resolveHoldMusicUrlCandidates() is empty.
+ */
+export const HOLD_MUSIC_PUBLIC_FALLBACK_URL =
+  "https://archive.org/download/testmp3testfile/mpthreetest.mp3"
+
+/** Bundled Calm loop path — MP3 is more reliable on Telnyx PSTN than WAV. */
+export const HOLD_MUSIC_DEFAULT_PATH = "/audio/hold-calm.mp3"
+
+/**
+ * Public HTTPS URL for hold music (MP3 preferred).
+ * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm MP3.
  */
 export function resolveHoldMusicUrl(accountOverride?: string | null): string | null {
-  if (typeof accountOverride === "string" && accountOverride.trim()) {
-    const fromAccount = absoluteHoldMusicUrl(accountOverride)
-    if (fromAccount) return fromAccount
+  const candidates = resolveHoldMusicUrlCandidates(accountOverride)
+  return candidates[0] ?? null
+}
+
+/**
+ * Ordered list of music URLs to try (preset/custom → wav twin → public fallback).
+ * Callers should attempt playback in order until Telnyx accepts one.
+ */
+export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): string[] {
+  const out: string[] = []
+  const push = (url: string | null | undefined) => {
+    const u = typeof url === "string" ? url.trim() : ""
+    if (u && !out.includes(u)) out.push(u)
   }
+
+  if (typeof accountOverride === "string" && accountOverride.trim()) {
+    push(absoluteHoldMusicUrl(accountOverride))
+    // If account stored .wav, also try the sibling .mp3 (and vice versa).
+    const abs = absoluteHoldMusicUrl(accountOverride)
+    if (abs?.endsWith(".wav")) push(abs.replace(/\.wav$/i, ".mp3"))
+    if (abs?.endsWith(".mp3")) push(abs.replace(/\.mp3$/i, ".wav"))
+  }
+
   const fromEnv = envLyncrOrZing("HOLD_MUSIC_URL")
   if (fromEnv) {
-    const envUrl = absoluteHoldMusicUrl(fromEnv)
-    if (envUrl) return envUrl
+    push(absoluteHoldMusicUrl(fromEnv))
+    const envAbs = absoluteHoldMusicUrl(fromEnv)
+    if (envAbs?.endsWith(".wav")) push(envAbs.replace(/\.wav$/i, ".mp3"))
+    if (envAbs?.endsWith(".mp3")) push(envAbs.replace(/\.mp3$/i, ".wav"))
   }
-  // Bundled royalty-free Calm loop — Busy stay-on-the-line is never silent when the app is hosted.
+
+  // Bundled Calm MP3 (default) + WAV twin for older caches.
   try {
     const base = getAppUrl().replace(/\/$/, "")
-    // Prefer hold-calm.wav (Calm preset); hold-music.wav is the same loop kept for legacy URLs.
-    if (base) return `${base}/audio/hold-calm.wav`
+    if (base) {
+      push(`${base}${HOLD_MUSIC_DEFAULT_PATH}`)
+      push(`${base}/audio/hold-calm.wav`)
+      push(`${base}/audio/hold-music.mp3`)
+      push(`${base}/audio/hold-music.wav`)
+    }
   } catch {
     /* getAppUrl may throw in unit tests without NEXT_PUBLIC_APP_URL */
   }
-  return null
+
+  push(HOLD_MUSIC_PUBLIC_FALLBACK_URL)
+  return out
 }
 
 /** Short re-prompt while already on hold (press 1 anytime). */

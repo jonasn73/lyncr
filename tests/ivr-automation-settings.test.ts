@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   digitsMatchIvrBypass,
   isHolidayOverrideActive,
+  IVR_VOICE_PERSONA_OPTIONS,
   normalizeIvrBypassCode,
   resolveAutomationGatherNumDigits,
   resolveHolidayGreetingText,
@@ -20,9 +21,21 @@ describe("ivr automation settings", () => {
 
   it("maps voice personas to Call Control Speak voices", () => {
     expect(resolveIvrCallControlVoice("en-US-Standard-C")).toBe("Telnyx.NaturalHD.astra")
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Abbie")).toBe("Telnyx.NaturalHD.abbie")
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Aiden")).toBe("Telnyx.NaturalHD.aiden")
     expect(resolveIvrCallControlVoice("en-US-Standard-B")).toBe("AWS.Polly.Matthew-Neural")
     expect(resolveIvrCallControlVoice("en-US-Standard-E")).toBe("AWS.Polly.Salli-Neural")
+    expect(resolveIvrCallControlVoice("en-US-Polly-Joanna")).toBe("AWS.Polly.Joanna-Neural")
+    expect(resolveIvrCallControlVoice("en-US-Polly-Ruth")).toBe("AWS.Polly.Ruth-Neural")
+    expect(resolveIvrCallControlVoice("en-US-Polly-Stephen")).toBe("AWS.Polly.Stephen-Neural")
     expect(resolveIvrCallControlVoice("Polly.Joanna-Neural")).toBe("AWS.Polly.Joanna-Neural")
+  })
+
+  it("exposes several calm natural persona labels", () => {
+    expect(IVR_VOICE_PERSONA_OPTIONS.length).toBeGreaterThanOrEqual(6)
+    expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label)).toEqual(
+      expect.arrayContaining(["Calm woman", "Warm woman", "Warm man", "Calm man"])
+    )
   })
 
   it("normalizes bypass codes and match digits", () => {

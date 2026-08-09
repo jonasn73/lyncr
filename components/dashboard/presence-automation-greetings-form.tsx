@@ -236,7 +236,9 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               </select>
               <p className="text-[10px] text-zinc-600">
                 {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
-                  "Tone callers hear on automation Speak."}
+                  "Tone callers hear on automation Speak."}{" "}
+                If Vercel has <span className="font-mono">LYNCR_CALL_CONTROL_SPEAK_VOICE</span> set,
+                that env voice wins over this dropdown.
               </p>
             </div>
 

@@ -296,7 +296,7 @@ export async function telnyxCallControlHold(callControlId: string): Promise<Teln
   return postCallAction(callControlId, "hold", {})
 }
 
-/** Start hold music (or any public audio URL). Prefer finite clips so playback.ended drives re-prompt. */
+/** Start hold music (or any public audio URL). Prefer MP3; set audio_type when known. */
 export async function telnyxCallControlPlaybackStart(
   callControlId: string,
   opts: {
@@ -309,7 +309,11 @@ export async function telnyxCallControlPlaybackStart(
   const body: Record<string, unknown> = {
     audio_url: opts.audioUrl,
     client_state: opts.clientState,
+    // Helps Telnyx decode correctly when Content-Type is ambiguous.
+    cache_audio: true,
   }
+  if (/\.mp3(\?|$)/i.test(opts.audioUrl)) body.audio_type = "mp3"
+  else if (/\.wav(\?|$)/i.test(opts.audioUrl)) body.audio_type = "wav"
   if (opts.loop !== undefined) body.loop = opts.loop
   return postCallAction(callControlId, "playback_start", body)
 }

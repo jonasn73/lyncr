@@ -1014,6 +1014,22 @@ async function handleGatherEnded(
     })
   )
 
+  // Caller hung up during Busy menu — do NOT enter hold / play music on a dead call.
+  // Production logs showed call_hangup → enqueue/playback 422 "no longer active" → silent spam.
+  if (
+    gatherStatus === "call_hangup" ||
+    gatherStatus === "cancelled" ||
+    gatherStatus === "call_hangup_bye"
+  ) {
+    console.log(
+      lyncrLog("telnyx-cc-busy-gather-caller-left", {
+        callControlId: event.callControlId,
+        gatherStatus,
+      })
+    )
+    return
+  }
+
   let routing = await resolveCallControlRouting(state.businessLineE164)
   if (!routing) {
     routing = buildFailsafeRouting({
@@ -1358,7 +1374,14 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       await handleGatherEnded(event)
       break
     case "call.enqueued":
-      // Hold music starts here after enqueue (avoids gather/playback race during queue transition).
+      // Recovery: restart music if enqueue cleared media. Primary start is in enterBusyHoldQueue.
+      console.log(
+        lyncrLog("telnyx-cc-event-enqueued", {
+          callControlId: event.callControlId,
+          hasClientState: Boolean(event.clientState),
+          phase: event.clientState?.phase ?? null,
+        })
+      )
       if (event.clientState) {
         await handleCallEnqueuedHoldMusic(event.callControlId, event.clientState)
       }

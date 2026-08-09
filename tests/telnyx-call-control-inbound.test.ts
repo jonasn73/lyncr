@@ -850,48 +850,26 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
     const enqueueCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/enqueue"))
     expect(enqueueCall).toBeTruthy()
-    // Music starts on call.enqueued (not immediately after enqueue) to avoid a silent race.
-    const musicBeforeEnqueued = fetchMock.mock.calls.find(
+    // Music starts immediately after enqueue (call.enqueued is only a recovery restart).
+    const musicAfterEnter = fetchMock.mock.calls.find(
       (c) =>
         String(c[0]).includes("/actions/playback_start") ||
         String(c[0]).includes("/actions/gather_using_audio")
     )
-    expect(musicBeforeEnqueued).toBeFalsy()
+    expect(musicAfterEnter).toBeTruthy()
     const smsHangup = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
     expect(smsHangup).toBeFalsy()
 
-    // Simulate Telnyx call.enqueued → looping playback + digit gather.
-    const holdState = encodeTelnyxCallControlState({
-      v: 1,
-      phase: "await_busy_hold_loop",
-      userId: "u1",
-      businessLineE164: "+15025571219",
-      callerE164: "+15025369252",
-      dialReason: "busy_automation",
-      holdQueueName: "lyncr-u1",
-      holdSegment: "music",
-      holdStartedAtMs: Date.now(),
-    })
-    await handleTelnyxCallControlVoiceWebhook({
-      data: {
-        event_type: "call.enqueued",
-        id: "evt-enqueued",
-        payload: {
-          call_control_id: "cc-gather-to",
-          from: "+15025369252",
-          to: "+15025571219",
-          queue: "lyncr-u1",
-          client_state: holdState,
-        },
-      },
-    })
-    const playback = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/playback_start"))
-    expect(playback).toBeTruthy()
-    const gather = fetchMock.mock.calls.find(
+    const playbackOrAudio = fetchMock.mock.calls.find(
       (c) =>
-        String(c[0]).includes("/actions/gather") &&
-        !String(c[0]).includes("gather_using")
+        String(c[0]).includes("/actions/playback_start") ||
+        String(c[0]).includes("/actions/gather_using_audio")
     )
-    expect(gather).toBeTruthy()
+    expect(playbackOrAudio).toBeTruthy()
+    // Prefer gather_using_audio (plays clip + collects Press 1).
+    const audioGather = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_audio")
+    )
+    expect(audioGather).toBeTruthy()
   })
 })

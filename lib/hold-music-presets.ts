@@ -25,19 +25,20 @@ export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
     id: "calm",
     label: "Calm",
     description: "Soft ambient pad — easy to talk over.",
-    path: "/audio/hold-calm.wav",
+    // MP3 is more reliable on Telnyx Call Control / PSTN than WAV.
+    path: "/audio/hold-calm.mp3",
   },
   {
     id: "upbeat",
     label: "Upbeat",
     description: "Brighter pulse so callers know the line is live.",
-    path: "/audio/hold-upbeat.wav",
+    path: "/audio/hold-upbeat.mp3",
   },
   {
     id: "minimal",
     label: "Minimal",
     description: "Sparse soft tones with quiet gaps.",
-    path: "/audio/hold-minimal.wav",
+    path: "/audio/hold-minimal.mp3",
   },
 ]
 
@@ -50,7 +51,12 @@ export function matchHoldMusicPreset(
   const lower = raw.toLowerCase()
   for (const p of HOLD_MUSIC_PRESETS) {
     const file = p.path.split("/").pop()
-    if (lower.includes(p.path.toLowerCase()) || (file && lower.endsWith(file))) {
+    const stem = file?.replace(/\.(mp3|wav)$/i, "")
+    if (
+      lower.includes(p.path.toLowerCase()) ||
+      (file && lower.endsWith(file)) ||
+      (stem && (lower.includes(`/audio/${stem}.mp3`) || lower.includes(`/audio/${stem}.wav`)))
+    ) {
       return p.id
     }
   }
