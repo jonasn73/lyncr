@@ -111,6 +111,8 @@ export const CAPTURE_STATUS_PRESENCE_ON_JOB = "Presence On-Job"
 export const CAPTURE_STATUS_ON_JOB_LINK = "Missed - Sent On-Job Link"
 export const CAPTURE_STATUS_CALL_WAITING = "Missed - Call Waiting Link"
 export const CAPTURE_STATUS_HOLD_QUEUE = "Hold Queue"
+/** Press 1 from Busy / hold / on-call soft-busy — Activity shows this label. */
+export const CAPTURE_STATUS_HOLD_PRESS1 = "Booked from hold · press 1"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
@@ -435,7 +437,8 @@ export function isCaptureMissedLinkStatus(routedToName: string | null | undefine
     n === CAPTURE_STATUS_PRESENCE_ON_JOB ||
     n === CAPTURE_STATUS_ON_JOB_LINK ||
     n === CAPTURE_STATUS_CALL_WAITING ||
-    n === CAPTURE_STATUS_HOLD_QUEUE
+    n === CAPTURE_STATUS_HOLD_QUEUE ||
+    n === CAPTURE_STATUS_HOLD_PRESS1
   )
 }
 

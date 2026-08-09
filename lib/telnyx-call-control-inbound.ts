@@ -50,7 +50,7 @@ import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
 import {
   CAPTURE_DEFAULT_RING_E164,
-  CAPTURE_STATUS_ON_JOB_LINK,
+  CAPTURE_STATUS_HOLD_PRESS1,
   resolveInboundCapturePlan,
   TIED_UP_BOOKING_PROMPT,
 } from "@/lib/inbound-time-capture"
@@ -60,7 +60,7 @@ import {
   getAccountPresence,
   resolvePresenceAutomationGreeting,
 } from "@/lib/account-presence"
-import { digitsMatchIvrBypass, resolveAutomationGatherNumDigits } from "@/lib/ivr-automation-settings"
+import { digitsMatchIvrBypass, resolveAutomationGatherNumDigits, resolveHolidayGreetingText } from "@/lib/ivr-automation-settings"
 import {
   getActivePhoneNumberByE164,
   getIncomingRoutingForVoiceWebhook,
@@ -210,7 +210,8 @@ function toCallControlDialFields(plan: InboundDialPlanResult): {
 /** Shared planner wrapper — same rules as TeXML `/incoming`. */
 async function resolveCallControlInboundDialPlan(
   routing: IncomingRoutingRow,
-  businessLineE164: string
+  businessLineE164: string,
+  excludeCallControlId?: string | null
 ): Promise<ReturnType<typeof toCallControlDialFields>> {
   const plan = await resolveInboundDialPlan({
     userId: routing.user_id,
@@ -220,6 +221,7 @@ async function resolveCallControlInboundDialPlan(
     legacyReceptionistId: routing.selected_receptionist_id,
     legacyReceptionistPhone: routing.receptionist_phone,
     legacyReceptionistName: routing.receptionist_name,
+    excludeCallControlId,
   })
   return toCallControlDialFields(plan)
 }
@@ -227,6 +229,7 @@ async function resolveCallControlInboundDialPlan(
 /**
  * Busy / miss → Gather menu (parity with TeXML capture).
  * Press 1 → booking SMS. Timeout / stay on line → hold queue (music + Lines Answer).
+ * After-hours (CLOSED) / holiday → same Gather, but timeout goes straight to SMS (no long hold).
  * Press 2 / bypass → dial owner cell.
  */
 async function startBusyAutomationFlow(
@@ -239,15 +242,23 @@ async function startBusyAutomationFlow(
   let maxDigits = 1
   try {
     const presence = await getAccountPresence(routing.user_id)
-    say = resolvePresenceAutomationGreeting({
-      presenceStatus: presence.presenceStatus,
-      onJobGreetingText: presence.onJobGreetingText,
-      closedGreetingText: presence.closedGreetingText,
+    // Holiday window wins when active (TeXML parity).
+    const holidaySay = resolveHolidayGreetingText({
+      holidayOverrideStart: presence.holidayOverrideStart,
+      holidayOverrideEnd: presence.holidayOverrideEnd,
+      holidayGreetingText: presence.holidayGreetingText,
     })
+    say =
+      holidaySay ||
+      resolvePresenceAutomationGreeting({
+        presenceStatus: presence.presenceStatus,
+        onJobGreetingText: presence.onJobGreetingText,
+        closedGreetingText: presence.closedGreetingText,
+      })
     // Ensure press-1 instructions exist even when custom greeting is short.
     const lower = say.toLowerCase()
     if (!lower.includes("press 1") && !lower.includes("press one")) {
-      say = `${say.trim()} Press 1 for a booking text, or stay on the line.`
+      say = `${say.trim()} Press 1 and we'll text you a short form, or stay on the line.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
   } catch (e) {
@@ -280,8 +291,9 @@ async function startBusyAutomationFlow(
       ownerUserId: routing.user_id,
       businessLineE164: state.businessLineE164,
       callSid: callControlId,
-      routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_gather_fail",
+      businessLabel: resolveWorkspaceDisplayName(routing),
     })
     await telnyxCallControlHangup(callControlId)
   }
@@ -555,7 +567,8 @@ async function handleCallInitiated(
       return
     }
 
-    let dialPlan = await resolveCallControlInboundDialPlan(routing, businessLineE164)
+    // Pass callControlId so the new ringing inbound is not counted as “already on a call”.
+    let dialPlan = await resolveCallControlInboundDialPlan(routing, businessLineE164, callControlId)
     let dialTargetE164 = dialPlan.dialTargetE164
     // Only fall back to the owner failsafe when the plan intended a PSTN ring (Available).
     if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
@@ -753,7 +766,11 @@ async function handleCallAnswered(
   }
 
   // Re-resolve presence + Who Answers (do not trust provisional Answer client_state target).
-  const dialPlan = await resolveCallControlInboundDialPlan(routing, state.businessLineE164)
+  const dialPlan = await resolveCallControlInboundDialPlan(
+    routing,
+    state.businessLineE164,
+    event.callControlId
+  )
   let dialTargetE164 = dialPlan.dialTargetE164
   if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
     dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
@@ -860,7 +877,11 @@ async function handleSpeakEnded(
       })
     }
     // Fresh presence check after greeting — Busy must Dial Alex, not the owner.
-    const dialPlan = await resolveCallControlInboundDialPlan(routing, state.businessLineE164)
+    const dialPlan = await resolveCallControlInboundDialPlan(
+      routing,
+      state.businessLineE164,
+      event.callControlId
+    )
     let dialTargetE164 = dialPlan.dialTargetE164
     if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
       dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
@@ -978,15 +999,55 @@ async function handleGatherEnded(
     return
   }
 
-  // Press 1 → booking SMS + hangup (unchanged).
+  // Press 1 → booking SMS + hangup (Activity: Booked from hold · press 1).
   if (digits === "1") {
     await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: routing.user_id,
       businessLineE164: state.businessLineE164,
       callSid: event.callControlId,
-      routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_press1",
+      businessLabel: resolveWorkspaceDisplayName(routing),
+    })
+    await confirmBusySmsAndHangup(event.callControlId, state)
+    return
+  }
+
+  // After-hours (CLOSED) or holiday → straight to form SMS (nobody will Answer from Lines).
+  // ON_JOB / soft-busy → hold music + Lines Answer.
+  let skipHoldForAfterHours = false
+  try {
+    const presence = await getAccountPresence(routing.user_id)
+    const holidayActive = Boolean(
+      resolveHolidayGreetingText({
+        holidayOverrideStart: presence.holidayOverrideStart,
+        holidayOverrideEnd: presence.holidayOverrideEnd,
+        holidayGreetingText: presence.holidayGreetingText,
+      })
+    )
+    const status = String(presence.presenceStatus || "")
+      .trim()
+      .toUpperCase()
+    skipHoldForAfterHours = holidayActive || status === "CLOSED"
+  } catch (e) {
+    console.warn("[telnyx-cc] after-hours check skipped:", e)
+  }
+
+  if (skipHoldForAfterHours) {
+    console.log(
+      lyncrLog("telnyx-cc-busy-gather-after-hours-sms", {
+        callControlId: event.callControlId,
+      })
+    )
+    await sendInboundBookingSmsAndTag({
+      fromE164: state.callerE164,
+      ownerUserId: routing.user_id,
+      businessLineE164: state.businessLineE164,
+      callSid: event.callControlId,
+      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
+      source: "cc_busy_after_hours",
+      businessLabel: resolveWorkspaceDisplayName(routing),
     })
     await confirmBusySmsAndHangup(event.callControlId, state)
     return

@@ -33,6 +33,7 @@ export default async function BookInvitePage({
         initialLine={invite.businessLine}
         initialPhone={invite.callerPhone || ""}
         initialFormMode={initialFormMode}
+        inviteSource={invite.source}
       />
     </Suspense>
   )

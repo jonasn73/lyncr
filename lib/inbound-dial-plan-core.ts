@@ -88,6 +88,11 @@ export type PlanInboundDialInputs = {
     phoneE164: string
   } | null
   failsafePhoneE164?: string
+  /**
+   * Available, but the owner's cell is already on a live answered call.
+   * Treat like Busy for dial planning (receptionist first, else hold / IVR).
+   */
+  ownerOnLiveCall?: boolean
 }
 
 const FAILSAFE_E164 = "+15022602716"
@@ -168,17 +173,24 @@ function finish(
     primaryHop: InboundDialHop
     fallbackHop: InboundDialHop
     captureKind: InboundCaptureKind
+    /** Soft-busy while toggle still says Available (owner already on a call). */
+    ownerOnLiveCall?: boolean
   }
 ): InboundDialPlanResult {
   const primary = partial.primaryHop
   const fallback = partial.fallbackHop
-  const ownerAvailable = partial.captureKind === "day_dial"
+  // Presence Available only when day_dial AND not already on a live call.
+  const ownerAvailable = partial.captureKind === "day_dial" && !partial.ownerOnLiveCall
+  // Soft-busy: Available toggle but owner's cell is occupied — still show Available badge.
+  const softBusyOnCall = Boolean(partial.ownerOnLiveCall) && partial.captureKind === "day_dial"
   const busyBackupLive =
     primary.type === "receptionist" &&
     (primary.reason === "busy_backup_recv" || primary.reason === "team_receptionist") &&
     !ownerAvailable
   const ivrLive = primary.type === "ivr"
-  const presenceStatusLabel: "Available" | "Busy" = ownerAvailable ? "Available" : "Busy"
+  // Keep statusLabel Available when soft-busy so UI matches the toggle; ringsNow tells the truth.
+  const presenceStatusLabel: "Available" | "Busy" =
+    ownerAvailable || softBusyOnCall ? "Available" : "Busy"
 
   let ringsNowLabel = primary.name || "—"
   // Busy automation first hop = hold queue (stay on line), not a “booking menu” brand.
@@ -187,7 +199,7 @@ function finish(
   if (primary.type === "pool") ringsNowLabel = "Lyncr Pool"
 
   let ifNoAnswerLabel = fallback.name || "—"
-  // Available miss → classic booking menu label; Busy miss → hold queue.
+  // Available miss → classic booking menu label; Busy / soft-busy miss → hold queue.
   if (fallback.type === "ivr") ifNoAnswerLabel = ownerAvailable ? "Booking menu" : "Hold queue"
   if (fallback.type === "owner") ifNoAnswerLabel = "Owner cell"
   if (fallback.type === "none") ifNoAnswerLabel = "Hang up"
@@ -212,12 +224,18 @@ function finish(
 /**
  * Pure dial planner — same rules Call Control and TeXML must follow.
  * Available → owner (or team first). Busy + Available teammate → teammate. Else → IVR.
+ * Available + already on a live call → same as Busy (no barge onto the first customer).
  */
 export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanResult {
   const failsafe = input.failsafePhoneE164 || FAILSAFE_E164
   const ownerDial = normalizeDialPhone(input.ownerPhoneE164, failsafe)
   const mode = (input.mode || "your_phone").trim().toLowerCase() || "your_phone"
   const captureKind = input.captureKind
+  // Soft-busy: Available toggle but owner cell already talking.
+  const ownerOnLiveCall = Boolean(input.ownerOnLiveCall) && captureKind === "day_dial"
+  // Effective busy path (presence Busy OR soft-busy on live call).
+  const treatAsBusy = captureKind !== "day_dial" || ownerOnLiveCall
+  const finishOpts = { ownerOnLiveCall: ownerOnLiveCall || undefined }
 
   if (mode === "custom_routing") {
     const custom = input.customPhoneE164?.trim() || ""
@@ -232,6 +250,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
       return finish({
         mode,
         captureKind,
+        ...finishOpts,
         primaryHop: primary,
         fallbackHop: {
           type: "none",
@@ -254,6 +273,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
       return finish({
         mode,
         captureKind,
+        ...finishOpts,
         primaryHop: receptionistHop(
           {
             receptionistId: team.receptionistId,
@@ -262,14 +282,17 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
           },
           "team_receptionist"
         ),
-        fallbackHop:
-          captureKind === "day_dial" ? ownerHop(ownerDial, "team_owner_available") : ivrHop(captureKind),
+        // Soft-busy / Busy: after team miss → hold. Free Available: owner next.
+        fallbackHop: !treatAsBusy
+          ? ownerHop(ownerDial, "team_owner_available")
+          : ivrHop(captureKind === "day_dial" ? "presence_on_job" : captureKind),
       })
     }
-    if (captureKind === "day_dial") {
+    if (!treatAsBusy) {
       return finish({
         mode,
         captureKind,
+        ...finishOpts,
         primaryHop: ownerHop(ownerDial, "team_owner_available"),
         fallbackHop: ivrHop(captureKind),
       })
@@ -277,7 +300,8 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
     return finish({
       mode,
       captureKind,
-      primaryHop: ivrHop(captureKind),
+      ...finishOpts,
+      primaryHop: ivrHop(captureKind === "day_dial" ? "presence_on_job" : captureKind),
       fallbackHop: {
         type: "none",
         phoneE164: null,
@@ -289,20 +313,25 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
   }
 
   if (mode === "your_phone" || mode === "smart_ivr") {
-    if (captureKind !== "day_dial") {
+    if (treatAsBusy) {
       const backup = input.busyBackup
+      // Use presence_on_job labels when soft-busy so Activity stays coherent.
+      const busyKind: InboundCaptureKind =
+        captureKind === "day_dial" ? "presence_on_job" : captureKind
       if (backup?.phoneE164 && isReasonablePstn(backup.phoneE164)) {
         return finish({
           mode,
           captureKind,
+          ...finishOpts,
           primaryHop: receptionistHop(backup, "busy_backup_recv"),
-          fallbackHop: ivrHop(captureKind),
+          fallbackHop: ivrHop(busyKind),
         })
       }
       return finish({
         mode,
         captureKind,
-        primaryHop: ivrHop(captureKind),
+        ...finishOpts,
+        primaryHop: ivrHop(busyKind),
         fallbackHop: {
           type: "none",
           phoneE164: null,
@@ -315,6 +344,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
     return finish({
       mode,
       captureKind,
+      ...finishOpts,
       primaryHop: ownerHop(ownerDial, "day_dial"),
       fallbackHop: ivrHop(captureKind),
     })
@@ -324,6 +354,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
     return finish({
       mode,
       captureKind,
+      ...finishOpts,
       primaryHop: {
         type: "pool",
         phoneE164: null,
@@ -340,6 +371,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
     return finish({
       mode,
       captureKind,
+      ...finishOpts,
       primaryHop: receptionistHop(legacy, "legacy_recv"),
       fallbackHop: ownerHop(ownerDial, "legacy_owner"),
     })
@@ -348,6 +380,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
   return finish({
     mode,
     captureKind,
+    ...finishOpts,
     primaryHop: ownerHop(ownerDial, "failsafe"),
     fallbackHop: ivrHop(captureKind),
   })
@@ -355,7 +388,7 @@ export function planInboundDial(input: PlanInboundDialInputs): InboundDialPlanRe
 
 /**
  * Client-side strip labels — mirrors planner rules without a network round-trip.
- * Keep in sync with planInboundDial for Your Phone / Smart IVR + Busy backup.
+ * Keep in sync with planInboundDial for Your Phone / Smart IVR + Busy backup + on-call.
  */
 export function deriveRingsNowStrip(params: {
   presenceBypass: boolean
@@ -366,6 +399,8 @@ export function deriveRingsNowStrip(params: {
   activeRoutingMode?: string | null
   teamReceptionistName?: string | null
   teamReceptionistActive?: boolean
+  /** True when Lines sees an answered live call on the owner's phone. */
+  ownerOnLiveCall?: boolean
 }): {
   ringsNow: string
   ifNoAnswer: string
@@ -376,6 +411,8 @@ export function deriveRingsNowStrip(params: {
   }
   const mode = (params.activeRoutingMode || "your_phone").trim().toLowerCase()
   const busy = params.presenceBypass
+  // Soft-busy: Available toggle but already talking — do not claim “Your phone”.
+  const onCall = Boolean(params.ownerOnLiveCall) && !busy
   const backup = params.busyBackupName?.trim() || ""
   const teamName = params.teamReceptionistName?.trim() || ""
   const owner = params.ownerLabel?.trim() || "Owner"
@@ -384,15 +421,22 @@ export function deriveRingsNowStrip(params: {
     if (params.teamReceptionistActive && teamName) {
       return {
         ringsNow: teamName,
-        // Busy: after team miss → hold queue. Available: owner cell next.
-        ifNoAnswer: busy ? "Hold queue" : owner,
+        // Busy / on-call: after team miss → hold queue. Free Available: owner cell next.
+        ifNoAnswer: busy || onCall ? "Hold queue" : owner,
         statusLabel: busy ? "Busy" : "Available",
       }
     }
-    if (!busy) {
+    if (!busy && !onCall) {
       return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }
     }
-    return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Busy" }
+    if (onCall && backup) {
+      return { ringsNow: backup, ifNoAnswer: "Hold queue", statusLabel: "Available" }
+    }
+    return {
+      ringsNow: "Hold queue",
+      ifNoAnswer: "Booking text",
+      statusLabel: busy ? "Busy" : "Available",
+    }
   }
 
   if (busy) {
@@ -404,6 +448,17 @@ export function deriveRingsNowStrip(params: {
       return { ringsNow: backup, ifNoAnswer: "Hold queue", statusLabel: "Busy" }
     }
     return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Busy" }
+  }
+
+  // Available + already on a live call → teammate or hold (same as Busy path).
+  if (onCall) {
+    if (!params.teamRosterReady) {
+      return { ringsNow: "…", ifNoAnswer: "…", statusLabel: "Available" }
+    }
+    if (backup) {
+      return { ringsNow: backup, ifNoAnswer: "Hold queue", statusLabel: "Available" }
+    }
+    return { ringsNow: "Hold queue", ifNoAnswer: "Booking text", statusLabel: "Available" }
   }
 
   return { ringsNow: owner, ifNoAnswer: "Booking menu", statusLabel: "Available" }

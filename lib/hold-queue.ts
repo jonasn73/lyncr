@@ -81,6 +81,10 @@ export const HOLD_REPROMPT_DEFAULT =
 export const HOLD_MAX_WAIT_SMS_PROMPT =
   "We are still tied up. We just texted you a booking link so you can grab the next open slot. Goodbye."
 
-/** Soft Busy default — honest about hold + press 1 (Phase C copy soften). */
+/**
+ * Soft Busy default — honest about hold + press 1.
+ * Mentions the short booking form SMS so callers know what Press 1 does.
+ * Do not overwrite custom Key Squad greetings in the DB — defaults only.
+ */
 export const HOLD_AWARE_BUSY_PROMPT =
-  "Thanks for calling. We're tied up right now. Press 1 for a booking text, or stay on the line and we will keep you updated."
+  "Thanks for calling. We're tied up right now. Press 1 and we'll text you a short form to pick a time, or stay on the line and we will keep you updated."

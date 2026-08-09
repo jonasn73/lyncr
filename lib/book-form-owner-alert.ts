@@ -4,6 +4,7 @@
 import { updateAiLeadSmsOutcome } from "@/lib/db"
 import { dispatchLeadSmsAlert } from "@/lib/intake-engine"
 import { notifyOwnerLatestNeedsAttention } from "@/lib/latest-attention-sms"
+import { isHoldPress1BookingSource } from "@/lib/owner-live-call"
 
 export {
   BOOK_FORM_INTAKE_SOURCES,
@@ -22,6 +23,8 @@ export type NotifyOwnerBookFormParams = {
   summary?: string | null
   collected?: Record<string, unknown>
   intentSlug?: string | null
+  /** Invite / SMS source (e.g. cc_busy_hold_press1) — surfaces hold/press-1 in alerts. */
+  bookingSource?: string | null
 }
 
 /**
@@ -39,6 +42,15 @@ export async function notifyOwnerBookFormSubmitted(
       ? "ASAP / emergency"
       : (params.availabilityLabel || "").trim() || "Preferred window"
 
+  // Hold / press-1 path gets a clearer Latest + SMS headline.
+  const fromHold = isHoldPress1BookingSource(params.bookingSource)
+  const latestPreview = fromHold
+    ? `Booked from hold · press 1 · ${urgencyLabel}`
+    : `Customer submitted book form · ${urgencyLabel}`
+  const leadSummary = fromHold
+    ? `Booked from hold · press 1 · ${urgencyLabel} — ${who}`
+    : params.summary?.trim() || `Customer submitted book form · ${urgencyLabel} — ${who}`
+
   // Owner Latest SMS (sms_latest_enabled) — works even when Instant lead SMS is off.
   await notifyOwnerLatestNeedsAttention({
     userId: params.ownerUserId,
@@ -46,7 +58,7 @@ export async function notifyOwnerBookFormSubmitted(
     customerPhone: params.callerE164,
     customerName: who,
     jobId: params.leadId,
-    preview: `Customer submitted book form · ${urgencyLabel}`,
+    preview: latestPreview,
   }).catch((e) => console.warn("[book-form-owner-alert] latest SMS failed:", e))
 
   // Instant lead SMS when Settings → Instant SMS lead alerts is on.
@@ -61,10 +73,9 @@ export async function notifyOwnerBookFormSubmitted(
         customer_name: who,
         urgency,
         availability: preview,
+        booking_source: params.bookingSource || null,
       },
-      summary:
-        params.summary?.trim() ||
-        `Customer submitted book form · ${urgencyLabel} — ${who}`,
+      summary: leadSummary,
     })
     if (sms.sms_sent || sms.sms_error) {
       await updateAiLeadSmsOutcome(params.leadId, {

@@ -44,6 +44,7 @@ export default function BookPageClient({
   initialLine = "",
   initialPhone = "",
   initialFormMode = "book",
+  inviteSource = "",
 }: {
   /** From /book/[id] invite resolution — used when query string is absent. */
   initialLine?: string
@@ -53,6 +54,8 @@ export default function BookPageClient({
    * Query `?mode=callback` also forces callback.
    */
   initialFormMode?: BookFormMode
+  /** Invite SMS source (e.g. cc_busy_hold_press1) for owner alerts. */
+  inviteSource?: string
 } = {}) {
   const searchParams = useSearchParams()
   // Prefill phone from SMS link or invite.
@@ -197,6 +200,8 @@ export default function BookPageClient({
       notes: notes.trim() || undefined,
       urgency: urgency || "asap",
       is_asap: urgency === "asap",
+      // So owner Latest can say “Booked from hold · press 1” when this came from hold SMS.
+      ...(inviteSource.trim() ? { booking_source: inviteSource.trim() } : {}),
       ...(urgency === "window"
         ? {
             availability_date: dayKey,

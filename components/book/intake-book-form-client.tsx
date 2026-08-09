@@ -17,6 +17,7 @@ import {
   isValidBookTimeRange,
   type BookUrgency,
 } from "@/lib/book-customer-request"
+import { customerPortalBookSuccessCopy } from "@/lib/customer-portal"
 import { cn } from "@/lib/utils"
 
 type Prefill = {
@@ -266,18 +267,20 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   }
 
   if (wizardStep === "done") {
+    // Same thank-you promise as /book portal (ASAP vs window).
+    const successCopy = customerPortalBookSuccessCopy({
+      mode: "callback",
+      asap: urgency === "asap",
+      availabilityLabel: urgency === "window" ? availabilityLabel : undefined,
+    })
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-        <p className="text-2xl font-semibold text-white">Thanks — you&apos;re all set</p>
-        <p className="mt-2 text-sm text-slate-400">
-          {invite?.business_label || "The shop"} received your details
-          {invite?.requires_payment ? " and payment" : ""}
-          {urgency === "asap"
-            ? " — marked ASAP."
-            : availabilityLabel
-              ? ` · free ${availabilityLabel}.`
-              : "."}
-        </p>
+        <p className="text-2xl font-semibold text-white">{successCopy.title}</p>
+        <p className="mt-2 text-sm text-slate-400">{successCopy.body}</p>
+        <p className="mt-3 text-xs text-slate-500">{successCopy.nextHint}</p>
+        {invite?.business_label ? (
+          <p className="mt-4 text-[11px] text-slate-600">{invite.business_label}</p>
+        ) : null}
       </div>
     )
   }

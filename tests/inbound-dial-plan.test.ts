@@ -93,6 +93,35 @@ describe("planInboundDial", () => {
     expect(plan.reason).toBe("custom_routing")
     expect(plan.dialTargetE164).toBe("+15025551212")
   })
+  it("Available + owner already on a live call → hold queue (no barge)", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "day_dial",
+      ownerOnLiveCall: true,
+    })
+    expect(plan.reason).toBe("busy_automation")
+    expect(plan.dialTargetE164).toBeNull()
+    expect(plan.ivrLive).toBe(true)
+    expect(plan.ringsNowLabel).toBe("Hold queue")
+    expect(plan.presenceStatusLabel).toBe("Available")
+    expect(plan.ownerAvailable).toBe(false)
+  })
+
+  it("Available + on live call + Available teammate rings teammate first", () => {
+    const plan = planInboundDial({
+      mode: "your_phone",
+      ownerPhoneE164: owner,
+      captureKind: "day_dial",
+      ownerOnLiveCall: true,
+      busyBackup: alex,
+    })
+    expect(plan.reason).toBe("busy_backup_recv")
+    expect(plan.dialTargetE164).toBe(alex.phoneE164)
+    expect(plan.ringsNowLabel).toBe("Alex Jonas")
+    expect(plan.ifNoAnswerLabel).toBe("Hold queue")
+    expect(plan.presenceStatusLabel).toBe("Available")
+  })
 })
 
 describe("deriveRingsNowStrip", () => {
@@ -106,6 +135,34 @@ describe("deriveRingsNowStrip", () => {
     })
     expect(strip.ringsNow).toBe("Your phone")
     expect(strip.ifNoAnswer).toBe("Booking menu")
+    expect(strip.statusLabel).toBe("Available")
+  })
+
+  it("Available + on live call shows hold queue (honest strip)", () => {
+    const strip = deriveRingsNowStrip({
+      presenceBypass: false,
+      presenceReady: true,
+      teamRosterReady: true,
+      busyBackupName: null,
+      ownerLabel: "Your phone",
+      ownerOnLiveCall: true,
+    })
+    expect(strip.ringsNow).toBe("Hold queue")
+    expect(strip.ifNoAnswer).toBe("Booking text")
+    expect(strip.statusLabel).toBe("Available")
+  })
+
+  it("Available + on live call + Alex shows teammate", () => {
+    const strip = deriveRingsNowStrip({
+      presenceBypass: false,
+      presenceReady: true,
+      teamRosterReady: true,
+      busyBackupName: "Alex Jonas",
+      ownerLabel: "Your phone",
+      ownerOnLiveCall: true,
+    })
+    expect(strip.ringsNow).toBe("Alex Jonas")
+    expect(strip.ifNoAnswer).toBe("Hold queue")
     expect(strip.statusLabel).toBe("Available")
   })
 

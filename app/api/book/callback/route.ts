@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
   const availabilityTo = readString(body, "availability_to", "to", "to_time")
   // Legacy free-text (older missed-call form) still accepted.
   const availabilityNotes = readString(body, "availability", "availability_notes")
+  const bookingSource = readString(body, "booking_source", "invite_source", "source")
 
   if (customerName.length < 2) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -127,16 +128,20 @@ export async function POST(req: NextRequest) {
     make = vehicleText
   }
 
-  const collectedExtras = buildBookCollectedExtras({
-    urgency,
-    email: customerEmail || null,
-    jobKind: jobKind || null,
-    notes: notes || null,
-    availabilityDate: urgency === "window" ? availabilityDate : null,
-    availabilityFrom: urgency === "window" ? availabilityFrom : null,
-    availabilityTo: urgency === "window" ? availabilityTo : null,
-    availabilityLabel,
-  })
+  const collectedExtras = {
+    ...buildBookCollectedExtras({
+      urgency,
+      email: customerEmail || null,
+      jobKind: jobKind || null,
+      notes: notes || null,
+      availabilityDate: urgency === "window" ? availabilityDate : null,
+      availabilityFrom: urgency === "window" ? availabilityFrom : null,
+      availabilityTo: urgency === "window" ? availabilityTo : null,
+      availabilityLabel,
+    }),
+    // Preserve invite SMS source so Latest can say “Booked from hold · press 1”.
+    ...(bookingSource ? { booking_source: bookingSource } : {}),
+  }
 
   const noteParts = [
     urgency === "asap"
@@ -175,6 +180,7 @@ export async function POST(req: NextRequest) {
       availabilityLabel,
       summary: `${jobType} — ${customerName}`,
       collected: collectedExtras,
+      bookingSource: bookingSource || null,
     })
 
     return NextResponse.json({

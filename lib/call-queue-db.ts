@@ -434,3 +434,77 @@ export async function setAccountHoldSettings(
   }
 }
 
+
+/** Light today rollup for Lines — wait / Answer / press-1 / abandon. */
+export async function getHoldQueueDayStats(userId: string): Promise<{
+  waiting: number
+  answered: number
+  press1: number
+  abandoned: number
+  avgWaitSecs: number | null
+}> {
+  const empty = {
+    waiting: 0,
+    answered: 0,
+    press1: 0,
+    abandoned: 0,
+    avgWaitSecs: null as number | null,
+  }
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status IN ('waiting', 'holding', 'bridging'))::int AS waiting,
+        COUNT(*) FILTER (
+          WHERE status = 'answered'
+            AND enqueued_at::date = (timezone('utc', now()))::date
+        )::int AS answered,
+        COUNT(*) FILTER (
+          WHERE status = 'sms_left'
+            AND enqueued_at::date = (timezone('utc', now()))::date
+        )::int AS press1,
+        COUNT(*) FILTER (
+          WHERE status IN ('left', 'timed_out')
+            AND enqueued_at::date = (timezone('utc', now()))::date
+        )::int AS abandoned,
+        ROUND(
+          AVG(
+            EXTRACT(
+              EPOCH FROM (
+                COALESCE(answered_at, left_at, updated_at) - enqueued_at
+              )
+            )
+          ) FILTER (
+            WHERE status IN ('answered', 'sms_left', 'left', 'timed_out')
+              AND enqueued_at::date = (timezone('utc', now()))::date
+          )
+        )::float8 AS avg_wait_secs
+      FROM call_queue
+      WHERE user_id = ${userId}
+    `
+    const row = rows[0] as
+      | {
+          waiting?: number
+          answered?: number
+          press1?: number
+          abandoned?: number
+          avg_wait_secs?: number | null
+        }
+      | undefined
+    if (!row) return empty
+    const avg =
+      row.avg_wait_secs != null && Number.isFinite(Number(row.avg_wait_secs))
+        ? Math.max(0, Math.round(Number(row.avg_wait_secs)))
+        : null
+    return {
+      waiting: Number(row.waiting ?? 0),
+      answered: Number(row.answered ?? 0),
+      press1: Number(row.press1 ?? 0),
+      abandoned: Number(row.abandoned ?? 0),
+      avgWaitSecs: avg,
+    }
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) return empty
+    throw e
+  }
+}

@@ -28,6 +28,7 @@ import {
 } from "@/lib/active-routing-mode"
 import { deriveRingsNowStrip } from "@/lib/inbound-dial-plan-core"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
+import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -306,6 +307,11 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
 }: DashboardCallFlowProps) {
   const { openBuyModal } = useDashboardNumbersModal()
   const { presenceBypass, presenceReady } = useAccountPresence()
+  // Live answered legs — Available + on a call should not claim “Your phone”.
+  const realtime = useRealTimeStatsContextOptional()
+  const ownerOnLiveCall = Boolean(
+    !presenceBypass && realtime?.activeCallSessions?.some((s) => Boolean(s.answeredAt))
+  )
   // Who Answers primary mode — gates the entire IVR configuration deck.
   const routingModeCacheKey = persistedCacheKey(
     "active-routing-mode",
@@ -401,6 +407,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
         ? selectedReceptionist?.is_active !== false &&
           Boolean(selectedReceptionist?.name?.trim() || selectedReceptionist?.phone?.trim())
         : false,
+    ownerOnLiveCall,
   })
 
   const openWhoAnswers = useCallback(() => setWhoAnswersOpen(true), [setWhoAnswersOpen])
@@ -410,11 +417,13 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   const detailHint =
     routingStrategy === "lyncr_only"
       ? "Shared Lyncr pool answers these calls in-browser."
-      : autopilotMode && !presenceBypass
-        ? "Sunday Autopilot — AI answers first; your phone is on standby."
-        : allowLyncrNetworkFallback && routingStrategy === "hybrid_fallback"
-          ? "If your team misses, the Lyncr network can pick up."
-          : null
+      : ownerOnLiveCall
+        ? "You're on a live call — new callers go to team or hold instead of interrupting."
+        : autopilotMode && !presenceBypass
+          ? "Sunday Autopilot — AI answers first; your phone is on standby."
+          : allowLyncrNetworkFallback && routingStrategy === "hybrid_fallback"
+            ? "If your team misses, the Lyncr network can pick up."
+            : null
 
   return (
     <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">

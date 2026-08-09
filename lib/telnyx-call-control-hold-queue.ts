@@ -28,7 +28,7 @@ import {
   lyncrHoldQueueName,
   resolveHoldMusicUrl,
 } from "@/lib/hold-queue"
-import { CAPTURE_STATUS_HOLD_QUEUE, CAPTURE_STATUS_ON_JOB_LINK } from "@/lib/inbound-time-capture"
+import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
@@ -116,7 +116,7 @@ export async function enterBusyHoldQueue(params: {
       ownerUserId: userId,
       businessLineE164: state.businessLineE164,
       callSid: callControlId,
-      routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+      routedToName: CAPTURE_STATUS_HOLD_PRESS1,
       source: "cc_busy_hold_cap",
     })
     const confirmState = encodeTelnyxCallControlState({
@@ -296,7 +296,7 @@ export async function leaveHoldQueueWithSms(
     ownerUserId: state.userId,
     businessLineE164: state.businessLineE164,
     callSid: callControlId,
-    routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+    routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source,
   })
 
@@ -329,7 +329,7 @@ async function finishHoldWithSms(
     ownerUserId: state.userId,
     businessLineE164: state.businessLineE164,
     callSid: callControlId,
-    routedToName: CAPTURE_STATUS_ON_JOB_LINK,
+    routedToName: CAPTURE_STATUS_HOLD_PRESS1,
     source: status === "timed_out" ? "cc_busy_hold_max_wait" : "cc_busy_hold_leave",
   })
 

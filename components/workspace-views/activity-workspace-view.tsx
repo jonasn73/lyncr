@@ -252,6 +252,9 @@ function CallTimeDisplay({
 function formatRoutedToLabel(routedTo: string): string {
   const raw = routedTo.trim()
   if (!raw) return "Routed to owner"
+  // Hold / press-1 — show the Activity card label as-is (already owner-friendly).
+  if (/booked from hold/i.test(raw) || /hold · press/i.test(raw)) return raw
+  if (/^hold queue$/i.test(raw)) return "Hold queue"
   if (/^owner$/i.test(raw)) return "Routed to owner"
   if (/ai receptionist|voice ai|assistant/i.test(raw)) return "Routed to AI receptionist"
   if (/receptionist/i.test(raw)) return raw.replace(/^routed to\s+/i, "") || "Routed to receptionist"

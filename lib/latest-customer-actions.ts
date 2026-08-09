@@ -2,6 +2,7 @@
 
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import type { SmsMessage } from "@/lib/types"
+import { isHoldPress1BookingSource } from "@/lib/owner-live-call"
 
 /** Kind of outbound text (heuristic from body), or a finished job / payment row. */
 export type LatestSmsKind = "review" | "booking" | "en_route" | "status" | "other" | "job" | "paid"
@@ -195,6 +196,8 @@ export type LatestBookFormHint = {
   vehicleModel?: string | null
   addressLine1?: string | null
   quotedPriceCents?: number | null
+  /** Invite SMS source — hold/press-1 when set. */
+  bookingSource?: string | null
 }
 
 /** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
@@ -397,6 +400,11 @@ export function buildLatestCustomerActions(params: {
     const avail =
       (form.availabilityLabel || "").trim() ||
       (urgency === "asap" ? "ASAP / emergency" : "Preferred window")
+    // Hold / press-1 bookings get a clearer one-card headline for owners.
+    const fromHold = isHoldPress1BookingSource(form.bookingSource)
+    const headline = fromHold
+      ? `Booked from hold · press 1 · ${urgencyLabel}`
+      : `Customer submitted book form · ${urgencyLabel}`
 
     out.push({
       id: `book-${form.id}`,
@@ -404,7 +412,7 @@ export function buildLatestCustomerActions(params: {
       customerName: name,
       event: "book_form",
       kind: "booking",
-      headline: `Customer submitted book form · ${urgencyLabel}`,
+      headline,
       statusLine: name,
       preview: truncate((form.preview || avail).trim() || avail),
       at: form.at,

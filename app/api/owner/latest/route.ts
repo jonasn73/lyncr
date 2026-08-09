@@ -151,6 +151,7 @@ export async function GET(req: NextRequest) {
       vehicleModel: row.vehicleModel,
       addressLine1: row.addressLine1,
       quotedPriceCents: row.quotedPriceCents,
+      bookingSource: row.bookingSource,
     }))
 
     // For recent SMS phones missing a today-calendar name, look up the latest job.

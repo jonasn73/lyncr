@@ -50,6 +50,13 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               ? "Skip your phone → Available team, then hold queue"
               : "Your phone rings first"}
           </p>
+          {/* Desktop-only note — Available + already on a call uses hold / team (no barge). */}
+          {isAvailable ? (
+            <p className="mt-1 hidden text-[10px] leading-snug text-slate-600 md:block">
+              If you&apos;re already on a call, new callers go to hold / team instead of
+              interrupting.
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {presenceReady ? (

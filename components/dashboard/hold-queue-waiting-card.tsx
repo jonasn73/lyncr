@@ -3,6 +3,7 @@
 // Lines — Hold queue waiting list + Answer (Busy stay-on-the-line callers).
 
 import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { PhoneIncoming } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
@@ -17,6 +18,15 @@ type QueueCaller = {
   status: string
   enqueuedAt: string
   queueName: string
+}
+
+/** Light hold-queue rollup for Lines (today). */
+type QueueStats = {
+  waiting: number
+  answered: number
+  press1: number
+  abandoned: number
+  avgWaitSecs: number | null
 }
 
 function formatCallerPreview(e164: string | null | undefined): string {
@@ -37,6 +47,13 @@ function waitHint(enqueuedAt: string): string {
   return `${mins}m`
 }
 
+/** CRM deep-link — seed search with the waiting caller’s phone. */
+function crmHrefForCaller(e164: string | null | undefined): string | null {
+  const phone = String(e164 || "").trim()
+  if (!phone) return null
+  return `/dashboard/customers?phone=${encodeURIComponent(phone)}`
+}
+
 export type HoldQueueWaitingCardProps = {
   className?: string
   /**
@@ -53,6 +70,7 @@ export function HoldQueueWaitingCard({
   const session = useDashboardSessionOptional()
   const ownerUserId = session?.companyUserId?.trim() || ""
   const [callers, setCallers] = useState<QueueCaller[]>([])
+  const [stats, setStats] = useState<QueueStats | null>(null)
   const [answeringId, setAnsweringId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -61,7 +79,7 @@ export function HoldQueueWaitingCard({
     try {
       const res = await fetch("/api/calls/queue", { credentials: "include" })
       const json = (await res.json()) as {
-        data?: { callers?: QueueCaller[] }
+        data?: { callers?: QueueCaller[]; stats?: QueueStats }
         error?: string
       }
       if (!res.ok) {
@@ -69,6 +87,7 @@ export function HoldQueueWaitingCard({
         return
       }
       setCallers(Array.isArray(json.data?.callers) ? json.data!.callers! : [])
+      setStats(json.data?.stats ?? null)
       setError(null)
     } catch {
       setError("Could not load hold queue")
@@ -93,7 +112,6 @@ export function HoldQueueWaitingCard({
     if (!ownerUserId) return
     const pusher = getPusherClient()
     if (!pusher) return
-    // Same channel name as CallAnsweredModal / live telemetry (keep client-safe — no lib/active-operator).
     const channelName = `presence-account-${ownerUserId}`
     const channel = pusher.subscribe(channelName)
     const onUpdate = () => void refresh()
@@ -119,7 +137,6 @@ export function HoldQueueWaitingCard({
         setError(json.error || "Answer failed")
         return
       }
-      // Optimistic — dial is ringing the agent cell.
       setCallers((prev) => prev.filter((c) => c.id !== id))
     } catch {
       setError("Answer failed")
@@ -131,7 +148,26 @@ export function HoldQueueWaitingCard({
 
   // Quiet when empty — optional Busy hint only (no amber flash).
   if (callers.length === 0 && !error) {
-    if (!showEmptyHint) return null
+    if (!showEmptyHint) {
+      if (stats && (stats.answered > 0 || stats.press1 > 0 || stats.abandoned > 0)) {
+        return (
+          <section
+            className={cn(
+              "rounded-xl border border-border/40 bg-muted/10 px-3 py-2 sm:px-4",
+              className
+            )}
+            aria-label="Hold queue stats"
+          >
+            <p className="text-[11px] text-muted-foreground">
+              Today · Answer {stats.answered} · Press 1 {stats.press1} · Left{" "}
+              {stats.abandoned}
+              {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}
+            </p>
+          </section>
+        )
+      }
+      return null
+    }
     return (
       <section
         className={cn(
@@ -150,7 +186,6 @@ export function HoldQueueWaitingCard({
     )
   }
 
-  // Keep tick referenced so wait labels re-render on the interval.
   void tick
 
   return (
@@ -183,35 +218,56 @@ export function HoldQueueWaitingCard({
       ) : null}
 
       <ul className="space-y-2">
-        {callers.map((c, idx) => (
-          <li
-            key={c.id}
-            className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/60 px-3 py-2"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">
-                {idx === 0 ? "Next · " : ""}
-                {formatCallerPreview(c.callerE164)}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Waiting {waitHint(c.enqueuedAt)}
-                {c.status === "bridging" ? " · connecting…" : ""}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={answeringId === c.id || c.status === "bridging"}
-              onClick={() => void answerCaller(c.id)}
-              className={cn(
-                "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
-                MOBILE_TAP_TARGET
-              )}
+        {callers.map((c, idx) => {
+          const crmHref = crmHrefForCaller(c.callerE164)
+          return (
+            <li
+              key={c.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/60 px-3 py-2"
             >
-              {answeringId === c.id ? "Ringing…" : "Answer"}
-            </button>
-          </li>
-        ))}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  {idx === 0 ? "Next · " : ""}
+                  {formatCallerPreview(c.callerE164)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Waiting {waitHint(c.enqueuedAt)}
+                  {c.status === "bridging" ? " · connecting…" : ""}
+                  {crmHref ? (
+                    <>
+                      {" · "}
+                      <Link
+                        href={crmHref}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                      >
+                        CRM
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={answeringId === c.id || c.status === "bridging"}
+                onClick={() => void answerCaller(c.id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
+                  MOBILE_TAP_TARGET
+                )}
+              >
+                {answeringId === c.id ? "Ringing…" : "Answer"}
+              </button>
+            </li>
+          )
+        })}
       </ul>
+
+      {stats && (stats.answered > 0 || stats.press1 > 0 || stats.abandoned > 0) ? (
+        <p className="mt-2.5 hidden text-[10px] text-muted-foreground md:block">
+          Today · Answer {stats.answered} · Press 1 {stats.press1} · Left {stats.abandoned}
+          {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}
+        </p>
+      ) : null}
     </section>
   )
 }

@@ -23,9 +23,10 @@ describe("hold-queue helpers", () => {
     expect(holdMaxConcurrent()).toBeLessThanOrEqual(10)
   })
 
-  it("soft Busy default mentions stay on the line", () => {
+  it("soft Busy default mentions stay on the line and short form text", () => {
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("stay on the line")
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("press 1")
+    expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("short form")
   })
 
   it("round-trips hold loop client_state", () => {

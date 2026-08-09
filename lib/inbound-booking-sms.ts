@@ -36,6 +36,8 @@ export async function sendInboundBookingSms(opts: {
   ownerUserId: string | null
   businessLineE164: string
   source: string
+  /** Shop name for SMS (“Key Squad — pick a time…”). */
+  businessLabel?: string | null
 }): Promise<{ ok: boolean; error?: string }> {
   if (!opts.fromE164) return { ok: false, error: "missing from" }
   const bookUrl = await resolveInboundBookingUrl({
@@ -44,7 +46,14 @@ export async function sendInboundBookingSms(opts: {
     businessLineE164: opts.businessLineE164,
     source: opts.source,
   })
-  const text = buildTelnyxMenuBookingSms(opts.fromE164, bookUrl, opts.businessLineE164)
+  // Named, short SMS — keep booking link behavior, clearer “pick a time”.
+  const text = buildTelnyxMenuBookingSms(
+    opts.fromE164,
+    bookUrl,
+    opts.businessLineE164,
+    "booking_link",
+    opts.businessLabel
+  )
   try {
     const sent = await sendTelnyxSms({
       toE164: opts.fromE164,
@@ -72,12 +81,14 @@ export async function sendInboundBookingSmsAndTag(opts: {
   routedToName: string
   source: string
   callType?: CallType
+  businessLabel?: string | null
 }): Promise<void> {
   await sendInboundBookingSms({
     fromE164: opts.fromE164,
     ownerUserId: opts.ownerUserId,
     businessLineE164: opts.businessLineE164,
     source: opts.source,
+    businessLabel: opts.businessLabel,
   })
   if (opts.callSid) {
     void updateCallLog(opts.callSid, {

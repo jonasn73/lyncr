@@ -17,6 +17,7 @@ import {
   type InboundDialPlanResult,
   type PlanInboundDialInputs,
 } from "@/lib/inbound-dial-plan-core"
+import { hasOwnerOnActiveLiveCall } from "@/lib/owner-live-call"
 
 export type {
   InboundDialReason,
@@ -44,6 +45,8 @@ export async function resolveInboundDialPlan(params: {
   mode?: string | null
   /** Pre-resolved capture plan (skip when already loaded). */
   capturePlan?: InboundCapturePlan | null
+  /** Exclude this call_control_id when detecting “already on a live call”. */
+  excludeCallControlId?: string | null
 }): Promise<InboundDialPlanResult> {
   const failsafe = CAPTURE_DEFAULT_RING_E164
   const ownerRaw = (params.ownerPhone || "").trim()
@@ -73,6 +76,19 @@ export async function resolveInboundDialPlan(params: {
     }
   }
 
+  // Available + already on a live call → soft-busy (receptionist / hold, no barge).
+  let ownerOnLiveCall = false
+  if (capturePlan.kind === "day_dial" && params.userId) {
+    try {
+      ownerOnLiveCall = await hasOwnerOnActiveLiveCall({
+        userId: params.userId,
+        excludeCallControlId: params.excludeCallControlId,
+      })
+    } catch (e) {
+      console.warn("[inbound-dial-plan] live-call lookup skipped:", e)
+    }
+  }
+
   let customPhoneE164: string | null = null
   if (mode === "custom_routing") {
     try {
@@ -92,9 +108,10 @@ export async function resolveInboundDialPlan(params: {
   }
 
   let busyBackup: PlanInboundDialInputs["busyBackup"] = null
+  // Load Available teammate for Busy OR soft-busy (owner already on a call).
   if (
     (mode === "your_phone" || mode === "smart_ivr") &&
-    capturePlan.kind !== "day_dial" &&
+    (capturePlan.kind !== "day_dial" || ownerOnLiveCall) &&
     params.userId
   ) {
     try {
@@ -130,5 +147,6 @@ export async function resolveInboundDialPlan(params: {
     teamReceptionist,
     legacyReceptionist,
     failsafePhoneE164: failsafe,
+    ownerOnLiveCall,
   })
 }

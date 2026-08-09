@@ -19,9 +19,10 @@ export const TELNYX_MENU_PROMPT =
  * Unified Busy greeting (Presence Busy = ON_JOB or CLOSED).
  * Callers hear this when your cell is skipped for automation.
  * Stay on the line = hold queue (music + Lines Answer), not hangup.
+ * Default only — custom Greetings text in Neon is left alone.
  */
 export const TELNYX_MENU_BUSY_PROMPT =
-  "Thanks for calling. We're tied up right now. Press 1 for a booking text, or stay on the line and we will keep you updated."
+  "Thanks for calling. We're tied up right now. Press 1 and we'll text you a short form to pick a time, or stay on the line and we will keep you updated."
 
 /** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
 export const TELNYX_MENU_ON_JOB_PROMPT = TELNYX_MENU_BUSY_PROMPT
@@ -86,14 +87,30 @@ export function escapeTexmlSayText(value: string): string {
 /** SMS tone for public booking links — missed-call recovery vs plain “here’s the link”. */
 export type BookingLinkSmsTone = "missed_call" | "booking_link"
 
+/** Short shop label for booking SMS (defaults to Key Squad). */
+function normalizeBookingSmsShopLabel(raw?: string | null): string {
+  // Trim and collapse whitespace; empty → product default for Key Squad lines.
+  const t = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ")
+  if (!t) return "Key Squad"
+  // Fix letter-O typo in defaults only (5O2 → 502); leave intentional custom names alone.
+  return t.replace(/\b5[oO]2\b/g, "502")
+}
+
 /** Build the SMS body once we know the final booking URL. */
-function formatBookingLinkSmsBody(link: string, tone: BookingLinkSmsTone): string {
+function formatBookingLinkSmsBody(
+  link: string,
+  tone: BookingLinkSmsTone,
+  businessLabel?: string | null
+): string {
   // Missed-call rescue: apology → share info/availability → tech follows up (no slot pick).
   if (tone === "missed_call") {
     return `Sorry we missed your call — share your info & availability here and a tech will follow up ASAP: ${link}`
   }
-  // Manual / IVR “send link” — short, keep “pick a time” slot booking.
-  return `Here's your booking link: ${link}`
+  // Press-1 / hold / IVR — short, named, clear “pick a time”.
+  const shop = normalizeBookingSmsShopLabel(businessLabel)
+  return `${shop} — pick a time: ${link}`
 }
 
 /** Secure booking deep-link SMS body — prefers opaque /book/[id] tracking URLs. */
@@ -101,12 +118,14 @@ export function buildTelnyxMenuBookingSms(
   fromE164: string,
   bookUrlOrBase = "https://lyncr.app/book",
   businessLineE164?: string | null,
-  tone: BookingLinkSmsTone = "booking_link"
+  tone: BookingLinkSmsTone = "booking_link",
+  /** Shop name for SMS (“Key Squad — pick a time…”). */
+  businessLabel?: string | null
 ): string {
   const trimmed = bookUrlOrBase.trim()
   // Already a full /book/<uuid> (or other absolute) tracking link.
   if (/^https?:\/\/.+/i.test(trimmed) && /\/book\/[^/?#]+/i.test(trimmed)) {
-    return formatBookingLinkSmsBody(trimmed, tone)
+    return formatBookingLinkSmsBody(trimmed, tone, businessLabel)
   }
 
   const phone = encodeURIComponent(fromE164.trim())
@@ -115,7 +134,7 @@ export function buildTelnyxMenuBookingSms(
       ? `&line=${encodeURIComponent(businessLineE164.trim())}`
       : ""
   const link = `${trimmed.replace(/\/+$/, "")}?phone=${phone}${lineQs}`
-  return formatBookingLinkSmsBody(link, tone)
+  return formatBookingLinkSmsBody(link, tone, businessLabel)
 }
 
 /** Raw TeXML: polite hangup after SMS / reservation success. */

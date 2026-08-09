@@ -31,9 +31,9 @@ export function WhoRingsConsole({
   loading = false,
   className,
 }: WhoRingsConsoleProps) {
-  // Busy alone → hold queue first; Press 1 is booking text. Busy + teammate → “If no answer”.
+  // Hold queue first hop (Busy or Available+on-call) → Press 1 is booking text.
   const fallbackDt =
-    statusLabel === "Busy" && ringsNow === "Hold queue" ? "Press 1" : "If no answer"
+    ringsNow === "Hold queue" ? "Press 1" : "If no answer"
   const statusTone =
     statusLabel === "Busy"
       ? "text-amber-700 dark:text-amber-400"

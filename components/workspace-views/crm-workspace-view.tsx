@@ -294,6 +294,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
   const [filter, setFilter] = useState<CrmFilter>(initialFilter)
+  // Seed list search from ?phone= (waiting-card CRM deep-link).
+  useEffect(() => {
+    const phoneParam = searchParams.get("phone")?.trim() || ""
+    if (phoneParam) setQ(phoneParam)
+  }, [searchParams])
   const cachedRows = useSessionSeed(
     () => readCrmListCache(filter, debounced),
     EMPTY_CRM_ROWS,
