@@ -5,7 +5,7 @@ import { SITE_NAME } from "@/lib/brand"
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: `Learn how ${SITE_NAME} protects account data, call routing settings, and call records.`,
+  description: `Learn how ${SITE_NAME} protects account data, call routing, dispatch/CRM records, and payment-related information.`,
 }
 
 export default function PrivacyPage() {

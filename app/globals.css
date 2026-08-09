@@ -499,5 +499,66 @@ main[data-scroll-locked] {
   }
 }
 
+/* Public landing — teal atmosphere motion (respects reduced-motion below). */
+@keyframes landing-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0);
+    opacity: 0.9;
+  }
+}
+
+@keyframes landing-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.65;
+  }
+  70% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@layer utilities {
+  .animate-landing-drift {
+    animation: landing-drift 14s ease-in-out infinite;
+  }
+  .animate-landing-drift-slow {
+    animation: landing-drift 18s ease-in-out infinite reverse;
+  }
+  .animate-landing-ring {
+    animation: landing-ring 3.2s ease-out infinite;
+  }
+  .animate-landing-ring-delay {
+    animation: landing-ring 3.2s ease-out infinite 0.6s;
+  }
+  .animate-landing-dash {
+    animation: landing-dash 8s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-landing-drift,
+  .animate-landing-drift-slow,
+  .animate-landing-ring,
+  .animate-landing-ring-delay,
+  .animate-landing-dash {
+    animation: none !important;
+  }
+}
+
 /* Dispatch map popup overrides — source file imported after Leaflet in map components. */
 @import "./leaflet-popup-overrides.css";

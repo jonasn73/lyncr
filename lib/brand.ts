@@ -17,11 +17,11 @@ export const SITE_TAGLINE = "Link every call to the right answer."
  * Short narrative for help / onboarding (plain text; no HTML).
  */
 export const SITE_BRAND_STORY =
-  "lyncr keeps your published business number professional while routing rings behind the scenes—to you, your team, AI, or voicemail—without wrestling a phone system."
+  "lyncr is software for small service businesses—business phone and call routing, dispatch and CRM, plus payments—so every call reaches the right person and every job stays on track."
 
-/** Default meta description for SEO and share cards. */
+/** Default meta description for SEO, share cards, and Stripe reviewers. */
 export const SITE_DESCRIPTION =
-  "lyncr helps you buy or port a business number, route calls to your team or cell, and set voicemail, AI, or owner fallback—clear, calm, and always on."
+  "lyncr is B2B software for locksmiths, mobile techs, and similar service businesses: business phone and call routing, dispatch, scheduler, CRM, and payments (Tap to Pay and pay links via Stripe Connect)."
 
 /** Canonical site URL — used when NEXT_PUBLIC_APP_URL is unset. */
 export const SITE_CANONICAL_URL = "https://lyncr.app"
@@ -39,20 +39,25 @@ export const SITE_KEYWORDS = [
   "lyncr",
   "business phone",
   "call routing",
+  "field service software",
+  "dispatch software",
+  "service business CRM",
+  "Tap to Pay",
+  "Stripe Connect",
+  "locksmith software",
+  "mobile technician app",
   "virtual receptionist",
   "VoIP routing",
-  "small business phone",
   "number porting",
-  "AI phone assistant",
-  "HeySigo",
 ] as const
 
 /**
  * Rebrand guardrails for copy and UI.
  */
 export const BRAND_GUIDE = {
-  voice: "Warm, direct, and calm—like a trusted front desk, not a telecom manual.",
-  promise: "One business number in public; flexible routing and fallbacks in private.",
+  voice: "Clear, confident, and beginner-friendly—like a trusted ops partner, not a telecom manual.",
+  promise:
+    "One place for calls, dispatch, CRM, and payments—so service businesses link every call to the right answer.",
   wordmark: "Always set in lowercase: lyncr.",
-  look: "Deep ink background, soft violet–indigo signal, subtle warm highlight so the UI feels human and modern.",
+  look: "Deep ink background with teal primary signal; calm, modern field-ops energy—not purple glow or brochure cream.",
 } as const

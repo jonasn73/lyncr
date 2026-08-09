@@ -5,7 +5,7 @@ import { SITE_NAME } from "@/lib/brand"
 
 export const metadata: Metadata = {
   title: "Support",
-  description: `Get help with ${SITE_NAME} call routing, numbers, receptionists, and account setup.`,
+  description: `Get help with ${SITE_NAME}: business phone routing, dispatch, CRM, payments, numbers, and account setup.`,
 }
 
 export default function SupportPage() {
