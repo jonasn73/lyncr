@@ -850,7 +850,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
     const enqueueCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/enqueue"))
     expect(enqueueCall).toBeTruthy()
-    // Music starts immediately after enqueue (call.enqueued is only a recovery restart).
+    // Soft-hold: playback_start (loop) before/with enqueue — not gather_using_audio-first.
     const musicAfterEnter = fetchMock.mock.calls.find(
       (c) =>
         String(c[0]).includes("/actions/playback_start") ||
@@ -860,16 +860,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const smsHangup = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
     expect(smsHangup).toBeFalsy()
 
-    const playbackOrAudio = fetchMock.mock.calls.find(
-      (c) =>
-        String(c[0]).includes("/actions/playback_start") ||
-        String(c[0]).includes("/actions/gather_using_audio")
+    const playbackStart = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/playback_start")
     )
-    expect(playbackOrAudio).toBeTruthy()
-    // Prefer gather_using_audio (plays clip + collects Press 1).
-    const audioGather = fetchMock.mock.calls.find((c) =>
-      String(c[0]).includes("/actions/gather_using_audio")
-    )
-    expect(audioGather).toBeTruthy()
+    expect(playbackStart).toBeTruthy()
   })
 })

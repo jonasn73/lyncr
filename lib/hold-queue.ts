@@ -70,18 +70,27 @@ function absoluteHoldMusicUrl(raw: string): string | null {
 }
 
 /**
- * Last-resort public royalty-free sample (Internet Archive) if lyncr.app assets are unreachable.
- * Prefer bundled /audio/hold-*.mp3 — this is only used when resolveHoldMusicUrlCandidates() is empty.
+ * Last-resort public sample if lyncr.app assets are unreachable.
+ * Prefer bundled /audio/hold-*.wav — inline `playback_content` is tried before this URL.
  */
 export const HOLD_MUSIC_PUBLIC_FALLBACK_URL =
   "https://archive.org/download/testmp3testfile/mpthreetest.mp3"
 
-/** Bundled Calm loop path — MP3 is more reliable on Telnyx PSTN than WAV. */
-export const HOLD_MUSIC_DEFAULT_PATH = "/audio/hold-calm.mp3"
+/** Bundled Calm loop — 8 kHz mono WAV (Telnyx PSTN-safe). */
+export const HOLD_MUSIC_DEFAULT_PATH = "/audio/hold-calm.wav"
 
 /**
- * Public HTTPS URL for hold music (MP3 preferred).
- * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm MP3.
+ * Optional Telnyx Media Storage name (Mission Control → Media, or POST /v2/media).
+ * When set, Call Control plays by `media_name` (no URL fetch from Telnyx → lyncr.app).
+ */
+export function holdMusicMediaName(): string | null {
+  const raw = (envLyncrOrZing("HOLD_MUSIC_MEDIA_NAME") || "").trim()
+  return raw || null
+}
+
+/**
+ * Public HTTPS URL for hold music (WAV preferred).
+ * Order: per-account override → env LYNCR_/ZING_HOLD_MUSIC_URL → bundled Calm WAV.
  */
 export function resolveHoldMusicUrl(accountOverride?: string | null): string | null {
   const candidates = resolveHoldMusicUrlCandidates(accountOverride)
@@ -89,7 +98,7 @@ export function resolveHoldMusicUrl(accountOverride?: string | null): string | n
 }
 
 /**
- * Ordered list of music URLs to try (preset/custom → wav twin → public fallback).
+ * Ordered list of music URLs to try (preset/custom → twin → public fallback).
  * Callers should attempt playback in order until Telnyx accepts one.
  */
 export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): string[] {
@@ -101,28 +110,28 @@ export function resolveHoldMusicUrlCandidates(accountOverride?: string | null): 
 
   if (typeof accountOverride === "string" && accountOverride.trim()) {
     push(absoluteHoldMusicUrl(accountOverride))
-    // If account stored .wav, also try the sibling .mp3 (and vice versa).
+    // If account stored .mp3, also try the sibling .wav (and vice versa).
     const abs = absoluteHoldMusicUrl(accountOverride)
-    if (abs?.endsWith(".wav")) push(abs.replace(/\.wav$/i, ".mp3"))
     if (abs?.endsWith(".mp3")) push(abs.replace(/\.mp3$/i, ".wav"))
+    if (abs?.endsWith(".wav")) push(abs.replace(/\.wav$/i, ".mp3"))
   }
 
   const fromEnv = envLyncrOrZing("HOLD_MUSIC_URL")
   if (fromEnv) {
     push(absoluteHoldMusicUrl(fromEnv))
     const envAbs = absoluteHoldMusicUrl(fromEnv)
-    if (envAbs?.endsWith(".wav")) push(envAbs.replace(/\.wav$/i, ".mp3"))
     if (envAbs?.endsWith(".mp3")) push(envAbs.replace(/\.mp3$/i, ".wav"))
+    if (envAbs?.endsWith(".wav")) push(envAbs.replace(/\.wav$/i, ".mp3"))
   }
 
-  // Bundled Calm MP3 (default) + WAV twin for older caches.
+  // Bundled Calm WAV (default) + legacy aliases.
   try {
     const base = getAppUrl().replace(/\/$/, "")
     if (base) {
       push(`${base}${HOLD_MUSIC_DEFAULT_PATH}`)
-      push(`${base}/audio/hold-calm.wav`)
-      push(`${base}/audio/hold-music.mp3`)
       push(`${base}/audio/hold-music.wav`)
+      push(`${base}/audio/hold-calm.mp3`)
+      push(`${base}/audio/hold-music.mp3`)
     }
   } catch {
     /* getAppUrl may throw in unit tests without NEXT_PUBLIC_APP_URL */

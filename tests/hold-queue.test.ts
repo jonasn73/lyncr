@@ -60,19 +60,19 @@ describe("hold-queue helpers", () => {
 
   it("maps hold music presets to /audio paths", () => {
     expect(HOLD_MUSIC_PRESETS.length).toBeGreaterThanOrEqual(3)
-    expect(holdMusicValueForPreset("calm")).toBe("/audio/hold-calm.mp3")
-    expect(matchHoldMusicPreset("/audio/hold-upbeat.mp3")).toBe("upbeat")
+    expect(holdMusicValueForPreset("calm")).toBe("/audio/hold-calm.wav")
     expect(matchHoldMusicPreset("/audio/hold-upbeat.wav")).toBe("upbeat")
+    expect(matchHoldMusicPreset("/audio/hold-upbeat.mp3")).toBe("upbeat")
     expect(matchHoldMusicPreset("")).toBe("default")
     expect(matchHoldMusicPreset("https://cdn.example/custom.mp3")).toBe("custom")
   })
 
   it("resolves relative preset paths against app URL when set", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://lyncr.app")
-    expect(resolveHoldMusicUrl("/audio/hold-calm.mp3")).toBe(
-      "https://lyncr.app/audio/hold-calm.mp3"
+    expect(resolveHoldMusicUrl("/audio/hold-calm.wav")).toBe(
+      "https://lyncr.app/audio/hold-calm.wav"
     )
-    expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-calm.mp3")
+    expect(resolveHoldMusicUrl(null)).toBe("https://lyncr.app/audio/hold-calm.wav")
   })
 })
 

@@ -30,11 +30,14 @@ In your Vercel project: **Settings → Environment Variables**. Add:
 | `PUSHER_APP_ID` / `PUSHER_KEY` / `PUSHER_SECRET` / `PUSHER_CLUSTER` | Optional **realtime** for the receptionist HUD. When set, the moment a receptionist's cell **answers**, their HUD instantly pops the **live intake form** (no 15s wait). Create a free app at **dashboard.pusher.com → Channels**. When unset, the HUD silently falls back to 15s polling. |
 | `NEXT_PUBLIC_PUSHER_KEY` / `NEXT_PUBLIC_PUSHER_CLUSTER` | **Build-time** copies of `PUSHER_KEY` / `PUSHER_CLUSTER` for the browser. Must be set **before** the Vercel build so they're inlined into the client bundle. |
 | `LYNCR_INBOUND_CALL_CONTROL` | Prefer this over legacy `ZING_INBOUND_CALL_CONTROL` (still dual-read). `1` / `true` → Call Control inbound. |
-| `LYNCR_HOLD_MUSIC_URL` | Public HTTPS MP3/WAV for Busy hold music. Or leave unset and use Greetings presets (`/audio/hold-calm.mp3` etc.) / bundled `public/audio/hold-*.mp3`. |
+| `LYNCR_HOLD_MUSIC_URL` | Public HTTPS WAV/MP3 for Busy hold music. Or leave unset and use Greetings presets (`/audio/hold-calm.wav` etc.). |
+| `LYNCR_HOLD_MUSIC_MEDIA_NAME` | Optional Telnyx Media Storage name (Mission Control → Media). Skips URL fetch — most reliable for hold music. |
 | `LYNCR_HOLD_MAX_WAIT_SECS` | Optional. Max hold wait before one SMS + hangup (default **600**). Per-account override in Greetings (migration **130**). |
 | `LYNCR_HOLD_REPROMPT_MS` | Optional. Hold music segment length in ms between re-prompts (default **45000**). Per-account seconds override in Greetings (migration **130**). |
 | `LYNCR_HOLD_MAX_CONCURRENT` | Optional. Cap waiting holds per account (default **3**). |
-| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override for Call Control Speak / Busy menus. When unset, uses the saved **AI Voice Persona** (default **`Telnyx.NaturalHD.astra`** for Reassuring Female). Examples: `AWS.Polly.Joanna-Neural`, `AWS.Polly.Matthew-Neural`, `Telnyx.NaturalHD.astra`. Legacy `ZING_CALL_CONTROL_SPEAK_VOICE` still works. |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE` | Optional ops override **only when no AI Voice Persona is saved**, or when `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1`. Saved Greetings persona wins by default (★ Best = **`Telnyx.NaturalHD.astra`** / **`Telnyx.NaturalHD.albion`**). Examples: `AWS.Polly.Joanna-Neural`, `Telnyx.NaturalHD.astra`, `ElevenLabs.Rachel` (needs `ELEVENLABS_API_KEY`). |
+| `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE` | Set `1` to force `LYNCR_CALL_CONTROL_SPEAK_VOICE` over the saved persona. |
+| `ELEVENLABS_API_KEY` | Optional. Enables Premium ElevenLabs personas in Call Control Speak; otherwise those options fall back to NaturalHD. |
 | `LYNCR_CALL_CONTROL_SPEAK_RATE` | Optional Polly SSML rate for Call Control (default **`1.05`** — slightly conversational). Set `1` or `off` to disable. NaturalHD ignores this (plain text). |
 | `LYNCR_TEXML_SAY_VOICE` | Optional. TeXML `<Say>` voice. Default **`Polly.Joanna-Neural`**. |
 | `LYNCR_VOICE_DEBUG_LOGS` | Optional. `1` restores verbose voice JSON logs in production. |

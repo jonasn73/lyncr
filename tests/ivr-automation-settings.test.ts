@@ -8,6 +8,7 @@ import {
   resolveHolidayGreetingText,
   resolveIvrCallControlVoice,
   resolveIvrTexmlVoice,
+  resolveSpeakVoiceForPersona,
 } from "@/lib/ivr-automation-settings"
 import { buildAutomationPresenceGatherXml } from "@/lib/ivr-automation-texml"
 import { DEFAULT_ACCOUNT_PRESENCE } from "@/lib/account-presence"
@@ -19,10 +20,13 @@ describe("ivr automation settings", () => {
     expect(resolveIvrTexmlVoice("Polly.Joanna-Neural")).toBe("Polly.Joanna-Neural")
   })
 
-  it("maps voice personas to Call Control Speak voices", () => {
+  it("maps voice personas to Call Control Speak voices (best NaturalHD first)", () => {
     expect(resolveIvrCallControlVoice("en-US-Standard-C")).toBe("Telnyx.NaturalHD.astra")
-    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Abbie")).toBe("Telnyx.NaturalHD.abbie")
-    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Aiden")).toBe("Telnyx.NaturalHD.aiden")
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Luna")).toBe("Telnyx.NaturalHD.luna")
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Albion")).toBe("Telnyx.NaturalHD.albion")
+    // Legacy ids still resolve.
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Abbie")).toBe("Telnyx.NaturalHD.luna")
+    expect(resolveIvrCallControlVoice("en-US-NaturalHD-Aiden")).toBe("Telnyx.NaturalHD.albion")
     expect(resolveIvrCallControlVoice("en-US-Standard-B")).toBe("AWS.Polly.Matthew-Neural")
     expect(resolveIvrCallControlVoice("en-US-Standard-E")).toBe("AWS.Polly.Salli-Neural")
     expect(resolveIvrCallControlVoice("en-US-Polly-Joanna")).toBe("AWS.Polly.Joanna-Neural")
@@ -31,10 +35,26 @@ describe("ivr automation settings", () => {
     expect(resolveIvrCallControlVoice("Polly.Joanna-Neural")).toBe("AWS.Polly.Joanna-Neural")
   })
 
-  it("exposes several calm natural persona labels", () => {
-    expect(IVR_VOICE_PERSONA_OPTIONS.length).toBeGreaterThanOrEqual(6)
+  it("falls back ElevenLabs personas to NaturalHD when API key missing", () => {
+    const prev = process.env.ELEVENLABS_API_KEY
+    delete process.env.ELEVENLABS_API_KEY
+    try {
+      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
+      expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Adam")).toBe("Telnyx.NaturalHD.albion")
+    } finally {
+      if (prev === undefined) delete process.env.ELEVENLABS_API_KEY
+      else process.env.ELEVENLABS_API_KEY = prev
+    }
+  })
+
+  it("orders personas with Best NaturalHD labels first", () => {
+    expect(IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice).toBe("Telnyx.NaturalHD.astra")
+    expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label).join(" ")).toMatch(/★ Best/)
     expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label)).toEqual(
-      expect.arrayContaining(["Calm woman", "Warm woman", "Warm man", "Calm man"])
+      expect.arrayContaining([
+        expect.stringMatching(/Calm woman.*Astra/),
+        expect.stringMatching(/Calm man.*Albion/),
+      ])
     )
   })
 

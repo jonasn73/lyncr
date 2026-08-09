@@ -80,22 +80,31 @@ export function getTexmlSayVoiceAttributes(): { voice: string; language: string 
  * Call Control `speak` / `gather_using_speak` voice + language.
  *
  * Priority:
- * 1. `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy `ZING_*`) — ops override
- * 2. `personaVoice` — saved AI Voice Persona from Greetings (`ivr_voice_engine_model`)
+ * 1. `personaVoice` — saved AI Voice Persona from Greetings (`ivr_voice_engine_model`)
+ * 2. `LYNCR_CALL_CONTROL_SPEAK_VOICE` (or legacy `ZING_*`) — ops override only when no persona
  * 3. Normalize `LYNCR_TEXML_SAY_VOICE`, else NaturalHD astra
+ *
+ * To force one voice for all accounts (ignore persona), set env AND leave persona unused,
+ * or set `LYNCR_CALL_CONTROL_SPEAK_VOICE_FORCE=1` with the voice env.
  */
 export function getCallControlSpeakVoiceAttributes(opts?: {
   /** Already-resolved Call Control voice from account persona (optional). */
   personaVoice?: string | null
 }): { voice: string; language: string } {
   const language = envLyncrOrZing("TEXML_SAY_LANGUAGE") || DEFAULT_TEXML_SAY_LANGUAGE
+  const forceEnv =
+    envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE_FORCE") === "1" ||
+    envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE_FORCE") === "true"
   const explicit = envLyncrOrZing("CALL_CONTROL_SPEAK_VOICE")
-  if (explicit) {
+  if (forceEnv && explicit) {
     return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
   const persona = String(opts?.personaVoice || "").trim()
   if (persona) {
     return { voice: normalizeCallControlSpeakVoice(persona), language }
+  }
+  if (explicit) {
+    return { voice: normalizeCallControlSpeakVoice(explicit), language }
   }
   const texmlVoice = envLyncrOrZing("TEXML_SAY_VOICE")
   if (texmlVoice) {

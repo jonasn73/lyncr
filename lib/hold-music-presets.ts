@@ -20,25 +20,28 @@ export type HoldMusicPreset = {
 /** Calm is the product default so Busy is never silent when assets ship. */
 export const HOLD_MUSIC_DEFAULT_PRESET: HoldMusicPresetId = "calm"
 
+/**
+ * Presets use 8 kHz mono WAV — Telnyx PSTN-friendly.
+ * (Prior MP3 @ 16 kHz MPEG-2 L3 returned API-ok then gatherStatus=invalid in ~1s.)
+ */
 export const HOLD_MUSIC_PRESETS: HoldMusicPreset[] = [
   {
     id: "calm",
     label: "Calm",
     description: "Soft ambient pad — easy to talk over.",
-    // MP3 is more reliable on Telnyx Call Control / PSTN than WAV.
-    path: "/audio/hold-calm.mp3",
+    path: "/audio/hold-calm.wav",
   },
   {
     id: "upbeat",
     label: "Upbeat",
     description: "Brighter pulse so callers know the line is live.",
-    path: "/audio/hold-upbeat.mp3",
+    path: "/audio/hold-upbeat.wav",
   },
   {
     id: "minimal",
     label: "Minimal",
     description: "Sparse soft tones with quiet gaps.",
-    path: "/audio/hold-minimal.mp3",
+    path: "/audio/hold-minimal.wav",
   },
 ]
 

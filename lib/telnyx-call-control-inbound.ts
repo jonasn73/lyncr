@@ -67,7 +67,7 @@ import {
   digitsMatchIvrBypass,
   resolveAutomationGatherNumDigits,
   resolveHolidayGreetingText,
-  resolveIvrCallControlVoice,
+  resolveSpeakVoiceForPersona,
 } from "@/lib/ivr-automation-settings"
 import {
   getActivePhoneNumberByE164,
@@ -271,7 +271,7 @@ async function startBusyAutomationFlow(
       say = `${say.trim()} Press 1 and we'll text you a short form, or stay on the line.`
     }
     maxDigits = resolveAutomationGatherNumDigits(presence.ivrBypassCode)
-    speakVoice = resolveIvrCallControlVoice(presence.ivrVoiceEngineModel)
+    speakVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
@@ -846,7 +846,7 @@ async function handleCallAnswered(
     let greetVoice: string | undefined
     try {
       const presence = await getAccountPresence(routing.user_id)
-      greetVoice = resolveIvrCallControlVoice(presence.ivrVoiceEngineModel)
+      greetVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
     } catch {
       /* persona lookup is optional for branded greet */
     }

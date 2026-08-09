@@ -24,10 +24,12 @@ import {
   HOLD_REPROMPT_DEFAULT,
   holdMaxConcurrent,
   holdMaxWaitSecs,
+  holdMusicMediaName,
   holdRePromptIntervalMs,
   lyncrHoldQueueName,
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
+import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { lyncrLog } from "@/lib/lyncr-env"
@@ -154,7 +156,10 @@ export async function enterBusyHoldQueue(params: {
   }
   const encoded = encodeTelnyxCallControlState(nextState)
 
-  // Phase B — Telnyx native queue (Answer bridge uses this name).
+  // Soft-hold music FIRST (Telnyx contact-center: play on answered call).
+  // Enqueue after music so queue parking cannot wipe audio before the first play.
+  const musicOk = await startHoldMusicGather(callControlId, nextState)
+
   const enqueueRes = await telnyxCallControlEnqueue(callControlId, {
     queueName,
     maxWaitTimeSecs: maxWait,
@@ -165,8 +170,12 @@ export async function enterBusyHoldQueue(params: {
       lyncrLog("telnyx-cc-enqueue-failed", {
         callControlId,
         error: enqueueRes.error,
+        note: "soft_hold_music_still_runs_without_native_queue",
       })
     )
+  } else if (musicOk) {
+    // Enqueue can clear media — restart once if we already had music going.
+    await startHoldMusicGather(callControlId, nextState)
   }
 
   await upsertCallQueueWaiting({
@@ -184,14 +193,9 @@ export async function enterBusyHoldQueue(params: {
       userId,
       queueName,
       enqueued: enqueueRes.ok,
+      musicStarted: musicOk,
     })
   )
-
-  // Always start music NOW — do not wait for call.enqueued.
-  // Production logs show enqueue can succeed while call.enqueued never hits our webhook
-  // (Mission Control event filter / missing client_state) → permanent silence.
-  // call.enqueued handler below remains a recovery restart if enqueue wiped media.
-  await startHoldMusicGather(callControlId, nextState)
 }
 
 /**
@@ -213,14 +217,14 @@ export async function handleCallEnqueuedHoldMusic(
   await startHoldMusicGather(callControlId, state)
 }
 
-/** Play hold music + collect digit 1 (or speak-only when every music URL fails). */
+/** Play looping hold music + collect digit 1 (or speak-only when every music path fails). */
 export async function startHoldMusicGather(
   callControlId: string,
   state: TelnyxCallControlClientState
-): Promise<void> {
+): Promise<boolean> {
   if (holdTimedOut(state)) {
     await finishHoldWithSms(callControlId, state, "timed_out")
-    return
+    return false
   }
 
   const accountSettings = await getAccountHoldSettings(state.userId).catch(() => ({
@@ -229,6 +233,7 @@ export async function startHoldMusicGather(
     holdRepromptSecs: null,
   }))
   const musicCandidates = resolveHoldMusicUrlCandidates(accountSettings.holdMusicUrl)
+  const mediaName = holdMusicMediaName()
   const repromptMs = holdRePromptIntervalMs(
     state.holdRepromptSecs ?? accountSettings.holdRepromptSecs
   )
@@ -246,14 +251,102 @@ export async function startHoldMusicGather(
       callControlId,
       musicUrl: musicCandidates[0] || null,
       candidates: musicCandidates.slice(0, 6),
+      mediaName: mediaName || null,
       accountOverride: accountSettings.holdMusicUrl || null,
       repromptMs,
     })
   )
 
-  // Prefer gather_using_audio: one command plays the clip and waits for Press 1.
-  // playback_start + gather is a second path (looping) if gather_using_audio fails.
+  // Telnyx contact-center pattern: playback_start (loop) THEN gather for Press 1.
+  // Production: gather_using_audio returned 200 then gather.ended invalid in ~1s (no audible music).
+  const tryPlaybackThenGather = async (
+    label: string,
+    playOpts: {
+      audioUrl?: string | null
+      mediaName?: string | null
+      playbackContent?: string | null
+    }
+  ): Promise<boolean> => {
+    const playRes = await telnyxCallControlPlaybackStart(callControlId, {
+      ...playOpts,
+      clientState: encoded,
+      loop: "infinity",
+    })
+    if (!playRes.ok) {
+      console.warn(
+        lyncrLog("telnyx-cc-hold-playback-start-failed", {
+          callControlId,
+          mode: label,
+          error: playRes.error,
+          status: playRes.status,
+          musicUrl: playOpts.audioUrl || null,
+          mediaName: playOpts.mediaName || null,
+          usedPlaybackContent: Boolean(playOpts.playbackContent),
+        })
+      )
+      if (/no longer active/i.test(playRes.error || "")) return false
+      return false
+    }
+    const gatherRes = await telnyxCallControlGather(callControlId, {
+      clientState: encoded,
+      timeoutMillis: repromptMs,
+      maximumDigits: 1,
+      validDigits: "1",
+    })
+    if (gatherRes.ok) {
+      console.log(
+        lyncrLog("telnyx-cc-hold-music-started", {
+          callControlId,
+          mode: label,
+          musicUrl: playOpts.audioUrl || null,
+          mediaName: playOpts.mediaName || null,
+          usedPlaybackContent: Boolean(playOpts.playbackContent),
+        })
+      )
+      return true
+    }
+    console.warn(
+      lyncrLog("telnyx-cc-hold-gather-after-playback-failed", {
+        callControlId,
+        mode: label,
+        error: gatherRes.error,
+        musicUrl: playOpts.audioUrl || null,
+      })
+    )
+    // Music may still be looping even if gather failed — treat as partial success.
+    if (!/no longer active/i.test(gatherRes.error || "")) {
+      console.log(
+        lyncrLog("telnyx-cc-hold-music-started", {
+          callControlId,
+          mode: `${label}-playback-only`,
+          musicUrl: playOpts.audioUrl || null,
+          note: "gather_failed_music_may_still_play",
+        })
+      )
+      return true
+    }
+    return false
+  }
+
+  // 1) Telnyx Media Storage (no outbound URL fetch) when env is set.
+  if (mediaName) {
+    if (await tryPlaybackThenGather("media_name", { mediaName })) return true
+  }
+
+  // 2) Public HTTPS URLs (8 kHz WAV preferred).
   for (const musicUrl of musicCandidates) {
+    const ok = await tryPlaybackThenGather("playback_start+gather", { audioUrl: musicUrl })
+    if (ok) return true
+  }
+
+  // 3) Inline base64 WAV — Telnyx never has to fetch lyncr.app.
+  const inline = loadHoldMusicPlaybackContentBase64()
+  if (inline) {
+    if (await tryPlaybackThenGather("playback_content", { playbackContent: inline })) return true
+  }
+
+  // 4) Last resort: gather_using_audio (historically flaky — keep as backup).
+  for (const musicUrl of musicCandidates.slice(0, 3)) {
     const audioGather = await telnyxCallControlGatherUsingAudio(callControlId, {
       audioUrl: musicUrl,
       clientState: encoded,
@@ -269,7 +362,7 @@ export async function startHoldMusicGather(
           musicUrl,
         })
       )
-      return
+      return true
     }
     console.warn(
       lyncrLog("telnyx-cc-hold-music-gather-failed", {
@@ -279,67 +372,22 @@ export async function startHoldMusicGather(
         status: audioGather.status,
       })
     )
-
-    // Dead call — stop hammering Telnyx with fallbacks.
     if (/no longer active/i.test(audioGather.error || "")) {
-      console.warn(
-        lyncrLog("telnyx-cc-hold-music-skip-dead-call", { callControlId, musicUrl })
-      )
-      return
-    }
-
-    const playRes = await telnyxCallControlPlaybackStart(callControlId, {
-      audioUrl: musicUrl,
-      clientState: encoded,
-      loop: "infinity",
-    })
-    if (playRes.ok) {
-      const gatherRes = await telnyxCallControlGather(callControlId, {
-        clientState: encoded,
-        timeoutMillis: repromptMs,
-        maximumDigits: 1,
-        validDigits: "1",
-      })
-      if (gatherRes.ok) {
-        console.log(
-          lyncrLog("telnyx-cc-hold-music-started", {
-            callControlId,
-            mode: "playback_start+gather",
-            musicUrl,
-          })
-        )
-        return
-      }
-      console.warn(
-        lyncrLog("telnyx-cc-hold-gather-after-playback-failed", {
-          callControlId,
-          error: gatherRes.error,
-          musicUrl,
-        })
-      )
-    } else {
-      console.warn(
-        lyncrLog("telnyx-cc-hold-playback-start-failed", {
-          callControlId,
-          error: playRes.error,
-          musicUrl,
-          status: playRes.status,
-        })
-      )
-      if (/no longer active/i.test(playRes.error || "")) return
+      console.warn(lyncrLog("telnyx-cc-hold-music-skip-dead-call", { callControlId, musicUrl }))
+      return false
     }
   }
 
-  if (!musicCandidates.length) {
+  if (!musicCandidates.length && !mediaName && !inline) {
     console.warn(
       lyncrLog("telnyx-cc-hold-music-url-missing", {
         callControlId,
-        hint: "Set hold music preset or LYNCR_HOLD_MUSIC_URL; default needs NEXT_PUBLIC_APP_URL",
+        hint: "Set hold music preset, LYNCR_HOLD_MUSIC_URL, or LYNCR_HOLD_MUSIC_MEDIA_NAME",
       })
     )
   }
 
-  // No music (or all URLs failed) — speak a short hold line and wait for press 1.
+  // No music (or all paths failed) — speak a short hold line and wait for press 1.
   const text = await buildHoldRepromptText(state, callControlId)
   const speakGather = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text,
@@ -350,11 +398,12 @@ export async function startHoldMusicGather(
   })
   if (!speakGather.ok) {
     console.error(lyncrLog("telnyx-cc-hold-speak-gather-failed", { error: speakGather.error }))
-    // Do NOT auto-SMS / hangup on gather failure for a dead call — only press 1 or max-wait may text.
     if (!/no longer active/i.test(speakGather.error || "")) {
       await finishHoldWithoutSms(callControlId, state)
     }
+    return false
   }
+  return false
 }
 
 /** Stop music briefly and re-speak Busy / position hint, then gather for press 1. */
@@ -519,12 +568,28 @@ export async function handleHoldLoopGatherEnded(params: {
     return
   }
 
-  // Music segment timed out → speak re-prompt; re-prompt timed out → music again.
-  if (state.holdSegment === "reprompt") {
-    await startHoldMusicGather(callControlId, state)
+  // Music segment ended with no digit:
+  // - "invalid" + empty digits was the production silence bug (clip rejected ~1s) —
+  //   retry music instead of immediately speaking (which stopped any real audio).
+  // - timeout → re-prompt as designed.
+  if (state.holdSegment === "music") {
+    if (gatherStatus === "invalid" || gatherStatus === "cancelled") {
+      console.warn(
+        lyncrLog("telnyx-cc-hold-music-invalid-retry", {
+          callControlId,
+          gatherStatus,
+          note: "retry_playback_not_reprompt",
+        })
+      )
+      await startHoldMusicGather(callControlId, state)
+      return
+    }
+    await startHoldRepromptGather(callControlId, state)
     return
   }
-  await startHoldRepromptGather(callControlId, state)
+
+  // Re-prompt timed out / invalid → music again.
+  await startHoldMusicGather(callControlId, state)
 }
 
 /**

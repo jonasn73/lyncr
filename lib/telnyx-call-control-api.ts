@@ -22,13 +22,17 @@ async function postCallAction(
 ): Promise<TelnyxCallControlActionResult> {
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
-  // Surface media URLs in logs so silent hold music is diagnosable from Vercel logs.
+  // Surface media URLs / media_name in logs so silent hold music is diagnosable.
   const audioUrl = typeof body.audio_url === "string" ? body.audio_url : undefined
+  const mediaName = typeof body.media_name === "string" ? body.media_name : undefined
+  const hasPlaybackContent = typeof body.playback_content === "string" && body.playback_content.length > 0
   console.log(
     lyncrLog("telnyx-cc-api-post", {
       action,
       callControlId: id,
       audioUrl: audioUrl || undefined,
+      mediaName: mediaName || undefined,
+      playbackContent: hasPlaybackContent ? `base64:${String(body.playback_content).length}chars` : undefined,
       voice: typeof body.voice === "string" ? body.voice : undefined,
       apiKeyPrefix: String(process.env.TELNYX_API_KEY || "").slice(0, 12) || "(missing)",
     })
@@ -39,13 +43,22 @@ async function postCallAction(
     body: JSON.stringify(body),
   })
   if (res.ok) {
-    console.log(lyncrLog("telnyx-cc-api-ok", { action, callControlId: id, audioUrl: audioUrl || undefined }))
+    console.log(
+      lyncrLog("telnyx-cc-api-ok", {
+        action,
+        callControlId: id,
+        audioUrl: audioUrl || undefined,
+        mediaName: mediaName || undefined,
+        playbackContent: hasPlaybackContent || undefined,
+      })
+    )
     return { ok: true }
   }
   const errBody = await res.json().catch(() => ({}))
   const detail =
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
+  // Full Telnyx error JSON (truncated) — required to debug silent hold / 422s.
   console.error(
     lyncrLog("telnyx-cc-api-failed", {
       action,
@@ -53,6 +66,8 @@ async function postCallAction(
       status: res.status,
       error: detail || res.statusText,
       audioUrl: audioUrl || undefined,
+      mediaName: mediaName || undefined,
+      telnyxErrors: JSON.stringify(errBody).slice(0, 1200),
     })
   )
   return { ok: false, status: res.status, error: detail || res.statusText }
@@ -73,7 +88,7 @@ export async function telnyxCallControlSpeak(
   clientState: string,
   opts?: { voice?: string | null }
 ): Promise<TelnyxCallControlActionResult> {
-  // Persona / env → Call Control voice (AWS.Polly.* or Telnyx.NaturalHD.*).
+  // Persona / env → Call Control voice (AWS.Polly.* / Telnyx.NaturalHD.* / ElevenLabs.*).
   const attrs = getCallControlSpeakVoiceAttributes({ personaVoice: opts?.voice })
   const trySpeak = async (voice: string) => {
     const built = buildCallControlSpeakPayload(text, voice)
@@ -89,6 +104,19 @@ export async function telnyxCallControlSpeak(
   }
   const primary = await trySpeak(attrs.voice)
   if (primary.ok) return primary
+  // ElevenLabs needs API key / Telnyx integration — fall back to NaturalHD.
+  if (/^ElevenLabs\./i.test(attrs.voice)) {
+    const fb = /adam/i.test(attrs.voice) ? "Telnyx.NaturalHD.albion" : "Telnyx.NaturalHD.astra"
+    console.warn(
+      lyncrLog("telnyx-cc-speak-elevenlabs-fallback", {
+        callControlId,
+        error: primary.error,
+        fallback: fb,
+      })
+    )
+    const elevenFallback = await trySpeak(fb)
+    if (elevenFallback.ok) return elevenFallback
+  }
   // NaturalHD may be unavailable on some Telnyx accounts — fall back to Polly Neural.
   if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
     console.warn(
@@ -143,6 +171,18 @@ export async function telnyxCallControlGatherUsingSpeak(
   }
   const primary = await tryGather(attrs.voice)
   if (primary.ok) return primary
+  if (/^ElevenLabs\./i.test(attrs.voice)) {
+    const fb = /adam/i.test(attrs.voice) ? "Telnyx.NaturalHD.albion" : "Telnyx.NaturalHD.astra"
+    console.warn(
+      lyncrLog("telnyx-cc-gather-speak-elevenlabs-fallback", {
+        callControlId,
+        error: primary.error,
+        fallback: fb,
+      })
+    )
+    const elevenFallback = await tryGather(fb)
+    if (elevenFallback.ok) return elevenFallback
+  }
   if (/^Telnyx\.NaturalHD\./i.test(attrs.voice) && attrs.voice !== CALL_CONTROL_POLLY_NEURAL_FALLBACK) {
     console.warn(
       lyncrLog("telnyx-cc-gather-speak-naturalhd-fallback", {
@@ -296,24 +336,43 @@ export async function telnyxCallControlHold(callControlId: string): Promise<Teln
   return postCallAction(callControlId, "hold", {})
 }
 
-/** Start hold music (or any public audio URL). Prefer MP3; set audio_type when known. */
+/**
+ * Start hold music on an answered call (Telnyx contact-center pattern).
+ * Prefer one of: audioUrl, mediaName (Telnyx Media Storage), or playbackContent (base64).
+ * Do not mix audio_url + media_name in one request.
+ */
 export async function telnyxCallControlPlaybackStart(
   callControlId: string,
   opts: {
-    audioUrl: string
+    audioUrl?: string | null
+    /** Telnyx Media Storage name (POST /v2/media). */
+    mediaName?: string | null
+    /** Base64-encoded MP3/WAV — bypasses URL fetch from Telnyx → your host. */
+    playbackContent?: string | null
     clientState: string
     /** "infinity" loops until stop; omit / number for finite plays. */
     loop?: "infinity" | number
   }
 ): Promise<TelnyxCallControlActionResult> {
   const body: Record<string, unknown> = {
-    audio_url: opts.audioUrl,
     client_state: opts.clientState,
-    // Helps Telnyx decode correctly when Content-Type is ambiguous.
     cache_audio: true,
   }
-  if (/\.mp3(\?|$)/i.test(opts.audioUrl)) body.audio_type = "mp3"
-  else if (/\.wav(\?|$)/i.test(opts.audioUrl)) body.audio_type = "wav"
+  const mediaName = String(opts.mediaName || "").trim()
+  const playbackContent = String(opts.playbackContent || "").trim()
+  const audioUrl = String(opts.audioUrl || "").trim()
+
+  if (mediaName) {
+    body.media_name = mediaName
+  } else if (playbackContent) {
+    body.playback_content = playbackContent
+  } else if (audioUrl) {
+    body.audio_url = audioUrl
+    if (/\.mp3(\?|$)/i.test(audioUrl)) body.audio_type = "mp3"
+    else if (/\.wav(\?|$)/i.test(audioUrl)) body.audio_type = "wav"
+  } else {
+    return { ok: false, status: 400, error: "playback_start needs audioUrl, mediaName, or playbackContent" }
+  }
   if (opts.loop !== undefined) body.loop = opts.loop
   return postCallAction(callControlId, "playback_start", body)
 }
@@ -325,8 +384,9 @@ export async function telnyxCallControlPlaybackStop(
 }
 
 /**
- * Play hold music and collect DTMF — Telnyx owns the ~45s timer (serverless-safe).
- * Webhook: call.gather.ended (digits or timeout).
+ * Play a clip and collect DTMF — secondary path; prefer playback_start + gather for hold music.
+ * Webhook: call.gather.ended (digits or timeout). Production saw gatherStatus=invalid in ~1s
+ * with 16 kHz MPEG-2 MP3 — use 8 kHz WAV URLs if you must use this path.
  */
 export async function telnyxCallControlGatherUsingAudio(
   callControlId: string,
@@ -343,10 +403,10 @@ export async function telnyxCallControlGatherUsingAudio(
     audio_url: opts.audioUrl,
     minimum_digits: 1,
     maximum_digits: maxDigits,
-    terminating_digit: "#",
+    // No terminating_digit — "#" was ending gather oddly on some legs.
     valid_digits: opts.validDigits || "0123456789",
     timeout_millis: opts.timeoutMillis ?? 45_000,
-    inter_digit_timeout_millis: 3000,
+    inter_digit_timeout_millis: 5000,
     client_state: opts.clientState,
   })
 }
