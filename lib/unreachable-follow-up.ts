@@ -72,3 +72,48 @@ export function formatCrmBookedStatusLabel(scheduledAtIso: string): string {
   })
   return `Booked · ${when}`
 }
+
+/** True when CRM status is still in the call / open-lead phase (not booked yet). */
+export function isCrmPreBookStatusLabel(statusLabel: string): boolean {
+  const label = String(statusLabel ?? "").trim()
+  return (
+    label === "Needs call" ||
+    label === "Called · no answer" ||
+    label === "Called · answered"
+  )
+}
+
+/** True when CRM status is Booked (with or without appointment time). */
+export function isCrmBookedStatusLabel(statusLabel: string): boolean {
+  const label = String(statusLabel ?? "").trim()
+  return label === "Booked" || label.startsWith("Booked ·")
+}
+
+/** True when CRM status is a terminal close-out. */
+export function isCrmTerminalStatusLabel(statusLabel: string): boolean {
+  const label = String(statusLabel ?? "").trim()
+  return (
+    label === "Complete" ||
+    label === "Done" ||
+    label === "Completed" ||
+    label === "Cancelled" ||
+    label === "Referred" ||
+    label === "Unresolved"
+  )
+}
+
+/**
+ * Show the Submitted request / job lifecycle card for this history row.
+ * Open leads, booked/active jobs, and cancelled/complete close-outs stay editable.
+ */
+export function shouldShowCrmLifecycleCard(params: {
+  isOpenLead: boolean
+  statusLabel: string
+  navAction: "Book job" | "Open job" | "View job" | "Recover" | null
+}): boolean {
+  if (params.isOpenLead) return true
+  if (params.navAction === "Open job" || params.navAction === "Recover") return true
+  if (isCrmBookedStatusLabel(params.statusLabel)) return true
+  if (isCrmTerminalStatusLabel(params.statusLabel)) return true
+  return false
+}

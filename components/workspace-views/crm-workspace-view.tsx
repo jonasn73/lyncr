@@ -35,6 +35,11 @@ import { isSubstantialStreetAddress } from "@/lib/intake-address-helpers"
 import {
   buildUnreachableFollowUpSms,
   crmCallbackOutcomeLabel,
+  formatCrmBookedStatusLabel,
+  isCrmBookedStatusLabel,
+  isCrmPreBookStatusLabel,
+  isCrmTerminalStatusLabel,
+  shouldShowCrmLifecycleCard,
   type LeadCallbackOutcome,
 } from "@/lib/unreachable-follow-up"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -129,20 +134,12 @@ function crmUrgencyLabel(item: CrmServiceHistoryItem): string | null {
 /** CRM → Scheduler action label for a history row (no more overloaded "Convert"). */
 type CrmJobNavAction = "Book job" | "Open job" | "View job" | "Recover"
 
-const TERMINAL_HISTORY_LABELS = new Set([
-  "Complete",
-  "Done", // legacy rows before Complete rename
-  "Completed", // legacy rows before operator glossary rename
-  "Cancelled",
-  "Referred",
-  "Unresolved",
-])
-
 /** Open quote/callback → Book; salvage → Recover; pool/active → Open; terminal → View. */
 function crmJobNavAction(item: CrmServiceHistoryItem): CrmJobNavAction | null {
   // Synthetic walk-up cards are not real ai_leads — no Scheduler deep-link.
   if (isWalkUpHistoryId(item.id) || item.status_label === "Paid walk-up") return null
-  if (TERMINAL_HISTORY_LABELS.has(item.status_label)) return "View job"
+  // Complete / Cancelled / referred close-outs open read-only on Scheduler.
+  if (isCrmTerminalStatusLabel(item.status_label)) return "View job"
   // P2: fold PRICE_REJECTED / lost into CRM Leads with Recover (same Book/Continue path).
   if (item.is_open_lead && item.is_salvageable) return "Recover"
   if (item.is_open_lead) return "Book job"
@@ -658,19 +655,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   }
 
   /**
-   * Mark Called · no answer / Called · answered, optionally send couldn’t-reach SMS.
+   * Mark Called · no answer / Called · answered (status only — SMS lives under Message templates).
    * Updates the local history badge immediately so Needs call clears.
    */
   const markCallbackOutcome = useCallback(
-    async (
-      lead: CrmServiceHistoryItem,
-      outcome: LeadCallbackOutcome,
-      sendSms: boolean
-    ) => {
+    async (lead: CrmServiceHistoryItem, outcome: LeadCallbackOutcome) => {
+      // Guard: need a selected customer and no other status request in flight.
       if (!selected || unreachableBusy) return
+      // Flip the busy flag so chips show a spinner and cannot double-tap.
       setUnreachableBusy(true)
+      // Human badge text for the toast + optimistic UI.
       const label = crmCallbackOutcomeLabel(outcome)
       try {
+        // Persist callback_outcome on the lead (no SMS from this path).
         const res = await fetch(
           `/api/owner/jobs/${encodeURIComponent(lead.id)}/callback-outcome`,
           {
@@ -679,7 +676,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               outcome,
-              send_sms: sendSms,
+              send_sms: false,
               customer_phone: selected.phone_e164,
               customer_name: editName.trim() || selected.display_name,
             }),
@@ -687,42 +684,26 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         )
         const json = (await res.json().catch(() => ({}))) as {
           error?: string
-          data?: { skipped?: boolean; sms_sent?: boolean; text?: string; label?: string }
+          data?: { label?: string }
         }
         if (!res.ok) {
           toast({
-            title: sendSms ? "Could not send text" : "Could not update",
+            title: "Could not update",
             description: json.error || "Try again.",
             variant: "destructive",
           })
           return
         }
+        // Prefer server label; fall back to the local glossary string.
         const nextLabel = json.data?.label || label
+        // Answered is sky; no-answer stays amber like Needs call.
         const nextTone = outcome === "called_answered" ? ("sky" as const) : ("amber" as const)
+        // Optimistic history patch so the badge flips without a full reload.
         setHistory((prev) =>
           prev.map((h) =>
             h.id === lead.id ? { ...h, status_label: nextLabel, status_tone: nextTone } : h
           )
         )
-        if (sendSms && json.data?.skipped) {
-          toast({
-            title: `Marked ${nextLabel}`,
-            description: "A text was already sent recently — open Message templates if you need another.",
-          })
-          return
-        }
-        if (sendSms && json.data?.sms_sent) {
-          toast({
-            title: "Text sent",
-            description:
-              json.data.text ||
-              buildUnreachableFollowUpSms({
-                customerName: editName.trim() || selected.display_name,
-              }),
-          })
-          setSaveMsg("Unreachable SMS sent")
-          return
-        }
         toast({
           title: nextLabel,
           description: "Status updated on this request.",
@@ -730,15 +711,84 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         setSaveMsg(nextLabel)
       } catch {
         toast({
-          title: sendSms ? "Could not send text" : "Could not update",
+          title: "Could not update",
           description: "Check your connection and try again.",
           variant: "destructive",
         })
       } finally {
+        // Always clear the spinner / disable state.
         setUnreachableBusy(false)
       }
     },
     [selected, unreachableBusy, editName, toast]
+  )
+
+  /**
+   * Mark Cancelled or Complete from the Submitted request card (same owner status API as Scheduler).
+   */
+  const markJobLifecycleStatus = useCallback(
+    async (lead: CrmServiceHistoryItem, status: "cancelled" | "completed") => {
+      // Guard: need a selected customer and no other status request in flight.
+      if (!selected || unreachableBusy) return
+      // Flip the busy flag so chips show a spinner and cannot double-tap.
+      setUnreachableBusy(true)
+      // Badge text for optimistic UI + toast.
+      const nextLabel = status === "completed" ? "Complete" : "Cancelled"
+      // Complete is emerald; Cancelled is neutral grey.
+      const nextTone = status === "completed" ? ("emerald" as const) : ("neutral" as const)
+      try {
+        // PATCH job_status + dispatch_status on ai_leads (no new Neon columns).
+        const res = await fetch(`/api/owner/jobs/${encodeURIComponent(lead.id)}/status`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          // CRM chips do not force review SMS — Scheduler Complete still can.
+          body: JSON.stringify({ status, send_review_sms: false }),
+        })
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
+        if (!res.ok) {
+          toast({
+            title: "Could not update",
+            description: json.error || "Try again.",
+            variant: "destructive",
+          })
+          return
+        }
+        // Optimistic patch: close the open-lead flag so Book job becomes View job.
+        setHistory((prev) =>
+          prev.map((h) =>
+            h.id === lead.id
+              ? {
+                  ...h,
+                  status_label: nextLabel,
+                  status_tone: nextTone,
+                  is_open_lead: false,
+                  is_salvageable: false,
+                  dispatch_status: status,
+                }
+              : h
+          )
+        )
+        toast({
+          title: nextLabel,
+          description:
+            status === "completed"
+              ? "Marked this job complete."
+              : "Marked this request cancelled.",
+        })
+        setSaveMsg(nextLabel)
+      } catch {
+        toast({
+          title: "Could not update",
+          description: "Check your connection and try again.",
+          variant: "destructive",
+        })
+      } finally {
+        // Always clear the spinner / disable state.
+        setUnreachableBusy(false)
+      }
+    },
+    [selected, unreachableBusy, toast]
   )
 
   /**
@@ -996,7 +1046,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     return hasPaid && pending.length === 0
   }, [payments, selected?.lifetime_revenue_cents])
 
-  /** Past jobs only — hide the open submitted request (already shown in the orange hero card). */
+  /** Past jobs only — hide the lifecycle hero card (already shown above). */
   const displayHistory = useMemo(() => {
     const merged = mergeCrmServiceHistoryWithWalkUps({
       history,
@@ -1004,10 +1054,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       vehicles,
       notes: selected?.notes,
     })
-    const heroId = headerJobTarget?.is_open_lead ? headerJobTarget.id : null
+    // Hide whichever job is rendered in the Submitted request / lifecycle hero.
+    const heroId =
+      headerJobTarget &&
+      shouldShowCrmLifecycleCard({
+        isOpenLead: headerJobTarget.is_open_lead,
+        statusLabel: headerJobTarget.status_label,
+        navAction: headerJobAction,
+      })
+        ? headerJobTarget.id
+        : null
     if (!heroId) return merged
     return merged.filter((item) => item.id !== heroId)
-  }, [history, payments, vehicles, selected?.notes, headerJobTarget])
+  }, [history, payments, vehicles, selected?.notes, headerJobTarget, headerJobAction])
 
   /** Suggested Message templates for this customer (couldn’t reach + follow-up). */
   const messageExtraTemplates = useMemo(() => {
@@ -1244,12 +1303,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           </div>
         ) : null}
 
-        {/* Job / book-form details first — same fields the Latest alert showed. */}
-        {headerJobTarget && headerJobTarget.is_open_lead ? (
+        {/* Job / book-form details — stays through Booked → Cancelled / Complete. */}
+        {headerJobTarget &&
+        shouldShowCrmLifecycleCard({
+          isOpenLead: headerJobTarget.is_open_lead,
+          statusLabel: headerJobTarget.status_label,
+          navAction: headerJobAction,
+        }) ? (
           <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-200/90">
-                Submitted request
+                {headerJobTarget.is_open_lead || isCrmPreBookStatusLabel(headerJobTarget.status_label)
+                  ? "Submitted request"
+                  : "Job status"}
               </h3>
               <span
                 className={cn(
@@ -1266,6 +1332,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   ASAP
                 </span>
               ) : null}
+              {/* Current lifecycle badge — Needs call → Booked · time → Cancelled / Complete. */}
               <span
                 className={cn(
                   "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
@@ -1276,7 +1343,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   headerJobTarget.status_tone === "neutral" && "bg-zinc-800 text-zinc-400"
                 )}
               >
-                {headerJobTarget.status_label}
+                {isCrmBookedStatusLabel(headerJobTarget.status_label) &&
+                headerJobTarget.scheduled_at &&
+                headerJobTarget.status_label === "Booked"
+                  ? formatCrmBookedStatusLabel(headerJobTarget.scheduled_at)
+                  : headerJobTarget.status_label}
               </span>
             </div>
             <dl className="space-y-1.5 text-sm">
@@ -1329,8 +1400,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 </div>
               ) : null}
             </dl>
-            {headerJobAction ? (
-              <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-2">
+              {/* Book job only while still an open lead / salvage — not after Booked. */}
+              {headerJobAction === "Book job" || headerJobAction === "Recover" ? (
                 <button
                   type="button"
                   onClick={() => openJobOnScheduler(headerJobTarget)}
@@ -1345,77 +1417,116 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   <CalendarCheck className="h-3.5 w-3.5" />
                   {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
                 </button>
-                {/* Call outcome row — Needs call → Called · no answer / Called · answered. */}
-                {(headerJobTarget.status_label === "Needs call" ||
-                  headerJobTarget.status_label === "Called · no answer" ||
-                  headerJobTarget.status_label === "Called · answered") && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        disabled={
-                          unreachableBusy ||
-                          headerJobTarget.status_label === "Called · no answer"
-                        }
-                        onClick={() =>
-                          void markCallbackOutcome(headerJobTarget, "called_no_answer", false)
-                        }
-                        className={cn(
-                          "inline-flex h-9 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold disabled:opacity-50",
-                          headerJobTarget.status_label === "Called · no answer"
-                            ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
-                        )}
-                      >
-                        {unreachableBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : null}
-                        Called · no answer
-                      </button>
-                      <button
-                        type="button"
-                        disabled={
-                          unreachableBusy ||
-                          headerJobTarget.status_label === "Called · answered"
-                        }
-                        onClick={() =>
-                          void markCallbackOutcome(headerJobTarget, "called_answered", false)
-                        }
-                        className={cn(
-                          "inline-flex h-9 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold disabled:opacity-50",
-                          headerJobTarget.status_label === "Called · answered"
-                            ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
-                            : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
-                        )}
-                      >
-                        {unreachableBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : null}
-                        Called · answered
-                      </button>
-                    </div>
-                    {(headerJobTarget.status_label === "Needs call" ||
-                      headerJobTarget.status_label === "Called · no answer") && (
-                      <button
-                        type="button"
-                        disabled={unreachableBusy}
-                        onClick={() =>
-                          void markCallbackOutcome(headerJobTarget, "called_no_answer", true)
-                        }
-                        className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50"
-                      >
-                        {unreachableBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <MessageSquare className="h-3.5 w-3.5" />
-                        )}
-                        Couldn’t reach — text
-                      </button>
-                    )}
-                  </div>
-                )}
+              ) : null}
+              {/* After booking: open / view the scheduled job on Scheduler. */}
+              {headerJobAction === "Open job" || headerJobAction === "View job" ? (
+                <button
+                  type="button"
+                  onClick={() => openJobOnScheduler(headerJobTarget)}
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100"
+                  title={crmJobNavTitle(headerJobAction)}
+                >
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  {crmJobNavButtonLabel(headerJobAction)}
+                </button>
+              ) : null}
+              {/* Compact status chips — texts live under Message; this row is lifecycle only. */}
+              <div className="flex flex-wrap gap-1.5">
+                {/* Call outcomes only before Booked / Cancelled / Complete. */}
+                {isCrmPreBookStatusLabel(headerJobTarget.status_label) ||
+                headerJobTarget.is_open_lead ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        unreachableBusy ||
+                        headerJobTarget.status_label === "Called · no answer"
+                      }
+                      onClick={() =>
+                        void markCallbackOutcome(headerJobTarget, "called_no_answer")
+                      }
+                      className={cn(
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                        headerJobTarget.status_label === "Called · no answer"
+                          ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
+                          : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                      )}
+                    >
+                      {unreachableBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "No answer"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        unreachableBusy ||
+                        headerJobTarget.status_label === "Called · answered"
+                      }
+                      onClick={() =>
+                        void markCallbackOutcome(headerJobTarget, "called_answered")
+                      }
+                      className={cn(
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                        headerJobTarget.status_label === "Called · answered"
+                          ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
+                          : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                      )}
+                    >
+                      {unreachableBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Answered"
+                      )}
+                    </button>
+                  </>
+                ) : null}
+                {/* Cancelled — customer cancelled before or after booking. */}
+                <button
+                  type="button"
+                  disabled={unreachableBusy || headerJobTarget.status_label === "Cancelled"}
+                  onClick={() => void markJobLifecycleStatus(headerJobTarget, "cancelled")}
+                  className={cn(
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                    headerJobTarget.status_label === "Cancelled"
+                      ? "border-zinc-500/50 bg-zinc-700/40 text-zinc-100"
+                      : "border-zinc-600 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800"
+                  )}
+                >
+                  {unreachableBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Cancelled"
+                  )}
+                </button>
+                {/* Complete — job finished. */}
+                <button
+                  type="button"
+                  disabled={
+                    unreachableBusy ||
+                    headerJobTarget.status_label === "Complete" ||
+                    headerJobTarget.status_label === "Done" ||
+                    headerJobTarget.status_label === "Completed"
+                  }
+                  onClick={() => void markJobLifecycleStatus(headerJobTarget, "completed")}
+                  className={cn(
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                    headerJobTarget.status_label === "Complete" ||
+                      headerJobTarget.status_label === "Done" ||
+                      headerJobTarget.status_label === "Completed"
+                      ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-100"
+                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                  )}
+                >
+                  {unreachableBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Complete"
+                  )}
+                </button>
               </div>
-            ) : null}
+            </div>
           </div>
         ) : null}
 

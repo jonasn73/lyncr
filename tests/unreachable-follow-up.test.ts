@@ -5,7 +5,11 @@ import {
   formatCrmBookedStatusLabel,
   isCalledAnsweredOutcome,
   isCalledNoAnswerOutcome,
+  isCrmBookedStatusLabel,
+  isCrmPreBookStatusLabel,
+  isCrmTerminalStatusLabel,
   leadCallbackOutcomeFromCollected,
+  shouldShowCrmLifecycleCard,
 } from "@/lib/unreachable-follow-up"
 
 describe("unreachable follow-up SMS", () => {
@@ -47,5 +51,34 @@ describe("unreachable follow-up SMS", () => {
   it("formats booked status with a time", () => {
     const label = formatCrmBookedStatusLabel("2026-08-09T23:30:00.000Z")
     expect(label.startsWith("Booked ·")).toBe(true)
+  })
+
+  it("classifies CRM lifecycle status labels", () => {
+    expect(isCrmPreBookStatusLabel("Needs call")).toBe(true)
+    expect(isCrmPreBookStatusLabel("Called · answered")).toBe(true)
+    expect(isCrmBookedStatusLabel("Booked · Aug 9, 7:30 PM")).toBe(true)
+    expect(isCrmTerminalStatusLabel("Cancelled")).toBe(true)
+    expect(isCrmTerminalStatusLabel("Complete")).toBe(true)
+    expect(
+      shouldShowCrmLifecycleCard({
+        isOpenLead: true,
+        statusLabel: "Needs call",
+        navAction: "Book job",
+      })
+    ).toBe(true)
+    expect(
+      shouldShowCrmLifecycleCard({
+        isOpenLead: false,
+        statusLabel: "Booked · Aug 9, 7:30 PM",
+        navAction: "Open job",
+      })
+    ).toBe(true)
+    expect(
+      shouldShowCrmLifecycleCard({
+        isOpenLead: false,
+        statusLabel: "Cancelled",
+        navAction: "View job",
+      })
+    ).toBe(true)
   })
 })

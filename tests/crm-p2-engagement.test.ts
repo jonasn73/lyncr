@@ -3,7 +3,14 @@ import type { CrmServiceHistoryItem } from "@/lib/types"
 
 /** Mirror CRM history action labels used by crm-workspace-view (P2 salvage). */
 function crmJobNavAction(item: CrmServiceHistoryItem): "Book job" | "Open job" | "View job" | "Recover" | null {
-  const terminal = new Set(["Done", "Completed", "Cancelled", "Referred", "Unresolved"])
+  const terminal = new Set([
+    "Complete",
+    "Done",
+    "Completed",
+    "Cancelled",
+    "Referred",
+    "Unresolved",
+  ])
   if (terminal.has(item.status_label)) return "View job"
   if (item.is_open_lead && item.is_salvageable) return "Recover"
   if (item.is_open_lead) return "Book job"
@@ -12,7 +19,9 @@ function crmJobNavAction(item: CrmServiceHistoryItem): "Book job" | "Open job" |
     item.status_label === "Scheduled" ||
     item.status_label === "En route" ||
     item.status_label === "On site" ||
-    item.status_label === "Paused"
+    item.status_label === "Paused" ||
+    item.status_label === "Booked" ||
+    item.status_label.startsWith("Booked ·")
   ) {
     return "Open job"
   }
