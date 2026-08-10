@@ -180,7 +180,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
       toast({
         title: "Registration submitted",
         description: carrierRef
-          ? `Sent to Telnyx (${carrierRef}). Carriers usually review in 1–3 business days.`
+          ? `Submitted for carrier review (${carrierRef}). Usually 1–3 business days.`
           : "Carriers are reviewing your business profile. SMS alerts unlock after approval.",
       })
       notifyCarrierRegistrationUpdated()

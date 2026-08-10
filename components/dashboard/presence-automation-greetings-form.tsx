@@ -236,10 +236,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               </select>
               <p className="text-[10px] text-zinc-600">
                 {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
-                  "Tone callers hear on Busy gather and hold re-prompts."}{" "}
-                ★ Best options use ElevenLabs when{" "}
-                <span className="font-mono">ELEVENLABS_API_KEY</span> is set on Vercel (server-only).
-                NaturalHD / Polly work without it.
+                  "Tone callers hear on Busy gather and hold re-prompts."}
               </p>
             </div>
 

@@ -167,7 +167,7 @@ export function IvrGreetingsSettingsForm({
               placeholder={DEFAULT_IVR_GREETING_TEXT}
             />
             <p className="text-[10px] text-zinc-600">
-              Spoken exactly as written when Telnyx answers with the keypad menu.
+              Spoken exactly as written when the keypad menu answers.
             </p>
           </div>
 

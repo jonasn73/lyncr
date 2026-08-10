@@ -665,10 +665,7 @@ export function DashboardCallFlowConfigureDrawer({
                   </select>
                   <p className="text-[10px] text-zinc-600">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
-                      "Tone callers hear on automation Speak."}{" "}
-                    ★ Best options use ElevenLabs when{" "}
-                    <span className="font-mono">ELEVENLABS_API_KEY</span> is set on Vercel.
-                    NaturalHD / Polly work without it.
+                      "Tone callers hear on greetings and hold prompts."}
                   </p>
                 </div>
 
@@ -933,12 +930,13 @@ export function DashboardCallFlowConfigureDrawer({
                     Hold queue (advanced)
                   </p>
                   <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
-                    Position hints play automatically on re-prompts. Concurrent wait caps use{" "}
-                    <code className="text-zinc-400">LYNCR_HOLD_MAX_CONCURRENT</code> (default 3) —
-                    tune in Vercel env, not per-line.
+                    Position hints play automatically on re-prompts. How many callers can wait at once
+                    is set by the platform (default 3) — not per line. Music and max wait live under
+                    Greetings.
                   </p>
                   <p className="text-[11px] text-zinc-500 md:hidden">
-                    Concurrent wait cap is env-only (default 3). Music + max wait live under Greetings.
+                    Concurrent wait cap is platform-wide (default 3). Music + max wait live under
+                    Greetings.
                   </p>
                 </section>
               </div>

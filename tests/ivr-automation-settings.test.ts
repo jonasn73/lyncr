@@ -108,20 +108,25 @@ describe("ivr automation settings", () => {
     expect(resolveSpeakVoiceForPersona("en-US-ElevenLabs-Rachel")).toBe("Telnyx.NaturalHD.astra")
   })
 
-  it("orders personas with ElevenLabs Best labels first", () => {
+  it("orders personas with Best labels first (plain English, no vendor names)", () => {
     expect(IVR_VOICE_PERSONA_OPTIONS[0].id).toBe("en-US-ElevenLabs-Rachel")
     expect(IVR_VOICE_PERSONA_OPTIONS[1].id).toBe("en-US-ElevenLabs-Bella")
     expect(IVR_VOICE_PERSONA_OPTIONS[2].id).toBe("en-US-ElevenLabs-Adam")
     expect(IVR_VOICE_PERSONA_OPTIONS[0].callControlVoice).toContain(ELEVENLABS_VOICE_IDS.rachel)
     expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label).join(" ")).toMatch(/★ Best/)
+    // Owner-facing labels stay free of engine / vendor jargon.
+    const labels = IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label).join(" ")
+    expect(labels).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx|Rachel|Bella|Adam/i)
     expect(IVR_VOICE_PERSONA_OPTIONS.map((o) => o.label)).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/Calm woman.*Rachel/),
-        expect.stringMatching(/Warm woman.*Bella/),
-        expect.stringMatching(/Calm man.*Adam/),
-        expect.stringMatching(/NaturalHD Astra/),
+        "★ Best · Calm woman",
+        "★ Best · Warm woman",
+        "★ Best · Calm man",
+        "Calm woman",
       ])
     )
+    const descriptions = IVR_VOICE_PERSONA_OPTIONS.map((o) => o.description).join(" ")
+    expect(descriptions).not.toMatch(/ElevenLabs|NaturalHD|Polly|Telnyx|ELEVENLABS|Vercel|Integration Secret/i)
   })
 
   it("normalizes bypass codes and match digits", () => {

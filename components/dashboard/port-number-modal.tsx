@@ -409,7 +409,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             We submit an official carrier port on your behalf — your number moves natively onto Lyncr with full call
-            quality (no Twilio webhook forwarding).
+            quality.
           </p>
         </div>
       ) : (

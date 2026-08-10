@@ -179,7 +179,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>
-          <strong>Buy New</strong> searches Telnyx inventory by area code, then provisions the DID you pick. You will confirm a
+          <strong>Buy New</strong> searches available numbers by area code, then provisions the line you pick. You will confirm a
           line business name before checkout so labels and whispers stay accurate.
         </p>
         <p className="mt-2">
@@ -215,7 +215,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
           When on, {SITE_NAME} should hold push and non-critical alerts so you are not pinged overnight. It does not by itself
           change <strong>who receives the phone call</strong> — that is still routing + carrier forwarding.
         </p>
-        <p className="mt-2">Use it when you want the app quiet while still leaving Telnyx to ring the handset if configured.</p>
+        <p className="mt-2">Use it when you want the app quiet while still letting calls ring the handset if configured.</p>
       </>
     ),
   },
@@ -301,7 +301,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
           The long-term story: <strong>open hours</strong> route to your team, <strong>after hours</strong> compress to voicemail
           or AI without you toggling manually each night.
         </p>
-        <p className="mt-2">Wiring is still rolling out — keep using Routing + DND until schedules fully control Telnyx legs.</p>
+        <p className="mt-2">Wiring is still rolling out — keep using Routing + DND until schedules fully control call legs.</p>
       </>
     ),
   },
@@ -337,7 +337,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>Open the Help tab for balances, plan reference, and the feedback form — ideal for billing questions or bug reports.</p>
-        <p className="mt-2">Include timestamps and numbers when reporting call issues so support can trace Telnyx legs.</p>
+        <p className="mt-2">Include timestamps and numbers when reporting call issues so support can trace the call legs.</p>
       </>
     ),
   },
@@ -472,7 +472,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "Something is broken",
     description: (
       <>
-        <p>Use for crashes, wrong routing, missing recordings, or Telnyx errors surfaced in the app.</p>
+        <p>Use for crashes, wrong routing, missing recordings, or call errors surfaced in the app.</p>
         <p className="mt-2">Attach whether it was inbound vs test call from the dashboard.</p>
       </>
     ),
@@ -495,7 +495,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>Ask about unexpected balance drops, plan changes, or metered spikes after marketing campaigns.</p>
-        <p className="mt-2">Screenshots of Activity timestamps help reconcile against Telnyx CDRs.</p>
+        <p className="mt-2">Screenshots of Activity timestamps help support reconcile call records.</p>
       </>
     ),
   },
@@ -568,7 +568,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "route-modal-first-ring": {
     eyebrow: "First leg",
-    storyline: "Telnyx forwards the inbound DID to exactly one target for the first ring phase.",
+    storyline: "Inbound calls forward to exactly one target for the first ring phase.",
     title: "Who receives calls first",
     description: (
       <>
@@ -587,7 +587,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "Search available numbers",
     description: (
       <>
-        <p>Enter a valid US area code (three digits). Results come from Telnyx; not every code has inventory every day.</p>
+        <p>Enter a valid US area code (three digits). Not every code has inventory every day.</p>
         <p className="mt-2">After purchase you will name the line before it appears under Business numbers.</p>
       </>
     ),
@@ -692,7 +692,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>Shorter values move callers to voicemail, AI, or your backup phone faster when everyone is busy.</p>
-        <p className="mt-2">Telnyx starts ringing immediately; this control only bounds the hunt for a human pickup.</p>
+        <p className="mt-2">Ringing starts immediately; this control only bounds the hunt for a human pickup.</p>
       </>
     ),
   },
@@ -724,7 +724,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "AI receptionist (fallback)",
     description: (
       <>
-        <p>Requires a linked Telnyx assistant. Open Voice & greetings to attach playbook, voice, and optional ring-owner-first testing.</p>
+        <p>Requires a linked voice assistant. Open Voice & greetings to attach playbook, voice, and optional ring-owner-first testing.</p>
         <p className="mt-2">AI minutes bill like voice — watch Help balance and Activity.</p>
       </>
     ),
@@ -747,7 +747,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>Select AI vs voicemail vs ring-owner, then expand the AI panel for scripts. This closes the loop for what the caller hears.</p>
-        <p className="mt-2">Changes autosave — watch for toast errors if Telnyx rejects a field.</p>
+        <p className="mt-2">Changes autosave — watch for toast errors if a field cannot be saved.</p>
       </>
     ),
   },
@@ -764,7 +764,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "dashboard-caller-id-tips": {
     eyebrow: "Trust",
-    storyline: "Spam shield and CNAM are on the roadmap — Lines shows them as Coming soon until Call Control wiring ships.",
+    storyline: "Spam shield and CNAM are on the roadmap — Lines shows them as Coming soon until wiring ships.",
     title: "Caller ID utilities",
     description: (
       <>
@@ -797,7 +797,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
 
   "ai-flow-overview": {
     eyebrow: "Voice layer",
-    storyline: "This panel is what callers hear after routing sends them to AI — script, intake, voice, and Telnyx assistant sync.",
+    storyline: "This panel is what callers hear after routing sends them to AI — script, intake, voice, and assistant sync.",
     title: "AI call flow",
     description: (
       <>
@@ -805,7 +805,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
           <strong>Opening line</strong> is the first spoken words. <strong>Playbook</strong> shapes questions.{" "}
           <strong>Voice &amp; model</strong> are optional power tweaks — defaults work for most shops.
         </p>
-        <p className="mt-2">Save pushes config to your linked assistant; test with a real call after Telnyx sync succeeds.</p>
+        <p className="mt-2">Save pushes config to your linked assistant; test with a real call after sync succeeds.</p>
       </>
     ),
   },
@@ -822,12 +822,12 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "ai-assistant-not-linked-banner": {
     eyebrow: "Provisioning",
-    storyline: "Fallback is set to AI but Telnyx has no assistant row yet — callers would hit voicemail tone instead of live AI.",
+    storyline: "Fallback is set to AI but no voice assistant is linked yet — callers would hit voicemail instead of live AI.",
     title: "Assistant not linked",
     description: (
       <>
-        <p>Tap <strong>Save call flow</strong> so the server can create or attach the assistant and sync Telnyx.</p>
-        <p className="mt-2">If this persists after save, check voice API keys and support — the UI cannot finish the link without the backend.</p>
+        <p>Tap <strong>Save call flow</strong> so the server can create or attach the assistant and finish sync.</p>
+        <p className="mt-2">If this persists after save, contact support — the UI cannot finish the link without the backend.</p>
       </>
     ),
   },
@@ -877,11 +877,11 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "ai-voice-advanced-block": {
     eyebrow: "Power user",
-    storyline: "Model and voice IDs pass through to Telnyx — wrong values fail sync; empty means platform defaults.",
+    storyline: "Model and voice choices sync to your voice assistant — wrong values fail sync; empty means platform defaults.",
     title: "Voice &amp; model",
     description: (
       <>
-        <p>Use catalog Sample to compare timbre fairly. LLM field accepts provider-style ids your deployment allows.</p>
+        <p>Use catalog Sample to compare timbre fairly. Leave fields empty unless you need a specific model or voice.</p>
         <p className="mt-2">If you are not debugging, leave both empty and rely on {SITE_NAME} defaults.</p>
       </>
     ),
@@ -892,7 +892,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "LLM model",
     description: (
       <>
-        <p>Type from the datalist or paste an id your Telnyx project supports. Invalid ids surface as save or sync errors.</p>
+        <p>Pick from the list or leave empty for the platform default. Invalid choices surface as save or sync errors.</p>
         <p className="mt-2">Smaller models cost less per minute but may miss nuance on complex intakes.</p>
       </>
     ),
@@ -904,7 +904,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     description: (
       <>
         <p>Sample plays a fixed sentence so you compare apples to apples. Use copies the id into the field.</p>
-        <p className="mt-2">Browser fallback preview does not prove Telnyx will sound identical — it is a rough check only.</p>
+        <p className="mt-2">Browser preview is a rough check — live calls use your saved voice assistant.</p>
       </>
     ),
   },
@@ -921,22 +921,22 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   },
   "ai-assistant-state-footer": {
     eyebrow: "Linkage",
-    storyline: "Shows whether GET /api/ai-assistant sees a linked Telnyx assistant after your last save.",
+    storyline: "Shows whether a voice assistant is linked after your last save.",
     title: "AI ready status",
     description: (
       <>
-        <p>Green means calls can reach Voice AI on the configured fallback path. Monospace id is for support tickets.</p>
+        <p>Green means calls can reach Voice AI on the configured fallback path. The short id is for support tickets.</p>
         <p className="mt-2">If you just toggled AI on the dashboard, save here once to provision and sync.</p>
       </>
     ),
   },
   "ai-manual-assistant-id": {
     eyebrow: "Support / migration",
-    storyline: "Rare escape hatch when support pastes an existing Telnyx assistant id — not for normal setup.",
+    storyline: "Rare escape hatch when support pastes an existing assistant id — not for normal setup.",
     title: "Link a different assistant ID",
     description: (
       <>
-        <p>Leave empty for auto-provisioned assistants. Paste only when engineering confirms a migration or split project.</p>
+        <p>Leave empty for auto-provisioned assistants. Paste only when support confirms a migration.</p>
         <p className="mt-2">Wrong ids break inbound AI until removed and saved again.</p>
       </>
     ),
@@ -959,7 +959,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
     title: "Accounts card",
     description: (
       <>
-        <p>Compare to Telnyx or billing when reconciling seat counts. Deactivated accounts may still exist until purged.</p>
+        <p>Compare to billing when reconciling seat counts. Deactivated accounts may still exist until purged.</p>
       </>
     ),
   },

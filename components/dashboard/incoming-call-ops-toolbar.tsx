@@ -206,7 +206,7 @@ export function IncomingCallOpsToolbar({
       if (!res.ok) {
         toast({
           title: "Could not send to voicemail",
-          description: json.error || "Telnyx rejected the redirect. Check TELNYX_ACCOUNT_SID / API key.",
+          description: json.error || "Could not redirect this call. Try again or end the call.",
           variant: "destructive",
         })
         return
@@ -215,7 +215,7 @@ export function IncomingCallOpsToolbar({
         title: json.data?.redirected ? "Sent to voicemail" : "Call ended",
         description: json.data?.redirected
           ? "Caller is being redirected to your fallback greeting."
-          : "Carrier hung up the leg (Call Control). Prefer TeXML redirect when configured.",
+          : "The call was ended on the carrier side.",
       })
       onDeclined()
     } finally {
