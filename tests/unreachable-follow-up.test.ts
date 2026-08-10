@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
   buildUnreachableFollowUpSms,
+  crmCallbackOutcomeLabel,
   formatCrmBookedStatusLabel,
+  isCalledAnsweredOutcome,
   isCalledNoAnswerOutcome,
+  leadCallbackOutcomeFromCollected,
 } from "@/lib/unreachable-follow-up"
 
 describe("unreachable follow-up SMS", () => {
@@ -27,10 +30,18 @@ describe("unreachable follow-up SMS", () => {
     expect(text).toContain("Key Squad 502")
   })
 
-  it("detects called_no_answer from collected JSON", () => {
+  it("detects called_no_answer and called_answered from collected JSON", () => {
     expect(isCalledNoAnswerOutcome({ callback_outcome: "called_no_answer" })).toBe(true)
-    expect(isCalledNoAnswerOutcome({ called_no_answer_at: "2026-08-09T12:00:00Z" })).toBe(true)
+    expect(isCalledAnsweredOutcome({ callback_outcome: "called_answered" })).toBe(true)
+    expect(leadCallbackOutcomeFromCollected({ called_answered_at: "2026-08-09T12:00:00Z" })).toBe(
+      "called_answered"
+    )
     expect(isCalledNoAnswerOutcome({})).toBe(false)
+  })
+
+  it("labels callback outcomes for CRM badges", () => {
+    expect(crmCallbackOutcomeLabel("called_no_answer")).toBe("Called · no answer")
+    expect(crmCallbackOutcomeLabel("called_answered")).toBe("Called · answered")
   })
 
   it("formats booked status with a time", () => {

@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast"
 
 type CustomerSmsComposerProps = {
   toPhone: string
+  /** Prefill {{customer_name}} in status templates. */
+  customerName?: string | null
   /** Business DID to send from (optional — server picks workspace line). */
   fromLine?: string | null
   organizationId?: string | null
@@ -29,6 +31,10 @@ type CustomerSmsComposerProps = {
   showRunningLate?: boolean
   /** Show Re-send booking link (Missed Call Rescue). */
   showBookingLink?: boolean
+  /**
+   * Extra owner templates shown above built-ins (e.g. Couldn’t reach, Draft follow-up).
+   */
+  extraTemplates?: readonly { id: string; label: string; body: string }[]
   /**
    * `missed` = callback / booking recovery templates (no late/ETA).
    * `follow_up` = answered / active-job templates.
@@ -44,12 +50,14 @@ type CustomerSmsComposerProps = {
 
 export function CustomerSmsComposer({
   toPhone,
+  customerName = null,
   fromLine = null,
   organizationId = null,
   className,
   showQuickTemplates = true,
   showRunningLate = true,
   showBookingLink = false,
+  extraTemplates = [],
   variant = "follow_up",
   title = "Text customer",
   customPlaceholder,
@@ -62,6 +70,10 @@ export function CustomerSmsComposer({
   const draftPlaceholder =
     customPlaceholder ??
     (isMissed ? "Or type a custom missed-call text…" : "Or type a custom follow-up…")
+  const customerFirst =
+    String(customerName ?? "")
+      .trim()
+      .split(/\s+/)[0] || "there"
   const { toast } = useToast()
   const [draft, setDraft] = useState("")
   const [etaMinutes, setEtaMinutes] = useState(String(DEFAULT_LATE_ETA_MINUTES))
@@ -165,12 +177,12 @@ export function CustomerSmsComposer({
     const mins = Number(etaMinutes)
     const eta = Number.isFinite(mins) ? mins : DEFAULT_LATE_ETA_MINUTES
     const body = renderStatusSms(statusTemplates.late || DEFAULT_SMS_STATUS_TEMPLATES.late, {
-      customer_name: "there",
+      customer_name: customerFirst,
       business_name: businessName || "us",
       eta_minutes: eta,
     })
     void sendText(body)
-  }, [businessName, etaMinutes, sendText, statusTemplates.late])
+  }, [businessName, customerFirst, etaMinutes, sendText, statusTemplates.late])
 
   const sendStatusQuick = useCallback(
     (key: keyof OwnerSmsStatusTemplates) => {
@@ -179,12 +191,12 @@ export function CustomerSmsComposer({
         return
       }
       const body = renderStatusSms(statusTemplates[key] || DEFAULT_SMS_STATUS_TEMPLATES[key], {
-        customer_name: "there",
+        customer_name: customerFirst,
         business_name: businessName || "us",
       })
       void sendText(body)
     },
-    [businessName, sendRunningLate, sendText, statusTemplates]
+    [businessName, customerFirst, sendRunningLate, sendText, statusTemplates]
   )
 
   const openBookLinkSheet = useCallback(() => {
@@ -312,6 +324,29 @@ export function CustomerSmsComposer({
             onSent={onSent}
           />
         </>
+      ) : null}
+
+      {showQuickTemplates && extraTemplates.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">
+            Suggested
+          </p>
+          <ul className="flex flex-col gap-1">
+            {extraTemplates.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void sendText(t.body)}
+                  className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-left text-xs font-medium text-amber-50 hover:border-amber-400/50 hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  <span className="block font-semibold text-amber-200">{t.label}</span>
+                  <span className="mt-0.5 line-clamp-2 text-[11px] text-amber-100/80">{t.body}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {showQuickTemplates && customSnippets.length > 0 ? (

@@ -5692,13 +5692,18 @@ export async function listCrmServiceHistoryForCustomer(params: {
           : row.scheduled_at
             ? String(row.scheduled_at)
             : null
-      // Called · no answer — owner marked after dialing (or sent unreachable SMS).
+      // Called · answered / Called · no answer — owner marked after dialing.
+      const callbackOutcome = String(collected.callback_outcome ?? "")
+        .trim()
+        .toLowerCase()
+      const calledAnswered =
+        callbackOutcome === "called_answered" ||
+        Boolean(String(collected.called_answered_at ?? "").trim())
       const calledNoAnswer =
-        String(collected.callback_outcome ?? "")
-          .trim()
-          .toLowerCase() === "called_no_answer" ||
-        Boolean(String(collected.called_no_answer_at ?? "").trim())
-      // Same human glossary: Needs call → Called · no answer → Booked · time → Complete.
+        !calledAnswered &&
+        (callbackOutcome === "called_no_answer" ||
+          Boolean(String(collected.called_no_answer_at ?? "").trim()))
+      // Same human glossary: Needs call → Called · … → Booked · time → Complete.
       let status_label = "Job"
       let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
       if (js === "completed" || js === "done" || js === "paid" || ds === "completed") {
@@ -5745,6 +5750,12 @@ export async function listCrmServiceHistoryForCustomer(params: {
         } else {
           status_label = "Booked"
         }
+        status_tone = "sky"
+      } else if (
+        (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&
+        calledAnswered
+      ) {
+        status_label = "Called · answered"
         status_tone = "sky"
       } else if (
         (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&
@@ -8159,19 +8170,26 @@ export async function insertAiLead(params: {
 }
 
 /**
- * Stamp an open lead as Called · no answer (CRM badge).
+ * Stamp an open lead callback outcome (Called · no answer / Called · answered).
  * Stored in collected JSON — no schema migration required.
  */
-export async function markLeadCalledNoAnswer(params: {
+export async function markLeadCallbackOutcome(params: {
   ownerUserId: string
   leadId: string
+  outcome: "called_no_answer" | "called_answered"
 }): Promise<boolean> {
   const sql = getSql()
   const now = new Date().toISOString()
-  const patch = JSON.stringify({
-    callback_outcome: "called_no_answer",
-    called_no_answer_at: now,
-  })
+  const patch =
+    params.outcome === "called_answered"
+      ? JSON.stringify({
+          callback_outcome: "called_answered",
+          called_answered_at: now,
+        })
+      : JSON.stringify({
+          callback_outcome: "called_no_answer",
+          called_no_answer_at: now,
+        })
   try {
     const rows = await sql`
       UPDATE ai_leads
@@ -8184,6 +8202,18 @@ export async function markLeadCalledNoAnswer(params: {
     if (isUndefinedRelationError(e, "ai_leads")) return false
     throw e
   }
+}
+
+/** @deprecated Prefer markLeadCallbackOutcome — kept for older callers. */
+export async function markLeadCalledNoAnswer(params: {
+  ownerUserId: string
+  leadId: string
+}): Promise<boolean> {
+  return markLeadCallbackOutcome({
+    ownerUserId: params.ownerUserId,
+    leadId: params.leadId,
+    outcome: "called_no_answer",
+  })
 }
 
 /** Update SMS delivery outcome on a saved ai_leads row. */

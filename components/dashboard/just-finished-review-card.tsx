@@ -401,15 +401,16 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       setBusyJobId(leadId)
       try {
         const res = await fetch(
-          `/api/owner/jobs/${encodeURIComponent(leadId)}/unreachable`,
+          `/api/owner/jobs/${encodeURIComponent(leadId)}/callback-outcome`,
           {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              outcome: "called_no_answer",
+              send_sms: true,
               customer_phone: phone,
               customer_name: item.customerName,
-              send_sms: true,
             }),
           }
         )

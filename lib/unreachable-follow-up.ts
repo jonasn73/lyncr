@@ -1,7 +1,10 @@
-// One-tap “couldn’t reach you” SMS after calling a submitted book-form lead.
+// One-tap callback outcomes + “couldn’t reach you” SMS after dialing a book-form lead.
 
 /** Cooldown for the same unreachable template (minutes). */
 export const UNREACHABLE_SMS_COOLDOWN_MINUTES = 45
+
+/** CRM callback outcomes stored on ai_leads.collected.callback_outcome. */
+export type LeadCallbackOutcome = "called_no_answer" | "called_answered"
 
 /**
  * Default customer text when a tech called and got no answer.
@@ -26,14 +29,35 @@ export function buildUnreachableFollowUpSms(params: {
   return link ? `${base}: ${link}` : `${base}.`
 }
 
-/** True when CRM should show “Called · no answer” for an open lead. */
-export function isCalledNoAnswerOutcome(collected: Record<string, unknown> | null | undefined): boolean {
-  if (!collected) return false
+/** Normalize callback_outcome from collected JSON. */
+export function leadCallbackOutcomeFromCollected(
+  collected: Record<string, unknown> | null | undefined
+): LeadCallbackOutcome | null {
+  if (!collected) return null
   const outcome = String(collected.callback_outcome ?? "")
     .trim()
     .toLowerCase()
-  if (outcome === "called_no_answer") return true
-  return Boolean(String(collected.called_no_answer_at ?? "").trim())
+  if (outcome === "called_answered") return "called_answered"
+  if (outcome === "called_no_answer") return "called_no_answer"
+  // Legacy stamps before callback_outcome was always set.
+  if (String(collected.called_answered_at ?? "").trim()) return "called_answered"
+  if (String(collected.called_no_answer_at ?? "").trim()) return "called_no_answer"
+  return null
+}
+
+/** True when CRM should show “Called · no answer” for an open lead. */
+export function isCalledNoAnswerOutcome(collected: Record<string, unknown> | null | undefined): boolean {
+  return leadCallbackOutcomeFromCollected(collected) === "called_no_answer"
+}
+
+/** True when CRM should show “Called · answered”. */
+export function isCalledAnsweredOutcome(collected: Record<string, unknown> | null | undefined): boolean {
+  return leadCallbackOutcomeFromCollected(collected) === "called_answered"
+}
+
+/** Human badge for a callback outcome. */
+export function crmCallbackOutcomeLabel(outcome: LeadCallbackOutcome): string {
+  return outcome === "called_answered" ? "Called · answered" : "Called · no answer"
 }
 
 /** Short appointment label for CRM badges — “Booked · Aug 9, 7:30 PM”. */

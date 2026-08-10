@@ -32,8 +32,13 @@ import {
   serviceQuoteTypeIdFromCrmHistory,
 } from "@/lib/callback-intake-chooser"
 import { isSubstantialStreetAddress } from "@/lib/intake-address-helpers"
-import { buildUnreachableFollowUpSms } from "@/lib/unreachable-follow-up"
+import {
+  buildUnreachableFollowUpSms,
+  crmCallbackOutcomeLabel,
+  type LeadCallbackOutcome,
+} from "@/lib/unreachable-follow-up"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import type {
   CrmCustomerListItem,
   CrmLeadBadge,
@@ -355,7 +360,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [smsPreviewKind, setSmsPreviewKind] = useState<"follow_up" | "rescue">("follow_up")
   const [smsPreviewDraft, setSmsPreviewDraft] = useState("")
   const [smsPreviewSending, setSmsPreviewSending] = useState(false)
-  /** Busy flag while marking Called · no answer / sending unreachable SMS. */
+  /** Message button → template picker (not a blank Messages tab). */
+  const [messageTemplatesOpen, setMessageTemplatesOpen] = useState(false)
+  /** Busy flag while marking Called · no answer / answered / unreachable SMS. */
   const [unreachableBusy, setUnreachableBusy] = useState(false)
   const { toast } = useToast()
 
@@ -569,14 +576,6 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         })
       : true
 
-  /** Open SMS preview with follow-up template filled (editable before send). */
-  const openFollowUpPreview = () => {
-    if (!selected) return
-    setSmsPreviewKind("follow_up")
-    setSmsPreviewDraft(followUpTemplate(customerDisplayName, vehicleForFollowUp))
-    setSmsPreviewOpen(true)
-  }
-
   /** Open SMS preview with rescue / lower-price draft (salvage leads only). */
   const openRescuePreview = () => {
     if (!selected || !salvageOpenLead) return
@@ -659,30 +658,36 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   }
 
   /**
-   * Mark Called · no answer and optionally send the unreachable follow-up SMS.
+   * Mark Called · no answer / Called · answered, optionally send couldn’t-reach SMS.
    * Updates the local history badge immediately so Needs call clears.
    */
-  const markUnreachable = useCallback(
-    async (lead: CrmServiceHistoryItem, sendSms: boolean) => {
+  const markCallbackOutcome = useCallback(
+    async (
+      lead: CrmServiceHistoryItem,
+      outcome: LeadCallbackOutcome,
+      sendSms: boolean
+    ) => {
       if (!selected || unreachableBusy) return
       setUnreachableBusy(true)
+      const label = crmCallbackOutcomeLabel(outcome)
       try {
         const res = await fetch(
-          `/api/owner/jobs/${encodeURIComponent(lead.id)}/unreachable`,
+          `/api/owner/jobs/${encodeURIComponent(lead.id)}/callback-outcome`,
           {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              outcome,
+              send_sms: sendSms,
               customer_phone: selected.phone_e164,
               customer_name: editName.trim() || selected.display_name,
-              send_sms: sendSms,
             }),
           }
         )
         const json = (await res.json().catch(() => ({}))) as {
           error?: string
-          data?: { skipped?: boolean; sms_sent?: boolean; text?: string }
+          data?: { skipped?: boolean; sms_sent?: boolean; text?: string; label?: string }
         }
         if (!res.ok) {
           toast({
@@ -692,18 +697,17 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           })
           return
         }
-        // Flip Needs call → Called · no answer in the open profile.
+        const nextLabel = json.data?.label || label
+        const nextTone = outcome === "called_answered" ? ("sky" as const) : ("amber" as const)
         setHistory((prev) =>
           prev.map((h) =>
-            h.id === lead.id
-              ? { ...h, status_label: "Called · no answer", status_tone: "amber" as const }
-              : h
+            h.id === lead.id ? { ...h, status_label: nextLabel, status_tone: nextTone } : h
           )
         )
         if (sendSms && json.data?.skipped) {
           toast({
-            title: "Marked Called · no answer",
-            description: "A text was already sent recently — open Messages if you need another.",
+            title: `Marked ${nextLabel}`,
+            description: "A text was already sent recently — open Message templates if you need another.",
           })
           return
         }
@@ -720,10 +724,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           return
         }
         toast({
-          title: "Called · no answer",
+          title: nextLabel,
           description: "Status updated on this request.",
         })
-        setSaveMsg("Called · no answer")
+        setSaveMsg(nextLabel)
       } catch {
         toast({
           title: sendSms ? "Could not send text" : "Could not update",
@@ -992,17 +996,38 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     return hasPaid && pending.length === 0
   }, [payments, selected?.lifetime_revenue_cents])
 
-  /** Real jobs + synthetic walk-up cards when Collect never created an ai_leads row. */
-  const displayHistory = useMemo(
-    () =>
-      mergeCrmServiceHistoryWithWalkUps({
-        history,
-        payments,
-        vehicles,
-        notes: selected?.notes,
-      }),
-    [history, payments, vehicles, selected?.notes]
-  )
+  /** Past jobs only — hide the open submitted request (already shown in the orange hero card). */
+  const displayHistory = useMemo(() => {
+    const merged = mergeCrmServiceHistoryWithWalkUps({
+      history,
+      payments,
+      vehicles,
+      notes: selected?.notes,
+    })
+    const heroId = headerJobTarget?.is_open_lead ? headerJobTarget.id : null
+    if (!heroId) return merged
+    return merged.filter((item) => item.id !== heroId)
+  }, [history, payments, vehicles, selected?.notes, headerJobTarget])
+
+  /** Suggested Message templates for this customer (couldn’t reach + follow-up). */
+  const messageExtraTemplates = useMemo(() => {
+    if (!selected) return [] as { id: string; label: string; body: string }[]
+    const name = customerDisplayName
+    const out: { id: string; label: string; body: string }[] = []
+    if (headerJobTarget?.is_open_lead) {
+      out.push({
+        id: "couldnt_reach",
+        label: "Couldn’t reach you",
+        body: buildUnreachableFollowUpSms({ customerName: name }),
+      })
+      out.push({
+        id: "follow_up",
+        label: "Follow-up",
+        body: followUpTemplate(name, vehicleForFollowUp),
+      })
+    }
+    return out
+  }, [selected, customerDisplayName, headerJobTarget, vehicleForFollowUp])
 
   /** Email or text a paid receipt — same endpoint as Money → All payments. */
   const sendReceiptFromCrm = async () => {
@@ -1140,7 +1165,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       </div>
     ) : (
       <div className="space-y-5">
-        {/* Compact primary actions — Call + Message first; rest under More. */}
+        {/* Compact primary actions — Call + Message templates; Collect under More. */}
         <div className="flex flex-wrap items-center gap-2">
           <a
             href={buildTelHref(selected.phone_e164) || undefined}
@@ -1149,15 +1174,16 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             <Phone className="h-3.5 w-3.5" />
             Call
           </a>
-          <Link
-            href={messagesHref}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200"
-            title="Open Messages with a blank composer for this phone"
-            aria-label="Open Messages with a blank composer for this phone"
+          <button
+            type="button"
+            onClick={() => setMessageTemplatesOpen(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 hover:bg-sky-500/25"
+            title="Pick a text template to send"
+            aria-label="Pick a text template to send"
           >
             <MessageSquare className="h-3.5 w-3.5" />
             Message
-          </Link>
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -1177,17 +1203,6 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 <CreditCard className="h-3.5 w-3.5" />
                 {isFullyPaidCustomer ? "Charge again" : "Collect"}
               </DropdownMenuItem>
-              {(selected.lead_badge === "price_quoted" ||
-                selected.lead_badge === "needs_recovery" ||
-                selected.lead_badge === "callback" ||
-                openLeadHistory.length > 0) && (
-                <DropdownMenuItem
-                  onClick={openFollowUpPreview}
-                  className="gap-2 text-xs focus:bg-zinc-900"
-                >
-                  Draft follow-up
-                </DropdownMenuItem>
-              )}
               {salvageOpenLead ? (
                 <DropdownMenuItem
                   onClick={openRescuePreview}
@@ -1196,7 +1211,10 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   Draft rescue offer
                 </DropdownMenuItem>
               ) : null}
-              {headerJobAction && headerJobTarget ? (
+              {/* Book job only in More when it is NOT already the hero card primary CTA. */}
+              {headerJobAction &&
+              headerJobTarget &&
+              !(headerJobTarget.is_open_lead && headerJobAction === "Book job") ? (
                 <DropdownMenuItem
                   onClick={() => openJobOnScheduler(headerJobTarget)}
                   className="gap-2 text-xs focus:bg-zinc-900"
@@ -1205,6 +1223,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
                 </DropdownMenuItem>
               ) : null}
+              <DropdownMenuItem asChild className="gap-2 text-xs focus:bg-zinc-900">
+                <Link href={messagesHref}>
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Open Messages thread
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1321,40 +1345,73 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   <CalendarCheck className="h-3.5 w-3.5" />
                   {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
                 </button>
-                {/* Needs call / Called · no answer — easy follow-up without digging. */}
+                {/* Call outcome row — Needs call → Called · no answer / Called · answered. */}
                 {(headerJobTarget.status_label === "Needs call" ||
-                  headerJobTarget.status_label === "Called · no answer") && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {headerJobTarget.status_label === "Needs call" ? (
+                  headerJobTarget.status_label === "Called · no answer" ||
+                  headerJobTarget.status_label === "Called · answered") && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        disabled={unreachableBusy}
-                        onClick={() => void markUnreachable(headerJobTarget, false)}
-                        className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+                        disabled={
+                          unreachableBusy ||
+                          headerJobTarget.status_label === "Called · no answer"
+                        }
+                        onClick={() =>
+                          void markCallbackOutcome(headerJobTarget, "called_no_answer", false)
+                        }
+                        className={cn(
+                          "inline-flex h-9 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold disabled:opacity-50",
+                          headerJobTarget.status_label === "Called · no answer"
+                            ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
+                            : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                        )}
                       >
                         {unreachableBusy ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : null}
                         Called · no answer
                       </button>
-                    ) : (
-                      <span className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-500/25 bg-amber-500/5 px-2 text-[11px] font-semibold text-amber-200/80">
-                        Called · no answer
-                      </span>
+                      <button
+                        type="button"
+                        disabled={
+                          unreachableBusy ||
+                          headerJobTarget.status_label === "Called · answered"
+                        }
+                        onClick={() =>
+                          void markCallbackOutcome(headerJobTarget, "called_answered", false)
+                        }
+                        className={cn(
+                          "inline-flex h-9 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold disabled:opacity-50",
+                          headerJobTarget.status_label === "Called · answered"
+                            ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
+                            : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                        )}
+                      >
+                        {unreachableBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : null}
+                        Called · answered
+                      </button>
+                    </div>
+                    {(headerJobTarget.status_label === "Needs call" ||
+                      headerJobTarget.status_label === "Called · no answer") && (
+                      <button
+                        type="button"
+                        disabled={unreachableBusy}
+                        onClick={() =>
+                          void markCallbackOutcome(headerJobTarget, "called_no_answer", true)
+                        }
+                        className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50"
+                      >
+                        {unreachableBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        )}
+                        Couldn’t reach — text
+                      </button>
                     )}
-                    <button
-                      type="button"
-                      disabled={unreachableBusy}
-                      onClick={() => void markUnreachable(headerJobTarget, true)}
-                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20 disabled:opacity-50"
-                    >
-                      {unreachableBusy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-3.5 w-3.5" />
-                      )}
-                      Couldn’t reach — text
-                    </button>
                   </div>
                 )}
               </div>
@@ -1522,11 +1579,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
           </div>
         ) : null}
 
-        {/* Only show Service history when this customer has leads/jobs to list. */}
+        {/* Past jobs only — open submitted request stays in the orange hero card above. */}
         {displayHistory.length > 0 ? (
           <div>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Service history &amp; quotes
+              Past jobs
             </h3>
             <ol className="space-y-2">
               {displayHistory.map((item) => {
@@ -1735,31 +1792,17 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     selected ? (
       <>
         <span className="tabular-nums">{formatPhoneDisplay(selected.phone_e164)}</span>
-        {selected.company_name.trim() ? ` · ${selected.company_name}` : ""}
         {" · "}
-        {BADGE_LABEL[selected.lead_badge]}
-        {selected.filled_by_customer || selected.has_book_form_lead ? (
+        {headerJobTarget?.is_open_lead
+          ? headerJobTarget.status_label
+          : BADGE_LABEL[selected.lead_badge]}
+        {selected.jobs_completed > 0 ? (
           <>
             {" · "}
-            <span className="text-orange-300/90">Filled by customer</span>
-          </>
-        ) : openLeadHistory[0] ? (
-          <>
-            {" · "}
-            <span className="text-zinc-500">
-              {crmIntakeFilledByLabel(openLeadHistory[0].intake_source)}
-            </span>
+            {selected.jobs_completed} job
+            {selected.jobs_completed === 1 ? "" : "s"}
           </>
         ) : null}
-        {" · "}
-        {selected.jobs_completed} job
-        {selected.jobs_completed === 1 ? "" : "s"} ·{" "}
-        {formatMoney(selected.lifetime_revenue_cents)} LTV
-        {payments.length > 0
-          ? ` · ${payments.filter((p) => p.status === "COMPLETED").length} payment${
-              payments.filter((p) => p.status === "COMPLETED").length === 1 ? "" : "s"
-            }`
-          : ""}
       </>
     ) : null
 
@@ -1872,10 +1915,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                           {row.filled_by_customer || row.has_book_form_lead ? (
                             <span className="text-orange-300/90">From book link · </span>
                           ) : null}
-                          {row.jobs_completed} job{row.jobs_completed === 1 ? "" : "s"} ·{" "}
-                          {formatMoney(row.lifetime_revenue_cents)} LTV
+                          {row.jobs_completed > 0
+                            ? `${row.jobs_completed} job${row.jobs_completed === 1 ? "" : "s"}`
+                            : "No jobs yet"}
                           {row.open_lead_count > 0
-                            ? ` · ${row.open_lead_count} open lead${row.open_lead_count === 1 ? "" : "s"}`
+                            ? ` · ${row.open_lead_count} open`
                             : ""}
                         </p>
                       </button>
@@ -1946,6 +1990,39 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               Loading…
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Message → template picker (custom snippets + presets + couldn’t reach). */}
+      <Dialog open={messageTemplatesOpen} onOpenChange={setMessageTemplatesOpen}>
+        <DialogContent
+          showCloseButton
+          overlayClassName="z-[7100]"
+          className="z-[7110] max-h-[min(90dvh,36rem)] overflow-y-auto border-zinc-800 bg-zinc-950 sm:max-w-md"
+        >
+          <DialogHeader>
+            <DialogTitle>Message templates</DialogTitle>
+            <DialogDescription>
+              Tap a saved or suggested text to send. Your custom SMS templates from Settings show
+              here too.
+            </DialogDescription>
+          </DialogHeader>
+          {selected ? (
+            <CustomerSmsComposer
+              toPhone={selected.phone_e164}
+              customerName={customerDisplayName}
+              title="Text customer"
+              variant={headerJobTarget?.is_open_lead ? "missed" : "follow_up"}
+              showRunningLate={!headerJobTarget?.is_open_lead}
+              showBookingLink={Boolean(headerJobTarget?.is_open_lead)}
+              extraTemplates={messageExtraTemplates}
+              onSent={() => {
+                setMessageTemplatesOpen(false)
+                setSaveMsg("SMS sent")
+              }}
+              onClose={() => setMessageTemplatesOpen(false)}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
