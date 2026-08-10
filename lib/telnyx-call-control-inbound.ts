@@ -1,4 +1,4 @@
-// Inbound Call Control pipeline: call.initiated → answer → call.answered → speak → speak.ended → dial.
+// Inbound Call Control pipeline: call.initiated → answer → call.answered → speak → speak.ended → dial (+ A-leg US ringback).
 
 import { getAppUrl } from "@/lib/telnyx"
 import {
@@ -7,6 +7,7 @@ import {
   telnyxCallControlDial,
   telnyxCallControlGatherUsingSpeak,
   telnyxCallControlHangup,
+  telnyxCallControlPlaybackStart,
   telnyxCallControlPlaybackStop,
   telnyxCallControlRecordStart,
   telnyxCallControlSpeak,
@@ -21,6 +22,10 @@ import {
   kickHoldMusicPlaybackImmediate,
 } from "@/lib/telnyx-call-control-hold-queue"
 import { prefetchHoldMusicPlaybackContent } from "@/lib/hold-inline-audio"
+import {
+  loadUsRingbackPlaybackContentBase64,
+  prefetchUsRingbackPlaybackContent,
+} from "@/lib/us-ringback-inline-audio"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
 import { HOLD_AWARE_BUSY_PROMPT } from "@/lib/hold-queue"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
@@ -49,7 +54,10 @@ import {
   persistCallControlDialNoAnswer,
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
-import { resolveInboundForwardDialTimeoutSeconds } from "@/lib/telnyx-inbound-media-quality"
+import {
+  readInboundDialRingbackAudioUrl,
+  resolveInboundForwardDialTimeoutSeconds,
+} from "@/lib/telnyx-inbound-media-quality"
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
 import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
@@ -532,6 +540,54 @@ async function startVoicemailFlow(
   }
 }
 
+/**
+ * Play US ringback on the answered inbound A-leg while the cell B-leg rings.
+ * Call Control Dial has no TeXML `ringTone` — without this the caller hears silence.
+ */
+async function startCallerDialRingback(
+  inboundCallControlId: string,
+  clientState: string
+): Promise<void> {
+  // Prefer inline WAV so Telnyx does not fetch lyncr.app during Dial setup.
+  const playbackContent = loadUsRingbackPlaybackContentBase64()
+  // Optional hosted override, else our bundled public asset URL.
+  const audioUrl =
+    readInboundDialRingbackAudioUrl() || `${getAppUrl()}/audio/us-ringback.wav`
+  // Start looping ringback on the caller leg (stop any leftover speak residual).
+  const playRes = await telnyxCallControlPlaybackStart(inboundCallControlId, {
+    ...(playbackContent
+      ? { playbackContent }
+      : { audioUrl }),
+    clientState,
+    loop: "infinity",
+    stop: "current",
+  })
+  if (!playRes.ok) {
+    // Dial still proceeds — log so silence-during-ring is diagnosable.
+    console.warn(
+      lyncrLog("telnyx-cc-dial-ringback-failed", {
+        callControlId: inboundCallControlId,
+        error: playRes.error,
+        usedPlaybackContent: Boolean(playbackContent),
+      })
+    )
+  } else {
+    console.log(
+      lyncrLog("telnyx-cc-dial-ringback-started", {
+        callControlId: inboundCallControlId,
+        usedPlaybackContent: Boolean(playbackContent),
+      })
+    )
+  }
+}
+
+/** Stop A-leg ringback before bridge / voicemail / hangup (best-effort). */
+async function stopCallerDialRingback(inboundCallControlId: string): Promise<void> {
+  const id = inboundCallControlId.trim()
+  if (!id) return
+  await telnyxCallControlPlaybackStop(id).catch(() => undefined)
+}
+
 async function dialTechnicianLeg(
   inboundCallControlId: string,
   state: TelnyxCallControlClientState,
@@ -563,6 +619,8 @@ async function dialTechnicianLeg(
     inboundCallControlId,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
+  // Answered A-leg gets silence unless we inject ringback while B-leg rings.
+  await startCallerDialRingback(inboundCallControlId, nextState)
   const dialRes = await telnyxCallControlDial({
     connectionId,
     inboundCallControlId,
@@ -578,6 +636,7 @@ async function dialTechnicianLeg(
         "[telnyx-cc] CRITICAL: TELNYX_API_KEY auth failure on Dial — update the key in Vercel and redeploy."
       )
     }
+    await stopCallerDialRingback(inboundCallControlId)
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
@@ -989,13 +1048,18 @@ async function handleCallAnswered(
   if (greetingEnabled && dialPlan.reason !== "busy_automation") {
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const greetingText = buildInboundCallerGreetingText(workspaceName)
-    // Same AI Voice Persona as Busy gather (ElevenLabs → NaturalHD astra fallback).
+    // Short connect greets must be reliable — ElevenLabs often HTTP-200 then speak.failed.
+    // Prefer NaturalHD up front so callers hear "Connecting you now" (persona still maps gender).
     let greetVoice = "Telnyx.NaturalHD.astra"
     try {
       const presence = await getAccountPresence(routing.user_id)
-      greetVoice = preferWorkingSpeakVoice(
+      const personaVoice = preferWorkingSpeakVoice(
         resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || greetVoice
       )
+      // Remap flaky ElevenLabs → NaturalHD for this short phrase (Busy gather keeps persona retry).
+      greetVoice = /^ElevenLabs\./i.test(personaVoice)
+        ? elevenLabsNaturalHdFallback(personaVoice)
+        : personaVoice
     } catch {
       /* persona lookup is optional for branded greet */
     }
@@ -1018,6 +1082,7 @@ async function handleCallAnswered(
       if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
         await startBusyAutomationFlow(event.callControlId, enrichedState, routing)
       } else {
+        // Speak HTTP failed — still Dial with US ringback (never dead air).
         await dialTechnicianLeg(event.callControlId, enrichedState, routing)
       }
     }
@@ -1313,6 +1378,14 @@ async function handleCallBridged(
   if (!state) return
   // Bridge events usually arrive on the outbound PSTN leg — still map back to the inbound call log row.
   const inboundSid = resolveInboundCallLogSid(event)
+  // Cell answered — stop A-leg ringback so talk audio is not mixed with tone.
+  const inboundForAudio =
+    state.inboundCallControlId?.trim() ||
+    (!isOutboundDialLegEvent(event) ? event.callControlId : "") ||
+    inboundSid
+  if (inboundForAudio) {
+    await stopCallerDialRingback(inboundForAudio)
+  }
   await persistCallControlBridged(inboundSid, state, event.occurredAt)
 }
 
@@ -1434,6 +1507,9 @@ async function handleCallHangup(
     await forgetOutboundDialLeg(inboundCallControlId)
     await persistCallControlDialNoAnswer(inboundSid, event)
 
+    // Cell missed — stop ringback before voicemail / Busy menu.
+    await stopCallerDialRingback(inboundCallControlId)
+
     const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
     if (!routing) {
       await telnyxCallControlHangup(inboundCallControlId)
@@ -1508,8 +1584,9 @@ async function handleCallHangup(
 
 /** Main Call Control webhook switch — returns after scheduling Telnyx actions. */
 export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, unknown>): Promise<void> {
-  // Keep hold WAV base64 warm on this instance (cheap no-op after first load).
+  // Keep hold + ringback WAV base64 warm on this instance (cheap no-op after first load).
   prefetchHoldMusicPlaybackContent()
+  prefetchUsRingbackPlaybackContent()
 
   const event = parseTelnyxVoiceWebhookEvent(body)
   if (!event) {

@@ -242,6 +242,16 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.to).toBe("+15552602716")
     expect(dialBody.link_to).toBe("cc-inbound-1")
     expect(dialBody.bridge_on_answer).toBe(true)
+    // A-leg must get US ringback while the cell rings (Call Control Dial has no ringTone).
+    const ringbackCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/playback_start")
+    )
+    expect(ringbackCall).toBeTruthy()
+    const ringbackBody = JSON.parse(String(ringbackCall![1].body))
+    expect(ringbackBody.loop).toBe("infinity")
+    expect(
+      Boolean(ringbackBody.playback_content) || Boolean(ringbackBody.audio_url)
+    ).toBe(true)
   })
 
   it("speak.failed after Available greet dials cell (no silent hang)", async () => {
@@ -314,6 +324,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const dialBody = JSON.parse(String(dialCall![1].body))
     expect(dialBody.to).toBe("+15022602716")
     expect(dialBody.link_to).toBe("cc-inbound-greet-fail-1")
+    // Even when greet Speak fails, caller must hear US ringback while cell rings.
+    const ringbackCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/playback_start")
+    )
+    expect(ringbackCall).toBeTruthy()
   })
 
   it("speak.ended dials Available receptionist when owner is Busy (ON_JOB)", async () => {
@@ -514,6 +529,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
     const speakCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/speak"))
     expect(speakCall).toBeTruthy()
+    const speakBody = JSON.parse(String(speakCall![1].body))
+    // Available connect greet uses NaturalHD (not flaky ElevenLabs) so callers hear audio.
+    expect(String(speakBody.voice || "")).toMatch(/^Telnyx\.NaturalHD\./i)
     const dialCall = fetchMock.mock.calls.find(
       (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
     )

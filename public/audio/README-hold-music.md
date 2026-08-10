@@ -26,6 +26,16 @@ Pick a preset under **Lines → Greetings → Hold music**. **Custom URL…** (A
 
 Files must be public HTTPS that Telnyx can GET (e.g. `https://lyncr.app/audio/hold-calm.wav`).
 
+## US ringback (Available Dial)
+
+Call Control Dial has **no** TeXML `ringTone`. After Answer, the caller hears silence unless we play audio on the A-leg while the cell rings.
+
+| File | Purpose |
+|------|---------|
+| `us-ringback.wav` | 8 kHz mono, NA dual-tone (440+480 Hz), 2s on / 4s off — looped via `playback_start` |
+
+Env override (optional): `ZING_INBOUND_DIAL_RINGBACK_AUDIO_URL=https://lyncr.app/audio/us-ringback.wav`
+
 Env overrides (optional):
 
 ```bash
