@@ -89,6 +89,12 @@ import {
 /** Fail-safe forward target when routing DB lookup crashes or returns empty. */
 const FAILSAFE_PRIMARY_CELL_E164 = CAPTURE_DEFAULT_RING_E164 // +15022602716
 
+/**
+ * Same-instance guard: speak.failed + speak.ended can both try to Dial after a flaky
+ * ElevenLabs greet. Prevents double PSTN legs on one inbound.
+ */
+const greetingContinueStarted = new Set<string>()
+
 type IncomingRoutingRow = NonNullable<Awaited<ReturnType<typeof getIncomingRoutingForVoiceWebhook>>>
 
 /** Minimal routing used when Neon lookup fails — still answers + dials the primary cell. */
@@ -227,7 +233,8 @@ function toCallControlDialFields(plan: InboundDialPlanResult): {
 async function resolveCallControlInboundDialPlan(
   routing: IncomingRoutingRow,
   businessLineE164: string,
-  excludeCallControlId?: string | null
+  excludeCallControlId?: string | null,
+  opts?: { skipOwnerLiveCallCheck?: boolean }
 ): Promise<ReturnType<typeof toCallControlDialFields>> {
   const plan = await resolveInboundDialPlan({
     userId: routing.user_id,
@@ -238,6 +245,7 @@ async function resolveCallControlInboundDialPlan(
     legacyReceptionistPhone: routing.receptionist_phone,
     legacyReceptionistName: routing.receptionist_name,
     excludeCallControlId,
+    skipOwnerLiveCallCheck: opts?.skipOwnerLiveCallCheck,
   })
   return toCallControlDialFields(plan)
 }
@@ -343,8 +351,11 @@ async function startBusyAutomationFlow(
 }
 
 /**
- * ElevenLabs often returns HTTP 200 on gather_using_speak, then fires call.speak.failed
- * (free plan / bad key). Open the circuit so later legs use NaturalHD.
+ * ElevenLabs often returns HTTP 200 on Speak / gather_using_speak, then fires
+ * call.speak.failed (free plan / bad key). Open the circuit so later legs use NaturalHD.
+ *
+ * Available connect greet: if Speak fails after Answer, Dial the cell immediately —
+ * otherwise callers hear silence and the phone never rings (Busy gather already retries).
  */
 async function handleSpeakFailed(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
@@ -362,6 +373,103 @@ async function handleSpeakFailed(
   if (/^ElevenLabs\./i.test(priorVoice) || !priorVoice) {
     markElevenLabsSpeakFailed("call.speak.failed")
   }
+
+  // Branded Available greeting died — skip TTS retry and ring the promised cell.
+  if (
+    state &&
+    (state.phase === "await_greeting_end" || state.phase === "await_caller_answered")
+  ) {
+    console.warn(
+      lyncrLog("telnyx-cc-greeting-speak-failed-recover-dial", {
+        callControlId: event.callControlId,
+        phase: state.phase,
+        dialTargetTail4: String(state.dialTargetE164 || "")
+          .replace(/\D/g, "")
+          .slice(-4) || null,
+      })
+    )
+    await continueAfterInboundGreeting(event, state)
+  }
+}
+
+/**
+ * After connect greeting (speak.ended) or failed greeting (speak.failed) — Dial PSTN
+ * or start Busy automation. Soft-busy is not re-checked here (decided at Answer).
+ */
+async function continueAfterInboundGreeting(
+  event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>,
+  state: TelnyxCallControlClientState
+): Promise<void> {
+  const inboundId = event.callControlId
+  if (greetingContinueStarted.has(inboundId)) {
+    console.log(
+      lyncrLog("telnyx-cc-greeting-continue-skip-duplicate", {
+        callControlId: inboundId,
+        phase: state.phase,
+      })
+    )
+    return
+  }
+  // Already dialed from a prior webhook on this (or another) instance.
+  const existingOutbound = await lookupOutboundDialLeg(inboundId)
+  if (existingOutbound) {
+    console.log(
+      lyncrLog("telnyx-cc-greeting-continue-skip-already-dialing", {
+        callControlId: inboundId,
+        outboundTail: existingOutbound.slice(-8),
+      })
+    )
+    return
+  }
+  greetingContinueStarted.add(inboundId)
+
+  let routing = await resolveCallControlRouting(state.businessLineE164)
+  if (!routing) {
+    routing = buildFailsafeRouting({
+      userId: state.userId || "00000000-0000-0000-0000-000000000000",
+      businessLineE164: state.businessLineE164,
+      ownerPhone: state.dialTargetE164 || FAILSAFE_PRIMARY_CELL_E164,
+    })
+  }
+  // Presence Busy can still divert to teammate / hold; soft-busy alone must not.
+  const dialPlan = await resolveCallControlInboundDialPlan(
+    routing,
+    state.businessLineE164,
+    event.callControlId,
+    { skipOwnerLiveCallCheck: true }
+  )
+  let dialTargetE164 = dialPlan.dialTargetE164
+  if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
+    dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
+  }
+
+  const nextState: TelnyxCallControlClientState = {
+    ...state,
+    userId: routing.user_id || state.userId,
+    dialTargetE164: dialTargetE164 || undefined,
+    fallbackType: routing.fallback_type ?? state.fallbackType,
+    dialReason: dialPlan.reason,
+    receptionistId: dialPlan.receptionistId || undefined,
+  }
+
+  console.log(
+    JSON.stringify({
+      zing: "telnyx-cc-speak-ended-dial-plan",
+      callControlId: event.callControlId,
+      planReason: dialPlan.reason,
+      dialTargetTail4: dialTargetE164
+        ? dialTargetE164.replace(/\D/g, "").slice(-4)
+        : null,
+      recvId: dialPlan.receptionistId,
+    })
+  )
+
+  if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+    await startBusyAutomationFlow(event.callControlId, nextState, routing)
+    return
+  }
+
+  await dialTechnicianLeg(event.callControlId, nextState, routing)
 }
 
 /** After booking SMS — confirm and hang up (avoid double Busy greeting). */
@@ -881,18 +989,24 @@ async function handleCallAnswered(
   if (greetingEnabled && dialPlan.reason !== "busy_automation") {
     const workspaceName = resolveWorkspaceDisplayName(routing)
     const greetingText = buildInboundCallerGreetingText(workspaceName)
-    const nextState = encodeTelnyxCallControlState({
-      ...enrichedState,
-      phase: "await_greeting_end",
-    })
-    // Same AI Voice Persona as Busy gather (saved under Greetings).
-    let greetVoice: string | undefined
+    // Same AI Voice Persona as Busy gather (ElevenLabs → NaturalHD astra fallback).
+    let greetVoice = "Telnyx.NaturalHD.astra"
     try {
       const presence = await getAccountPresence(routing.user_id)
-      greetVoice = resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel)
+      greetVoice = preferWorkingSpeakVoice(
+        resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || greetVoice
+      )
     } catch {
       /* persona lookup is optional for branded greet */
     }
+    if (!greetVoice) greetVoice = "Telnyx.NaturalHD.astra"
+    const nextState = encodeTelnyxCallControlState({
+      ...enrichedState,
+      phase: "await_greeting_end",
+      // Snapshot so speak.failed knows which engine died (opens ElevenLabs circuit).
+      holdSpeakVoice: greetVoice,
+      dialReason: dialPlan.reason,
+    })
     const speakRes = await telnyxCallControlSpeak(
       event.callControlId,
       greetingText,
@@ -967,52 +1081,7 @@ async function handleSpeakEnded(
         })
       )
     }
-    let routing = await resolveCallControlRouting(state.businessLineE164)
-    if (!routing) {
-      routing = buildFailsafeRouting({
-        userId: state.userId || "00000000-0000-0000-0000-000000000000",
-        businessLineE164: state.businessLineE164,
-        ownerPhone: state.dialTargetE164 || FAILSAFE_PRIMARY_CELL_E164,
-      })
-    }
-    // Fresh presence check after greeting — Busy must Dial Alex, not the owner.
-    const dialPlan = await resolveCallControlInboundDialPlan(
-      routing,
-      state.businessLineE164,
-      event.callControlId
-    )
-    let dialTargetE164 = dialPlan.dialTargetE164
-    if (dialPlan.reason !== "busy_automation" && !isReasonablePstnDialString(dialTargetE164 || "")) {
-      dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
-    }
-
-    const nextState: TelnyxCallControlClientState = {
-      ...state,
-      userId: routing.user_id || state.userId,
-      dialTargetE164: dialTargetE164 || undefined,
-      fallbackType: routing.fallback_type ?? state.fallbackType,
-      dialReason: dialPlan.reason,
-      receptionistId: dialPlan.receptionistId || undefined,
-    }
-
-    console.log(
-      JSON.stringify({
-        zing: "telnyx-cc-speak-ended-dial-plan",
-        callControlId: event.callControlId,
-        planReason: dialPlan.reason,
-        dialTargetTail4: dialTargetE164
-          ? dialTargetE164.replace(/\D/g, "").slice(-4)
-          : null,
-        recvId: dialPlan.receptionistId,
-      })
-    )
-
-    if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
-      await startBusyAutomationFlow(event.callControlId, nextState, routing)
-      return
-    }
-
-    await dialTechnicianLeg(event.callControlId, nextState, routing)
+    await continueAfterInboundGreeting(event, state)
     return
   }
 

@@ -50,7 +50,7 @@ const DockNavItems = memo(function DockNavItems({
           "motion-safe:active:scale-[0.96]",
           isVertical
             ? "h-11 w-11 flex-col"
-            : // Five primary tabs — flex-1 so icons stay even on narrow phones
+            : // Four mobile tabs — flex-1 so icons stay even on narrow phones
               "min-h-11 min-w-0 flex-1 flex-col gap-0.5 px-1 py-1.5",
           isActive
             ? "bg-primary/12 text-primary"

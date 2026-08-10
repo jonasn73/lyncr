@@ -28,18 +28,24 @@ export async function hasOwnerOnActiveLiveCall(params: {
 
   try {
     const sql = getSql()
+    // Require a *recent* answered_at — stale rows (hangup webhook missed) used to
+    // soft-busy Available for up to 2h while Lines still showed "Your phone".
     const rows = await sql`
       SELECT 1 AS hit
       FROM call_logs
       WHERE user_id = ${userId}
         AND ended_at IS NULL
         AND answered_at IS NOT NULL
+        AND answered_at > (now() - interval '45 minutes')
         AND lower(status) IN ('answered', 'in-progress')
         AND created_at > (now() - interval '2 hours')
         AND (
           routed_to_receptionist_id IS NULL
           OR lower(coalesce(routed_to_name, '')) IN ('owner', 'your phone', 'failsafe')
         )
+        AND lower(coalesce(routed_to_name, '')) NOT LIKE '%hold%'
+        AND lower(coalesce(routed_to_name, '')) NOT LIKE '%busy%'
+        AND lower(coalesce(routed_to_name, '')) NOT LIKE '%queue%'
         AND (
           ${exclude}::text IS NULL
           OR provider_call_sid IS DISTINCT FROM ${exclude}

@@ -47,6 +47,12 @@ export async function resolveInboundDialPlan(params: {
   capturePlan?: InboundCapturePlan | null
   /** Exclude this call_control_id when detecting “already on a live call”. */
   excludeCallControlId?: string | null
+  /**
+   * After the Available connect greeting already played, skip soft-busy re-check.
+   * Soft-busy must be decided at Answer — flipping mid-greeting left callers in
+   * hold while Lines still said Rings now: Your phone.
+   */
+  skipOwnerLiveCallCheck?: boolean
 }): Promise<InboundDialPlanResult> {
   const failsafe = CAPTURE_DEFAULT_RING_E164
   const ownerRaw = (params.ownerPhone || "").trim()
@@ -78,7 +84,11 @@ export async function resolveInboundDialPlan(params: {
 
   // Available + already on a live call → soft-busy (receptionist / hold, no barge).
   let ownerOnLiveCall = false
-  if (capturePlan.kind === "day_dial" && params.userId) {
+  if (
+    !params.skipOwnerLiveCallCheck &&
+    capturePlan.kind === "day_dial" &&
+    params.userId
+  ) {
     try {
       ownerOnLiveCall = await hasOwnerOnActiveLiveCall({
         userId: params.userId,

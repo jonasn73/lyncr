@@ -54,7 +54,13 @@ export async function lookupOutboundDialLeg(inboundCallControlId: string): Promi
   const entry = inboundToOutbound.get(inbound)
   if (entry && entry.expiresAtMs > Date.now()) return entry.outboundCallControlId
   if (entry) inboundToOutbound.delete(inbound)
-  return getTelnyxOutboundLegForInbound(inbound)
+  try {
+    return await getTelnyxOutboundLegForInbound(inbound)
+  } catch (e) {
+    // Missing mock / Neon blip — treat as not dialing yet (fail open).
+    console.warn("[telnyx-cc] outbound leg lookup skipped:", e)
+    return null
+  }
 }
 
 /** Clear mapping after either leg ends. */
