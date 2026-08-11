@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   CalendarDays,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Clock,
   MapPin,
@@ -1037,9 +1038,9 @@ function ActivityGroupActionBar({
 }
 
 /**
- * One expanded leg: status, time, duration.
- * When `lean` is true (multi-call group), hide Call/CRM spam and the repeated job card —
- * those live once on the group shell instead.
+ * One expanded leg.
+ * Lean (multi-call group): status chip + time · duration only — tap opens details.
+ * Full (single call): actions, intake, and detail CTA stay on the leg.
  */
 function ActivityCallLegActions({
   call,
@@ -1060,21 +1061,35 @@ function ActivityCallLegActions({
 }) {
   const st = classifyCall(call)
   const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-  // In lean mode, keep only answer/missed chronology — intake lines live on the group job card.
-  const timeline = buildCallActionsTimeline(call).filter((line) => {
-    if (!lean || showIntake) return true
-    const action = call.activity?.intakeAction
-    if (action && line === action) return false
-    if (call.activity?.intakeDetail && line === call.activity.intakeDetail) return false
-    return true
-  })
+
+  // Multi-call expand: one shared action/job row above — children are a timeline only.
+  if (lean) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpenDetails(call)
+        }}
+        className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/30 px-2.5 py-1.5 text-left transition-colors duration-150 hover:border-zinc-700 hover:bg-zinc-900/50"
+        aria-label={`Open details for call at ${call.time || "unknown time"}`}
+      >
+        <ActivityStatusPill status={st} dense />
+        <span className="min-w-0 flex-1 text-[11px] text-zinc-400">
+          <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <CallTimeDisplay call={call} variant="inline" />
+            <span className="text-zinc-600">·</span>
+            <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
+          </span>
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
+      </button>
+    )
+  }
+
+  const timeline = buildCallActionsTimeline(call)
   return (
-    <div
-      className={cn(
-        "space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2",
-        lean && "space-y-1.5"
-      )}
-    >
+    <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2">
       <div className="flex min-w-0 items-start gap-2">
         <ActivityStatusPill status={st} dense />
         <div className="min-w-0 flex-1">
@@ -1092,7 +1107,7 @@ function ActivityCallLegActions({
       </div>
       {timeline.length > 0 ? (
         <ul className="space-y-0.5 px-0.5">
-          {timeline.slice(0, lean ? 1 : 2).map((line, i) => (
+          {timeline.slice(0, 2).map((line, i) => (
             <li key={`${call.id}-tl-${i}`} className="flex gap-1.5 text-[10px] text-zinc-500">
               <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
               <span>{line}</span>
@@ -1100,10 +1115,7 @@ function ActivityCallLegActions({
           ))}
         </ul>
       ) : null}
-      {/* Full single-call rows keep Call / book / CRM on the leg itself. */}
-      {!lean ? (
-        <ActivityGroupActionBar call={call} />
-      ) : null}
+      <ActivityGroupActionBar call={call} />
       {showIntake && call.activity ? (
         <ActivityIntakeSummary
           activity={call.activity}
@@ -1257,19 +1269,24 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                         />
                       </div>
                     ) : null}
+                    <p className="px-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                      Calls today · tap a row for details
+                    </p>
                   </>
                 ) : null}
-                {call.members.map((leg) => (
-                  <ActivityCallLegActions
-                    key={leg.id}
-                    call={leg}
-                    lineLabelMap={lineLabelMap}
-                    onOpenDetails={openDetails}
-                    showLine={!multi}
-                    lean={multi}
-                    showIntake={!multi}
-                  />
-                ))}
+                <div className={cn(multi ? "space-y-1" : "space-y-2")}>
+                  {call.members.map((leg) => (
+                    <ActivityCallLegActions
+                      key={leg.id}
+                      call={leg}
+                      lineLabelMap={lineLabelMap}
+                      onOpenDetails={openDetails}
+                      showLine={!multi}
+                      lean={multi}
+                      showIntake={!multi}
+                    />
+                  ))}
+                </div>
               </div>
             ) : null}
           </li>
@@ -1349,6 +1366,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
               const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
               // Always allow expand so single legs still open actions/details consistently.
               const expanded = expandedKeys.has(call.groupKey)
+              const multi = call.count > 1
               return (
                 <Fragment key={call.groupKey}>
                   <tr
@@ -1421,7 +1439,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       {formatDuration(call.durationSeconds)}
                     </WorkspaceTd>
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">
-                      {call.count > 1 ? (
+                      {multi ? (
                         <span
                           className="line-clamp-2 text-[11px] leading-snug text-slate-500"
                           title={formatGroupedCallSummary(call)}
@@ -1472,10 +1490,20 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   {expanded ? (
                     <tr className="bg-zinc-950/50">
                       <WorkspaceTd colSpan={8} className="!px-3 !py-3">
-                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                          {call.members.map((leg) => {
-                            const multi = call.count > 1
-                            return (
+                        <div className="space-y-2">
+                          {multi ? (
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                              Calls today · tap a row for details
+                            </p>
+                          ) : null}
+                          <div
+                            className={cn(
+                              multi
+                                ? "grid gap-1 sm:grid-cols-2 xl:grid-cols-3"
+                                : "grid gap-2 md:grid-cols-2 xl:grid-cols-3"
+                            )}
+                          >
+                            {call.members.map((leg) => (
                               <ActivityCallLegActions
                                 key={leg.id}
                                 call={leg}
@@ -1485,8 +1513,8 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                                 // Parent row already shows intake + Call/CRM once for multi groups.
                                 showIntake={!multi}
                               />
-                            )
-                          })}
+                            ))}
+                          </div>
                         </div>
                       </WorkspaceTd>
                     </tr>

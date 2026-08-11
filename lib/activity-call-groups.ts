@@ -78,6 +78,82 @@ function buildGroupMapKey(call: UiCallRecord, timeZone: string): string {
   return `${day}|${phone}`
 }
 
+/** Start timestamp ms for a call (0 when unknown). */
+function callStartMs(call: UiCallRecord): number {
+  if (!call.createdAt?.trim()) return 0
+  const t = new Date(call.createdAt).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+
+/** Prefer answered, intake-rich, longer legs when collapsing near-duplicates. */
+function legQualityScore(call: UiCallRecord): number {
+  let score = 0
+  if (resolveCallWasAnswered(call)) score += 100
+  if (callHasMeaningfulActivity(call)) score += 50
+  if (call.hasRecording) score += 10
+  score += Math.min(Math.max(0, call.durationSeconds), 600)
+  return score
+}
+
+/**
+ * True when two same-day legs look like one conversation split across rows
+ * (webhook double-write, quick redial stub, or back-to-back bridge legs).
+ * Uses start-time proximity only — not endedAt overlap (stale ends create false merges).
+ */
+export function areNearDuplicateCallLegs(
+  a: UiCallRecord,
+  b: UiCallRecord,
+  windowMs: number = 90_000
+): boolean {
+  const a0 = callStartMs(a)
+  const b0 = callStartMs(b)
+  if (!a0 || !b0) return false
+  if (Math.abs(a0 - b0) > windowMs) return false
+  const stub = a.durationSeconds < 15 || b.durationSeconds < 15
+  const sameAnswered = resolveCallWasAnswered(a) === resolveCallWasAnswered(b)
+  // Keep distinct outcomes close together (missed then answered) unless one is a stub.
+  return stub || sameAnswered
+}
+
+/**
+ * Collapse near-duplicate legs inside a day-group (newest-first in, newest-first out).
+ * Keeps the higher-quality row when two SIDs describe the same conversation.
+ */
+export function collapseNearDuplicateCallLegs(members: UiCallRecord[]): UiCallRecord[] {
+  if (members.length <= 1) return members
+  const kept: UiCallRecord[] = []
+  for (const candidate of members) {
+    const dupIdx = kept.findIndex((k) => areNearDuplicateCallLegs(k, candidate))
+    if (dupIdx < 0) {
+      kept.push(candidate)
+      continue
+    }
+    if (legQualityScore(candidate) > legQualityScore(kept[dupIdx]!)) {
+      kept[dupIdx] = candidate
+    }
+  }
+  return kept.sort((a, b) => callStartMs(b) - callStartMs(a))
+}
+
+/** Rebuild count / ids / representative after member collapse. */
+function finalizeGroupedCall(
+  group: GroupedActivityCall,
+  now: Date,
+  timeZone: string
+): GroupedActivityCall {
+  const members = collapseNearDuplicateCallLegs(group.members)
+  const head = members[0] ?? group
+  return {
+    ...group,
+    ...head,
+    count: members.length,
+    todayCount: members.filter((m) => isCreatedTodayInZone(m.createdAt, now, timeZone)).length,
+    groupIds: members.map((m) => m.id),
+    members,
+    groupKey: group.groupKey,
+  }
+}
+
 /**
  * Fold a newest-first call list into one row per normalized phone per calendar day.
  * Representative fields come from the newest member; members stay newest-first.
@@ -115,7 +191,8 @@ export function groupCallsByPhoneAndDay(
     })
   }
 
-  return order.map((k) => byKey.get(k)!)
+  // Drop phantom near-duplicate SIDs so “· N calls” matches distinct conversations.
+  return order.map((k) => finalizeGroupedCall(byKey.get(k)!, now, timeZone))
 }
 
 /**

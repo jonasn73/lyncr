@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   activityCallCalendarDayKey,
   activityCallerPhoneKey,
+  areNearDuplicateCallLegs,
   callHasMeaningfulActivity,
+  collapseNearDuplicateCallLegs,
   filterActivityCallGroups,
   formatCallChronologyStatus,
   formatGroupedCallCountLabel,
@@ -135,7 +137,8 @@ describe("filterActivityCallGroups", () => {
         makeCall({
           id: "missed",
           callerNumber: "+15551234567",
-          createdAt: "2026-07-12T15:00:00.000Z",
+          // Far enough from the answered leg that near-dup collapse will not absorb it.
+          createdAt: "2026-07-12T14:00:00.000Z",
           type: "missed",
           answeredAt: null,
           callStatus: "no-answer",
@@ -242,6 +245,96 @@ describe("groupConsecutiveCallsByPhone", () => {
         })
       )
     ).toBe(false)
+  })
+})
+
+describe("collapseNearDuplicateCallLegs", () => {
+  it("merges back-to-back answered SIDs within 90s, keeping the richer leg", () => {
+    const newer = makeCall({
+      id: "45s",
+      callerNumber: "+15027628891",
+      createdAt: "2026-08-11T14:23:14.000Z",
+      time: "10:23 AM",
+      durationSeconds: 45,
+      answeredAt: "2026-08-11T14:23:39.000Z",
+      endedAt: "2026-08-11T14:23:58.000Z",
+    })
+    const older = makeCall({
+      id: "34s",
+      callerNumber: "+15027628891",
+      createdAt: "2026-08-11T14:22:35.000Z",
+      time: "10:22 AM",
+      durationSeconds: 34,
+      answeredAt: "2026-08-11T14:23:01.000Z",
+      endedAt: "2026-08-11T14:23:09.000Z",
+    })
+    expect(areNearDuplicateCallLegs(newer, older)).toBe(true)
+    const collapsed = collapseNearDuplicateCallLegs([newer, older])
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0].id).toBe("45s")
+  })
+
+  it("drops a short unanswered stub next to an answered call", () => {
+    const answered = makeCall({
+      id: "ans",
+      callerNumber: "+15027628891",
+      createdAt: "2026-08-11T15:31:21.000Z",
+      durationSeconds: 40,
+      answeredAt: "2026-08-11T15:31:40.000Z",
+    })
+    const stub = makeCall({
+      id: "stub",
+      callerNumber: "+15027628891",
+      createdAt: "2026-08-11T15:30:02.000Z",
+      type: "missed",
+      callStatus: "no-answer",
+      durationSeconds: 3,
+      answeredAt: null,
+    })
+    const collapsed = collapseNearDuplicateCallLegs([answered, stub])
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0].id).toBe("ans")
+  })
+
+  it("keeps spaced-apart calls as separate legs in the day group", () => {
+    const now = new Date("2026-08-11T20:00:00.000Z")
+    const grouped = groupCallsByPhoneAndDay(
+      [
+        makeCall({
+          id: "late",
+          callerNumber: "+15027628891",
+          createdAt: "2026-08-11T15:31:21.000Z",
+          durationSeconds: 40,
+        }),
+        makeCall({
+          id: "mid",
+          callerNumber: "+15027628891",
+          createdAt: "2026-08-11T14:57:55.000Z",
+          durationSeconds: 117,
+        }),
+        makeCall({
+          id: "early-a",
+          callerNumber: "+15027628891",
+          createdAt: "2026-08-11T14:23:14.000Z",
+          durationSeconds: 45,
+          answeredAt: "2026-08-11T14:23:39.000Z",
+          endedAt: "2026-08-11T14:23:58.000Z",
+        }),
+        makeCall({
+          id: "early-b",
+          callerNumber: "+15027628891",
+          createdAt: "2026-08-11T14:22:35.000Z",
+          durationSeconds: 34,
+          answeredAt: "2026-08-11T14:23:01.000Z",
+          endedAt: "2026-08-11T14:23:09.000Z",
+        }),
+      ],
+      { now, timeZone: "America/New_York" }
+    )
+    expect(grouped).toHaveLength(1)
+    // early-a + early-b collapse; late + mid stay → 3 distinct conversations.
+    expect(grouped[0].count).toBe(3)
+    expect(grouped[0].members.map((m) => m.id)).toEqual(["late", "mid", "early-a"])
   })
 })
 
