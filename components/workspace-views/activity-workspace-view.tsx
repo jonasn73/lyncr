@@ -444,6 +444,8 @@ function CallBackButton({
   intakeCall,
   /** Missed rows use rose “Call back” so they don’t match answered teal Call. */
   missed = false,
+  /** Hold / press-1 rows use amber “Call back”. */
+  hold = false,
 }: {
   phone: string
   className?: string
@@ -451,6 +453,7 @@ function CallBackButton({
   openIntakeDraft?: boolean
   intakeCall?: UiCallRecord
   missed?: boolean
+  hold?: boolean
 }) {
   const inbound = useInboundCallPanelOptional()
   const href = buildTelHref(phone)
@@ -475,14 +478,16 @@ function CallBackButton({
         "inline-flex items-center justify-center gap-1.5 rounded-lg border font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98]",
         missed
           ? "border-rose-500/45 bg-rose-500/15 text-rose-100 hover:border-rose-400/60 hover:bg-rose-500/25"
-          : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300",
+          : hold
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:border-amber-400/55 hover:bg-amber-500/20"
+            : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300",
         compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
         className
       )}
     >
       <Phone className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-      {/* Missed: always “Call back”; answered compact list stays short “Call”. */}
-      {missed || !compact ? "Call back" : "Call"}
+      {/* Missed/hold: always “Call back”; answered compact list stays short “Call”. */}
+      {missed || hold || !compact ? "Call back" : "Call"}
     </a>
   )
 }
@@ -1001,15 +1006,11 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
   const { setSelectedActivityLog } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
   // Rows stay collapsed by default so more numbers fit on screen.
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
+  // Accordion: at most one row expanded at a time.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   function toggleExpanded(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    setExpandedId((prev) => (prev === id ? null : id))
   }
 
   function openLogSheet(call: UiCallRecord) {
@@ -1028,9 +1029,9 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
       {rows.map((call) => {
         const st = classifyCall(call)
         const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-        const expanded = expandedIds.has(call.id)
+        const expanded = expandedId === call.id
         const missed = isMissedActivityStatus(st)
-        const telHref = buildTelHref(call.callerNumber)
+        const hold = isHoldActivityStatus(st) || st === "hold_press1"
         const intakeShort =
           call.activity?.intakeAction === "No intake recorded"
             ? "No intake"
@@ -1050,122 +1051,83 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
             )}
           >
             {/*
-              Mobile stacked row (never one cramped horizontal flex):
-              1) status + name / full phone / duration · time (+ chevron)
-              2) Call / Send book link / CRM — own row so icons never cover the timestamp
+              Collapsed (default): status + name / full phone / duration · time + chevron.
+              Expanded: Call back / Send book link / CRM + intake + details.
             */}
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => toggleExpanded(call.id)}
-                className="group/caller flex w-full min-w-0 items-start gap-2 rounded-lg py-0.5 text-left"
-                aria-expanded={expanded}
-                aria-label={
-                  expanded
-                    ? `Collapse ${call.callerName}`
-                    : `Expand ${call.callerName} for call back and details`
-                }
-              >
-                <ActivityStatusPill status={st} dense />
-                <span className="min-w-0 flex-1">
-                  {/* Name can ellipsis; phone must never truncate. */}
-                  <CallerNameWithCount call={call} interactive dense />
-                  <p
-                    className={cn(
-                      "mt-0.5 whitespace-nowrap text-[11px] font-medium",
-                      missed
-                        ? "text-rose-300/90"
-                        : isHoldActivityStatus(st)
-                          ? "text-amber-300/90"
-                          : "text-cyan-400/90"
-                    )}
-                  >
-                    {call.callerNumber}
-                  </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
-                    <span className="shrink-0 tabular-nums">
-                      {formatDuration(call.durationSeconds)}
-                    </span>
-                    <span className="shrink-0 text-zinc-600">·</span>
-                    <CallTimeDisplay call={call} variant="inline" />
-                    {showIntakeShort ? (
-                      <>
-                        <span className="shrink-0 text-zinc-600">·</span>
-                        <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
-                      </>
-                    ) : null}
-                  </p>
-                </span>
-                <ChevronDown
+            <button
+              type="button"
+              onClick={() => toggleExpanded(call.id)}
+              className="group/caller flex w-full min-w-0 items-start gap-2 rounded-lg py-0.5 text-left"
+              aria-expanded={expanded}
+              aria-label={
+                expanded
+                  ? `Collapse ${call.callerName}`
+                  : `Expand ${call.callerName} for call back and details`
+              }
+            >
+              <ActivityStatusPill status={st} dense />
+              <span className="min-w-0 flex-1">
+                {/* Name can ellipsis; phone must never truncate. */}
+                <CallerNameWithCount call={call} interactive dense />
+                <p
                   className={cn(
-                    "mt-1 h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
-                    expanded && "rotate-180 text-teal-400"
+                    "mt-0.5 whitespace-nowrap text-[11px] font-medium",
+                    missed
+                      ? "text-rose-300/90"
+                      : isHoldActivityStatus(st)
+                        ? "text-amber-300/90"
+                        : "text-cyan-400/90"
                   )}
-                  aria-hidden
-                />
-              </button>
-
-              {/* Actions only — phone icon alone (no chevron); never share a row with the timestamp. */}
-              {(canCallBack(call) && telHref) ||
-              ((isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber) ||
-              ((isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
-                call.callerNumber &&
-                call.callerNumber !== "—") ? (
-                <div className="flex w-full flex-wrap items-center gap-1.5">
-                  {canCallBack(call) && telHref ? (
-                    <a
-                      href={telHref}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (
-                          needsRevenueRescue(call) ||
-                          isHoldActivityStatus(st) ||
-                          st === "hold_press1"
-                        ) {
-                          openIntakeForActivityCall(inbound, call)
-                        }
-                      }}
-                      className={cn(
-                        "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]",
-                        missed
-                          ? "border-rose-500/45 bg-rose-500/15 text-rose-100"
-                          : isHoldActivityStatus(st) || st === "hold_press1"
-                            ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
-                            : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
-                      )}
-                      aria-label={
-                        missed || isHoldActivityStatus(st) || st === "hold_press1"
-                          ? "Call back"
-                          : "Call"
-                      }
-                      title={
-                        missed || isHoldActivityStatus(st) || st === "hold_press1"
-                          ? "Call back"
-                          : "Call"
-                      }
-                    >
-                      <Phone className="h-4 w-4 shrink-0" aria-hidden />
-                      <span>
-                        {missed || isHoldActivityStatus(st) || st === "hold_press1"
-                          ? "Call back"
-                          : "Call"}
-                      </span>
-                    </a>
+                >
+                  {call.callerNumber}
+                </p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
+                  <span className="shrink-0 tabular-nums">
+                    {formatDuration(call.durationSeconds)}
+                  </span>
+                  <span className="shrink-0 text-zinc-600">·</span>
+                  <CallTimeDisplay call={call} variant="inline" />
+                  {showIntakeShort ? (
+                    <>
+                      <span className="shrink-0 text-zinc-600">·</span>
+                      <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
+                    </>
                   ) : null}
-                  {(isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber ? (
-                    <SendBookLinkButton
+                </p>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "mt-1 h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
+                  expanded && "rotate-180 text-teal-400"
+                )}
+                aria-hidden
+              />
+            </button>
+
+            {/* Expanded: actions + intake + line (only when needed). */}
+            {expanded ? (
+              <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {canCallBack(call) ? (
+                    <CallBackButton
                       phone={call.callerNumber}
-                      callerName={call.callerName}
-                      businessLine={call.targetLineE164}
-                      callLogId={call.id}
                       compact
-                      className="!h-9 !min-h-0 shrink-0"
-                      onClick={(e) => e.stopPropagation()}
+                      className="!h-9 min-w-0 flex-1"
+                      openIntakeDraft={needsRevenueRescue(call) || hold}
+                      intakeCall={call}
+                      missed={missed}
+                      hold={hold && !missed}
                     />
                   ) : null}
-                  {(isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
-                  call.callerNumber &&
-                  call.callerNumber !== "—" ? (
+                  <SendBookLinkButton
+                    phone={call.callerNumber}
+                    callerName={call.callerName}
+                    businessLine={call.targetLineE164}
+                    callLogId={call.id}
+                    compact
+                    className={cn("!h-9 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
+                  />
+                  {call.callerNumber && call.callerNumber !== "—" ? (
                     <Link
                       href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
                       onClick={(e) => e.stopPropagation()}
@@ -1177,41 +1139,6 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     </Link>
                   ) : null}
                 </div>
-              ) : null}
-            </div>
-
-            {/* Expanded: actions + intake + line (only when needed). */}
-            {expanded ? (
-              <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
-                {canCallBack(call) ? (
-                  <div className="flex flex-wrap gap-2">
-                    <CallBackButton
-                      phone={call.callerNumber}
-                      compact
-                      className="min-w-0 flex-1"
-                      openIntakeDraft={needsRevenueRescue(call)}
-                      intakeCall={call}
-                      missed={missed}
-                    />
-                    <SendBookLinkButton
-                      phone={call.callerNumber}
-                      callerName={call.callerName}
-                      businessLine={call.targetLineE164}
-                      callLogId={call.id}
-                      compact
-                      className="min-w-0 flex-1"
-                    />
-                  </div>
-                ) : (
-                  <SendBookLinkButton
-                    phone={call.callerNumber}
-                    callerName={call.callerName}
-                    businessLine={call.targetLineE164}
-                    callLogId={call.id}
-                    compact
-                    className="w-full"
-                  />
-                )}
                 {call.activity ? (
                   <ActivityIntakeSummary
                     activity={call.activity}
@@ -1227,7 +1154,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     <ul className="space-y-0.5 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-2">
                       {timeline.map((line, i) => (
                         <li key={`${call.id}-act-${i}`} className="flex gap-2 text-[11px] text-zinc-400">
-                          <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
+                          <Clock className="mt-0.5 h-3 w-3 text-zinc-600 shrink-0" aria-hidden />
                           <span>{line}</span>
                         </li>
                       ))}
