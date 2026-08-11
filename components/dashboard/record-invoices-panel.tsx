@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   Download,
-  ExternalLink,
+  Eye,
   Loader2,
   Mail,
   MessageSquare,
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { InvoicePreviewSheet } from "@/components/dashboard/invoice-preview-sheet"
 
 function formatMoney(cents: number): string {
   return (Math.max(0, cents) / 100).toLocaleString("en-US", {
@@ -96,6 +97,8 @@ export function RecordInvoicesPanel({
   const [reviseChannel, setReviseChannel] = useState<"email" | "sms" | "both">("sms")
   const [reviseEmail, setReviseEmail] = useState("")
   const [revisePhone, setRevisePhone] = useState("")
+  // In-app invoice preview (not a new browser tab).
+  const [previewInv, setPreviewInv] = useState<JobRecordInvoiceApi | null>(null)
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(search.trim()), 280)
@@ -345,15 +348,14 @@ export function RecordInvoicesPanel({
               </div>
 
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <a
-                  href={inv.receiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreviewInv(inv)}
                   className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-2.5 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <Eye className="h-3.5 w-3.5" />
                   View
-                </a>
+                </button>
                 <a
                   href={inv.pdfUrl}
                   download
@@ -488,6 +490,17 @@ export function RecordInvoicesPanel({
           )
         })}
       </ul>
+
+      {/* Same receipt as /r/{token}, inside Lyncr — X / Done / PDF / open in browser. */}
+      <InvoicePreviewSheet
+        open={Boolean(previewInv)}
+        onOpenChange={(next) => {
+          if (!next) setPreviewInv(null)
+        }}
+        token={previewInv?.receiptToken ?? null}
+        receiptUrl={previewInv?.receiptUrl ?? null}
+        pdfUrl={previewInv?.pdfUrl ?? null}
+      />
     </div>
   )
 }
