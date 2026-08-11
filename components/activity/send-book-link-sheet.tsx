@@ -253,6 +253,10 @@ export function SendBookLinkButton({
   const canSend = Boolean(toE164(phone) || phone.replace(/\D/g, "").length >= 10)
   if (!canSend) return null
 
+  // Empty label = icon-only (e.g. dense Activity rows); keep accessible name via aria-label.
+  const visibleLabel = label.trim()
+  const accessibleLabel = visibleLabel || "Send book link"
+
   return (
     <>
       <button
@@ -261,14 +265,17 @@ export function SendBookLinkButton({
           onClick?.(e)
           setOpen(true)
         }}
+        aria-label={accessibleLabel}
+        title={accessibleLabel}
         className={cn(
           "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
           compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+          !visibleLabel && compact && "w-8 px-0",
           className
         )}
       >
         <Link2 className={cn("shrink-0", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-        {label}
+        {visibleLabel || null}
       </button>
       <SendBookLinkSheet
         open={open}

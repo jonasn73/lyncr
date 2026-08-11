@@ -1049,12 +1049,16 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               expanded && "bg-zinc-950/40"
             )}
           >
-            {/* Collapsed row: status · name · phone · time · call · chevron */}
-            <div className="flex items-center gap-2">
+            {/*
+              Mobile stacked row (never one cramped horizontal flex):
+              1) status + name / full phone / duration · time (+ chevron)
+              2) Call / Send book link / CRM — own row so icons never cover the timestamp
+            */}
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => toggleExpanded(call.id)}
-                className="group/caller flex min-w-0 flex-1 items-center gap-2 rounded-lg py-0.5 text-left"
+                className="group/caller flex w-full min-w-0 items-start gap-2 rounded-lg py-0.5 text-left"
                 aria-expanded={expanded}
                 aria-label={
                   expanded
@@ -1064,86 +1068,115 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               >
                 <ActivityStatusPill status={st} dense />
                 <span className="min-w-0 flex-1">
+                  {/* Name can ellipsis; phone must never truncate. */}
                   <CallerNameWithCount call={call} interactive dense />
-                  <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px]">
-                    <span
-                      className={cn(
-                        "truncate font-medium",
-                        missed
-                          ? "text-rose-300/90"
-                          : isHoldActivityStatus(st)
-                            ? "text-amber-300/90"
-                            : "text-cyan-400/90"
-                      )}
-                    >
-                      {call.callerNumber}
-                    </span>
-                    <span className="shrink-0 text-zinc-600">·</span>
-                    <span className="shrink-0 tabular-nums text-zinc-500">
+                  <p
+                    className={cn(
+                      "mt-0.5 whitespace-nowrap text-[11px] font-medium",
+                      missed
+                        ? "text-rose-300/90"
+                        : isHoldActivityStatus(st)
+                          ? "text-amber-300/90"
+                          : "text-cyan-400/90"
+                    )}
+                  >
+                    {call.callerNumber}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
+                    <span className="shrink-0 tabular-nums">
                       {formatDuration(call.durationSeconds)}
                     </span>
+                    <span className="shrink-0 text-zinc-600">·</span>
+                    <CallTimeDisplay call={call} variant="inline" />
                     {showIntakeShort ? (
                       <>
                         <span className="shrink-0 text-zinc-600">·</span>
-                        <span className="truncate text-zinc-500">{intakeShort}</span>
+                        <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
                       </>
                     ) : null}
-                  </span>
+                  </p>
                 </span>
-                <CallTimeDisplay call={call} variant="inline" />
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
+                    "mt-1 h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
                     expanded && "rotate-180 text-teal-400"
                   )}
                   aria-hidden
                 />
               </button>
-              {canCallBack(call) && telHref ? (
-                <a
-                  href={telHref}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (needsRevenueRescue(call) || isHoldActivityStatus(st) || st === "hold_press1") {
-                      openIntakeForActivityCall(inbound, call)
-                    }
-                  }}
-                  className={cn(
-                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]",
-                    missed
-                      ? "border-rose-500/45 bg-rose-500/15 text-rose-100"
-                      : isHoldActivityStatus(st) || st === "hold_press1"
-                        ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
-                        : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
-                  )}
-                  aria-label={missed || isHoldActivityStatus(st) || st === "hold_press1" ? "Call back" : "Call"}
-                  title={missed || isHoldActivityStatus(st) || st === "hold_press1" ? "Call back" : "Call"}
-                >
-                  <Phone className="h-4 w-4" aria-hidden />
-                </a>
-              ) : null}
-              {(isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber ? (
-                <SendBookLinkButton
-                  phone={call.callerNumber}
-                  callerName={call.callerName}
-                  businessLine={call.targetLineE164}
-                  callLogId={call.id}
-                  compact
-                  className="!h-9 !min-h-0 !w-auto shrink-0 px-2 text-[10px]"
-                />
-              ) : null}
-              {(isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
-              call.callerNumber &&
-              call.callerNumber !== "—" ? (
-                <Link
-                  href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2 text-[10px] font-semibold text-zinc-300 hover:border-zinc-500"
-                  aria-label="Open CRM"
-                  title="CRM"
-                >
-                  CRM
-                </Link>
+
+              {/* Actions only — phone icon alone (no chevron); never share a row with the timestamp. */}
+              {(canCallBack(call) && telHref) ||
+              ((isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber) ||
+              ((isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
+                call.callerNumber &&
+                call.callerNumber !== "—") ? (
+                <div className="flex w-full flex-wrap items-center gap-1.5">
+                  {canCallBack(call) && telHref ? (
+                    <a
+                      href={telHref}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (
+                          needsRevenueRescue(call) ||
+                          isHoldActivityStatus(st) ||
+                          st === "hold_press1"
+                        ) {
+                          openIntakeForActivityCall(inbound, call)
+                        }
+                      }}
+                      className={cn(
+                        "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.96]",
+                        missed
+                          ? "border-rose-500/45 bg-rose-500/15 text-rose-100"
+                          : isHoldActivityStatus(st) || st === "hold_press1"
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
+                            : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
+                      )}
+                      aria-label={
+                        missed || isHoldActivityStatus(st) || st === "hold_press1"
+                          ? "Call back"
+                          : "Call"
+                      }
+                      title={
+                        missed || isHoldActivityStatus(st) || st === "hold_press1"
+                          ? "Call back"
+                          : "Call"
+                      }
+                    >
+                      <Phone className="h-4 w-4 shrink-0" aria-hidden />
+                      <span>
+                        {missed || isHoldActivityStatus(st) || st === "hold_press1"
+                          ? "Call back"
+                          : "Call"}
+                      </span>
+                    </a>
+                  ) : null}
+                  {(isHoldActivityStatus(st) || st === "hold_press1") && call.callerNumber ? (
+                    <SendBookLinkButton
+                      phone={call.callerNumber}
+                      callerName={call.callerName}
+                      businessLine={call.targetLineE164}
+                      callLogId={call.id}
+                      compact
+                      className="!h-9 !min-h-0 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : null}
+                  {(isHoldActivityStatus(st) || st === "hold_press1" || missed) &&
+                  call.callerNumber &&
+                  call.callerNumber !== "—" ? (
+                    <Link
+                      href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
+                      aria-label="Open CRM"
+                      title="CRM"
+                    >
+                      CRM
+                    </Link>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
