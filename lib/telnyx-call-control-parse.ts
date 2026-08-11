@@ -22,6 +22,11 @@ export type TelnyxVoiceWebhookEvent = {
   digits: string
   /** gather.ended status: valid | timeout | call_hangup | cancelled | … */
   gatherStatus: string
+  /**
+   * Answering-machine detection result from call.machine.*.detection.ended
+   * (human | machine | human_residence | human_business | not_sure | …).
+   */
+  amdResult: string
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -53,5 +58,6 @@ export function parseTelnyxVoiceWebhookEvent(body: Record<string, unknown>): Tel
     clientState: decodeTelnyxCallControlState(rawClientState),
     digits: String(payload.digits ?? payload.Digits ?? "").trim(),
     gatherStatus: String(payload.status ?? payload.gather_status ?? "").trim().toLowerCase(),
+    amdResult: String(payload.result ?? "").trim().toLowerCase(),
   }
 }

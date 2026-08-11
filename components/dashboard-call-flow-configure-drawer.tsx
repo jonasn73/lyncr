@@ -523,6 +523,8 @@ export function DashboardCallFlowConfigureDrawer({
                               </p>
                               <p className="text-[11px] text-zinc-500">
                                 How long to ring your cell before emergency / missed handling.
+                                Tip: with Hold queue, prefer 15–20s so carrier voicemail does not
+                                pick up first (we also detect machines automatically).
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {RING_OPTIONS.map((sec) => (
@@ -942,12 +944,14 @@ export function DashboardCallFlowConfigureDrawer({
                   </p>
                   <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
                     Pick Hold queue above when you want a missed Available ring to wait with music.
-                    Position hints play on re-prompts. Concurrent wait cap is platform-wide (default
-                    3). Music and max wait live under Greetings.
+                    We hang up if your cell carrier voicemail answers, then start hold music so you
+                    can Answer from Lines. Prefer a 15–20s ring delay (30s often hits personal VM
+                    first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
+                    (default 3). Music and max wait live under Greetings.
                   </p>
                   <p className="text-[11px] text-zinc-500 md:hidden">
-                    Concurrent wait cap is platform-wide (default 3). Music + max wait live under
-                    Greetings.
+                    Prefer 15–20s ring delay with Hold queue. Concurrent wait cap is platform-wide
+                    (default 3). Music + max wait live under Greetings.
                   </p>
                 </section>
               </div>

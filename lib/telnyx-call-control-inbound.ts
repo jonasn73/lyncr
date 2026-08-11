@@ -3,6 +3,7 @@
 import { getAppUrl } from "@/lib/telnyx"
 import {
   telnyxCallControlAnswer,
+  telnyxCallControlBridge,
   telnyxCallControlClientStateUpdate,
   telnyxCallControlDial,
   telnyxCallControlGatherUsingSpeak,
@@ -55,6 +56,7 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
+  fallbackNeedsCarrierVmGuard,
   readInboundDialRingbackAudioUrl,
   resolveInboundForwardDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
@@ -613,10 +615,17 @@ async function dialTechnicianLeg(
     await telnyxCallControlHangup(inboundCallControlId)
     return
   }
+
+  // Hold / AI / company VM: do NOT auto-bridge into personal cell carrier voicemail.
+  // Telnyx treats carrier VM as "answered", so no-answer hangup never runs without AMD.
+  const fallbackRaw = String(state.fallbackType ?? routing.fallback_type ?? "").toLowerCase()
+  const useAmdGuard = fallbackNeedsCarrierVmGuard(fallbackRaw)
+
   const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
+    amdGuard: useAmdGuard || undefined,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
   // Answered A-leg gets silence unless we inject ringback while B-leg rings.
@@ -628,6 +637,9 @@ async function dialTechnicianLeg(
     fromE164: dialFrom,
     timeoutSecs: state.ringTimeoutSec ?? 30,
     clientState: nextState,
+    // AMD path: wait for human/machine webhook before bridging.
+    bridgeOnAnswer: !useAmdGuard,
+    ...(useAmdGuard ? { answeringMachineDetection: "detect" } : {}),
   })
   if (!dialRes.ok) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
@@ -643,12 +655,16 @@ async function dialTechnicianLeg(
 
   const outboundCallControlId = dialRes.callControlId?.trim() || ""
   console.log(
-    JSON.stringify({
-      zing: "telnyx-cc-dial-started",
+    lyncrLog("telnyx-cc-dial-started", {
       inboundCallControlId,
       outboundCallControlId: outboundCallControlId || null,
       toTail4: target.replace(/\D/g, "").slice(-4),
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
+      // Honest dial plan for ops: timeout + whether AMD is guarding carrier VM.
+      timeoutSecs: state.ringTimeoutSec ?? 30,
+      amdGuard: useAmdGuard,
+      bridgeOnAnswer: !useAmdGuard,
+      fallbackType: fallbackRaw || null,
     })
   )
 
@@ -822,9 +838,13 @@ async function handleCallInitiated(
     }
 
     const wantsAi = String(routing.fallback_type ?? "").toLowerCase() === "ai"
+    const wantsHold =
+      String(routing.fallback_type ?? "").toLowerCase() === "hold" ||
+      String(routing.fallback_type ?? "").toLowerCase() === "hold_queue"
     const ringTimeoutSec = resolveInboundForwardDialTimeoutSeconds(
       Number(routing.ring_timeout_seconds ?? 30) || 30,
-      wantsAi
+      wantsAi,
+      wantsHold
     )
 
     console.log(
@@ -1029,9 +1049,13 @@ async function handleCallAnswered(
     dialTargetE164 = state.dialTargetE164?.trim() || FAILSAFE_PRIMARY_CELL_E164
   }
   const wantsAi = String(routing.fallback_type ?? state.fallbackType ?? "").toLowerCase() === "ai"
+  const wantsHold =
+    String(routing.fallback_type ?? state.fallbackType ?? "").toLowerCase() === "hold" ||
+    String(routing.fallback_type ?? state.fallbackType ?? "").toLowerCase() === "hold_queue"
   const ringTimeoutSec = resolveInboundForwardDialTimeoutSeconds(
     Number(routing.ring_timeout_seconds ?? state.ringTimeoutSec ?? 30) || 30,
-    wantsAi
+    wantsAi,
+    wantsHold
   )
   const enrichedState: TelnyxCallControlClientState = {
     ...state,
@@ -1389,6 +1413,172 @@ async function handleCallBridged(
   await persistCallControlBridged(inboundSid, state, event.occurredAt)
 }
 
+/**
+ * After cell miss (ring timeout) OR AMD machine / carrier voicemail — run Advanced Rules fallback.
+ * Shared by call.hangup (no_answer) and call.machine.detection.ended (machine).
+ */
+async function applyDialMissFallback(params: {
+  inboundCallControlId: string
+  state: TelnyxCallControlClientState
+  reason: "no_answer" | "amd_machine"
+}): Promise<void> {
+  const { inboundCallControlId, state, reason } = params
+  const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
+  if (!routing) {
+    await telnyxCallControlHangup(inboundCallControlId)
+    return
+  }
+
+  // Busy backup teammate missed — do not Dial the Busy owner; play automation instead.
+  if (state.dialReason === "busy_backup_recv" || state.dialReason === "team_receptionist") {
+    const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id }).catch(() => null)
+    if (!plan || plan.kind !== "day_dial") {
+      await startBusyAutomationFlow(inboundCallControlId, state, routing)
+      return
+    }
+    // Owner became Available while teammate rang — fall through to owner voicemail / hangup below.
+  }
+
+  const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
+  // Advanced Rules → Hold queue: reuse Busy soft-hold (music, press 1, Lines Answer).
+  if (fallback === "hold" || fallback === "hold_queue") {
+    console.log(
+      lyncrLog("telnyx-cc-dial-miss-hold-queue", {
+        inboundCallControlId,
+        businessLineE164: state.businessLineE164,
+        reason,
+      })
+    )
+    await startBusyAutomationFlow(inboundCallControlId, state, routing)
+    return
+  }
+  if (fallback === "voicemail" || fallback === "owner") {
+    console.log(
+      lyncrLog("telnyx-cc-dial-miss-voicemail", {
+        inboundCallControlId,
+        reason,
+        fallback,
+      })
+    )
+    await startVoicemailFlow(inboundCallControlId, state, routing)
+    return
+  }
+
+  console.log(
+    lyncrLog("telnyx-cc-dial-miss-hangup", {
+      inboundCallControlId,
+      reason,
+      fallback,
+    })
+  )
+  await telnyxCallControlHangup(inboundCallControlId)
+}
+
+/**
+ * AMD result on the outbound cell leg.
+ * human → bridge caller ↔ cell. machine → hang up B-leg and enter hold / company VM / etc.
+ * Telnyx recommends treating not_sure as human.
+ */
+async function handleMachineDetectionEnded(
+  event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
+): Promise<void> {
+  const state = event.clientState
+  if (!state || state.phase !== "await_dial_end") return
+  // Only act when this Dial opted into AMD (Hold / AI / company VM fallbacks).
+  if (!state.amdGuard) return
+  if (!isOutboundDialLegEvent(event)) return
+
+  const inboundCallControlId = state.inboundCallControlId?.trim() || ""
+  if (!inboundCallControlId) {
+    console.error(
+      lyncrLog("telnyx-cc-amd-missing-inbound", { callControlId: event.callControlId })
+    )
+    return
+  }
+
+  const raw = event.amdResult.trim().toLowerCase()
+  // Premium AMD uses human_residence / human_business; classic uses human.
+  const isHuman =
+    raw === "human" ||
+    raw === "human_residence" ||
+    raw === "human_business" ||
+    raw === "not_sure" ||
+    raw === ""
+  const isMachine =
+    raw === "machine" || raw === "fax_detected" || raw === "silence"
+
+  console.log(
+    lyncrLog("telnyx-cc-dial-amd-result", {
+      outboundCallControlId: event.callControlId,
+      inboundCallControlId,
+      amdResult: raw || null,
+      classified: isMachine ? "machine" : isHuman ? "human" : "unknown",
+      fallbackType: state.fallbackType ?? null,
+    })
+  )
+
+  if (isMachine) {
+    // Carrier / answering machine — hang up B-leg before the caller hears personal VM.
+    await forgetOutboundDialLeg(inboundCallControlId)
+    await stopCallerDialRingback(inboundCallControlId)
+    const hangupRes = await telnyxCallControlHangup(event.callControlId)
+    if (!hangupRes.ok) {
+      console.warn(
+        lyncrLog("telnyx-cc-amd-machine-hangup-failed", {
+          outboundCallControlId: event.callControlId,
+          error: hangupRes.error,
+        })
+      )
+    }
+    console.log(
+      lyncrLog("telnyx-cc-dial-amd-machine-to-fallback", {
+        inboundCallControlId,
+        fallbackType: state.fallbackType ?? null,
+      })
+    )
+    await applyDialMissFallback({
+      inboundCallControlId,
+      state,
+      reason: "amd_machine",
+    })
+    return
+  }
+
+  // Human (or not_sure) — bridge A ↔ B now that AMD cleared the path.
+  await stopCallerDialRingback(inboundCallControlId)
+  const bridgeRes = await telnyxCallControlBridge(event.callControlId, {
+    callControlId: inboundCallControlId,
+    clientState: encodeTelnyxCallControlState(state),
+  })
+  if (!bridgeRes.ok) {
+    console.error(
+      lyncrLog("telnyx-cc-amd-human-bridge-failed", {
+        outboundCallControlId: event.callControlId,
+        inboundCallControlId,
+        error: bridgeRes.error,
+      })
+    )
+    // Bridge failed — treat like a miss so the caller still reaches hold / VM.
+    await forgetOutboundDialLeg(inboundCallControlId)
+    await telnyxCallControlHangup(event.callControlId).catch(() => undefined)
+    await applyDialMissFallback({
+      inboundCallControlId,
+      state,
+      reason: "amd_machine",
+    })
+    return
+  }
+
+  console.log(
+    lyncrLog("telnyx-cc-dial-amd-bridge-human", {
+      outboundCallControlId: event.callControlId,
+      inboundCallControlId,
+      amdResult: raw || "human",
+    })
+  )
+  await persistCallControlBridged(inboundCallControlId, state, event.occurredAt)
+}
+
 async function hangupCompanionOutboundLeg(
   inboundCallControlId: string,
   state: TelnyxCallControlClientState | null | undefined,
@@ -1510,40 +1700,11 @@ async function handleCallHangup(
     // Cell missed — stop ringback before voicemail / Busy menu.
     await stopCallerDialRingback(inboundCallControlId)
 
-    const routing = await getIncomingRoutingForVoiceWebhook(state.businessLineE164)
-    if (!routing) {
-      await telnyxCallControlHangup(inboundCallControlId)
-      return
-    }
-
-    // Busy backup teammate missed — do not Dial the Busy owner; play automation instead.
-    if (state.dialReason === "busy_backup_recv" || state.dialReason === "team_receptionist") {
-      const plan = await resolveInboundCapturePlan({ ownerUserId: routing.user_id }).catch(() => null)
-      if (!plan || plan.kind !== "day_dial") {
-        await startBusyAutomationFlow(inboundCallControlId, state, routing)
-        return
-      }
-      // Owner became Available while teammate rang — fall through to owner voicemail / hangup below.
-    }
-
-    const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
-    // Advanced Rules → Hold queue: reuse Busy soft-hold (music, press 1, Lines Answer).
-    if (fallback === "hold" || fallback === "hold_queue") {
-      console.log(
-        lyncrLog("telnyx-cc-dial-no-answer-hold-queue", {
-          inboundCallControlId,
-          businessLineE164: state.businessLineE164,
-        })
-      )
-      await startBusyAutomationFlow(inboundCallControlId, state, routing)
-      return
-    }
-    if (fallback === "voicemail" || fallback === "owner") {
-      await startVoicemailFlow(inboundCallControlId, state, routing)
-      return
-    }
-
-    await telnyxCallControlHangup(inboundCallControlId)
+    await applyDialMissFallback({
+      inboundCallControlId,
+      state,
+      reason: "no_answer",
+    })
     return
   }
 
@@ -1650,6 +1811,10 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       break
     case "call.bridged":
       await handleCallBridged(event)
+      break
+    case "call.machine.detection.ended":
+    case "call.machine.premium.detection.ended":
+      await handleMachineDetectionEnded(event)
       break
     case "call.hangup":
       await handleCallHangup(event)

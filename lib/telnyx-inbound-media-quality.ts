@@ -101,21 +101,39 @@ export function resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting: num
 }
 
 /**
+ * True when missed-call fallback must not leave the caller in personal cell carrier voicemail.
+ * Hold / AI / company voicemail need AMD + no auto-bridge; "owner" may intentionally reach cell VM.
+ */
+export function fallbackNeedsCarrierVmGuard(fallbackType: string | null | undefined): boolean {
+  const f = String(fallbackType ?? "").toLowerCase()
+  return f === "hold" || f === "hold_queue" || f === "ai" || f === "voicemail"
+}
+
+/**
  * When AI is the no-answer fallback, cap PSTN ring time (~4 rings) before `/fallback` → AI bridge.
- * Default cap: 20s (`ZING_INBOUND_AI_DIAL_TIMEOUT`).
+ * Default AI cap: 20s (`ZING_INBOUND_AI_DIAL_TIMEOUT`).
+ * When Hold queue is the fallback, cap before typical carrier VM pickup (~20–25s).
+ * Default Hold cap: 18s (`ZING_INBOUND_HOLD_DIAL_TIMEOUT`) — belt-and-suspenders with AMD.
  */
 export function resolveInboundForwardDialTimeoutSeconds(
   ringTimeoutFromRouting: number,
-  wantsAiAfterNoAnswer: boolean
+  wantsAiAfterNoAnswer: boolean,
+  wantsHoldAfterNoAnswer = false
 ): number {
-  if (!wantsAiAfterNoAnswer) {
-    return resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting)
-  }
-  const raw = (process.env.ZING_INBOUND_AI_DIAL_TIMEOUT || "20").trim()
-  const aiCap = parseInt(raw, 10)
-  const cap = Number.isFinite(aiCap) && aiCap >= 5 && aiCap <= 120 ? aiCap : 20
   const ring = Number(ringTimeoutFromRouting) || 30
-  return Math.min(ring, cap)
+  if (wantsAiAfterNoAnswer) {
+    const raw = (process.env.ZING_INBOUND_AI_DIAL_TIMEOUT || "20").trim()
+    const aiCap = parseInt(raw, 10)
+    const cap = Number.isFinite(aiCap) && aiCap >= 5 && aiCap <= 120 ? aiCap : 20
+    return Math.min(ring, cap)
+  }
+  if (wantsHoldAfterNoAnswer) {
+    const raw = (process.env.ZING_INBOUND_HOLD_DIAL_TIMEOUT || "18").trim()
+    const holdCap = parseInt(raw, 10)
+    const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 120 ? holdCap : 18
+    return Math.min(ring, cap)
+  }
+  return resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting)
 }
 
 /** Fast inbound PSTN forward always bridges with US ringback — no dead air before B-leg rings. */

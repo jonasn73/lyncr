@@ -280,8 +280,12 @@ export async function telnyxCallControlGatherUsingSpeak(
 }
 
 /**
- * Dial PSTN target and bridge to the inbound caller when answered.
+ * Dial PSTN target and (optionally) bridge to the inbound caller when answered.
  * Telnyx uses POST /v2/calls (not /actions/dial) with link_to + bridge_on_answer.
+ *
+ * When `answeringMachineDetection` is set, keep `bridgeOnAnswer: false` so carrier
+ * voicemail is not auto-bridged — wait for call.machine.*.detection.ended, then
+ * bridge humans or hang up the B-leg and run missed-call fallback (e.g. hold).
  */
 export async function telnyxCallControlDial(
   params: {
@@ -291,6 +295,13 @@ export async function telnyxCallControlDial(
     fromE164: string
     timeoutSecs: number
     clientState: string
+    /** Default true (Lines Answer + plain owner dial). Set false when AMD guards the bridge. */
+    bridgeOnAnswer?: boolean
+    /**
+     * Telnyx AMD mode: "detect" | "detect_beep" | "detect_words" | "greeting_end" | "premium" | …
+     * Omit for no AMD (default — Lines Answer must stay fast).
+     */
+    answeringMachineDetection?: string
   }
 ): Promise<TelnyxCallControlActionResult> {
   const connectionId = params.connectionId.trim()
@@ -298,27 +309,39 @@ export async function telnyxCallControlDial(
   if (!connectionId) return { ok: false, status: 400, error: "missing connection_id" }
   if (!inboundCallControlId) return { ok: false, status: 400, error: "missing inbound call_control_id" }
 
+  // Default: auto-bridge on answer (Answer from Lines + owner fallback that allows cell VM).
+  const bridgeOnAnswer = params.bridgeOnAnswer !== false
+  const amd = String(params.answeringMachineDetection ?? "").trim()
+
+  const body: Record<string, unknown> = {
+    connection_id: connectionId,
+    to: params.toE164,
+    from: params.fromE164,
+    link_to: inboundCallControlId,
+    bridge_on_answer: bridgeOnAnswer,
+    timeout_secs: Math.min(Math.max(params.timeoutSecs, 8), 120),
+    client_state: params.clientState,
+  }
+  // Carrier VM answers as "answered" — AMD tells us human vs machine before we bridge.
+  if (amd) {
+    body.answering_machine_detection = amd
+  }
+
   const res = await fetch(TELNYX_CALLS_BASE, {
     method: "POST",
     headers: telnyxHeaders(),
-    body: JSON.stringify({
-      connection_id: connectionId,
-      to: params.toE164,
-      from: params.fromE164,
-      link_to: inboundCallControlId,
-      bridge_on_answer: true,
-      timeout_secs: Math.min(Math.max(params.timeoutSecs, 8), 120),
-      client_state: params.clientState,
-    }),
+    body: JSON.stringify(body),
   })
-  const body = await res.json().catch(() => ({}))
+  const resBody = await res.json().catch(() => ({}))
   if (!res.ok) {
     const detail =
-      (body as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
-      JSON.stringify(body).slice(0, 240)
+      (resBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
+      JSON.stringify(resBody).slice(0, 240)
     return { ok: false, status: res.status, error: detail || res.statusText }
   }
-  const outboundCallControlId = String((body as { data?: { call_control_id?: string } })?.data?.call_control_id ?? "").trim()
+  const outboundCallControlId = String(
+    (resBody as { data?: { call_control_id?: string } })?.data?.call_control_id ?? ""
+  ).trim()
   return { ok: true, callControlId: outboundCallControlId || undefined }
 }
 

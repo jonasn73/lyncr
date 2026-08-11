@@ -75,6 +75,11 @@ export type TelnyxCallControlClientState = {
   queueTargetCallControlId?: string
   /** Neon call_queue.id for the Answer target (optional). */
   queueEntryId?: string
+  /**
+   * True when Dial used AMD + bridge_on_answer:false so we only bridge humans
+   * (avoids personal cell carrier voicemail when fallback is hold / AI / company VM).
+   */
+  amdGuard?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

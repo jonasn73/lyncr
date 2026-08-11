@@ -241,7 +241,9 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(dialBody.connection_id).toBe("cc-app-99")
     expect(dialBody.to).toBe("+15552602716")
     expect(dialBody.link_to).toBe("cc-inbound-1")
-    expect(dialBody.bridge_on_answer).toBe(true)
+    // Company voicemail fallback: AMD on, no auto-bridge into personal cell VM.
+    expect(dialBody.bridge_on_answer).toBe(false)
+    expect(dialBody.answering_machine_detection).toBe("detect")
     // A-leg must get US ringback while the cell rings (Call Control Dial has no ringTone).
     const ringbackCall = fetchMock.mock.calls.find((c) =>
       String(c[0]).includes("/actions/playback_start")
@@ -252,6 +254,334 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(
       Boolean(ringbackBody.playback_content) || Boolean(ringbackBody.audio_url)
     ).toBe(true)
+  })
+
+  it("Hold fallback dial uses AMD and caps ring before carrier VM", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    // ringTimeoutSec already capped by resolveInboundForwardDialTimeoutSeconds at answer time.
+    const inboundState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15551230000",
+      dialTargetE164: "+15022602716",
+      ringTimeoutSec: 18,
+      fallbackType: "hold",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-hold-amd",
+        payload: {
+          call_control_id: "cc-in-hold-amd",
+          from: "+15551230000",
+          to: "+15025571219",
+          direction: "incoming",
+          client_state: inboundState,
+        },
+      },
+    })
+
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeTruthy()
+    const dialBody = JSON.parse(String(dialCall![1].body))
+    expect(dialBody.bridge_on_answer).toBe(false)
+    expect(dialBody.answering_machine_detection).toBe("detect")
+    expect(dialBody.timeout_secs).toBe(18)
+    expect(dialBody.link_to).toBe("cc-in-hold-amd")
+  })
+
+  it("AMD machine on hold dial hangs up B-leg and starts Busy soft-hold", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+    vi.doMock("@/lib/account-presence", () => ({
+      getAccountPresence: vi.fn(() =>
+        Promise.resolve({
+          presenceStatus: "AVAILABLE",
+          onJobGreetingText: "We are with another customer. Press 1 for a text, or stay on the line.",
+          closedGreetingText: "",
+          ivrBypassCode: "9",
+          ivrVoiceEngineModel: "Telnyx.NaturalHD.astra",
+          holidayOverrideStart: null,
+          holidayOverrideEnd: null,
+          holidayGreetingText: null,
+        })
+      ),
+      resolvePresenceAutomationGreeting: vi.fn(() =>
+        "We are with another customer. Press 1 for a text, or stay on the line."
+      ),
+    }))
+    vi.doMock("@/lib/call-queue-db", () => ({
+      upsertCallQueueBusyMenu: vi.fn(() => Promise.resolve(null)),
+      countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
+      upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldSettings: vi.fn(() =>
+        Promise.resolve({ holdMusicUrl: null, holdMaxWaitSecs: null, holdRepromptSecs: null })
+      ),
+      getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
+      updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      inboundCallControlId: "cc-in-amd-m",
+      outboundCallControlId: "cc-out-amd-m",
+      ringTimeoutSec: 18,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      amdGuard: true,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.machine.detection.ended",
+        id: "evt-amd-machine",
+        payload: {
+          call_control_id: "cc-out-amd-m",
+          from: "+15025571219",
+          to: "+15022602716",
+          direction: "outgoing",
+          result: "machine",
+          client_state: dialState,
+        },
+      },
+    })
+
+    // B-leg (cell / carrier VM) must be hung up.
+    const outboundHangup = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("cc-out-amd-m") && String(c[0]).includes("/actions/hangup")
+    )
+    expect(outboundHangup).toBeTruthy()
+    // Soft-hold entry = Busy gather on the inbound caller.
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeTruthy()
+    expect(String(gatherCall![0])).toContain("cc-in-amd-m")
+    // Must not hang up the waiting caller.
+    const inboundHangup = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("cc-in-amd-m") && String(c[0]).includes("/actions/hangup")
+    )
+    expect(inboundHangup).toBeFalsy()
+  })
+
+  it("AMD human on hold dial bridges A and B legs", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 18,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      inboundCallControlId: "cc-in-amd-h",
+      outboundCallControlId: "cc-out-amd-h",
+      ringTimeoutSec: 18,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      amdGuard: true,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.machine.detection.ended",
+        id: "evt-amd-human",
+        payload: {
+          call_control_id: "cc-out-amd-h",
+          from: "+15025571219",
+          to: "+15022602716",
+          direction: "outgoing",
+          result: "human",
+          client_state: dialState,
+        },
+      },
+    })
+
+    const bridgeCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/bridge"))
+    expect(bridgeCall).toBeTruthy()
+    const bridgeBody = JSON.parse(String(bridgeCall![1].body))
+    expect(bridgeBody.call_control_id).toBe("cc-in-amd-h")
+    // No soft-hold gather when a human answered.
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeFalsy()
+  })
+
+  it("owner fallback dial still auto-bridges (no AMD)", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15552602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "owner",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15555571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const inboundState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_greeting_end",
+      userId: "u1",
+      businessLineE164: "+15555571219",
+      callerE164: "+15551230000",
+      dialTargetE164: "+15552602716",
+      ringTimeoutSec: 30,
+      fallbackType: "owner",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.speak.ended",
+        id: "evt-speak-owner-fb",
+        payload: {
+          call_control_id: "cc-inbound-owner-fb",
+          from: "+15551230000",
+          to: "+15555571219",
+          direction: "incoming",
+          client_state: inboundState,
+        },
+      },
+    })
+
+    const dialCall = fetchMock.mock.calls.find(
+      (c) => String(c[0]).includes("/v2/calls") && !String(c[0]).includes("/actions/")
+    )
+    expect(dialCall).toBeTruthy()
+    const dialBody = JSON.parse(String(dialCall![1].body))
+    expect(dialBody.bridge_on_answer).toBe(true)
+    expect(dialBody.answering_machine_detection).toBeUndefined()
+  })
+
+  it("parseTelnyxVoiceWebhookEvent reads AMD result", () => {
+    const evt = parseTelnyxVoiceWebhookEvent({
+      data: {
+        event_type: "call.machine.detection.ended",
+        id: "evt-parse-amd",
+        payload: {
+          call_control_id: "cc-x",
+          result: "machine",
+        },
+      },
+    })
+    expect(evt?.amdResult).toBe("machine")
+    expect(evt?.eventType).toBe("call.machine.detection.ended")
   })
 
   it("speak.failed after Available greet dials cell (no silent hang)", async () => {

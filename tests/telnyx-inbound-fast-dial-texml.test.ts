@@ -56,6 +56,16 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
   it("uses full routing timeout when AI fallback is off", () => {
     expect(resolveInboundForwardDialTimeoutSeconds(30, false)).toBe(30)
   })
+
+  it("caps at 18s when Hold queue fallback is enabled", () => {
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "18")
+    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(18)
+  })
+
+  it("keeps shorter ring when Hold cap is higher than routing timeout", () => {
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "18")
+    expect(resolveInboundForwardDialTimeoutSeconds(15, false, true)).toBe(15)
+  })
 })
 
 describe("buildInboundDialRingbackAttributes", () => {
