@@ -65,6 +65,7 @@ import { resolveVoicemailGreetingText } from "@/lib/voicemail-greeting"
 import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-status"
 import {
   CAPTURE_DEFAULT_RING_E164,
+  CAPTURE_STATUS_BUSY_MENU,
   CAPTURE_STATUS_HOLD_PRESS1,
   resolveInboundCapturePlan,
   TIED_UP_BOOKING_PROMPT,
@@ -335,6 +336,31 @@ async function startBusyAutomationFlow(
   }).catch((e) => {
     console.warn(lyncrLog("telnyx-cc-busy-menu-queue-preview-failed", { error: String(e) }))
   })
+  // Leave "ringing" ASAP so Incoming Call / New Intake closes (Available miss → hold path).
+  void (async () => {
+    try {
+      const { updateCallLog, getCallLogSnapshotForTelemetry } = await import("@/lib/db")
+      await updateCallLog(callControlId, {
+        routed_to_name: CAPTURE_STATUS_BUSY_MENU,
+        status: "in-progress",
+        answered_at: null,
+      })
+      const snapshot = await getCallLogSnapshotForTelemetry(callControlId).catch(() => null)
+      if (!snapshot?.id || !snapshot.from_number) return
+      const { broadcastCallHoldPathEntered } = await import("@/lib/call-telemetry-realtime")
+      await broadcastCallHoldPathEntered({
+        ownerUserId: snapshot.user_id,
+        callSid: callControlId,
+        callLogId: snapshot.id,
+        fromNumber: snapshot.from_number,
+        toNumber: snapshot.to_number,
+        organizationId: snapshot.organization_id,
+        routedToName: CAPTURE_STATUS_BUSY_MENU,
+      })
+    } catch (e) {
+      console.warn(lyncrLog("telnyx-cc-busy-menu-tag-failed", { error: String(e) }))
+    }
+  })()
   const gatherRes = await telnyxCallControlGatherUsingSpeak(callControlId, {
     text: say,
     clientState: nextState,

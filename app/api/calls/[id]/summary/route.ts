@@ -27,7 +27,13 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const sql = neon(resolveNeonDatabaseUrl())
     const rows = await sql`
-      SELECT id::text AS id, from_number, to_number, answered_at::text AS answered_at
+      SELECT id::text AS id,
+             from_number,
+             to_number,
+             answered_at::text AS answered_at,
+             ended_at::text AS ended_at,
+             status,
+             routed_to_name
       FROM call_logs
       WHERE id = ${id}
         AND user_id = ${accountId}
@@ -43,6 +49,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         from_number: row.from_number != null ? String(row.from_number) : "",
         to_number: row.to_number != null ? String(row.to_number) : "",
         answered_at: row.answered_at != null ? String(row.answered_at) : null,
+        ended_at: row.ended_at != null ? String(row.ended_at) : null,
+        status: row.status != null ? String(row.status) : null,
+        routed_to_name: row.routed_to_name != null ? String(row.routed_to_name) : null,
       },
     })
   } catch (e) {

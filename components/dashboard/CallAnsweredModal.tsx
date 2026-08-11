@@ -89,6 +89,13 @@ import {
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import {
+  isRingingOnlyIntakeRow,
+  openIntakeMatchesCallLeg,
+  shouldAutoDismissIntakeOnCallCompleted,
+  shouldDismissOpenRingingIntakeForAutomation,
+  shouldDismissRingingIntakeAfterPollMiss,
+} from "@/lib/owner-ringing-intake-lifecycle"
+import {
   intakeCallHeaderLabel,
   resolveIntakeCallLinePhase,
 } from "@/lib/intake-call-line-phase"
@@ -1025,15 +1032,52 @@ function callLogRowFromApi(row: {
 }
 
 function fetchFirstUnseenRingingCall(seen: Set<string>): Promise<ActiveCallRow | null> {
+  return fetchRecentRingingCalls().then((calls) => {
+    for (const row of calls) {
+      if (!seen.has(row.id)) return callLogRowFromApi(row)
+    }
+    return null
+  })
+}
+
+function fetchRecentRingingCalls(): Promise<ActiveCallRow[]> {
   return fetch("/api/calls/ringing-recent", { credentials: "include" })
     .then((r) => (r.ok ? r.json() : { calls: [] }))
     .then((data: { calls?: ActiveCallRow[] }) => {
       const calls = Array.isArray(data.calls) ? data.calls : []
-      for (const row of calls) {
-        if (!seen.has(row.id)) return callLogRowFromApi(row)
-      }
-      return null
+      return calls.map((row) => callLogRowFromApi(row))
     })
+    .catch(() => [])
+}
+
+function fetchCallSummaryForIntake(callLogId: string): Promise<{
+  status: string | null
+  routed_to_name: string | null
+  ended_at: string | null
+  answered_at: string | null
+} | null> {
+  const id = String(callLogId ?? "").trim()
+  if (!id || id.startsWith("ring-")) return Promise.resolve(null)
+  return fetch(`/api/calls/${encodeURIComponent(id)}/summary`, { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then(
+      (data: {
+        data?: {
+          status?: string | null
+          routed_to_name?: string | null
+          ended_at?: string | null
+          answered_at?: string | null
+        }
+      } | null) => {
+        if (!data?.data) return null
+        return {
+          status: data.data.status ?? null,
+          routed_to_name: data.data.routed_to_name ?? null,
+          ended_at: data.data.ended_at ?? null,
+          answered_at: data.data.answered_at ?? null,
+        }
+      }
+    )
     .catch(() => null)
 }
 
@@ -1926,9 +1970,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       // Skip overlapping polls — under load these stacked every 800ms.
       if (lookupInFlight || cancelled) return
       lookupInFlight = true
-      void fetchFirstUnseenRingingCall(dismissedRef.current)
-        .then((ringing) => {
+      void fetchRecentRingingCalls()
+        .then(async (ringingCalls) => {
           if (cancelled) return
+          const ringing =
+            ringingCalls.find((row) => !dismissedRef.current.has(row.id)) ?? null
           if (ringing) {
             const sameLegMinimized = isSameLegIntentionallyMinimized(
               isMinimizedRef.current,
@@ -1944,6 +1990,56 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             }
             return
           }
+
+          // RINGING sheet still open but left ringing-recent — hold / hangup / answer race.
+          const open = effectiveCurrentRef.current
+          if (open && isRingingOnlyIntakeRow(open) && !dismissedRef.current.has(open.id)) {
+            const answered = await fetchFirstUnseenAnsweredCall(dismissedRef.current)
+            const upgradingToAnswered = Boolean(
+              answered &&
+                openIntakeMatchesCallLeg(open, {
+                  call_log_id: answered.id,
+                  from_number: answered.from_number,
+                })
+            )
+            if (upgradingToAnswered && answered) {
+              const sameLegMinimized = isSameLegIntentionallyMinimized(
+                isMinimizedRef.current,
+                open,
+                answered
+              )
+              showCallRow(setCurrent, answered, dismissedRef.current)
+              if (!sameLegMinimized) {
+                isMinimizedRef.current = false
+                setIsMinimized(false)
+                bumpOpenDismissGuard()
+              }
+              stopRingingFastPoll()
+              return
+            }
+            const summary = await fetchCallSummaryForIntake(open.id)
+            if (
+              shouldDismissRingingIntakeAfterPollMiss({
+                open,
+                stillRinging: false,
+                upgradingToAnswered: false,
+                routedToName: summary?.routed_to_name ?? open.routed_to_name,
+                status: summary?.status ?? open.status,
+                endedAt: summary?.ended_at ?? open.ended_at,
+              })
+            ) {
+              const ids = [open.id, ringAliasRef.current].filter((id): id is string => Boolean(id))
+              markAnsweredIntakeDismissed(ownerUserId, ids)
+              for (const id of ids) dismissedRef.current.add(id)
+              ringAliasRef.current = null
+              setCurrent(null)
+              isMinimizedRef.current = false
+              setIsMinimized(false)
+              stopRingingFastPoll()
+              return
+            }
+          }
+
           return fetchFirstUnseenAnsweredCall(dismissedRef.current).then((answered) => {
             if (cancelled || !answered) return
             const sameLegMinimized = isSameLegIntentionallyMinimized(
@@ -2042,33 +2138,67 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       fn()
     }
 
+    const toastHoldPath = (routed: string) => {
+      toast({
+        title: routed.includes("hold queue") ? "Caller on hold" : "Caller on Busy path",
+        description: "Press 1 texts a booking link · stay on the line waits in Lines.",
+        action: (
+          <ToastAction altText="Open Lines" onClick={() => router.push("/dashboard")}>
+            Lines
+          </ToastAction>
+        ),
+      })
+    }
+
+    /** Close RINGING / New Intake when Busy → hold (or press-1) owns the caller. */
+    const dismissOpenRingingForAutomation = (payload: {
+      call_log_id?: string | null
+      call_sid?: string | null
+      from_number?: string | null
+      routed_to_name?: string | null
+    }) => {
+      const open = effectiveCurrentRef.current
+      if (!open || !isRingingOnlyIntakeRow(open)) return false
+      if (!openIntakeMatchesCallLeg(open, payload)) return false
+      const ids = [open.id, ringAliasRef.current].filter((id): id is string => Boolean(id))
+      markAnsweredIntakeDismissed(ownerUserId, ids)
+      for (const id of ids) dismissedRef.current.add(id)
+      ringAliasRef.current = null
+      setCurrent((prev) => (prev && openIntakeMatchesCallLeg(prev, payload) ? null : prev))
+      isMinimizedRef.current = false
+      setIsMinimized(false)
+      setSecondaryIncoming((sec) => {
+        if (!sec) return null
+        const sid = String(payload.call_sid ?? "").trim()
+        if (sid && sec.callSid === sid) return null
+        if (payload.call_log_id && sec.callLogId === payload.call_log_id) return null
+        return sec
+      })
+      stopRingingFastPoll()
+      return true
+    }
+
     const onInitiated = (payload: OwnerCallInitiatedPayload) => {
-      oncePerSid(`i:${String(payload.call_sid ?? "")}`, () => {
-        // Teammate Dial / Busy→hold / press-1 — do not pop owner Incoming Call as RINGING.
-        if (!shouldOpenOwnerRingingIntake(payload)) {
-          const routed = String(payload.routed_to_name ?? "").toLowerCase()
-          const reason = String(payload.dial_reason ?? "").toLowerCase()
-          // Compact toast → Lines (not New Intake wizard).
-          if (
-            reason === "busy_automation" ||
-            routed.includes("hold") ||
-            routed.includes("busy ·")
-          ) {
-            toast({
-              title: routed.includes("hold queue") ? "Caller on hold" : "Caller on Busy path",
-              description: "Press 1 texts a booking link · stay on the line waits in Lines.",
-              action: (
-                <ToastAction altText="Open Lines" onClick={() => router.push("/dashboard")}>
-                  Lines
-                </ToastAction>
-              ),
-            })
-            // Do NOT poll answered-recent — waiting hold must not open CALL ANSWERED intake.
-            return
+      // Hold / Busy / teammate — dismiss outside oncePerSid so a later tag still closes RINGING.
+      if (!shouldOpenOwnerRingingIntake(payload)) {
+        const routed = String(payload.routed_to_name ?? "").toLowerCase()
+        const reason = String(payload.dial_reason ?? "").toLowerCase()
+        const dismissed = dismissOpenRingingForAutomation(payload)
+        if (
+          reason === "busy_automation" ||
+          routed.includes("hold") ||
+          routed.includes("busy ·")
+        ) {
+          if (dismissed || shouldDismissOpenRingingIntakeForAutomation(payload)) {
+            toastHoldPath(routed)
           }
-          scheduleRingingLookups()
+          // Do NOT poll answered-recent — waiting hold must not open CALL ANSWERED intake.
           return
         }
+        scheduleRingingLookups()
+        return
+      }
+      oncePerSid(`i:${String(payload.call_sid ?? "")}`, () => {
         const row = rowFromInitiatedPayload(payload)
         if (!row) {
           scheduleRingingLookups()
@@ -2104,11 +2234,15 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const onAnswered = (payload: OwnerCallAnsweredPayload) => {
-      oncePerSid(`a:${String(payload.call_sid ?? payload.call_log_id ?? "")}`, () => {
-        // Soft-hold / Busy waiting — never open CALL ANSWERED until Lines Answer bridges.
-        if (!shouldOpenOwnerAnsweredIntake(payload)) {
-          return
+      // Soft-hold / Busy waiting — dismiss RINGING outside oncePerSid so Lines Answer can still open later.
+      if (!shouldOpenOwnerAnsweredIntake(payload)) {
+        const routed = String(payload.routed_to_name ?? "").toLowerCase()
+        if (dismissOpenRingingForAutomation(payload)) {
+          toastHoldPath(routed)
         }
+        return
+      }
+      oncePerSid(`a:${String(payload.call_sid ?? payload.call_log_id ?? "")}`, () => {
         const row = rowFromAnsweredPayload(payload)
         if (!row) return
         stopRingingFastPoll()
@@ -2150,7 +2284,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     }
 
     const onCompleted = (payload: OwnerCallCompletedPayload) => {
-      // Prefer updating the open sheet in place — never auto-dismiss on hangup.
       const callSid = String(payload.call_sid ?? "").trim()
       const matchesOpenRow = (row: ActiveCallRow) =>
         callRowMatchesHangup(row, payload) ||
@@ -2158,12 +2291,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
       const openManual = manualCallRowRef.current
       if (openManual && matchesOpenRow(openManual)) {
+        // Manual panels stay open with Ended chrome.
         patchManualCallRow(applyCallEndedPatch(openManual, payload))
         return
       }
 
       setCurrent((prev) => {
         if (prev && matchesOpenRow(prev)) {
+          // Stale RINGING / hold waiters — close; live Answer keeps post-call intake.
+          if (shouldAutoDismissIntakeOnCallCompleted(prev, payload)) {
+            const ids = [prev.id, ringAliasRef.current].filter((id): id is string => Boolean(id))
+            markAnsweredIntakeDismissed(ownerUserId, ids)
+            for (const id of ids) dismissedRef.current.add(id)
+            ringAliasRef.current = null
+            return null
+          }
           return applyCallEndedPatch(prev, payload)
         }
         // Fallback: open intake for answered legs that missed call-answered (existing behavior).

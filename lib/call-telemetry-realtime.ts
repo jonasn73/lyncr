@@ -62,6 +62,33 @@ export async function broadcastCallAnswered(params: {
   await publishOwnerEvent(params.ownerUserId, "call-answered", payload)
 }
 
+/**
+ * Busy menu / Hold Queue entered — client dismisses any open RINGING sheet for this leg.
+ * Uses call-answered with busy_automation so Answered-intake stay closed until Lines Answer.
+ */
+export async function broadcastCallHoldPathEntered(params: {
+  ownerUserId: string
+  callSid: string
+  callLogId: string
+  fromNumber: string
+  toNumber?: string | null
+  organizationId?: string | null
+  /** Activity label: "Busy · hold menu" or "Hold Queue". */
+  routedToName: string
+}): Promise<void> {
+  await broadcastCallAnswered({
+    ownerUserId: params.ownerUserId,
+    callSid: params.callSid,
+    callLogId: params.callLogId,
+    fromNumber: params.fromNumber,
+    toNumber: params.toNumber ?? null,
+    organizationId: params.organizationId ?? null,
+    answeredAt: null,
+    routedToName: params.routedToName,
+    dialReason: "busy_automation",
+  })
+}
+
 /** Fired when a call reaches a terminal status (updates missed + talk time). */
 export async function broadcastCallCompleted(params: {
   ownerUserId: string

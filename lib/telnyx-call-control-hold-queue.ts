@@ -54,7 +54,7 @@ import { updateCallLog } from "@/lib/db"
 
 type RoutingLike = { user_id: string; owner_phone?: string | null }
 
-/** Tag Activity as Hold Queue (best-effort — never block voice). */
+/** Tag Activity as Hold Queue + tell the dashboard to close RINGING intake (best-effort). */
 async function tagHoldQueueCallLog(callControlId: string): Promise<void> {
   try {
     await updateCallLog(callControlId, {
@@ -64,6 +64,21 @@ async function tagHoldQueueCallLog(callControlId: string): Promise<void> {
       // so answered-recent poll / CALL ANSWERED intake never opens while they wait.
       answered_at: null,
     })
+    // Pusher: dismiss any open Incoming Call / New Intake still stuck on RINGING.
+    const { getCallLogSnapshotForTelemetry } = await import("@/lib/db")
+    const snapshot = await getCallLogSnapshotForTelemetry(callControlId).catch(() => null)
+    if (snapshot?.id && snapshot.from_number) {
+      const { broadcastCallHoldPathEntered } = await import("@/lib/call-telemetry-realtime")
+      await broadcastCallHoldPathEntered({
+        ownerUserId: snapshot.user_id,
+        callSid: callControlId,
+        callLogId: snapshot.id,
+        fromNumber: snapshot.from_number,
+        toNumber: snapshot.to_number,
+        organizationId: snapshot.organization_id,
+        routedToName: CAPTURE_STATUS_HOLD_QUEUE,
+      })
+    }
   } catch (e) {
     console.warn(lyncrLog("hold-queue-tag-log-failed", { error: String(e) }))
   }
