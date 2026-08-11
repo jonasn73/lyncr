@@ -67,11 +67,13 @@ import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-cli
 import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import {
-  formatCallChronologyLine,
+  filterActivityCallGroups,
+  formatGroupedCallCountLabel,
   formatGroupedCallSummary,
-  groupConsecutiveCallsByPhone,
+  groupCallsByPhoneAndDay,
   type GroupedActivityCall,
 } from "@/lib/activity-call-groups"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import {
   buildBusinessLineLabelMap,
   resolveBusinessLineLabel,
@@ -957,7 +959,7 @@ type ActivityTableProps = {
   lineLabelMap: Map<string, string>
 }
 
-/** Caller name with optional collapsed-count suffix: Unknown Caller (2). */
+/** Caller name with optional day-group count: “Jeff Lanham · 3 calls”. */
 function CallerNameWithCount({
   call,
   interactive = false,
@@ -967,6 +969,7 @@ function CallerNameWithCount({
   interactive?: boolean
   dense?: boolean
 }) {
+  const countLabel = formatGroupedCallCountLabel(call.count)
   return (
     <p
       className={cn(
@@ -974,27 +977,111 @@ function CallerNameWithCount({
         dense ? "text-sm leading-tight" : "text-base",
         interactive && "group-hover/caller:text-teal-300"
       )}
-      title={call.callerName}
+      title={countLabel ? `${call.callerName} ${countLabel}` : call.callerName}
     >
       <span>{call.callerName}</span>
-      {call.count > 1 ? (
-        <span className="ml-1.5 font-normal text-slate-400">({call.count})</span>
+      {countLabel ? (
+        <span className="ml-1.5 font-normal text-slate-400">{countLabel}</span>
       ) : null}
     </p>
   )
 }
 
-/** Nested timestamps for a collapsed same-number group (newest first). */
-function GroupedCallChronology({ members }: { members: UiCallRecord[] }) {
-  if (members.length <= 1) return null
+/** One expanded leg: status, time, duration, and row actions. */
+function ActivityCallLegActions({
+  call,
+  lineLabelMap,
+  onOpenDetails,
+  showLine = false,
+}: {
+  call: UiCallRecord
+  lineLabelMap: Map<string, string>
+  onOpenDetails: (call: UiCallRecord) => void
+  showLine?: boolean
+}) {
+  const st = classifyCall(call)
+  const missed = isMissedActivityStatus(st)
+  const hold = isHoldActivityStatus(st) || st === "hold_press1"
+  const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
+  const timeline = buildCallActionsTimeline(call)
   return (
-    <ul className="mt-2 space-y-1 border-l border-slate-800 pl-3">
-      {members.map((m) => (
-        <li key={m.id} className="text-[11px] leading-snug text-slate-400">
-          • {formatCallChronologyLine(m)}
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2">
+      <div className="flex min-w-0 items-start gap-2">
+        <ActivityStatusPill status={st} dense />
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-400">
+            <CallTimeDisplay call={call} variant="inline" />
+            <span className="text-zinc-600">·</span>
+            <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
+          </p>
+          {showLine ? (
+            <p className="mt-0.5 truncate text-[10px] text-zinc-600" title={targetLabel}>
+              {targetLabel}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {timeline.length > 0 ? (
+        <ul className="space-y-0.5 px-0.5">
+          {timeline.slice(0, 2).map((line, i) => (
+            <li key={`${call.id}-tl-${i}`} className="flex gap-1.5 text-[10px] text-zinc-500">
+              <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {canCallBack(call) ? (
+          <CallBackButton
+            phone={call.callerNumber}
+            compact
+            className="!h-8 min-w-0 flex-1"
+            openIntakeDraft={needsRevenueRescue(call) || hold}
+            intakeCall={call}
+            missed={missed}
+            hold={hold && !missed}
+          />
+        ) : null}
+        <SendBookLinkButton
+          phone={call.callerNumber}
+          callerName={call.callerName}
+          businessLine={call.targetLineE164}
+          callLogId={call.id}
+          compact
+          className={cn("!h-8 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
+        />
+        {call.callerNumber && call.callerNumber !== "—" ? (
+          <Link
+            href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
+            aria-label="Open CRM"
+            title="CRM"
+          >
+            CRM
+          </Link>
+        ) : null}
+      </div>
+      {call.activity ? (
+        <ActivityIntakeSummary
+          activity={call.activity}
+          compact
+          callerPhone={call.callerNumber}
+          call={call}
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpenDetails(call)
+        }}
+        className="self-start text-[11px] font-semibold text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
+      >
+        {shouldOpenIntakeOnActivityClick(call) ? "Log purpose & outcome" : "View call details"}
+      </button>
+    </div>
   )
 }
 
@@ -1006,16 +1093,20 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
   const { setSelectedActivityLog } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
   // Rows stay collapsed by default so more numbers fit on screen.
-  // Accordion: at most one row expanded at a time.
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Accordion: at most one row expanded at a time (stable groupKey survives polls).
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
-  function toggleExpanded(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id))
+  function toggleExpanded(key: string) {
+    setExpandedKey((prev) => (prev === key ? null : key))
   }
 
   function openLogSheet(call: UiCallRecord) {
     setSelectedActivityLog(call)
     openLog(call)
+  }
+
+  function openDetails(call: UiCallRecord) {
+    openActivityCallFromList(call, inbound, openLogSheet)
   }
 
   if (rows.length === 0) {
@@ -1028,10 +1119,8 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
     <ul className="divide-y divide-zinc-800/70">
       {rows.map((call) => {
         const st = classifyCall(call)
-        const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-        const expanded = expandedId === call.id
+        const expanded = expandedKey === call.groupKey
         const missed = isMissedActivityStatus(st)
-        const hold = isHoldActivityStatus(st) || st === "hold_press1"
         const intakeShort =
           call.activity?.intakeAction === "No intake recorded"
             ? "No intake"
@@ -1043,7 +1132,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
           !(intakeShort === "Pending time" && (isMissedActivityStatus(st) || isHoldActivityStatus(st)))
         return (
           <li
-            key={call.id}
+            key={call.groupKey}
             className={cn(
               "px-3 py-2 transition-colors duration-150",
               activityRowAccentClass(st),
@@ -1051,18 +1140,18 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
             )}
           >
             {/*
-              Collapsed (default): status + name / full phone / duration · time + chevron.
-              Expanded: Call back / Send book link / CRM + intake + details.
+              Collapsed (default): latest status + name / full phone / N calls · time + chevron.
+              Expanded: each same-day leg with status, duration, time, and actions.
             */}
             <button
               type="button"
-              onClick={() => toggleExpanded(call.id)}
+              onClick={() => toggleExpanded(call.groupKey)}
               className="group/caller flex w-full min-w-0 items-start gap-2 rounded-lg py-0.5 text-left"
               aria-expanded={expanded}
               aria-label={
                 expanded
                   ? `Collapse ${call.callerName}`
-                  : `Expand ${call.callerName} for call back and details`
+                  : `Expand ${call.callerName} for call times and actions`
               }
             >
               <ActivityStatusPill status={st} dense />
@@ -1087,6 +1176,14 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   </span>
                   <span className="shrink-0 text-zinc-600">·</span>
                   <CallTimeDisplay call={call} variant="inline" />
+                  {call.count > 1 ? (
+                    <>
+                      <span className="shrink-0 text-zinc-600">·</span>
+                      <span className="shrink-0 text-zinc-500">
+                        {call.count} calls
+                      </span>
+                    </>
+                  ) : null}
                   {showIntakeShort ? (
                     <>
                       <span className="shrink-0 text-zinc-600">·</span>
@@ -1104,87 +1201,21 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               />
             </button>
 
-            {/* Expanded: actions + intake + line (only when needed). */}
+            {/* Expanded: one card per call that day (newest first). */}
             {expanded ? (
               <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {canCallBack(call) ? (
-                    <CallBackButton
-                      phone={call.callerNumber}
-                      compact
-                      className="!h-9 min-w-0 flex-1"
-                      openIntakeDraft={needsRevenueRescue(call) || hold}
-                      intakeCall={call}
-                      missed={missed}
-                      hold={hold && !missed}
-                    />
-                  ) : null}
-                  <SendBookLinkButton
-                    phone={call.callerNumber}
-                    callerName={call.callerName}
-                    businessLine={call.targetLineE164}
-                    callLogId={call.id}
-                    compact
-                    className={cn("!h-9 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
+                {call.members.map((leg) => (
+                  <ActivityCallLegActions
+                    key={leg.id}
+                    call={leg}
+                    lineLabelMap={lineLabelMap}
+                    onOpenDetails={openDetails}
+                    showLine={call.count === 1}
                   />
-                  {call.callerNumber && call.callerNumber !== "—" ? (
-                    <Link
-                      href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
-                      aria-label="Open CRM"
-                      title="CRM"
-                    >
-                      CRM
-                    </Link>
-                  ) : null}
-                </div>
-                {call.activity ? (
-                  <ActivityIntakeSummary
-                    activity={call.activity}
-                    compact
-                    callerPhone={call.callerNumber}
-                    call={call}
-                  />
+                ))}
+                {call.count > 1 ? (
+                  <p className="px-0.5 text-[11px] text-slate-500">{formatGroupedCallSummary(call)}</p>
                 ) : null}
-                {(() => {
-                  const timeline = buildCallActionsTimeline(call)
-                  if (timeline.length === 0) return null
-                  return (
-                    <ul className="space-y-0.5 rounded-lg border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-2">
-                      {timeline.map((line, i) => (
-                        <li key={`${call.id}-act-${i}`} className="flex gap-2 text-[11px] text-zinc-400">
-                          <Clock className="mt-0.5 h-3 w-3 text-zinc-600 shrink-0" aria-hidden />
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                })()}
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    {call.count > 1 ? (
-                      <span className="truncate text-[11px] text-slate-500">
-                        {formatGroupedCallSummary(call)}
-                      </span>
-                    ) : (
-                      <AgentBadge agent={resolveCallAgent(call)} compact />
-                    )}
-                    <span className="truncate" title={targetLabel}>
-                      {targetLabel}
-                    </span>
-                  </div>
-                </div>
-                {call.count > 1 ? <GroupedCallChronology members={call.members} /> : null}
-                <button
-                  type="button"
-                  onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}
-                  className="self-start text-[11px] font-semibold text-cyan-400 underline-offset-2 transition-colors duration-150 hover:text-teal-300 hover:underline"
-                >
-                  {shouldOpenIntakeOnActivityClick(call)
-                    ? "Log purpose & outcome"
-                    : "View call details"}
-                </button>
               </div>
             ) : null}
           </li>
@@ -1198,18 +1229,23 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
   const openLog = useWorkspaceRightSheet<UiCallRecord>()
   const { setSelectedActivityLog } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
+  // Stable groupKey so expand state survives poll refreshes.
+  const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(() => new Set())
 
   function openLogSheet(call: UiCallRecord) {
     setSelectedActivityLog(call)
     openLog(call)
   }
 
-  function toggleExpanded(id: string) {
-    setExpandedIds((prev) => {
+  function openDetails(call: UiCallRecord) {
+    openActivityCallFromList(call, inbound, openLogSheet)
+  }
+
+  function toggleExpanded(key: string) {
+    setExpandedKeys((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -1257,10 +1293,10 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
               const st = classifyCall(call)
               const missed = isMissedActivityStatus(st)
               const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-              const expandable = call.count > 1
-              const expanded = expandable && expandedIds.has(call.id)
+              // Always allow expand so single legs still open actions/details consistently.
+              const expanded = expandedKeys.has(call.groupKey)
               return (
-                <Fragment key={call.id}>
+                <Fragment key={call.groupKey}>
                   <tr
                     className={cn(
                       WORKSPACE_TABLE_ROW_CLASS,
@@ -1274,35 +1310,27 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       <div className="flex items-center gap-1">
                         <CallTimeDisplay call={call} />
-                        {expandable ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(call.id)}
-                            className="rounded p-0.5 text-slate-500 transition-colors duration-150 hover:bg-slate-800 hover:text-teal-300"
-                            aria-label={expanded ? "Hide call times" : "Show all call times"}
-                            aria-expanded={expanded}
-                          >
-                            <ChevronDown
-                              className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-180")}
-                              aria-hidden
-                            />
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(call.groupKey)}
+                          className="rounded p-0.5 text-slate-500 transition-colors duration-150 hover:bg-slate-800 hover:text-teal-300"
+                          aria-label={expanded ? "Hide call details" : "Show call details"}
+                          aria-expanded={expanded}
+                        >
+                          <ChevronDown
+                            className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-180")}
+                            aria-hidden
+                          />
+                        </button>
                       </div>
                     </WorkspaceTd>
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       <button
                         type="button"
-                        onClick={() => {
-                          if (expandable) toggleExpanded(call.id)
-                        }}
-                        className={cn(
-                          "group/caller w-full min-w-0 rounded-md text-left transition-colors duration-150",
-                          expandable && "cursor-pointer hover:bg-slate-800/40"
-                        )}
-                        disabled={!expandable}
+                        onClick={() => toggleExpanded(call.groupKey)}
+                        className="group/caller w-full min-w-0 cursor-pointer rounded-md text-left transition-colors duration-150 hover:bg-slate-800/40"
                       >
-                        <CallerNameWithCount call={call} interactive={expandable} />
+                        <CallerNameWithCount call={call} interactive />
                       </button>
                       {canCallBack(call) ? (
                         <a
@@ -1322,7 +1350,6 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           {call.callerNumber}
                         </p>
                       )}
-                      {expanded ? <GroupedCallChronology members={call.members} /> : null}
                     </WorkspaceTd>
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">
                       {call.activity ? (
@@ -1380,7 +1407,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         />
                         <button
                           type="button"
-                          onClick={() => openActivityCallFromList(call, inbound, openLogSheet)}
+                          onClick={() => openDetails(call)}
                           className="inline-flex h-8 items-center rounded-lg border border-zinc-700/80 bg-zinc-900/40 px-2.5 text-[11px] font-semibold text-zinc-300 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
                         >
                           {shouldOpenIntakeOnActivityClick(call) ? "Intake" : "Log"}
@@ -1388,6 +1415,22 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       </div>
                     </WorkspaceTd>
                   </tr>
+                  {expanded ? (
+                    <tr className="bg-zinc-950/50">
+                      <WorkspaceTd colSpan={8} className="!px-3 !py-3">
+                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                          {call.members.map((leg) => (
+                            <ActivityCallLegActions
+                              key={leg.id}
+                              call={leg}
+                              lineLabelMap={lineLabelMap}
+                              onOpenDetails={openDetails}
+                            />
+                          ))}
+                        </div>
+                      </WorkspaceTd>
+                    </tr>
+                  ) : null}
                 </Fragment>
               )
             })
@@ -1444,21 +1487,26 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   )
 
   const rows = useMemo(() => {
-    let list = scopedCalls
-    if (filter === "missed") {
-      list = list.filter((c) => isMissedActivityCallToday(c))
-    } else if (filter === "hold") {
-      list = list.filter((c) => isHoldFilterCall(c))
-    } else if (filter === "press1") {
-      list = list.filter((c) => isPress1FilterCall(c))
-    }
-    const sorted = [...list].sort((a, b) => {
+    const sorted = [...scopedCalls].sort((a, b) => {
       const aTs = a.createdAt || `${a.date} ${a.time}`
       const bTs = b.createdAt || `${b.date} ${b.time}`
       return bTs.localeCompare(aTs)
     })
-    // Fold back-to-back repeats from the same number into one feed row.
-    return groupConsecutiveCallsByPhone(sorted)
+    // One row per caller phone per calendar day (browser TZ, else Eastern).
+    const grouped = groupCallsByPhoneAndDay(sorted, {
+      timeZone: resolveBrowserTimezone(),
+    })
+    // Filters keep a day-group if any child matches; collapsed status uses latest match.
+    if (filter === "missed") {
+      return filterActivityCallGroups(grouped, (c) => isMissedActivityCallToday(c))
+    }
+    if (filter === "hold") {
+      return filterActivityCallGroups(grouped, (c) => isHoldFilterCall(c))
+    }
+    if (filter === "press1") {
+      return filterActivityCallGroups(grouped, (c) => isPress1FilterCall(c))
+    }
+    return grouped
   }, [scopedCalls, filter])
 
   return (

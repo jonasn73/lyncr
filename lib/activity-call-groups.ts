@@ -1,4 +1,4 @@
-// Collapse consecutive activity rows that share the same caller number.
+// Group Activity feed rows: one row per caller phone per calendar day.
 
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 import {
@@ -7,48 +7,127 @@ import {
   isMissedCallRecord,
   formatCaptureRoutedStatus,
 } from "@/lib/missed-call-telemetry"
+import { localDateTimePartsInZone } from "@/lib/schedule-blockouts"
+import {
+  DEFAULT_TELEMETRY_TIMEZONE,
+  resolveBrowserTimezone,
+  sanitizeIanaTimezone,
+} from "@/lib/telemetry-timezone"
 
-/** One feed row — latest call fields kept, with how many consecutive matches were folded in. */
+/** One feed row — latest call fields kept, with how many same-day matches were folded in. */
 export type GroupedActivityCall = UiCallRecord & {
-  /** Total consecutive calls collapsed into this row (always >= 1). */
+  /** Total calls collapsed into this row (always >= 1). */
   count: number
-  /** How many of those collapsed calls landed on the local calendar day. */
+  /** How many of those calls landed on “today” in the grouping timezone. */
   todayCount: number
   /** Ids of every call in the group (newest first). */
   groupIds: string[]
-  /** Full member rows newest-first — powers expandable chronology. */
+  /** Full member rows newest-first — powers expandable chronology + per-leg actions. */
   members: UiCallRecord[]
+  /** Stable key for expand/collapse across polls (day + phone, not latest call id). */
+  groupKey: string
 }
 
 /** Digits-only key so +15551234567 and (555) 123-4567 group together. */
 export function activityCallerPhoneKey(phone: string | null | undefined): string {
+  // Treat empty / em-dash placeholders as “no phone” (do not merge unknowns).
   const raw = (phone ?? "").trim()
   if (!raw || raw === "—") return ""
+  // Strip everything except digits.
   const digits = raw.replace(/\D/g, "")
+  // Drop leading US country code so 11-digit and 10-digit forms match.
   if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1)
   return digits
 }
 
-function isCreatedToday(iso: string | null | undefined, now: Date = new Date()): boolean {
+/** Calendar YYYY-MM-DD for a call timestamp in an IANA timezone. */
+export function activityCallCalendarDayKey(
+  iso: string | null | undefined,
+  timeZone: string = DEFAULT_TELEMETRY_TIMEZONE
+): string {
+  // Prefer createdAt when present.
+  if (iso?.trim()) {
+    const d = new Date(iso)
+    if (!Number.isNaN(d.getTime())) {
+      return localDateTimePartsInZone(d, sanitizeIanaTimezone(timeZone)).dateKey
+    }
+  }
+  // Unknown timestamps get their own bucket so they never falsely merge.
+  return "unknown"
+}
+
+/** True when iso falls on “today” in the given timezone. */
+function isCreatedTodayInZone(
+  iso: string | null | undefined,
+  now: Date,
+  timeZone: string
+): boolean {
   if (!iso?.trim()) return false
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return false
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
+  const day = activityCallCalendarDayKey(iso, timeZone)
+  if (day === "unknown") return false
+  const today = localDateTimePartsInZone(now, sanitizeIanaTimezone(timeZone)).dateKey
+  return day === today
+}
+
+/** Build the map key used to fold calls into one Activity row. */
+function buildGroupMapKey(call: UiCallRecord, timeZone: string): string {
+  const phone = activityCallerPhoneKey(call.callerNumber)
+  const day = activityCallCalendarDayKey(call.createdAt, timeZone)
+  // No reliable phone → keep each call as its own row.
+  if (!phone) return `id:${call.id}`
+  return `${day}|${phone}`
 }
 
 /**
- * Walk a newest-first call list and fold consecutive same-number rows.
- * Keeps the first (latest) call’s fields and accumulates count / todayCount / members.
+ * Fold a newest-first call list into one row per normalized phone per calendar day.
+ * Representative fields come from the newest member; members stay newest-first.
+ */
+export function groupCallsByPhoneAndDay(
+  calls: UiCallRecord[],
+  options?: { now?: Date; timeZone?: string | null }
+): GroupedActivityCall[] {
+  const now = options?.now ?? new Date()
+  const timeZone = sanitizeIanaTimezone(options?.timeZone ?? resolveBrowserTimezone())
+  // Preserve first-seen order (newest group first when input is newest-first).
+  const order: string[] = []
+  const byKey = new Map<string, GroupedActivityCall>()
+
+  for (const call of calls) {
+    const key = buildGroupMapKey(call, timeZone)
+    const existing = byKey.get(key)
+    if (existing) {
+      // Same phone + same day → append older leg under the newest representative.
+      existing.count += 1
+      existing.groupIds.push(call.id)
+      existing.members.push(call)
+      if (isCreatedTodayInZone(call.createdAt, now, timeZone)) existing.todayCount += 1
+      continue
+    }
+
+    order.push(key)
+    byKey.set(key, {
+      ...call,
+      count: 1,
+      todayCount: isCreatedTodayInZone(call.createdAt, now, timeZone) ? 1 : 0,
+      groupIds: [call.id],
+      members: [call],
+      groupKey: key,
+    })
+  }
+
+  return order.map((k) => byKey.get(k)!)
+}
+
+/**
+ * @deprecated Prefer groupCallsByPhoneAndDay — kept so older imports keep working.
+ * Walk a newest-first list and fold consecutive same-number rows (any day).
  */
 export function groupConsecutiveCallsByPhone(
   calls: UiCallRecord[],
   now: Date = new Date()
 ): GroupedActivityCall[] {
   const groups: GroupedActivityCall[] = []
+  const timeZone = resolveBrowserTimezone()
 
   for (const call of calls) {
     const key = activityCallerPhoneKey(call.callerNumber)
@@ -60,20 +139,48 @@ export function groupConsecutiveCallsByPhone(
       last.count += 1
       last.groupIds.push(call.id)
       last.members.push(call)
-      if (isCreatedToday(call.createdAt, now)) last.todayCount += 1
+      if (isCreatedTodayInZone(call.createdAt, now, timeZone)) last.todayCount += 1
       continue
     }
 
     groups.push({
       ...call,
       count: 1,
-      todayCount: isCreatedToday(call.createdAt, now) ? 1 : 0,
+      todayCount: isCreatedTodayInZone(call.createdAt, now, timeZone) ? 1 : 0,
       groupIds: [call.id],
       members: [call],
+      groupKey: buildGroupMapKey(call, timeZone),
     })
   }
 
   return groups
+}
+
+/**
+ * When a filter is on, keep groups that have any matching child and surface the
+ * latest matching call as the collapsed-row representative (status / time / duration).
+ */
+export function filterActivityCallGroups(
+  groups: GroupedActivityCall[],
+  matches: (call: UiCallRecord) => boolean
+): GroupedActivityCall[] {
+  const out: GroupedActivityCall[] = []
+  for (const group of groups) {
+    // Newest-first members — first match is the latest matching leg.
+    const latestMatch = group.members.find(matches)
+    if (!latestMatch) continue
+    out.push({
+      ...group,
+      // Overlay latest matching call fields onto the group shell.
+      ...latestMatch,
+      count: group.count,
+      todayCount: group.todayCount,
+      groupIds: group.groupIds,
+      members: group.members,
+      groupKey: group.groupKey,
+    })
+  }
+  return out
 }
 
 /** Compact relative age for “Last answered 36s ago”. */
@@ -96,8 +203,14 @@ export function formatGroupedCallSummary(group: GroupedActivityCall, now: Date =
   const ago = formatActivityRelativeAgo(group.createdAt, now)
   const answered = resolveCallWasAnswered(group)
   const lead = answered ? `Last answered ${ago}` : `Last call ${ago}`
-  const today = group.todayCount > 0 ? group.todayCount : group.count
-  return `${lead} • ${today} total call${today === 1 ? "" : "s"} today`
+  const n = group.count
+  return `${lead} • ${n} call${n === 1 ? "" : "s"}`
+}
+
+/** Collapsed name suffix: “· 3 calls”. */
+export function formatGroupedCallCountLabel(count: number): string {
+  if (count <= 1) return ""
+  return `· ${count} calls`
 }
 
 export function resolveCallWasAnswered(call: UiCallRecord): boolean {
