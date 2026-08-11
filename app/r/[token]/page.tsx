@@ -4,7 +4,24 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { Download } from "lucide-react"
+import { Download, X } from "lucide-react"
+
+/** Leave the receipt: go back, close the tab, or fall back to lyncr.app. */
+function exitReceiptPage() {
+  if (typeof window === "undefined") return
+  // SMS/email links often open in a new tab with no useful history.
+  if (window.history.length > 1) {
+    window.history.back()
+    return
+  }
+  // Scripts can only close windows they opened; try anyway, then navigate away.
+  window.close()
+  window.setTimeout(() => {
+    if (!window.closed) {
+      window.location.href = "https://lyncr.app"
+    }
+  }, 150)
+}
 
 type InvoiceLine = { label: string; amountCents: number }
 
@@ -91,11 +108,27 @@ export default function PublicReceiptPage() {
 
   if (error || !invoice) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-100 px-4 text-center">
+      <main className="relative flex min-h-dvh flex-col items-center justify-center bg-slate-100 px-4 text-center">
+        <button
+          type="button"
+          onClick={exitReceiptPage}
+          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" aria-hidden />
+        </button>
         <p className="text-lg font-semibold text-slate-800">Invoice unavailable</p>
         <p className="mt-2 max-w-sm text-sm text-slate-500">
           {error || "This link may be invalid or expired."}
         </p>
+        <button
+          type="button"
+          onClick={exitReceiptPage}
+          className="mt-6 inline-flex h-11 min-w-[8rem] items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white"
+        >
+          Done
+        </button>
+        <p className="mt-3 text-xs text-slate-400">You can close this tab</p>
       </main>
     )
   }
@@ -105,7 +138,17 @@ export default function PublicReceiptPage() {
     invoice.pdfUrl || `/api/receipt/${encodeURIComponent(token)}/pdf`
 
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-slate-100 to-slate-200/80 px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+6rem)] text-slate-900">
+    <main className="relative min-h-dvh bg-gradient-to-b from-slate-100 to-slate-200/80 px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+9rem)] text-slate-900">
+      {/* Top-right close — stays visible while scrolling. */}
+      <button
+        type="button"
+        onClick={exitReceiptPage}
+        className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white"
+        aria-label="Close"
+      >
+        <X className="h-5 w-5" aria-hidden />
+      </button>
+
       <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {/* Soft PAID stamp — visible but not covering content. */}
         <div
@@ -116,7 +159,7 @@ export default function PublicReceiptPage() {
         </div>
 
         <header className="border-b border-slate-200 bg-slate-900 px-5 py-5 text-white">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 pr-10">
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                 Invoice / receipt
@@ -254,7 +297,7 @@ export default function PublicReceiptPage() {
         </div>
       </article>
 
-      {/* Sticky download — works on phones (opens/saves the PDF). */}
+      {/* Sticky actions — Download PDF + Done (exit). */}
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
           <a
@@ -265,8 +308,16 @@ export default function PublicReceiptPage() {
             <Download className="h-4 w-4" aria-hidden />
             Download PDF
           </a>
+          <button
+            type="button"
+            onClick={exitReceiptPage}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          >
+            Done
+          </button>
           <p className="text-center text-[11px] text-slate-400">
-            Sent by {invoice.businessName} · Powered by Lyncr
+            You can close this tab · Sent by {invoice.businessName} · Powered by
+            Lyncr
           </p>
         </div>
       </div>
