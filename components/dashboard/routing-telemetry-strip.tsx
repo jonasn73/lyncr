@@ -12,6 +12,7 @@ import { MissedCallRescueSheet } from "@/components/dashboard/missed-call-rescue
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
 import {
   formatAvgDispatchSpeedMinutes,
+  formatBookingJobsFraction,
   formatBookingRatePercent,
   formatRescueRevenueDollars,
   isBookingRateEmpty,
@@ -94,6 +95,7 @@ function TelemetryTickerItem({
   sublabel,
   valueClassName,
   labelClassName,
+  sublabelClassName,
   onClick,
 }: {
   label: string
@@ -102,6 +104,8 @@ function TelemetryTickerItem({
   sublabel?: string | null
   valueClassName?: string
   labelClassName?: string
+  /** Override default amber sublabel (e.g. booking fraction 1/18). */
+  sublabelClassName?: string
   onClick?: () => void
 }) {
   const body = (
@@ -120,7 +124,12 @@ function TelemetryTickerItem({
       </span>
       {/* Overlay when present so empty cells don’t reserve a third line of height. */}
       {sublabel ? (
-        <span className="max-w-full truncate text-center text-[8px] font-medium leading-none text-amber-400/90">
+        <span
+          className={cn(
+            "max-w-full truncate text-center text-[8px] font-medium leading-none text-amber-400/90",
+            sublabelClassName
+          )}
+        >
           {sublabel}
         </span>
       ) : null}
@@ -163,6 +172,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     holdPathCalls,
     liveLineCount,
     bookingRatePercent,
+    bookedJobsCount,
+    uniqueCallersCount,
     avgDispatchSpeedMinutes,
     rescueRevenueCents,
     baselineReady,
@@ -174,6 +185,9 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
 
   const bookingEmpty = isBookingRateEmpty(bookingRatePercent)
   const bookingDisplay = baselineReady ? formatBookingRatePercent(bookingRatePercent) : "—"
+  // Show booked/callers under the % so Key Squad can see the raw math (e.g. 1/18).
+  const bookingFraction =
+    baselineReady ? formatBookingJobsFraction(bookedJobsCount, uniqueCallersCount) : null
   const speedDisplay = baselineReady ? formatAvgDispatchSpeedMinutes(avgDispatchSpeedMinutes) : "—"
   // Never flash $0 for Rescue before cache/API settles — show em dash instead.
   const rescueDisplay = formatRescueRevenueDollars(baselineReady ? rescueRevenueCents : null)
@@ -237,8 +251,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             onClick={openMissedRescue}
           />
           <TelemetryTickerItem
-            label="Booking"
+            label="Booked jobs"
             value={bookingDisplay}
+            sublabel={bookingFraction}
+            sublabelClassName="text-zinc-500"
             valueClassName={bookingEmpty || !baselineReady ? "font-medium text-zinc-400" : undefined}
           />
           <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
@@ -271,7 +287,11 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             onClick={openMissedRescue}
           />
           <TelemetryPill
-            label="Booking today"
+            label={
+              bookingFraction
+                ? `Booked jobs today (${bookingFraction})`
+                : "Booked jobs today"
+            }
             value={bookingDisplay}
             icon={Percent}
             tone="teal"
@@ -288,9 +308,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         </div>
         <p className="px-1 text-[10px] leading-snug text-zinc-500">
           <span className="font-medium text-zinc-400">Missed</span> = true unanswered (hold / press-1
-          excluded). <span className="font-medium text-zinc-400">Booking %</span> includes press-1 /
-          book-from-hold. <span className="font-medium text-zinc-400">Rescue $</span> = salvage quotes
-          plus jobs booked after hold or press 1.
+          excluded). <span className="font-medium text-zinc-400">Booked jobs</span> = real BOOKED jobs
+          today ÷ unique callers (not pending time or press-1 alone).{" "}
+          <span className="font-medium text-zinc-400">Rescue $</span> = salvage quotes plus jobs booked
+          after hold or press 1.
         </p>
       </section>
 

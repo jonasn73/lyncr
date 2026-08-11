@@ -42,8 +42,12 @@ export type RoutingTelemetrySnapshot = {
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
   monthlyTalkSeconds: number
-  /** Jobs booked ÷ unique callers today (0–100). */
+  /** Real booked jobs ÷ unique callers today (0–100). */
   bookingRatePercent: number
+  /** BOOKED jobs created or scheduled today (numerator for Booking %). */
+  bookedJobsCount?: number
+  /** Unique inbound callers today (denominator for Booking %). */
+  uniqueCallersCount?: number
   /** Average minutes from call end → dispatched job today (null when no samples). */
   avgDispatchSpeedMinutes: number | null
   /**
@@ -82,6 +86,8 @@ export function normalizeRoutingTelemetrySnapshot(
     weeklyTalkSeconds: cachedWeekKey === weekKey ? raw.weeklyTalkSeconds : 0,
     monthlyTalkSeconds: cachedMonthKey === monthKey ? raw.monthlyTalkSeconds : 0,
     bookingRatePercent: sameDay ? raw.bookingRatePercent ?? 0 : 0,
+    bookedJobsCount: sameDay ? raw.bookedJobsCount ?? 0 : 0,
+    uniqueCallersCount: sameDay ? raw.uniqueCallersCount ?? 0 : 0,
     avgDispatchSpeedMinutes: sameDay ? raw.avgDispatchSpeedMinutes ?? null : null,
     rescueRevenueCents: sameDay ? raw.rescueRevenueCents ?? 0 : 0,
     ownerUserId: raw.ownerUserId,
@@ -109,6 +115,8 @@ function parseTelemetryRaw(
       typeof raw.monthlyTalkSeconds === "number" ? raw.monthlyTalkSeconds : 0,
     bookingRatePercent:
       typeof raw.bookingRatePercent === "number" ? raw.bookingRatePercent : 0,
+    bookedJobsCount: typeof raw.bookedJobsCount === "number" ? raw.bookedJobsCount : 0,
+    uniqueCallersCount: typeof raw.uniqueCallersCount === "number" ? raw.uniqueCallersCount : 0,
     avgDispatchSpeedMinutes:
       typeof raw.avgDispatchSpeedMinutes === "number" ? raw.avgDispatchSpeedMinutes : null,
     rescueRevenueCents:
@@ -185,6 +193,8 @@ export function emptyRoutingTelemetrySnapshot(): RoutingTelemetrySnapshot {
     weeklyTalkSeconds: 0,
     monthlyTalkSeconds: 0,
     bookingRatePercent: 0,
+    bookedJobsCount: 0,
+    uniqueCallersCount: 0,
     avgDispatchSpeedMinutes: null,
     rescueRevenueCents: 0,
     ownerUserId: null,

@@ -4169,6 +4169,10 @@ export async function getDispatchPerformanceTelemetry(
   timezone?: string | null
 ): Promise<{
   booking_rate_percent: number
+  /** Real BOOKED jobs created or scheduled today (excludes PENDING_TIME + press-1 intents). */
+  booked_jobs_count: number
+  /** Unique inbound callers today — Booking % denominator. */
+  unique_callers_count: number
   avg_dispatch_speed_minutes: number | null
   rescue_revenue_cents: number
 }> {
@@ -4185,14 +4189,16 @@ export async function getDispatchPerformanceTelemetry(
   const tz = sanitizeIanaTimezone(timezone)
   const empty = {
     booking_rate_percent: 0,
+    booked_jobs_count: 0,
+    unique_callers_count: 0,
     avg_dispatch_speed_minutes: null as number | null,
     rescue_revenue_cents: 0,
   }
 
   try {
-    // Booking rate = (jobs booked today + press-1 / book-from-hold intents without a job yet)
-    // ÷ unique callers today. Press-1 SMS alone does not count until tagged on the call log;
-    // form submits that create BOOKED/PENDING_TIME leads are already in jobs_created.
+    // Booking % = real booked jobs today ÷ unique callers today.
+    // "Real booked" = ai_leads with disposition BOOKED (same as CRM Booked / scheduler jobs),
+    // created today OR scheduled for today. PENDING_TIME and press-1 SMS alone do not count.
     const bookingRows = await sql`
       WITH callers AS (
         SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(from_number, ''), '\\D', '', 'g'), ''))::int AS unique_callers
@@ -4202,50 +4208,37 @@ export async function getDispatchPerformanceTelemetry(
           AND COALESCE(from_number, '') <> ''
       ),
       jobs AS (
-        SELECT COUNT(*)::int AS jobs_created
+        SELECT COUNT(*)::int AS booked_jobs
         FROM ai_leads
         WHERE user_id = ${telemetryOwnerUserId}
-          AND date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
           AND (
-            disposition IN ('BOOKED', 'PENDING_TIME')
-            OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
+            disposition = 'BOOKED'
+            OR collected->>'disposition' = 'BOOKED'
+          )
+          AND lower(trim(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')))
+            NOT IN ('cancelled', 'canceled', 'unresolved', 'referred')
+          AND (
+            date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+            OR (
+              scheduled_at IS NOT NULL
+              AND date_trunc('day', timezone(${tz}, scheduled_at)) = date_trunc('day', timezone(${tz}, now()))
+            )
           )
           AND (
             ${orgUuid}::uuid IS NULL
             OR organization_id IS NULL
             OR organization_id = ${orgUuid}::uuid
           )
-      ),
-      -- Press-1 / book-from-hold phones that already have a booked lead today are not double-counted.
-      hold_book AS (
-        SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(cl.from_number, ''), '\\D', '', 'g'), ''))::int AS press1_phones
-        FROM call_logs cl
-        WHERE cl.user_id = ${telemetryOwnerUserId}
-          AND date_trunc('day', timezone(${tz}, cl.created_at)) = date_trunc('day', timezone(${tz}, now()))
-          AND lower(COALESCE(cl.routed_to_name, '')) ~* '(booked from hold|press 1)'
-          AND NOT EXISTS (
-            SELECT 1 FROM ai_leads l
-            WHERE l.user_id = ${telemetryOwnerUserId}
-              AND date_trunc('day', timezone(${tz}, l.created_at)) = date_trunc('day', timezone(${tz}, now()))
-              AND (
-                disposition IN ('BOOKED', 'PENDING_TIME')
-                OR collected->>'disposition' IN ('BOOKED', 'PENDING_TIME')
-              )
-              AND right(regexp_replace(COALESCE(l.caller_e164, ''), '\\D', '', 'g'), 10)
-                = right(regexp_replace(COALESCE(cl.from_number, ''), '\\D', '', 'g'), 10)
-          )
       )
-      SELECT callers.unique_callers, jobs.jobs_created, hold_book.press1_phones
-      FROM callers, jobs, hold_book
+      SELECT callers.unique_callers, jobs.booked_jobs
+      FROM callers, jobs
     `
     const uniqueCallers = Number(bookingRows[0]?.unique_callers ?? 0)
-    const jobsCreated = Number(bookingRows[0]?.jobs_created ?? 0)
-    const press1Booked = Number(bookingRows[0]?.press1_phones ?? 0)
+    const bookedJobs = Number(bookingRows[0]?.booked_jobs ?? 0)
     const booking_rate_percent =
-      uniqueCallers > 0
-        ? Math.min(100, Math.round(((jobsCreated + press1Booked) / uniqueCallers) * 100))
-        : 0
-
+      uniqueCallers > 0 ? Math.min(100, Math.round((bookedJobs / uniqueCallers) * 100)) : 0
+    const booked_jobs_count = Math.max(0, bookedJobs)
+    const unique_callers_count = Math.max(0, uniqueCallers)
     // Avg minutes from call end → job created with a tech (today only — matches strip day scope).
     let avg_dispatch_speed_minutes: number | null = null
     try {
@@ -4381,12 +4374,57 @@ export async function getDispatchPerformanceTelemetry(
 
     return {
       booking_rate_percent,
+      booked_jobs_count,
+      unique_callers_count,
       avg_dispatch_speed_minutes,
       rescue_revenue_cents,
     }
   } catch (e) {
     if (isUndefinedRelationError(e, "ai_leads") || isUndefinedRelationError(e, "call_logs")) {
       return empty
+    }
+    // scheduled_at may be missing pre-migration — retry booked jobs on created_at only.
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const fallbackRows = await sql`
+          WITH callers AS (
+            SELECT COUNT(DISTINCT NULLIF(regexp_replace(COALESCE(from_number, ''), '\\D', '', 'g'), ''))::int AS unique_callers
+            FROM call_logs
+            WHERE user_id = ${telemetryOwnerUserId}
+              AND date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+              AND COALESCE(from_number, '') <> ''
+          ),
+          jobs AS (
+            SELECT COUNT(*)::int AS booked_jobs
+            FROM ai_leads
+            WHERE user_id = ${telemetryOwnerUserId}
+              AND (
+                disposition = 'BOOKED'
+                OR collected->>'disposition' = 'BOOKED'
+              )
+              AND date_trunc('day', timezone(${tz}, created_at)) = date_trunc('day', timezone(${tz}, now()))
+              AND (
+                ${orgUuid}::uuid IS NULL
+                OR organization_id IS NULL
+                OR organization_id = ${orgUuid}::uuid
+              )
+          )
+          SELECT callers.unique_callers, jobs.booked_jobs
+          FROM callers, jobs
+        `
+        const uniqueCallers = Number(fallbackRows[0]?.unique_callers ?? 0)
+        const bookedJobs = Number(fallbackRows[0]?.booked_jobs ?? 0)
+        return {
+          booking_rate_percent:
+            uniqueCallers > 0 ? Math.min(100, Math.round((bookedJobs / uniqueCallers) * 100)) : 0,
+          booked_jobs_count: Math.max(0, bookedJobs),
+          unique_callers_count: Math.max(0, uniqueCallers),
+          avg_dispatch_speed_minutes: null,
+          rescue_revenue_cents: 0,
+        }
+      } catch {
+        return empty
+      }
     }
     console.warn("[getDispatchPerformanceTelemetry] failed:", e)
     return empty

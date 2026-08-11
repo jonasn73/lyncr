@@ -13,6 +13,8 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
       weeklyTalkSeconds: 3490,
       monthlyTalkSeconds: 7800,
       bookingRatePercent: 42,
+      bookedJobsCount: 3,
+      uniqueCallersCount: 7,
       avgDispatchSpeedMinutes: 2.4,
       rescueRevenueCents: 85000,
       ownerUserId: "user-1",
@@ -38,6 +40,8 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
       weeklyTalkSeconds: 1200,
       monthlyTalkSeconds: 9000,
       bookingRatePercent: 10,
+      bookedJobsCount: 1,
+      uniqueCallersCount: 10,
       avgDispatchSpeedMinutes: 2.4,
       rescueRevenueCents: 46000,
       ownerUserId: "user-1",
@@ -52,6 +56,8 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
     expect(normalized.dailyCalls).toBe(0)
     expect(normalized.dailyTalkSeconds).toBe(0)
     expect(normalized.bookingRatePercent).toBe(0)
+    expect(normalized.bookedJobsCount).toBe(0)
+    expect(normalized.uniqueCallersCount).toBe(0)
     expect(normalized.avgDispatchSpeedMinutes).toBeNull()
     expect(normalized.rescueRevenueCents).toBe(0)
     expect(normalized.weeklyTalkSeconds).toBe(1200)

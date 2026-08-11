@@ -63,8 +63,12 @@ export type UseRealTimeStatsResult = {
   liveDailyTalkSeconds: number
   liveWeeklyTalkSeconds: number
   liveMonthlyTalkSeconds: number
-  /** Jobs booked ÷ unique callers today (0–100). */
+  /** Real booked jobs ÷ unique callers today (0–100). */
   bookingRatePercent: number
+  /** BOOKED jobs created or scheduled today (Booking % numerator). */
+  bookedJobsCount: number
+  /** Unique inbound callers today (Booking % denominator). */
+  uniqueCallersCount: number
   /** Average minutes from call end → dispatched job today. */
   avgDispatchSpeedMinutes: number | null
   /** Today's open salvage + hold-path booked quotes in cents. */
@@ -97,6 +101,8 @@ function applySnapshot(
     setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setMonthlyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setBookingRatePercent: (n: number) => void
+    setBookedJobsCount: (n: number) => void
+    setUniqueCallersCount: (n: number) => void
     setAvgDispatchSpeedMinutes: (n: number | null) => void
     setRescueRevenueCents: (n: number) => void
     setOwnerUserId: (id: string | null) => void
@@ -129,6 +135,8 @@ function applySnapshot(
     setters.setMonthlyTalkSeconds(snap.monthlyTalkSeconds)
   }
   setters.setBookingRatePercent(snapDayKey === currentDayKey ? snap.bookingRatePercent : 0)
+  setters.setBookedJobsCount(snapDayKey === currentDayKey ? snap.bookedJobsCount ?? 0 : 0)
+  setters.setUniqueCallersCount(snapDayKey === currentDayKey ? snap.uniqueCallersCount ?? 0 : 0)
   setters.setAvgDispatchSpeedMinutes(
     snapDayKey === currentDayKey ? snap.avgDispatchSpeedMinutes : null
   )
@@ -165,6 +173,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(() => seed.weeklyTalkSeconds)
   const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(() => seed.monthlyTalkSeconds)
   const [bookingRatePercent, setBookingRatePercent] = useState(() => seed.bookingRatePercent)
+  const [bookedJobsCount, setBookedJobsCount] = useState(() => seed.bookedJobsCount ?? 0)
+  const [uniqueCallersCount, setUniqueCallersCount] = useState(() => seed.uniqueCallersCount ?? 0)
   const [avgDispatchSpeedMinutes, setAvgDispatchSpeedMinutes] = useState<number | null>(
     () => seed.avgDispatchSpeedMinutes
   )
@@ -230,6 +240,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           weekly_talk_time_display?: string
           monthly_talk_time_display?: string
           booking_rate_percent?: number
+          booked_jobs_count?: number
+          unique_callers_count?: number
           avg_dispatch_speed_minutes?: number | null
           rescue_revenue_cents?: number
           owner_user_id?: string
@@ -257,6 +269,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         weeklyTalkSeconds: parsedWeeklyTalk,
         monthlyTalkSeconds: parsedMonthlyTalk,
         bookingRatePercent: Number(data.booking_rate_percent ?? 0),
+        bookedJobsCount: Number(data.booked_jobs_count ?? 0),
+        uniqueCallersCount: Number(data.unique_callers_count ?? 0),
         avgDispatchSpeedMinutes:
           data.avg_dispatch_speed_minutes == null || !Number.isFinite(Number(data.avg_dispatch_speed_minutes))
             ? null
@@ -276,6 +290,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           setWeeklyTalkSeconds,
           setMonthlyTalkSeconds,
           setBookingRatePercent,
+          setBookedJobsCount,
+          setUniqueCallersCount,
           setAvgDispatchSpeedMinutes,
           setRescueRevenueCents,
           setOwnerUserId,
@@ -332,6 +348,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setWeeklyTalkSeconds,
         setMonthlyTalkSeconds,
         setBookingRatePercent,
+        setBookedJobsCount,
+        setUniqueCallersCount,
         setAvgDispatchSpeedMinutes,
         setRescueRevenueCents,
         setOwnerUserId,
@@ -589,6 +607,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       liveWeeklyTalkSeconds,
       liveMonthlyTalkSeconds,
       bookingRatePercent,
+      bookedJobsCount,
+      uniqueCallersCount,
       avgDispatchSpeedMinutes,
       rescueRevenueCents,
       liveLineCount,
@@ -609,6 +629,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       liveWeeklyTalkSeconds,
       liveMonthlyTalkSeconds,
       bookingRatePercent,
+      bookedJobsCount,
+      uniqueCallersCount,
       avgDispatchSpeedMinutes,
       rescueRevenueCents,
       liveLineCount,

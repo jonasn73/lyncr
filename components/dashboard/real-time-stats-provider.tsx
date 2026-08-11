@@ -19,6 +19,8 @@ const EMPTY_STATS: UseRealTimeStatsResult = {
   liveWeeklyTalkSeconds: 0,
   liveMonthlyTalkSeconds: 0,
   bookingRatePercent: 0,
+  bookedJobsCount: 0,
+  uniqueCallersCount: 0,
   avgDispatchSpeedMinutes: null,
   rescueRevenueCents: 0,
   liveLineCount: 0,
