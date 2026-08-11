@@ -77,9 +77,11 @@ export const SCHEDULER_INPUT = [
   SCHEDULER_INPUT_FOCUS,
 ].join(" ")
 
-/** Multiline notes / address fields. */
+/** Multiline notes / address fields — fixed sizing so they stay inside overflow-hidden cards. */
 export const SCHEDULER_TEXTAREA = [
-  "box-border block min-h-[72px] w-full max-w-full resize-none break-words whitespace-normal rounded-lg border border-slate-850 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500",
+  "box-border block min-h-[72px] w-full min-w-0 max-w-full resize-none break-words whitespace-normal rounded-lg border border-slate-850 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500",
+  // Override shadcn Textarea `field-sizing-content` (that grows past the card edge).
+  "field-sizing-fixed",
   SCHEDULER_INPUT_FOCUS,
 ].join(" ")
 

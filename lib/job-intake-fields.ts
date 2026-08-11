@@ -33,9 +33,11 @@ export function dispatchJobTypeFromServiceQuoteTypeId(id: ServiceQuoteTypeId): s
   return formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode)
 }
 
-/** True when YMM + key variant UI should show (matches CallAnsweredModal). */
+/** True when YMM (+ optional VIN) should show — car lockouts need the vehicle too. */
 export function serviceTypeRequiresVehicle(serviceTypeId: ServiceQuoteTypeId): boolean {
   return (
+    serviceTypeId === "lockout" ||
+    serviceTypeId === "safe_lockout" ||
     serviceTypeId === "key_generation" ||
     serviceTypeId === "key_duplication" ||
     serviceTypeId === "ignition_repair" ||

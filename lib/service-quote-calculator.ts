@@ -101,8 +101,14 @@ export const SERVICE_QUOTE_TYPES = [
   { id: "other", label: "Other Service", jobType: "Other" as IntakeLocksmithJobType, keyMode: "", dispatchLabel: "Other Service" },
 ] as const
 
-/** Service types that require year / make / model (and optional VIN) on the edit form. */
+/**
+ * Service types that show year / make / model / VIN on Edit Job.
+ * Includes Lockout — reimbursement invoices need the vehicle + VIN even when
+ * the job is not a key-generation job.
+ */
 export const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [
+  "lockout",
+  "safe_lockout",
   "key_generation",
   "key_duplication",
   "programming_diagnostics",

@@ -5915,6 +5915,61 @@ export async function createCustomerVehicleForUser(params: {
   return parseCustomerVehicleRow(row)
 }
 
+/** Update an existing garage vehicle (year/make/model/VIN) owned by this shop. */
+export async function updateCustomerVehicleForUser(params: {
+  userId: string
+  customerId: string
+  vehicleId: string
+  year: string
+  make: string
+  model: string
+  vin: string
+  fccId?: string
+}): Promise<CustomerVehicle | null> {
+  const sql = getSql()
+  const year = params.year.trim()
+  const make = params.make.trim()
+  const model = params.model.trim()
+  const vin = params.vin.trim()
+  const fcc = params.fccId !== undefined ? params.fccId.trim() : null
+  try {
+    if (fcc != null) {
+      const rows = await sql`
+        UPDATE customer_vehicles SET
+          year = ${year},
+          make = ${make},
+          model = ${model},
+          vin = ${vin},
+          fcc_id = ${fcc},
+          updated_at = now()
+        WHERE id = ${params.vehicleId}
+          AND user_id = ${params.userId}
+          AND customer_id = ${params.customerId}
+        RETURNING *
+      `
+      const row = rows[0] as Record<string, unknown> | undefined
+      return row ? parseCustomerVehicleRow(row) : null
+    }
+    const rows = await sql`
+      UPDATE customer_vehicles SET
+        year = ${year},
+        make = ${make},
+        model = ${model},
+        vin = ${vin},
+        updated_at = now()
+      WHERE id = ${params.vehicleId}
+        AND user_id = ${params.userId}
+        AND customer_id = ${params.customerId}
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseCustomerVehicleRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_vehicles")) return null
+    throw e
+  }
+}
+
 /** Upsert a garage vehicle from intake YMM when the customer already exists. */
 export async function upsertCustomerVehicleFromIntake(params: {
   userId: string

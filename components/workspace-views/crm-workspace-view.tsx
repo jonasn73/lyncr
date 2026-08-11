@@ -352,6 +352,26 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [receiptPhone, setReceiptPhone] = useState("")
   const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("sms")
   const [receiptBusy, setReceiptBusy] = useState(false)
+  // Record invoice for jobs paid outside Lyncr (Venmo) — no Stripe charge.
+  const [recordInvoiceOpen, setRecordInvoiceOpen] = useState(false)
+  const [recordInvoiceJobId, setRecordInvoiceJobId] = useState<string | null>(null)
+  const [recordAmountDollars, setRecordAmountDollars] = useState("75")
+  const [recordPayMethod, setRecordPayMethod] = useState<"VENMO" | "CASH" | "OTHER" | "EXTERNAL">(
+    "VENMO"
+  )
+  const [recordPayNote, setRecordPayNote] = useState("Paid via Venmo")
+  const [recordChannel, setRecordChannel] = useState<"email" | "sms" | "both">("sms")
+  const [recordVin, setRecordVin] = useState("")
+  const [recordBusy, setRecordBusy] = useState(false)
+  // Inline garage VIN / YMM edit.
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null)
+  const [editVehicleForm, setEditVehicleForm] = useState({
+    year: "",
+    make: "",
+    model: "",
+    vin: "",
+  })
+  const [editVehicleBusy, setEditVehicleBusy] = useState(false)
   // SMS preview sheet — follow-up / rescue draft before real send.
   const [smsPreviewOpen, setSmsPreviewOpen] = useState(false)
   const [smsPreviewKind, setSmsPreviewKind] = useState<"follow_up" | "rescue">("follow_up")
@@ -1037,6 +1057,170 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     )
   }
 
+  /** Open Send invoice for a job paid outside Lyncr (Venmo reimbursement). */
+  const openRecordInvoice = (job?: CrmServiceHistoryItem | null) => {
+    const item = job ?? headerJobTarget
+    const garage = vehicles[0]
+    const dollars =
+      item?.amount_cents != null && item.amount_cents > 0
+        ? String(Math.round(item.amount_cents) / 100)
+        : "75"
+    setRecordInvoiceJobId(item && !isWalkUpHistoryId(item.id) ? item.id : null)
+    setRecordAmountDollars(dollars)
+    setRecordPayMethod("VENMO")
+    setRecordPayNote("Paid via Venmo")
+    setRecordVin(
+      (garage?.vin || "").trim() ||
+        ""
+    )
+    setReceiptName(editName.trim() || selected?.display_name?.trim() || "")
+    setReceiptPhone(selected?.phone_e164 || "")
+    setReceiptEmail(emailFromCustomerNotes(selected?.notes))
+    const hasEmail = Boolean(emailFromCustomerNotes(selected?.notes))
+    setRecordChannel(hasEmail ? (selected?.phone_e164 ? "both" : "email") : "sms")
+    setRecordInvoiceOpen(true)
+  }
+
+  const saveEditedVehicle = async () => {
+    if (!selectedId || !editingVehicleId || editVehicleBusy) return
+    setEditVehicleBusy(true)
+    try {
+      const res = await fetch(`/api/crm/customers/${encodeURIComponent(selectedId)}/vehicles`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleId: editingVehicleId,
+          year: editVehicleForm.year,
+          make: editVehicleForm.make,
+          model: editVehicleForm.model,
+          vin: editVehicleForm.vin,
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        migration?: string
+        data?: { vehicle?: CustomerVehicle }
+      }
+      if (!res.ok) {
+        alert(json?.migration ? `Run ${json.migration} in Neon` : json?.error || "Could not save")
+        return
+      }
+      if (json.data?.vehicle) {
+        setVehicles((prev) =>
+          prev.map((v) => (v.id === json.data!.vehicle!.id ? json.data!.vehicle! : v))
+        )
+      }
+      setEditingVehicleId(null)
+      toast({ title: "Vehicle updated", description: "Year, make, model, and VIN saved." })
+    } catch {
+      alert("Could not save vehicle")
+    } finally {
+      setEditVehicleBusy(false)
+    }
+  }
+
+  const sendRecordInvoiceFromCrm = async () => {
+    if (!selected) return
+    const dollars = Number(recordAmountDollars)
+    if (!Number.isFinite(dollars) || dollars <= 0) {
+      toast({
+        title: "Enter an amount",
+        description: "Need a dollar amount for the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (
+      (recordChannel === "email" || recordChannel === "both") &&
+      !receiptEmail.trim().includes("@")
+    ) {
+      toast({
+        title: "Enter an email",
+        description: "Need a valid address to email the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (
+      (recordChannel === "sms" || recordChannel === "both") &&
+      receiptPhone.replace(/\D/g, "").length < 10
+    ) {
+      toast({
+        title: "Enter a phone number",
+        description: "Need a valid number to text the invoice.",
+        variant: "destructive",
+      })
+      return
+    }
+    const job =
+      (recordInvoiceJobId
+        ? history.find((h) => h.id === recordInvoiceJobId) ?? headerJobTarget
+        : headerJobTarget) ?? null
+    const garage = vehicles[0]
+    const vehicleLabel =
+      job?.vehicle_label ||
+      [garage?.year || job?.vehicle_year, garage?.make || job?.vehicle_make, garage?.model || job?.vehicle_model]
+        .filter(Boolean)
+        .join(" ") ||
+      ""
+    setRecordBusy(true)
+    try {
+      const res = await fetch("/api/payments/send-record-invoice", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: selected.id,
+          jobId: recordInvoiceJobId,
+          amount: dollars,
+          paymentMethod: recordPayMethod,
+          paymentNote: recordPayNote.trim() || undefined,
+          channel: recordChannel,
+          customerName: receiptName.trim() || undefined,
+          email: receiptEmail.trim() || undefined,
+          phone: receiptPhone.trim() || undefined,
+          serviceLabel: job ? crmServiceLabel(job) : undefined,
+          vehicleLabel: vehicleLabel || undefined,
+          vehicleVin: recordVin.trim() || garage?.vin || undefined,
+          vehicleYear: garage?.year || job?.vehicle_year || undefined,
+          vehicleMake: garage?.make || job?.vehicle_make || undefined,
+          vehicleModel: garage?.model || job?.vehicle_model || undefined,
+          addressLine1: job?.address_line1 || selected.address_line1 || undefined,
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        migration?: string
+        data?: { receiptUrl?: string; channels?: string[] }
+      }
+      if (!res.ok) {
+        throw new Error(
+          json.migration
+            ? `Run ${json.migration} in Neon SQL Editor, then try again.`
+            : json.error || "Could not send invoice"
+        )
+      }
+      const via = (json.data?.channels ?? []).join(" + ") || recordChannel
+      toast({
+        title: "Invoice sent",
+        description: `Customer gets a paid invoice (${via}) with vehicle + VIN.`,
+      })
+      setRecordInvoiceOpen(false)
+      if (recordVin.trim() && garage && !garage.vin.trim()) {
+        void loadProfile(selected.id)
+      }
+    } catch (e) {
+      toast({
+        title: "Could not send invoice",
+        description: e instanceof Error ? e.message : "Try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setRecordBusy(false)
+    }
+  }
+
   /** Paid walk-up / completed charges with nothing pending → Collect feels pushy. */
   const isFullyPaidCustomer = useMemo(() => {
     const completed = payments.filter((p) => p.status === "COMPLETED")
@@ -1262,6 +1446,13 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 <CreditCard className="h-3.5 w-3.5" />
                 {isFullyPaidCustomer ? "Charge again" : "Collect"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openRecordInvoice(headerJobTarget)}
+                className="gap-2 text-xs focus:bg-zinc-900"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Send invoice
+              </DropdownMenuItem>
               {salvageOpenLead ? (
                 <DropdownMenuItem
                   onClick={openRescuePreview}
@@ -1363,6 +1554,12 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   <dd className="min-w-0 text-zinc-200">{headerJobTarget.vehicle_label}</dd>
                 </div>
               ) : null}
+              {vehicles[0]?.vin ? (
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">VIN</dt>
+                  <dd className="min-w-0 font-mono text-[12px] text-zinc-300">{vehicles[0].vin}</dd>
+                </div>
+              ) : null}
               {headerJobTarget.address_line1 ? (
                 <div className="flex gap-2">
                   <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Address</dt>
@@ -1430,6 +1627,19 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   {crmJobNavButtonLabel(headerJobAction)}
                 </button>
               ) : null}
+              {/* Reimbursement invoice — works for Venmo / cash paid outside Lyncr. */}
+              {(headerJobAction === "View job" ||
+                headerJobAction === "Open job" ||
+                isCrmTerminalStatusLabel(headerJobTarget.status_label)) && (
+                <button
+                  type="button"
+                  onClick={() => openRecordInvoice(headerJobTarget)}
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-100"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Send invoice
+                </button>
+              )}
               {/* Compact status chips — texts live under Message; this row is lifecycle only. */}
               <div className="flex flex-wrap gap-1.5">
                 {/* Call outcomes only before Booked / Cancelled / Complete. */}
@@ -1597,20 +1807,83 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                     key={v.id}
                     className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
                   >
-                    <div className="flex items-start gap-2">
-                      <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-100">
-                          {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
-                        </p>
-                        {v.vin ? (
-                          <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
-                        ) : null}
-                        {v.fcc_id ? (
-                          <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
-                        ) : null}
+                    {editingVehicleId === v.id ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(
+                          [
+                            ["year", "Year"],
+                            ["make", "Make"],
+                            ["model", "Model"],
+                            ["vin", "VIN"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <label key={key} className="block text-[11px] text-zinc-500">
+                            {label}
+                            <Input
+                              value={editVehicleForm[key]}
+                              onChange={(e) =>
+                                setEditVehicleForm((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              className="mt-1 h-9 border-zinc-800 bg-zinc-950"
+                            />
+                          </label>
+                        ))}
+                        <div className="flex gap-2 sm:col-span-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={editVehicleBusy}
+                            onClick={() => void saveEditedVehicle()}
+                          >
+                            {editVehicleBusy ? "Saving…" : "Save"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingVehicleId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <Car className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-100">
+                            {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
+                          </p>
+                          {v.vin ? (
+                            <p className="truncate text-[11px] text-zinc-500">VIN {v.vin}</p>
+                          ) : (
+                            <p className="text-[11px] text-amber-200/80">No VIN yet</p>
+                          )}
+                          {v.fcc_id ? (
+                            <p className="truncate text-[11px] text-zinc-500">FCC {v.fcc_id}</p>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingVehicleId(v.id)
+                            setEditVehicleForm({
+                              year: v.year,
+                              make: v.make,
+                              model: v.model,
+                              vin: v.vin,
+                            })
+                          }}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                          aria-label="Edit vehicle"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -2331,6 +2604,193 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               </Button>
             </div>
           ) : null}
+        </SheetContent>
+      </Sheet>
+
+      {/* Record invoice — Venmo / cash / paid outside Lyncr (no Stripe charge). */}
+      <Sheet
+        open={recordInvoiceOpen}
+        onOpenChange={(open) => {
+          if (!open && !recordBusy) setRecordInvoiceOpen(false)
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          overlayClassName="z-[7200]"
+          className="z-[7210] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+        >
+          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="text-base font-bold text-slate-100">
+                  Send invoice
+                </SheetTitle>
+                <SheetDescription className="mt-0.5 text-xs text-slate-500">
+                  For reimbursement — marks paid via Venmo (no card charge).
+                </SheetDescription>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecordInvoiceOpen(false)}
+                disabled={recordBusy}
+                className="rounded-lg p-2 text-zinc-400 hover:text-white disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </SheetHeader>
+
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+            <label className="block space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Amount ($)
+              </span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step={1}
+                value={recordAmountDollars}
+                onChange={(e) => setRecordAmountDollars(e.target.value)}
+                className="h-10 border-zinc-800 bg-zinc-950"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1 sm:grid-cols-4">
+              {(
+                [
+                  ["VENMO", "Venmo"],
+                  ["CASH", "Cash"],
+                  ["EXTERNAL", "Outside"],
+                  ["OTHER", "Other"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setRecordPayMethod(id)
+                    if (id === "VENMO") setRecordPayNote("Paid via Venmo")
+                    else if (id === "CASH") setRecordPayNote("Paid in cash")
+                    else if (id === "EXTERNAL") setRecordPayNote("Paid outside Lyncr")
+                    else setRecordPayNote("Paid outside Lyncr")
+                  }}
+                  className={cn(
+                    "rounded-lg py-2 text-[11px] font-semibold",
+                    recordPayMethod === id
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Paid note
+              </span>
+              <Input
+                value={recordPayNote}
+                onChange={(e) => setRecordPayNote(e.target.value)}
+                placeholder="Paid via Venmo"
+                className="h-10 border-zinc-800 bg-zinc-950"
+              />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                VIN
+              </span>
+              <Input
+                value={recordVin}
+                onChange={(e) => setRecordVin(e.target.value)}
+                placeholder="17-character VIN"
+                className="h-10 border-zinc-800 bg-zinc-950 font-mono text-sm"
+              />
+            </label>
+
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+              {(
+                [
+                  ["email", "Email"],
+                  ["sms", "Text"],
+                  ["both", "Both"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRecordChannel(id)}
+                  className={cn(
+                    "rounded-lg py-2 text-xs font-semibold",
+                    recordChannel === id
+                      ? "bg-teal-500/20 text-teal-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Customer name
+              </span>
+              <Input
+                value={receiptName}
+                onChange={(e) => setReceiptName(e.target.value)}
+                className="h-10 border-zinc-800 bg-zinc-950"
+              />
+            </label>
+
+            {(recordChannel === "email" || recordChannel === "both") && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Email
+                </span>
+                <Input
+                  type="email"
+                  value={receiptEmail}
+                  onChange={(e) => setReceiptEmail(e.target.value)}
+                  placeholder="customer@email.com"
+                  className="h-10 border-zinc-800 bg-zinc-950"
+                />
+              </label>
+            )}
+
+            {(recordChannel === "sms" || recordChannel === "both") && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Phone
+                </span>
+                <Input
+                  type="tel"
+                  value={receiptPhone}
+                  onChange={(e) => setReceiptPhone(e.target.value)}
+                  className="h-10 border-zinc-800 bg-zinc-950"
+                />
+              </label>
+            )}
+
+            <Button
+              type="button"
+              disabled={recordBusy}
+              onClick={() => void sendRecordInvoiceFromCrm()}
+              className="h-11 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {recordBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              Send paid invoice
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

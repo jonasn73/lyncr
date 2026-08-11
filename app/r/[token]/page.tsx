@@ -19,6 +19,10 @@ type InvoiceData = {
   paymentMethodLabel: string
   signaturePng: string | null
   paymentIntentId: string
+  vehicleLabel?: string | null
+  vehicleVin?: string | null
+  addressLine1?: string | null
+  paidNote?: string | null
 }
 
 function fmtUsd(cents: number): string {
@@ -129,12 +133,44 @@ export default function PublicReceiptPage() {
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.paymentMethodLabel}</dd>
             </div>
+            {invoice.paidNote ? (
+              <div className="col-span-2">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Note
+                </dt>
+                <dd className="mt-0.5 text-slate-800">{invoice.paidNote}</dd>
+              </div>
+            ) : null}
             {invoice.customerName ? (
               <div className="col-span-2">
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Bill to
                 </dt>
                 <dd className="mt-0.5 text-slate-800">{invoice.customerName}</dd>
+              </div>
+            ) : null}
+            {invoice.vehicleLabel ? (
+              <div className="col-span-2">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Vehicle
+                </dt>
+                <dd className="mt-0.5 text-slate-800">{invoice.vehicleLabel}</dd>
+              </div>
+            ) : null}
+            {invoice.vehicleVin ? (
+              <div className="col-span-2">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  VIN
+                </dt>
+                <dd className="mt-0.5 font-mono text-sm text-slate-800">{invoice.vehicleVin}</dd>
+              </div>
+            ) : null}
+            {invoice.addressLine1 ? (
+              <div className="col-span-2">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Address
+                </dt>
+                <dd className="mt-0.5 text-slate-800">{invoice.addressLine1}</dd>
               </div>
             ) : null}
           </dl>

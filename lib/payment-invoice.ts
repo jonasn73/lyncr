@@ -30,6 +30,14 @@ export type PaymentInvoice = {
   signaturePng: string | null
   receiptUrl: string
   paymentIntentId: string
+  /** Year make model line for reimbursement invoices (optional). */
+  vehicleLabel?: string | null
+  /** VIN for insurance / reimbursement (optional). */
+  vehicleVin?: string | null
+  /** Job site / service address (optional). */
+  addressLine1?: string | null
+  /** e.g. "Paid via Venmo" — shown under payment method. */
+  paidNote?: string | null
 }
 
 function fmtUsd(cents: number): string {
@@ -181,6 +189,10 @@ export function formatInvoiceMoney(cents: number): string {
 /** Plain-text invoice for SMS (includes web invoice link). */
 export function buildPaymentInvoiceSms(invoice: PaymentInvoice): string {
   const billTo = invoice.customerName ? `\nBill to: ${invoice.customerName}` : ""
+  const vehicle = invoice.vehicleLabel ? `\nVehicle: ${invoice.vehicleLabel}` : ""
+  const vin = invoice.vehicleVin ? `\nVIN: ${invoice.vehicleVin}` : ""
+  const address = invoice.addressLine1 ? `\nAddress: ${invoice.addressLine1}` : ""
+  const paidNote = invoice.paidNote ? `\nNote: ${invoice.paidNote}` : ""
   const lineBlock = invoice.lines
     .map((l) => `${l.label}: ${fmtUsd(l.amountCents)}`)
     .join("\n")
@@ -189,11 +201,15 @@ export function buildPaymentInvoiceSms(invoice: PaymentInvoice): string {
     `INVOICE ${invoice.invoiceNumber}`,
     `Paid ${invoice.paidAtLabel}`,
     billTo.trim(),
+    vehicle.trim(),
+    vin.trim(),
+    address.trim(),
     "———",
     lineBlock,
     "———",
     `TOTAL PAID: ${fmtUsd(invoice.totalCents)}`,
     `Paid by: ${invoice.paymentMethodLabel}`,
+    paidNote.trim(),
     `View invoice: ${invoice.receiptUrl}`,
     "Thank you for your business!",
   ]
@@ -260,6 +276,38 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
               <td style="color:#94a3b8;padding:2px 0;">Payment method</td>
               <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.paymentMethodLabel)}</td>
             </tr>
+            ${
+              invoice.paidNote
+                ? `<tr>
+              <td style="color:#94a3b8;padding:2px 0;">Note</td>
+              <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.paidNote)}</td>
+            </tr>`
+                : ""
+            }
+            ${
+              invoice.vehicleLabel
+                ? `<tr>
+              <td style="color:#94a3b8;padding:2px 0;">Vehicle</td>
+              <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.vehicleLabel)}</td>
+            </tr>`
+                : ""
+            }
+            ${
+              invoice.vehicleVin
+                ? `<tr>
+              <td style="color:#94a3b8;padding:2px 0;">VIN</td>
+              <td style="text-align:right;font-family:ui-monospace,monospace;color:#0f172a;">${escapeHtml(invoice.vehicleVin)}</td>
+            </tr>`
+                : ""
+            }
+            ${
+              invoice.addressLine1
+                ? `<tr>
+              <td style="color:#94a3b8;padding:2px 0;">Address</td>
+              <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.addressLine1)}</td>
+            </tr>`
+                : ""
+            }
             <tr>
               <td style="color:#94a3b8;padding:2px 0;">Status</td>
               <td style="text-align:right;font-weight:700;color:#059669;">PAID</td>
@@ -304,6 +352,10 @@ export function buildPaymentInvoiceEmailText(invoice: PaymentInvoice): string {
     `Date paid: ${invoice.paidAtLabel}`,
     `Status: PAID`,
     `Payment method: ${invoice.paymentMethodLabel}`,
+    invoice.paidNote ? `Note: ${invoice.paidNote}` : "",
+    invoice.vehicleLabel ? `Vehicle: ${invoice.vehicleLabel}` : "",
+    invoice.vehicleVin ? `VIN: ${invoice.vehicleVin}` : "",
+    invoice.addressLine1 ? `Address: ${invoice.addressLine1}` : "",
     "",
     ...invoice.lines.map((l) => `${l.label}: ${fmtUsd(l.amountCents)}`),
     "",
@@ -311,5 +363,7 @@ export function buildPaymentInvoiceEmailText(invoice: PaymentInvoice): string {
     "",
     `View invoice: ${invoice.receiptUrl}`,
     `Ref: ${invoice.paymentIntentId}`,
-  ].join("\n")
+  ]
+    .filter((line) => line.length > 0)
+    .join("\n")
 }

@@ -9,11 +9,9 @@ import { type SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
 import {
   SCHEDULER_FIELD_STACK,
-  SCHEDULER_GLASS_CARD,
   SCHEDULER_INPUT,
   SCHEDULER_METADATA_LABEL,
   SCHEDULER_SECTION,
-  SCHEDULER_STACK,
   SCHEDULER_TEXTAREA,
 } from "@/lib/scheduler-ui-tokens"
 import { Button } from "@/components/ui/button"
@@ -24,10 +22,13 @@ import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 
 const fieldBlockClass = cn(SCHEDULER_FIELD_STACK, "w-full min-w-0")
 const labelClass = SCHEDULER_METADATA_LABEL
-const sectionClass = SCHEDULER_SECTION
-const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-3 block")
-const inputClass = SCHEDULER_INPUT
+/** Section cards — overflow-visible so nested VIN/inputs are never clipped. */
+const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-3 sm:p-4")
+const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-2 block")
+const inputClass = cn(SCHEDULER_INPUT, "h-9")
 const addressTextareaClass = SCHEDULER_TEXTAREA
+/** Compact stacks on mobile so AKL + vehicle still fits above Save. */
+const stackClass = "flex flex-col gap-2 sm:gap-3"
 
 export type JobEditWorkflowProps = {
   statusLabel: string
@@ -119,8 +120,8 @@ export function JobEditWorkflow({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="relative shrink-0 border-b border-border/60 px-5 py-4 pr-16">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <header className="relative shrink-0 border-b border-border/60 px-4 py-3 pr-14 sm:px-5 sm:py-4 sm:pr-16">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
@@ -136,10 +137,18 @@ export function JobEditWorkflow({
         </div>
       </header>
 
-      <div className={cn("min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4", SCHEDULER_STACK)}>
+      {/* Scrollable body — padding clears sticky Save footer so nothing tucks under it. */}
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-3 sm:px-5 sm:py-4",
+          stackClass,
+          // Extra bottom space so last field (Notes) clears the sticky footer + safe area.
+          "pb-[calc(env(safe-area-inset-bottom)+7.5rem)] sm:pb-6"
+        )}
+      >
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Customer details</h3>
-          <div className={SCHEDULER_STACK}>
+          <div className={stackClass}>
             <div className={fieldBlockClass}>
               <label className={labelClass} htmlFor="job-edit-customer-name">
                 Name
@@ -171,11 +180,11 @@ export function JobEditWorkflow({
               </label>
               <textarea
                 id="job-edit-location"
-                className={addressTextareaClass}
+                className={cn(addressTextareaClass, "field-sizing-fixed min-h-[3.25rem] resize-none")}
                 value={location}
                 onChange={(e) => onLocationChange(e.target.value)}
                 placeholder="Street address"
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
@@ -183,8 +192,8 @@ export function JobEditWorkflow({
 
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Job settings</h3>
-          <div className={SCHEDULER_STACK}>
-            <div className="grid grid-cols-2 gap-3">
+          <div className={stackClass}>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-scheduled-date">
                   Scheduled date
@@ -199,7 +208,7 @@ export function JobEditWorkflow({
               </div>
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-scheduled-time">
-                  Scheduled time window
+                  Time
                 </label>
                 <Input
                   id="job-edit-scheduled-time"
@@ -229,73 +238,9 @@ export function JobEditWorkflow({
               </select>
             </div>
 
-            {isAutomotiveService ? (
-              <div className={cn(SCHEDULER_GLASS_CARD, "p-3")}>
-                <p className={cn(SCHEDULER_METADATA_LABEL, "mb-3 block")}>Vehicle info</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className={fieldBlockClass}>
-                    <label className={labelClass} htmlFor="job-edit-vehicle-year">
-                      Year
-                    </label>
-                    <Input
-                      id="job-edit-vehicle-year"
-                      type="text"
-                      inputMode="numeric"
-                      className={inputClass}
-                      value={vehicleYear}
-                      onChange={(e) => onVehicleYearChange(e.target.value)}
-                      placeholder="2020"
-                    />
-                  </div>
-                  <div className={fieldBlockClass}>
-                    <label className={labelClass} htmlFor="job-edit-vehicle-make">
-                      Make
-                    </label>
-                    <Input
-                      id="job-edit-vehicle-make"
-                      type="text"
-                      className={inputClass}
-                      value={vehicleMake}
-                      onChange={(e) => onVehicleMakeChange(e.target.value)}
-                      placeholder="Honda"
-                    />
-                  </div>
-                  <div className={fieldBlockClass}>
-                    <label className={labelClass} htmlFor="job-edit-vehicle-model">
-                      Model
-                    </label>
-                    <Input
-                      id="job-edit-vehicle-model"
-                      type="text"
-                      className={inputClass}
-                      value={vehicleModel}
-                      onChange={(e) => onVehicleModelChange(e.target.value)}
-                      placeholder="Civic"
-                    />
-                  </div>
-                </div>
-                <div className={cn(fieldBlockClass, "mt-3")}>
-                  <label className={labelClass} htmlFor="job-edit-vehicle-vin">
-                    VIN (optional)
-                  </label>
-                  <VinLookupField
-                    value={vehicleVin}
-                    onVinChange={onVehicleVinChange}
-                    onVehicleResolved={(vehicle) => {
-                      onVehicleYearChange(vehicle.vehicle_year)
-                      onVehicleMakeChange(vehicle.vehicle_make)
-                      onVehicleModelChange(vehicle.vehicle_model)
-                    }}
-                    placeholder="17-character VIN"
-                    disabled={saving || deleting || submitting}
-                  />
-                </div>
-              </div>
-            ) : null}
-
             <div className={fieldBlockClass}>
               <label className={labelClass} htmlFor="job-edit-price">
-                Billing balance / price
+                Price
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
@@ -317,19 +262,94 @@ export function JobEditWorkflow({
           </div>
         </section>
 
+        {/* Own section (not nested in Job settings) — avoids overflow-hidden clipping VIN. */}
+        <section className={sectionClass}>
+          <h3 className={sectionTitleClass}>
+            Vehicle info
+            {!isAutomotiveService ? (
+              <span className="ml-1 font-normal normal-case tracking-normal text-zinc-500">
+                (optional)
+              </span>
+            ) : null}
+          </h3>
+          <div className={stackClass}>
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-vehicle-year">
+                  Year
+                </label>
+                <Input
+                  id="job-edit-vehicle-year"
+                  type="text"
+                  inputMode="numeric"
+                  className={inputClass}
+                  value={vehicleYear}
+                  onChange={(e) => onVehicleYearChange(e.target.value)}
+                  placeholder="2007"
+                />
+              </div>
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-vehicle-make">
+                  Make
+                </label>
+                <Input
+                  id="job-edit-vehicle-make"
+                  type="text"
+                  className={inputClass}
+                  value={vehicleMake}
+                  onChange={(e) => onVehicleMakeChange(e.target.value)}
+                  placeholder="Chevrolet"
+                />
+              </div>
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-vehicle-model">
+                  Model
+                </label>
+                <Input
+                  id="job-edit-vehicle-model"
+                  type="text"
+                  className={inputClass}
+                  value={vehicleModel}
+                  onChange={(e) => onVehicleModelChange(e.target.value)}
+                  placeholder="Avalanche"
+                />
+              </div>
+            </div>
+            <div className={fieldBlockClass}>
+              <label className={labelClass} htmlFor="job-edit-vehicle-vin">
+                VIN (for invoices)
+              </label>
+              <VinLookupField
+                value={vehicleVin}
+                onVinChange={onVehicleVinChange}
+                onVehicleResolved={(vehicle) => {
+                  onVehicleYearChange(vehicle.vehicle_year)
+                  onVehicleMakeChange(vehicle.vehicle_make)
+                  onVehicleModelChange(vehicle.vehicle_model)
+                }}
+                placeholder="17-character VIN"
+                disabled={saving || deleting || submitting}
+              />
+            </div>
+          </div>
+        </section>
+
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Notes</h3>
-          <div className={fieldBlockClass}>
+          <div className={cn(fieldBlockClass, "min-w-0")}>
             <label className="sr-only" htmlFor="job-edit-notes">
               Notes
             </label>
             <Textarea
               id="job-edit-notes"
-              className={addressTextareaClass}
+              className={cn(
+                addressTextareaClass,
+                "field-sizing-fixed box-border h-20 min-h-20 max-h-20 w-full min-w-0"
+              )}
               value={jobNotes}
               onChange={(e) => onJobNotesChange(e.target.value)}
-              placeholder="Gate code, symptoms, vehicle details, etc."
-              rows={4}
+              placeholder="Gate code, symptoms, access notes, etc."
+              rows={3}
             />
           </div>
         </section>
@@ -337,7 +357,13 @@ export function JobEditWorkflow({
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </div>
 
-      <footer className="mt-auto shrink-0 border-t border-border/60 bg-card px-5 py-4">
+      {/* Sticky footer — always visible; body scrolls above it. */}
+      <footer
+        className={cn(
+          "shrink-0 border-t border-border/60 bg-card px-4 pt-3 sm:px-5 sm:pt-4",
+          "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+        )}
+      >
         <Button
           type="button"
           className="h-11 w-full shadow-[0_0_14px_rgba(59,130,246,0.35)] ring-1 ring-primary/40"
@@ -353,17 +379,15 @@ export function JobEditWorkflow({
             "Save Changes"
           )}
         </Button>
-        <div className="mt-3 border-t border-border/40 pt-3">
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 py-2 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={onDeleteRequest}
-            disabled={saving || deleting}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-            Delete job
-          </button>
-        </div>
+        <button
+          type="button"
+          className="mt-2 flex w-full items-center justify-center gap-2 py-1.5 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onDeleteRequest}
+          disabled={saving || deleting}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+          Delete job
+        </button>
       </footer>
     </div>
   )

@@ -51,7 +51,7 @@ export function SchedulerJobSlideSheet({
             role="dialog"
             aria-modal="true"
             className={cn(
-              "scheduler-job-detail-sheet scheduler-job-detail-panel fixed inset-y-0 right-0 z-[1410] flex w-full flex-col border-l border-border/60 bg-card shadow-lg",
+              "scheduler-job-detail-sheet scheduler-job-detail-panel fixed inset-y-0 right-0 z-[1410] flex h-dvh max-h-dvh w-full flex-col overflow-hidden border-l border-border/60 bg-card shadow-lg",
               WORKSPACE_SHEET_CLASS,
               className
             )}
@@ -60,7 +60,7 @@ export function SchedulerJobSlideSheet({
             exit={{ x: "100%" }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            {children}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
           </motion.aside>
         </>
       ) : null}
