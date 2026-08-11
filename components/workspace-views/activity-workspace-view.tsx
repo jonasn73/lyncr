@@ -71,6 +71,7 @@ import {
   formatGroupedCallCountLabel,
   formatGroupedCallSummary,
   groupCallsByPhoneAndDay,
+  pickGroupJobActivityCall,
   type GroupedActivityCall,
 } from "@/lib/activity-call-groups"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
@@ -987,25 +988,93 @@ function CallerNameWithCount({
   )
 }
 
-/** One expanded leg: status, time, duration, and row actions. */
+/** Shared Call / book / CRM strip — used once at group level when a day-group is expanded. */
+function ActivityGroupActionBar({
+  call,
+  className,
+}: {
+  call: UiCallRecord
+  className?: string
+}) {
+  // Classify from the representative (usually latest) leg for Call-back styling.
+  const st = classifyCall(call)
+  const missed = isMissedActivityStatus(st)
+  const hold = isHoldActivityStatus(st) || st === "hold_press1"
+  return (
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+      {canCallBack(call) ? (
+        <CallBackButton
+          phone={call.callerNumber}
+          compact
+          className="!h-8 min-w-0 flex-1"
+          openIntakeDraft={needsRevenueRescue(call) || hold}
+          intakeCall={call}
+          missed={missed}
+          hold={hold && !missed}
+        />
+      ) : null}
+      <SendBookLinkButton
+        phone={call.callerNumber}
+        callerName={call.callerName}
+        businessLine={call.targetLineE164}
+        callLogId={call.id}
+        compact
+        className={cn("!h-8 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
+      />
+      {call.callerNumber && call.callerNumber !== "—" ? (
+        <Link
+          href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
+          aria-label="Open CRM"
+          title="CRM"
+        >
+          CRM
+        </Link>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * One expanded leg: status, time, duration.
+ * When `lean` is true (multi-call group), hide Call/CRM spam and the repeated job card —
+ * those live once on the group shell instead.
+ */
 function ActivityCallLegActions({
   call,
   lineLabelMap,
   onOpenDetails,
   showLine = false,
+  lean = false,
+  showIntake = true,
 }: {
   call: UiCallRecord
   lineLabelMap: Map<string, string>
   onOpenDetails: (call: UiCallRecord) => void
   showLine?: boolean
+  /** Compact chronology-only leg for multi-call groups. */
+  lean?: boolean
+  /** When false, skip intake / job card (shown once at group level). */
+  showIntake?: boolean
 }) {
   const st = classifyCall(call)
-  const missed = isMissedActivityStatus(st)
-  const hold = isHoldActivityStatus(st) || st === "hold_press1"
   const targetLabel = resolveBusinessLineLabel(call.targetLineE164, lineLabelMap)
-  const timeline = buildCallActionsTimeline(call)
+  // In lean mode, keep only answer/missed chronology — intake lines live on the group job card.
+  const timeline = buildCallActionsTimeline(call).filter((line) => {
+    if (!lean || showIntake) return true
+    const action = call.activity?.intakeAction
+    if (action && line === action) return false
+    if (call.activity?.intakeDetail && line === call.activity.intakeDetail) return false
+    return true
+  })
   return (
-    <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2">
+    <div
+      className={cn(
+        "space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2",
+        lean && "space-y-1.5"
+      )}
+    >
       <div className="flex min-w-0 items-start gap-2">
         <ActivityStatusPill status={st} dense />
         <div className="min-w-0 flex-1">
@@ -1023,7 +1092,7 @@ function ActivityCallLegActions({
       </div>
       {timeline.length > 0 ? (
         <ul className="space-y-0.5 px-0.5">
-          {timeline.slice(0, 2).map((line, i) => (
+          {timeline.slice(0, lean ? 1 : 2).map((line, i) => (
             <li key={`${call.id}-tl-${i}`} className="flex gap-1.5 text-[10px] text-zinc-500">
               <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
               <span>{line}</span>
@@ -1031,39 +1100,11 @@ function ActivityCallLegActions({
           ))}
         </ul>
       ) : null}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {canCallBack(call) ? (
-          <CallBackButton
-            phone={call.callerNumber}
-            compact
-            className="!h-8 min-w-0 flex-1"
-            openIntakeDraft={needsRevenueRescue(call) || hold}
-            intakeCall={call}
-            missed={missed}
-            hold={hold && !missed}
-          />
-        ) : null}
-        <SendBookLinkButton
-          phone={call.callerNumber}
-          callerName={call.callerName}
-          businessLine={call.targetLineE164}
-          callLogId={call.id}
-          compact
-          className={cn("!h-8 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
-        />
-        {call.callerNumber && call.callerNumber !== "—" ? (
-          <Link
-            href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
-            aria-label="Open CRM"
-            title="CRM"
-          >
-            CRM
-          </Link>
-        ) : null}
-      </div>
-      {call.activity ? (
+      {/* Full single-call rows keep Call / book / CRM on the leg itself. */}
+      {!lean ? (
+        <ActivityGroupActionBar call={call} />
+      ) : null}
+      {showIntake && call.activity ? (
         <ActivityIntakeSummary
           activity={call.activity}
           compact
@@ -1121,12 +1162,16 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
         const st = classifyCall(call)
         const expanded = expandedKey === call.groupKey
         const missed = isMissedActivityStatus(st)
+        const multi = call.count > 1
+        // One shared job card for the day-group (avoid pasting Lockout · vehicle on every leg).
+        const jobCall = multi ? pickGroupJobActivityCall(call.members) : null
         const intakeShort =
           call.activity?.intakeAction === "No intake recorded"
             ? "No intake"
             : call.activity?.intakeAction || null
         // Don't show “Pending time” on hold/missed rows when it came from another lead on this phone.
         const showIntakeShort =
+          !expanded &&
           intakeShort &&
           intakeShort !== "No intake" &&
           !(intakeShort === "Pending time" && (isMissedActivityStatus(st) || isHoldActivityStatus(st)))
@@ -1140,8 +1185,8 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
             )}
           >
             {/*
-              Collapsed (default): latest status + name / full phone / N calls · time + chevron.
-              Expanded: each same-day leg with status, duration, time, and actions.
+              Collapsed: status · name (+ N calls) · full phone · latest time/duration/intake · chevron.
+              Expanded: compact header only — chronology + actions live below (no duplicate summary).
             */}
             <button
               type="button"
@@ -1170,27 +1215,22 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 >
                   {call.callerNumber}
                 </p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
-                  <span className="shrink-0 tabular-nums">
-                    {formatDuration(call.durationSeconds)}
-                  </span>
-                  <span className="shrink-0 text-zinc-600">·</span>
-                  <CallTimeDisplay call={call} variant="inline" />
-                  {call.count > 1 ? (
-                    <>
-                      <span className="shrink-0 text-zinc-600">·</span>
-                      <span className="shrink-0 text-zinc-500">
-                        {call.count} calls
-                      </span>
-                    </>
-                  ) : null}
-                  {showIntakeShort ? (
-                    <>
-                      <span className="shrink-0 text-zinc-600">·</span>
-                      <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
-                    </>
-                  ) : null}
-                </p>
+                {/* Collapsed only: latest duration · time · intake (N calls already on the name). */}
+                {!expanded ? (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
+                    <CallTimeDisplay call={call} variant="inline" />
+                    <span className="shrink-0 text-zinc-600">·</span>
+                    <span className="shrink-0 tabular-nums">
+                      {formatDuration(call.durationSeconds)}
+                    </span>
+                    {showIntakeShort ? (
+                      <>
+                        <span className="shrink-0 text-zinc-600">·</span>
+                        <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
               </span>
               <ChevronDown
                 className={cn(
@@ -1201,21 +1241,35 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               />
             </button>
 
-            {/* Expanded: one card per call that day (newest first). */}
+            {/* Expanded: group actions + one job card, then lean per-call chronology. */}
             {expanded ? (
               <div className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
+                {multi ? (
+                  <>
+                    <ActivityGroupActionBar call={call} />
+                    {jobCall?.activity ? (
+                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-2.5 py-2">
+                        <ActivityIntakeSummary
+                          activity={jobCall.activity}
+                          compact
+                          callerPhone={jobCall.callerNumber}
+                          call={jobCall}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
                 {call.members.map((leg) => (
                   <ActivityCallLegActions
                     key={leg.id}
                     call={leg}
                     lineLabelMap={lineLabelMap}
                     onOpenDetails={openDetails}
-                    showLine={call.count === 1}
+                    showLine={!multi}
+                    lean={multi}
+                    showIntake={!multi}
                   />
                 ))}
-                {call.count > 1 ? (
-                  <p className="px-0.5 text-[11px] text-slate-500">{formatGroupedCallSummary(call)}</p>
-                ) : null}
               </div>
             ) : null}
           </li>
@@ -1419,14 +1473,20 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <tr className="bg-zinc-950/50">
                       <WorkspaceTd colSpan={8} className="!px-3 !py-3">
                         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                          {call.members.map((leg) => (
-                            <ActivityCallLegActions
-                              key={leg.id}
-                              call={leg}
-                              lineLabelMap={lineLabelMap}
-                              onOpenDetails={openDetails}
-                            />
-                          ))}
+                          {call.members.map((leg) => {
+                            const multi = call.count > 1
+                            return (
+                              <ActivityCallLegActions
+                                key={leg.id}
+                                call={leg}
+                                lineLabelMap={lineLabelMap}
+                                onOpenDetails={openDetails}
+                                lean={multi}
+                                // Parent row already shows intake + Call/CRM once for multi groups.
+                                showIntake={!multi}
+                              />
+                            )
+                          })}
                         </div>
                       </WorkspaceTd>
                     </tr>

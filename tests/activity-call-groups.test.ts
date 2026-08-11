@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   activityCallCalendarDayKey,
   activityCallerPhoneKey,
+  callHasMeaningfulActivity,
   filterActivityCallGroups,
   formatCallChronologyStatus,
   formatGroupedCallCountLabel,
   formatGroupedCallSummary,
   groupCallsByPhoneAndDay,
   groupConsecutiveCallsByPhone,
+  pickGroupJobActivityCall,
   resolveCallWasAnswered,
 } from "@/lib/activity-call-groups"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
@@ -240,5 +242,44 @@ describe("groupConsecutiveCallsByPhone", () => {
         })
       )
     ).toBe(false)
+  })
+})
+
+describe("pickGroupJobActivityCall", () => {
+  it("picks the newest leg with real intake and skips empty No intake chips", () => {
+    const job = makeCall({
+      id: "job",
+      callerNumber: "+15551234567",
+      createdAt: "2026-07-12T15:31:00.000Z",
+      activity: {
+        intakeAction: "Sent to dispatch",
+        intakeDetail: "Lockout · 2007 CHEVROLET Avalanche",
+        scheduleLabel: "Tue, Aug 11 · 4:00 PM",
+        scheduleAt: "2026-08-11T20:00:00.000Z",
+        leadId: "lead-1",
+        callerScheduleHint: null,
+        callerPoolCount: 1,
+      },
+    })
+    const empty = makeCall({
+      id: "empty",
+      callerNumber: "+15551234567",
+      createdAt: "2026-07-12T15:00:00.000Z",
+      activity: {
+        intakeAction: "No intake recorded",
+        intakeDetail: null,
+        scheduleLabel: null,
+        scheduleAt: null,
+        leadId: null,
+        callerScheduleHint: null,
+        callerPoolCount: 0,
+      },
+    })
+    expect(callHasMeaningfulActivity(empty)).toBe(false)
+    expect(callHasMeaningfulActivity(job)).toBe(true)
+    // Newest-first list: empty first would still lose to the meaningful job below.
+    expect(pickGroupJobActivityCall([empty, job])?.id).toBe("job")
+    expect(pickGroupJobActivityCall([job, empty])?.id).toBe("job")
+    expect(pickGroupJobActivityCall([empty])).toBeNull()
   })
 })

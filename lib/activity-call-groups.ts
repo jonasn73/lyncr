@@ -261,3 +261,29 @@ export function formatCallChronologyTime(call: UiCallRecord): string {
 export function formatCallChronologyLine(call: UiCallRecord): string {
   return `${formatCallChronologyTime(call)} (${formatCallChronologyStatus(call)})`
 }
+
+/** True when this leg has a real job / intake card worth showing once for the group. */
+export function callHasMeaningfulActivity(call: UiCallRecord): boolean {
+  const activity = call.activity
+  if (!activity) return false
+  // Empty “No intake” chips are noise when the same job already appears on another leg.
+  if (activity.intakeAction === "No intake recorded") return false
+  // Prefer anything with a lead, schedule, or written intake detail.
+  if (activity.leadId) return true
+  if (activity.scheduleLabel || activity.scheduleAt) return true
+  if (activity.intakeDetail) return true
+  // Named status like “Sent to dispatch” / “Booked” counts even without a lead id yet.
+  return Boolean(activity.intakeAction?.trim())
+}
+
+/**
+ * Pick the single member that should own the group job card (newest meaningful first).
+ * Returns null when no leg has real intake — callers hide the card then.
+ */
+export function pickGroupJobActivityCall(members: UiCallRecord[]): UiCallRecord | null {
+  // Members are newest-first; first meaningful hit is the latest job touch for this phone/day.
+  for (const member of members) {
+    if (callHasMeaningfulActivity(member)) return member
+  }
+  return null
+}
