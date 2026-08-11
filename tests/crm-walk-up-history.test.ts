@@ -55,6 +55,25 @@ describe("emailFromCustomerNotes", () => {
   })
 })
 
+describe("notesWithCustomerEmail", () => {
+  it("adds Email: when notes are empty", async () => {
+    const { notesWithCustomerEmail } = await import("@/lib/crm-walk-up-history")
+    expect(notesWithCustomerEmail("", "a@b.com")).toBe("Email: a@b.com")
+  })
+
+  it("replaces an existing Email: line", async () => {
+    const { notesWithCustomerEmail } = await import("@/lib/crm-walk-up-history")
+    expect(notesWithCustomerEmail("Email: old@x.com\nGate code 12", "new@x.com")).toBe(
+      "Email: new@x.com\nGate code 12"
+    )
+  })
+
+  it("clears Email: when email is blank", async () => {
+    const { notesWithCustomerEmail } = await import("@/lib/crm-walk-up-history")
+    expect(notesWithCustomerEmail("Email: old@x.com\nGate", "")).toBe("Gate")
+  })
+})
+
 describe("walkUpHistoryFromPayments", () => {
   it("builds a Paid walk-up AKL card from completed job-less charges", () => {
     const cards = walkUpHistoryFromPayments({

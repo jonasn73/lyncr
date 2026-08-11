@@ -152,6 +152,7 @@ export function JobDetailDrawer({
   const source = hydratedEvent ?? listSource
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
+  const [customerEmail, setCustomerEmail] = useState("")
   const [serviceQuoteTypeId, setServiceQuoteTypeId] = useState<ServiceQuoteTypeId>("lockout")
   const [vehicleYear, setVehicleYear] = useState("")
   const [vehicleMake, setVehicleMake] = useState("")
@@ -273,6 +274,7 @@ export function JobDetailDrawer({
     return {
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
+      customer_email: customerEmail.trim().toLowerCase() || null,
       job_type: dispatchJobTypeFromServiceQuoteTypeId(serviceQuoteTypeId),
       duration_minutes: durationMinutes,
       vehicle_year: vehicleYear.trim() || null,
@@ -306,6 +308,7 @@ export function JobDetailDrawer({
     assignedTechId,
     customerName,
     customerPhone,
+    customerEmail,
     durationMinutes,
     jobNotes,
     keyChipset,
@@ -361,6 +364,7 @@ export function JobDetailDrawer({
     setLocalJobStatus(scheduledEvent?.job_status ?? poolWithTech?.job_status ?? null)
     setCustomerName(source.customer_name ?? "")
     setCustomerPhone(source.customer_phone ?? "")
+    setCustomerEmail(source.customer_email ?? "")
     setServiceQuoteTypeId(
       source.service_quote_type_id
         ? normalizeServiceQuoteTypeId(source.service_quote_type_id)
@@ -415,13 +419,15 @@ export function JobDetailDrawer({
   }, [open, jobId, scheduleIntent])
 
   // Garage as vehicle SoT when job collected YMM is blank (Book / returning caller sheet).
+  // Also backfill Customer email from CRM notes when the lead has none yet.
   useEffect(() => {
     if (!open || !jobId) return
     const phone = (customerPhone || source?.customer_phone || "").trim()
     if (!phone) return
     const hasYmm =
       Boolean(vehicleYear.trim()) || Boolean(vehicleMake.trim()) || Boolean(vehicleModel.trim())
-    if (hasYmm) return
+    const needsEmail = !customerEmail.trim()
+    if (hasYmm && !needsEmail) return
     let cancelled = false
     void fetch(`/api/customers?phone=${encodeURIComponent(phone)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -435,15 +441,24 @@ export function JobDetailDrawer({
       .then(async (res) => {
         if (!res || !res.ok || cancelled) return
         const json = (await res.json().catch(() => null)) as {
-          data?: { vehicles?: Array<{ year?: string; make?: string; model?: string; vin?: string; fcc_id?: string }> }
+          data?: {
+            customer?: { notes?: string }
+            vehicles?: Array<{ year?: string; make?: string; model?: string; vin?: string; fcc_id?: string }>
+          }
         } | null
         const garage = json?.data?.vehicles?.[0]
-        if (!garage || cancelled) return
-        setVehicleYear((prev) => prev.trim() || String(garage.year ?? "").trim())
-        setVehicleMake((prev) => prev.trim() || String(garage.make ?? "").trim())
-        setVehicleModel((prev) => prev.trim() || String(garage.model ?? "").trim())
-        setVehicleVin((prev) => prev.trim() || String(garage.vin ?? "").trim())
-        setKeyFccId((prev) => prev.trim() || String(garage.fcc_id ?? "").trim())
+        if (garage && !cancelled && !hasYmm) {
+          setVehicleYear((prev) => prev.trim() || String(garage.year ?? "").trim())
+          setVehicleMake((prev) => prev.trim() || String(garage.make ?? "").trim())
+          setVehicleModel((prev) => prev.trim() || String(garage.model ?? "").trim())
+          setVehicleVin((prev) => prev.trim() || String(garage.vin ?? "").trim())
+          setKeyFccId((prev) => prev.trim() || String(garage.fcc_id ?? "").trim())
+        }
+        if (needsEmail && !cancelled) {
+          const { emailFromCustomerNotes } = await import("@/lib/crm-walk-up-history")
+          const fromNotes = emailFromCustomerNotes(json?.data?.customer?.notes)
+          if (fromNotes) setCustomerEmail((prev) => prev.trim() || fromNotes)
+        }
       })
       .catch(() => {})
     return () => {
@@ -453,6 +468,7 @@ export function JobDetailDrawer({
     open,
     jobId,
     customerPhone,
+    customerEmail,
     source?.customer_phone,
     vehicleYear,
     vehicleMake,
@@ -486,6 +502,7 @@ export function JobDetailDrawer({
     setLocalJobStatus(event.job_status ?? null)
     setCustomerName(event.customer_name ?? "")
     setCustomerPhone(event.customer_phone ?? "")
+    setCustomerEmail(event.customer_email ?? "")
     setServiceQuoteTypeId(
       event.service_quote_type_id
         ? normalizeServiceQuoteTypeId(event.service_quote_type_id)
@@ -863,6 +880,7 @@ export function JobDetailDrawer({
               lifecyclePhase={lifecyclePhase}
               customerName={customerName}
               customerPhone={customerPhone}
+              customerEmail={customerEmail}
               location={location}
               jobNotes={jobNotes}
               serviceQuoteTypeId={serviceQuoteTypeId}
@@ -880,6 +898,7 @@ export function JobDetailDrawer({
               onBackToOverview={() => setViewMode("overview")}
               onCustomerNameChange={setCustomerName}
               onCustomerPhoneChange={setCustomerPhone}
+              onCustomerEmailChange={setCustomerEmail}
               onLocationChange={setLocation}
               onJobNotesChange={setJobNotes}
               onServiceTypeChange={handleServiceTypeChange}

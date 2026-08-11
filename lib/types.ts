@@ -178,6 +178,8 @@ export interface SchedulerEvent {
   id: string
   customer_name: string | null
   customer_phone: string | null
+  /** Optional email for Send invoice / receipts (collected.customer_email). */
+  customer_email?: string | null
   location: string | null
   summary: string | null
   disposition: string | null
@@ -267,6 +269,8 @@ export interface UnassignedPoolJob {
   id: string
   customer_name: string | null
   customer_phone: string | null
+  /** Optional email for Send invoice / receipts (collected.customer_email). */
+  customer_email?: string | null
   location: string | null
   neighborhood: string | null
   summary: string | null

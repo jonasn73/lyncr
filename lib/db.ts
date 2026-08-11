@@ -9378,6 +9378,7 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
     customer_phone:
       pick(["callback_number", "caller_number", "phone", "callback"]) ||
       (row.caller_e164 != null ? String(row.caller_e164) : null),
+    customer_email: pick(["customer_email", "email"]),
     location: pick(["job_address", "location", "service_address", "address", "address_line1"]),
     summary: row.summary != null ? String(row.summary) : null,
     disposition,
@@ -9976,6 +9977,8 @@ export async function updateOwnerSchedulerJob(params: {
   leadId: string
   customerName: string
   customerPhoneE164: string
+  /** Optional — saved on lead collected + mirrored to CRM notes for Send invoice. */
+  customerEmail?: string | null
   jobType: string
   scheduledAtIso?: string | null
   durationMinutes?: number
@@ -10040,6 +10043,13 @@ export async function updateOwnerSchedulerJob(params: {
     caller_number: params.customerPhoneE164,
     phone: params.customerPhoneE164,
     job_type: jobType,
+  }
+
+  // Persist optional customer email for Send invoice (also mirrored to CRM notes below).
+  if (params.customerEmail !== undefined) {
+    const email = params.customerEmail?.trim().toLowerCase().slice(0, 160) || null
+    collectedPatch.customer_email = email
+    collectedPatch.email = email
   }
 
   if (params.durationMinutes != null) {
@@ -10307,6 +10317,23 @@ export async function updateOwnerSchedulerJob(params: {
       `
     } catch {
       /* collected mirror optional */
+    }
+  }
+
+  // Mirror email onto the CRM customer notes line used by Send invoice prefills.
+  if (params.customerEmail !== undefined) {
+    try {
+      const { notesWithCustomerEmail } = await import("@/lib/crm-walk-up-history")
+      const email = params.customerEmail?.trim().toLowerCase().slice(0, 160) || ""
+      const customer = await getCustomerByPhoneForUser(params.ownerUserId, params.customerPhoneE164)
+      if (customer) {
+        const nextNotes = notesWithCustomerEmail(customer.notes, email)
+        if (nextNotes !== (customer.notes || "").trim()) {
+          await updateCustomerFieldsForUser(params.ownerUserId, customer.id, { notes: nextNotes })
+        }
+      }
+    } catch (e) {
+      console.warn("[updateOwnerSchedulerJob] CRM email sync skipped", e)
     }
   }
 
@@ -10590,6 +10617,7 @@ function poolJobFromRow(row: Record<string, unknown>): import("@/lib/types").Una
     id: ev.id,
     customer_name: ev.customer_name,
     customer_phone: ev.customer_phone,
+    customer_email: ev.customer_email,
     location: ev.location,
     neighborhood: neighborhoodFromLocation(ev.location),
     summary: ev.summary,

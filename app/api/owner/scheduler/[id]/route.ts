@@ -58,6 +58,8 @@ type PatchSchedulerBody = {
   scheduled_at?: string | null
   customer_name?: string
   customer_phone?: string
+  /** Optional customer email for Send invoice (lead collected + CRM notes). */
+  customer_email?: string | null
   job_type?: string
   duration_minutes?: number
   assigned_tech_id?: string | null
@@ -89,6 +91,7 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
   return (
     body.customer_name != null ||
     body.customer_phone != null ||
+    body.customer_email !== undefined ||
     body.job_type != null ||
     body.duration_minutes != null ||
     body.assigned_tech_id !== undefined ||
@@ -191,6 +194,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       leadId: leadId.trim(),
       customerName,
       customerPhoneE164,
+      customerEmail: body.customer_email !== undefined ? body.customer_email : undefined,
       jobType,
       scheduledAtIso,
       durationMinutes: body.duration_minutes,

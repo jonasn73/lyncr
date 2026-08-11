@@ -88,6 +88,10 @@ export async function POST(req: NextRequest) {
     }
     if (!customerName) customerName = (customer.display_name || "").trim()
     if (!customerPhone) customerPhone = customer.phone_e164
+    if (!customerEmail) {
+      const { emailFromCustomerNotes } = await import("@/lib/crm-walk-up-history")
+      customerEmail = emailFromCustomerNotes(customer.notes)
+    }
     if (!addressLine1) {
       addressLine1 = [customer.address_line1, customer.city, customer.region, customer.postal_code]
         .filter(Boolean)
@@ -103,6 +107,7 @@ export async function POST(req: NextRequest) {
     }
     if (!customerName) customerName = (event.customer_name || "").trim()
     if (!customerPhone) customerPhone = (event.customer_phone || "").trim()
+    if (!customerEmail) customerEmail = (event.customer_email || "").trim()
     if (!serviceLabel) serviceLabel = (event.job_type || "").trim()
     if (!vehicleLabel) {
       vehicleLabel = [event.vehicle_year, event.vehicle_make, event.vehicle_model]

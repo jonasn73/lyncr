@@ -14,6 +14,23 @@ export function emailFromCustomerNotes(notes: string | null | undefined): string
   return match?.[1]?.trim() || ""
 }
 
+/** Write or replace the CRM "Email: …" notes line used by Send invoice prefills. */
+export function notesWithCustomerEmail(
+  notes: string | null | undefined,
+  email: string | null | undefined
+): string {
+  // Drop any existing Email: line so we do not stack duplicates
+  const withoutEmail = String(notes ?? "")
+    .replace(/(^|\n)Email:\s*[^\n]*/gi, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+  const trimmed = String(email ?? "").trim().toLowerCase().slice(0, 160)
+  // Clearing email leaves other notes alone
+  if (!trimmed) return withoutEmail
+  // Keep Email: first so emailFromCustomerNotes stays reliable
+  return withoutEmail ? `Email: ${trimmed}\n${withoutEmail}` : `Email: ${trimmed}`
+}
+
 /** True when this history row is a synthetic walk-up card (not a real ai_leads id). */
 export function isWalkUpHistoryId(id: string): boolean {
   // Synthetic ids always start with this prefix so Scheduler nav can skip them

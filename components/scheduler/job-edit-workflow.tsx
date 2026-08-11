@@ -20,21 +20,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { VinLookupField } from "@/components/vin-lookup-field"
 import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 
-const fieldBlockClass = cn(SCHEDULER_FIELD_STACK, "w-full min-w-0")
+// Tight label→input stack so the form fits with less scroll
+const fieldBlockClass = cn(SCHEDULER_FIELD_STACK, "w-full min-w-0 gap-0.5")
 const labelClass = SCHEDULER_METADATA_LABEL
-/** Section cards — overflow-visible so nested VIN/inputs are never clipped. */
-const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-3 sm:p-4")
-const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-2 block")
-const inputClass = cn(SCHEDULER_INPUT, "h-9")
+/** Compact section cards — overflow-visible so nested VIN/inputs are never clipped. */
+const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-2 sm:p-2.5")
+const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-1 block")
+// Slightly shorter inputs to reclaim vertical space
+const inputClass = cn(SCHEDULER_INPUT, "h-8")
 const addressTextareaClass = SCHEDULER_TEXTAREA
-/** Compact stacks on mobile so AKL + vehicle still fits above Save. */
-const stackClass = "flex flex-col gap-2 sm:gap-3"
+/** Dense stacks on laptop/mobile so the whole Edit Job form needs minimal scrolling. */
+const stackClass = "flex flex-col gap-1.5"
 
 export type JobEditWorkflowProps = {
   statusLabel: string
   lifecyclePhase: SchedulerLifecyclePhase
   customerName: string
   customerPhone: string
+  customerEmail: string
   location: string
   jobNotes: string
   serviceQuoteTypeId: ServiceQuoteTypeId
@@ -52,6 +55,7 @@ export type JobEditWorkflowProps = {
   onBackToOverview: () => void
   onCustomerNameChange: (value: string) => void
   onCustomerPhoneChange: (value: string) => void
+  onCustomerEmailChange: (value: string) => void
   onLocationChange: (value: string) => void
   onJobNotesChange: (value: string) => void
   onServiceTypeChange: (id: ServiceQuoteTypeId) => void
@@ -74,6 +78,7 @@ export function JobEditWorkflow({
   lifecyclePhase: _lifecyclePhase,
   customerName,
   customerPhone,
+  customerEmail,
   location,
   jobNotes,
   serviceQuoteTypeId,
@@ -91,6 +96,7 @@ export function JobEditWorkflow({
   onBackToOverview,
   onCustomerNameChange,
   onCustomerPhoneChange,
+  onCustomerEmailChange,
   onLocationChange,
   onJobNotesChange,
   onServiceTypeChange,
@@ -121,11 +127,11 @@ export function JobEditWorkflow({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      <header className="relative shrink-0 border-b border-border/60 px-4 py-3 pr-14 sm:px-5 sm:py-4 sm:pr-16">
-        <div className="flex items-start justify-between gap-3">
+      <header className="relative shrink-0 border-b border-border/60 px-3 py-2 pr-12 sm:px-4 sm:pr-14">
+        <div className="flex items-start justify-between gap-2">
           <div>
             <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
-            <p className={cn(SCHEDULER_METADATA_LABEL, "mt-1 text-slate-400")}>{statusLabel}</p>
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mt-0.5 text-slate-400")}>{statusLabel}</p>
           </div>
           <button
             type="button"
@@ -140,38 +146,57 @@ export function JobEditWorkflow({
       {/* Scrollable body — padding clears sticky Save footer so nothing tucks under it. */}
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 py-3 sm:px-5 sm:py-4",
+          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-2 sm:px-4",
           stackClass,
           // Extra bottom space so last field (Notes) clears the sticky footer + safe area.
-          "pb-[calc(env(safe-area-inset-bottom)+7.5rem)] sm:pb-6"
+          "pb-[calc(env(safe-area-inset-bottom)+6.75rem)] sm:pb-5"
         )}
       >
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Customer details</h3>
           <div className={stackClass}>
-            <div className={fieldBlockClass}>
-              <label className={labelClass} htmlFor="job-edit-customer-name">
-                Name
-              </label>
-              <Input
-                id="job-edit-customer-name"
-                className={inputClass}
-                value={customerName}
-                onChange={(e) => onCustomerNameChange(e.target.value)}
-                placeholder="Customer name"
-              />
+            {/* Name | Phone side-by-side to cut vertical height */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-customer-name">
+                  Name
+                </label>
+                <Input
+                  id="job-edit-customer-name"
+                  className={inputClass}
+                  value={customerName}
+                  onChange={(e) => onCustomerNameChange(e.target.value)}
+                  placeholder="Customer name"
+                />
+              </div>
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-customer-phone">
+                  Phone
+                </label>
+                <Input
+                  id="job-edit-customer-phone"
+                  type="tel"
+                  className={inputClass}
+                  value={customerPhone}
+                  onChange={(e) => onCustomerPhoneChange(e.target.value)}
+                  placeholder="(502) 555-0100"
+                />
+              </div>
             </div>
+            {/* Email used by Send invoice — saved to lead + CRM */}
             <div className={fieldBlockClass}>
-              <label className={labelClass} htmlFor="job-edit-customer-phone">
-                Phone
+              <label className={labelClass} htmlFor="job-edit-customer-email">
+                Customer email
               </label>
               <Input
-                id="job-edit-customer-phone"
-                type="tel"
+                id="job-edit-customer-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
                 className={inputClass}
-                value={customerPhone}
-                onChange={(e) => onCustomerPhoneChange(e.target.value)}
-                placeholder="(502) 555-0100"
+                value={customerEmail}
+                onChange={(e) => onCustomerEmailChange(e.target.value)}
+                placeholder="customer@email.com"
               />
             </div>
             <div className={fieldBlockClass}>
@@ -180,11 +205,14 @@ export function JobEditWorkflow({
               </label>
               <textarea
                 id="job-edit-location"
-                className={cn(addressTextareaClass, "field-sizing-fixed min-h-[3.25rem] resize-none")}
+                className={cn(
+                  addressTextareaClass,
+                  "field-sizing-fixed min-h-[2.5rem] resize-none py-1.5"
+                )}
                 value={location}
                 onChange={(e) => onLocationChange(e.target.value)}
                 placeholder="Street address"
-                rows={2}
+                rows={1}
               />
             </div>
           </div>
@@ -193,7 +221,7 @@ export function JobEditWorkflow({
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Job settings</h3>
           <div className={stackClass}>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 gap-1.5">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-scheduled-date">
                   Scheduled date
@@ -220,43 +248,46 @@ export function JobEditWorkflow({
               </div>
             </div>
 
-            <div className={fieldBlockClass}>
-              <label className={labelClass} htmlFor="job-edit-service-type">
-                Service type
-              </label>
-              <select
-                id="job-edit-service-type"
-                className={inputClass}
-                value={serviceQuoteTypeId}
-                onChange={(e) => onServiceTypeChange(e.target.value as ServiceQuoteTypeId)}
-              >
-                {SERVICE_QUOTE_TYPES.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Service type | Price side-by-side */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-service-type">
+                  Service type
+                </label>
+                <select
+                  id="job-edit-service-type"
+                  className={inputClass}
+                  value={serviceQuoteTypeId}
+                  onChange={(e) => onServiceTypeChange(e.target.value as ServiceQuoteTypeId)}
+                >
+                  {SERVICE_QUOTE_TYPES.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={fieldBlockClass}>
-              <label className={labelClass} htmlFor="job-edit-price">
-                Price
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
-                  $
-                </span>
-                <Input
-                  id="job-edit-price"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={1}
-                  className={cn(inputClass, "pl-7")}
-                  value={editablePrice}
-                  onChange={(e) => onEditablePriceChange(e.target.value)}
-                  placeholder="0"
-                />
+              <div className={fieldBlockClass}>
+                <label className={labelClass} htmlFor="job-edit-price">
+                  Price
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
+                    $
+                  </span>
+                  <Input
+                    id="job-edit-price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    className={cn(inputClass, "pl-6")}
+                    value={editablePrice}
+                    onChange={(e) => onEditablePriceChange(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -273,7 +304,7 @@ export function JobEditWorkflow({
             ) : null}
           </h3>
           <div className={stackClass}>
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-vehicle-year">
                   Year
@@ -344,12 +375,12 @@ export function JobEditWorkflow({
               id="job-edit-notes"
               className={cn(
                 addressTextareaClass,
-                "field-sizing-fixed box-border h-20 min-h-20 max-h-20 w-full min-w-0"
+                "field-sizing-fixed box-border h-14 min-h-14 max-h-14 w-full min-w-0 py-1.5"
               )}
               value={jobNotes}
               onChange={(e) => onJobNotesChange(e.target.value)}
               placeholder="Gate code, symptoms, access notes, etc."
-              rows={3}
+              rows={2}
             />
           </div>
         </section>
@@ -360,13 +391,13 @@ export function JobEditWorkflow({
       {/* Sticky footer — always visible; body scrolls above it. */}
       <footer
         className={cn(
-          "shrink-0 border-t border-border/60 bg-card px-4 pt-3 sm:px-5 sm:pt-4",
-          "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+          "shrink-0 border-t border-border/60 bg-card px-3 pt-2 sm:px-4 sm:pt-2.5",
+          "pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
         )}
       >
         <Button
           type="button"
-          className="h-11 w-full shadow-[0_0_14px_rgba(59,130,246,0.35)] ring-1 ring-primary/40"
+          className="h-10 w-full shadow-[0_0_14px_rgba(59,130,246,0.35)] ring-1 ring-primary/40"
           onClick={() => void handleSaveClick()}
           disabled={!canSave || saving || deleting || submitting}
         >
@@ -381,7 +412,7 @@ export function JobEditWorkflow({
         </Button>
         <button
           type="button"
-          className="mt-2 flex w-full items-center justify-center gap-2 py-1.5 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={onDeleteRequest}
           disabled={saving || deleting}
         >
