@@ -186,32 +186,59 @@ export function formatInvoiceMoney(cents: number): string {
   return fmtUsd(cents)
 }
 
-/** Plain-text invoice for SMS (includes web invoice link). */
+/** How the customer paid — prefers “Paid via Venmo” style notes. */
+export function invoicePaidHowLabel(invoice: PaymentInvoice): string {
+  const note = (invoice.paidNote || "").trim()
+  if (note) return note
+  return `Paid via ${invoice.paymentMethodLabel}`
+}
+
+/**
+ * Resend “from” with the shop’s business name as the display name.
+ * Keeps the verified mailbox (receipts@lyncr.app) so delivery still works.
+ */
+export function paymentInvoiceFromAddress(businessName: string): string {
+  const base =
+    process.env.RESEND_FROM_EMAIL?.trim() || "Lyncr <receipts@lyncr.app>"
+  const match = base.match(/^(.+?)\s*<([^>]+)>$/)
+  const emailAddr = match
+    ? match[2].trim()
+    : base.includes("@")
+      ? base.replace(/^.*<|>.*$/g, "").trim() || base
+      : "receipts@lyncr.app"
+  const name =
+    businessName.replace(/[<>"\n\r]/g, "").trim().slice(0, 60) || "Lyncr"
+  return `${name} <${emailAddr}>`
+}
+
+/** Absolute PDF download URL for this invoice (works in email + SMS). */
+export function paymentInvoicePdfUrl(invoice: PaymentInvoice): string {
+  const token =
+    invoice.receiptUrl.split("/r/").pop()?.split(/[?#]/)[0]?.trim() || ""
+  const appRoot = invoice.receiptUrl.replace(/\/r\/[^/?#]+.*$/, "").replace(/\/$/, "")
+  if (!token || !appRoot) return invoice.receiptUrl
+  return `${appRoot}/api/receipt/${encodeURIComponent(token)}/pdf`
+}
+
+/** Email subject — clear for reimbursement / insurance filing. */
+export function buildPaymentInvoiceEmailSubject(invoice: PaymentInvoice): string {
+  const amount = fmtUsd(invoice.totalCents)
+  return `Your ${invoice.businessName} invoice / receipt for reimbursement (${amount})`
+}
+
+/** Plain-text invoice for SMS — short, human, includes view + PDF link. */
 export function buildPaymentInvoiceSms(invoice: PaymentInvoice): string {
-  const billTo = invoice.customerName ? `\nBill to: ${invoice.customerName}` : ""
-  const vehicle = invoice.vehicleLabel ? `\nVehicle: ${invoice.vehicleLabel}` : ""
-  const vin = invoice.vehicleVin ? `\nVIN: ${invoice.vehicleVin}` : ""
-  const address = invoice.addressLine1 ? `\nAddress: ${invoice.addressLine1}` : ""
-  const paidNote = invoice.paidNote ? `\nNote: ${invoice.paidNote}` : ""
-  const lineBlock = invoice.lines
-    .map((l) => `${l.label}: ${fmtUsd(l.amountCents)}`)
-    .join("\n")
+  const amount = fmtUsd(invoice.totalCents)
+  const paidHow = invoicePaidHowLabel(invoice)
+  // Keep under typical SMS length while staying useful for reimbursement.
   return [
     `${invoice.businessName}`,
-    `INVOICE ${invoice.invoiceNumber}`,
-    `Paid ${invoice.paidAtLabel}`,
-    billTo.trim(),
-    vehicle.trim(),
-    vin.trim(),
-    address.trim(),
-    "———",
-    lineBlock,
-    "———",
-    `TOTAL PAID: ${fmtUsd(invoice.totalCents)}`,
-    `Paid by: ${invoice.paymentMethodLabel}`,
-    paidNote.trim(),
-    `View invoice: ${invoice.receiptUrl}`,
-    "Thank you for your business!",
+    `Your paid invoice / receipt for reimbursement — ${amount} (${paidHow}).`,
+    `Invoice ${invoice.invoiceNumber}`,
+    invoice.vehicleLabel ? `Vehicle: ${invoice.vehicleLabel}` : "",
+    invoice.vehicleVin ? `VIN: ${invoice.vehicleVin}` : "",
+    `View & download PDF: ${invoice.receiptUrl}`,
+    "Thank you!",
   ]
     .filter((line) => line.length > 0)
     .join("\n")
@@ -225,11 +252,14 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;")
 }
 
-/** HTML email that looks like a real invoice. */
+/** HTML email that looks like a real paid invoice / receipt. */
 export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
   const greeting = invoice.customerName
     ? `Hi ${escapeHtml(invoice.customerName)},`
     : "Hi,"
+  const paidHow = escapeHtml(invoicePaidHowLabel(invoice))
+  const amount = escapeHtml(fmtUsd(invoice.totalCents))
+  const pdfHref = escapeHtml(paymentInvoicePdfUrl(invoice))
   const rows = invoice.lines
     .map(
       (l) =>
@@ -244,7 +274,7 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
        <img src="${invoice.signaturePng}" alt="Signature" width="280" style="max-width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px;" />`
     : ""
   const phone = invoice.businessPhone
-    ? `<p style="margin:4px 0 0;font-size:13px;color:#64748b;">${escapeHtml(invoice.businessPhone)}</p>`
+    ? `<p style="margin:4px 0 0;font-size:13px;color:#94a3b8;">${escapeHtml(invoice.businessPhone)}</p>`
     : ""
 
   return `<!DOCTYPE html>
@@ -254,14 +284,23 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
     <tr><td align="center">
       <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <tr><td style="background:#0f172a;padding:22px 24px;">
-          <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;">Invoice</p>
-          <p style="margin:8px 0 0;font-size:22px;font-weight:700;color:#ffffff;">${escapeHtml(invoice.businessName)}</p>
-          ${phone}
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;">Invoice / receipt</p>
+                <p style="margin:8px 0 0;font-size:22px;font-weight:700;color:#ffffff;">${escapeHtml(invoice.businessName)}</p>
+                ${phone}
+              </td>
+              <td align="right" valign="top" style="padding-left:12px;">
+                <span style="display:inline-block;background:#059669;color:#ffffff;font-size:12px;font-weight:800;letter-spacing:0.08em;padding:8px 12px;border-radius:999px;">PAID</span>
+              </td>
+            </tr>
+          </table>
         </td></tr>
         <tr><td style="padding:24px;">
           <p style="margin:0 0 4px;font-size:15px;color:#334155;">${greeting}</p>
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#64748b;">
-            Thanks for your payment. Here is your itemized invoice.
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#64748b;">
+            Thanks for choosing ${escapeHtml(invoice.businessName)}. Here is your paid invoice / receipt for reimbursement — ${amount}, ${paidHow}.
           </p>
           <table width="100%" style="font-size:13px;margin-bottom:18px;">
             <tr>
@@ -273,17 +312,9 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
               <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.paidAtLabel)}</td>
             </tr>
             <tr>
-              <td style="color:#94a3b8;padding:2px 0;">Payment method</td>
-              <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.paymentMethodLabel)}</td>
+              <td style="color:#94a3b8;padding:2px 0;">Paid via</td>
+              <td style="text-align:right;color:#0f172a;">${paidHow}</td>
             </tr>
-            ${
-              invoice.paidNote
-                ? `<tr>
-              <td style="color:#94a3b8;padding:2px 0;">Note</td>
-              <td style="text-align:right;color:#0f172a;">${escapeHtml(invoice.paidNote)}</td>
-            </tr>`
-                : ""
-            }
             ${
               invoice.vehicleLabel
                 ? `<tr>
@@ -321,21 +352,24 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
             ${rows}
             <tr>
               <td style="padding:16px 0 0;font-size:16px;font-weight:800;color:#0f172a;">Total paid</td>
-              <td style="padding:16px 0 0;text-align:right;font-size:16px;font-weight:800;color:#059669;font-variant-numeric:tabular-nums;">${escapeHtml(fmtUsd(invoice.totalCents))}</td>
+              <td style="padding:16px 0 0;text-align:right;font-size:16px;font-weight:800;color:#059669;font-variant-numeric:tabular-nums;">${amount}</td>
             </tr>
           </table>
           ${sig}
           <p style="margin:24px 0 0;">
-            <a href="${escapeHtml(invoice.receiptUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 18px;border-radius:8px;">
-              View invoice online
+            <a href="${escapeHtml(invoice.receiptUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 18px;border-radius:8px;margin-right:8px;">
+              View invoice
+            </a>
+            <a href="${pdfHref}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 18px;border-radius:8px;">
+              Download PDF
             </a>
           </p>
           <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.4;">
-            Ref: ${escapeHtml(invoice.paymentIntentId)}
+            Keep this for your records or insurance reimbursement.
           </p>
         </td></tr>
       </table>
-      <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">Sent via Lyncr</p>
+      <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">Sent by ${escapeHtml(invoice.businessName)} · Powered by Lyncr</p>
     </td></tr>
   </table>
 </body>
@@ -343,16 +377,17 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
 }
 
 export function buildPaymentInvoiceEmailText(invoice: PaymentInvoice): string {
+  const paidHow = invoicePaidHowLabel(invoice)
+  const pdfUrl = paymentInvoicePdfUrl(invoice)
   return [
     invoice.customerName ? `Hi ${invoice.customerName},` : "Hi,",
     "",
-    `Thanks for your payment to ${invoice.businessName}.`,
+    `Thanks for choosing ${invoice.businessName}. Here is your paid invoice / receipt for reimbursement.`,
     "",
     `INVOICE ${invoice.invoiceNumber}`,
     `Date paid: ${invoice.paidAtLabel}`,
     `Status: PAID`,
-    `Payment method: ${invoice.paymentMethodLabel}`,
-    invoice.paidNote ? `Note: ${invoice.paidNote}` : "",
+    `Paid via: ${paidHow}`,
     invoice.vehicleLabel ? `Vehicle: ${invoice.vehicleLabel}` : "",
     invoice.vehicleVin ? `VIN: ${invoice.vehicleVin}` : "",
     invoice.addressLine1 ? `Address: ${invoice.addressLine1}` : "",
@@ -362,7 +397,7 @@ export function buildPaymentInvoiceEmailText(invoice: PaymentInvoice): string {
     `TOTAL PAID: ${fmtUsd(invoice.totalCents)}`,
     "",
     `View invoice: ${invoice.receiptUrl}`,
-    `Ref: ${invoice.paymentIntentId}`,
+    `Download PDF: ${pdfUrl}`,
   ]
     .filter((line) => line.length > 0)
     .join("\n")

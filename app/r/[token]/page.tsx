@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import { Download } from "lucide-react"
 
 type InvoiceLine = { label: string; amountCents: number }
 
@@ -23,6 +24,7 @@ type InvoiceData = {
   vehicleVin?: string | null
   addressLine1?: string | null
   paidNote?: string | null
+  pdfUrl?: string | null
 }
 
 function fmtUsd(cents: number): string {
@@ -30,6 +32,13 @@ function fmtUsd(cents: number): string {
     style: "currency",
     currency: "USD",
   })
+}
+
+/** Prefer “Paid via Venmo” note when present. */
+function paidHowLabel(invoice: InvoiceData): string {
+  const note = (invoice.paidNote || "").trim()
+  if (note) return note
+  return `Paid via ${invoice.paymentMethodLabel}`
 }
 
 export default function PublicReceiptPage() {
@@ -91,32 +100,58 @@ export default function PublicReceiptPage() {
     )
   }
 
+  const paidHow = paidHowLabel(invoice)
+  const pdfHref =
+    invoice.pdfUrl || `/api/receipt/${encodeURIComponent(token)}/pdf`
+
   return (
-    <main className="min-h-dvh bg-slate-100 px-4 py-8 text-slate-900">
-      <article className="mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-100 to-slate-200/80 px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+6rem)] text-slate-900">
+      <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {/* Soft PAID stamp — visible but not covering content. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-4 top-28 rotate-[-12deg] select-none rounded-lg border-[3px] border-emerald-500/70 px-3 py-1 text-sm font-extrabold tracking-[0.2em] text-emerald-600/80"
+        >
+          PAID
+        </div>
+
         <header className="border-b border-slate-200 bg-slate-900 px-5 py-5 text-white">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            Invoice
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">{invoice.businessName}</h1>
-          {invoice.businessPhone ? (
-            <p className="mt-1 text-sm text-slate-300">{invoice.businessPhone}</p>
-          ) : null}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                Invoice / receipt
+              </p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight">
+                {invoice.businessName}
+              </h1>
+              {invoice.businessPhone ? (
+                <p className="mt-1 text-sm text-slate-300">{invoice.businessPhone}</p>
+              ) : null}
+            </div>
+            <span className="shrink-0 rounded-full bg-emerald-500 px-3 py-1.5 text-[11px] font-extrabold tracking-wide text-white">
+              PAID
+            </span>
+          </div>
         </header>
 
         <div className="space-y-5 px-5 py-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Status
+                Total paid
               </p>
-              <p className="mt-0.5 text-sm font-bold text-emerald-600">PAID</p>
+              <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-600">
+                {fmtUsd(invoice.totalCents)}
+              </p>
+              <p className="mt-1 text-sm font-medium text-slate-700">{paidHow}</p>
             </div>
             <div className="text-right">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Invoice #
               </p>
-              <p className="mt-0.5 font-mono text-sm font-semibold">{invoice.invoiceNumber}</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold">
+                {invoice.invoiceNumber}
+              </p>
             </div>
           </div>
 
@@ -133,14 +168,6 @@ export default function PublicReceiptPage() {
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.paymentMethodLabel}</dd>
             </div>
-            {invoice.paidNote ? (
-              <div className="col-span-2">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Note
-                </dt>
-                <dd className="mt-0.5 text-slate-800">{invoice.paidNote}</dd>
-              </div>
-            ) : null}
             {invoice.customerName ? (
               <div className="col-span-2">
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -162,7 +189,9 @@ export default function PublicReceiptPage() {
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   VIN
                 </dt>
-                <dd className="mt-0.5 font-mono text-sm text-slate-800">{invoice.vehicleVin}</dd>
+                <dd className="mt-0.5 font-mono text-sm text-slate-800">
+                  {invoice.vehicleVin}
+                </dd>
               </div>
             ) : null}
             {invoice.addressLine1 ? (
@@ -184,7 +213,10 @@ export default function PublicReceiptPage() {
             </thead>
             <tbody>
               {invoice.lines.map((line) => (
-                <tr key={`${line.label}-${line.amountCents}`} className="border-t border-slate-100">
+                <tr
+                  key={`${line.label}-${line.amountCents}`}
+                  className="border-t border-slate-100"
+                >
                   <td className="py-3 text-slate-700">{line.label}</td>
                   <td className="py-3 text-right tabular-nums text-slate-900">
                     {fmtUsd(line.amountCents)}
@@ -217,13 +249,27 @@ export default function PublicReceiptPage() {
           ) : null}
 
           <p className="text-[11px] leading-relaxed text-slate-400">
-            Ref: {invoice.paymentIntentId}
+            Keep this for your records or insurance reimbursement.
           </p>
         </div>
       </article>
-      <p className="mx-auto mt-4 max-w-lg text-center text-[11px] text-slate-400">
-        Invoice powered by Lyncr
-      </p>
+
+      {/* Sticky download — works on phones (opens/saves the PDF). */}
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur">
+        <div className="mx-auto flex max-w-lg flex-col gap-2">
+          <a
+            href={pdfHref}
+            download
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            Download PDF
+          </a>
+          <p className="text-center text-[11px] text-slate-400">
+            Sent by {invoice.businessName} · Powered by Lyncr
+          </p>
+        </div>
+      </div>
     </main>
   )
 }

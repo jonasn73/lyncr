@@ -2624,10 +2624,11 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <SheetTitle className="text-base font-bold text-slate-100">
-                  Send invoice
+                  Send paid invoice
                 </SheetTitle>
                 <SheetDescription className="mt-0.5 text-xs text-slate-500">
-                  For reimbursement — marks paid via Venmo (no card charge).
+                  Already paid (Venmo, cash, etc.) — emails or texts a paid invoice for
+                  reimbursement. No card charge.
                 </SheetDescription>
               </div>
               <button
@@ -2674,8 +2675,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                     setRecordPayMethod(id)
                     if (id === "VENMO") setRecordPayNote("Paid via Venmo")
                     else if (id === "CASH") setRecordPayNote("Paid in cash")
-                    else if (id === "EXTERNAL") setRecordPayNote("Paid outside Lyncr")
-                    else setRecordPayNote("Paid outside Lyncr")
+                    else if (id === "EXTERNAL") setRecordPayNote("Paid outside the app")
+                    else setRecordPayNote("Paid outside the app")
                   }}
                   className={cn(
                     "rounded-lg py-2 text-[11px] font-semibold",
@@ -2788,7 +2789,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
               ) : (
                 <Mail className="h-4 w-4" />
               )}
-              Send paid invoice
+              Send paid invoice / receipt
             </Button>
           </div>
         </SheetContent>

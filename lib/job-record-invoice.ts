@@ -9,8 +9,10 @@ import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { makeReceiptToken } from "@/lib/payment-receipt-short-token"
 import {
   buildPaymentInvoiceEmailHtml,
+  buildPaymentInvoiceEmailSubject,
   buildPaymentInvoiceEmailText,
   buildPaymentInvoiceSms,
+  paymentInvoiceFromAddress,
   type PaymentInvoice,
 } from "@/lib/payment-invoice"
 
@@ -48,15 +50,15 @@ export type JobRecordInvoiceRow = {
 export function paymentMethodLabelForRecord(method: RecordInvoicePaymentMethod): string {
   if (method === "VENMO") return "Venmo"
   if (method === "CASH") return "Cash"
-  if (method === "EXTERNAL") return "Paid outside Lyncr"
+  if (method === "EXTERNAL") return "Outside payment"
   return "Other"
 }
 
 function defaultPaymentNote(method: RecordInvoicePaymentMethod): string {
   if (method === "VENMO") return "Paid via Venmo"
   if (method === "CASH") return "Paid in cash"
-  if (method === "EXTERNAL") return "Paid outside Lyncr"
-  return "Paid outside Lyncr"
+  if (method === "EXTERNAL") return "Paid outside the app"
+  return "Paid outside the app"
 }
 
 function formatPaidAt(iso: string): string {
@@ -252,10 +254,6 @@ export async function createJobRecordInvoice(
   throw new Error("Could not create invoice link")
 }
 
-function inviteSender(): string {
-  return process.env.RESEND_FROM_EMAIL?.trim() || "Lyncr <receipts@lyncr.app>"
-}
-
 export type SendRecordInvoiceChannel = "email" | "sms" | "both"
 
 /** Email and/or SMS a record invoice (no Stripe charge required). */
@@ -304,9 +302,10 @@ export async function sendJobRecordInvoice(params: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: inviteSender(),
+              // Shows as “Key Squad 502 <receipts@…>” in the inbox.
+              from: paymentInvoiceFromAddress(invoiceModel.businessName),
               to: email,
-              subject: `Invoice ${invoiceModel.invoiceNumber} — ${invoiceModel.businessName} — $${(invoiceModel.totalCents / 100).toFixed(2)} paid`,
+              subject: buildPaymentInvoiceEmailSubject(invoiceModel),
               html: buildPaymentInvoiceEmailHtml(invoiceModel),
               text: buildPaymentInvoiceEmailText(invoiceModel),
             }),

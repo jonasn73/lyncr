@@ -5,9 +5,11 @@ import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { normalizePhoneNumberE164 } from "@/lib/db"
 import {
   buildPaymentInvoiceEmailHtml,
+  buildPaymentInvoiceEmailSubject,
   buildPaymentInvoiceEmailText,
   buildPaymentInvoiceSms,
   loadPaymentInvoice,
+  paymentInvoiceFromAddress,
 } from "@/lib/payment-invoice"
 import { loadOwnedPaymentIntent } from "@/lib/payment-intent-access"
 
@@ -20,10 +22,6 @@ export type SendPaymentReceiptInput = {
   customerName?: string | null
   email?: string | null
   phone?: string | null
-}
-
-function inviteSender(): string {
-  return process.env.RESEND_FROM_EMAIL?.trim() || "Lyncr <receipts@lyncr.app>"
 }
 
 /** @deprecated Prefer buildPaymentInvoiceSms — kept for any older imports/tests. */
@@ -158,9 +156,9 @@ export async function sendPaymentReceipt(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: inviteSender(),
+        from: paymentInvoiceFromAddress(invoice.businessName),
         to: email,
-        subject: `Invoice ${invoice.invoiceNumber} — ${invoice.businessName} — $${(invoice.totalCents / 100).toFixed(2)} paid`,
+        subject: buildPaymentInvoiceEmailSubject(invoice),
         html,
         text,
       }),
