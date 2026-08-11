@@ -15,8 +15,11 @@ import {
   Loader2,
   MessageSquare,
   Phone,
+  Send,
+  Sparkles,
   Star,
   UserRound,
+  XCircle,
 } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
@@ -57,6 +60,13 @@ import { LINES_MOBILE_SECTION_LABEL } from "@/lib/mobile-shell"
 import { buildTelHref } from "@/lib/phone-e164"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
+import {
+  buildHeuristicSmsReplySuggestions,
+  extractBusinessNameFromSmsBody,
+  extractVehicleFromSmsBody,
+  type SmsReplyChip,
+  type SmsReplyIntent,
+} from "@/lib/sms-reply-suggestions"
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -742,6 +752,8 @@ function LatestActionDetail({
   onSendUnreachable: (item: LatestCustomerAction) => void
   onOpenCrm: (phone: string) => void
 }) {
+  // Toast for send / cancel / suggest feedback inside this sheet.
+  const { toast } = useToast()
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
@@ -750,6 +762,8 @@ function LatestActionDetail({
   const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
   const isPaidEvent = item.event === "customer_paid"
   const isBookEvent = item.event === "book_form"
+  // Inline reply composer only on Needs reply sheets.
+  const showInlineReply = showSmsThread
   // tel: link for one-tap call from the booking sheet.
   const telHref = item.customerPhone ? buildTelHref(item.customerPhone) : null
   // Submitted fields for book-form / book-from-hold (front and center).
@@ -773,8 +787,134 @@ function LatestActionDetail({
   const [threadError, setThreadError] = useState<string | null>(null)
   const threadBottomRef = useRef<HTMLDivElement | null>(null)
 
+  // --- Inline reply composer (Needs reply) ---
+  // Draft text the owner will send (chips / AI fill this; Send posts it).
+  const [replyDraft, setReplyDraft] = useState("")
+  // True while POST /api/messaging/send is in flight.
+  const [replySending, setReplySending] = useState(false)
+  // True while POST /api/messaging/suggest-reply is in flight.
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  // AI / heuristic draft options shown under Suggest reply (tap to fill composer).
+  const [aiDrafts, setAiDrafts] = useState<string[]>([])
+  // Business name for chip copy (session + outbound prefix).
+  const [businessName, setBusinessName] = useState("")
+  // Linked open lead/job id for soft “Mark cancelled” (cancel intent only).
+  const [cancelJobId, setCancelJobId] = useState<string | null>(null)
+  // True while PATCH status=cancelled runs.
+  const [cancellingJob, setCancellingJob] = useState(false)
+  // Hide Mark cancelled after success.
+  const [cancelDone, setCancelDone] = useState(false)
+
   const orgId =
     organizationId && !organizationId.startsWith("legacy-") ? organizationId : null
+
+  // Last inbound body for chips / intent (prefer live thread, else Latest snapshot).
+  const lastInboundBody = useMemo(() => {
+    const fromThread = [...threadMessages].reverse().find((m) => m.direction === "inbound")
+    return (fromThread?.body || item.lastInbound?.body || "").trim()
+  }, [threadMessages, item.lastInbound?.body])
+
+  // Last outbound for vehicle / business extraction.
+  const lastOutboundBody = useMemo(() => {
+    const fromThread = [...threadMessages].reverse().find((m) => m.direction === "outbound")
+    return (fromThread?.body || item.lastOutbound?.body || "").trim()
+  }, [threadMessages, item.lastOutbound?.body])
+
+  // Rule-based chips (instant — no network).
+  const replySuggest = useMemo(() => {
+    if (!showInlineReply || !lastInboundBody) {
+      return {
+        intent: "generic" as SmsReplyIntent,
+        chips: [] as SmsReplyChip[],
+        drafts: [] as string[],
+      }
+    }
+    return buildHeuristicSmsReplySuggestions({
+      customerMessage: lastInboundBody,
+      customerName: item.customerName,
+      businessName:
+        businessName ||
+        extractBusinessNameFromSmsBody(lastOutboundBody) ||
+        null,
+      vehicle: extractVehicleFromSmsBody(lastOutboundBody),
+      priorOutbound: lastOutboundBody || null,
+    })
+  }, [
+    showInlineReply,
+    lastInboundBody,
+    lastOutboundBody,
+    item.customerName,
+    businessName,
+  ])
+
+  // Cancel / declined intent → soft Mark cancelled CTA when we find a job.
+  const showCancelAction =
+    showInlineReply && replySuggest.intent === "cancel" && !cancelDone
+
+  // Load business name once for chip sign-offs.
+  useEffect(() => {
+    if (!showInlineReply) return
+    let cancelled = false
+    void fetch("/api/auth/session", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { data?: { user?: { business_name?: string } } } | null) => {
+        if (cancelled) return
+        setBusinessName(String(json?.data?.user?.business_name ?? "").trim())
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [showInlineReply])
+
+  // When cancel intent, look up an open job/lead for this phone.
+  useEffect(() => {
+    if (!showCancelAction || !item.customerPhone) {
+      setCancelJobId(null)
+      return
+    }
+    let cancelled = false
+    const qs = new URLSearchParams({ phone: item.customerPhone })
+    if (orgId) qs.set("organization_id", orgId)
+    void fetch(`/api/owner/scheduler/lookup?${qs}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (json: {
+          data?: {
+            pool?: { id: string; dispatch_status?: string | null }[]
+            scheduled?: { id: string; job_status?: string | null }[]
+          }
+        } | null) => {
+          if (cancelled || !json?.data) return
+          const terminal = (s: string | null | undefined) => {
+            const t = String(s ?? "").toLowerCase()
+            return (
+              t === "completed" ||
+              t === "cancelled" ||
+              t === "canceled" ||
+              t === "referred" ||
+              t === "unresolved"
+            )
+          }
+          const scheduledOpen = (json.data.scheduled ?? []).find(
+            (j) => j.id && !terminal(j.job_status)
+          )
+          const poolOpen = (json.data.pool ?? []).find(
+            (j) => j.id && !terminal(j.dispatch_status)
+          )
+          setCancelJobId(scheduledOpen?.id || poolOpen?.id || null)
+        }
+      )
+      .catch(() => {
+        if (!cancelled) setCancelJobId(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showCancelAction, item.customerPhone, orgId])
 
   // Load the same Messages inbox feed, then filter to this phone.
   useEffect(() => {
@@ -817,6 +957,140 @@ function LatestActionDetail({
     if (!showSmsThread || threadLoading) return
     threadBottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [showSmsThread, threadLoading, threadMessages.length])
+
+  // Reset composer when switching to another alert.
+  useEffect(() => {
+    setReplyDraft("")
+    setAiDrafts([])
+    setCancelDone(false)
+    setCancelJobId(null)
+  }, [item.id])
+
+  /** Send the composer draft via the same Messages send API. */
+  async function sendInlineReply() {
+    const text = replyDraft.trim()
+    const to = item.customerPhone?.trim()
+    if (!text || !to || replySending) return
+    setReplySending(true)
+    try {
+      const res = await fetch("/api/messaging/send", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to,
+          text,
+          organization_id: orgId || undefined,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { message?: SmsMessage | null; delivery_warning?: string | null }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not send message")
+      // Append optimistic bubble so the thread updates without leaving the sheet.
+      if (json.data?.message) {
+        setThreadMessages((prev) => [...prev, json.data!.message!])
+      }
+      setReplyDraft("")
+      setAiDrafts([])
+      toast({
+        title: "SMS sent",
+        description: json.data?.delivery_warning || "Reply delivered to Messages inbox.",
+      })
+    } catch (e) {
+      toast({
+        title: "SMS failed",
+        description: e instanceof Error ? e.message : "Could not send the text.",
+        variant: "destructive",
+      })
+    } finally {
+      setReplySending(false)
+    }
+  }
+
+  /** Call Suggest reply — fills drafts list; never auto-sends. */
+  async function suggestReply() {
+    if (!lastInboundBody || suggestLoading) return
+    setSuggestLoading(true)
+    setAiDrafts([])
+    try {
+      const res = await fetch("/api/messaging/suggest-reply", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_message: lastInboundBody,
+          customer_name: item.customerName,
+          business_name: businessName || undefined,
+          prior_outbound: lastOutboundBody || undefined,
+          vehicle: extractVehicleFromSmsBody(lastOutboundBody) || undefined,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { drafts?: string[] }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not suggest a reply")
+      const drafts = Array.isArray(json.data?.drafts) ? json.data!.drafts! : []
+      // Prefer API drafts; fall back to local heuristic drafts.
+      const next =
+        drafts.filter((d) => d.trim()).length > 0
+          ? drafts.filter((d) => d.trim())
+          : replySuggest.drafts
+      setAiDrafts(next)
+      // Put the first draft in the composer so they can edit + Send.
+      if (next[0]) setReplyDraft(next[0])
+    } catch (e) {
+      // Offline / no key path: still fill from local chips/drafts.
+      if (replySuggest.drafts[0]) {
+        setAiDrafts(replySuggest.drafts)
+        setReplyDraft(replySuggest.drafts[0])
+        toast({
+          title: "Using quick drafts",
+          description: e instanceof Error ? e.message : "AI unavailable — rule-based draft loaded.",
+        })
+      } else {
+        toast({
+          title: "Suggest failed",
+          description: e instanceof Error ? e.message : "Could not suggest a reply.",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
+
+  /** Soft cancel linked lead/job when customer said they no longer need service. */
+  async function markLinkedCancelled() {
+    if (!cancelJobId || cancellingJob) return
+    setCancellingJob(true)
+    try {
+      const res = await fetch(
+        `/api/owner/jobs/${encodeURIComponent(cancelJobId)}/status`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "cancelled" }),
+        }
+      )
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error || "Could not cancel job")
+      setCancelDone(true)
+      setCancelJobId(null)
+      toast({ title: "Marked cancelled", description: "Linked job/lead set to cancelled." })
+    } catch (e) {
+      toast({
+        title: "Could not cancel",
+        description: e instanceof Error ? e.message : "Try Open job instead.",
+        variant: "destructive",
+      })
+    } finally {
+      setCancellingJob(false)
+    }
+  }
 
   const steps: Array<{ label: string; done: boolean; detail?: string }> = []
   if (item.event === "customer_paid") {
@@ -911,7 +1185,8 @@ function LatestActionDetail({
     steps.push({
       label: "Needs reply",
       done: false,
-      detail: "Open Messages to answer",
+      // Point owners at the inline composer (not Messages-only).
+      detail: "Reply below — or open Messages",
     })
   }
 
@@ -1196,14 +1471,115 @@ function LatestActionDetail({
             </div>
           </>
         ) : null}
-        {item.customerPhone && !isPaidEvent && !isBookEvent ? (
+        {item.customerPhone && !isPaidEvent && !isBookEvent && showInlineReply ? (
+          <div className="space-y-2.5">
+            {/* Quick reply chips — tap fills composer (does not send). */}
+            {replySuggest.chips.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {replySuggest.chips.map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setReplyDraft(chip.body)}
+                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Suggest reply → AI or rule-based drafts (still requires Send). */}
+            <button
+              type="button"
+              onClick={() => void suggestReply()}
+              disabled={suggestLoading || !lastInboundBody}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+            >
+              {suggestLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              Suggest reply
+            </button>
+
+            {/* Extra AI draft options if Suggest returned more than one. */}
+            {aiDrafts.length > 1 ? (
+              <div className="space-y-1.5">
+                {aiDrafts.map((draft, idx) => (
+                  <button
+                    key={`ai-draft-${idx}`}
+                    type="button"
+                    onClick={() => setReplyDraft(draft)}
+                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 text-left text-[11px] leading-snug text-zinc-200 hover:bg-muted/40"
+                  >
+                    {draft}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Composer + Send — primary CTA stays on this sheet. */}
+            <div className="rounded-xl border border-border/60 bg-muted/15 p-2">
+              <textarea
+                value={replyDraft}
+                onChange={(e) => setReplyDraft(e.target.value)}
+                rows={3}
+                placeholder="Type a reply…"
+                className="w-full resize-none bg-transparent px-1.5 py-1 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => void sendInlineReply()}
+                disabled={replySending || !replyDraft.trim()}
+                className="mt-1.5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-sky-400 disabled:opacity-50"
+              >
+                {replySending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send SMS
+              </button>
+            </div>
+
+            {/* Optional: mark linked job cancelled when customer declined. */}
+            {showCancelAction && cancelJobId ? (
+              <button
+                type="button"
+                onClick={() => void markLinkedCancelled()}
+                disabled={cancellingJob}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-500/35 bg-zinc-500/10 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-500/20 disabled:opacity-50"
+              >
+                {cancellingJob ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5" />
+                )}
+                Mark cancelled
+              </button>
+            ) : null}
+
+            {/* Secondary: full Messages inbox (unchanged destination). */}
+            <button
+              type="button"
+              onClick={() => onOpenMessages(item.customerPhone)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-muted/40"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Open in Messages
+            </button>
+          </div>
+        ) : null}
+        {item.customerPhone && !isPaidEvent && !isBookEvent && !showInlineReply ? (
           <button
             type="button"
             onClick={() => onOpenMessages(item.customerPhone)}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
           >
             <MessageSquare className="h-4 w-4" />
-            {item.event === "replied" ? "Reply in Messages" : "Open in Messages"}
+            Open in Messages
           </button>
         ) : null}
         {item.completedJobId && item.kind === "review" && !item.reviewLinkOpened ? (
