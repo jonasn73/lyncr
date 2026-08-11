@@ -3,6 +3,7 @@
 import type Stripe from "stripe"
 import { getUser } from "@/lib/db"
 import { getAppUrl } from "@/lib/telnyx"
+import { resolveInvoiceBusinessPhone } from "@/lib/invoice-business-phone"
 import { getPaymentSlipByIntentId } from "@/lib/payment-slips"
 import { getOrCreateReceiptToken } from "@/lib/payment-receipt-short-token"
 import { retrieveLyncrPaymentIntent } from "@/lib/stripe-payment-intent-retrieve"
@@ -133,7 +134,8 @@ export async function loadPaymentInvoice(params: {
     (user?.business_name || "").trim() ||
     (user?.name || "").trim() ||
     "Your service provider"
-  const businessPhone = (user?.phone || "").trim() || null
+  // Main business DID — not the owner's personal cell.
+  const businessPhone = await resolveInvoiceBusinessPhone(params.ownerUserId)
 
   const amountCents = full.amount_received || full.amount || 0
   const taxCents = Math.max(0, Number(full.metadata?.tax_cents || 0) || 0)

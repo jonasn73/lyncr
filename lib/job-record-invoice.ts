@@ -16,6 +16,7 @@ import {
   paymentInvoiceFromAddress,
   type PaymentInvoice,
 } from "@/lib/payment-invoice"
+import { resolveInvoiceBusinessPhone } from "@/lib/invoice-business-phone"
 
 function getSql() {
   return neon(resolveNeonDatabaseUrl())
@@ -196,7 +197,8 @@ export async function recordInvoiceToPaymentInvoice(
     (user?.business_name || "").trim() ||
     (user?.name || "").trim() ||
     "Your service provider"
-  const businessPhone = (user?.phone || "").trim() || null
+  // Main business DID — not the owner's personal cell.
+  const businessPhone = await resolveInvoiceBusinessPhone(row.ownerUserId)
   const note = (row.paymentNote || defaultPaymentNote(row.paymentMethod)).trim()
   const service = row.serviceLabel.trim() || "Service"
   const lineLabel = [service, row.vehicleLabel.trim() || null].filter(Boolean).join(" · ")
