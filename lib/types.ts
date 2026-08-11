@@ -1191,7 +1191,7 @@ export interface CrmServiceHistoryItem {
 }
 
 // --- Routing Configuration ---
-export type FallbackType = "owner" | "ai" | "voicemail"
+export type FallbackType = "owner" | "ai" | "voicemail" | "hold"
 
 /**
  * Who answers a line (`048`):

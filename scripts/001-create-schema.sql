@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS routing_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   selected_receptionist_id UUID REFERENCES receptionists(id) ON DELETE SET NULL,
-  fallback_type TEXT NOT NULL DEFAULT 'owner' CHECK (fallback_type IN ('owner', 'ai', 'voicemail')),
+  fallback_type TEXT NOT NULL DEFAULT 'owner' CHECK (fallback_type IN ('owner', 'ai', 'voicemail', 'hold')),
   ai_greeting TEXT NOT NULL DEFAULT 'Thank you for calling. Our team is currently unavailable. I can take a message, provide our business hours, or help direct your call. How can I help you?',
   ring_timeout_seconds INTEGER NOT NULL DEFAULT 20,
   updated_at TIMESTAMPTZ DEFAULT now()

@@ -32,7 +32,7 @@ export interface DashboardBusinessNumber {
   carrier_live?: boolean
 }
 
-export type FallbackOption = "owner" | "ai" | "voicemail"
+export type FallbackOption = "owner" | "ai" | "voicemail" | "hold"
 
 /** Ring timeout options in the dashboard (seconds); must match Telnyx `<Dial timeout>` sensible range. */
 export const DASHBOARD_RING_TIMEOUT_CHOICES = [10, 12, 15, 20, 25, 30, 35, 40, 45, 60] as const

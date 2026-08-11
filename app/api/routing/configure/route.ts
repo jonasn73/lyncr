@@ -162,9 +162,14 @@ export async function PUT(req: NextRequest) {
         : null
 
   const fallbackRaw = String(body.fallback_type ?? body.fallbackType ?? "").toLowerCase()
+  // Map hold_queue alias → hold (Advanced Rules missed-call → soft hold).
+  const fallbackNormalized = fallbackRaw === "hold_queue" ? "hold" : fallbackRaw
   const fallbackType =
-    fallbackRaw === "ai" || fallbackRaw === "voicemail" || fallbackRaw === "owner"
-      ? (fallbackRaw as "ai" | "voicemail" | "owner")
+    fallbackNormalized === "ai" ||
+    fallbackNormalized === "voicemail" ||
+    fallbackNormalized === "owner" ||
+    fallbackNormalized === "hold"
+      ? (fallbackNormalized as "ai" | "voicemail" | "owner" | "hold")
       : undefined
 
   try {

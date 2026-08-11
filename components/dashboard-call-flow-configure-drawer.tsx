@@ -192,8 +192,13 @@ export function DashboardCallFlowConfigureDrawer({
       const nextRing = Number(d.ringTimeoutSeconds ?? 30)
       const ring = RING_OPTIONS.includes(nextRing as (typeof RING_OPTIONS)[number]) ? nextRing : 30
       const fb = String(d.fallbackType || "owner").toLowerCase()
+      // Accept hold (and legacy hold_queue alias) from API / DB.
       const fallbackType: FallbackOption =
-        fb === "ai" || fb === "voicemail" ? fb : "owner"
+        fb === "ai" || fb === "voicemail" || fb === "hold" || fb === "hold_queue"
+          ? fb === "hold_queue"
+            ? "hold"
+            : (fb as FallbackOption)
+          : "owner"
       const savedRecId =
         typeof d.selectedReceptionistId === "string" && d.selectedReceptionistId.trim()
           ? d.selectedReceptionistId.trim()
@@ -881,6 +886,12 @@ export function DashboardCallFlowConfigureDrawer({
                           label: "Company voicemail",
                           description: "Play greeting and record a message.",
                         },
+                        {
+                          id: "hold" as const,
+                          label: "Hold queue",
+                          description:
+                            "If your phone doesn’t answer, put them on hold music so you can Answer from Lines.",
+                        },
                       ] as const
                     ).map((opt) => {
                       const active = draft.fallbackType === opt.id
@@ -927,12 +938,12 @@ export function DashboardCallFlowConfigureDrawer({
 
                 <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    Hold queue (advanced)
+                    Hold queue tips
                   </p>
                   <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
-                    Position hints play automatically on re-prompts. How many callers can wait at once
-                    is set by the platform (default 3) — not per line. Music and max wait live under
-                    Greetings.
+                    Pick Hold queue above when you want a missed Available ring to wait with music.
+                    Position hints play on re-prompts. Concurrent wait cap is platform-wide (default
+                    3). Music and max wait live under Greetings.
                   </p>
                   <p className="text-[11px] text-zinc-500 md:hidden">
                     Concurrent wait cap is platform-wide (default 3). Music + max wait live under

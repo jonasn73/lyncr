@@ -1527,6 +1527,17 @@ async function handleCallHangup(
     }
 
     const fallback = String(state.fallbackType ?? routing.fallback_type ?? "voicemail").toLowerCase()
+    // Advanced Rules → Hold queue: reuse Busy soft-hold (music, press 1, Lines Answer).
+    if (fallback === "hold" || fallback === "hold_queue") {
+      console.log(
+        lyncrLog("telnyx-cc-dial-no-answer-hold-queue", {
+          inboundCallControlId,
+          businessLineE164: state.businessLineE164,
+        })
+      )
+      await startBusyAutomationFlow(inboundCallControlId, state, routing)
+      return
+    }
     if (fallback === "voicemail" || fallback === "owner") {
       await startVoicemailFlow(inboundCallControlId, state, routing)
       return

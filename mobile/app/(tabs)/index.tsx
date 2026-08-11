@@ -5,7 +5,7 @@ import { apiGet } from "../../lib/api"
 
 type RoutingConfig = {
   selected_receptionist_id: string | null
-  fallback_type: "owner" | "ai" | "voicemail"
+  fallback_type: "owner" | "ai" | "voicemail" | "hold"
   receptionists: { id: string; name: string; phone: string; is_active: boolean }[]
 }
 

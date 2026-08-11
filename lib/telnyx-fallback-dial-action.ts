@@ -104,7 +104,8 @@ function toE164(phone: string): string {
 
 function normalizeFallbackType(v: string | undefined | null): FallbackType {
   const s = (v || "owner").toLowerCase().trim()
-  if (s === "ai" || s === "voicemail" || s === "owner") return s
+  if (s === "hold_queue") return "hold"
+  if (s === "ai" || s === "voicemail" || s === "owner" || s === "hold") return s
   return "owner"
 }
 
@@ -124,19 +125,22 @@ function mergeFallbackType(
     if (c === "voicemail") return "voicemail"
     if (c === "ai") return "ai"
     if (c === "owner") return "owner"
+    if (c === "hold" || c === "hold_queue") return "hold"
     if (l === "voicemail") return "voicemail"
     if (l === "ai") return "ai"
     if (l === "owner") return "owner"
+    if (l === "hold" || l === "hold_queue") return "hold"
     return normalizeFallbackType(resolvedConfig?.fallback_type)
   }
 
   // No distinct per-number row on `resolvedConfig` (often the NULL-`business_number` default row): trust the inbound DID join first.
-  if (useLive && (l === "ai" || l === "voicemail" || l === "owner")) {
+  if (useLive && (l === "ai" || l === "voicemail" || l === "owner" || l === "hold" || l === "hold_queue")) {
     return normalizeFallbackType(l)
   }
 
   if (c === "ai" || g === "ai") return "ai"
   if (c === "voicemail" || g === "voicemail") return "voicemail"
+  if (c === "hold" || c === "hold_queue" || g === "hold" || g === "hold_queue") return "hold"
   if (c === "owner" || g === "owner") return "owner"
   return normalizeFallbackType(resolvedConfig?.fallback_type ?? liveFb ?? globalDefaultFb)
 }
@@ -1226,6 +1230,14 @@ export async function handleTelnyxFallbackDialEnded(
 
       case "voicemail": {
         playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
+        break
+      }
+
+      case "hold": {
+        // TeXML parity: after Dial miss → Busy automation gather (press 1 / stay = hold path).
+        texml.redirect(
+          `${appUrl}/api/telnyx-capture?step=presence-on-job&callSid=${encodeURIComponent(callSid || "")}`
+        )
         break
       }
 

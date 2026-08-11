@@ -44,7 +44,7 @@ export type TelnyxCallControlClientState = {
   outboundCallControlId?: string
   dialTargetE164?: string
   ringTimeoutSec?: number
-  fallbackType?: "voicemail" | "ai" | "owner"
+  fallbackType?: "voicemail" | "ai" | "owner" | "hold"
   /** Presence / Who Answers reason for this Dial (Busy → teammate must not fall back to owner). */
   dialReason?: TelnyxCallControlDialReason
   /** Private receptionist being dialed (Busy backup or team mode). */
