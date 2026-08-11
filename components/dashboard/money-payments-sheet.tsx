@@ -1,6 +1,7 @@
 "use client"
 
 // Money → View all payments: search settled charges, open detail, send receipt/invoice.
+// Also: Invoices tab for paid-outside (Venmo/cash) history — search, view, PDF, resend.
 
 import { useCallback, useEffect, useState } from "react"
 import {
@@ -19,12 +20,14 @@ import { formatCollectedDollars } from "@/lib/owner-collected"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { estimateLyncrNetFromGrossCents } from "@/lib/header-money-cache"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
 import Link from "next/link"
 
 type View = "list" | "detail" | "invoice"
+type ListTab = "payments" | "invoices"
 
 function formatWhen(iso: string): string {
   const d = new Date(iso)
@@ -67,11 +70,15 @@ function rowTitle(tx: OwnerCollectedTransaction): string {
 export function MoneyPaymentsSheet({
   open,
   onOpenChange,
+  /** Open on Invoices tab (Venmo/cash history) instead of card payments. */
+  initialTab = "payments",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialTab?: ListTab
 }) {
   const { toast } = useToast()
+  const [listTab, setListTab] = useState<ListTab>(initialTab)
   const [view, setView] = useState<View>("list")
   const [rows, setRows] = useState<OwnerCollectedTransaction[]>([])
   const [loading, setLoading] = useState(false)
@@ -92,6 +99,11 @@ export function MoneyPaymentsSheet({
     const t = window.setTimeout(() => setDebouncedQ(search.trim()), 280)
     return () => window.clearTimeout(t)
   }, [search])
+
+  // When the sheet opens, honor initialTab (e.g. Money → Invoices).
+  useEffect(() => {
+    if (open) setListTab(initialTab)
+  }, [open, initialTab])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -118,8 +130,9 @@ export function MoneyPaymentsSheet({
 
   useEffect(() => {
     if (!open) return
+    if (listTab !== "payments") return
     void load()
-  }, [open, load])
+  }, [open, load, listTab])
 
   // Reset when the sheet closes so the next open starts on the list.
   useEffect(() => {
@@ -205,14 +218,18 @@ export function MoneyPaymentsSheet({
       ? "Send invoice"
       : view === "detail"
         ? "Payment"
-        : "All payments"
+        : listTab === "invoices"
+          ? "Invoices"
+          : "All payments"
 
   const subtitle =
     view === "invoice"
       ? "This charge is already paid — send a receipt / invoice summary."
       : view === "detail"
         ? "Amount, method, and invoice options."
-        : "Search by customer name or phone."
+        : listTab === "invoices"
+          ? "Paid-outside invoices (Venmo, cash). Search name, phone, or invoice #."
+          : "Search by customer name or phone."
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -246,10 +263,41 @@ export function MoneyPaymentsSheet({
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {view === "list" ? (
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+              <button
+                type="button"
+                onClick={() => setListTab("payments")}
+                className={cn(
+                  "rounded-lg py-2 text-xs font-semibold",
+                  listTab === "payments"
+                    ? "bg-teal-500/20 text-teal-100"
+                    : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                Card payments
+              </button>
+              <button
+                type="button"
+                onClick={() => setListTab("invoices")}
+                className={cn(
+                  "rounded-lg py-2 text-xs font-semibold",
+                  listTab === "invoices"
+                    ? "bg-teal-500/20 text-teal-100"
+                    : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                Invoices
+              </button>
+            </div>
+          ) : null}
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-          {view === "list" ? (
+          {view === "list" && listTab === "invoices" ? (
+            <RecordInvoicesPanel showSearch />
+          ) : view === "list" ? (
             <div className="space-y-3">
               <div className="relative">
                 <Search

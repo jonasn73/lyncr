@@ -60,6 +60,7 @@ import {
   type OwnerCollectedTransaction,
 } from "@/lib/owner-collected"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
+import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
@@ -363,6 +364,9 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   const [recordChannel, setRecordChannel] = useState<"email" | "sms" | "both">("sms")
   const [recordVin, setRecordVin] = useState("")
   const [recordBusy, setRecordBusy] = useState(false)
+  // After a successful send, highlight this invoice in the Invoices list.
+  const [invoiceHighlightId, setInvoiceHighlightId] = useState<string | null>(null)
+  const [invoicesRefreshKey, setInvoicesRefreshKey] = useState(0)
   // Inline garage VIN / YMM edit.
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null)
   const [editVehicleForm, setEditVehicleForm] = useState({
@@ -524,6 +528,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       setEditApptLocal("")
       setEditingName(false)
       setReceiptTx(null)
+      setInvoiceHighlightId(null)
       return
     }
     setEditingName(false)
@@ -1192,9 +1197,33 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
       const json = (await res.json()) as {
         error?: string
         migration?: string
-        data?: { receiptUrl?: string; channels?: string[] }
+        data?: {
+          receiptUrl?: string
+          channels?: string[]
+          invoiceId?: string
+          invoiceNumber?: string
+          deliveryStatus?: string
+          emailOk?: boolean
+          smsOk?: boolean
+          emailError?: string
+          smsError?: string
+        }
       }
+      // Persist always creates a history row — surface failures with Retry in Invoices.
       if (!res.ok) {
+        if (json.data?.invoiceId) {
+          setInvoiceHighlightId(json.data.invoiceId)
+          setInvoicesRefreshKey((k) => k + 1)
+          setRecordInvoiceOpen(false)
+          toast({
+            title: "Invoice saved — send failed",
+            description:
+              json.error ||
+              "Open Invoices below to Retry. Delivery was not marked as sent.",
+            variant: "destructive",
+          })
+          return
+        }
         throw new Error(
           json.migration
             ? `Run ${json.migration} in Neon SQL Editor, then try again.`
@@ -1202,10 +1231,21 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         )
       }
       const via = (json.data?.channels ?? []).join(" + ") || recordChannel
+      const status = json.data?.deliveryStatus || "sent"
+      const bits: string[] = []
+      if (json.data?.emailOk) bits.push("Email ✓")
+      if (json.data?.smsOk) bits.push("Text ✓")
+      if (json.data?.emailError) bits.push("Email ✗")
+      if (json.data?.smsError) bits.push("Text ✗")
       toast({
-        title: "Invoice sent",
-        description: `Customer gets a paid invoice (${via}) with vehicle + VIN.`,
+        title:
+          status === "partial"
+            ? "Invoice partially sent"
+            : `Invoice sent (${json.data?.invoiceNumber || "saved"})`,
+        description: `${bits.join(" · ") || via}. Find it under Invoices — View · PDF · Resend.`,
       })
+      if (json.data?.invoiceId) setInvoiceHighlightId(json.data.invoiceId)
+      setInvoicesRefreshKey((k) => k + 1)
       setRecordInvoiceOpen(false)
       if (recordVin.trim() && garage && !garage.vin.trim()) {
         void loadProfile(selected.id)
@@ -1888,6 +1928,32 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                 ))}
               </ul>
             ) : null}
+          </div>
+        ) : null}
+
+        {/* Paid-outside invoices (Venmo/cash) — always available for history / resend. */}
+        {selected ? (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Invoices
+              </h3>
+              <button
+                type="button"
+                onClick={() => openRecordInvoice(headerJobTarget)}
+                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Send paid invoice
+              </button>
+            </div>
+            <RecordInvoicesPanel
+              key={`inv-${selected.id}-${invoicesRefreshKey}`}
+              customerId={selected.id}
+              highlightId={invoiceHighlightId}
+              showSearch={false}
+              compact
+            />
           </div>
         ) : null}
 

@@ -142,6 +142,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Always persist the invoice first — even if email/SMS fails, history keeps it.
     const invoice = await createJobRecordInvoice({
       ownerUserId: userId,
       customerId,
@@ -156,6 +157,7 @@ export async function POST(req: NextRequest) {
       vehicleLabel,
       vehicleVin,
       addressLine1,
+      channelsRequested: channel,
     })
 
     const result = await sendJobRecordInvoice({
@@ -167,17 +169,27 @@ export async function POST(req: NextRequest) {
       customerName,
     })
 
+    // Partial = at least one channel worked; still return success with delivery truth.
     if (!result.sent) {
       return NextResponse.json(
         {
           error: result.error || "Could not send invoice",
           data: {
-            invoiceId: invoice.id,
-            receiptToken: invoice.receiptToken,
+            invoiceId: result.invoice.id,
+            invoiceNumber: result.invoice.invoiceNumber,
+            receiptToken: result.invoice.receiptToken,
             receiptUrl: result.receiptUrl,
+            deliveryStatus: result.deliveryStatus,
+            channels: result.channels,
+            emailOk: Boolean(result.invoice.emailSentAtIso),
+            smsOk: Boolean(result.invoice.smsSentAtIso),
+            emailError: result.invoice.emailError,
+            smsError: result.invoice.smsError,
           },
-          migration: /migration 132/i.test(result.error || "")
-            ? "scripts/132-job-record-invoices.sql"
+          migration: /migration 13[23]/i.test(result.error || "")
+            ? /133/.test(result.error || "")
+              ? "scripts/133-job-record-invoice-history.sql"
+              : "scripts/132-job-record-invoices.sql"
             : undefined,
         },
         { status: 400 }
@@ -188,17 +200,27 @@ export async function POST(req: NextRequest) {
       data: {
         sent: true,
         channels: result.channels,
-        invoiceId: invoice.id,
-        receiptToken: invoice.receiptToken,
+        invoiceId: result.invoice.id,
+        invoiceNumber: result.invoice.invoiceNumber,
+        receiptToken: result.invoice.receiptToken,
         receiptUrl: result.receiptUrl,
-        paymentMethod: invoice.paymentMethod,
+        paymentMethod: result.invoice.paymentMethod,
+        deliveryStatus: result.deliveryStatus,
+        emailOk: Boolean(result.invoice.emailSentAtIso),
+        smsOk: Boolean(result.invoice.smsSentAtIso),
+        emailError: result.invoice.emailError || undefined,
+        smsError: result.invoice.smsError || undefined,
+        // Hint for UI confirmation → open history entry.
+        historyHint: "Open Invoices on this customer to view, download PDF, or resend.",
       },
     })
   } catch (e) {
     console.error("[payments/send-record-invoice]", e)
     const message = e instanceof Error ? e.message : "Could not send invoice"
-    const migration = /migration 132/i.test(message)
-      ? "scripts/132-job-record-invoices.sql"
+    const migration = /migration 13[23]/i.test(message)
+      ? /133/.test(message)
+        ? "scripts/133-job-record-invoice-history.sql"
+        : "scripts/132-job-record-invoices.sql"
       : undefined
     return NextResponse.json(
       { error: message, migration },

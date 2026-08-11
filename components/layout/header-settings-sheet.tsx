@@ -125,6 +125,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [moneyOpen, setMoneyOpen] = useState(false)
   // Money → View all payments (search + detail + send invoice).
   const [paymentsOpen, setPaymentsOpen] = useState(false)
+  const [paymentsInitialTab, setPaymentsInitialTab] = useState<"payments" | "invoices">(
+    "payments"
+  )
   // Keep sheets mounted after first open so re-open is instant (chunk already loaded).
   const [collectMounted, setCollectMounted] = useState(false)
   const [getPaidMounted, setGetPaidMounted] = useState(false)
@@ -380,6 +383,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   const openPayments = useCallback(() => {
     setMoneyOpen(false)
+    setPaymentsInitialTab("payments")
+    setPaymentsMounted(true)
+    setPaymentsOpen(true)
+  }, [])
+
+  const openInvoices = useCallback(() => {
+    setMoneyOpen(false)
+    setPaymentsInitialTab("invoices")
     setPaymentsMounted(true)
     setPaymentsOpen(true)
   }, [])
@@ -657,8 +668,16 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               </Button>
               <Button
                 type="button"
+                onClick={openInvoices}
+                variant="outline"
+                className="h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
+              >
+                Invoices
+              </Button>
+              <Button
+                type="button"
                 onClick={openCollect}
-                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 sm:col-auto"
+                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 sm:col-span-2"
               >
                 Collect payment
               </Button>
@@ -722,7 +741,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             ) : null
           }
         >
-          <MoneyPaymentsSheet open={paymentsOpen} onOpenChange={setPaymentsOpen} />
+          <MoneyPaymentsSheet
+            open={paymentsOpen}
+            onOpenChange={setPaymentsOpen}
+            initialTab={paymentsInitialTab}
+          />
         </Suspense>
       ) : null}
 
