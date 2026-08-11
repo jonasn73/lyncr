@@ -256,7 +256,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     ).toBe(true)
   })
 
-  it("Hold fallback dial uses AMD and caps ring before carrier VM", async () => {
+  it("Hold fallback dial uses AMD with conservative config and full ring timeout", async () => {
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -285,7 +285,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       normalizePhoneNumberE164: (p: string) => p,
     }))
 
-    // ringTimeoutSec already capped by resolveInboundForwardDialTimeoutSeconds at answer time.
+    // ringTimeoutSec already capped by resolveInboundForwardDialTimeoutSeconds at answer time (25s default).
     const inboundState = encodeTelnyxCallControlState({
       v: 1,
       phase: "await_greeting_end",
@@ -293,7 +293,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       businessLineE164: "+15025571219",
       callerE164: "+15551230000",
       dialTargetE164: "+15022602716",
-      ringTimeoutSec: 18,
+      ringTimeoutSec: 25,
       fallbackType: "hold",
     })
 
@@ -319,8 +319,13 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const dialBody = JSON.parse(String(dialCall![1].body))
     expect(dialBody.bridge_on_answer).toBe(false)
     expect(dialBody.answering_machine_detection).toBe("detect")
-    expect(dialBody.timeout_secs).toBe(18)
+    expect(dialBody.timeout_secs).toBe(25)
     expect(dialBody.link_to).toBe("cc-in-hold-amd")
+    // Conservative AMD knobs — must not use Telnyx's aggressive 3500ms silence default alone.
+    expect(dialBody.answering_machine_detection_config).toMatchObject({
+      initial_silence_millis: 15_000,
+      total_analysis_time_millis: 10_000,
+    })
   })
 
   it("AMD machine on hold dial hangs up B-leg and starts Busy soft-hold", async () => {
@@ -394,10 +399,12 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       dialTargetE164: "+15022602716",
       inboundCallControlId: "cc-in-amd-m",
       outboundCallControlId: "cc-out-amd-m",
-      ringTimeoutSec: 18,
+      ringTimeoutSec: 25,
       fallbackType: "hold",
       dialReason: "day_dial",
       amdGuard: true,
+      // Dial started 15s ago — past the 12s min age so machine is trusted.
+      dialStartedAtMs: Date.now() - 15_000,
     })
 
     const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
@@ -434,6 +441,148 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
         String(c[0]).includes("cc-in-amd-m") && String(c[0]).includes("/actions/hangup")
     )
     expect(inboundHangup).toBeFalsy()
+  })
+
+  it("early AMD machine (false positive) bridges as human instead of killing the ring", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 25,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      inboundCallControlId: "cc-in-amd-early",
+      outboundCallControlId: "cc-out-amd-early",
+      ringTimeoutSec: 25,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      amdGuard: true,
+      // Only 3s since Dial — classic false-positive window.
+      dialStartedAtMs: Date.now() - 3_000,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.machine.detection.ended",
+        id: "evt-amd-early-machine",
+        payload: {
+          call_control_id: "cc-out-amd-early",
+          from: "+15025571219",
+          to: "+15022602716",
+          direction: "outgoing",
+          result: "machine",
+          client_state: dialState,
+        },
+      },
+    })
+
+    // Must NOT hang up the cell leg on an early false machine.
+    const outboundHangup = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("cc-out-amd-early") && String(c[0]).includes("/actions/hangup")
+    )
+    expect(outboundHangup).toBeFalsy()
+    // Bridge as human so a quick pickup is not dropped into hold.
+    const bridgeCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/bridge"))
+    expect(bridgeCall).toBeTruthy()
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeFalsy()
+  })
+
+  it("AMD silence is not treated as machine (bridges)", async () => {
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 25,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      inboundCallControlId: "cc-in-amd-sil",
+      outboundCallControlId: "cc-out-amd-sil",
+      ringTimeoutSec: 25,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+      amdGuard: true,
+      dialStartedAtMs: Date.now() - 20_000,
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.machine.premium.detection.ended",
+        id: "evt-amd-silence",
+        payload: {
+          call_control_id: "cc-out-amd-sil",
+          from: "+15025571219",
+          to: "+15022602716",
+          direction: "outgoing",
+          result: "silence",
+          client_state: dialState,
+        },
+      },
+    })
+
+    const outboundHangup = fetchMock.mock.calls.find(
+      (c) =>
+        String(c[0]).includes("cc-out-amd-sil") && String(c[0]).includes("/actions/hangup")
+    )
+    expect(outboundHangup).toBeFalsy()
+    expect(fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/bridge"))).toBeTruthy()
   })
 
   it("AMD human on hold dial bridges A and B legs", async () => {

@@ -112,8 +112,9 @@ export function fallbackNeedsCarrierVmGuard(fallbackType: string | null | undefi
 /**
  * When AI is the no-answer fallback, cap PSTN ring time (~4 rings) before `/fallback` → AI bridge.
  * Default AI cap: 20s (`ZING_INBOUND_AI_DIAL_TIMEOUT`).
- * When Hold queue is the fallback, cap before typical carrier VM pickup (~20–25s).
- * Default Hold cap: 18s (`ZING_INBOUND_HOLD_DIAL_TIMEOUT`) — belt-and-suspenders with AMD.
+ * When Hold queue is the fallback, honor the UI ring delay up to a cap just before typical
+ * carrier VM pickup (~22–25s). Default Hold cap: 25s (`ZING_INBOUND_HOLD_DIAL_TIMEOUT`).
+ * Prefer 20s in the UI — enough for ~4–5 rings without racing personal voicemail.
  */
 export function resolveInboundForwardDialTimeoutSeconds(
   ringTimeoutFromRouting: number,
@@ -128,12 +129,40 @@ export function resolveInboundForwardDialTimeoutSeconds(
     return Math.min(ring, cap)
   }
   if (wantsHoldAfterNoAnswer) {
-    const raw = (process.env.ZING_INBOUND_HOLD_DIAL_TIMEOUT || "18").trim()
+    // 25s default: UI 15/20/25 honor fully; 30/45/60 snap down so we hang up before most carrier VMs.
+    const raw = (process.env.ZING_INBOUND_HOLD_DIAL_TIMEOUT || "25").trim()
     const holdCap = parseInt(raw, 10)
-    const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 120 ? holdCap : 18
+    const cap = Number.isFinite(holdCap) && holdCap >= 5 && holdCap <= 120 ? holdCap : 25
     return Math.min(ring, cap)
   }
   return resolveInboundFastDialTimeoutSeconds(ringTimeoutFromRouting)
+}
+
+/**
+ * Minimum dial age before we trust AMD `machine` and hang up the cell leg.
+ * Early false positives (silence / early media ~2–3s) must not cut a normal human ring short.
+ * Override with `ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS` (milliseconds, 3000–60000).
+ */
+export function resolveAmdMinMachineAgeMs(): number {
+  const raw = (process.env.ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS || "12000").trim()
+  const n = parseInt(raw, 10)
+  if (Number.isFinite(n) && n >= 3000 && n <= 60_000) return n
+  return 12_000
+}
+
+/**
+ * Conservative classic-AMD knobs so short silence / ringback is not treated as a machine.
+ * Real carrier VM after ~15–20s of ring still hits timeout or a later machine result.
+ */
+export function buildHoldFallbackAmdDetectionConfig(): Record<string, number> {
+  return {
+    // Don't classify brief post-answer silence as machine (default Telnyx is only 3500ms).
+    initial_silence_millis: 15_000,
+    // Give AMD more time before not_sure — avoids rushed machine guesses.
+    total_analysis_time_millis: 10_000,
+    // Long spoken greetings still look like machines; humans say "hello" briefly.
+    greeting_duration_millis: 3500,
+  }
 }
 
 /** Fast inbound PSTN forward always bridges with US ringback — no dead air before B-leg rings. */

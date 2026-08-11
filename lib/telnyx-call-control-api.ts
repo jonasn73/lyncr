@@ -302,6 +302,11 @@ export async function telnyxCallControlDial(
      * Omit for no AMD (default — Lines Answer must stay fast).
      */
     answeringMachineDetection?: string
+    /**
+     * Optional Telnyx `answering_machine_detection_config` (classic detect knobs).
+     * Use longer initial_silence / analysis windows so false "machine" does not cut rings short.
+     */
+    answeringMachineDetectionConfig?: Record<string, number>
   }
 ): Promise<TelnyxCallControlActionResult> {
   const connectionId = params.connectionId.trim()
@@ -325,6 +330,10 @@ export async function telnyxCallControlDial(
   // Carrier VM answers as "answered" — AMD tells us human vs machine before we bridge.
   if (amd) {
     body.answering_machine_detection = amd
+    // Optional knobs (classic detect) — e.g. longer initial_silence so we don't kill rings at 3s.
+    if (params.answeringMachineDetectionConfig && typeof params.answeringMachineDetectionConfig === "object") {
+      body.answering_machine_detection_config = params.answeringMachineDetectionConfig
+    }
   }
 
   const res = await fetch(TELNYX_CALLS_BASE, {

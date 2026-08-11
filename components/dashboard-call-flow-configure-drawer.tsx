@@ -945,12 +945,12 @@ export function DashboardCallFlowConfigureDrawer({
                   <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
                     Pick Hold queue above when you want a missed Available ring to wait with music.
                     We hang up if your cell carrier voicemail answers, then start hold music so you
-                    can Answer from Lines. Prefer a 15–20s ring delay (30s often hits personal VM
-                    first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
+                    can Answer from Lines. Prefer a 20s ring delay (25s max with Hold — longer often
+                    hits personal VM first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
                     (default 3). Music and max wait live under Greetings.
                   </p>
                   <p className="text-[11px] text-zinc-500 md:hidden">
-                    Prefer 15–20s ring delay with Hold queue. Concurrent wait cap is platform-wide
+                    Prefer 20s ring delay with Hold queue (capped ~25s). Concurrent wait cap is platform-wide
                     (default 3). Music + max wait live under Greetings.
                   </p>
                 </section>

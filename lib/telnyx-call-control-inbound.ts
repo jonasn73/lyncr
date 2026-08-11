@@ -56,8 +56,10 @@ import {
   resolveInboundCallLogSid,
 } from "@/lib/telnyx-call-control-call-log"
 import {
+  buildHoldFallbackAmdDetectionConfig,
   fallbackNeedsCarrierVmGuard,
   readInboundDialRingbackAudioUrl,
+  resolveAmdMinMachineAgeMs,
   resolveInboundForwardDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
@@ -646,12 +648,15 @@ async function dialTechnicianLeg(
   // Telnyx treats carrier VM as "answered", so no-answer hangup never runs without AMD.
   const fallbackRaw = String(state.fallbackType ?? routing.fallback_type ?? "").toLowerCase()
   const useAmdGuard = fallbackNeedsCarrierVmGuard(fallbackRaw)
+  // Stamp dial start so AMD early-false-positive guards + hangup logs can measure ring age.
+  const dialStartedAtMs = Date.now()
 
   const nextStatePayload: TelnyxCallControlClientState = {
     ...state,
     phase: "await_dial_end",
     inboundCallControlId,
     amdGuard: useAmdGuard || undefined,
+    dialStartedAtMs,
   }
   const nextState = encodeTelnyxCallControlState(nextStatePayload)
   // Answered A-leg gets silence unless we inject ringback while B-leg rings.
@@ -665,7 +670,13 @@ async function dialTechnicianLeg(
     clientState: nextState,
     // AMD path: wait for human/machine webhook before bridging.
     bridgeOnAnswer: !useAmdGuard,
-    ...(useAmdGuard ? { answeringMachineDetection: "detect" } : {}),
+    ...(useAmdGuard
+      ? {
+          answeringMachineDetection: "detect",
+          // Longer silence window — default Telnyx 3.5s silence→machine was killing rings early.
+          answeringMachineDetectionConfig: buildHoldFallbackAmdDetectionConfig(),
+        }
+      : {}),
   })
   if (!dialRes.ok) {
     console.error(JSON.stringify({ zing: "telnyx-cc-dial-failed", error: dialRes.error, to: target, from: dialFrom }))
@@ -688,9 +699,11 @@ async function dialTechnicianLeg(
       fromTail4: dialFrom.replace(/\D/g, "").slice(-4),
       // Honest dial plan for ops: timeout + whether AMD is guarding carrier VM.
       timeoutSecs: state.ringTimeoutSec ?? 30,
+      dialStartedAtMs,
       amdGuard: useAmdGuard,
       bridgeOnAnswer: !useAmdGuard,
       fallbackType: fallbackRaw || null,
+      amdMinMachineAgeMs: useAmdGuard ? resolveAmdMinMachineAgeMs() : null,
     })
   )
 
@@ -1504,6 +1517,9 @@ async function applyDialMissFallback(params: {
  * AMD result on the outbound cell leg.
  * human → bridge caller ↔ cell. machine → hang up B-leg and enter hold / company VM / etc.
  * Telnyx recommends treating not_sure as human.
+ *
+ * Early `machine` / `silence` (often 2–3s after dial) is usually a false positive on ringback
+ * or a quiet human pickup — require a minimum dial age before hanging up into hold.
  */
 async function handleMachineDetectionEnded(
   event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
@@ -1523,6 +1539,13 @@ async function handleMachineDetectionEnded(
   }
 
   const raw = event.amdResult.trim().toLowerCase()
+  // How long since we POSTed Dial (ring age) — used to reject early false "machine".
+  const dialAgeMs =
+    typeof state.dialStartedAtMs === "number" && state.dialStartedAtMs > 0
+      ? Math.max(0, Date.now() - state.dialStartedAtMs)
+      : null
+  const minMachineAgeMs = resolveAmdMinMachineAgeMs()
+
   // Premium AMD uses human_residence / human_business; classic uses human.
   const isHuman =
     raw === "human" ||
@@ -1530,20 +1553,34 @@ async function handleMachineDetectionEnded(
     raw === "human_business" ||
     raw === "not_sure" ||
     raw === ""
-  const isMachine =
-    raw === "machine" || raw === "fax_detected" || raw === "silence"
+  // Do not treat bare `silence` as machine — ambiguous and often fires during ring/early media.
+  const looksLikeMachine = raw === "machine" || raw === "fax_detected"
+  // Only trust machine after the cell has had a normal ring window (default 12s).
+  // Missing dialStartedAtMs → do not trust (prefer bridge over a 3s hangup).
+  const machineTrusted =
+    looksLikeMachine && dialAgeMs != null && dialAgeMs >= minMachineAgeMs
+  // Early machine → treat as human and bridge (carrier VM almost never answers in <12s).
+  const earlyMachineAsHuman = looksLikeMachine && !machineTrusted
 
   console.log(
     lyncrLog("telnyx-cc-dial-amd-result", {
       outboundCallControlId: event.callControlId,
       inboundCallControlId,
       amdResult: raw || null,
-      classified: isMachine ? "machine" : isHuman ? "human" : "unknown",
+      dialAgeMs,
+      minMachineAgeMs,
+      classified: machineTrusted
+        ? "machine"
+        : isHuman || earlyMachineAsHuman
+          ? earlyMachineAsHuman
+            ? "early_machine_as_human"
+            : "human"
+          : "unknown",
       fallbackType: state.fallbackType ?? null,
     })
   )
 
-  if (isMachine) {
+  if (machineTrusted) {
     // Carrier / answering machine — hang up B-leg before the caller hears personal VM.
     await forgetOutboundDialLeg(inboundCallControlId)
     await stopCallerDialRingback(inboundCallControlId)
@@ -1559,6 +1596,7 @@ async function handleMachineDetectionEnded(
     console.log(
       lyncrLog("telnyx-cc-dial-amd-machine-to-fallback", {
         inboundCallControlId,
+        dialAgeMs,
         fallbackType: state.fallbackType ?? null,
       })
     )
@@ -1570,7 +1608,7 @@ async function handleMachineDetectionEnded(
     return
   }
 
-  // Human (or not_sure) — bridge A ↔ B now that AMD cleared the path.
+  // Human, not_sure, silence, or early false machine — bridge A ↔ B.
   await stopCallerDialRingback(inboundCallControlId)
   const bridgeRes = await telnyxCallControlBridge(event.callControlId, {
     callControlId: inboundCallControlId,
@@ -1703,6 +1741,15 @@ async function handleCallHangup(
       inboundSid,
       phase: state?.phase ?? null,
       hangupCause: event.hangupCause,
+      dialStatus: event.dialStatus || null,
+      callDurationSeconds: event.callDurationSeconds || null,
+      // Ring age from our Dial POST — ops can compare dial-start → hangup.
+      dialAgeMs:
+        typeof state?.dialStartedAtMs === "number" && state.dialStartedAtMs > 0
+          ? Math.max(0, Date.now() - state.dialStartedAtMs)
+          : null,
+      ringTimeoutSec: state?.ringTimeoutSec ?? null,
+      amdGuard: state?.amdGuard ?? null,
       isOutboundLeg: isOutboundDialLegEvent(event),
       outboundFromState: state?.outboundCallControlId ?? null,
       callSessionId: event.callSessionId || null,
@@ -1731,6 +1778,18 @@ async function handleCallHangup(
       state,
       reason: "no_answer",
     })
+    console.log(
+      lyncrLog("telnyx-cc-dial-miss-after-hangup", {
+        inboundCallControlId,
+        hangupCause: event.hangupCause,
+        dialStatus: event.dialStatus || null,
+        dialAgeMs:
+          typeof state.dialStartedAtMs === "number" && state.dialStartedAtMs > 0
+            ? Math.max(0, Date.now() - state.dialStartedAtMs)
+            : null,
+        ringTimeoutSec: state.ringTimeoutSec ?? null,
+      })
+    )
     return
   }
 

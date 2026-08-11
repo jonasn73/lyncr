@@ -3,6 +3,8 @@ import {
   buildFastReceptionistDialTexml,
   buildRoutingPoolDialTexml,
   buildInboundDialRingbackAttributes,
+  buildHoldFallbackAmdDetectionConfig,
+  resolveAmdMinMachineAgeMs,
   resolveInboundFastDialTimeoutSeconds,
   resolveInboundForwardDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
@@ -57,14 +59,39 @@ describe("resolveInboundForwardDialTimeoutSeconds", () => {
     expect(resolveInboundForwardDialTimeoutSeconds(30, false)).toBe(30)
   })
 
-  it("caps at 18s when Hold queue fallback is enabled", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "18")
-    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(18)
+  it("caps at 25s when Hold queue fallback is enabled", () => {
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "25")
+    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
   })
 
   it("keeps shorter ring when Hold cap is higher than routing timeout", () => {
-    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "18")
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "25")
     expect(resolveInboundForwardDialTimeoutSeconds(15, false, true)).toBe(15)
+  })
+
+  it("defaults Hold cap to 25s when env unset", () => {
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "")
+    expect(resolveInboundForwardDialTimeoutSeconds(30, false, true)).toBe(25)
+  })
+
+  it("honors UI 20s under the Hold cap", () => {
+    vi.stubEnv("ZING_INBOUND_HOLD_DIAL_TIMEOUT", "")
+    expect(resolveInboundForwardDialTimeoutSeconds(20, false, true)).toBe(20)
+  })
+})
+
+describe("AMD early-machine helpers", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("defaults min machine age to 12s", () => {
+    vi.stubEnv("ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
+    expect(resolveAmdMinMachineAgeMs()).toBe(12_000)
+  })
+
+  it("builds conservative classic AMD config", () => {
+    expect(buildHoldFallbackAmdDetectionConfig().initial_silence_millis).toBe(15_000)
   })
 })
 

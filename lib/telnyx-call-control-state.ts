@@ -80,6 +80,8 @@ export type TelnyxCallControlClientState = {
    * (avoids personal cell carrier voicemail when fallback is hold / AI / company VM).
    */
   amdGuard?: boolean
+  /** Unix ms when we POSTed the outbound Dial — used for AMD early-false-positive guards + logs. */
+  dialStartedAtMs?: number
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {
