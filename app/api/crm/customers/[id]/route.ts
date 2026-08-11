@@ -41,6 +41,8 @@ async function enrichCustomerForProfile(
         lifetime_revenue_cents: Math.max(row.lifetime_revenue_cents, paidFromPaymentsCents),
         lead_badge: row.lead_badge,
         open_lead_count: row.open_lead_count,
+        job_status_label: row.job_status_label ?? null,
+        job_status_tone: row.job_status_tone ?? null,
       }
     }
   } catch (e) {

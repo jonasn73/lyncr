@@ -3,12 +3,14 @@ import {
   buildUnreachableFollowUpSms,
   crmCallbackOutcomeLabel,
   formatCrmBookedStatusLabel,
+  formatCrmListRowMeta,
   isCalledAnsweredOutcome,
   isCalledNoAnswerOutcome,
   isCrmBookedStatusLabel,
   isCrmPreBookStatusLabel,
   isCrmTerminalStatusLabel,
   leadCallbackOutcomeFromCollected,
+  resolveCrmJobStatusPresentation,
   shouldShowCrmLifecycleCard,
 } from "@/lib/unreachable-follow-up"
 
@@ -80,5 +82,75 @@ describe("unreachable follow-up SMS", () => {
         navAction: "View job",
       })
     ).toBe(true)
+  })
+})
+
+describe("CRM list job status", () => {
+  it("resolves Needs call / Called · no answer / Price quoted for open leads", () => {
+    expect(
+      resolveCrmJobStatusPresentation({
+        dispatchStatus: "lead",
+        jobStatus: "lead",
+      }).status_label
+    ).toBe("Needs call")
+    expect(
+      resolveCrmJobStatusPresentation({
+        dispatchStatus: "lead",
+        jobStatus: "lead",
+        callbackOutcome: "called_no_answer",
+      }).status_label
+    ).toBe("Called · no answer")
+    expect(
+      resolveCrmJobStatusPresentation({
+        dispatchStatus: "lead",
+        jobStatus: "lead",
+        hasQuotedPrice: true,
+      }).status_label
+    ).toBe("Price quoted")
+  })
+
+  it("resolves Booked · time, Complete, and Cancelled", () => {
+    const booked = resolveCrmJobStatusPresentation({
+      dispatchStatus: "dispatched",
+      jobStatus: "assigned",
+      scheduledAt: "2026-08-09T23:30:00.000Z",
+    })
+    expect(booked.status_label.startsWith("Booked ·")).toBe(true)
+    expect(
+      resolveCrmJobStatusPresentation({
+        dispatchStatus: "completed",
+        jobStatus: "completed",
+      }).status_label
+    ).toBe("Complete")
+    expect(
+      resolveCrmJobStatusPresentation({
+        dispatchStatus: "cancelled",
+        jobStatus: "cancelled",
+      }).status_label
+    ).toBe("Cancelled")
+  })
+
+  it("formats list secondary meta with status first and open count", () => {
+    expect(
+      formatCrmListRowMeta({
+        statusLabel: "Needs call",
+        openLeadCount: 1,
+        jobsCompleted: 0,
+      })
+    ).toBe("Needs call · 1 open")
+    expect(
+      formatCrmListRowMeta({
+        statusLabel: "Complete",
+        openLeadCount: 0,
+        jobsCompleted: 1,
+      })
+    ).toBe("Complete")
+    expect(
+      formatCrmListRowMeta({
+        statusLabel: null,
+        openLeadCount: 0,
+        jobsCompleted: 2,
+      })
+    ).toBe("2 jobs")
   })
 })

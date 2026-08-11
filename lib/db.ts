@@ -98,6 +98,11 @@ import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
 import { runOnboardingTelnyxProvisionPlaceholder } from "./onboarding-telnyx-provision-placeholder"
 import { isBookFormIntakeSource } from "./book-form-sources"
+import {
+  leadCallbackOutcomeFromCollected,
+  resolveCrmJobStatusPresentation,
+  type CrmStatusTone,
+} from "@/lib/unreachable-follow-up"
 
 /** True when Postgres/Neon rejects SELECT/INSERT because `users.industry` was not migrated yet (011-user-industry.sql). */
 function isMissingIndustryColumnError(e: unknown): boolean {
@@ -5347,6 +5352,7 @@ export async function listCrmCustomersForUser(
 
   const digitKeys = customers.map((c) => crmDigits(c.phone_e164)).filter((d) => d.length >= 10)
 
+  type StatusPick = { atMs: number; label: string; tone: CrmStatusTone }
   type Agg = {
     completed: number
     revenueCents: number
@@ -5355,6 +5361,10 @@ export async function listCrmCustomersForUser(
     hasSalvage: boolean
     callback: boolean
     hasBookForm: boolean
+    /** Latest open-lead status — preferred for the list secondary line. */
+    openStatus: StatusPick | null
+    /** Latest any-job status — fallback when there is no open lead. */
+    anyStatus: StatusPick | null
   }
   const byDigits = new Map<string, Agg>()
 
@@ -5371,7 +5381,10 @@ export async function listCrmCustomersForUser(
           nullif(trim(collected->>'last_quoted_price_cents'), '')::int,
           nullif(trim(collected->>'booked_price_cents'), '')::int,
           0
-        ) AS price_cents
+        ) AS price_cents,
+        coalesce(created_at, now()) AS created_at,
+        scheduled_at,
+        collected
       FROM ai_leads
       WHERE user_id = ${userId}
         AND right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10)
@@ -5391,11 +5404,39 @@ export async function listCrmCustomersForUser(
         hasSalvage: false,
         callback: false,
         hasBookForm: false,
+        openStatus: null,
+        anyStatus: null,
       }
       const ds = String(row.ds ?? "")
       const js = String(row.js ?? "")
       const intakeSource = String(row.intake_source ?? "")
       const price = Number(row.price_cents ?? 0)
+      const collected =
+        row.collected && typeof row.collected === "object"
+          ? (row.collected as Record<string, unknown>)
+          : {}
+      const scheduledAt =
+        row.scheduled_at instanceof Date
+          ? row.scheduled_at.toISOString()
+          : row.scheduled_at
+            ? String(row.scheduled_at)
+            : null
+      const createdAt =
+        row.created_at instanceof Date
+          ? row.created_at
+          : row.created_at
+            ? new Date(String(row.created_at))
+            : new Date(0)
+      const atMs = Number.isFinite(createdAt.getTime()) ? createdAt.getTime() : 0
+      const hasQuotedPrice = Number.isFinite(price) && price > 0
+      // Same glossary as profile service history (Needs call / Booked · time / Complete).
+      const presentation = resolveCrmJobStatusPresentation({
+        dispatchStatus: ds,
+        jobStatus: js,
+        scheduledAt,
+        callbackOutcome: leadCallbackOutcomeFromCollected(collected),
+        hasQuotedPrice,
+      })
       const isCompleted =
         isCrmTerminalJobStatus(js) ||
         ds === "completed" ||
@@ -5426,12 +5467,28 @@ export async function listCrmCustomersForUser(
         prev.openLeads += 1
         if (isSalvage) {
           prev.hasSalvage = true
-        } else if (Number.isFinite(price) && price > 0) {
+        } else if (hasQuotedPrice) {
           prev.priceQuoted = true
         }
         if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) prev.callback = true
         // Customer filled /book or Activity book link — stay findable after Latest clear.
         if (isBookFormIntakeSource(intakeSource)) prev.hasBookForm = true
+        // Prefer the newest open lead’s status on the Customers & Leads list.
+        if (!prev.openStatus || atMs >= prev.openStatus.atMs) {
+          prev.openStatus = {
+            atMs,
+            label: presentation.status_label,
+            tone: presentation.status_tone,
+          }
+        }
+      }
+      // Fallback when there are no open leads (Complete / Cancelled / Booked).
+      if (!prev.anyStatus || atMs >= prev.anyStatus.atMs) {
+        prev.anyStatus = {
+          atMs,
+          label: presentation.status_label,
+          tone: presentation.status_tone,
+        }
       }
       byDigits.set(key, prev)
     }
@@ -5465,6 +5522,8 @@ export async function listCrmCustomersForUser(
       hasSalvage: false,
       callback: false,
       hasBookForm: false,
+      openStatus: null,
+      anyStatus: null,
     }
     // Dedicated book_forms phone list wins even if this row's agg missed a source edge case.
     const filledByCustomer = agg.hasBookForm || bookFormSet.has(digits)
@@ -5488,6 +5547,8 @@ export async function listCrmCustomersForUser(
     }
     if (filter === "clients" && agg.completed === 0) continue
     if (filter === "book_forms" && !filledByCustomer) continue
+    // Prefer latest open lead status; else latest job (Complete / Booked / Cancelled).
+    const statusPick = agg.openStatus ?? agg.anyStatus
     out.push({
       ...c,
       jobs_completed: agg.completed,
@@ -5496,6 +5557,8 @@ export async function listCrmCustomersForUser(
       open_lead_count: agg.openLeads,
       has_book_form_lead: filledByCustomer,
       filled_by_customer: filledByCustomer,
+      job_status_label: statusPick?.label ?? null,
+      job_status_tone: statusPick?.tone ?? null,
     })
   }
   return out
@@ -5670,6 +5733,15 @@ export async function listCrmServiceHistoryForCustomer(params: {
       ).trim()
       const jobTypeRaw = String(collected.job_type ?? collected.service_type ?? "").trim()
       const jobKindRaw = String(collected.job_kind ?? "").trim() || null
+      const techName =
+        collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null
+      // Appointment ISO — used for “Booked · {time}” and open-lead checks.
+      const scheduledAt =
+        row.scheduled_at instanceof Date
+          ? row.scheduled_at.toISOString()
+          : row.scheduled_at
+            ? String(row.scheduled_at)
+            : null
       // Belt-and-suspenders: completed/done/paid (and other terminals) are never open leads.
       const isSalvageLead =
         ds === "salvage_pending" ||
@@ -5677,96 +5749,23 @@ export async function listCrmServiceHistoryForCustomer(params: {
         js === "price_denied" ||
         js === "price_rejected" ||
         js.includes("price")
-      const isOpenLead =
+      const priceQuotedOpen =
         !isCrmTerminalJobStatus(js) &&
-        (ds === CRM_LEAD_STATUS ||
-          ds === LOST_LEAD_STATUS ||
-          ds === UNASSIGNED_CALLBACK_STATUS ||
-          ds === "salvage_pending" ||
-          js.includes("price"))
-      const techName =
-        collected.assigned_tech_name != null ? String(collected.assigned_tech_name) : null
-      const scheduledAt =
-        row.scheduled_at instanceof Date
-          ? row.scheduled_at.toISOString()
-          : row.scheduled_at
-            ? String(row.scheduled_at)
-            : null
-      // Called · answered / Called · no answer — owner marked after dialing.
-      const callbackOutcome = String(collected.callback_outcome ?? "")
-        .trim()
-        .toLowerCase()
-      const calledAnswered =
-        callbackOutcome === "called_answered" ||
-        Boolean(String(collected.called_answered_at ?? "").trim())
-      const calledNoAnswer =
-        !calledAnswered &&
-        (callbackOutcome === "called_no_answer" ||
-          Boolean(String(collected.called_no_answer_at ?? "").trim()))
-      // Same human glossary: Needs call → Called · … → Booked · time → Complete.
-      let status_label = "Job"
-      let status_tone: CrmServiceHistoryItem["status_tone"] = "neutral"
-      if (js === "completed" || js === "done" || js === "paid" || ds === "completed") {
-        status_label = "Complete"
-        status_tone = "emerald"
-      } else if (js === "cancelled" || js === "canceled" || ds === "cancelled" || ds === "canceled") {
-        status_label = "Cancelled"
-        status_tone = "neutral"
-      } else if (js === "referred" || ds === "referred") {
-        status_label = "Referred"
-        status_tone = "neutral"
-      } else if (js === "unresolved" || ds === "unresolved") {
-        status_label = "Unresolved"
-        status_tone = "neutral"
-      } else if (js === "en_route") {
-        status_label = "En route"
-        status_tone = "sky"
-      } else if (js === "arrived" || js === "on_site") {
-        status_label = "On site"
-        status_tone = "sky"
-      } else if (js === "paused_wait" || js === "paused_parts") {
-        status_label = "Paused"
-        status_tone = "amber"
-      } else if (isSalvageLead) {
-        // Before Scheduled — salvage must not look booked when scheduled_at is stale.
-        status_label =
-          ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
-        status_tone = "rose"
-      } else if (ds === UNASSIGNED_POOL_STATUS && !scheduledAt) {
-        status_label = "In pool"
-        status_tone = "amber"
-      } else if (ds === "dispatched" || Boolean(scheduledAt)) {
-        // Prefer “Booked · {time}” when we have an appointment window.
-        if (scheduledAt) {
-          const d = new Date(scheduledAt)
-          status_label = Number.isNaN(d.getTime())
-            ? "Booked"
-            : `Booked · ${d.toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}`
-        } else {
-          status_label = "Booked"
-        }
-        status_tone = "sky"
-      } else if (
         (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&
-        calledAnswered
-      ) {
-        status_label = "Called · answered"
-        status_tone = "sky"
-      } else if (
-        (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&
-        calledNoAnswer
-      ) {
-        status_label = "Called · no answer"
-        status_tone = "amber"
-      } else if (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) {
-        status_label = "Needs call"
-        status_tone = "amber"
-      }
+        amount != null &&
+        amount > 0 &&
+        !isSalvageLead
+      // Same human glossary as CRM list: Needs call → Called · … → Booked · time → Complete.
+      const presentation = resolveCrmJobStatusPresentation({
+        dispatchStatus: ds,
+        jobStatus: js,
+        scheduledAt,
+        callbackOutcome: leadCallbackOutcomeFromCollected(collected),
+        hasQuotedPrice: priceQuotedOpen,
+      })
+      const status_label = presentation.status_label
+      const status_tone = presentation.status_tone
+      const isOpenLead = presentation.is_open_lead
       // Call/lead created time — keep separate from structured appointment (scheduled_at).
       const at =
         row.created_at instanceof Date

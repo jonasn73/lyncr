@@ -36,6 +36,7 @@ import {
   buildUnreachableFollowUpSms,
   crmCallbackOutcomeLabel,
   formatCrmBookedStatusLabel,
+  formatCrmListRowMeta,
   isCrmBookedStatusLabel,
   isCrmPreBookStatusLabel,
   isCrmTerminalStatusLabel,
@@ -110,6 +111,17 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   callback: "Needs call",
   repeat_customer: "Repeat customer",
   new_contact: "New contact",
+}
+
+/** Soft color for the CRM list-row job status (Needs call / Booked / Complete…). */
+function crmListStatusToneClass(
+  tone: CrmCustomerListItem["job_status_tone"] | undefined
+): string {
+  if (tone === "amber") return "text-amber-300/90"
+  if (tone === "rose") return "text-rose-300/90"
+  if (tone === "sky") return "text-sky-300/90"
+  if (tone === "emerald") return "text-emerald-300/90"
+  return "text-zinc-400"
 }
 
 /** Human service label from book chip or job_type (never invent Lockout from blanks). */
@@ -2361,16 +2373,29 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                         <p className="mt-0.5 truncate text-xs tabular-nums text-zinc-400">
                           {formatPhoneDisplay(row.phone_e164)}
                         </p>
-                        <p className="mt-1 text-[11px] text-zinc-500">
-                          {row.filled_by_customer || row.has_book_form_lead ? (
-                            <span className="text-orange-300/90">From book link · </span>
-                          ) : null}
-                          {row.jobs_completed > 0
-                            ? `${row.jobs_completed} job${row.jobs_completed === 1 ? "" : "s"}`
-                            : "No jobs yet"}
-                          {row.open_lead_count > 0
-                            ? ` · ${row.open_lead_count} open`
-                            : ""}
+                        <p className="mt-1 break-words text-[11px] leading-snug text-zinc-500">
+                          {(() => {
+                            // Prefer latest open job status over booking source (“From book link”).
+                            const status = String(row.job_status_label ?? "").trim()
+                            const meta = formatCrmListRowMeta({
+                              statusLabel: status || null,
+                              openLeadCount: row.open_lead_count,
+                              jobsCompleted: row.jobs_completed,
+                            })
+                            // When we have a status, color just that prefix; keep counts muted.
+                            if (status && meta.startsWith(status)) {
+                              const rest = meta.slice(status.length)
+                              return (
+                                <>
+                                  <span className={crmListStatusToneClass(row.job_status_tone)}>
+                                    {status}
+                                  </span>
+                                  {rest ? <span>{rest}</span> : null}
+                                </>
+                              )
+                            }
+                            return meta
+                          })()}
                         </p>
                       </button>
                     </li>

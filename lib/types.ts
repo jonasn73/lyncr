@@ -1135,6 +1135,13 @@ export interface CrmCustomerListItem extends Customer {
   has_book_form_lead?: boolean
   /** True when the open book-form lead was filled by the customer (not operator intake). */
   filled_by_customer?: boolean
+  /**
+   * Preferred list-row job status (latest open lead, else latest job).
+   * Examples: Needs call, Called · no answer, Booked · Aug 9, 2:00 PM, Complete.
+   */
+  job_status_label?: string | null
+  /** Tone for coloring job_status_label on the list row. */
+  job_status_tone?: "neutral" | "amber" | "emerald" | "rose" | "sky" | null
 }
 
 /** One job / lead row on a CRM profile timeline. */
