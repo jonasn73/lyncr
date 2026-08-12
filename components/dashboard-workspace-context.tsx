@@ -96,12 +96,11 @@ function readCachedBusinessNumbers(orgId: string | null): BusinessNumbersQueryRe
   return readPersistedCache<BusinessNumbersQueryResult>(key)
 }
 
+/** Server-visible bootstrap only — session upgrades in useLayoutEffect (#418). */
 function resolveWorkspaceBootstrapSeed(
   initialBootstrap?: DashboardMainBootstrap | null
 ): DashboardMainBootstrap | undefined {
-  if (initialBootstrap) return initialBootstrap
-  if (typeof window === "undefined") return undefined
-  return readDashboardBootstrapCache()
+  return initialBootstrap ?? undefined
 }
 
 export function DashboardWorkspaceProvider({
@@ -133,15 +132,14 @@ export function DashboardWorkspaceProvider({
   const [businessNumbers, setBusinessNumbers] = useState<DashboardBusinessNumber[]>(() => {
     if (workspaceSeed?.phoneLines.length) return workspaceSeed.phoneLines
     if (linesPaint?.lines.length) return linesChromeToBusinessNumbers(linesPaint)
-    const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
-    const cached = readCachedBusinessNumbers(orgHint)
-    return cached?.numbers ?? []
+    // Session/numbers cache upgrades in useLayoutEffect — never during render/init (#418).
+    return []
   })
   const [businessNumbersLoading, setBusinessNumbersLoading] = useState(() => {
     if (workspaceSeed) return false
     if (linesPaint?.lines.length) return false
-    const orgHint = initialActiveOrganizationId ?? readActiveOrganizationId()
-    return readCachedBusinessNumbers(orgHint) === undefined
+    // Unknown until layout-effect session upgrade or network — match SSR (no window cache).
+    return true
   })
   const [activityLogs, setActivityLogs] = useState<UiCallRecord[]>([])
   const [selectedActivityLog, setSelectedActivityLog] = useState<UiCallRecord | null>(null)
@@ -151,8 +149,8 @@ export function DashboardWorkspaceProvider({
     if (initialActiveOrganizationId) return initialActiveOrganizationId
     if (linesPaint?.organizationId) return linesPaint.organizationId
     if (paintSeeds?.workspace?.organizationId) return paintSeeds.workspace.organizationId
-    if (typeof window === "undefined") return null
-    return readActiveOrganizationId()
+    // Do not read localStorage here — server cannot see it (React #418).
+    return null
   })
   const [organizations, setOrganizations] = useState<Organization[]>(() => {
     if (workspaceSeed?.organizations.length) return workspaceSeed.organizations

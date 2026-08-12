@@ -604,7 +604,8 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
               {label}
             </p>
             <p className="break-all text-base font-semibold tabular-nums text-slate-100 sm:truncate">
-              {display}
+              {/* Never paint "" — empty vs phone digits is React #418 on hydrate. */}
+              {display || "\u00A0"}
             </p>
           </div>
           {status}
@@ -619,7 +620,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
             <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
               {label}
             </p>
-            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display}</p>
+            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display || "\u00A0"}</p>
           </div>
           {status}
         </div>
@@ -657,7 +658,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5">
         <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
           <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
-          <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display}</p>
+          <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display || "\u00A0"}</p>
         </div>
         <LineRoutingStatus
           routingStrategy={routingStrategy}
@@ -678,7 +679,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
     return (
       <div className={cn("flex w-full max-w-md flex-col items-center justify-center gap-1 px-4 py-3", activeLineFieldClass)}>
         <span className="text-xs font-medium text-zinc-400">{label}</span>
-        <span className="text-base text-foreground">{display}</span>
+        <span className="text-base text-foreground">{display || "\u00A0"}</span>
         <LineRoutingStatus
           routingStrategy={routingStrategy}
           subscriptionActive={subscriptionActive}
@@ -696,7 +697,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
           <div className="pointer-events-none flex items-center justify-between gap-3 pr-8">
             <div className="min-w-0">
               <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
-              <p className="truncate text-sm font-semibold text-foreground">{display}</p>
+              <p className="truncate text-sm font-semibold text-foreground">{display || "\u00A0"}</p>
             </div>
             <LineRoutingStatus
               routingStrategy={routingStrategy}
@@ -709,7 +710,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         ) : (
           <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
             <span className="text-xs font-medium text-zinc-400">{label}</span>
-            <span className="text-base font-semibold text-foreground">{display}</span>
+            <span className="text-base font-semibold text-foreground">{display || "\u00A0"}</span>
             <LineRoutingStatus
               routingStrategy={routingStrategy}
               subscriptionActive={subscriptionActive}

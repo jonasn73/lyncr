@@ -103,7 +103,8 @@ function pickActiveOrganizationId(
   rows: Organization[],
   preferredActiveId?: string | null
 ): string | null {
-  const stored = preferredActiveId?.trim() || readActiveOrganizationId()
+  // Prefer cookie/SSR id only during first paint — localStorage is invisible to SSR (#418).
+  const stored = preferredActiveId?.trim() || null
   return (
     (stored && rows.some((o) => o.id === stored) ? stored : null) ??
     rows.find((o) => o.is_default)?.id ??

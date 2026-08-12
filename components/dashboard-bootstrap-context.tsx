@@ -66,25 +66,14 @@ export function useDashboardBootstrapSyncing(): boolean {
   return useContext(DashboardBootstrapSyncingContext)
 }
 
-/** Context first, then session cache — stable reference so effects do not loop. */
+/**
+ * Bootstrap from React context only.
+ * Never read sessionStorage here — that made the client first paint differ from SSR
+ * HTML (phone / org labels vs "") and triggered React #418.
+ * Session upgrades belong in DashboardBootstrapShellGate / AsyncGate useLayoutEffect.
+ */
 export function useDashboardBootstrapEffective(): DashboardMainBootstrap | null {
-  const ctx = useContext(DashboardBootstrapContext)
-  const stableCacheRef = useRef<DashboardMainBootstrap | null>(null)
-
-  if (ctx) return ctx
-
-  if (typeof window === "undefined") return null
-
-  const fresh = readDashboardBootstrapCache() ?? null
-  if (!fresh) {
-    stableCacheRef.current = null
-    return null
-  }
-  if (stableCacheRef.current && dashboardBootstrapEquivalent(stableCacheRef.current, fresh)) {
-    return stableCacheRef.current
-  }
-  stableCacheRef.current = fresh
-  return fresh
+  return useContext(DashboardBootstrapContext)
 }
 
 /** Bootstrap known on first paint (server snapshot or session cache) with silent refresh. */
@@ -149,11 +138,19 @@ export function DashboardBootstrapAsyncGate({
   children: ReactNode
 }) {
   const parentBootstrap = useContext(DashboardBootstrapContext)
-  const [bootstrap, setBootstrap] = useState<DashboardMainBootstrap | null>(() => {
-    if (parentBootstrap) return parentBootstrap
-    return readDashboardBootstrapCache() ?? null
-  })
+  // Match SSR: do not touch sessionStorage in useState (invisible on the server → #418).
+  const [bootstrap, setBootstrap] = useState<DashboardMainBootstrap | null>(
+    () => parentBootstrap ?? null
+  )
   const [isSyncing, setIsSyncing] = useState(() => !parentBootstrap)
+
+  // After hydrate: apply session bootstrap before paint so Lines does not flash empty.
+  useLayoutEffect(() => {
+    if (parentBootstrap || bootstrap) return
+    const cached = readDashboardBootstrapCache()
+    if (!cached) return
+    setBootstrap(cached)
+  }, [parentBootstrap, bootstrap])
 
   useEffect(() => {
     if (parentBootstrap) {
@@ -200,9 +197,9 @@ export function DashboardBootstrapShellGate({
 }) {
   const { dashboardMainBootstrapPromise } = useDashboardStream()
   const existing = useDashboardBootstrapOptional()
-  const [seed] = useState(
-    () => initialBootstrap ?? readDashboardBootstrapCache() ?? null
-  )
+  // Server-visible seed only. Session cache upgrades inside AsyncGate useLayoutEffect
+  // (do not flip SeededProvider ↔ AsyncGate after hydrate — that remounts the tree).
+  const [seed] = useState<DashboardMainBootstrap | null>(() => initialBootstrap ?? null)
 
   if (existing) {
     return <>{children}</>
