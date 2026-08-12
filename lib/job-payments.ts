@@ -181,6 +181,8 @@ export type CreateJobPaymentIntentResult = {
   transaction: WalletTransaction | null
   /** Connected account for Stripe.js / Terminal (direct charges). */
   stripeConnectAccountId: string
+  /** Stripe PaymentIntent status after create (may already be succeeded when PM was confirmed). */
+  status: string
 }
 
 /** Create Stripe PaymentIntent + PENDING wallet transaction for the assigned tech. */
@@ -191,6 +193,11 @@ export async function createJobPaymentIntent(params: {
   actingUserId: string
   /** Tip included in chargeCents (one PaymentIntent). */
   tipCents?: number | null
+  /**
+   * Card already keyed via deferred Payment Element (createPaymentMethod).
+   * When set, create+confirm the PI now (one charge = job + tip).
+   */
+  paymentMethodId?: string | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -212,6 +219,9 @@ export async function createJobPaymentIntent(params: {
 
   const stripe = getStripeClient()
   const isTap = params.walletMethod === "TAP_TO_PAY"
+  const paymentMethodId = (params.paymentMethodId || "").trim() || null
+  // Keyed card was collected earlier — confirm now with final amount (job + tip).
+  const confirmWithSavedCard = Boolean(paymentMethodId) && !isTap
   const intent = await stripe.paymentIntents.create(
     {
       amount: params.chargeCents,
@@ -221,6 +231,13 @@ export async function createJobPaymentIntent(params: {
       ...(isTap
         ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
         : { payment_method_types: ["card"] }),
+      ...(confirmWithSavedCard
+        ? {
+            payment_method: paymentMethodId!,
+            confirm: true,
+            // Stay on-page for most cards; 3DS uses handleNextAction on the client.
+          }
+        : {}),
       metadata: {
         lyncr_kind: "job_payment",
         job_id: params.job.jobId,
@@ -259,6 +276,7 @@ export async function createJobPaymentIntent(params: {
     commissionCents,
     transaction,
     stripeConnectAccountId: connect.accountId,
+    status: intent.status,
   }
 }
 
@@ -279,6 +297,11 @@ export async function createAdhocPaymentIntent(params: {
   taxCents?: number | null
   /** Tip included in chargeCents (one PaymentIntent). */
   tipCents?: number | null
+  /**
+   * Card already keyed (deferred Payment Element → createPaymentMethod).
+   * Confirms one PI for service + tax + tip — nothing charged at key-in.
+   */
+  paymentMethodId?: string | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -306,6 +329,8 @@ export async function createAdhocPaymentIntent(params: {
 
   const stripe = getStripeClient()
   const isTap = params.walletMethod === "TAP_TO_PAY"
+  const paymentMethodId = (params.paymentMethodId || "").trim() || null
+  const confirmWithSavedCard = Boolean(paymentMethodId) && !isTap
   const intent = await stripe.paymentIntents.create(
     {
       amount: params.chargeCents,
@@ -315,6 +340,12 @@ export async function createAdhocPaymentIntent(params: {
       ...(isTap
         ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
         : { payment_method_types: ["card"] }),
+      ...(confirmWithSavedCard
+        ? {
+            payment_method: paymentMethodId!,
+            confirm: true,
+          }
+        : {}),
       metadata: {
         lyncr_kind: "adhoc_payment",
         owner_user_id: params.ownerUserId,
@@ -361,6 +392,7 @@ export async function createAdhocPaymentIntent(params: {
     commissionCents: params.chargeCents,
     transaction,
     stripeConnectAccountId: connect.accountId,
+    status: intent.status,
   }
 }
 

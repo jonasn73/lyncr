@@ -38,6 +38,11 @@ type Body = {
    * Added into the same PaymentIntent (one card charge = service + tax + tip).
    */
   tipCents?: number
+  /**
+   * PaymentMethod id from deferred card key-in (createPaymentMethod).
+   * When set, the server creates+confirms the PI — nothing was charged at key-in.
+   */
+  paymentMethodId?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -99,6 +104,7 @@ export async function POST(req: NextRequest) {
     // Tip chosen on the tip screen before confirm — same PI as service + tax.
     const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
     const chargeCents = subtotalCents + taxCents + tipCents
+    const paymentMethodId = String(body.paymentMethodId ?? "").trim() || undefined
 
     try {
       const result = await createAdhocPaymentIntent({
@@ -111,6 +117,7 @@ export async function POST(req: NextRequest) {
         subtotalCents,
         taxCents,
         tipCents,
+        paymentMethodId,
       })
       return NextResponse.json({
         data: {
@@ -125,6 +132,7 @@ export async function POST(req: NextRequest) {
           transactionId: result.transaction?.id ?? null,
           publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
           stripeConnectAccountId: result.stripeConnectAccountId,
+          status: result.status,
           adhoc: true,
         },
       })
@@ -163,6 +171,7 @@ export async function POST(req: NextRequest) {
   // Tip from tip screen — added into the same job PaymentIntent (one swipe).
   const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
   const chargeCents = verified.chargeCents + tipCents
+  const paymentMethodId = String(body.paymentMethodId ?? "").trim() || undefined
 
   try {
     const result = await createJobPaymentIntent({
@@ -171,6 +180,7 @@ export async function POST(req: NextRequest) {
       walletMethod,
       actingUserId: userId,
       tipCents,
+      paymentMethodId,
     })
 
     return NextResponse.json({
@@ -184,6 +194,7 @@ export async function POST(req: NextRequest) {
         transactionId: result.transaction?.id ?? null,
         publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
         stripeConnectAccountId: result.stripeConnectAccountId,
+        status: result.status,
       },
     })
   } catch (e) {

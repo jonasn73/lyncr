@@ -1,12 +1,14 @@
 /**
  * Tip + optional signature helpers for Collect / tech Charge.
  *
- * Customer order:
- * 1) Enter amount + choose how to pay (Tap / Card / Pay link / Cash)
- * 2) Tip screen LAST (chips + total + Confirm) — never tip beside method chips
- * 3) One PaymentIntent for service + tax + tip when they confirm
+ * Shop workflow:
+ * 1) Amount
+ * 2) How to pay (Tap / Card / Pay link / Cash)
+ * 3) Card only: key card + ZIP (createPaymentMethod — no charge yet)
+ * 4) Hand phone to customer → tip LAST (+ optional signature when applicable)
+ * 5) Confirm → one PaymentIntent for job + tip
  *
- * Tip is never a second card charge.
+ * Tip is never a second card charge. Keyed ZIP cards do not require a signature.
  */
 
 /** How the charge was taken — drives whether we show a signature pad. */
@@ -55,9 +57,19 @@ export function tipSignSheetTitle(offerSignature: boolean): string {
 export function tipLastSheetSubtitle(baseAmountLabel?: string): string {
   const base = baseAmountLabel?.trim()
   if (base) {
-    return `Service ${base}. Tip is last — one charge for job + tip.`
+    return `Service ${base}. Add a tip if you like — then we charge once.`
   }
-  return "Tip is last — one charge for job + tip."
+  return "Add a tip if you like — then we charge once for job + tip."
+}
+
+/** Shown after card key-in, before tip (owner hands phone over). */
+export function cardKeyedHandOffCopy(): string {
+  return "Card saved — next the customer adds a tip. Nothing charged yet."
+}
+
+/** Tip screen primary for customer-facing handoff. */
+export function tipCustomerConfirmCta(totalAmountLabel: string): string {
+  return `Confirm · charge ${totalAmountLabel}`
 }
 
 /** Total line on tip screen before Tap / Card. */

@@ -36,11 +36,13 @@ import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
+import { DeferredCardKeyInForm } from "@/components/payments/deferred-card-key-in"
 import {
   tipCentsFromChoice,
   tipLastSheetSubtitle,
   tipLastTotalNote,
   tipLastPrimaryCta,
+  tipCustomerConfirmCta,
   tipSignSheetTitle,
   tipSignHandBackCue,
   postPaySignSheetTitle,
@@ -74,7 +76,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
-type CollectMode = "list" | "adhoc" | "tip_sign" | "sign" | "receipt"
+type CollectMode = "list" | "adhoc" | "card_entry" | "tip_sign" | "sign" | "receipt"
 type ListTab = "collect" | "history"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 /** Chosen on the amount step — tip screen only charges this way (once). */
@@ -490,10 +492,13 @@ export function OwnerCollectPaymentSheet({
   /** Stripe Connect: shop must finish Get paid before card charges. */
   const [connectReady, setConnectReady] = useState<boolean | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
-  // list → jobs; adhoc → amount + method; tip_sign → tip LAST then ONE charge; sign → optional pad; receipt
+  // list → jobs; adhoc → amount + method; card_entry → key card (no charge);
+  // tip_sign → tip LAST then ONE charge; sign → optional pad; receipt
   const [mode, setMode] = useState<CollectMode>("list")
   /** How they chose to pay on the amount step (tip comes after). */
   const [pendingMethod, setPendingMethod] = useState<PendingChargeMethod | null>(null)
+  /** pm_… from deferred key-in — charged only after tip Confirm. */
+  const [savedPaymentMethodId, setSavedPaymentMethodId] = useState<string | null>(null)
   const [listTab, setListTab] = useState<ListTab>("collect")
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -562,6 +567,7 @@ export function OwnerCollectPaymentSheet({
     setAdhocBusy(false)
     setTapListening(false)
     setPendingMethod(null)
+    setSavedPaymentMethodId(null)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(0)
     setPaidChargeChannel(null)
@@ -697,10 +703,10 @@ export function OwnerCollectPaymentSheet({
   }, [open, mode, listTab])
 
   /**
-   * Amount + method chosen → tip screen LAST (no money moves yet).
-   * Card form / Tap / pay-link send only run after Confirm on the tip step.
+   * Amount + method chosen.
+   * Card → key-in first (no charge). Tap / Pay link → tip screen next.
    */
-  function enterTipStepWithMethod(method: PendingChargeMethod) {
+  function enterMethodStep(method: PendingChargeMethod) {
     if (adhocBreakdown.totalCents < 50) {
       toast({
         title: "Enter an amount",
@@ -719,24 +725,194 @@ export function OwnerCollectPaymentSheet({
     setPaidTotalCents(adhocBreakdown.totalCents)
     setPaidChargeChannel(null)
     setPendingMethod(method)
+    setSavedPaymentMethodId(null)
     setTipChoice("none")
     setCustomTipDollars("")
     setSignaturePng(null)
     setTipResult({ kind: "none" })
+    if (method === "card") {
+      void startCardEntry()
+      return
+    }
     setMode("tip_sign")
   }
 
-  /** Tip Confirm — one charge for the method picked on the amount step. */
+  /** Load Connect + publishable key, then show deferred Payment Element (no PI yet). */
+  async function startCardEntry() {
+    setAdhocBusy(true)
+    try {
+      const res = await fetch("/api/payments/elements-config", {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { publishableKey?: string; stripeConnectAccountId?: string }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not open card form")
+      const pk = json.data?.publishableKey?.trim()
+      const accountId = json.data?.stripeConnectAccountId?.trim()
+      if (!pk || !accountId) throw new Error("Missing Stripe keys for card entry.")
+      setPublishableKey(pk)
+      setStripeConnectAccountId(accountId)
+      setMode("card_entry")
+    } catch (e) {
+      toast({
+        title: "Could not open card form",
+        description: formatPaymentCatchError(e, "Try again or use a pay link."),
+        variant: "destructive",
+      })
+      setPendingMethod(null)
+      setMode("adhoc")
+    } finally {
+      setAdhocBusy(false)
+    }
+  }
+
+  /** After key-in: tip LAST for the customer (still no charge). */
+  function enterTipAfterCardSaved(paymentMethodId: string) {
+    setSavedPaymentMethodId(paymentMethodId)
+    setClientSecret(null)
+    setMode("tip_sign")
+    toast({
+      title: "Card saved",
+      description: "Hand the phone to the customer for tip. Nothing charged yet.",
+    })
+  }
+
+  /** Tip Confirm — one charge for the method picked earlier. */
   function confirmTipAndCharge() {
     if (pendingMethod === "tap") {
       void runAdhocTapToPay()
       return
     }
     if (pendingMethod === "card") {
-      void startAdhocIntent()
+      void chargeSavedCardWithTip()
       return
     }
     // Pay link: contact fields + Text/Email are shown on the tip step.
+  }
+
+  /**
+   * Create+confirm one PaymentIntent for job + tip using the keyed payment method.
+   * Handles 3DS via handleNextAction when Stripe requires it.
+   */
+  async function chargeSavedCardWithTip() {
+    if (!savedPaymentMethodId) {
+      toast({
+        title: "Card missing",
+        description: "Go back and key the card again.",
+        variant: "destructive",
+      })
+      return
+    }
+    const body = adhocIntentBody("MANUAL_CARD")
+    if (!body) {
+      toast({
+        title: "Enter an amount",
+        description: "Minimum is $0.50.",
+        variant: "destructive",
+      })
+      return
+    }
+    setAdhocBusy(true)
+    try {
+      const tipCents = selectedTipCents()
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            tipCents,
+            paymentMethodId: savedPaymentMethodId,
+          }),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting the card charge timed out. Check your connection and try again."
+      )
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          paymentIntentId?: string
+          clientSecret?: string
+          status?: string
+          publishableKey?: string | null
+          stripeConnectAccountId?: string | null
+        }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not charge card")
+      const piId = json.data?.paymentIntentId
+      if (!piId) throw new Error("No payment id returned")
+      const connectId =
+        json.data?.stripeConnectAccountId?.trim() || stripeConnectAccountId || null
+      setStripeConnectAccountId(connectId)
+      const status = json.data?.status || ""
+      const secret = json.data?.clientSecret
+      const pk = json.data?.publishableKey?.trim() || publishableKey
+
+      // 3DS / bank prompt — complete on-device, still one charge.
+      if (
+        (status === "requires_action" || status === "requires_confirmation") &&
+        secret &&
+        pk &&
+        connectId
+      ) {
+        const stripe = await getStripePromise(pk, connectId)
+        if (!stripe) throw new Error("Stripe.js failed to load for bank verification.")
+        const next = await withTimeout(
+          stripe.handleNextAction({ clientSecret: secret }),
+          PAYMENT_CONFIRM_TIMEOUT_MS,
+          CARD_CHARGE_TIMEOUT_MESSAGE
+        )
+        if (next.error) {
+          throw new Error(
+            formatStripeCardFailure(next.error, "Bank verification failed — try another card.")
+          )
+        }
+        const nextStatus = next.paymentIntent?.status
+        if (nextStatus && nextStatus !== "succeeded" && nextStatus !== "requires_capture") {
+          throw new Error(`Payment not completed (status: ${nextStatus}).`)
+        }
+      } else if (status && status !== "succeeded" && status !== "requires_capture") {
+        throw new Error(`Payment not completed (status: ${status}).`)
+      }
+
+      const confirmRes = await fetchWithTimeout(
+        "/api/payments/confirm",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentIntentId: piId,
+            stripeConnectAccountId: connectId || undefined,
+          }),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Card may have charged, but Lyncr confirmation timed out. Check Stripe before retrying."
+      )
+      if (!confirmRes.ok) {
+        const cj = (await confirmRes.json().catch(() => ({}))) as { error?: string }
+        throw new Error(
+          cj.error ||
+            "Card charged, but Lyncr could not confirm it yet. Check Stripe Dashboard before retrying."
+        )
+      }
+
+      await saveSlip({ paymentIntentId: piId, tipCents }).catch(() => null)
+      enterPostPaySignOrReceipt(piId, paidTotalCents + tipCents, "manual_card", tipCents)
+    } catch (e) {
+      toast({
+        title: "Card charge failed",
+        description: formatPaymentCatchError(e, "Try again or use a pay link."),
+        variant: "destructive",
+      })
+    } finally {
+      setAdhocBusy(false)
+    }
   }
 
   /** After the single charge succeeds: save tip on slip, then optional signature or receipt. */
@@ -1357,7 +1533,7 @@ export function OwnerCollectPaymentSheet({
           className={cn(
             // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
             "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
-            mode === "tip_sign" || mode === "sign"
+            mode === "tip_sign" || mode === "sign" || mode === "card_entry"
               ? "max-h-[min(88dvh,40rem)]"
               : "max-h-[92dvh]"
           )}
@@ -1374,26 +1550,30 @@ export function OwnerCollectPaymentSheet({
                     ? "Send receipt"
                     : mode === "tip_sign"
                       ? tipSignSheetTitle(false)
-                      : mode === "sign"
-                        ? postPaySignSheetTitle()
-                        : mode === "adhoc"
-                          ? "Charge"
-                          : listTab === "history"
-                            ? "Payment history"
-                            : "Collect"}
+                      : mode === "card_entry"
+                        ? "Key in card"
+                        : mode === "sign"
+                          ? postPaySignSheetTitle()
+                          : mode === "adhoc"
+                            ? "Charge"
+                            : listTab === "history"
+                              ? "Payment history"
+                              : "Collect"}
                 </SheetTitle>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
-                      : mode === "sign"
-                        ? postPaySignSheetSubtitle()
-                        : mode === "adhoc"
-                          ? "Enter amount, then choose Tap / Card / Pay link. Tip comes last."
-                          : listTab === "history"
-                            ? "Cards, Tap to Pay, and cash you have run."
-                            : "Add a charge or pick a job on today’s schedule."}
+                      : mode === "card_entry"
+                        ? "Enter card + ZIP. Nothing charged until tip is done."
+                        : mode === "sign"
+                          ? postPaySignSheetSubtitle()
+                          : mode === "adhoc"
+                            ? "Enter amount, then choose how to pay. Tip comes last."
+                            : listTab === "history"
+                              ? "Cards, Tap to Pay, and cash you have run."
+                              : "Add a charge or pick a job on today’s schedule."}
                 </p>
               </div>
               <button
@@ -1788,17 +1968,71 @@ export function OwnerCollectPaymentSheet({
                   </ul>
                 )}
               </>
+            ) : mode === "card_entry" ? (
+              <div className="flex flex-col gap-2.5">
+                {publishableKey && stripeConnectAccountId ? (
+                  <Elements
+                    key={`deferred-card:${stripeConnectAccountId}:${paidTotalCents}`}
+                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
+                    options={{
+                      mode: "payment",
+                      amount: Math.max(50, paidTotalCents),
+                      currency: "usd",
+                      paymentMethodCreation: "manual",
+                      appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
+                      // Card-only keyed entry (ZIP/AVS) — wallets off.
+                      paymentMethodTypes: ["card"],
+                    }}
+                  >
+                    <DeferredCardKeyInForm
+                      amountLabel={fmtCents(paidTotalCents)}
+                      onCancel={() => {
+                        setSavedPaymentMethodId(null)
+                        setPendingMethod(null)
+                        setPublishableKey(null)
+                        setMode("adhoc")
+                      }}
+                      onSaved={(pmId) => enterTipAfterCardSaved(pmId)}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-rose-300">Card form not ready</p>
+                    <p className="text-xs text-rose-100/80">
+                      Finish Get paid in Settings, then try Card again.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingMethod(null)
+                        setMode("adhoc")
+                      }}
+                      className="w-full rounded-lg border border-zinc-700 py-2 text-sm font-semibold text-slate-200"
+                    >
+                      Back
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : mode === "tip_sign" ? (
               <div className="flex flex-col gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
                     setClientSecret(null)
-                    setPublishableKey(null)
                     setTapListening(false)
-                    setPendingMethod(null)
                     setPayLinkOpen(false)
-                    setMode("adhoc")
+                    if (pendingMethod === "card" && savedPaymentMethodId) {
+                      // Keep saved card; go back to tip from amount would lose it —
+                      // back to amount clears the keyed card.
+                      setSavedPaymentMethodId(null)
+                      setPendingMethod(null)
+                      setPublishableKey(null)
+                      setMode("adhoc")
+                    } else {
+                      setPendingMethod(null)
+                      setMode("adhoc")
+                    }
                   }}
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
                 >
@@ -1811,6 +2045,7 @@ export function OwnerCollectPaymentSheet({
                     <p className="text-sm font-semibold text-emerald-100">Service</p>
                     <p className="text-[10px] text-emerald-200/70">
                       Job + tax · pay with {pendingMethodLabel(pendingMethod)}
+                      {pendingMethod === "card" && savedPaymentMethodId ? " · card ready" : ""}
                     </p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
@@ -1818,234 +2053,178 @@ export function OwnerCollectPaymentSheet({
                   </p>
                 </div>
 
-                {!clientSecret ? (
-                  <>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Add a tip
-                      </p>
-                      <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-                        {(
-                          [
-                            { id: "none" as const, label: "No tip" },
-                            { id: "15" as const, label: "15%" },
-                            { id: "18" as const, label: "18%" },
-                            { id: "20" as const, label: "20%" },
-                          ] as const
-                        ).map((opt) => (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setTipChoice(opt.id)}
-                            className={cn(
-                              "rounded-xl border py-2 text-xs font-semibold transition-colors",
-                              tipChoice === opt.id
-                                ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                                : "border-zinc-700 bg-zinc-900 text-slate-400"
-                            )}
-                          >
-                            {opt.label}
-                            {opt.id !== "none" && paidTotalCents > 0 ? (
-                              <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
-                                {fmtCents(
-                                  tipCentsFromChoice(opt.id, paidTotalCents, customTipDollars)
-                                )}
-                              </span>
-                            ) : null}
-                          </button>
-                        ))}
-                      </div>
+                {pendingMethod === "card" && savedPaymentMethodId ? (
+                  <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                    Hand the phone to the customer. Tip is last — Confirm charges once (job + tip).
+                    No signature needed for keyed ZIP cards.
+                  </p>
+                ) : null}
+
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Add a tip
+                  </p>
+                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                    {(
+                      [
+                        { id: "none" as const, label: "No tip" },
+                        { id: "15" as const, label: "15%" },
+                        { id: "18" as const, label: "18%" },
+                        { id: "20" as const, label: "20%" },
+                      ] as const
+                    ).map((opt) => (
                       <button
+                        key={opt.id}
                         type="button"
-                        onClick={() => setTipChoice("custom")}
+                        onClick={() => setTipChoice(opt.id)}
                         className={cn(
-                          "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
-                          tipChoice === "custom"
+                          "rounded-xl border py-2 text-xs font-semibold transition-colors",
+                          tipChoice === opt.id
                             ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                             : "border-zinc-700 bg-zinc-900 text-slate-400"
                         )}
                       >
-                        Custom tip
-                      </button>
-                      {tipChoice === "custom" ? (
-                        <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                          <span className="text-sm font-semibold text-slate-400">$</span>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={customTipDollars}
-                            onChange={(e) => setCustomTipDollars(e.target.value)}
-                            className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
-                          />
-                        </div>
-                      ) : null}
-                      <p className="mt-1.5 text-xs leading-snug text-emerald-200/90">
-                        {tipLastTotalNote({
-                          totalAmountLabel: fmtCents(chargeTotalCents()),
-                          tipCents: selectedTipCents(),
-                          tipAmountLabel: fmtCents(selectedTipCents()),
-                          baseAmountLabel: fmtCents(paidTotalCents),
-                        })}
-                      </p>
-                    </div>
-
-                    {tapListening ? (
-                      <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
-                        <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
-                        <p className="text-sm font-semibold text-emerald-100">Ready for tap</p>
-                        <p className="text-xs text-emerald-200/80">
-                          Hold the customer’s card or phone near this device…
-                        </p>
-                        <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTapListening(false)
-                            setAdhocBusy(false)
-                            toast({
-                              title: "Tap cancelled",
-                              description: "Go back and choose Card or a pay link.",
-                            })
-                          }}
-                          className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
-                        >
-                          Cancel tap
-                        </button>
-                      </div>
-                    ) : pendingMethod === "link" ? (
-                      <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Send pay link for{" "}
-                          {tipLastPrimaryCta({
-                            totalAmountLabel: fmtCents(chargeTotalCents()),
-                            tipCents: selectedTipCents(),
-                          }).replace(/^Charge\s+/i, "")}
-                        </p>
-                        <input
-                          type="text"
-                          value={payLinkName}
-                          onChange={(e) => setPayLinkName(e.target.value)}
-                          placeholder="Customer name (optional)"
-                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                        />
-                        <input
-                          type="tel"
-                          value={payLinkPhone}
-                          onChange={(e) => setPayLinkPhone(e.target.value)}
-                          placeholder="Mobile for text"
-                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                        />
-                        <input
-                          type="email"
-                          value={payLinkEmail}
-                          onChange={(e) => setPayLinkEmail(e.target.value)}
-                          placeholder="Email"
-                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                        />
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            disabled={adhocBusy || !payLinkPhone.trim()}
-                            onClick={() => void sendAdhocPayLink("sms")}
-                            className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                            Text
-                          </button>
-                          <button
-                            type="button"
-                            disabled={adhocBusy || !payLinkEmail.trim()}
-                            onClick={() => void sendAdhocPayLink("email")}
-                            className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
-                          >
-                            <Mail className="h-3.5 w-3.5" aria-hidden />
-                            Email
-                          </button>
-                        </div>
-                        {payLinkUrl ? (
-                          <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
+                        {opt.label}
+                        {opt.id !== "none" && paidTotalCents > 0 ? (
+                          <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                            {fmtCents(
+                              tipCentsFromChoice(opt.id, paidTotalCents, customTipDollars)
+                            )}
+                          </span>
                         ) : null}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={adhocBusy || !pendingMethod}
-                        onClick={() => confirmTipAndCharge()}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {adhocBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                        ) : pendingMethod === "tap" ? (
-                          <Nfc className="h-4 w-4" aria-hidden />
-                        ) : (
-                          <CreditCard className="h-4 w-4" aria-hidden />
-                        )}
-                        {tipLastPrimaryCta({
-                          totalAmountLabel: fmtCents(chargeTotalCents()),
-                          tipCents: selectedTipCents(),
-                        })}
                       </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTipChoice("custom")}
+                    className={cn(
+                      "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
+                      tipChoice === "custom"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        : "border-zinc-700 bg-zinc-900 text-slate-400"
                     )}
-                  </>
-                ) : publishableKey && stripeConnectAccountId ? (
-                  <Elements
-                    key={`${clientSecret}:${stripeConnectAccountId}`}
-                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
-                    options={{
-                      clientSecret,
-                      appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
-                      loader: "auto",
-                    }}
                   >
-                    <AdhocCardForm
-                      stripeConnectAccountId={stripeConnectAccountId}
-                      amountLabel={fmtCents(chargeTotalCents())}
-                      onCancel={() => {
-                        setClientSecret(null)
-                        setPublishableKey(null)
-                      }}
-                      onDone={(paymentIntentId) => {
-                        void (async () => {
-                          const tipCents = selectedTipCents()
-                          const charged = paidTotalCents + tipCents
-                          await saveSlip({
-                            paymentIntentId,
-                            tipCents,
-                          }).catch(() => null)
-                          enterPostPaySignOrReceipt(
-                            paymentIntentId,
-                            charged,
-                            "manual_card",
-                            tipCents
-                          )
-                        })()
-                      }}
-                    />
-                  </Elements>
-                ) : publishableKey && !stripeConnectAccountId ? (
-                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-rose-300">Missing connected Stripe account</p>
-                    <p className="text-xs text-rose-100/80">
-                      Card charges need Get paid finished in Settings.
+                    Custom tip
+                  </button>
+                  {tipChoice === "custom" ? (
+                    <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+                      <span className="text-sm font-semibold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={customTipDollars}
+                        onChange={(e) => setCustomTipDollars(e.target.value)}
+                        className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
+                      />
+                    </div>
+                  ) : null}
+                  <p className="mt-1.5 text-xs leading-snug text-emerald-200/90">
+                    {tipLastTotalNote({
+                      totalAmountLabel: fmtCents(chargeTotalCents()),
+                      tipCents: selectedTipCents(),
+                      tipAmountLabel: fmtCents(selectedTipCents()),
+                      baseAmountLabel: fmtCents(paidTotalCents),
+                    })}
+                  </p>
+                </div>
+
+                {tapListening ? (
+                  <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
+                    <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
+                    <p className="text-sm font-semibold text-emerald-100">Ready for tap</p>
+                    <p className="text-xs text-emerald-200/80">
+                      Hold the customer’s card or phone near this device…
                     </p>
+                    <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
                     <button
                       type="button"
                       onClick={() => {
-                        setClientSecret(null)
-                        setPublishableKey(null)
+                        setTapListening(false)
+                        setAdhocBusy(false)
+                        toast({
+                          title: "Tap cancelled",
+                          description: "Go back and choose Card or a pay link.",
+                        })
                       }}
-                      className="w-full rounded-lg border border-zinc-700 py-2 text-sm font-semibold text-slate-200"
+                      className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
                     >
-                      Back
+                      Cancel tap
                     </button>
                   </div>
+                ) : pendingMethod === "link" ? (
+                  <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Send pay link for {fmtCents(chargeTotalCents())}
+                    </p>
+                    <input
+                      type="text"
+                      value={payLinkName}
+                      onChange={(e) => setPayLinkName(e.target.value)}
+                      placeholder="Customer name (optional)"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                    />
+                    <input
+                      type="tel"
+                      value={payLinkPhone}
+                      onChange={(e) => setPayLinkPhone(e.target.value)}
+                      placeholder="Mobile for text"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                    />
+                    <input
+                      type="email"
+                      value={payLinkEmail}
+                      onChange={(e) => setPayLinkEmail(e.target.value)}
+                      placeholder="Email"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                    />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={adhocBusy || !payLinkPhone.trim()}
+                        onClick={() => void sendAdhocPayLink("sms")}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                        Text
+                      </button>
+                      <button
+                        type="button"
+                        disabled={adhocBusy || !payLinkEmail.trim()}
+                        onClick={() => void sendAdhocPayLink("email")}
+                        className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                      >
+                        <Mail className="h-3.5 w-3.5" aria-hidden />
+                        Email
+                      </button>
+                    </div>
+                    {payLinkUrl ? (
+                      <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
+                    ) : null}
+                  </div>
                 ) : (
-                  <p className="text-sm text-rose-400">
-                    Missing Stripe publishable key. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
-                  </p>
+                  <button
+                    type="button"
+                    disabled={
+                      adhocBusy ||
+                      !pendingMethod ||
+                      (pendingMethod === "card" && !savedPaymentMethodId)
+                    }
+                    onClick={() => confirmTipAndCharge()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {adhocBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : pendingMethod === "tap" ? (
+                      <Nfc className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <CreditCard className="h-4 w-4" aria-hidden />
+                    )}
+                    {tipCustomerConfirmCta(fmtCents(chargeTotalCents()))}
+                  </button>
                 )}
               </div>
             ) : mode === "sign" ? (
@@ -2290,7 +2469,7 @@ export function OwnerCollectPaymentSheet({
                     <button
                       type="button"
                       disabled={adhocBusy}
-                      onClick={() => enterTipStepWithMethod("tap")}
+                      onClick={() => enterMethodStep("tap")}
                       className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
                     >
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
@@ -2302,7 +2481,7 @@ export function OwnerCollectPaymentSheet({
                     <button
                       type="button"
                       disabled={adhocBusy}
-                      onClick={() => enterTipStepWithMethod("card")}
+                      onClick={() => enterMethodStep("card")}
                       className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
                     >
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
@@ -2314,7 +2493,7 @@ export function OwnerCollectPaymentSheet({
                     <button
                       type="button"
                       disabled={adhocBusy}
-                      onClick={() => enterTipStepWithMethod("link")}
+                      onClick={() => enterMethodStep("link")}
                       className="col-span-2 flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
                     >
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">

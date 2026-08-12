@@ -24,11 +24,13 @@ import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
 import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
+import { DeferredCardKeyInForm } from "@/components/payments/deferred-card-key-in"
 import {
   tipCentsFromChoice,
   tipLastSheetSubtitle,
   tipLastTotalNote,
   tipLastPrimaryCta,
+  tipCustomerConfirmCta,
   tipSignHandBackCue,
   tipSignSheetTitle,
   postPaySignSheetTitle,
@@ -63,7 +65,7 @@ import {
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash" | "link"
 /** Tip LAST (before money moves) → optional signature after pay → receipt. */
-type PostPayStep = "tip_sign" | "sign" | "receipt"
+type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
 /** Sent pay-link row from GET /api/payments/pay-links (with optional Stripe sync). */
@@ -168,8 +170,10 @@ export function TechPaymentModal(props: {
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [receiptBusy, setReceiptBusy] = useState(false)
-  /** Nested popup: card entry or pay-link form (keeps main sheet short). */
-  const [activePopup, setActivePopup] = useState<"link" | "card" | null>(null)
+  /** Nested popup: pay-link form (card key-in is its own step). */
+  const [activePopup, setActivePopup] = useState<"link" | null>(null)
+  /** pm_… from deferred key-in — charged only after tip Confirm. */
+  const [savedPaymentMethodId, setSavedPaymentMethodId] = useState<string | null>(null)
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   /** Previously sent pay links for this job (status + copy URL). */
   const [sentLinks, setSentLinks] = useState<SentPayLink[]>([])
@@ -282,13 +286,10 @@ export function TechPaymentModal(props: {
       setLinkCancelBusy(null)
     }
   }
-  // Close nested Card / Link popup and clear in-progress payment UI state.
+  // Close nested Link popup and clear in-progress pay-link UI state.
   function closePayPopup() {
     setActivePopup(null)
-    if (method === "link" || method === "card") setMethod(null)
-    setClientSecret(null)
-    setPublishableKey(null)
-    setPaymentIntentId(null)
+    if (method === "link") setMethod(null)
     setLinkSentUrl(null)
     setLinkDelivered(false)
     setError(null)
@@ -406,7 +407,7 @@ export function TechPaymentModal(props: {
     }
   }
 
-  async function confirmServer(piId: string) {
+  async function confirmServer(piId: string, connectAccountId?: string | null) {
     const res = await fetchWithTimeout(
       "/api/payments/confirm",
       {
@@ -415,7 +416,8 @@ export function TechPaymentModal(props: {
         credentials: "include",
         body: JSON.stringify({
           paymentIntentId: piId,
-          stripeConnectAccountId: stripeConnectAccountId || undefined,
+          stripeConnectAccountId:
+            (connectAccountId || stripeConnectAccountId || "").trim() || undefined,
         }),
       },
       PAYMENT_API_TIMEOUT_MS,
@@ -438,8 +440,8 @@ export function TechPaymentModal(props: {
   }
 
   /**
-   * Amount screen → pick how to pay → tip LAST (no money moves yet).
-   * Confirm on the tip step creates one PaymentIntent (job + tip).
+   * Amount screen → pick how to pay.
+   * Card → key-in first (no charge). Others → tip LAST, then one charge.
    */
   function enterTipStepWithMethod(next: PayMethod) {
     if (!requireChargeAmount()) return
@@ -453,20 +455,61 @@ export function TechPaymentModal(props: {
     setClientSecret(null)
     setPublishableKey(null)
     setPaymentIntentId(null)
+    setSavedPaymentMethodId(null)
     setMethod(next)
     setActivePopup(null)
-    setPostPayStep("tip_sign")
     setError(null)
+    if (next === "card") {
+      void startCardEntry()
+      return
+    }
+    setPostPayStep("tip_sign")
   }
 
-  /** Tip Confirm — runs the method chosen on the amount step (single charge). */
+  /** Deferred Payment Element — key card without creating a PaymentIntent yet. */
+  async function startCardEntry() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/payments/elements-config?jobId=${encodeURIComponent(props.job.id)}`,
+        { credentials: "include", cache: "no-store" }
+      )
+      const json = (await res.json()) as {
+        error?: string
+        data?: { publishableKey?: string; stripeConnectAccountId?: string }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not open card form")
+      const pk = json.data?.publishableKey?.trim()
+      const accountId = json.data?.stripeConnectAccountId?.trim()
+      if (!pk || !accountId) throw new Error("Missing Stripe keys for card entry.")
+      setPublishableKey(pk)
+      setStripeConnectAccountId(accountId)
+      setPostPayStep("card_entry")
+    } catch (e) {
+      setError(formatPaymentCatchError(e, "Could not open card form."))
+      setMethod(null)
+      setPostPayStep(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function enterTipAfterCardSaved(paymentMethodId: string) {
+    setSavedPaymentMethodId(paymentMethodId)
+    setClientSecret(null)
+    setActivePopup(null)
+    setPostPayStep("tip_sign")
+  }
+
+  /** Tip Confirm — runs the method chosen earlier (single charge). */
   function confirmTipAndCharge() {
     if (method === "tap") {
       void runTapToPay()
       return
     }
     if (method === "card") {
-      void startManualCard()
+      void chargeSavedCardWithTip()
       return
     }
     if (method === "cash") {
@@ -477,6 +520,110 @@ export function TechPaymentModal(props: {
       setError(null)
       setLinkSentUrl(null)
       setActivePopup("link")
+    }
+  }
+
+  /** Create+confirm one PI (job + tip) with the keyed payment method. */
+  async function chargeSavedCardWithTip() {
+    if (!savedPaymentMethodId) {
+      setError("Card missing — go back and key the card again.")
+      return
+    }
+    setError(null)
+    setBusy(true)
+    try {
+      const tipCents = selectedTipCents()
+      const lineItems = lineItemsPayload()
+      if (totalCents < 50) throw new Error("Enter an amount of at least $0.50.")
+      if (lineItems.length === 0) throw new Error("Add at least one line item with an amount.")
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            jobId: props.job.id,
+            amount: totalCents / 100,
+            paymentMethodType: "MANUAL_CARD",
+            invoiceOverride: true,
+            lineItems,
+            taxEnabled,
+            taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+            tipCents,
+            paymentMethodId: savedPaymentMethodId,
+          }),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting the card charge timed out. Check your connection and try again."
+      )
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          paymentIntentId?: string
+          clientSecret?: string
+          status?: string
+          publishableKey?: string | null
+          stripeConnectAccountId?: string | null
+        }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not charge card")
+      const piId = json.data?.paymentIntentId
+      if (!piId) throw new Error("No payment id returned")
+      const connectId =
+        json.data?.stripeConnectAccountId?.trim() || stripeConnectAccountId || null
+      setStripeConnectAccountId(connectId)
+      const status = json.data?.status || ""
+      const secret = json.data?.clientSecret
+      const pk = json.data?.publishableKey?.trim() || publishableKey
+
+      if (
+        (status === "requires_action" || status === "requires_confirmation") &&
+        secret &&
+        pk &&
+        connectId
+      ) {
+        const stripe = await getStripePromise(pk, connectId)
+        if (!stripe) throw new Error("Stripe.js failed to load for bank verification.")
+        const next = await withTimeout(
+          stripe.handleNextAction({ clientSecret: secret }),
+          PAYMENT_CONFIRM_TIMEOUT_MS,
+          CARD_CHARGE_TIMEOUT_MESSAGE
+        )
+        if (next.error) {
+          throw new Error(
+            formatStripeCardFailure(next.error, "Bank verification failed — try another card.")
+          )
+        }
+        const nextStatus = next.paymentIntent?.status
+        if (nextStatus && nextStatus !== "succeeded" && nextStatus !== "requires_capture") {
+          throw new Error(`Payment not completed (status: ${nextStatus}).`)
+        }
+      } else if (status && status !== "succeeded" && status !== "requires_capture") {
+        throw new Error(`Payment not completed (status: ${status}).`)
+      }
+
+      await confirmServer(piId, connectId)
+      await fetch("/api/tech/invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          leadId: props.job.id,
+          lineItems: invoiceLineItemsWithTip(tipCents),
+          taxCents,
+          paymentMethod: "card",
+          collectNow: true,
+          skipWalletCredit: true,
+        }),
+      }).catch(() => {})
+
+      const baseCents = paidTotalCents > 0 ? paidTotalCents : totalCents
+      await enterPostPaySignOrReceipt(piId, baseCents, "manual_card", tipCents)
+    } catch (e) {
+      setError(formatPaymentCatchError(e, "Card charge failed — try again."))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -803,22 +950,6 @@ export function TechPaymentModal(props: {
     }
   }
 
-  async function startManualCard() {
-    setError(null)
-    setBusy(true)
-    setMethod("card")
-    setActivePopup("card")
-    try {
-      await createIntent("MANUAL_CARD")
-    } catch (e) {
-      setError(formatPaymentCatchError(e, "Could not start card payment — try again."))
-      setMethod(null)
-      setActivePopup(null)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function payCash() {
     setError(null)
     setBusy(true)
@@ -938,7 +1069,7 @@ export function TechPaymentModal(props: {
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
           "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
-          postPayStep === "tip_sign" || postPayStep === "sign"
+          postPayStep === "tip_sign" || postPayStep === "sign" || postPayStep === "card_entry"
             ? "h-auto max-h-[min(88dvh,40rem)]"
             : "max-h-[92dvh]"
         )}
@@ -952,20 +1083,24 @@ export function TechPaymentModal(props: {
             <h2 className="text-base font-bold text-white">
               {postPayStep === "tip_sign"
                 ? tipSignSheetTitle(false)
-                : postPayStep === "sign"
-                  ? postPaySignSheetTitle()
-                  : postPayStep === "receipt"
-                    ? "Send receipt"
-                    : showPaidSummary
-                      ? "Payment received"
-                      : "Charge"}
+                : postPayStep === "card_entry"
+                  ? "Key in card"
+                  : postPayStep === "sign"
+                    ? postPaySignSheetTitle()
+                    : postPayStep === "receipt"
+                      ? "Send receipt"
+                      : showPaidSummary
+                        ? "Payment received"
+                        : "Charge"}
             </h2>
             <p className="text-xs text-zinc-500">
               {postPayStep === "tip_sign"
                 ? tipLastSheetSubtitle(fmt(paidTotalCents))
-                : postPayStep === "sign"
-                  ? postPaySignSheetSubtitle()
-                  : props.job.customer_name || props.job.customer_phone || "Customer"}
+                : postPayStep === "card_entry"
+                  ? "Enter card + ZIP. Nothing charged until tip is done."
+                  : postPayStep === "sign"
+                    ? postPaySignSheetSubtitle()
+                    : props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
           </div>
           <button
@@ -979,7 +1114,43 @@ export function TechPaymentModal(props: {
           </button>
         </div>
 
-        {postPayStep === "tip_sign" ? (
+        {postPayStep === "card_entry" ? (
+          <div className="flex flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {publishableKey && stripeConnectAccountId ? (
+              <Elements
+                key={`deferred-card:${stripeConnectAccountId}:${paidTotalCents}`}
+                stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
+                options={{
+                  mode: "payment",
+                  amount: Math.max(50, paidTotalCents || totalCents),
+                  currency: "usd",
+                  paymentMethodCreation: "manual",
+                  appearance: {
+                    theme: "night",
+                    variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
+                  },
+                  paymentMethodTypes: ["card"],
+                }}
+              >
+                <DeferredCardKeyInForm
+                  amountLabel={fmt(paidTotalCents || totalCents)}
+                  onCancel={() => {
+                    setSavedPaymentMethodId(null)
+                    setMethod(null)
+                    setPublishableKey(null)
+                    setPostPayStep(null)
+                    setError(null)
+                  }}
+                  onSaved={(pmId) => enterTipAfterCardSaved(pmId)}
+                  onError={setError}
+                />
+              </Elements>
+            ) : (
+              <p className="text-sm text-zinc-400">Preparing card form…</p>
+            )}
+          </div>
+        ) : postPayStep === "tip_sign" ? (
           <div className="flex flex-col gap-2.5 overflow-y-auto px-4 py-3">
             <button
               type="button"
@@ -991,6 +1162,7 @@ export function TechPaymentModal(props: {
                 setClientSecret(null)
                 setPublishableKey(null)
                 setPaymentIntentId(null)
+                setSavedPaymentMethodId(null)
                 setError(null)
               }}
               disabled={busy || tapListening}
@@ -1013,12 +1185,19 @@ export function TechPaymentModal(props: {
                         : method === "link"
                           ? "Pay link"
                           : "—"}
+                  {method === "card" && savedPaymentMethodId ? " · card ready" : ""}
                 </p>
               </div>
               <p className="text-base font-bold tabular-nums text-emerald-300">
                 {fmt(paidTotalCents)}
               </p>
             </div>
+            {method === "card" && savedPaymentMethodId ? (
+              <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                Hand the phone to the customer. Tip is last — Confirm charges once (job + tip).
+                No signature needed for keyed ZIP cards.
+              </p>
+            ) : null}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Add a tip
@@ -1093,7 +1272,12 @@ export function TechPaymentModal(props: {
             ) : null}
             <button
               type="button"
-              disabled={busy || tapListening || !method}
+              disabled={
+                busy ||
+                tapListening ||
+                !method ||
+                (method === "card" && !savedPaymentMethodId)
+              }
               onClick={() => confirmTipAndCharge()}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
             >
@@ -1110,10 +1294,7 @@ export function TechPaymentModal(props: {
               )}
               {method === "link"
                 ? `Send pay link · ${fmt(chargeWithTipCents())}`
-                : tipLastPrimaryCta({
-                    totalAmountLabel: fmt(chargeWithTipCents()),
-                    tipCents: selectedTipCents(),
-                  })}
+                : tipCustomerConfirmCta(fmt(chargeWithTipCents()))}
             </button>
 
             {activePopup === "link" ? (
@@ -1203,61 +1384,6 @@ export function TechPaymentModal(props: {
                     </button>
                   </div>
                 ) : null}
-              </NestedPayPopup>
-            ) : null}
-
-            {activePopup === "card" ? (
-              <NestedPayPopup title="Manual card entry" onClose={closePayPopup}>
-                {error ? <p className="text-sm text-red-300">{error}</p> : null}
-                {clientSecret && publishableKey && stripeConnectAccountId ? (
-                  <Elements
-                    key={`${clientSecret}:${stripeConnectAccountId}`}
-                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
-                    options={{
-                      clientSecret,
-                      appearance: {
-                        theme: "night",
-                        variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
-                      },
-                      loader: "auto",
-                    }}
-                  >
-                    <ManualCardForm
-                      totalLabel={fmt(chargeWithTipCents())}
-                      paymentIntentId={paymentIntentId}
-                      lineItems={invoiceLineItemsWithTip(selectedTipCents())}
-                      jobId={props.job.id}
-                      taxCents={taxCents}
-                      stripeConnectAccountId={stripeConnectAccountId}
-                      onError={setError}
-                      onSuccess={(piId) => {
-                        const tipCents = selectedTipCents()
-                        const baseCents = paidTotalCents > 0 ? paidTotalCents : totalCents
-                        void enterPostPaySignOrReceipt(
-                          piId || paymentIntentId,
-                          baseCents,
-                          "manual_card",
-                          tipCents
-                        )
-                      }}
-                      onBack={closePayPopup}
-                    />
-                  </Elements>
-                ) : clientSecret && publishableKey && !stripeConnectAccountId ? (
-                  <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                    Missing connected Stripe account. Finish Get paid in Settings, then try again.
-                  </p>
-                ) : busy ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-zinc-400">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Preparing secure card form…
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-                    Add <span className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span> in
-                    Vercel to enable Manual Card Entry.
-                  </p>
-                )}
               </NestedPayPopup>
             ) : null}
           </div>
