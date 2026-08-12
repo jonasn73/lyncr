@@ -105,8 +105,8 @@ export function DeferredCardKeyInForm(props: {
         )
       }
       // createPaymentMethod stores the card with Stripe — no money moves yet.
-      // Payment Element opts out of country (fields.billingDetails.address.country = never),
-      // so Stripe requires country here. ZIP still comes from the Element (postalCode: always).
+      // Pass country here so AVS keyed cards work even if the Element does not collect it.
+      // ZIP still comes from the Element when fields.billingDetails is 'auto'.
       const result = await withTimeout(
         stripe.createPaymentMethod({
           elements,
@@ -174,15 +174,10 @@ export function DeferredCardKeyInForm(props: {
             options={{
               layout: "tabs",
               wallets: { applePay: "never", googlePay: "never" },
+              // Must be the string 'auto' | 'never' — nested address objects crash Stripe.js.
+              // 'auto' collects ZIP for AVS; country is still passed in createPaymentMethod.
               fields: {
-                billingDetails: {
-                  address: {
-                    // Always show ZIP for AVS (keyed cards — no signature step).
-                    postalCode: "always",
-                    // Country hidden — must pass country: "US" in createPaymentMethod params.
-                    country: "never",
-                  },
-                },
+                billingDetails: "auto",
               },
             }}
           />

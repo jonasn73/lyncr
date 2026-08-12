@@ -2050,7 +2050,7 @@ function ManualCardForm(props: {
         )
         return
       }
-      // Country is never collected in the Payment Element — pass US for AVS keyed cards.
+      // Country may not be collected by Payment Element 'auto' fields — pass US for AVS keyed cards.
       const { error, paymentIntent } = await withTimeout(
         stripe.confirmPayment({
           elements,
@@ -2169,14 +2169,10 @@ function ManualCardForm(props: {
             options={{
               layout: "tabs",
               wallets: { applePay: "never", googlePay: "never" },
-              // Always collect ZIP for AVS — keyed cards authenticate with postal code, not a signature.
+              // Must be the string 'auto' | 'never' — nested address objects crash Stripe.js.
+              // 'auto' collects ZIP for AVS; country is still passed in confirmPayment.
               fields: {
-                billingDetails: {
-                  address: {
-                    postalCode: "always",
-                    country: "never",
-                  },
-                },
+                billingDetails: "auto",
               },
             }}
           />
