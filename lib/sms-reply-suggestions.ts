@@ -245,6 +245,35 @@ export function buildHeuristicSmsReplySuggestions(
 }
 
 /**
+ * Compact chips for the “job finished → send thanks + review” sheet when there is
+ * no inbound yet. Tap fills Messages (?draft=) — never auto-sends; review SMS stays primary.
+ */
+export function buildJobFinishedFollowUpChips(input: {
+  customerName?: string | null
+  businessName?: string | null
+}): SmsReplyChip[] {
+  const who = firstName(input.customerName)
+  const businessLabel = biz(input.businessName)
+  return [
+    {
+      id: "job-thanks",
+      label: "Thanks again",
+      body: `Thanks again, ${who}! Appreciate you choosing ${businessLabel}.`,
+    },
+    {
+      id: "job-glad",
+      label: "Glad we helped",
+      body: `Hi ${who}, glad we could help today. Text ${businessLabel} anytime you need us.`,
+    },
+    {
+      id: "job-checkin",
+      label: "All good?",
+      body: `Hi ${who}, just checking in — everything still working well? — ${businessLabel}`,
+    },
+  ]
+}
+
+/**
  * Optional OpenAI polish of 1–2 reply drafts.
  * Falls back to heuristic drafts when OPENAI_API_KEY is missing or the call fails.
  */

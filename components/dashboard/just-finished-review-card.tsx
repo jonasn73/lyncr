@@ -62,6 +62,7 @@ import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import {
   buildHeuristicSmsReplySuggestions,
+  buildJobFinishedFollowUpChips,
   extractBusinessNameFromSmsBody,
   extractVehicleFromSmsBody,
   type SmsReplyChip,
@@ -70,7 +71,6 @@ import {
 import { formatTimeAgo } from "@/lib/today-board"
 import type { SmsMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
 /** Human service label from book-form chips (Key copy, Lockout, …). */
 function bookFormServiceLabel(item: LatestCustomerAction): string {
@@ -307,13 +307,16 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
   /** Open Messages; stash book-form context so SMS can link back to booking details. */
   const openInMessages = useCallback(
-    (phone: string, bookItem?: LatestCustomerAction | null) => {
+    (phone: string, bookItem?: LatestCustomerAction | null, draft?: string) => {
       if (bookItem?.event === "book_form") {
         writeBookFormDetailsHandoff(bookItem)
       }
       if (phone.trim()) markSeen(phone)
       setSelected(null)
-      router.push(`/dashboard/messages?phone=${encodeURIComponent(phone)}`)
+      const qs = new URLSearchParams({ phone })
+      const draftText = String(draft ?? "").trim()
+      if (draftText) qs.set("draft", draftText)
+      router.push(`/dashboard/messages?${qs.toString()}`)
     },
     [markSeen, router]
   )
@@ -689,15 +692,17 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       ) : null}
 
       {/* Mount Sheet only while open — always-mounted Radix Sheet+Close button
-          contributed to update-depth crashes when Latest refreshed (#185). */}
+          contributed to update-depth crashes when Latest refreshed (#185).
+          Compact bottom sheet (content height) — not a sparse full-screen drawer. */}
       {selected ? (
         <Sheet open onOpenChange={(open) => !open && setSelected(null)}>
           <SheetContent
-            side="right"
-            variant="drawer"
+            side="bottom"
             className={cn(
-              WORKSPACE_SHEET_CLASS,
-              "pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+              // Hug content; cap tall Needs-reply threads so the sheet never fills the viewport.
+              "flex h-auto max-h-[min(85dvh,40rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0",
+              "sm:mx-auto sm:max-w-lg",
+              "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
             )}
           >
             <LatestActionDetail
@@ -746,7 +751,7 @@ function LatestActionDetail({
   sendFailed: boolean
   onSendThanks: (jobId: string) => void
   onMarkReviewOpened: (jobId: string) => void
-  onOpenMessages: (phone: string, bookItem?: LatestCustomerAction | null) => void
+  onOpenMessages: (phone: string, bookItem?: LatestCustomerAction | null, draft?: string) => void
   onOpenJob: (jobId: string) => void
   onOpenBookIntake: (item: LatestCustomerAction) => void
   onSendUnreachable: (item: LatestCustomerAction) => void
@@ -758,12 +763,18 @@ function LatestActionDetail({
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
   const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
-  // Full SMS history only for reply detail — job / payment / book rows stay status-only.
-  const showSmsThread = item.event === "replied" && Boolean(item.customerPhone?.trim())
+  // Full SMS history for reply detail; also when a finished job already has an inbound text.
+  const showSmsThread =
+    (item.event === "replied" ||
+      (item.event === "job_finished" && Boolean(item.lastInbound))) &&
+    Boolean(item.customerPhone?.trim())
   const isPaidEvent = item.event === "customer_paid"
   const isBookEvent = item.event === "book_form"
-  // Inline reply composer only on Needs reply sheets.
+  // Inline reply composer + chips whenever this sheet shows a customer text to answer.
   const showInlineReply = showSmsThread
+  // Post-job follow-up chips (no inbound yet) — compact alternatives above CTAs.
+  const showJobFinishedChips =
+    item.event === "job_finished" && !showInlineReply && Boolean(item.customerPhone?.trim())
   // tel: link for one-tap call from the booking sheet.
   const telHref = item.customerPhone ? buildTelHref(item.customerPhone) : null
   // Submitted fields for book-form / book-from-hold (front and center).
@@ -847,13 +858,25 @@ function LatestActionDetail({
     businessName,
   ])
 
+  // Compact post-job SMS chips (opens Messages with draft — does not send).
+  const jobFinishedChips = useMemo(() => {
+    if (!showJobFinishedChips) return [] as SmsReplyChip[]
+    return buildJobFinishedFollowUpChips({
+      customerName: item.customerName,
+      businessName:
+        businessName ||
+        extractBusinessNameFromSmsBody(lastOutboundBody) ||
+        null,
+    })
+  }, [showJobFinishedChips, item.customerName, businessName, lastOutboundBody])
+
   // Cancel / declined intent → soft Mark cancelled CTA when we find a job.
   const showCancelAction =
     showInlineReply && replySuggest.intent === "cancel" && !cancelDone
 
-  // Load business name once for chip sign-offs.
+  // Load business name once for chip sign-offs (Needs reply + job-finished follow-ups).
   useEffect(() => {
-    if (!showInlineReply) return
+    if (!showInlineReply && !showJobFinishedChips) return
     let cancelled = false
     void fetch("/api/auth/session", { credentials: "include", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -865,7 +888,7 @@ function LatestActionDetail({
     return () => {
       cancelled = true
     }
-  }, [showInlineReply])
+  }, [showInlineReply, showJobFinishedChips])
 
   // When cancel intent, look up an open job/lead for this phone.
   useEffect(() => {
@@ -1191,12 +1214,17 @@ function LatestActionDetail({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <SheetHeader className="shrink-0 border-b border-border/60 px-5 py-4 text-left">
+    <div className="flex min-h-0 flex-col">
+      {/* Mobile drag affordance — matches Map / Scheduler sheets. */}
+      <div className="flex shrink-0 justify-center pb-0.5 pt-2.5 md:hidden" aria-hidden>
+        <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
+      </div>
+
+      <SheetHeader className="shrink-0 border-b border-zinc-800/80 px-4 pb-3 pt-2 text-left">
         {isBookEvent ? (
           <>
             {/* Booking sheet: title = what happened; name/phone are submitted fields. */}
-            <SheetTitle className="text-base font-semibold text-foreground">
+            <SheetTitle className="pr-8 text-base font-semibold text-foreground">
               Booking request
             </SheetTitle>
             <p className="mt-1 text-sm font-medium text-orange-100">{item.headline}</p>
@@ -1206,7 +1234,7 @@ function LatestActionDetail({
           </>
         ) : (
           <>
-            <SheetTitle className="text-base font-semibold text-foreground">
+            <SheetTitle className="pr-8 text-base font-semibold text-foreground">
               {item.customerName}
             </SheetTitle>
             <p className="text-sm text-zinc-500">{phoneLabel}</p>
@@ -1230,14 +1258,15 @@ function LatestActionDetail({
         ) : null}
       </SheetHeader>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+      {/* Content hugs height — no flex-1 empty middle. Scroll only when needed. */}
+      <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
         {isBookEvent ? (
           // Submitted fields front and center — not buried in “Continue intake”.
-          <section className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
+          <section className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-200/90">
               Customer booked
             </p>
-            <dl className="mt-2.5 space-y-2 text-sm">
+            <dl className="mt-2 space-y-1.5 text-sm">
               <div className="flex gap-2">
                 <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Name</dt>
                 <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
@@ -1277,12 +1306,12 @@ function LatestActionDetail({
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Status
             </p>
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-1.5 space-y-1.5">
               {steps.map((step) => (
                 <li
                   key={step.label}
                   className={cn(
-                    "rounded-xl border px-3 py-2.5",
+                    "rounded-xl border px-3 py-2",
                     step.done
                       ? "border-emerald-500/25 bg-emerald-500/5"
                       : step.label === "Needs reply"
@@ -1326,13 +1355,13 @@ function LatestActionDetail({
               <p className="mt-2 text-xs text-rose-300">{threadError}</p>
             ) : threadMessages.length === 0 ? (
               // Fallback: still show last pair from Latest if the feed is empty.
-              <div className="mt-2 space-y-3">
+              <div className="mt-2 space-y-2">
                 {item.lastOutbound ? (
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Your text
                     </p>
-                    <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 text-sm text-foreground">
+                    <p className="mt-1 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-sm text-foreground">
                       {item.lastOutbound.body}
                     </p>
                   </div>
@@ -1342,14 +1371,14 @@ function LatestActionDetail({
                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Their reply
                     </p>
-                    <p className="mt-1.5 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-sm font-medium text-foreground">
+                    <p className="mt-1 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm font-medium text-foreground">
                       {item.lastInbound.body}
                     </p>
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="mt-2 max-h-[min(50vh,22rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-2.5 py-3">
+              <div className="mt-1.5 max-h-[min(32dvh,14rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-2.5 py-2.5">
                 {threadMessages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
@@ -1360,7 +1389,7 @@ function LatestActionDetail({
                     >
                       <div
                         className={cn(
-                          "max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug",
+                          "max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-snug",
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
@@ -1395,10 +1424,10 @@ function LatestActionDetail({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-border/60 px-5 py-4">
+      <div className="shrink-0 space-y-2 border-t border-zinc-800/80 px-4 pt-3">
         {/* Payment-received alerts are informational — no Collect CTA. */}
         {isPaidEvent ? (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-center text-sm font-semibold text-emerald-100">
+          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
             Paid · no balance to collect
           </p>
         ) : null}
@@ -1472,7 +1501,7 @@ function LatestActionDetail({
           </>
         ) : null}
         {item.customerPhone && !isPaidEvent && !isBookEvent && showInlineReply ? (
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {/* Quick reply chips — tap fills composer (does not send). */}
             {replySuggest.chips.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -1525,7 +1554,7 @@ function LatestActionDetail({
               <textarea
                 value={replyDraft}
                 onChange={(e) => setReplyDraft(e.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="Type a reply…"
                 className="w-full resize-none bg-transparent px-1.5 py-1 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none"
               />
@@ -1533,7 +1562,7 @@ function LatestActionDetail({
                 type="button"
                 onClick={() => void sendInlineReply()}
                 disabled={replySending || !replyDraft.trim()}
-                className="mt-1.5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-sky-400 disabled:opacity-50"
+                className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-sky-400 disabled:opacity-50"
               >
                 {replySending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1572,6 +1601,47 @@ function LatestActionDetail({
             </button>
           </div>
         ) : null}
+
+        {/* Job finished: compact follow-up chips above primary Send thanks CTA. */}
+        {showJobFinishedChips && jobFinishedChips.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {jobFinishedChips.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => onOpenMessages(item.customerPhone!, undefined, chip.body)}
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Primary for job finished: Send thanks + review (before secondary links). */}
+        {item.completedJobId && item.event !== "customer_paid" ? (
+          <button
+            type="button"
+            disabled={busyJobId === item.completedJobId}
+            onClick={() => onSendThanks(item.completedJobId!)}
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50",
+              sendFailed
+                ? "bg-rose-500 text-white hover:bg-rose-400"
+                : needsReviewSend
+                  ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                  : "border border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+            )}
+          >
+            {busyJobId === item.completedJobId ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {sendFailed ? "Retry thanks + review" : "Send thanks + review"}
+          </button>
+        ) : null}
+
         {item.customerPhone && !isPaidEvent && !isBookEvent && !showInlineReply ? (
           <button
             type="button"
@@ -1595,28 +1665,6 @@ function LatestActionDetail({
               <Star className="h-4 w-4" />
             )}
             Mark review received
-          </button>
-        ) : null}
-        {item.completedJobId && item.event !== "customer_paid" ? (
-          <button
-            type="button"
-            disabled={busyJobId === item.completedJobId}
-            onClick={() => onSendThanks(item.completedJobId!)}
-            className={cn(
-              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50",
-              sendFailed
-                ? "bg-rose-500 text-white hover:bg-rose-400"
-                : needsReviewSend
-                  ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
-                  : "border border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
-            )}
-          >
-            {busyJobId === item.completedJobId ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            {sendFailed ? "Retry thanks + review" : "Send thanks + review"}
           </button>
         ) : null}
         {/* Same JobDetailDrawer as Scheduler / CRM View job (Complete + Send review live there too). */}

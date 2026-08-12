@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildHeuristicSmsReplySuggestions,
+  buildJobFinishedFollowUpChips,
   detectSmsReplyIntent,
   extractBusinessNameFromSmsBody,
   extractVehicleFromSmsBody,
@@ -51,5 +52,17 @@ describe("sms reply suggestions", () => {
     expect(result.chips.some((c) => /Key Squad 502/.test(c.body))).toBe(true)
     expect(result.chips.every((c) => c.body.trim().length > 0)).toBe(true)
     expect(result.source).toBe("heuristic")
+  })
+
+  it("builds compact job-finished follow-up chips", () => {
+    const chips = buildJobFinishedFollowUpChips({
+      customerName: "Nathaniel Thompson",
+      businessName: "Key Squad 502",
+    })
+    expect(chips.length).toBe(3)
+    expect(chips[0]?.label).toBe("Thanks again")
+    expect(chips.every((c) => c.body.includes("Nathaniel") || c.body.includes("Key Squad"))).toBe(
+      true
+    )
   })
 })
