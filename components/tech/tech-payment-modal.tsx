@@ -35,6 +35,14 @@ import {
   isStripeTestPublishableKey,
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
+import {
+  fetchWithTimeout,
+  PAYMENT_API_TIMEOUT_MS,
+  PAYMENT_CONFIRM_TIMEOUT_MS,
+  TERMINAL_COLLECT_TIMEOUT_MS,
+  TERMINAL_DISCOVER_TIMEOUT_MS,
+  withTimeout,
+} from "@/lib/payment-timeout"
 
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash" | "link"
@@ -183,9 +191,12 @@ export function TechPaymentModal(props: {
     // First open always shows the status spinner until we know paid vs unpaid.
     if (sentLinks.length === 0) setLinksLoading(true)
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `/api/payments/pay-links?jobId=${encodeURIComponent(props.job.id)}${sync ? "&sync=1" : ""}`,
-        { credentials: "include", cache: "no-store" }
+        { credentials: "include", cache: "no-store" },
+        // Sync hits Stripe — allow a bit longer, but never hang the Charge sheet forever.
+        sync ? 45_000 : PAYMENT_API_TIMEOUT_MS,
+        "Checking pay links timed out."
       )
       const json = (await res.json().catch(() => ({}))) as {
         data?: { links?: SentPayLink[] }
@@ -200,7 +211,7 @@ export function TechPaymentModal(props: {
         setForceNewCharge(false)
       }
     } catch {
-      /* keep prior list */
+      /* keep prior list — still clear loading so Charge UI is usable */
     } finally {
       setLinksLoading(false)
       setLinksSyncing(false)
@@ -330,21 +341,26 @@ export function TechPaymentModal(props: {
     const lineItems = lineItemsPayload()
     if (totalCents < 50) throw new Error("Enter an amount of at least $0.50.")
     if (lineItems.length === 0) throw new Error("Add at least one line item with an amount.")
-    const res = await fetch("/api/payments/create-intent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        jobId: props.job.id,
-        // Final charge including sales tax (invoiceOverride allows any amount).
-        amount: totalCents / 100,
-        paymentMethodType,
-        invoiceOverride: true,
-        lineItems,
-        taxEnabled,
-        taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
-      }),
-    })
+    const res = await fetchWithTimeout(
+      "/api/payments/create-intent",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          jobId: props.job.id,
+          // Final charge including sales tax (invoiceOverride allows any amount).
+          amount: totalCents / 100,
+          paymentMethodType,
+          invoiceOverride: true,
+          lineItems,
+          taxEnabled,
+          taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+        }),
+      },
+      PAYMENT_API_TIMEOUT_MS,
+      "Starting the charge timed out. Check your connection and try again."
+    )
     const json = (await res.json()) as {
       error?: string
       data?: {
@@ -371,15 +387,20 @@ export function TechPaymentModal(props: {
   }
 
   async function confirmServer(piId: string) {
-    const res = await fetch("/api/payments/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        paymentIntentId: piId,
-        stripeConnectAccountId: stripeConnectAccountId || undefined,
-      }),
-    })
+    const res = await fetchWithTimeout(
+      "/api/payments/confirm",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          paymentIntentId: piId,
+          stripeConnectAccountId: stripeConnectAccountId || undefined,
+        }),
+      },
+      PAYMENT_API_TIMEOUT_MS,
+      "Payment confirmation timed out. Check Stripe before retrying."
+    )
     const json = (await res.json()) as { error?: string }
     if (!res.ok) throw new Error(json.error || "Could not confirm payment")
   }
@@ -519,18 +540,23 @@ export function TechPaymentModal(props: {
   /** Charge tip as a separate job line (works for owner + tech). */
   async function createTipIntent(paymentMethodType: "TAP_TO_PAY" | "MANUAL_CARD") {
     if (tipChargeCents < 50) throw new Error("Tip must be at least $0.50")
-    const res = await fetch("/api/payments/create-intent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        jobId: props.job.id,
-        amount: tipChargeCents / 100,
-        paymentMethodType,
-        invoiceOverride: true,
-        lineItems: [{ label: "Tip", amountCents: tipChargeCents }],
-      }),
-    })
+    const res = await fetchWithTimeout(
+      "/api/payments/create-intent",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          jobId: props.job.id,
+          amount: tipChargeCents / 100,
+          paymentMethodType,
+          invoiceOverride: true,
+          lineItems: [{ label: "Tip", amountCents: tipChargeCents }],
+        }),
+      },
+      PAYMENT_API_TIMEOUT_MS,
+      "Starting the tip charge timed out. Try again."
+    )
     const json = (await res.json()) as {
       error?: string
       data?: {
@@ -575,14 +601,23 @@ export function TechPaymentModal(props: {
     let terminal: Terminal | null = null
     try {
       const intent = await createTipIntent("TAP_TO_PAY")
-      const StripeTerminal = await loadStripeTerminal()
+      const StripeTerminal = await withTimeout(
+        loadStripeTerminal(),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Tap to Pay SDK timed out. Use card for the tip."
+      )
       if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
       terminal = StripeTerminal.create({
         onFetchConnectionToken: async () => {
-          const res = await fetch("/api/payments/terminal/connection-token", {
-            method: "POST",
-            credentials: "include",
-          })
+          const res = await fetchWithTimeout(
+            "/api/payments/terminal/connection-token",
+            {
+              method: "POST",
+              credentials: "include",
+            },
+            PAYMENT_API_TIMEOUT_MS,
+            "Terminal connection timed out."
+          )
           const json = (await res.json()) as { data?: { secret?: string }; error?: string }
           if (!res.ok || !json.data?.secret) {
             throw new Error(json.error || "Could not fetch Terminal connection token")
@@ -597,28 +632,48 @@ export function TechPaymentModal(props: {
       const pk = intent.publishableKey
       const liveMode = isStripeLivePublishableKey(pk)
       const allowSimulator = isStripeTestPublishableKey(pk)
-      let discover = await terminal.discoverReaders({ simulated: false })
+      let discover = await withTimeout(
+        terminal.discoverReaders({ simulated: false }),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        tapToPayNoReaderMessage(liveMode || !allowSimulator)
+      )
       const noRealReader =
         "error" in discover ||
         !("discoveredReaders" in discover) ||
         !discover.discoveredReaders?.length
       if (noRealReader && allowSimulator && !liveMode) {
-        discover = await terminal.discoverReaders({ simulated: true })
+        discover = await withTimeout(
+          terminal.discoverReaders({ simulated: true }),
+          TERMINAL_DISCOVER_TIMEOUT_MS,
+          tapToPayNoReaderMessage(false)
+        )
       }
       if ("error" in discover) {
         throw new Error(formatPaymentCatchError(discover.error, "Could not find a tap reader."))
       }
       const reader = discover.discoveredReaders?.[0]
       if (!reader) throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
-      const connected = await terminal.connectReader(reader)
+      const connected = await withTimeout(
+        terminal.connectReader(reader),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Reader connect timed out."
+      )
       if ("error" in connected) {
         throw new Error(formatPaymentCatchError(connected.error, "Could not connect reader."))
       }
-      const collected = await terminal.collectPaymentMethod(intent.clientSecret)
+      const collected = await withTimeout(
+        terminal.collectPaymentMethod(intent.clientSecret),
+        TERMINAL_COLLECT_TIMEOUT_MS,
+        "No tip tap received in time."
+      )
       if ("error" in collected) {
         throw new Error(formatPaymentCatchError(collected.error, "Tip tap failed."))
       }
-      const processed = await terminal.processPayment(collected.paymentIntent)
+      const processed = await withTimeout(
+        terminal.processPayment(collected.paymentIntent),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Tip charge timed out while processing."
+      )
       if ("error" in processed) {
         throw new Error(formatPaymentCatchError(processed.error, "Tip charge failed."))
       }
@@ -706,15 +761,24 @@ export function TechPaymentModal(props: {
     let terminal: Terminal | null = null
     try {
       const intent = await createIntent("TAP_TO_PAY")
-      const StripeTerminal = await loadStripeTerminal()
+      const StripeTerminal = await withTimeout(
+        loadStripeTerminal(),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Tap to Pay SDK timed out. Use Manual Card Entry or a pay link."
+      )
       if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
 
       terminal = StripeTerminal.create({
         onFetchConnectionToken: async () => {
-          const res = await fetch("/api/payments/terminal/connection-token", {
-            method: "POST",
-            credentials: "include",
-          })
+          const res = await fetchWithTimeout(
+            "/api/payments/terminal/connection-token",
+            {
+              method: "POST",
+              credentials: "include",
+            },
+            PAYMENT_API_TIMEOUT_MS,
+            "Terminal connection timed out. Use Manual Card Entry."
+          )
           const json = (await res.json()) as { data?: { secret?: string }; error?: string }
           if (!res.ok || !json.data?.secret) {
             throw new Error(json.error || "Could not fetch Terminal connection token")
@@ -732,13 +796,21 @@ export function TechPaymentModal(props: {
       const liveMode = isStripeLivePublishableKey(pk)
       const allowSimulator = isStripeTestPublishableKey(pk)
 
-      let discover = await terminal.discoverReaders({ simulated: false })
+      let discover = await withTimeout(
+        terminal.discoverReaders({ simulated: false }),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        tapToPayNoReaderMessage(liveMode || !allowSimulator)
+      )
       const noRealReader =
         "error" in discover ||
         !("discoveredReaders" in discover) ||
         !discover.discoveredReaders?.length
       if (noRealReader && allowSimulator && !liveMode) {
-        discover = await terminal.discoverReaders({ simulated: true })
+        discover = await withTimeout(
+          terminal.discoverReaders({ simulated: true }),
+          TERMINAL_DISCOVER_TIMEOUT_MS,
+          tapToPayNoReaderMessage(false)
+        )
       }
       if ("error" in discover) {
         throw new Error(formatPaymentCatchError(discover.error, "Could not find a tap reader."))
@@ -748,19 +820,31 @@ export function TechPaymentModal(props: {
         throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
       }
 
-      const connected = await terminal.connectReader(reader)
+      const connected = await withTimeout(
+        terminal.connectReader(reader),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Could not connect to the reader in time. Use Manual Card Entry."
+      )
       if ("error" in connected) {
         throw new Error(formatPaymentCatchError(connected.error, "Could not connect to the reader."))
       }
 
-      const collected = await terminal.collectPaymentMethod(intent.clientSecret)
+      const collected = await withTimeout(
+        terminal.collectPaymentMethod(intent.clientSecret),
+        TERMINAL_COLLECT_TIMEOUT_MS,
+        "No tap received in time. Try again or use Manual Card Entry."
+      )
       if ("error" in collected) {
         throw new Error(
           formatPaymentCatchError(collected.error, "Customer didn’t complete the tap. Try again.")
         )
       }
 
-      const processed = await terminal.processPayment(collected.paymentIntent)
+      const processed = await withTimeout(
+        terminal.processPayment(collected.paymentIntent),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Tap charge timed out while processing. Check Stripe before retrying."
+      )
       if ("error" in processed) {
         throw new Error(
           formatPaymentCatchError(processed.error, "Tap charge failed — try Manual Card Entry.")
@@ -1899,20 +1983,27 @@ function ManualCardForm(props: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!stripe || !elements) return
+    if (!stripe || !elements) {
+      props.onError("Card form is still loading — wait a second and try again.")
+      return
+    }
     setSubmitting(true)
     props.onError(null)
     try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-        confirmParams: {
-          return_url:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/tech/dashboard`
-              : undefined,
-        },
-      })
+      const { error, paymentIntent } = await withTimeout(
+        stripe.confirmPayment({
+          elements,
+          redirect: "if_required",
+          confirmParams: {
+            return_url:
+              typeof window !== "undefined"
+                ? `${window.location.origin}/tech/dashboard`
+                : undefined,
+          },
+        }),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Charge timed out waiting for the bank or wallet. Try again or use a pay link."
+      )
       if (error) {
         props.onError(
           formatStripeCardFailure(error, "Card was declined — try another card.")
@@ -1931,15 +2022,20 @@ function ManualCardForm(props: {
       }
       const piId = paymentIntent?.id || props.paymentIntentId
       if (piId) {
-        const res = await fetch("/api/payments/confirm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            paymentIntentId: piId,
-            stripeConnectAccountId: props.stripeConnectAccountId || undefined,
-          }),
-        })
+        const res = await fetchWithTimeout(
+          "/api/payments/confirm",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              paymentIntentId: piId,
+              stripeConnectAccountId: props.stripeConnectAccountId || undefined,
+            }),
+          },
+          PAYMENT_API_TIMEOUT_MS,
+          "Card may have charged, but Lyncr confirmation timed out. Check Stripe before retrying."
+        )
         if (!res.ok) {
           const json = (await res.json()) as { error?: string }
           throw new Error(
@@ -1991,7 +2087,14 @@ function ManualCardForm(props: {
           disabled={!stripe || !elements || submitting}
           className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${props.totalLabel}`}
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Charging…
+            </>
+          ) : (
+            `Pay ${props.totalLabel}`
+          )}
         </button>
       </div>
     </form>

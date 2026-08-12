@@ -596,7 +596,11 @@ export async function getHoldQueueDayStats(userId: string): Promise<{
     avgWaitSecs: null as number | null,
   }
   try {
+    // Clear ghost LIVE rows before counting — otherwise avg wait / waiting skew.
+    await sweepStaleCallQueueForUser(userId)
     const sql = getSql()
+    // Cap per-row wait so one abandoned ghost (e.g. 885s) cannot dominate the average.
+    const maxWaitCap = holdMaxWaitSecs(null)
     const rows = await sql`
       SELECT
         COUNT(*) FILTER (WHERE status IN ('waiting', 'holding', 'bridging'))::int AS waiting,
@@ -614,14 +618,19 @@ export async function getHoldQueueDayStats(userId: string): Promise<{
         )::int AS abandoned,
         ROUND(
           AVG(
-            EXTRACT(
-              EPOCH FROM (
-                COALESCE(answered_at, left_at, updated_at) - enqueued_at
+            LEAST(
+              ${maxWaitCap}::float8,
+              EXTRACT(
+                EPOCH FROM (
+                  COALESCE(answered_at, left_at, updated_at) - enqueued_at
+                )
               )
             )
           ) FILTER (
             WHERE status IN ('answered', 'sms_left', 'left', 'timed_out')
               AND enqueued_at::date = (timezone('utc', now()))::date
+              AND COALESCE(answered_at, left_at, updated_at) IS NOT NULL
+              AND COALESCE(answered_at, left_at, updated_at) >= enqueued_at
           )
         )::float8 AS avg_wait_secs
       FROM call_queue
@@ -639,7 +648,7 @@ export async function getHoldQueueDayStats(userId: string): Promise<{
     if (!row) return empty
     const avg =
       row.avg_wait_secs != null && Number.isFinite(Number(row.avg_wait_secs))
-        ? Math.max(0, Math.round(Number(row.avg_wait_secs)))
+        ? Math.max(0, Math.min(maxWaitCap, Math.round(Number(row.avg_wait_secs))))
         : null
     return {
       waiting: Number(row.waiting ?? 0),

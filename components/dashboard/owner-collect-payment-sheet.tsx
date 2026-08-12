@@ -47,6 +47,14 @@ import {
   isStripeTestPublishableKey,
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
+import {
+  fetchWithTimeout,
+  PAYMENT_API_TIMEOUT_MS,
+  PAYMENT_CONFIRM_TIMEOUT_MS,
+  TERMINAL_COLLECT_TIMEOUT_MS,
+  TERMINAL_DISCOVER_TIMEOUT_MS,
+  withTimeout,
+} from "@/lib/payment-timeout"
 import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
@@ -142,20 +150,35 @@ function AdhocCardForm({
   const [error, setError] = useState<string | null>(null)
 
   async function pay() {
-    if (!stripe || !elements) return
+    // Stripe.js not ready yet — do not set busy or the button spins forever.
+    if (!stripe || !elements) {
+      const message = "Card form is still loading — wait a second and try again."
+      setError(message)
+      onError?.(message)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      const { error: submitError } = await elements.submit()
+      const { error: submitError } = await withTimeout(
+        elements.submit(),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Card form timed out. Check the details and try again."
+      )
       if (submitError) {
         throw new Error(
           formatStripeCardFailure(submitError, "Check the card details and try again.")
         )
       }
-      const result = await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-      })
+      // confirmPayment can hang on 3DS / wallet sheets — always race a timeout.
+      const result = await withTimeout(
+        stripe.confirmPayment({
+          elements,
+          redirect: "if_required",
+        }),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Charge timed out waiting for the bank or wallet. Try again, or use Tap to Pay / a pay link."
+      )
       if (result.error) {
         throw new Error(
           formatStripeCardFailure(result.error, "Card was declined — try another card.")
@@ -169,15 +192,20 @@ function AdhocCardForm({
         )
       }
       if (pi?.id) {
-        const confirmRes = await fetch("/api/payments/confirm", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paymentIntentId: pi.id,
-            stripeConnectAccountId: stripeConnectAccountId || undefined,
-          }),
-        })
+        const confirmRes = await fetchWithTimeout(
+          "/api/payments/confirm",
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paymentIntentId: pi.id,
+              stripeConnectAccountId: stripeConnectAccountId || undefined,
+            }),
+          },
+          PAYMENT_API_TIMEOUT_MS,
+          "Card may have charged, but Lyncr confirmation timed out. Check Stripe before retrying."
+        )
         if (!confirmRes.ok) {
           const json = (await confirmRes.json().catch(() => ({}))) as { error?: string }
           throw new Error(
@@ -194,6 +222,7 @@ function AdhocCardForm({
       setError(message)
       onError?.(message)
     } finally {
+      // Always clear spinner — even on timeout / hang recovery.
       setBusy(false)
     }
   }
@@ -226,9 +255,18 @@ function AdhocCardForm({
           type="button"
           disabled={busy || !stripe}
           onClick={() => void pay()}
-          className="flex-1 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
-          {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Charge card"}
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Charging…
+            </>
+          ) : !stripe ? (
+            "Loading…"
+          ) : (
+            "Charge card"
+          )}
         </button>
       </div>
     </div>
@@ -767,12 +805,17 @@ export function OwnerCollectPaymentSheet({
     }
     setAdhocBusy(true)
     try {
-      const res = await fetch("/api/payments/create-intent", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting the card charge timed out. Check your connection and try again."
+      )
       const json = (await res.json()) as {
         error?: string
         data?: {
@@ -815,12 +858,17 @@ export function OwnerCollectPaymentSheet({
     setTapListening(true)
     let terminal: Terminal | null = null
     try {
-      const res = await fetch("/api/payments/create-intent", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting Tap to Pay timed out. Try Card or a pay link instead."
+      )
       const json = (await res.json()) as {
         error?: string
         data?: {
@@ -840,15 +888,24 @@ export function OwnerCollectPaymentSheet({
       const liveMode = isStripeLivePublishableKey(pk)
       const allowSimulator = isStripeTestPublishableKey(pk)
 
-      const StripeTerminal = await loadStripeTerminal()
+      const StripeTerminal = await withTimeout(
+        loadStripeTerminal(),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Tap to Pay SDK timed out loading. Use Card or a pay link on this browser."
+      )
       if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
 
       terminal = StripeTerminal.create({
         onFetchConnectionToken: async () => {
-          const tokenRes = await fetch("/api/payments/terminal/connection-token", {
-            method: "POST",
-            credentials: "include",
-          })
+          const tokenRes = await fetchWithTimeout(
+            "/api/payments/terminal/connection-token",
+            {
+              method: "POST",
+              credentials: "include",
+            },
+            PAYMENT_API_TIMEOUT_MS,
+            "Terminal connection timed out. Use Card or a pay link instead."
+          )
           const tokenJson = (await tokenRes.json()) as {
             data?: { secret?: string }
             error?: string
@@ -868,7 +925,12 @@ export function OwnerCollectPaymentSheet({
         },
       })
 
-      let discover = await terminal.discoverReaders({ simulated: false })
+      // Discover can hang on desktop browsers with no NFC — always race a timeout.
+      let discover = await withTimeout(
+        terminal.discoverReaders({ simulated: false }),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        tapToPayNoReaderMessage(liveMode || !allowSimulator)
+      )
       const noRealReader =
         "error" in discover ||
         !("discoveredReaders" in discover) ||
@@ -876,7 +938,11 @@ export function OwnerCollectPaymentSheet({
 
       // Never fall back to the simulator on live keys (that caused the error you saw).
       if (noRealReader && allowSimulator && !liveMode) {
-        discover = await terminal.discoverReaders({ simulated: true })
+        discover = await withTimeout(
+          terminal.discoverReaders({ simulated: true }),
+          TERMINAL_DISCOVER_TIMEOUT_MS,
+          tapToPayNoReaderMessage(false)
+        )
       }
 
       if ("error" in discover) {
@@ -887,19 +953,31 @@ export function OwnerCollectPaymentSheet({
         throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
       }
 
-      const connected = await terminal.connectReader(reader)
+      const connected = await withTimeout(
+        terminal.connectReader(reader),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Could not connect to the tap reader in time. Use Card or a pay link."
+      )
       if ("error" in connected) {
         throw new Error(formatPaymentCatchError(connected.error, "Could not connect to the reader."))
       }
 
-      const collected = await terminal.collectPaymentMethod(secret)
+      const collected = await withTimeout(
+        terminal.collectPaymentMethod(secret),
+        TERMINAL_COLLECT_TIMEOUT_MS,
+        "No tap received in time. Try again, or use Card / a pay link."
+      )
       if ("error" in collected) {
         throw new Error(
           formatPaymentCatchError(collected.error, "Customer didn’t complete the tap. Try again.")
         )
       }
 
-      const processed = await terminal.processPayment(collected.paymentIntent)
+      const processed = await withTimeout(
+        terminal.processPayment(collected.paymentIntent),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Tap charge timed out while processing. Check Stripe before retrying."
+      )
       if ("error" in processed) {
         throw new Error(
           formatPaymentCatchError(processed.error, "Tap charge failed — try Card entry.")
@@ -909,15 +987,20 @@ export function OwnerCollectPaymentSheet({
       const piId = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
       if (!piId) throw new Error("Payment succeeded but no payment id was returned")
 
-      await fetch("/api/payments/confirm", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentIntentId: piId,
-          stripeConnectAccountId: stripeConnectAccountId || undefined,
-        }),
-      }).catch(() => null)
+      await fetchWithTimeout(
+        "/api/payments/confirm",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentIntentId: piId,
+            stripeConnectAccountId: stripeConnectAccountId || undefined,
+          }),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Tap charged, but confirmation timed out. Check Stripe before retrying."
+      ).catch(() => null)
 
       enterTipSignStep(piId, totalAtCharge)
     } catch (e) {
@@ -1015,12 +1098,17 @@ export function OwnerCollectPaymentSheet({
     if (!body) return
     setAdhocBusy(true)
     try {
-      const res = await fetch("/api/payments/create-intent", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting the tip charge timed out. Try again."
+      )
       const json = (await res.json()) as {
         error?: string
         data?: {
@@ -1052,12 +1140,17 @@ export function OwnerCollectPaymentSheet({
     setTapListening(true)
     let terminal: Terminal | null = null
     try {
-      const res = await fetch("/api/payments/create-intent", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
+      const res = await fetchWithTimeout(
+        "/api/payments/create-intent",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+        PAYMENT_API_TIMEOUT_MS,
+        "Starting tip Tap to Pay timed out. Try card instead."
+      )
       const json = (await res.json()) as {
         error?: string
         data?: {
@@ -1074,15 +1167,24 @@ export function OwnerCollectPaymentSheet({
       const liveMode = isStripeLivePublishableKey(pk)
       const allowSimulator = isStripeTestPublishableKey(pk)
 
-      const StripeTerminal = await loadStripeTerminal()
+      const StripeTerminal = await withTimeout(
+        loadStripeTerminal(),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Tap to Pay SDK timed out. Use card for the tip."
+      )
       if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
 
       terminal = StripeTerminal.create({
         onFetchConnectionToken: async () => {
-          const tokenRes = await fetch("/api/payments/terminal/connection-token", {
-            method: "POST",
-            credentials: "include",
-          })
+          const tokenRes = await fetchWithTimeout(
+            "/api/payments/terminal/connection-token",
+            {
+              method: "POST",
+              credentials: "include",
+            },
+            PAYMENT_API_TIMEOUT_MS,
+            "Terminal connection timed out."
+          )
           const tokenJson = (await tokenRes.json()) as {
             data?: { secret?: string }
             error?: string
@@ -1095,13 +1197,21 @@ export function OwnerCollectPaymentSheet({
         onUnexpectedReaderDisconnect: () => setTapListening(false),
       })
 
-      let discover = await terminal.discoverReaders({ simulated: false })
+      let discover = await withTimeout(
+        terminal.discoverReaders({ simulated: false }),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        tapToPayNoReaderMessage(liveMode || !allowSimulator)
+      )
       const noReal =
         "error" in discover ||
         !("discoveredReaders" in discover) ||
         !discover.discoveredReaders?.length
       if (noReal && allowSimulator && !liveMode) {
-        discover = await terminal.discoverReaders({ simulated: true })
+        discover = await withTimeout(
+          terminal.discoverReaders({ simulated: true }),
+          TERMINAL_DISCOVER_TIMEOUT_MS,
+          tapToPayNoReaderMessage(false)
+        )
       }
       if ("error" in discover) {
         throw new Error(formatPaymentCatchError(discover.error, "No tip reader found."))
@@ -1109,30 +1219,47 @@ export function OwnerCollectPaymentSheet({
       const reader = discover.discoveredReaders?.[0]
       if (!reader) throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
 
-      const connected = await terminal.connectReader(reader)
+      const connected = await withTimeout(
+        terminal.connectReader(reader),
+        TERMINAL_DISCOVER_TIMEOUT_MS,
+        "Reader connect timed out."
+      )
       if ("error" in connected) {
         throw new Error(formatPaymentCatchError(connected.error, "Reader connect failed."))
       }
-      const collected = await terminal.collectPaymentMethod(secret)
+      const collected = await withTimeout(
+        terminal.collectPaymentMethod(secret),
+        TERMINAL_COLLECT_TIMEOUT_MS,
+        "No tip tap received in time."
+      )
       if ("error" in collected) {
         throw new Error(formatPaymentCatchError(collected.error, "Tip tap failed."))
       }
-      const processed = await terminal.processPayment(collected.paymentIntent)
+      const processed = await withTimeout(
+        terminal.processPayment(collected.paymentIntent),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        "Tip charge timed out while processing."
+      )
       if ("error" in processed) {
         throw new Error(formatPaymentCatchError(processed.error, "Tip charge failed."))
       }
 
       const tipPi = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
       if (tipPi) {
-        await fetch("/api/payments/confirm", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paymentIntentId: tipPi,
-            stripeConnectAccountId: stripeConnectAccountId || undefined,
-          }),
-        }).catch(() => null)
+        await fetchWithTimeout(
+          "/api/payments/confirm",
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paymentIntentId: tipPi,
+              stripeConnectAccountId: stripeConnectAccountId || undefined,
+            }),
+          },
+          PAYMENT_API_TIMEOUT_MS,
+          "Tip confirmation timed out."
+        ).catch(() => null)
         await saveSlip({ tipPaymentIntentId: tipPi, tipCents: tipChargeCents })
       }
       setClientSecret(null)
@@ -2099,6 +2226,21 @@ export function OwnerCollectPaymentSheet({
                           Hold the customer’s card or phone near this device…
                         </p>
                         <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Escape hatch if Terminal hangs — reset UI so Card / pay link work.
+                            setTapListening(false)
+                            setAdhocBusy(false)
+                            toast({
+                              title: "Tap cancelled",
+                              description: "Use Card or a pay link on this device.",
+                            })
+                          }}
+                          className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
+                        >
+                          Cancel — use Card instead
+                        </button>
                       </div>
                     ) : (
                       <section>

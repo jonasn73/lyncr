@@ -14,10 +14,9 @@ export async function GET(req: NextRequest) {
     const userId = getUserIdFromRequest(req.headers.get("cookie"))
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const [waiting, stats] = await Promise.all([
-      listWaitingCallQueue(userId),
-      getHoldQueueDayStats(userId).catch(() => null),
-    ])
+    // Sweep first, then read list + stats — avoids a race where stats still count ghosts.
+    const waiting = await listWaitingCallQueue(userId)
+    const stats = await getHoldQueueDayStats(userId).catch(() => null)
     return NextResponse.json({
       data: {
         count: waiting.length,
