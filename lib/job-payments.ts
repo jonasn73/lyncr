@@ -214,10 +214,10 @@ export async function createJobPaymentIntent(params: {
       amount: params.chargeCents,
       currency: "usd",
       application_fee_amount: applicationFeeAmount,
-      // Terminal / Tap to Pay needs card_present; Payment Element uses automatic methods.
+      // Tap: Terminal card_present. Manual: card only (avoids Link/wallet hang on Payment Element).
       ...(isTap
         ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
-        : { automatic_payment_methods: { enabled: true } }),
+        : { payment_method_types: ["card"] }),
       metadata: {
         lyncr_kind: "job_payment",
         job_id: params.job.jobId,
@@ -300,9 +300,10 @@ export async function createAdhocPaymentIntent(params: {
       amount: params.chargeCents,
       currency: "usd",
       application_fee_amount: applicationFeeAmount,
+      // Same as job: card_present for tap; card-only for keyed Payment Element (faster/safer mount).
       ...(isTap
         ? { payment_method_types: ["card_present"], capture_method: "automatic" as const }
-        : { automatic_payment_methods: { enabled: true } }),
+        : { payment_method_types: ["card"] }),
       metadata: {
         lyncr_kind: "adhoc_payment",
         owner_user_id: params.ownerUserId,

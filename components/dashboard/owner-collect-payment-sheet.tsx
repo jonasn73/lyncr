@@ -49,11 +49,13 @@ import {
 } from "@/lib/stripe-payment-errors"
 import {
   CARD_CHARGE_TIMEOUT_MESSAGE,
-  fetchWithTimeout,
+  CARD_FORM_LOAD_TIMEOUT_MESSAGE,
+  ELEMENTS_LOAD_TIMEOUT_MS,
   PAYMENT_API_TIMEOUT_MS,
   PAYMENT_CONFIRM_TIMEOUT_MS,
   TERMINAL_COLLECT_TIMEOUT_MS,
   TERMINAL_DISCOVER_TIMEOUT_MS,
+  fetchWithTimeout,
   withTimeout,
 } from "@/lib/payment-timeout"
 import { useToast } from "@/hooks/use-toast"
@@ -153,21 +155,47 @@ function AdhocCardForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [elementReady, setElementReady] = useState(false)
+  // True when Stripe.js / Payment Element never mounted — unlock UI (no endless Loading…).
+  const [loadFailed, setLoadFailed] = useState(false)
   // Bump this to invalidate in-flight pay() so a late Stripe resolve cannot re-stick busy.
   const payGenRef = useRef(0)
+  // Ref so the load-timeout callback always sees the latest ready flag (no stale closure).
+  const elementReadyRef = useRef(false)
 
-  // If Payment Element never mounts (Connect / network), unlock instead of endless Loading…
   useEffect(() => {
-    if (elementReady) return
+    elementReadyRef.current = elementReady
+  }, [elementReady])
+
+  // If Payment Element never mounts (Connect / blocked Stripe.js / Safari), fail visibly.
+  useEffect(() => {
+    if (elementReady || loadFailed) return
     const t = window.setTimeout(() => {
-      if (elementReady) return
-      const message =
-        "Card form did not load. Go Back and try again, or send a pay link."
+      // Still not ready after ELEMENTS_LOAD_TIMEOUT_MS → stop spinner, show Try again.
+      if (elementReadyRef.current) return
+      setLoadFailed(true)
+      const message = CARD_FORM_LOAD_TIMEOUT_MESSAGE
       setError(message)
       onError?.(message)
-    }, PAYMENT_API_TIMEOUT_MS)
+    }, ELEMENTS_LOAD_TIMEOUT_MS)
     return () => window.clearTimeout(t)
-  }, [elementReady, onError])
+    // Intentionally omit onError — inline parent callbacks would reset the timer every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once load watchdog
+  }, [elementReady, loadFailed])
+
+  // Stripe.js itself never loaded (useStripe stays null) — same fail path.
+  useEffect(() => {
+    if (elementReady || loadFailed || stripe) return
+    const t = window.setTimeout(() => {
+      if (elementReadyRef.current || stripe) return
+      setLoadFailed(true)
+      const message =
+        "Stripe could not load on this device. Try Safari (not an in-app browser), or send a pay link."
+      setError(message)
+      onError?.(message)
+    }, ELEMENTS_LOAD_TIMEOUT_MS)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stripe null watchdog
+  }, [stripe, elementReady, loadFailed])
 
   // Belt-and-suspenders: even if Promise.race fails (Safari timer quirks), clear busy.
   useEffect(() => {
@@ -182,7 +210,8 @@ function AdhocCardForm({
       onError?.(message)
     }, PAYMENT_CONFIRM_TIMEOUT_MS + 1_500)
     return () => window.clearTimeout(watchdog)
-  }, [busy, onError])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-arm when busy flips
+  }, [busy])
 
   function forceCancelCharge() {
     // Invalidate any in-flight pay(); Stripe may keep working but UI must unlock.
@@ -192,8 +221,18 @@ function AdhocCardForm({
     onCancel()
   }
 
+  function markLoadFailed(message: string) {
+    setLoadFailed(true)
+    setError(message)
+    onError?.(message)
+  }
+
   async function pay() {
     // Stripe.js / Payment Element not ready — do not set busy or the button spins forever.
+    if (loadFailed) {
+      forceCancelCharge()
+      return
+    }
     if (!stripe || !elements || !elementReady) {
       const message = "Card form is still loading — wait a second and try again."
       setError(message)
@@ -287,30 +326,52 @@ function AdhocCardForm({
       ) : null}
 
       <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
-        {!elementReady ? (
+        {/* Spinner only while still hoping the iframe will appear */}
+        {!elementReady && !loadFailed ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading card form…
           </div>
         ) : null}
-        <PaymentElement
-          onReady={() => setElementReady(true)}
-          options={{
-            layout: "tabs",
-            wallets: { applePay: "auto", googlePay: "auto" },
-          }}
-        />
+        {/* Keep Payment Element mounted so Stripe can finish even after we show an error */}
+        {!loadFailed ? (
+          <PaymentElement
+            onReady={() => {
+              setElementReady(true)
+              setLoadFailed(false)
+              setError(null)
+            }}
+            onLoadError={(event) => {
+              const raw = event?.error?.message || "Stripe could not show the card form."
+              markLoadFailed(`${raw} Go Back and try again, or send a pay link.`)
+            }}
+            options={{
+              layout: "tabs",
+              // Wallets (Apple/Google Pay) can stall mount on mobile WebViews — card-only for keyed entry.
+              wallets: { applePay: "never", googlePay: "never" },
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
+            <p className="max-w-xs text-xs leading-snug text-slate-400">
+              Stripe never finished loading on this screen. Use Try again, or send a pay link.
+            </p>
+          </div>
+        )}
       </div>
 
       {error ? (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
-          <p className="text-xs font-semibold text-rose-300">Card charge failed</p>
+          <p className="text-xs font-semibold text-rose-300">
+            {loadFailed ? "Card form failed to load" : "Card charge failed"}
+          </p>
           <p className="mt-0.5 text-xs leading-snug text-rose-200/90">
             <span className="font-semibold">Why: </span>
             {error}
           </p>
           <p className="mt-1.5 text-[11px] leading-snug text-rose-100/80">
-            If this keeps hanging on Safari or in-app browsers, send a pay link instead.
+            If this keeps happening on Safari or in-app browsers, send a pay link instead.
           </p>
         </div>
       ) : null}
@@ -335,8 +396,15 @@ function AdhocCardForm({
         </button>
         <button
           type="button"
-          disabled={busy || !stripe || !elementReady}
-          onClick={() => void pay()}
+          disabled={busy || (!loadFailed && (!stripe || !elementReady))}
+          onClick={() => {
+            if (loadFailed) {
+              // Unlock → back to amount / Card button so they can retry a fresh PaymentIntent.
+              forceCancelCharge()
+              return
+            }
+            void pay()
+          }}
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           {busy ? (
@@ -344,6 +412,8 @@ function AdhocCardForm({
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Charging…
             </>
+          ) : loadFailed ? (
+            "Try again"
           ) : !stripe || !elementReady ? (
             "Loading…"
           ) : (
@@ -2037,12 +2107,15 @@ export function OwnerCollectPaymentSheet({
                       </button>
                     </div>
                   )
-                ) : publishableKey ? (
+                ) : publishableKey && stripeConnectAccountId ? (
                   <Elements
+                    key={`${clientSecret}:${stripeConnectAccountId}`}
                     stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
                       appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
+                      // Show Stripe’s own loader until Payment Element is ready.
+                      loader: "auto",
                     }}
                   >
                     <AdhocCardForm
@@ -2084,6 +2157,23 @@ export function OwnerCollectPaymentSheet({
                       </button>
                     ) : null}
                   </Elements>
+                ) : publishableKey && !stripeConnectAccountId ? (
+                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-rose-300">Missing connected Stripe account</p>
+                    <p className="text-xs text-rose-100/80">
+                      Finish Get paid in Settings, then try the tip charge again.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientSecret(null)
+                        setPublishableKey(null)
+                      }}
+                      className="w-full rounded-lg border border-zinc-700 py-2 text-sm font-semibold text-slate-200"
+                    >
+                      Back
+                    </button>
+                  </div>
                 ) : (
                   <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
                 )}
@@ -2442,12 +2532,14 @@ export function OwnerCollectPaymentSheet({
                       </section>
                     )}
                   </>
-                ) : publishableKey ? (
+                ) : publishableKey && stripeConnectAccountId ? (
                   <Elements
+                    key={`${clientSecret}:${stripeConnectAccountId}`}
                     stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
                       appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
+                      loader: "auto",
                     }}
                   >
                     <AdhocCardForm
@@ -2462,6 +2554,23 @@ export function OwnerCollectPaymentSheet({
                       }}
                     />
                   </Elements>
+                ) : publishableKey && !stripeConnectAccountId ? (
+                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-rose-300">Missing connected Stripe account</p>
+                    <p className="text-xs text-rose-100/80">
+                      Card charges need Get paid finished in Settings (Key Squad 502 Connect account).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientSecret(null)
+                        setPublishableKey(null)
+                      }}
+                      className="w-full rounded-lg border border-zinc-700 py-2 text-sm font-semibold text-slate-200"
+                    >
+                      Back
+                    </button>
+                  </div>
                 ) : (
                   <p className="text-sm text-rose-400">
                     Missing Stripe publishable key. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.

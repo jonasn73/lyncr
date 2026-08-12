@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import {
   CARD_CHARGE_TIMEOUT_MESSAGE,
+  ELEMENTS_LOAD_TIMEOUT_MS,
   PAYMENT_CONFIRM_TIMEOUT_MS,
   withTimeout,
 } from "@/lib/payment-timeout"
@@ -25,5 +26,10 @@ describe("withTimeout", () => {
   it("confirm ceiling is aggressive (≤30s)", () => {
     expect(PAYMENT_CONFIRM_TIMEOUT_MS).toBeLessThanOrEqual(30_000)
     expect(PAYMENT_CONFIRM_TIMEOUT_MS).toBeGreaterThanOrEqual(15_000)
+  })
+
+  it("card form load ceiling is 15–20s", () => {
+    expect(ELEMENTS_LOAD_TIMEOUT_MS).toBeGreaterThanOrEqual(15_000)
+    expect(ELEMENTS_LOAD_TIMEOUT_MS).toBeLessThanOrEqual(20_000)
   })
 })

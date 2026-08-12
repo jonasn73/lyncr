@@ -37,6 +37,8 @@ import {
 } from "@/lib/stripe-payment-errors"
 import {
   CARD_CHARGE_TIMEOUT_MESSAGE,
+  CARD_FORM_LOAD_TIMEOUT_MESSAGE,
+  ELEMENTS_LOAD_TIMEOUT_MS,
   fetchWithTimeout,
   PAYMENT_API_TIMEOUT_MS,
   PAYMENT_CONFIRM_TIMEOUT_MS,
@@ -1214,8 +1216,9 @@ export function TechPaymentModal(props: {
                   </button>
                 </div>
               )
-            ) : publishableKey ? (
+            ) : publishableKey && stripeConnectAccountId ? (
               <Elements
+                key={`${clientSecret}:${stripeConnectAccountId}`}
                 stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                 options={{
                   clientSecret,
@@ -1223,6 +1226,7 @@ export function TechPaymentModal(props: {
                     theme: "night",
                     variables: { colorPrimary: "#10b981", borderRadius: "10px" },
                   },
+                  loader: "auto",
                 }}
               >
                 <ManualCardForm
@@ -1257,6 +1261,10 @@ export function TechPaymentModal(props: {
                   }}
                 />
               </Elements>
+            ) : publishableKey && !stripeConnectAccountId ? (
+              <p className="text-sm text-rose-400">
+                Missing connected Stripe account. Finish Get paid, then try tip again.
+              </p>
             ) : (
               <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
             )}
@@ -1818,8 +1826,9 @@ export function TechPaymentModal(props: {
             {activePopup === "card" ? (
               <NestedPayPopup title="Manual card entry" onClose={closePayPopup}>
                 {error ? <p className="text-sm text-red-300">{error}</p> : null}
-                {clientSecret && publishableKey ? (
+                {clientSecret && publishableKey && stripeConnectAccountId ? (
                   <Elements
+                    key={`${clientSecret}:${stripeConnectAccountId}`}
                     stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
                     options={{
                       clientSecret,
@@ -1827,6 +1836,7 @@ export function TechPaymentModal(props: {
                         theme: "night",
                         variables: { colorPrimary: "#6366f1", borderRadius: "10px" },
                       },
+                      loader: "auto",
                     }}
                   >
                     <ManualCardForm
@@ -1843,6 +1853,10 @@ export function TechPaymentModal(props: {
                       onBack={closePayPopup}
                     />
                   </Elements>
+                ) : clientSecret && publishableKey && !stripeConnectAccountId ? (
+                  <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                    Missing connected Stripe account. Finish Get paid in Settings, then try again.
+                  </p>
                 ) : busy ? (
                   <div className="flex items-center justify-center gap-2 py-8 text-zinc-400">
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -1977,13 +1991,32 @@ function ManualCardForm(props: {
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
   const [elementReady, setElementReady] = useState(false)
+  // When Stripe.js / Payment Element never mounts — unlock instead of endless Loading…
+  const [loadFailed, setLoadFailed] = useState(false)
   // Invalidate in-flight submit so a late Stripe resolve cannot re-stick the spinner.
   const payGenRef = useRef(0)
+  const elementReadyRef = useRef(false)
+
+  useEffect(() => {
+    elementReadyRef.current = elementReady
+  }, [elementReady])
 
   useEffect(() => {
     props.onError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clear once when form mounts
   }, [])
+
+  // Fail visibly if the card iframe never becomes ready (Connect / Safari blockers).
+  useEffect(() => {
+    if (elementReady || loadFailed) return
+    const t = window.setTimeout(() => {
+      if (elementReadyRef.current) return
+      setLoadFailed(true)
+      props.onError(CARD_FORM_LOAD_TIMEOUT_MESSAGE)
+    }, ELEMENTS_LOAD_TIMEOUT_MS)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once load watchdog
+  }, [elementReady, loadFailed])
 
   // Backup watchdog: clear spinner even if Promise.race never fires (Safari quirks).
   useEffect(() => {
@@ -2008,6 +2041,10 @@ function ManualCardForm(props: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (loadFailed) {
+      forceCancelCharge()
+      return
+    }
     if (!stripe || !elements || !elementReady) {
       props.onError("Card form is still loading — wait a second and try again.")
       return
@@ -2119,16 +2156,36 @@ function ManualCardForm(props: {
       </div>
       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Card details</p>
       <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
-        {!elementReady ? (
+        {!elementReady && !loadFailed ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading card form…
           </div>
         ) : null}
-        <PaymentElement
-          onReady={() => setElementReady(true)}
-          options={{ layout: "tabs" }}
-        />
+        {!loadFailed ? (
+          <PaymentElement
+            onReady={() => {
+              setElementReady(true)
+              setLoadFailed(false)
+            }}
+            onLoadError={(event) => {
+              setLoadFailed(true)
+              const raw = event?.error?.message || "Stripe could not show the card form."
+              props.onError(`${raw} Go Back and try again, or send a pay link.`)
+            }}
+            options={{
+              layout: "tabs",
+              wallets: { applePay: "never", googlePay: "never" },
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
+            <p className="max-w-xs text-xs leading-snug text-zinc-400">
+              Stripe never finished loading. Tap Try again, or send a pay link.
+            </p>
+          </div>
+        )}
       </div>
       {submitting ? (
         <button
@@ -2148,8 +2205,9 @@ function ManualCardForm(props: {
           Back
         </button>
         <button
-          type="submit"
-          disabled={!stripe || !elements || !elementReady || submitting}
+          type={loadFailed ? "button" : "submit"}
+          disabled={!loadFailed && (!stripe || !elements || !elementReady || submitting)}
+          onClick={loadFailed ? forceCancelCharge : undefined}
           className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {submitting ? (
@@ -2157,6 +2215,8 @@ function ManualCardForm(props: {
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Charging…
             </>
+          ) : loadFailed ? (
+            "Try again"
           ) : !elementReady ? (
             "Loading…"
           ) : (

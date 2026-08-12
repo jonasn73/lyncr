@@ -13,6 +13,13 @@ export const PAYMENT_API_TIMEOUT_MS = 25_000
  */
 export const PAYMENT_CONFIRM_TIMEOUT_MS = 25_000
 
+/**
+ * Ceiling for Stripe Payment Element to finish mounting (onReady).
+ * If Stripe.js / the iframe never loads (Safari blockers, Connect mismatch),
+ * fail visibly instead of endless “Loading card form…”.
+ */
+export const ELEMENTS_LOAD_TIMEOUT_MS = 18_000
+
 /** Ceiling for Terminal discover / connect on web (no infinite spinner). */
 export const TERMINAL_DISCOVER_TIMEOUT_MS = 20_000
 
@@ -23,6 +30,9 @@ export const TERMINAL_COLLECT_TIMEOUT_MS = 120_000
 export const CARD_CHARGE_TIMEOUT_MESSAGE =
   "Card charge timed out — try again or send a pay link."
 
+/** User-facing copy when the card form iframe never becomes ready. */
+export const CARD_FORM_LOAD_TIMEOUT_MESSAGE =
+  "Card form did not load. Tap Try again, or go Back and send a pay link instead."
 /**
  * Race a promise against a timeout. Rejects with a clear Error so UI can toast
  * and reset loading in `finally`. Does not cancel the underlying work (Stripe.js
