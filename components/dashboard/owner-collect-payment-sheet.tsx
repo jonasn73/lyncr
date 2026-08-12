@@ -39,6 +39,7 @@ import { CustomerSignaturePad } from "@/components/payments/customer-signature-p
 import {
   tipSignHandBackCue,
   tipSignPrimaryCta,
+  tipSignSecondChargeNote,
   tipSignSheetSubtitle,
   tipSignSheetTitle,
   shouldOfferOptionalSignature,
@@ -1556,9 +1557,12 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? tipSignSheetSubtitle(offerOptionalSignature)
+                      ? tipSignSheetSubtitle(
+                          offerOptionalSignature,
+                          fmtCents(paidTotalCents)
+                        )
                       : mode === "tip_charge"
-                        ? "Collect the tip on Tap to Pay or card."
+                        ? "Second card charge — tip only (job already paid)."
                         : mode === "adhoc"
                           ? clientSecret
                             ? "Enter card details + ZIP, then charge. Amount is shown below."
@@ -1964,11 +1968,7 @@ export function OwnerCollectPaymentSheet({
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-emerald-100">Payment received</p>
                     <p className="text-[10px] text-emerald-200/70">
-                      {offerOptionalSignature
-                        ? "Optional tip / sign next"
-                        : paidChargeChannel === "manual_card"
-                          ? "ZIP verified on card — signature not needed"
-                          : "Optional tip next"}
+                      Job paid — tip is a second card charge
                     </p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
@@ -2037,13 +2037,11 @@ export function OwnerCollectPaymentSheet({
                     </div>
                   ) : null}
                   {selectedTipCents() > 0 ? (
-                    <p className="mt-1.5 text-xs text-slate-400">
-                      Tip {fmtCents(selectedTipCents())}
-                      {" · "}
-                      New total{" "}
-                      <span className="font-semibold text-emerald-300">
-                        {fmtCents(paidTotalCents + selectedTipCents())}
-                      </span>
+                    <p className="mt-1.5 text-xs leading-snug text-amber-200/90">
+                      {tipSignSecondChargeNote({
+                        tipAmountLabel: fmtCents(selectedTipCents()),
+                        paidAmountLabel: fmtCents(paidTotalCents),
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -2087,7 +2085,7 @@ export function OwnerCollectPaymentSheet({
                     {fmtCents(tipChargeCents)}
                   </p>
                   <p className="mt-1 text-[11px] text-emerald-200/70">
-                    Second charge — Tap to Pay or card.
+                    Second card charge — tip only (job already paid). Tap to Pay or card.
                   </p>
                 </div>
 

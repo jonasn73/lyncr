@@ -27,6 +27,7 @@ import { CustomerSignaturePad } from "@/components/payments/customer-signature-p
 import {
   tipSignHandBackCue,
   tipSignPrimaryCta,
+  tipSignSecondChargeNote,
   tipSignSheetSubtitle,
   tipSignSheetTitle,
   shouldOfferOptionalSignature,
@@ -1049,7 +1050,10 @@ export function TechPaymentModal(props: {
             </h2>
             <p className="text-xs text-zinc-500">
               {postPayStep === "tip_sign"
-                ? tipSignSheetSubtitle(offerOptionalSignature)
+                ? tipSignSheetSubtitle(
+                    offerOptionalSignature,
+                    fmt(paidTotalCents)
+                  )
                 : props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
           </div>
@@ -1070,13 +1074,9 @@ export function TechPaymentModal(props: {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-emerald-100">Payment received</p>
                 <p className="text-[10px] text-emerald-200/70">
-                  {offerOptionalSignature
-                    ? "Optional tip / sign next"
-                    : paidChargeChannel === "manual_card"
-                      ? "ZIP verified on card — signature not needed"
-                      : paidChargeChannel === "cash"
-                        ? "Cash — tip optional"
-                        : "Optional tip next"}
+                  {paidChargeChannel === "cash"
+                    ? "Cash received — tip on card is a separate charge"
+                    : "Job paid — tip is a second card charge"}
                 </p>
               </div>
               <p className="text-base font-bold tabular-nums text-emerald-300">{fmt(paidTotalCents)}</p>
@@ -1142,13 +1142,11 @@ export function TechPaymentModal(props: {
                 </div>
               ) : null}
               {selectedTipCents() > 0 ? (
-                <p className="mt-1.5 text-xs text-zinc-400">
-                  Tip {fmt(selectedTipCents())}
-                  {" · "}
-                  New total{" "}
-                  <span className="font-semibold text-emerald-300">
-                    {fmt(paidTotalCents + selectedTipCents())}
-                  </span>
+                <p className="mt-1.5 text-xs leading-snug text-amber-200/90">
+                  {tipSignSecondChargeNote({
+                    tipAmountLabel: fmt(selectedTipCents()),
+                    paidAmountLabel: fmt(paidTotalCents),
+                  })}
                 </p>
               ) : null}
             </div>
@@ -1191,7 +1189,7 @@ export function TechPaymentModal(props: {
                 {fmt(tipChargeCents)}
               </p>
               <p className="mt-1 text-[11px] text-emerald-200/70">
-                Second charge — Tap to Pay or card.
+                Second card charge — tip only (job already paid). Tap to Pay or card.
               </p>
             </div>
             {!clientSecret ? (
