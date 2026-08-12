@@ -136,6 +136,8 @@ export function writeLatestCache(
           }
         : null,
       completedJobId: row.completedJobId,
+      paidAmountCents: row.paidAmountCents ?? null,
+      thanksReviewPending: Boolean(row.thanksReviewPending),
     })),
   } satisfies LatestPaintCookie)
 }

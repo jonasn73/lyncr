@@ -291,8 +291,13 @@ export function HoldQueueWaitingCard({
                   />
                 ) : null}
                 {inBusyMenu ? (
-                  <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-200">
-                    Listening…
+                  // Not live audio monitor — caller is still hearing the Busy menu greeting;
+                  // Answer unlocks after they stay on the line (status → waiting).
+                  <span
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-200"
+                    title="Caller is hearing your Busy menu. Answer unlocks after they stay on the line."
+                  >
+                    Can’t answer yet
                   </span>
                 ) : (
                   <button

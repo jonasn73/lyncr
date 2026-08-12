@@ -53,6 +53,11 @@ export type LatestCustomerAction = {
   completedJobId: string | null
   /** Settled charge amount in cents (customer_paid only). */
   paidAmountCents?: number | null
+  /**
+   * Payment row also needs Thanks + review for the same job/customer.
+   * Merges the duplicate “job finished” alert onto the payment card.
+   */
+  thanksReviewPending?: boolean
   /** Open ai_leads id for book_form rows (Open intake). */
   bookFormLeadId?: string | null
   /** asap | window for book_form rows. */
@@ -214,7 +219,9 @@ export const LATEST_BOOK_FORM_MAX_AGE_HOURS = 48
  * 1) Unreplied inbound SMS (customer last messaged you) — age-capped
  * 2) Customer book-form submits (ASAP / window)
  * 3) Recent completed payments (“Customer paid · $X · Name”)
+ *    — if that job still needs Thanks + review, nest Send thanks on the payment card
  * 4) Today’s completed jobs that still need a Thanks + review text
+ *    (skipped when a payment card for the same job/customer already covers it)
  *
  * Outbound-only threads (“Review link sent…”) are never listed.
  * Cap ~4–6; unreplied first, then book forms, then payments, then action-needed jobs.
@@ -348,6 +355,10 @@ export function buildLatestCustomerActions(params: {
     })
   }
 
+  // Phones / job ids already covered by a payment row (used to suppress duplicate thanks alerts).
+  const paidPhones = new Set<string>()
+  const paidJobIds = new Set<string>()
+
   // Recent settled payments — “Customer paid · $265 · Alex” (persists via wallet_transactions).
   for (const pay of params.recentPayments ?? []) {
     const amountCents = Math.round(Number(pay.amountCents) || 0)
@@ -361,6 +372,17 @@ export function buildLatestCustomerActions(params: {
       (pay.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"
     const dollars = formatPaidDollars(amountCents)
 
+    // Same job or same phone still needs Thanks + review — nest that action on this card.
+    const reviewJobForPay =
+      (pay.jobId && jobsNeedingReview.find((j) => j.id === pay.jobId)) ||
+      (key ? reviewJobByPhone.get(key) : undefined) ||
+      null
+    const thanksPending = Boolean(reviewJobForPay)
+    const completedJobId = pay.jobId || reviewJobForPay?.id || null
+
+    if (key) paidPhones.add(key)
+    if (completedJobId) paidJobIds.add(completedJobId)
+
     out.push({
       id: `paid-${pay.id}`,
       customerPhone: phone,
@@ -368,7 +390,9 @@ export function buildLatestCustomerActions(params: {
       event: "customer_paid",
       kind: "paid",
       headline: `Customer paid · ${dollars} · ${name}`,
-      statusLine: "Payment received",
+      statusLine: thanksPending
+        ? "Payment received · Send thanks"
+        : "Payment received",
       preview: (pay.jobLabel || "Card / pay link").trim(),
       at: pay.at,
       deliveryLabel: null,
@@ -376,8 +400,9 @@ export function buildLatestCustomerActions(params: {
       reviewLinkClicks: 0,
       lastOutbound: null,
       lastInbound: null,
-      completedJobId: pay.jobId,
+      completedJobId,
       paidAmountCents: amountCents,
+      thanksReviewPending: thanksPending,
     })
   }
 
@@ -444,6 +469,9 @@ export function buildLatestCustomerActions(params: {
     if (key && phonesWithReply.has(key)) continue
     // Book-form row already covers this phone.
     if (key && phonesWithBookForm.has(key)) continue
+    // Payment alert for this job/customer already nests “Send thanks” — skip duplicate.
+    if (paidJobIds.has(job.id)) continue
+    if (key && paidPhones.has(key)) continue
 
     const name =
       (job.customerName || "").trim() || (key ? nameByPhone.get(key) : null) || "Customer"

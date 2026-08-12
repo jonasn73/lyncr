@@ -90,10 +90,16 @@ export function isLatestReplyUnread(phone: string, inboundAt: string): boolean {
   return inboundMs > (Date.parse(seen) || 0)
 }
 
-/** Events that leave Latest as soon as the owner opens them (not job_finished). */
+/**
+ * Events that leave Latest as soon as the owner opens them (not job_finished).
+ * Payment rows that still need Thanks + review stay until that SMS is sent
+ * (same persistence as a standalone job_finished alert).
+ */
 export function isDismissOnOpenLatestEvent(
-  event: LatestCustomerAction["event"]
+  event: LatestCustomerAction["event"],
+  item?: Pick<LatestCustomerAction, "thanksReviewPending"> | null
 ): boolean {
+  if (event === "customer_paid" && item?.thanksReviewPending) return false
   return event === "book_form" || event === "customer_paid"
 }
 
@@ -142,7 +148,7 @@ export function excludeReadRepliesFromLatest(
       if (!inboundAt) return true
       return isLatestReplyUnread(item.customerPhone, inboundAt)
     }
-    if (isDismissOnOpenLatestEvent(item.event)) {
+    if (isDismissOnOpenLatestEvent(item.event, item)) {
       return isLatestItemUnread(item.id)
     }
     return true
@@ -152,14 +158,14 @@ export function excludeReadRepliesFromLatest(
 /**
  * Persist + same-tab notify when the owner opens a Latest attention item.
  * Replies use phone stamps; book forms / payments use row id.
- * job_finished is intentionally not marked (stays until Send).
+ * job_finished (and paid+thanks-pending) stay until Send.
  */
 export function markLatestAttentionOpened(item: LatestCustomerAction): void {
   if (item.event === "replied" && item.customerPhone) {
     markLatestReplySeen(item.customerPhone)
     return
   }
-  if (isDismissOnOpenLatestEvent(item.event) && item.id) {
+  if (isDismissOnOpenLatestEvent(item.event, item) && item.id) {
     markLatestItemSeen(item.id)
   }
 }

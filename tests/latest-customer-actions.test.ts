@@ -275,6 +275,43 @@ describe("buildLatestCustomerActions", () => {
     expect(latest[0]?.headline).toContain("Alex")
     expect(latest[0]?.paidAmountCents).toBe(26500)
     expect(latest[0]?.completedJobId).toBe("job-alex")
+    expect(latest[0]?.thanksReviewPending).toBe(false)
+  })
+
+  it("merges payment + thanks into one alert for the same job/customer", () => {
+    const latest = buildLatestCustomerActions({
+      nowMs: NOW,
+      messages: [],
+      recentPayments: [
+        {
+          id: "wt-nate",
+          customerPhone: "+15025550195",
+          customerName: "Nathaniel Thompson",
+          amountCents: 19500,
+          at: "2026-07-27T19:10:00.000Z",
+          jobId: "job-nate",
+          jobLabel: "2004 LINCOLN Aviator",
+        },
+      ],
+      completedJobs: [
+        {
+          id: "job-nate",
+          customerPhone: "+15025550195",
+          customerName: "Nathaniel Thompson",
+          location: "Louisville KY",
+          summary: "Lockout",
+          at: "2026-07-27T19:05:00.000Z",
+          reviewSmsSentAt: null,
+        },
+      ],
+      limit: 6,
+    })
+    expect(latest).toHaveLength(1)
+    expect(latest[0]?.event).toBe("customer_paid")
+    expect(latest[0]?.thanksReviewPending).toBe(true)
+    expect(latest[0]?.statusLine).toMatch(/send thanks/i)
+    expect(latest[0]?.completedJobId).toBe("job-nate")
+    expect(latest[0]?.paidAmountCents).toBe(19500)
   })
 
   it("keeps job_finished when completed_at is evening ET (UTC next calendar day)", () => {

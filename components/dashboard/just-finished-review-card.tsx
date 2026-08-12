@@ -195,7 +195,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
         )
         return
       }
-      if (isDismissOnOpenLatestEvent(item.event)) {
+      if (isDismissOnOpenLatestEvent(item.event, item)) {
         setItems((prev) => prev.filter((i) => i.id !== item.id))
       }
     },
@@ -251,11 +251,35 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           next.delete(jobId)
           return next
         })
-        // Outbound hide: drop this job from Latest immediately (no “Review sent” card).
+        // Drop standalone job-finished rows; keep payment cards but clear nested thanks CTA.
         setItems((prev) =>
-          prev.filter((i) => i.completedJobId !== jobId && i.id !== `job-${jobId}`)
+          prev.flatMap((i) => {
+            if (i.id === `job-${jobId}` || (i.event === "job_finished" && i.completedJobId === jobId)) {
+              return []
+            }
+            if (i.completedJobId === jobId && i.thanksReviewPending) {
+              return [
+                {
+                  ...i,
+                  thanksReviewPending: false,
+                  statusLine: "Payment received",
+                },
+              ]
+            }
+            return [i]
+          })
         )
-        if (selected?.completedJobId === jobId) setSelected(null)
+        if (selected?.completedJobId === jobId) {
+          if (selected.event === "customer_paid") {
+            setSelected({
+              ...selected,
+              thanksReviewPending: false,
+              statusLine: "Payment received",
+            })
+          } else {
+            setSelected(null)
+          }
+        }
         toast({
           title: "Thanks + review sent",
           description: "Removed from Latest. It’ll come back only if they reply.",
@@ -646,7 +670,30 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         View booking
                       </button>
                     ) : null}
-                    {isPaid ? (
+                    {isPaid && item.thanksReviewPending && item.completedJobId ? (
+                      // Same customer paid + still needs thanks — one card, primary Send.
+                      <button
+                        type="button"
+                        disabled={busyJobId === item.completedJobId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void sendThanksReview(item.completedJobId!)
+                        }}
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50",
+                          failedReviewJobIds.has(item.completedJobId)
+                            ? "bg-rose-500/90 text-white hover:bg-rose-400"
+                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                        )}
+                      >
+                        {busyJobId === item.completedJobId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Star className="h-3.5 w-3.5" />
+                        )}
+                        {failedReviewJobIds.has(item.completedJobId) ? "Retry" : "Send thanks"}
+                      </button>
+                    ) : isPaid ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -762,7 +809,9 @@ function LatestActionDetail({
   const phoneLabel = item.customerPhone
     ? formatPhoneDisplay(item.customerPhone) || item.customerPhone
     : "No phone on file"
-  const needsReviewSend = item.event === "job_finished" && Boolean(item.completedJobId)
+  const needsReviewSend =
+    Boolean(item.completedJobId) &&
+    (item.event === "job_finished" || Boolean(item.thanksReviewPending))
   // Full SMS history for reply detail; also when a finished job already has an inbound text.
   const showSmsThread =
     (item.event === "replied" ||
@@ -774,7 +823,9 @@ function LatestActionDetail({
   const showInlineReply = showSmsThread
   // Post-job follow-up chips (no inbound yet) — compact alternatives above CTAs.
   const showJobFinishedChips =
-    item.event === "job_finished" && !showInlineReply && Boolean(item.customerPhone?.trim())
+    (item.event === "job_finished" || Boolean(item.thanksReviewPending)) &&
+    !showInlineReply &&
+    Boolean(item.customerPhone?.trim())
   // tel: link for one-tap call from the booking sheet.
   const telHref = item.customerPhone ? buildTelHref(item.customerPhone) : null
   // Submitted fields for book-form / book-from-hold (front and center).
@@ -1131,6 +1182,15 @@ function LatestActionDetail({
           currency: "USD",
           maximumFractionDigits: item.paidAmountCents % 100 === 0 ? 0 : 2,
         }),
+      })
+    }
+    if (item.thanksReviewPending) {
+      steps.push({
+        label: "Thanks + review text",
+        done: false,
+        detail: sendFailed
+          ? "Failed — tap Retry below"
+          : "Not sent yet — use the button below",
       })
     }
   }
@@ -1618,8 +1678,9 @@ function LatestActionDetail({
           </div>
         ) : null}
 
-        {/* Primary for job finished: Send thanks + review (before secondary links). */}
-        {item.completedJobId && item.event !== "customer_paid" ? (
+        {/* Primary for job finished (or paid+thanks still pending): Send thanks + review. */}
+        {item.completedJobId &&
+        (item.event !== "customer_paid" || item.thanksReviewPending) ? (
           <button
             type="button"
             disabled={busyJobId === item.completedJobId}
@@ -1674,14 +1735,14 @@ function LatestActionDetail({
             onClick={() => onOpenJob(item.completedJobId!)}
             className={cn(
               "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
-              // Paid detail: Open job is the main next step (not Collect).
-              isPaidEvent
+              // Paid detail: Open job is primary only when thanks already handled.
+              isPaidEvent && !item.thanksReviewPending
                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
                 : "border border-border/60 text-zinc-200 hover:bg-muted/40"
             )}
           >
-            {isPaidEvent ? <Eye className="h-4 w-4" /> : null}
-            {isPaidEvent ? "View job" : "Open job"}
+            {isPaidEvent && !item.thanksReviewPending ? <Eye className="h-4 w-4" /> : null}
+            {isPaidEvent && !item.thanksReviewPending ? "View job" : "Open job"}
           </button>
         ) : null}
       </div>

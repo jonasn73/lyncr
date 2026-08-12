@@ -167,6 +167,17 @@ describe("excludeReadRepliesFromLatest", () => {
     expect(excludeReadRepliesFromLatest([item])).toHaveLength(0)
   })
 
+  it("keeps paid+thanks-pending after open until Send thanks", () => {
+    const item = paid({
+      id: "wallet-tx-thanks",
+      at: "2026-08-01T16:00:00.000Z",
+      thanksReviewPending: true,
+      statusLine: "Payment received · Send thanks",
+    })
+    markLatestAttentionOpened(item)
+    expect(excludeReadRepliesFromLatest([item])).toHaveLength(1)
+  })
+
   it("keeps job_finished after markLatestAttentionOpened (Send still required)", () => {
     const job: LatestCustomerAction = {
       id: "job-2",
