@@ -1011,12 +1011,16 @@ export function TechPaymentModal(props: {
 
       <div
         className={cn(
+          // Content-height sheet — tip+sign hugs content (no empty full-screen void).
           "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
-          // Tip + sign: taller sheet so the signature pad is easier to see.
-          postPayStep === "tip_sign" ? "h-[94dvh] max-h-[94dvh]" : "max-h-[92dvh]"
+          postPayStep === "tip_sign" ? "h-auto max-h-[min(88dvh,40rem)]" : "max-h-[92dvh]"
         )}
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        {/* Mobile drag affordance — matches Just finished / Scheduler sheets. */}
+        <div className="flex shrink-0 justify-center pb-0.5 pt-2.5" aria-hidden>
+          <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
+        </div>
+        <div className="flex items-center justify-between border-b border-zinc-800 px-4 pb-3 pt-1">
           <div>
             <h2 className="text-base font-bold text-white">
               {postPayStep === "tip_sign"
@@ -1031,7 +1035,7 @@ export function TechPaymentModal(props: {
             </h2>
             <p className="text-xs text-zinc-500">
               {postPayStep === "tip_sign"
-                ? "Customer: add a tip, sign, then hand the phone back."
+                ? "Add a tip, sign, hand the phone back."
                 : props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
           </div>
@@ -1047,12 +1051,12 @@ export function TechPaymentModal(props: {
         </div>
 
         {postPayStep === "tip_sign" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-4">
-            <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+          <div className="flex flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
               <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-              <p className="text-lg font-bold tabular-nums text-emerald-300">{fmt(paidTotalCents)}</p>
+              <p className="text-base font-bold tabular-nums text-emerald-300">{fmt(paidTotalCents)}</p>
             </div>
-            <div className="shrink-0">
+            <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Add a tip
               </p>
@@ -1123,32 +1127,33 @@ export function TechPaymentModal(props: {
                 </p>
               ) : null}
             </div>
-            <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
-            <p className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-center text-sm font-medium text-sky-100">
+            <CustomerSignaturePad
+              onChange={setSignaturePng}
+              canvasClassName="h-36 w-full sm:h-40"
+            />
+            <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
               {signaturePng
-                ? "Thanks — please hand the phone back."
-                : "When you finish signing, hand the phone back."}
+                ? "Thanks — hand the phone back."
+                : "Hand the phone back when done."}
             </p>
-            {error ? <p className="shrink-0 text-sm text-red-300">{error}</p> : null}
-            <div className="shrink-0 space-y-2">
-              <button
-                type="button"
-                disabled={slipBusy}
-                onClick={() =>
-                  void continueFromTipSign({
-                    allowNoSignature: !signaturePng,
-                  })
-                }
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                {selectedTipCents() >= 50
-                  ? `Done · next charge tip ${fmt(selectedTipCents())}`
-                  : signaturePng
-                    ? "Done — continue"
-                    : "Continue without signature"}
-              </button>
-            </div>
+            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            <button
+              type="button"
+              disabled={slipBusy}
+              onClick={() =>
+                void continueFromTipSign({
+                  allowNoSignature: !signaturePng,
+                })
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              {selectedTipCents() >= 50
+                ? `Done · next charge tip ${fmt(selectedTipCents())}`
+                : signaturePng
+                  ? "Done — continue"
+                  : "Continue without signature"}
+            </button>
           </div>
         ) : postPayStep === "tip_charge" ? (
           <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">

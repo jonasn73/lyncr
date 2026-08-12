@@ -1502,12 +1502,18 @@ export function OwnerCollectPaymentSheet({
           side="bottom"
           showCloseButton={false}
           className={cn(
-            "flex flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
-            // Tip + sign needs more vertical room so the pad is usable.
-            mode === "tip_sign" ? "h-[94dvh] max-h-[94dvh]" : "h-auto max-h-[92dvh]"
+            // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
+            "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
+            mode === "tip_sign"
+              ? "max-h-[min(88dvh,40rem)]"
+              : "max-h-[92dvh]"
           )}
         >
-          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
+          {/* Mobile drag affordance — same as Just finished / Scheduler sheets. */}
+          <div className="flex shrink-0 justify-center pb-0.5 pt-2.5 md:hidden" aria-hidden>
+            <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
+          </div>
+          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-2 text-left md:pt-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <SheetTitle className="text-base font-bold text-slate-100">
@@ -1527,7 +1533,7 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? "Customer: add a tip, sign, then hand the phone back."
+                      ? "Add a tip, sign, hand the phone back."
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
@@ -1612,12 +1618,7 @@ export function OwnerCollectPaymentSheet({
             ) : null}
           </SheetHeader>
 
-          <div
-            className={cn(
-              "min-h-0 flex-1 overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]",
-              mode === "tip_sign" ? "flex flex-col overflow-hidden" : "overflow-y-auto"
-            )}
-          >
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {mode === "list" && listTab === "history" ? (
               <div className="space-y-3">
                 <p className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] leading-snug text-zinc-400">
@@ -1935,15 +1936,15 @@ export function OwnerCollectPaymentSheet({
                 )}
               </>
             ) : mode === "tip_sign" ? (
-              <div className="flex min-h-0 flex-col gap-3">
-                <div className="flex shrink-0 items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                   <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-                  <p className="text-lg font-bold tabular-nums text-emerald-300">
+                  <p className="text-base font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
                   </p>
                 </div>
 
-                <div className="shrink-0">
+                <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Add a tip
                   </p>
@@ -2015,35 +2016,36 @@ export function OwnerCollectPaymentSheet({
                   ) : null}
                 </div>
 
-                <CustomerSignaturePad onChange={setSignaturePng} className="min-h-0" />
+                <CustomerSignaturePad
+                  onChange={setSignaturePng}
+                  canvasClassName="h-36 w-full sm:h-40"
+                />
 
-                {/* Customer-facing cue after they finish signing. */}
-                <p className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2.5 text-center text-sm font-medium text-sky-100">
+                {/* Customer-facing cue — short so the sheet stays compact. */}
+                <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
                   {signaturePng
-                    ? "Thanks — please hand the phone back."
-                    : "When you finish signing, hand the phone back."}
+                    ? "Thanks — hand the phone back."
+                    : "Hand the phone back when done."}
                 </p>
 
-                <div className="shrink-0 space-y-2 pb-1">
-                  <button
-                    type="button"
-                    disabled={slipBusy}
-                    onClick={() =>
-                      void continueFromTipSign({
-                        // Tech continues after customer hands the phone back.
-                        allowNoSignature: !signaturePng,
-                      })
-                    }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                    {selectedTipCents() >= 50
-                      ? `Done · next charge tip ${fmtCents(selectedTipCents())}`
-                      : signaturePng
-                        ? "Done — continue"
-                        : "Continue without signature"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={slipBusy}
+                  onClick={() =>
+                    void continueFromTipSign({
+                      // Tech continues after customer hands the phone back.
+                      allowNoSignature: !signaturePng,
+                    })
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  {selectedTipCents() >= 50
+                    ? `Done · next charge tip ${fmtCents(selectedTipCents())}`
+                    : signaturePng
+                      ? "Done — continue"
+                      : "Continue without signature"}
+                </button>
               </div>
             ) : mode === "tip_charge" ? (
               <div className="space-y-3">

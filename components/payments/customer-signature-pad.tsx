@@ -328,7 +328,7 @@ export function CustomerSignaturePad({
           <img
             src={previewUrl}
             alt="Customer signature"
-            className="h-52 w-full object-contain sm:h-60"
+            className="h-36 w-full object-contain sm:h-40"
           />
           <p className="absolute bottom-2 left-2 rounded bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
             Signed
@@ -342,8 +342,8 @@ export function CustomerSignaturePad({
             onChange(url)
           }}
           onHasInkChange={setHasInk}
-          // Bigger default than the old h-36 so the pad is readable in the sheet.
-          canvasClassName={cn("h-52 w-full sm:h-60", canvasClassName)}
+          // Compact default for content-height tip sheets; use Larger / landscape for a big pad.
+          canvasClassName={cn("h-36 w-full sm:h-40", canvasClassName)}
         />
       )}
 
