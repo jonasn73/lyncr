@@ -32,11 +32,16 @@ type QueueStats = {
 }
 
 function formatCallerPreview(e164: string | null | undefined): string {
+  // Strip everything except digits so we can format US-style.
   const digits = String(e164 || "").replace(/\D/g, "")
   if (digits.length >= 10) {
+    // Use last 10 digits (ignore leading country code like 1).
     const local = digits.slice(-10)
-    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`
+    // Non-breaking spaces keep "(872) 359-9461" on one line instead of
+    // splitting after the area code when the row is narrow.
+    return `(${local.slice(0, 3)})\u00A0${local.slice(3, 6)}-${local.slice(6)}`
   }
+  // Fallback: raw E.164 or a friendly unknown label.
   return e164?.trim() || "Unknown caller"
 }
 
@@ -250,16 +255,21 @@ export function HoldQueueWaitingCard({
 
       <ul className="space-y-2">
         {callers.map((c, idx) => {
+          // Deep-link to Customers filtered by this caller’s phone.
           const crmHref = crmHrefForCaller(c.callerE164)
+          // "holding" = still in Busy menu greeting / IVR (Answer locked).
           const inBusyMenu = c.status === "holding"
+          // "waiting" = stay-on-the-line hold — Answer is available.
           const canAnswer = c.status === "waiting"
           return (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/60 px-3 py-2"
+              // Stack on narrow screens so the phone isn’t squeezed beside buttons.
+              className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
             >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">
+              <div className="min-w-0 flex-1">
+                {/* Keep the full number on one line; tabular nums read cleaner. */}
+                <p className="whitespace-nowrap text-sm font-semibold tabular-nums tracking-tight text-foreground">
                   {!inBusyMenu && idx === 0 ? "Next · " : ""}
                   {formatCallerPreview(c.callerE164)}
                 </p>
@@ -280,8 +290,15 @@ export function HoldQueueWaitingCard({
                     </>
                   ) : null}
                 </p>
+                {/* Plain guidance while Answer is locked so owners know what to do. */}
+                {inBusyMenu ? (
+                  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                    Caller is in the booking menu — Answer unlocks when they’re waiting, or
+                    send a book link now.
+                  </p>
+                ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 {c.callerE164 ? (
                   <SendBookLinkButton
                     phone={c.callerE164}
@@ -294,22 +311,27 @@ export function HoldQueueWaitingCard({
                   // Not live audio monitor — caller is still hearing the Busy menu greeting;
                   // Answer unlocks after they stay on the line (status → waiting).
                   <span
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-200"
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
                     title="Caller is hearing your Busy menu. Answer unlocks after they stay on the line."
                   >
                     Can’t answer yet
                   </span>
                 ) : (
+                  // Primary action when the caller is holdable — take the call.
                   <button
                     type="button"
                     disabled={answeringId === c.id || !canAnswer || c.status === "bridging"}
                     onClick={() => void answerCaller(c.id)}
                     className={cn(
-                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50",
                       MOBILE_TAP_TARGET
                     )}
                   >
-                    {answeringId === c.id ? "Ringing…" : "Answer"}
+                    {answeringId === c.id
+                      ? "Ringing…"
+                      : c.status === "bridging"
+                        ? "Connecting…"
+                        : "Answer"}
                   </button>
                 )}
               </div>
