@@ -2,8 +2,8 @@
  * Tip + optional signature helpers for Collect / tech Charge.
  *
  * Customer order:
- * 1) Enter amount (prepare)
- * 2) Tip screen LAST (chips + optional signature when we already know Tap)
+ * 1) Enter amount + choose how to pay (Tap / Card / Pay link / Cash)
+ * 2) Tip screen LAST (chips + total + Confirm) — never tip beside method chips
  * 3) One PaymentIntent for service + tax + tip when they confirm
  *
  * Tip is never a second card charge.
@@ -55,9 +55,9 @@ export function tipSignSheetTitle(offerSignature: boolean): string {
 export function tipLastSheetSubtitle(baseAmountLabel?: string): string {
   const base = baseAmountLabel?.trim()
   if (base) {
-    return `Service ${base}. Pick a tip — then we charge once (job + tip).`
+    return `Service ${base}. Tip is last — one charge for job + tip.`
   }
-  return "Pick a tip — then we charge once for job + tip."
+  return "Tip is last — one charge for job + tip."
 }
 
 /** Total line on tip screen before Tap / Card. */

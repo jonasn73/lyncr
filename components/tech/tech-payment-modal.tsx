@@ -437,8 +437,11 @@ export function TechPaymentModal(props: {
     return base + selectedTipCents()
   }
 
-  /** Amount screen → tip LAST (no money moves yet). */
-  function enterTipStepFromAmount() {
+  /**
+   * Amount screen → pick how to pay → tip LAST (no money moves yet).
+   * Confirm on the tip step creates one PaymentIntent (job + tip).
+   */
+  function enterTipStepWithMethod(next: PayMethod) {
     if (!requireChargeAmount()) return
     setPaidTotalCents(totalCents)
     setPaidPaymentIntentId(null)
@@ -450,10 +453,31 @@ export function TechPaymentModal(props: {
     setClientSecret(null)
     setPublishableKey(null)
     setPaymentIntentId(null)
-    setMethod(null)
+    setMethod(next)
     setActivePopup(null)
     setPostPayStep("tip_sign")
     setError(null)
+  }
+
+  /** Tip Confirm — runs the method chosen on the amount step (single charge). */
+  function confirmTipAndCharge() {
+    if (method === "tap") {
+      void runTapToPay()
+      return
+    }
+    if (method === "card") {
+      void startManualCard()
+      return
+    }
+    if (method === "cash") {
+      void payCash()
+      return
+    }
+    if (method === "link") {
+      setError(null)
+      setLinkSentUrl(null)
+      setActivePopup("link")
+    }
   }
 
   /** Expire leftover Waiting pay links after an in-person charge succeeds. */
@@ -962,6 +986,11 @@ export function TechPaymentModal(props: {
               onClick={() => {
                 setPostPayStep(null)
                 setPaidTotalCents(0)
+                setMethod(null)
+                setActivePopup(null)
+                setClientSecret(null)
+                setPublishableKey(null)
+                setPaymentIntentId(null)
                 setError(null)
               }}
               disabled={busy || tapListening}
@@ -970,6 +999,26 @@ export function TechPaymentModal(props: {
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back to amount
             </button>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-100">Service</p>
+                <p className="text-[10px] text-emerald-200/70">
+                  Job + tax · pay with{" "}
+                  {method === "tap"
+                    ? "Tap to Pay"
+                    : method === "card"
+                      ? "Card"
+                      : method === "cash"
+                        ? "Cash"
+                        : method === "link"
+                          ? "Pay link"
+                          : "—"}
+                </p>
+              </div>
+              <p className="text-base font-bold tabular-nums text-emerald-300">
+                {fmt(paidTotalCents)}
+              </p>
+            </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Add a tip
@@ -1042,58 +1091,30 @@ export function TechPaymentModal(props: {
             {error && !activePopup ? (
               <p className="text-sm text-red-300">{error}</p>
             ) : null}
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-              Charge once (job + tip)
-            </p>
-            <div className="grid grid-cols-2 gap-1.5">
-              <PayOptionButton
-                compact
-                active={method === "tap"}
-                disabled={busy || activePopup !== null}
-                onClick={() => void runTapToPay()}
-                title="Tap to Pay"
-                subtitle="NFC"
-                icon={<Nfc className="h-4 w-4" />}
-              />
-              <PayOptionButton
-                compact
-                active={activePopup === "card"}
-                disabled={busy || activePopup !== null}
-                onClick={() => void startManualCard()}
-                title="Card"
-                subtitle="Key in"
-                icon={<CreditCard className="h-4 w-4" />}
-              />
-              <PayOptionButton
-                compact
-                active={activePopup === "link"}
-                disabled={busy || activePopup !== null}
-                onClick={() => {
-                  setError(null)
-                  setMethod("link")
-                  setLinkSentUrl(null)
-                  setActivePopup("link")
-                }}
-                title="Pay link"
-                subtitle="Text / email"
-                icon={<Link2 className="h-4 w-4" />}
-              />
-              <PayOptionButton
-                compact
-                active={method === "cash"}
-                disabled={busy || activePopup !== null}
-                onClick={() => void payCash()}
-                title="Cash"
-                subtitle="Mark paid"
-                icon={<Banknote className="h-4 w-4" />}
-              />
-            </div>
-            <p className="text-center text-[11px] text-zinc-500">
-              {tipLastPrimaryCta({
-                totalAmountLabel: fmt(chargeWithTipCents()),
-                tipCents: selectedTipCents(),
-              })}
-            </p>
+            <button
+              type="button"
+              disabled={busy || tapListening || !method}
+              onClick={() => confirmTipAndCharge()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {busy || tapListening ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : method === "tap" ? (
+                <Nfc className="h-4 w-4" aria-hidden />
+              ) : method === "card" ? (
+                <CreditCard className="h-4 w-4" aria-hidden />
+              ) : method === "cash" ? (
+                <Banknote className="h-4 w-4" aria-hidden />
+              ) : (
+                <Link2 className="h-4 w-4" aria-hidden />
+              )}
+              {method === "link"
+                ? `Send pay link · ${fmt(chargeWithTipCents())}`
+                : tipLastPrimaryCta({
+                    totalAmountLabel: fmt(chargeWithTipCents()),
+                    tipCents: selectedTipCents(),
+                  })}
+            </button>
 
             {activePopup === "link" ? (
               <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
@@ -1658,26 +1679,53 @@ export function TechPaymentModal(props: {
 
               <section>
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Next
+                  How to pay
                 </p>
                 {error && !postPayStep && !activePopup ? (
                   <div className="mb-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5">
                     <p className="text-xs leading-snug text-red-300">{error}</p>
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => enterTipStepFromAmount()}
-                  className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50",
-                    totalCents < 50 && "opacity-70"
-                  )}
-                >
-                  Continue to tip
-                </button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <PayOptionButton
+                    compact
+                    disabled={busy}
+                    dimmed={totalCents < 50}
+                    onClick={() => enterTipStepWithMethod("tap")}
+                    title="Tap to Pay"
+                    subtitle="NFC"
+                    icon={<Nfc className="h-4 w-4" />}
+                  />
+                  <PayOptionButton
+                    compact
+                    disabled={busy}
+                    dimmed={totalCents < 50}
+                    onClick={() => enterTipStepWithMethod("card")}
+                    title="Card"
+                    subtitle="Key in · ZIP"
+                    icon={<CreditCard className="h-4 w-4" />}
+                  />
+                  <PayOptionButton
+                    compact
+                    disabled={busy}
+                    dimmed={totalCents < 50}
+                    onClick={() => enterTipStepWithMethod("link")}
+                    title="Pay link"
+                    subtitle="Text / email"
+                    icon={<Link2 className="h-4 w-4" />}
+                  />
+                  <PayOptionButton
+                    compact
+                    disabled={busy}
+                    dimmed={totalCents < 50}
+                    onClick={() => enterTipStepWithMethod("cash")}
+                    title="Cash"
+                    subtitle="Mark paid"
+                    icon={<Banknote className="h-4 w-4" />}
+                  />
+                </div>
                 <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-                  Tip first — then one Tap / Card / Cash / Pay link charge.
+                  Tip is last — one charge for job + tip.
                 </p>
               </section>
             </div>

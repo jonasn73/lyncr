@@ -33,7 +33,7 @@ describe("payment-slip-ui tip-last single charge", () => {
   })
 
   it("tip sheet copy says one charge after tip", () => {
-    expect(tipLastSheetSubtitle("$10.00")).toContain("charge once")
+    expect(tipLastSheetSubtitle("$10.00")).toContain("Tip is last")
     expect(
       tipLastTotalNote({
         totalAmountLabel: "$11.50",

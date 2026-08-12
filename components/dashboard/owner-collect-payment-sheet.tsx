@@ -77,6 +77,15 @@ import { openGetPaidModal } from "@/lib/settings-modals-events"
 type CollectMode = "list" | "adhoc" | "tip_sign" | "sign" | "receipt"
 type ListTab = "collect" | "history"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
+/** Chosen on the amount step — tip screen only charges this way (once). */
+type PendingChargeMethod = "tap" | "card" | "link"
+
+function pendingMethodLabel(method: PendingChargeMethod | null): string {
+  if (method === "tap") return "Tap to Pay"
+  if (method === "card") return "Card"
+  if (method === "link") return "Pay link"
+  return "Payment"
+}
 
 function formatHistoryWhen(iso: string): string {
   const d = new Date(iso)
@@ -481,8 +490,10 @@ export function OwnerCollectPaymentSheet({
   /** Stripe Connect: shop must finish Get paid before card charges. */
   const [connectReady, setConnectReady] = useState<boolean | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
-  // list → jobs; adhoc → amount; tip_sign → tip then ONE charge; sign → optional post-pay pad; receipt → invoice
+  // list → jobs; adhoc → amount + method; tip_sign → tip LAST then ONE charge; sign → optional pad; receipt
   const [mode, setMode] = useState<CollectMode>("list")
+  /** How they chose to pay on the amount step (tip comes after). */
+  const [pendingMethod, setPendingMethod] = useState<PendingChargeMethod | null>(null)
   const [listTab, setListTab] = useState<ListTab>("collect")
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -550,6 +561,7 @@ export function OwnerCollectPaymentSheet({
     setPublishableKey(null)
     setAdhocBusy(false)
     setTapListening(false)
+    setPendingMethod(null)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(0)
     setPaidChargeChannel(null)
@@ -684,8 +696,11 @@ export function OwnerCollectPaymentSheet({
     }
   }, [open, mode, listTab])
 
-  /** From adhoc: go to tip screen BEFORE any money moves. */
-  function enterTipStepFromAmount() {
+  /**
+   * Amount + method chosen → tip screen LAST (no money moves yet).
+   * Card form / Tap / pay-link send only run after Confirm on the tip step.
+   */
+  function enterTipStepWithMethod(method: PendingChargeMethod) {
     if (adhocBreakdown.totalCents < 50) {
       toast({
         title: "Enter an amount",
@@ -698,14 +713,30 @@ export function OwnerCollectPaymentSheet({
     setPublishableKey(null)
     setTapListening(false)
     setAdhocBusy(false)
+    setPayLinkOpen(method === "link")
+    setPayLinkUrl(null)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(adhocBreakdown.totalCents)
     setPaidChargeChannel(null)
+    setPendingMethod(method)
     setTipChoice("none")
     setCustomTipDollars("")
     setSignaturePng(null)
     setTipResult({ kind: "none" })
     setMode("tip_sign")
+  }
+
+  /** Tip Confirm — one charge for the method picked on the amount step. */
+  function confirmTipAndCharge() {
+    if (pendingMethod === "tap") {
+      void runAdhocTapToPay()
+      return
+    }
+    if (pendingMethod === "card") {
+      void startAdhocIntent()
+      return
+    }
+    // Pay link: contact fields + Text/Email are shown on the tip step.
   }
 
   /** After the single charge succeeds: save tip on slip, then optional signature or receipt. */
@@ -1359,7 +1390,7 @@ export function OwnerCollectPaymentSheet({
                       : mode === "sign"
                         ? postPaySignSheetSubtitle()
                         : mode === "adhoc"
-                          ? "Enter an amount, then continue to tip."
+                          ? "Enter amount, then choose Tap / Card / Pay link. Tip comes last."
                           : listTab === "history"
                             ? "Cards, Tap to Pay, and cash you have run."
                             : "Add a charge or pick a job on today’s schedule."}
@@ -1765,6 +1796,8 @@ export function OwnerCollectPaymentSheet({
                     setClientSecret(null)
                     setPublishableKey(null)
                     setTapListening(false)
+                    setPendingMethod(null)
+                    setPayLinkOpen(false)
                     setMode("adhoc")
                   }}
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
@@ -1776,7 +1809,9 @@ export function OwnerCollectPaymentSheet({
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-emerald-100">Service</p>
-                    <p className="text-[10px] text-emerald-200/70">Job + tax (before tip)</p>
+                    <p className="text-[10px] text-emerald-200/70">
+                      Job + tax · pay with {pendingMethodLabel(pendingMethod)}
+                    </p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
@@ -1872,122 +1907,87 @@ export function OwnerCollectPaymentSheet({
                             setAdhocBusy(false)
                             toast({
                               title: "Tap cancelled",
-                              description: "Use Card or a pay link on this device.",
+                              description: "Go back and choose Card or a pay link.",
                             })
                           }}
                           className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
                         >
-                          Cancel — use Card instead
+                          Cancel tap
                         </button>
                       </div>
-                    ) : (
-                      <section>
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    ) : pendingMethod === "link" ? (
+                      <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Send pay link for{" "}
                           {tipLastPrimaryCta({
                             totalAmountLabel: fmtCents(chargeTotalCents()),
                             tipCents: selectedTipCents(),
-                          })}
+                          }).replace(/^Charge\s+/i, "")}
                         </p>
+                        <input
+                          type="text"
+                          value={payLinkName}
+                          onChange={(e) => setPayLinkName(e.target.value)}
+                          placeholder="Customer name (optional)"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                        />
+                        <input
+                          type="tel"
+                          value={payLinkPhone}
+                          onChange={(e) => setPayLinkPhone(e.target.value)}
+                          placeholder="Mobile for text"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                        />
+                        <input
+                          type="email"
+                          value={payLinkEmail}
+                          onChange={(e) => setPayLinkEmail(e.target.value)}
+                          placeholder="Email"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                        />
                         <div className="grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
-                            disabled={adhocBusy}
-                            onClick={() => void runAdhocTapToPay()}
-                            className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                            disabled={adhocBusy || !payLinkPhone.trim()}
+                            onClick={() => void sendAdhocPayLink("sms")}
+                            className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              {adhocBusy ? (
-                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                              ) : (
-                                <Nfc className="h-4 w-4" aria-hidden />
-                              )}
-                            </span>
-                            <span className="text-xs font-semibold text-white">Tap to Pay</span>
-                            <span className="text-[10px] text-zinc-500">NFC</span>
+                            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                            Text
                           </button>
                           <button
                             type="button"
-                            disabled={adhocBusy}
-                            onClick={() => void startAdhocIntent()}
-                            className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                            disabled={adhocBusy || !payLinkEmail.trim()}
+                            onClick={() => void sendAdhocPayLink("email")}
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              <CreditCard className="h-4 w-4" aria-hidden />
-                            </span>
-                            <span className="text-xs font-semibold text-white">Card</span>
-                            <span className="text-[10px] text-zinc-500">Key in</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={adhocBusy}
-                            onClick={() => {
-                              setPayLinkOpen((v) => !v)
-                              setPayLinkUrl(null)
-                            }}
-                            className={cn(
-                              "col-span-2 flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50",
-                              payLinkOpen
-                                ? "border-emerald-500/50 bg-emerald-500/15"
-                                : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600"
-                            )}
-                          >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              <Link2 className="h-4 w-4" aria-hidden />
-                            </span>
-                            <span className="text-xs font-semibold text-white">Pay link</span>
-                            <span className="text-[10px] text-zinc-500">Text / email</span>
+                            <Mail className="h-3.5 w-3.5" aria-hidden />
+                            Email
                           </button>
                         </div>
-
-                        {payLinkOpen ? (
-                          <div className="mt-2 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={payLinkName}
-                              onChange={(e) => setPayLinkName(e.target.value)}
-                              placeholder="Customer name (optional)"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <input
-                              type="tel"
-                              value={payLinkPhone}
-                              onChange={(e) => setPayLinkPhone(e.target.value)}
-                              placeholder="Mobile for text"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <input
-                              type="email"
-                              value={payLinkEmail}
-                              onChange={(e) => setPayLinkEmail(e.target.value)}
-                              placeholder="Email"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <button
-                                type="button"
-                                disabled={adhocBusy || !payLinkPhone.trim()}
-                                onClick={() => void sendAdhocPayLink("sms")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                              >
-                                <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                                Text
-                              </button>
-                              <button
-                                type="button"
-                                disabled={adhocBusy || !payLinkEmail.trim()}
-                                onClick={() => void sendAdhocPayLink("email")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2 text-xs font-semibold text-slate-100 disabled:opacity-50"
-                              >
-                                <Mail className="h-3.5 w-3.5" aria-hidden />
-                                Email
-                              </button>
-                            </div>
-                            {payLinkUrl ? (
-                              <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
-                            ) : null}
-                          </div>
+                        {payLinkUrl ? (
+                          <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
                         ) : null}
-                      </section>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={adhocBusy || !pendingMethod}
+                        onClick={() => confirmTipAndCharge()}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                      >
+                        {adhocBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        ) : pendingMethod === "tap" ? (
+                          <Nfc className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <CreditCard className="h-4 w-4" aria-hidden />
+                        )}
+                        {tipLastPrimaryCta({
+                          totalAmountLabel: fmtCents(chargeTotalCents()),
+                          tipCents: selectedTipCents(),
+                        })}
+                      </button>
                     )}
                   </>
                 ) : publishableKey && stripeConnectAccountId ? (
@@ -2185,7 +2185,7 @@ export function OwnerCollectPaymentSheet({
                   Back
                 </button>
 
-                {/* Amount only — charge happens after tip on tip_sign */}
+                {/* Amount + how to pay — tip is a separate last step */}
                 <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
                   <div className="flex items-end gap-2">
                     <label className="min-w-0 flex-1">
@@ -2282,13 +2282,52 @@ export function OwnerCollectPaymentSheet({
                   </details>
                 </section>
 
-                <button
-                  type="button"
-                  onClick={() => enterTipStepFromAmount()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
-                >
-                  Continue to tip
-                </button>
+                <section>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    How to pay
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={adhocBusy}
+                      onClick={() => enterTipStepWithMethod("tap")}
+                      className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                        <Nfc className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span className="text-xs font-semibold text-white">Tap to Pay</span>
+                      <span className="text-[10px] text-zinc-500">NFC</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={adhocBusy}
+                      onClick={() => enterTipStepWithMethod("card")}
+                      className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                        <CreditCard className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span className="text-xs font-semibold text-white">Card</span>
+                      <span className="text-[10px] text-zinc-500">Key in · ZIP</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={adhocBusy}
+                      onClick={() => enterTipStepWithMethod("link")}
+                      className="col-span-2 flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                        <Link2 className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span className="text-xs font-semibold text-white">Pay link</span>
+                      <span className="text-[10px] text-zinc-500">Text / email — tip next</span>
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-center text-[10px] text-zinc-500">
+                    Tip is last — one charge for job + tip.
+                  </p>
+                </section>
               </div>
             )}
           </div>
