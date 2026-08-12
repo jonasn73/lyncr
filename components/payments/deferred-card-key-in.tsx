@@ -105,8 +105,19 @@ export function DeferredCardKeyInForm(props: {
         )
       }
       // createPaymentMethod stores the card with Stripe — no money moves yet.
+      // Payment Element opts out of country (fields.billingDetails.address.country = never),
+      // so Stripe requires country here. ZIP still comes from the Element (postalCode: always).
       const result = await withTimeout(
-        stripe.createPaymentMethod({ elements }),
+        stripe.createPaymentMethod({
+          elements,
+          params: {
+            billing_details: {
+              address: {
+                country: "US",
+              },
+            },
+          },
+        }),
         PAYMENT_CONFIRM_TIMEOUT_MS,
         "Saving the card timed out. Check the details and try again."
       )
@@ -166,8 +177,9 @@ export function DeferredCardKeyInForm(props: {
               fields: {
                 billingDetails: {
                   address: {
-                    // Collect ZIP for AVS (keyed cards — no signature step).
-                    postalCode: "auto" as "auto",
+                    // Always show ZIP for AVS (keyed cards — no signature step).
+                    postalCode: "always",
+                    // Country hidden — must pass country: "US" in createPaymentMethod params.
                     country: "never",
                   },
                 },

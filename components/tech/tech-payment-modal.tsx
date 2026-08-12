@@ -2050,6 +2050,7 @@ function ManualCardForm(props: {
         )
         return
       }
+      // Country is never collected in the Payment Element — pass US for AVS keyed cards.
       const { error, paymentIntent } = await withTimeout(
         stripe.confirmPayment({
           elements,
@@ -2059,6 +2060,13 @@ function ManualCardForm(props: {
               typeof window !== "undefined"
                 ? `${window.location.origin}/tech/dashboard`
                 : undefined,
+            payment_method_data: {
+              billing_details: {
+                address: {
+                  country: "US",
+                },
+              },
+            },
           },
         }),
         PAYMENT_CONFIRM_TIMEOUT_MS,

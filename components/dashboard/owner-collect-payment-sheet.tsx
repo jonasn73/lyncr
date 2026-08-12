@@ -279,10 +279,20 @@ function AdhocCardForm({
         )
       }
       // confirmPayment can hang on 3DS / wallet sheets — always race a timeout.
+      // Country is never collected in the Payment Element — pass US for AVS keyed cards.
       const result = await withTimeout(
         stripe.confirmPayment({
           elements,
           redirect: "if_required",
+          confirmParams: {
+            payment_method_data: {
+              billing_details: {
+                address: {
+                  country: "US",
+                },
+              },
+            },
+          },
         }),
         PAYMENT_CONFIRM_TIMEOUT_MS,
         CARD_CHARGE_TIMEOUT_MESSAGE
