@@ -75,7 +75,15 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
-type CollectMode = "list" | "adhoc" | "card_entry" | "tip_sign" | "sign" | "receipt"
+/** list → pick job; adhoc → amount; card_entry → key-in; tip_sign → tip then charge (card/tap); send_link → text/email only (no tip); sign/receipt after pay. */
+type CollectMode =
+  | "list"
+  | "adhoc"
+  | "card_entry"
+  | "tip_sign"
+  | "send_link"
+  | "sign"
+  | "receipt"
 type ListTab = "collect" | "history"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 /** Chosen on the amount step — tip screen only charges this way (once). */
@@ -498,7 +506,7 @@ export function OwnerCollectPaymentSheet({
   const [connectReady, setConnectReady] = useState<boolean | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
   // list → jobs; adhoc → amount + method; card_entry → key card (no charge);
-  // tip_sign → tip LAST then ONE charge; sign → optional pad; receipt
+  // tip_sign → tip LAST then ONE charge (card/tap); send_link → text/email only; sign → optional pad; receipt
   const [mode, setMode] = useState<CollectMode>("list")
   /** How they chose to pay on the amount step (tip comes after). */
   const [pendingMethod, setPendingMethod] = useState<PendingChargeMethod | null>(null)
@@ -551,7 +559,6 @@ export function OwnerCollectPaymentSheet({
   const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("email")
   const [receiptBusy, setReceiptBusy] = useState(false)
   // Pre-pay: text/email a Stripe Checkout link (walk-up).
-  const [payLinkOpen, setPayLinkOpen] = useState(false)
   const [payLinkName, setPayLinkName] = useState("")
   const [payLinkEmail, setPayLinkEmail] = useState("")
   const [payLinkPhone, setPayLinkPhone] = useState("")
@@ -585,7 +592,6 @@ export function OwnerCollectPaymentSheet({
     setReceiptEmail("")
     setReceiptPhone("")
     setReceiptChannel("email")
-    setPayLinkOpen(false)
     setPayLinkName("")
     setPayLinkEmail("")
     setPayLinkPhone("")
@@ -709,7 +715,8 @@ export function OwnerCollectPaymentSheet({
 
   /**
    * Amount + method chosen.
-   * Card → key-in first (no charge). Tap / Pay link → tip screen next.
+   * Card → key-in first (no charge). Tap → tip LAST then charge.
+   * Pay link → send contact UI only (NO owner tip — tip is customer-side if ever added).
    */
   function enterMethodStep(method: PendingChargeMethod) {
     if (adhocBreakdown.totalCents < 50) {
@@ -724,7 +731,6 @@ export function OwnerCollectPaymentSheet({
     setPublishableKey(null)
     setTapListening(false)
     setAdhocBusy(false)
-    setPayLinkOpen(method === "link")
     setPayLinkUrl(null)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(adhocBreakdown.totalCents)
@@ -739,6 +745,12 @@ export function OwnerCollectPaymentSheet({
       void startCardEntry()
       return
     }
+    // Remote pay link: skip tip chips — go straight to Text / Email.
+    if (method === "link") {
+      setMode("send_link")
+      return
+    }
+    // Tap to Pay: tip-last, then one charge.
     setMode("tip_sign")
   }
 
@@ -785,7 +797,7 @@ export function OwnerCollectPaymentSheet({
     })
   }
 
-  /** Tip Confirm — one charge for the method picked earlier. */
+  /** Tip Confirm — one charge for Card / Tap (pay link never uses this). */
   function confirmTipAndCharge() {
     if (pendingMethod === "tap") {
       void runAdhocTapToPay()
@@ -795,7 +807,6 @@ export function OwnerCollectPaymentSheet({
       void chargeSavedCardWithTip()
       return
     }
-    // Pay link: contact fields + Text/Email are shown on the tip step.
   }
 
   /**
@@ -1404,15 +1415,12 @@ export function OwnerCollectPaymentSheet({
     }
   }
 
-  /** Text or email a Stripe Checkout link for this walk-up amount (+ tip from tip screen). */
+  /** Text or email a Stripe Checkout link for service + tax only (no owner tip). */
   async function sendAdhocPayLink(channel: "sms" | "email") {
-    const tipCents = selectedTipCents()
-    // Bake tip into Checkout total when send-pay-link has no tipCents field.
-    const totalWithTipCents =
-      mode === "tip_sign" && paidTotalCents > 0
-        ? paidTotalCents + tipCents
-        : adhocBreakdown.totalCents + tipCents
-    if (totalWithTipCents < 50) {
+    // Link amount = service (+ tax) only — tip is not chosen by the owner on send.
+    const chargeCents =
+      paidTotalCents > 0 ? paidTotalCents : adhocBreakdown.totalCents
+    if (chargeCents < 50) {
       toast({
         title: "Enter an amount",
         description: "Minimum is $0.50.",
@@ -1430,8 +1438,8 @@ export function OwnerCollectPaymentSheet({
         body: JSON.stringify({
           channel,
           adhoc: true,
-          // Total already includes tax (+ tip when on tip screen) — do not re-apply tax.
-          amount: totalWithTipCents / 100,
+          // Total already includes tax — do not re-apply tax. No tip baked in.
+          amount: chargeCents / 100,
           taxEnabled: false,
           taxRatePercent: 0,
           note: adhocNote.trim() || "Service",
@@ -1539,6 +1547,7 @@ export function OwnerCollectPaymentSheet({
             // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
             "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
             mode === "tip_sign" ||
+            mode === "send_link" ||
             mode === "sign" ||
             mode === "card_entry" ||
             mode === "receipt"
@@ -1565,30 +1574,34 @@ export function OwnerCollectPaymentSheet({
                   <SheetTitle className="text-base font-bold text-slate-100">
                     {mode === "tip_sign"
                       ? tipSignSheetTitle(false)
-                      : mode === "card_entry"
-                        ? "Key in card"
-                        : mode === "sign"
-                          ? postPaySignSheetTitle()
-                          : mode === "adhoc"
-                            ? "Charge"
-                            : listTab === "history"
-                              ? "Payment history"
-                              : "Collect"}
+                      : mode === "send_link"
+                        ? "Send pay link"
+                        : mode === "card_entry"
+                          ? "Key in card"
+                          : mode === "sign"
+                            ? postPaySignSheetTitle()
+                            : mode === "adhoc"
+                              ? "Charge"
+                              : listTab === "history"
+                                ? "Payment history"
+                                : "Collect"}
                   </SheetTitle>
                 )}
                 {mode !== "receipt" ? (
                   <p className="mt-0.5 text-xs text-slate-500">
                     {mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
-                      : mode === "card_entry"
-                        ? "Enter card + ZIP. Nothing charged until tip is done."
-                        : mode === "sign"
-                          ? postPaySignSheetSubtitle()
-                          : mode === "adhoc"
-                            ? "Enter amount, then choose how to pay. Tip comes last."
-                            : listTab === "history"
-                              ? "Cards, Tap to Pay, and cash you have run."
-                              : "Add a charge or pick a job on today’s schedule."}
+                      : mode === "send_link"
+                        ? `Customer pays ${fmtCents(paidTotalCents)} on the link — no tip step here.`
+                        : mode === "card_entry"
+                          ? "Enter card + ZIP. Nothing charged until tip is done."
+                          : mode === "sign"
+                            ? postPaySignSheetSubtitle()
+                            : mode === "adhoc"
+                              ? "Enter amount, then choose how to pay. Tip is last for Card / Tap."
+                              : listTab === "history"
+                                ? "Cards, Tap to Pay, and cash you have run."
+                                : "Add a charge or pick a job on today’s schedule."}
                   </p>
                 ) : null}
               </div>
@@ -2030,6 +2043,86 @@ export function OwnerCollectPaymentSheet({
                   </div>
                 )}
               </div>
+            ) : mode === "send_link" ? (
+              // Pay link only: amount already set — enter phone/email and send (no tip chips).
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPayLinkUrl(null)
+                    setPendingMethod(null)
+                    setMode("adhoc")
+                  }}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  Back
+                </button>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-emerald-100">Amount on link</p>
+                    <p className="text-[10px] text-emerald-200/70">Service + tax · customer pays remotely</p>
+                  </div>
+                  <p className="text-base font-bold tabular-nums text-emerald-300">
+                    {fmtCents(paidTotalCents)}
+                  </p>
+                </div>
+
+                <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Send pay link for {fmtCents(paidTotalCents)}
+                  </p>
+                  <input
+                    type="text"
+                    value={payLinkName}
+                    onChange={(e) => setPayLinkName(e.target.value)}
+                    placeholder="Customer name (optional)"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="tel"
+                    value={payLinkPhone}
+                    onChange={(e) => setPayLinkPhone(e.target.value)}
+                    placeholder="Mobile for text"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                  />
+                  <input
+                    type="email"
+                    value={payLinkEmail}
+                    onChange={(e) => setPayLinkEmail(e.target.value)}
+                    placeholder="Email"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={adhocBusy || !payLinkPhone.trim()}
+                      onClick={() => void sendAdhocPayLink("sms")}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {adhocBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                      ) : (
+                        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                      Text
+                    </button>
+                    <button
+                      type="button"
+                      disabled={adhocBusy || !payLinkEmail.trim()}
+                      onClick={() => void sendAdhocPayLink("email")}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                    >
+                      <Mail className="h-3.5 w-3.5" aria-hidden />
+                      Email
+                    </button>
+                  </div>
+                  {payLinkUrl ? (
+                    <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
+                  ) : null}
+                </div>
+              </div>
             ) : mode === "tip_sign" ? (
               <div className="flex flex-col gap-2.5">
                 <button
@@ -2037,7 +2130,6 @@ export function OwnerCollectPaymentSheet({
                   onClick={() => {
                     setClientSecret(null)
                     setTapListening(false)
-                    setPayLinkOpen(false)
                     if (pendingMethod === "card" && savedPaymentMethodId) {
                       // Keep saved card; go back to tip from amount would lose it —
                       // back to amount clears the keyed card.
@@ -2169,56 +2261,6 @@ export function OwnerCollectPaymentSheet({
                     >
                       Cancel tap
                     </button>
-                  </div>
-                ) : pendingMethod === "link" ? (
-                  <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                      Send pay link for {fmtCents(chargeTotalCents())}
-                    </p>
-                    <input
-                      type="text"
-                      value={payLinkName}
-                      onChange={(e) => setPayLinkName(e.target.value)}
-                      placeholder="Customer name (optional)"
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                    />
-                    <input
-                      type="tel"
-                      value={payLinkPhone}
-                      onChange={(e) => setPayLinkPhone(e.target.value)}
-                      placeholder="Mobile for text"
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                    />
-                    <input
-                      type="email"
-                      value={payLinkEmail}
-                      onChange={(e) => setPayLinkEmail(e.target.value)}
-                      placeholder="Email"
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                    />
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        disabled={adhocBusy || !payLinkPhone.trim()}
-                        onClick={() => void sendAdhocPayLink("sms")}
-                        className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                        Text
-                      </button>
-                      <button
-                        type="button"
-                        disabled={adhocBusy || !payLinkEmail.trim()}
-                        onClick={() => void sendAdhocPayLink("email")}
-                        className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
-                      >
-                        <Mail className="h-3.5 w-3.5" aria-hidden />
-                        Email
-                      </button>
-                    </div>
-                    {payLinkUrl ? (
-                      <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
-                    ) : null}
                   </div>
                 ) : (
                   <button
@@ -2429,11 +2471,11 @@ export function OwnerCollectPaymentSheet({
                         <Link2 className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Pay link</span>
-                      <span className="text-[10px] text-zinc-500">Text / email — tip next</span>
+                      <span className="text-[10px] text-zinc-500">Text / email</span>
                     </button>
                   </div>
                   <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-                    Tip is last — one charge for job + tip.
+                    Card / Tap: tip last. Pay link: send only — no tip here.
                   </p>
                 </section>
               </div>

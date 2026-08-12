@@ -444,7 +444,8 @@ export function TechPaymentModal(props: {
 
   /**
    * Amount screen → pick how to pay.
-   * Card → key-in first (no charge). Others → tip LAST, then one charge.
+   * Card → key-in first (no charge). Tap / Cash → tip LAST, then one charge.
+   * Pay link → text/email popup only (NO owner tip).
    */
   function enterTipStepWithMethod(next: PayMethod) {
     if (!requireChargeAmount()) return
@@ -464,6 +465,14 @@ export function TechPaymentModal(props: {
     setError(null)
     if (next === "card") {
       void startCardEntry()
+      return
+    }
+    // Remote pay link: skip tip screen — open Text / Email popup on the amount step.
+    if (next === "link") {
+      setLinkSentUrl(null)
+      setLinkDelivered(false)
+      setPostPayStep(null)
+      setActivePopup("link")
       return
     }
     setPostPayStep("tip_sign")
@@ -505,7 +514,7 @@ export function TechPaymentModal(props: {
     setPostPayStep("tip_sign")
   }
 
-  /** Tip Confirm — runs the method chosen earlier (single charge). */
+  /** Tip Confirm — runs Card / Tap / Cash (pay link never uses tip Confirm). */
   function confirmTipAndCharge() {
     if (method === "tap") {
       void runTapToPay()
@@ -518,11 +527,6 @@ export function TechPaymentModal(props: {
     if (method === "cash") {
       void payCash()
       return
-    }
-    if (method === "link") {
-      setError(null)
-      setLinkSentUrl(null)
-      setActivePopup("link")
     }
   }
 
@@ -990,13 +994,12 @@ export function TechPaymentModal(props: {
     setBusy(true)
     setMethod("link")
     try {
-      // Pay-link API has no tipCents — bake tip into amount when sending from tip screen.
-      const tipCents = postPayStep === "tip_sign" ? selectedTipCents() : 0
+      // Service (+ tax) only — owner does not pick a tip when sending a pay link.
+      const tipCents = 0
       const linkLineItems = invoiceLineItemsWithTip(tipCents)
-      // When tip is included, send all-in dollars (job+tax+tip) with tax off so tip is not taxed twice.
-      const linkAmountDollars =
-        tipCents > 0 ? (totalCents + tipCents) / 100 : subtotalCents / 100
-      const linkTaxEnabled = tipCents > 0 ? false : taxEnabled
+      // Pre-tax dollars; tax is re-applied server-side when taxEnabled.
+      const linkAmountDollars = subtotalCents / 100
+      const linkTaxEnabled = taxEnabled
       const res = await fetch("/api/payments/send-pay-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1290,6 +1293,7 @@ export function TechPaymentModal(props: {
                 busy ||
                 tapListening ||
                 !method ||
+                method === "link" ||
                 (method === "card" && !savedPaymentMethodId)
               }
               onClick={() => confirmTipAndCharge()}
@@ -1306,100 +1310,8 @@ export function TechPaymentModal(props: {
               ) : (
                 <Link2 className="h-4 w-4" aria-hidden />
               )}
-              {method === "link"
-                ? `Send pay link · ${fmt(chargeWithTipCents())}`
-                : tipCustomerConfirmCta(fmt(chargeWithTipCents()))}
+              {tipCustomerConfirmCta(fmt(chargeWithTipCents()))}
             </button>
-
-            {activePopup === "link" ? (
-              <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
-                <p className="text-xs text-emerald-100/90">
-                  Texts a short lyncr.app link for {fmt(chargeWithTipCents())}. Customer pays on a
-                  branded page — when they finish, the job is marked collected.
-                </p>
-                {error ? <p className="text-sm text-red-300">{error}</p> : null}
-                <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Customer name
-                  </span>
-                  <input
-                    value={linkName}
-                    onChange={(e) => setLinkName(e.target.value)}
-                    disabled={busy}
-                    placeholder="Optional"
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Mobile for text
-                  </span>
-                  <input
-                    value={linkPhone}
-                    onChange={(e) => setLinkPhone(e.target.value)}
-                    disabled={busy}
-                    inputMode="tel"
-                    placeholder="+15551234567"
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Email
-                  </span>
-                  <input
-                    value={linkEmail}
-                    onChange={(e) => setLinkEmail(e.target.value)}
-                    disabled={busy}
-                    inputMode="email"
-                    autoCapitalize="none"
-                    placeholder="customer@email.com"
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-                  />
-                </label>
-                <div className="grid gap-2">
-                  <button
-                    type="button"
-                    disabled={busy || !linkPhone.trim()}
-                    onClick={() => void sendPayLink("sms")}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      <MessageSquare className="h-4 w-4" aria-hidden />
-                    )}
-                    Text pay link
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || !linkEmail.trim()}
-                    onClick={() => void sendPayLink("email")}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                  >
-                    <Mail className="h-4 w-4" aria-hidden />
-                    Email pay link
-                  </button>
-                </div>
-                {linkSentUrl ? (
-                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
-                    <p className="text-sm font-semibold text-emerald-200">
-                      {linkDelivered ? "Link sent" : "Pay link ready (not delivered)"}
-                    </p>
-                    <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-semibold text-emerald-300 underline"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(linkSentUrl)
-                      }}
-                    >
-                      Copy link
-                    </button>
-                  </div>
-                ) : null}
-              </NestedPayPopup>
-            ) : null}
           </div>
         ) : postPayStep === "sign" ? (
           <div className="flex flex-col gap-2.5 overflow-y-auto px-4 py-3">
@@ -1823,13 +1735,104 @@ export function TechPaymentModal(props: {
                   />
                 </div>
                 <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-                  Tip is last — one charge for job + tip.
+                  Card / Tap / Cash: tip last. Pay link: send only — no tip here.
                 </p>
               </section>
             </div>
           </>
         )}
       </div>
+
+      {/* Pay link contact popup — overlays amount screen (no tip step). */}
+      {activePopup === "link" ? (
+        <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
+          <p className="text-xs text-emerald-100/90">
+            Texts a short lyncr.app link for {fmt(totalCents)}. Customer pays on a branded page —
+            when they finish, the job is marked collected.
+          </p>
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Customer name
+            </span>
+            <input
+              value={linkName}
+              onChange={(e) => setLinkName(e.target.value)}
+              disabled={busy}
+              placeholder="Optional"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Mobile for text
+            </span>
+            <input
+              value={linkPhone}
+              onChange={(e) => setLinkPhone(e.target.value)}
+              disabled={busy}
+              inputMode="tel"
+              placeholder="+15551234567"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Email
+            </span>
+            <input
+              value={linkEmail}
+              onChange={(e) => setLinkEmail(e.target.value)}
+              disabled={busy}
+              inputMode="email"
+              autoCapitalize="none"
+              placeholder="customer@email.com"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+            />
+          </label>
+          <div className="grid gap-2">
+            <button
+              type="button"
+              disabled={busy || !linkPhone.trim()}
+              onClick={() => void sendPayLink("sms")}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <MessageSquare className="h-4 w-4" aria-hidden />
+              )}
+              Text pay link
+            </button>
+            <button
+              type="button"
+              disabled={busy || !linkEmail.trim()}
+              onClick={() => void sendPayLink("email")}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+            >
+              <Mail className="h-4 w-4" aria-hidden />
+              Email pay link
+            </button>
+          </div>
+          {linkSentUrl ? (
+            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+              <p className="text-sm font-semibold text-emerald-200">
+                {linkDelivered ? "Link sent" : "Pay link ready (not delivered)"}
+              </p>
+              <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold text-emerald-300 underline"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(linkSentUrl)
+                }}
+              >
+                Copy link
+              </button>
+            </div>
+          ) : null}
+        </NestedPayPopup>
+      ) : null}
     </div>
   )
 
