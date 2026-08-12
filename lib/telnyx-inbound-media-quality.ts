@@ -1,5 +1,6 @@
 import { getAppUrl } from "@/lib/telnyx"
 import { prependInboundCallerGreetingToResponseTexml } from "@/lib/inbound-branded-greeting"
+import { envLyncrOrZing } from "@/lib/lyncr-env"
 
 /** G.711 μ-law (PCMU) — best PSTN clarity; comma-list allows Telnyx to offer only these codecs. */
 export function readInboundDialPreferredCodecs(): string {
@@ -141,13 +142,27 @@ export function resolveInboundForwardDialTimeoutSeconds(
 /**
  * Minimum dial age before we trust AMD `machine` and hang up the cell leg.
  * Early false positives (silence / early media ~2–3s) must not cut a normal human ring short.
- * Override with `ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS` (milliseconds, 3000–60000).
+ * Override with `LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS` (or legacy `ZING_*`), 3000–60000 ms.
+ * Default 18s so a ~20–25s Hold ring window is not aborted mid-ring on a false machine.
  */
 export function resolveAmdMinMachineAgeMs(): number {
-  const raw = (process.env.ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS || "12000").trim()
+  // Prefer LYNCR_*; keep ZING_* working until Vercel env is renamed.
+  const raw = (envLyncrOrZing("INBOUND_AMD_MIN_MACHINE_AGE_MS") || "18000").trim()
   const n = parseInt(raw, 10)
   if (Number.isFinite(n) && n >= 3000 && n <= 60_000) return n
-  return 12_000
+  return 18_000
+}
+
+/**
+ * Effective AMD machine trust age for this Dial — at least the env floor, and never
+ * earlier than ~3s before the configured ring timeout (so Hold gets a full cell ring).
+ */
+export function resolveAmdMinMachineAgeForRingSec(ringTimeoutSec: number): number {
+  const floorMs = resolveAmdMinMachineAgeMs()
+  const ringMs = Math.max(5, Number(ringTimeoutSec) || 20) * 1000
+  // Trust machine only near the end of the ring window (leave 3s for hangup → Busy menu).
+  const nearTimeoutMs = Math.max(floorMs, ringMs - 3000)
+  return Math.min(nearTimeoutMs, 60_000)
 }
 
 /**

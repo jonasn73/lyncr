@@ -1041,13 +1041,19 @@ function fetchFirstUnseenRingingCall(seen: Set<string>): Promise<ActiveCallRow |
 }
 
 function fetchRecentRingingCalls(): Promise<ActiveCallRow[]> {
+  return fetchRecentRingingCallsResult().then((r) => r.calls)
+}
+
+/** Ringing-recent with ok flag — failed polls must not auto-dismiss Incoming Call. */
+function fetchRecentRingingCallsResult(): Promise<{ ok: boolean; calls: ActiveCallRow[] }> {
   return fetch("/api/calls/ringing-recent", { credentials: "include" })
-    .then((r) => (r.ok ? r.json() : { calls: [] }))
-    .then((data: { calls?: ActiveCallRow[] }) => {
-      const calls = Array.isArray(data.calls) ? data.calls : []
-      return calls.map((row) => callLogRowFromApi(row))
+    .then(async (r) => {
+      if (!r.ok) return { ok: false as const, calls: [] as ActiveCallRow[] }
+      const data = (await r.json()) as { calls?: ActiveCallRow[] }
+      const calls = Array.isArray(data.calls) ? data.calls.map((row) => callLogRowFromApi(row)) : []
+      return { ok: true as const, calls }
     })
-    .catch(() => [])
+    .catch(() => ({ ok: false as const, calls: [] as ActiveCallRow[] }))
 }
 
 function fetchCallSummaryForIntake(callLogId: string): Promise<{
@@ -1966,13 +1972,30 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         suppressSheetDismissRef.current = false
       }, 450)
     }
+
+    // Toast when RINGING closes because Busy/hold owns the caller (after full cell ring).
+    const toastHoldPath = (_routed: string) => {
+      toast({
+        title: "Caller went to booking menu",
+        description: "Press 1 texts a booking link · stay on the line waits in Lines.",
+        action: (
+          <ToastAction altText="Open Lines" onClick={() => router.push("/dashboard")}>
+            Lines
+          </ToastAction>
+        ),
+      })
+    }
+
     const tryShowActiveCall = () => {
       // Skip overlapping polls — under load these stacked every 800ms.
       if (lookupInFlight || cancelled) return
       lookupInFlight = true
-      void fetchRecentRingingCalls()
-        .then(async (ringingCalls) => {
+      void fetchRecentRingingCallsResult()
+        .then(async (ringingResult) => {
           if (cancelled) return
+          // Network / API blip — keep any open RINGING sheet; do not treat as left-ring.
+          if (!ringingResult.ok) return
+          const ringingCalls = ringingResult.calls
           const ringing =
             ringingCalls.find((row) => !dismissedRef.current.has(row.id)) ?? null
           if (ringing) {
@@ -2023,6 +2046,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 open,
                 stillRinging: false,
                 upgradingToAnswered: false,
+                ringingLookupOk: true,
                 routedToName: summary?.routed_to_name ?? open.routed_to_name,
                 status: summary?.status ?? open.status,
                 endedAt: summary?.ended_at ?? open.ended_at,
@@ -2032,10 +2056,21 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               markAnsweredIntakeDismissed(ownerUserId, ids)
               for (const id of ids) dismissedRef.current.add(id)
               ringAliasRef.current = null
+              const routed = String(
+                summary?.routed_to_name ?? open.routed_to_name ?? ""
+              ).toLowerCase()
               setCurrent(null)
               isMinimizedRef.current = false
               setIsMinimized(false)
               stopRingingFastPoll()
+              // Confirmed hold/Busy after ring timeout — tell the owner why the sheet closed.
+              if (
+                routed.includes("hold") ||
+                routed.includes("busy ·") ||
+                routed.includes("busy")
+              ) {
+                toastHoldPath(routed)
+              }
               return
             }
           }
@@ -2136,18 +2171,6 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       // Bound memory — drop old keys occasionally.
       if (seenCallSids.size > 200) seenCallSids.clear()
       fn()
-    }
-
-    const toastHoldPath = (routed: string) => {
-      toast({
-        title: routed.includes("hold queue") ? "Caller on hold" : "Caller on Busy path",
-        description: "Press 1 texts a booking link · stay on the line waits in Lines.",
-        action: (
-          <ToastAction altText="Open Lines" onClick={() => router.push("/dashboard")}>
-            Lines
-          </ToastAction>
-        ),
-      })
     }
 
     /** Close RINGING / New Intake when Busy → hold (or press-1) owns the caller. */

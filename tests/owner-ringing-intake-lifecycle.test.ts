@@ -133,7 +133,7 @@ describe("owner-ringing-intake-lifecycle", () => {
     ).toBe(false)
   })
 
-  it("poll miss dismisses when ringing left and hold/terminal", () => {
+  it("poll miss dismisses only on hold/terminal — not while still dialing", () => {
     expect(
       shouldDismissRingingIntakeAfterPollMiss({
         open: { id: "c1", manualCallStatus: "ringing", answered_at: null },
@@ -157,5 +157,43 @@ describe("owner-ringing-intake-lifecycle", () => {
         upgradingToAnswered: true,
       })
     ).toBe(false)
+    // Left ringing-recent but status still ringing (cell dialing) — keep Incoming Call open.
+    expect(
+      shouldDismissRingingIntakeAfterPollMiss({
+        open: { id: "c1", manualCallStatus: "ringing", answered_at: null },
+        stillRinging: false,
+        upgradingToAnswered: false,
+        status: "ringing",
+        routedToName: "Owner",
+      })
+    ).toBe(false)
+    // Missing summary / unknown — do not close on a transient empty poll.
+    expect(
+      shouldDismissRingingIntakeAfterPollMiss({
+        open: { id: "c1", manualCallStatus: "ringing", answered_at: null },
+        stillRinging: false,
+        upgradingToAnswered: false,
+      })
+    ).toBe(false)
+    // Failed ringing-recent fetch must never dismiss mid-ring.
+    expect(
+      shouldDismissRingingIntakeAfterPollMiss({
+        open: { id: "c1", manualCallStatus: "ringing", answered_at: null },
+        stillRinging: false,
+        upgradingToAnswered: false,
+        ringingLookupOk: false,
+        routedToName: CAPTURE_STATUS_HOLD_QUEUE,
+        status: "in-progress",
+      })
+    ).toBe(false)
+    // Terminal miss after dial timeout — dismiss.
+    expect(
+      shouldDismissRingingIntakeAfterPollMiss({
+        open: { id: "c1", manualCallStatus: "ringing", answered_at: null },
+        stillRinging: false,
+        upgradingToAnswered: false,
+        status: "no-answer",
+      })
+    ).toBe(true)
   })
 })

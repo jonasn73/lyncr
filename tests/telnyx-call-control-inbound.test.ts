@@ -403,8 +403,8 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       fallbackType: "hold",
       dialReason: "day_dial",
       amdGuard: true,
-      // Dial started 15s ago — past the 12s min age so machine is trusted.
-      dialStartedAtMs: Date.now() - 15_000,
+      // Dial started 23s ago — past ring−3s (25s → 22s) so machine is trusted.
+      dialStartedAtMs: Date.now() - 23_000,
     })
 
     const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")

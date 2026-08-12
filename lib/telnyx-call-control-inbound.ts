@@ -59,7 +59,7 @@ import {
   buildHoldFallbackAmdDetectionConfig,
   fallbackNeedsCarrierVmGuard,
   readInboundDialRingbackAudioUrl,
-  resolveAmdMinMachineAgeMs,
+  resolveAmdMinMachineAgeForRingSec,
   resolveInboundForwardDialTimeoutSeconds,
 } from "@/lib/telnyx-inbound-media-quality"
 import { resolveInboundOutboundCallerId } from "@/lib/telnyx-pstn-dial-callerid"
@@ -705,7 +705,9 @@ async function dialTechnicianLeg(
       amdGuard: useAmdGuard,
       bridgeOnAnswer: !useAmdGuard,
       fallbackType: fallbackRaw || null,
-      amdMinMachineAgeMs: useAmdGuard ? resolveAmdMinMachineAgeMs() : null,
+      amdMinMachineAgeMs: useAmdGuard
+        ? resolveAmdMinMachineAgeForRingSec(state.ringTimeoutSec ?? 20)
+        : null,
     })
   )
 
@@ -1548,7 +1550,8 @@ async function handleMachineDetectionEnded(
     typeof state.dialStartedAtMs === "number" && state.dialStartedAtMs > 0
       ? Math.max(0, Date.now() - state.dialStartedAtMs)
       : null
-  const minMachineAgeMs = resolveAmdMinMachineAgeMs()
+  // Floor from env + near end of this Dial's ring timeout (full cell ring before Hold).
+  const minMachineAgeMs = resolveAmdMinMachineAgeForRingSec(state.ringTimeoutSec ?? 20)
 
   // Premium AMD uses human_residence / human_business; classic uses human.
   const isHuman =
@@ -1559,11 +1562,11 @@ async function handleMachineDetectionEnded(
     raw === ""
   // Do not treat bare `silence` as machine — ambiguous and often fires during ring/early media.
   const looksLikeMachine = raw === "machine" || raw === "fax_detected"
-  // Only trust machine after the cell has had a normal ring window (default 12s).
+  // Only trust machine near the end of the configured ring window (default ~18s / ring−3s).
   // Missing dialStartedAtMs → do not trust (prefer bridge over a 3s hangup).
   const machineTrusted =
     looksLikeMachine && dialAgeMs != null && dialAgeMs >= minMachineAgeMs
-  // Early machine → treat as human and bridge (carrier VM almost never answers in <12s).
+  // Early machine → treat as human and bridge (carrier VM almost never answers mid-ring).
   const earlyMachineAsHuman = looksLikeMachine && !machineTrusted
 
   console.log(
@@ -1624,9 +1627,38 @@ async function handleMachineDetectionEnded(
         outboundCallControlId: event.callControlId,
         inboundCallControlId,
         error: bridgeRes.error,
+        earlyMachineAsHuman,
+        dialAgeMs,
       })
     )
-    // Bridge failed — treat like a miss so the caller still reaches hold / VM.
+    // Early false-positive AMD must NOT abort the cell dial into Hold — retry once, then wait.
+    if (earlyMachineAsHuman || (dialAgeMs != null && dialAgeMs < minMachineAgeMs)) {
+      const retry = await telnyxCallControlBridge(event.callControlId, {
+        callControlId: inboundCallControlId,
+        clientState: encodeTelnyxCallControlState(state),
+      })
+      if (retry.ok) {
+        console.log(
+          lyncrLog("telnyx-cc-dial-amd-bridge-human-retry", {
+            outboundCallControlId: event.callControlId,
+            inboundCallControlId,
+          })
+        )
+        await persistCallControlBridged(inboundCallControlId, state, event.occurredAt)
+        return
+      }
+      // Leave B-leg ringing / connected — dial timeout or a later hangup owns Hold fallback.
+      console.warn(
+        lyncrLog("telnyx-cc-amd-early-bridge-skip-hold", {
+          outboundCallControlId: event.callControlId,
+          inboundCallControlId,
+          dialAgeMs,
+          minMachineAgeMs,
+        })
+      )
+      return
+    }
+    // Trusted human path bridge failed — treat like a miss so the caller still reaches hold / VM.
     await forgetOutboundDialLeg(inboundCallControlId)
     await telnyxCallControlHangup(event.callControlId).catch(() => undefined)
     await applyDialMissFallback({

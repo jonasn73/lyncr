@@ -101,8 +101,9 @@ export function shouldAutoDismissIntakeOnCallCompleted(
 }
 
 /**
- * Poll backup: open RINGING row left ringing-recent — dismiss when DB says hold/terminal,
- * keep when a real answered row is about to upgrade the sheet.
+ * Poll backup: open RINGING row left ringing-recent — dismiss ONLY with positive proof
+ * (hold/Busy menu, terminal status, or ended_at). A transient empty ringing-recent poll
+ * must NOT close Incoming Call while the owner cell is still dialing.
  */
 export function shouldDismissRingingIntakeAfterPollMiss(params: {
   open: RingingIntakeMatchRow
@@ -114,21 +115,36 @@ export function shouldDismissRingingIntakeAfterPollMiss(params: {
   routedToName?: string | null
   status?: string | null
   endedAt?: string | null
+  /**
+   * When false, ringing-recent fetch failed / was non-OK — never dismiss on that alone
+   * (network blip would close intake while the cell is still ringing).
+   */
+  ringingLookupOk?: boolean
 }): boolean {
+  // Live Answer / booking chrome — poll must not tear the sheet down.
   if (!isRingingOnlyIntakeRow(params.open)) return false
+  // Still on the owner-ring list — keep Incoming Call open for the full dial window.
   if (params.stillRinging) return false
+  // Bridged row is about to replace RINGING — keep open so the sheet can upgrade.
   if (params.upgradingToAnswered) return false
+  // Failed / unknown ringing poll — do not treat as “left the ring path”.
+  if (params.ringingLookupOk === false) return false
+  // Caller hung up / row finalized — safe to close RINGING.
   if (params.endedAt?.trim()) return true
   const status = String(params.status ?? "")
     .trim()
     .toLowerCase()
     .replace(/_/g, "-")
+  // Terminal dial outcomes after the cell stop ringing.
   if (["completed", "busy", "failed", "no-answer", "canceled", "cancelled"].includes(status)) {
     return true
   }
-  if (isHoldAutomationStatus(params.routedToName ?? params.open.routed_to_name)) {
-    return !isAnsweredFromQueueStatus(params.routedToName ?? params.open.routed_to_name)
+  // Busy menu / Hold queue owns the caller after the configured ring timeout.
+  const routed = params.routedToName ?? params.open.routed_to_name
+  if (isHoldAutomationStatus(routed)) {
+    return !isAnsweredFromQueueStatus(routed)
   }
-  // Left ringing-recent with no upgrade — treat as left the owner-ring path (hold / IVR / hangup).
-  return true
+  // Still dialing (status ringing / in-progress / unknown) or summary missing —
+  // keep intake open; Pusher hold/hangup or a later confirmed poll will close it.
+  return false
 }

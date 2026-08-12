@@ -4,6 +4,7 @@ import {
   buildRoutingPoolDialTexml,
   buildInboundDialRingbackAttributes,
   buildHoldFallbackAmdDetectionConfig,
+  resolveAmdMinMachineAgeForRingSec,
   resolveAmdMinMachineAgeMs,
   resolveInboundFastDialTimeoutSeconds,
   resolveInboundForwardDialTimeoutSeconds,
@@ -85,9 +86,22 @@ describe("AMD early-machine helpers", () => {
     vi.unstubAllEnvs()
   })
 
-  it("defaults min machine age to 12s", () => {
+  it("defaults min machine age to 18s (full Hold ring window)", () => {
     vi.stubEnv("ZING_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
-    expect(resolveAmdMinMachineAgeMs()).toBe(12_000)
+    vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "")
+    expect(resolveAmdMinMachineAgeMs()).toBe(18_000)
+  })
+
+  it("honors LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS override", () => {
+    vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "15000")
+    expect(resolveAmdMinMachineAgeMs()).toBe(15_000)
+  })
+
+  it("raises trust age near the configured ring timeout", () => {
+    vi.stubEnv("LYNCR_INBOUND_AMD_MIN_MACHINE_AGE_MS", "12000")
+    // 20s ring → trust only after 17s (ring − 3s), not the 12s floor alone.
+    expect(resolveAmdMinMachineAgeForRingSec(20)).toBe(17_000)
+    expect(resolveAmdMinMachineAgeForRingSec(25)).toBe(22_000)
   })
 
   it("builds conservative classic AMD config", () => {
