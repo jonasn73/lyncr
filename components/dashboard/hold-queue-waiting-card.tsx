@@ -11,6 +11,7 @@ import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
+import { busyMenuAnswerUnlockMs, isHoldQueueAnswerable } from "@/lib/hold-queue"
 
 type QueueCaller = {
   id: string
@@ -230,19 +231,24 @@ export function HoldQueueWaitingCard({
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">
             {(() => {
-              const answerable = callers.filter((c) => c.status === "waiting" || c.status === "bridging")
-              const inMenu = callers.filter((c) => c.status === "holding")
-              if (answerable.length > 0 && inMenu.length > 0) {
-                return `${answerable.length} waiting · ${inMenu.length} in Busy menu`
+              const answerable = callers.filter(
+                (c) =>
+                  c.status === "bridging" || isHoldQueueAnswerable(c.status, c.enqueuedAt)
+              )
+              const lockedMenu = callers.filter(
+                (c) => c.status === "holding" && !isHoldQueueAnswerable(c.status, c.enqueuedAt)
+              )
+              if (answerable.length > 0 && lockedMenu.length > 0) {
+                return `${answerable.length} waiting · ${lockedMenu.length} in Busy menu`
               }
-              if (inMenu.length > 0 && answerable.length === 0) {
-                return `${inMenu.length} in Busy menu`
+              if (lockedMenu.length > 0 && answerable.length === 0) {
+                return `${lockedMenu.length} in Busy menu`
               }
               return `${callers.length} waiting`
             })()}
           </h3>
           <p className="hidden text-[11px] text-muted-foreground md:block">
-            Answer rings your phone after they stay on the line; Busy menu shows while the greeting plays
+            Answer unlocks a few seconds after the Busy greeting, then while they wait on hold
           </p>
         </div>
       </div>
@@ -257,10 +263,11 @@ export function HoldQueueWaitingCard({
         {callers.map((c, idx) => {
           // Deep-link to Customers filtered by this caller’s phone.
           const crmHref = crmHrefForCaller(c.callerE164)
-          // "holding" = still in Busy menu greeting / IVR (Answer locked).
+          // "holding" = Busy menu greeting window (Answer locked briefly, then unlocks).
           const inBusyMenu = c.status === "holding"
-          // "waiting" = stay-on-the-line hold — Answer is available.
-          const canAnswer = c.status === "waiting"
+          // Answer after greeting unlock window, or once status is waiting.
+          const canAnswer = isHoldQueueAnswerable(c.status, c.enqueuedAt)
+          const answerLockedBriefly = inBusyMenu && !canAnswer
           return (
             <li
               key={c.id}
@@ -291,10 +298,10 @@ export function HoldQueueWaitingCard({
                   ) : null}
                 </p>
                 {/* Plain guidance while Answer is locked so owners know what to do. */}
-                {inBusyMenu ? (
+                {answerLockedBriefly ? (
                   <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                    Caller is in the booking menu — Answer unlocks when they’re waiting, or
-                    send a book link now.
+                    Greeting playing — Answer unlocks in a few seconds, or send a book link
+                    now.
                   </p>
                 ) : null}
               </div>
@@ -307,17 +314,16 @@ export function HoldQueueWaitingCard({
                     className="!h-9 !min-h-0 px-2 text-[10px]"
                   />
                 ) : null}
-                {inBusyMenu ? (
-                  // Not live audio monitor — caller is still hearing the Busy menu greeting;
-                  // Answer unlocks after they stay on the line (status → waiting).
+                {answerLockedBriefly ? (
+                  // Short lock only while the Busy greeting speaks (~8s).
                   <span
                     className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
-                    title="Caller is hearing your Busy menu. Answer unlocks after they stay on the line."
+                    title={`Answer unlocks after ~${Math.round(busyMenuAnswerUnlockMs() / 1000)}s while the Busy greeting plays.`}
                   >
                     Can’t answer yet
                   </span>
                 ) : (
-                  // Primary action when the caller is holdable — take the call.
+                  // Primary action — take the call (Busy menu past greeting, or hold music).
                   <button
                     type="button"
                     disabled={answeringId === c.id || !canAnswer || c.status === "bridging"}

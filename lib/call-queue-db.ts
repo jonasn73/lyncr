@@ -5,7 +5,11 @@
 // voice keeps working before the migration is run (queue UI just shows empty).
 
 import { neon } from "@neondatabase/serverless"
-import { lyncrHoldQueueName } from "@/lib/hold-queue"
+import {
+  busyMenuAnswerUnlockMs,
+  holdMaxWaitSecs,
+  lyncrHoldQueueName,
+} from "@/lib/hold-queue"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 
@@ -109,9 +113,68 @@ export async function countWaitingCallQueue(userId: string): Promise<number> {
   }
 }
 
+/**
+ * Clear ghost Busy-menu / hold rows:
+ * - call_log already completed/ended for this call_control_id
+ * - holding/waiting older than max hold + buffer (never sit 21m)
+ * Also promote holding → waiting after the Busy greeting unlock window
+ * so Answer is available without waiting for gather.ended.
+ */
+export async function sweepStaleCallQueueForUser(userId: string): Promise<void> {
+  try {
+    const sql = getSql()
+    // Max hold + 90s buffer — anything older is a ghost or overdue.
+    const staleSecs = holdMaxWaitSecs(null) + 90
+    // Greeting window — then treat as answerable hold.
+    const unlockSecs = Math.ceil(busyMenuAnswerUnlockMs() / 1000)
+
+    // Ghosts: completed call_logs, or absurdly old live statuses.
+    await sql`
+      UPDATE call_queue cq
+      SET
+        status = 'left',
+        left_at = COALESCE(cq.left_at, now()),
+        updated_at = now()
+      WHERE cq.user_id = ${userId}
+        AND cq.status IN ('waiting', 'holding', 'bridging')
+        AND (
+          cq.enqueued_at < now() - (${staleSecs}::text || ' seconds')::interval
+          OR EXISTS (
+            SELECT 1
+            FROM call_logs cl
+            WHERE (
+              cl.provider_call_sid = cq.call_control_id
+              OR cl.twilio_call_sid = cq.call_control_id
+            )
+              AND (
+                cl.ended_at IS NOT NULL
+                OR lower(COALESCE(cl.status, '')) IN (
+                  'completed', 'busy', 'failed', 'no-answer', 'canceled', 'cancelled'
+                )
+              )
+          )
+        )
+    `
+
+    // Past Busy greeting → Answer-ready (even if gather.ended never fired).
+    await sql`
+      UPDATE call_queue
+      SET status = 'waiting', updated_at = now()
+      WHERE user_id = ${userId}
+        AND status = 'holding'
+        AND enqueued_at < now() - (${unlockSecs}::text || ' seconds')::interval
+    `
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) return
+    console.warn(lyncrLog("call-queue-sweep-failed", { error: String(e) }))
+  }
+}
+
 /** Waiting list for Lines UI (oldest first). */
 export async function listWaitingCallQueue(userId: string): Promise<CallQueueRow[]> {
   try {
+    // Drop ghosts + unlock Answer after Busy greeting before we read the list.
+    await sweepStaleCallQueueForUser(userId)
     const sql = getSql()
     const rows = await sql`
       SELECT *
@@ -130,7 +193,8 @@ export async function listWaitingCallQueue(userId: string): Promise<CallQueueRow
 
 /**
  * Soft preview while the Busy gather plays (before Telnyx enqueue).
- * Status `holding` shows on Lines as “In Busy menu” — Answer stays disabled until `waiting`.
+ * Status `holding` shows on Lines as “In Busy menu” — Answer unlocks after
+ * busyMenuAnswerUnlockMs() (or when promoted to `waiting` on stay-on-line).
  */
 export async function upsertCallQueueBusyMenu(params: {
   userId: string
@@ -143,12 +207,14 @@ export async function upsertCallQueueBusyMenu(params: {
   const queueName = lyncrHoldQueueName(params.userId)
   try {
     const sql = getSql()
+    // Skip brand-new rows when the call_log already ended (late async upsert
+    // after hangup). ON CONFLICT also refuses to resurrect terminal statuses.
     const rows = await sql`
       INSERT INTO call_queue (
         user_id, call_control_id, call_session_id, call_log_id,
         caller_e164, business_line_e164, queue_name, status, enqueued_at, updated_at
       )
-      VALUES (
+      SELECT
         ${params.userId},
         ${params.callControlId},
         ${params.callSessionId ?? null},
@@ -159,23 +225,37 @@ export async function upsertCallQueueBusyMenu(params: {
         'holding',
         now(),
         now()
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM call_logs cl
+        WHERE (
+          cl.provider_call_sid = ${params.callControlId}
+          OR cl.twilio_call_sid = ${params.callControlId}
+        )
+          AND (
+            cl.ended_at IS NOT NULL
+            OR lower(COALESCE(cl.status, '')) IN (
+              'completed', 'busy', 'failed', 'no-answer', 'canceled', 'cancelled'
+            )
+          )
       )
       ON CONFLICT (call_control_id) DO UPDATE SET
-        -- Do not downgrade an already-waiting / bridging caller back to menu-only.
         status = CASE
-          WHEN call_queue.status IN ('waiting', 'bridging', 'answered') THEN call_queue.status
+          WHEN call_queue.status IN (
+            'waiting', 'bridging', 'answered', 'left', 'sms_left', 'timed_out'
+          ) THEN call_queue.status
           ELSE 'holding'
         END,
         queue_name = EXCLUDED.queue_name,
         caller_e164 = COALESCE(EXCLUDED.caller_e164, call_queue.caller_e164),
         business_line_e164 = COALESCE(EXCLUDED.business_line_e164, call_queue.business_line_e164),
         call_session_id = COALESCE(EXCLUDED.call_session_id, call_queue.call_session_id),
-        left_at = NULL,
         updated_at = now()
+      WHERE call_queue.status NOT IN ('left', 'sms_left', 'timed_out', 'answered')
       RETURNING *
     `
     const row = rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null
-    void broadcastQueue(params.userId)
+    if (row) void broadcastQueue(params.userId)
     return row
   } catch (e) {
     if (isMissingCallQueueTable(e)) {
@@ -227,6 +307,7 @@ export async function upsertCallQueueWaiting(params: {
         call_session_id = COALESCE(EXCLUDED.call_session_id, call_queue.call_session_id),
         left_at = NULL,
         updated_at = now()
+      WHERE call_queue.status NOT IN ('left', 'sms_left', 'timed_out', 'answered')
       RETURNING *
     `
     const row = rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null

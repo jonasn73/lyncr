@@ -6,6 +6,8 @@ import {
   HOLD_AWARE_BUSY_PROMPT,
   HOLD_REPROMPT_DEFAULT,
   resolveHoldMusicUrl,
+  busyMenuAnswerUnlockMs,
+  isHoldQueueAnswerable,
 } from "@/lib/hold-queue"
 import {
   HOLD_MUSIC_PRESETS,
@@ -34,6 +36,22 @@ describe("hold-queue helpers", () => {
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("stay on the line")
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("press 1")
     expect(HOLD_AWARE_BUSY_PROMPT.toLowerCase()).toContain("short form")
+  })
+
+  it("unlocks Answer after a short Busy greeting window (not minutes)", () => {
+    expect(busyMenuAnswerUnlockMs()).toBeGreaterThanOrEqual(3_000)
+    expect(busyMenuAnswerUnlockMs()).toBeLessThanOrEqual(20_000)
+    const enqueuedAt = new Date(1_700_000_000_000).toISOString()
+    // Still in greeting → locked.
+    expect(isHoldQueueAnswerable("holding", enqueuedAt, 1_700_000_000_000 + 1_000)).toBe(false)
+    // Past unlock window → Answer available while still labeled Busy menu.
+    expect(
+      isHoldQueueAnswerable("holding", enqueuedAt, 1_700_000_000_000 + busyMenuAnswerUnlockMs())
+    ).toBe(true)
+    // Full hold always answerable.
+    expect(isHoldQueueAnswerable("waiting", enqueuedAt, 1_700_000_000_000)).toBe(true)
+    // Bridging is handled separately in the UI (Connecting…).
+    expect(isHoldQueueAnswerable("bridging", enqueuedAt, 1_700_000_000_000 + 60_000)).toBe(false)
   })
 
   it("re-prompt is short and consistent (not a second Busy greeting)", () => {

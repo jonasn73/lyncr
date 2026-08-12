@@ -329,15 +329,17 @@ async function startBusyAutomationFlow(
       maximumTries: 1,
     })
   )
-  // Soft Lines preview while the Busy menu speaks — before full hold enqueue.
-  void upsertCallQueueBusyMenu({
-    userId: routing.user_id,
-    callControlId,
-    callerE164: state.callerE164,
-    businessLineE164: state.businessLineE164,
-  }).catch((e) => {
+  // Await Busy-menu preview so hangup/press-1 can mark the row left (not a late ghost INSERT).
+  try {
+    await upsertCallQueueBusyMenu({
+      userId: routing.user_id,
+      callControlId,
+      callerE164: state.callerE164,
+      businessLineE164: state.businessLineE164,
+    })
+  } catch (e) {
     console.warn(lyncrLog("telnyx-cc-busy-menu-queue-preview-failed", { error: String(e) }))
-  })
+  }
   // Leave "ringing" ASAP so Incoming Call / New Intake closes (Available miss → hold path).
   void (async () => {
     try {
@@ -1257,6 +1259,7 @@ async function handleGatherEnded(
 
   // Caller hung up during Busy menu — do NOT enter hold / play music on a dead call.
   // Production logs showed call_hangup → enqueue/playback 422 "no longer active" → silent spam.
+  // Always clear the Lines preview row (same as hold-loop hangup) so “Can't answer yet” cannot stick.
   if (
     gatherStatus === "call_hangup" ||
     gatherStatus === "cancelled" ||
@@ -1268,6 +1271,7 @@ async function handleGatherEnded(
         gatherStatus,
       })
     )
+    await abandonHoldQueue(event.callControlId).catch(() => undefined)
     return
   }
 
@@ -1811,15 +1815,16 @@ async function handleCallHangup(
   // Also covers greeting-phase hangups where client_state is stale but Dial already started.
   await hangupCompanionOutboundLeg(event.callControlId, state, event.callSessionId)
 
-  // Abandon hold queue row + Telnyx leave_queue when the waiting caller disconnects.
+  // Always clear any hold / Busy-menu queue row on inbound hangup — even when
+  // client_state is missing/stale (that gap left Key Squad ghost “holding” cards).
   // Hangup without press 1 must NOT trigger Missed Call Rescue / booking SMS.
+  await abandonHoldQueue(event.callControlId).catch(() => undefined)
   if (
     state?.phase === "await_busy_hold_loop" ||
     state?.holdQueueName ||
     state?.dialReason === "busy_automation" ||
     state?.phase === "await_busy_gather_end"
   ) {
-    await abandonHoldQueue(event.callControlId).catch(() => undefined)
     // Mark IVR “done” so status-callback rescue skips this Busy abandon.
     void markIvrActionCompleted(event.callControlId)
   }

@@ -17,10 +17,13 @@ import {
   isReasonablePstnDialString,
   normalizePhoneNumberE164,
 } from "@/lib/db"
-import { lyncrHoldQueueName } from "@/lib/hold-queue"
+import { isHoldQueueAnswerable, lyncrHoldQueueName } from "@/lib/hold-queue"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
-import { telnyxCallControlDial } from "@/lib/telnyx-call-control-api"
+import {
+  telnyxCallControlDial,
+  telnyxCallControlPlaybackStop,
+} from "@/lib/telnyx-call-control-api"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
@@ -46,14 +49,18 @@ export async function POST(req: NextRequest) {
       : null
     if (!target) {
       const waiting = await listWaitingCallQueue(userId)
-      target = waiting.find((w) => w.status === "waiting") ?? null
+      target =
+        waiting.find((w) => isHoldQueueAnswerable(w.status, w.enqueued_at)) ?? null
     }
-    if (!target || !["waiting", "bridging"].includes(target.status)) {
+    const answerable = target
+      ? isHoldQueueAnswerable(target.status, target.enqueued_at) || target.status === "bridging"
+      : false
+    if (!target || !answerable) {
       return NextResponse.json(
         {
           error:
             target?.status === "holding"
-              ? "Caller is still in the Busy menu — Answer unlocks when they stay on the line"
+              ? "Caller is still hearing the Busy greeting — Answer unlocks in a few seconds"
               : "No caller waiting in the hold queue",
         },
         { status: 404 }
@@ -108,6 +115,9 @@ export async function POST(req: NextRequest) {
       inboundCallControlId: target.call_control_id,
     }
 
+    // Stop Busy greeting / hold music so barge-in Answer connects cleanly.
+    await telnyxCallControlPlaybackStop(target.call_control_id).catch(() => undefined)
+
     await updateCallQueueStatus({ callControlId: target.call_control_id, status: "bridging" })
 
     const dialRes = await telnyxCallControlDial({
@@ -121,6 +131,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!dialRes.ok) {
+      // Restore answerable status (waiting) so they can try Answer again.
       await updateCallQueueStatus({ callControlId: target.call_control_id, status: "waiting" })
       console.error(
         lyncrLog("queue-answer-dial-failed", {
