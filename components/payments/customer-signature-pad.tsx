@@ -32,6 +32,8 @@ type PadProps = {
   hideExpand?: boolean
   /** Notify parent when ink appears / clears. */
   onHasInkChange?: (hasInk: boolean) => void
+  /** When true, label says signature is optional (never required). */
+  optional?: boolean
 }
 
 /** Try to lock landscape while the big pad is open (phones that allow it). */
@@ -280,6 +282,7 @@ export function CustomerSignaturePad({
   className,
   canvasClassName,
   hideExpand = false,
+  optional = false,
 }: PadProps) {
   const padRef = useRef<CustomerSignaturePadHandle>(null)
   const [expanded, setExpanded] = useState(false)
@@ -292,7 +295,7 @@ export function CustomerSignaturePad({
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Customer signature
+          {optional ? "Customer signature (optional)" : "Customer signature"}
         </span>
         <div className="flex items-center gap-1">
           {!hideExpand ? (

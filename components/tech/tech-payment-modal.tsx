@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
+  tipSignHandBackCue,
+  tipSignPrimaryCta,
   tipSignSheetSubtitle,
   tipSignSheetTitle,
   shouldOfferOptionalSignature,
@@ -1155,11 +1157,13 @@ export function TechPaymentModal(props: {
                 <CustomerSignaturePad
                   onChange={setSignaturePng}
                   canvasClassName="h-36 w-full sm:h-40"
+                  optional
                 />
                 <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-                  {signaturePng
-                    ? "Thanks — hand the phone back."
-                    : "Optional — hand the phone back when done."}
+                  {tipSignHandBackCue({
+                    offerSignature: true,
+                    hasSignature: Boolean(signaturePng),
+                  })}
                 </p>
               </>
             ) : null}
@@ -1171,9 +1175,12 @@ export function TechPaymentModal(props: {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
             >
               {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {selectedTipCents() >= 50
-                ? `Continue · charge tip ${fmt(selectedTipCents())}`
-                : "Continue"}
+              {tipSignPrimaryCta({
+                offerSignature: offerOptionalSignature,
+                hasSignature: Boolean(signaturePng),
+                tipCents: selectedTipCents(),
+                tipAmountLabel: fmt(selectedTipCents()),
+              })}
             </button>
           </div>
         ) : postPayStep === "tip_charge" ? (
@@ -2202,6 +2209,15 @@ function ManualCardForm(props: {
             options={{
               layout: "tabs",
               wallets: { applePay: "never", googlePay: "never" },
+              // Always collect ZIP for AVS — keyed cards authenticate with postal code, not a signature.
+              fields: {
+                billingDetails: {
+                  address: {
+                    postalCode: "always",
+                    country: "never",
+                  },
+                },
+              },
             }}
           />
         ) : (

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   shouldOfferOptionalSignature,
+  tipSignPrimaryCta,
   tipSignSheetTitle,
   OPTIONAL_SIGNATURE_MIN_CENTS,
 } from "@/lib/payment-slip-ui"
@@ -20,5 +21,24 @@ describe("payment-slip-ui signature rules", () => {
   it("uses tip-only title when signature is not offered", () => {
     expect(tipSignSheetTitle(false)).toBe("Add a tip")
     expect(tipSignSheetTitle(true)).toBe("Tip & signature")
+  })
+
+  it("labels Continue without signature when pad is shown but empty", () => {
+    expect(
+      tipSignPrimaryCta({
+        offerSignature: true,
+        hasSignature: false,
+        tipCents: 0,
+        tipAmountLabel: "$0.00",
+      })
+    ).toBe("Continue without signature")
+    expect(
+      tipSignPrimaryCta({
+        offerSignature: false,
+        hasSignature: false,
+        tipCents: 0,
+        tipAmountLabel: "$0.00",
+      })
+    ).toBe("Continue")
   })
 })
