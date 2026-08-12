@@ -317,7 +317,6 @@ export function UiComponentGallery() {
             onQuickLifecycleAction={() => undefined}
             onSendReviewSms={() => undefined}
             onCollectPayment={() => undefined}
-            onClose={() => undefined}
           />
         </div>
       </Section>

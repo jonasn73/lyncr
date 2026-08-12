@@ -91,7 +91,8 @@ export function pipelineStatusPatch(status: JobPipelineDropdownStatusId): {
 
 /** Human label for a pipeline status id. */
 export function pipelineStatusLabel(status: JobPipelineStatusId): string {
-  if (status === "completed") return "Completed"
+  // Match header badge — one word for terminal close-out (not "Completed").
+  if (status === "completed") return "Done"
   return JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status
 }
 

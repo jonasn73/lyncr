@@ -23,6 +23,15 @@ type JobCardSummaryProps = {
   showHeader?: boolean
   /** Compact Call chip when phone is present. */
   showCallChip?: boolean
+  /**
+   * Hide Balance in the facts spine when Money rail already shows it
+   * (owner JobDetailOverview — avoids Balance twice on one glance).
+   */
+  hideBalance?: boolean
+  /**
+   * Hide the gray `summary` echo when vehicle / service / name are already above.
+   */
+  hideSummaryLine?: boolean
   className?: string
 }
 
@@ -37,6 +46,8 @@ export function JobCardSummary({
   statusBadgeClass,
   showHeader = false,
   showCallChip = false,
+  hideBalance = false,
+  hideSummaryLine = false,
   className,
 }: JobCardSummaryProps) {
   // Build the shared view-model once so owner + tech never diverge on core fields.
@@ -136,12 +147,16 @@ export function JobCardSummary({
           )}
         </p>
         <p className="min-w-0">
-          <span className="font-semibold text-emerald-500/80">Balance</span>
-          <span className="text-slate-600"> · </span>
-          <span className="font-semibold tabular-nums text-emerald-300">
-            {model.billingLabel}
-          </span>
-          <span className="text-slate-600"> · </span>
+          {!hideBalance ? (
+            <>
+              <span className="font-semibold text-emerald-500/80">Balance</span>
+              <span className="text-slate-600"> · </span>
+              <span className="font-semibold tabular-nums text-emerald-300">
+                {model.billingLabel}
+              </span>
+              <span className="text-slate-600"> · </span>
+            </>
+          ) : null}
           <span className="font-semibold text-slate-500">Appt</span>
           <span className="text-slate-600"> · </span>
           <span
@@ -160,7 +175,7 @@ export function JobCardSummary({
             <span className="font-medium text-slate-100">{model.keyHint}</span>
           </p>
         ) : null}
-        {model.summaryLine ? (
+        {!hideSummaryLine && model.summaryLine ? (
           <p className="line-clamp-2 text-[11px] text-slate-500">{model.summaryLine}</p>
         ) : null}
       </section>

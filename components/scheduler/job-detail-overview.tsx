@@ -12,7 +12,6 @@ import {
   Share2,
   Star,
   UserRound,
-  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -74,7 +73,6 @@ type JobDetailOverviewProps = {
   reviewSmsFailed?: boolean
   /** Open Collect / pay modal for this job (card, tap, pay link, receipt). */
   onCollectPayment: () => void
-  onClose: () => void
 }
 
 const SECTION_LABEL =
@@ -147,7 +145,6 @@ export function JobDetailOverview({
   onSendReviewSms,
   reviewSmsFailed = false,
   onCollectPayment,
-  onClose,
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
   const { activeOrganizationId } = useDashboardWorkspace()
@@ -233,11 +230,11 @@ export function JobDetailOverview({
   const showNotes = !isMobile || notesOpen
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Sticky header — name, badge, phone, Call/SMS, Edit stay visible while body scrolls */}
-      <header className="relative shrink-0 border-b border-border/50 px-4 py-2.5 pr-12">
+      <header className="relative shrink-0 border-b border-border/50 px-4 py-2 pr-12">
         <div className="flex flex-wrap items-center gap-1.5">
-          <h2 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
+          <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground md:text-lg">
             {customerName}
           </h2>
           <span
@@ -263,19 +260,17 @@ export function JobDetailOverview({
           </button>
         </div>
 
-        {/* Phone + compact contact actions on one tight block */}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="font-mono text-xs text-slate-300">
+        {/* Phone + Call / SMS on one compact row */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-slate-300">
             {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
           </p>
-        </div>
-        <div className="mt-1.5 flex gap-1.5">
           {phoneHref ? (
             <a
               href={phoneHref}
               className={cn(
                 CONTACT_BTN,
-                "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                "max-w-[5.5rem] flex-none border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -285,7 +280,10 @@ export function JobDetailOverview({
             <button
               type="button"
               disabled
-              className={cn(CONTACT_BTN, "border-slate-800 bg-slate-950/40 text-slate-500")}
+              className={cn(
+                CONTACT_BTN,
+                "max-w-[5.5rem] flex-none border-slate-800 bg-slate-950/40 text-slate-500"
+              )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
               Call
@@ -298,6 +296,7 @@ export function JobDetailOverview({
             onClick={openSmsComposer}
             className={cn(
               CONTACT_BTN,
+              "max-w-[5.5rem] flex-none",
               smsComposerOpen
                 ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
                 : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
@@ -324,15 +323,17 @@ export function JobDetailOverview({
         ) : null}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-2.5 pb-8">
-        {/* Shared job-card facts — same component the tech console uses */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
+        {/* Facts spine — balance + gray summary live in Money / above; hide duplicates here */}
         <JobCardSummary
           source={cardSource}
           billingBalanceDollars={billingBalanceDollars}
-          className="border-b border-border/40 pb-2.5"
+          hideBalance
+          hideSummaryLine
+          className="border-b border-border/40 pb-2"
         />
 
-        {/* Money: balance → Deposit / Collect / Complete (Complete merged in — no Close Out block) */}
+        {/* Money: balance once → Deposit / Collect / Complete / Review */}
         <JobMoneyRail
           jobId={source.id}
           customerName={customerName}
@@ -359,7 +360,7 @@ export function JobDetailOverview({
         />
 
         {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
-        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
+        <section className="mt-2 space-y-1.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -385,8 +386,9 @@ export function JobDetailOverview({
                 )}
                 aria-label="Job pipeline status"
               >
+                {/* Same word as header badge — avoid Done vs Completed split */}
                 {pipelineStatus === "completed" ? (
-                  <option value="completed">Completed</option>
+                  <option value="completed">Done</option>
                 ) : null}
                 {JOB_PIPELINE_STATUS_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -475,7 +477,7 @@ export function JobDetailOverview({
           </section>
         ) : null}
 
-        {/* More actions — Cancel / Referred / Complete / Review / Deposit; collapsed on mobile */}
+        {/* More actions — Cancel / Referred / Complete / Review; collapsed on mobile */}
         <section className="mt-2">
           {isMobile ? (
             <CollapseToggle
@@ -558,7 +560,7 @@ export function JobDetailOverview({
             <CollapseToggle
               open={notesOpen}
               onToggle={() => setNotesOpen((v) => !v)}
-              label="Internal notes"
+              label="Notes"
               hint={notesPreview}
             />
           ) : (
@@ -588,19 +590,7 @@ export function JobDetailOverview({
         </section>
 
         {error ? <p className="mt-2 text-sm text-rose-400">{error}</p> : null}
-        <div className="h-4 shrink-0" aria-hidden />
       </div>
-
-      <footer className="shrink-0 border-t border-border/40 bg-card/90 px-4 py-2 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))] backdrop-blur">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-        >
-          <X className="h-4 w-4 opacity-70" aria-hidden />
-          Close
-        </button>
-      </footer>
     </div>
   )
 }

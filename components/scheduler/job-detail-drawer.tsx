@@ -871,7 +871,6 @@ export function JobDetailDrawer({
               onSendReviewSms={() => void handleSendReviewSms()}
               reviewSmsFailed={reviewSmsFailed}
               onCollectPayment={() => setCollectJob(toCollectDispatchJob(source))}
-              onClose={requestClose}
             />
           ) : (
             <JobEditWorkflow
