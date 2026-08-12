@@ -25,6 +25,11 @@ import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import {
+  phoneMatchKey,
+  resolveMessagesDeepLinkPhone,
+  shouldApplyMessagesDeepLink,
+} from "@/lib/messages-deep-link"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
 
@@ -63,11 +68,6 @@ function formatMessageTime(iso: string): string {
     return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
   }
   return d.toLocaleDateString([], { month: "short", day: "numeric" })
-}
-
-/** Last 10 digits — matches Activity deep-links that use display formatting. */
-function phoneMatchKey(phone: string): string {
-  return phone.replace(/\D/g, "").slice(-10)
 }
 
 function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
@@ -145,7 +145,17 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // Scroll the message list only — never the whole page (avoids jumping shared <main>).
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
+  // Last `?phone=` key we opened — blocks poll/refetch from re-applying a stale deep link.
+  const appliedDeepLinkKeyRef = useRef<string | null>(null)
   const threadOpen = Boolean(selectedPhone)
+
+  /** Drop phone/draft query params so refetch cannot yank the open thread. */
+  const clearMessagesDeepLinkUrl = useCallback(() => {
+    const hasPhone = searchParams.get("phone")
+    const hasDraft = searchParams.get("draft")
+    if (!hasPhone && !hasDraft) return
+    router.replace("/dashboard/messages", { scroll: false })
+  }, [router, searchParams])
 
   const hasPaintedMessagesRef = useRef(false)
   if (messages.length > 0) hasPaintedMessagesRef.current = true
@@ -212,25 +222,40 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
 
-  // Activity / Latest / rescue deep-link: /dashboard/messages?phone=+1…
+  // Activity / Latest / CRM / rescue deep-link: /dashboard/messages?phone=+1…
+  // Apply once, then clear the URL. Do NOT re-select on every threads poll (was yanking
+  // users off a manually opened conversation when ?phone= lingered from CRM).
   useEffect(() => {
     if (!isActive) return
-    const q = searchParams.get("phone")?.trim()
-    if (!q) return
-    const key = phoneMatchKey(q)
-    if (key.length < 10) return
-    // Prefer the exact thread key from the inbox so history resolves immediately.
-    const match = threads.find((t) => phoneMatchKey(t.customerPhone) === key)
-    setSelectedPhone(match?.customerPhone ?? q)
-  }, [searchParams, threads, isActive])
+    const phoneQuery = searchParams.get("phone")
+    if (!phoneQuery?.trim()) {
+      // URL no longer carries a deep link — allow a future ?phone= to open.
+      appliedDeepLinkKeyRef.current = null
+      return
+    }
+    const decision = shouldApplyMessagesDeepLink({
+      phoneQuery,
+      lastAppliedKey: appliedDeepLinkKeyRef.current,
+    })
+    if (!decision.apply) {
+      // Already opened this deep link — strip stale params so poll cannot fight selection.
+      clearMessagesDeepLinkUrl()
+      return
+    }
 
-  // CRM follow-up: ?draft=prefilled body once the thread is selected.
-  useEffect(() => {
-    if (!isActive) return
+    const resolved = resolveMessagesDeepLinkPhone(phoneQuery, threads)
+    if (!resolved) return
+
+    appliedDeepLinkKeyRef.current = decision.key
+    setSelectedPhone(resolved)
+    setSendError(null)
+
+    // CRM follow-up: consume ?draft= together with the phone open.
     const draftParam = searchParams.get("draft")?.trim()
-    if (!draftParam) return
-    setDraft(draftParam)
-  }, [searchParams, isActive])
+    if (draftParam) setDraft(draftParam)
+
+    clearMessagesDeepLinkUrl()
+  }, [searchParams, threads, isActive, clearMessagesDeepLinkUrl])
 
   const activeThread = useMemo((): SmsThread | null => {
     if (!selectedPhone) return null
@@ -445,6 +470,9 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                     key={thread.customerPhone}
                     type="button"
                     onClick={() => {
+                      // Manual pick wins — clear any lingering ?phone= so poll cannot override.
+                      appliedDeepLinkKeyRef.current = null
+                      clearMessagesDeepLinkUrl()
                       setSelectedPhone(thread.customerPhone)
                       setSendError(null)
                     }}
@@ -501,7 +529,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                   type="button"
                   className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground md:hidden"
                   aria-label="Back to conversations"
-                  onClick={() => setSelectedPhone(null)}
+                  onClick={() => {
+                    appliedDeepLinkKeyRef.current = null
+                    clearMessagesDeepLinkUrl()
+                    setSelectedPhone(null)
+                  }}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
