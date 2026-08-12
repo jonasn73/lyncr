@@ -2,7 +2,7 @@
 
 // On-the-go Collect Payment — job pick OR walk-up charge, then optional invoice send.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   readHeaderMoneyCache,
   writeHeaderMoneyCache,
@@ -48,6 +48,7 @@ import {
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
 import {
+  CARD_CHARGE_TIMEOUT_MESSAGE,
   fetchWithTimeout,
   PAYMENT_API_TIMEOUT_MS,
   PAYMENT_CONFIRM_TIMEOUT_MS,
@@ -137,34 +138,78 @@ function AdhocCardForm({
   onCancel,
   onError,
   stripeConnectAccountId,
+  amountLabel,
 }: {
   onDone: (paymentIntentId: string) => void
   onCancel: () => void
   /** Parent can keep the decline reason for the receipt summary. */
   onError?: (message: string) => void
   stripeConnectAccountId?: string | null
+  /** Shown above the card fields so amount stays visible on the charge step. */
+  amountLabel?: string | null
 }) {
   const stripe = useStripe()
   const elements = useElements()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [elementReady, setElementReady] = useState(false)
+  // Bump this to invalidate in-flight pay() so a late Stripe resolve cannot re-stick busy.
+  const payGenRef = useRef(0)
+
+  // If Payment Element never mounts (Connect / network), unlock instead of endless Loading…
+  useEffect(() => {
+    if (elementReady) return
+    const t = window.setTimeout(() => {
+      if (elementReady) return
+      const message =
+        "Card form did not load. Go Back and try again, or send a pay link."
+      setError(message)
+      onError?.(message)
+    }, PAYMENT_API_TIMEOUT_MS)
+    return () => window.clearTimeout(t)
+  }, [elementReady, onError])
+
+  // Belt-and-suspenders: even if Promise.race fails (Safari timer quirks), clear busy.
+  useEffect(() => {
+    if (!busy) return
+    const genAtStart = payGenRef.current
+    const watchdog = window.setTimeout(() => {
+      if (payGenRef.current !== genAtStart) return
+      payGenRef.current += 1
+      setBusy(false)
+      const message = CARD_CHARGE_TIMEOUT_MESSAGE
+      setError(message)
+      onError?.(message)
+    }, PAYMENT_CONFIRM_TIMEOUT_MS + 1_500)
+    return () => window.clearTimeout(watchdog)
+  }, [busy, onError])
+
+  function forceCancelCharge() {
+    // Invalidate any in-flight pay(); Stripe may keep working but UI must unlock.
+    payGenRef.current += 1
+    setBusy(false)
+    setError(null)
+    onCancel()
+  }
 
   async function pay() {
-    // Stripe.js not ready yet — do not set busy or the button spins forever.
-    if (!stripe || !elements) {
+    // Stripe.js / Payment Element not ready — do not set busy or the button spins forever.
+    if (!stripe || !elements || !elementReady) {
       const message = "Card form is still loading — wait a second and try again."
       setError(message)
       onError?.(message)
       return
     }
+    const gen = ++payGenRef.current
     setBusy(true)
     setError(null)
     try {
       const { error: submitError } = await withTimeout(
         elements.submit(),
         PAYMENT_CONFIRM_TIMEOUT_MS,
-        "Card form timed out. Check the details and try again."
+        CARD_CHARGE_TIMEOUT_MESSAGE
       )
+      if (payGenRef.current !== gen) return
       if (submitError) {
         throw new Error(
           formatStripeCardFailure(submitError, "Check the card details and try again.")
@@ -177,8 +222,9 @@ function AdhocCardForm({
           redirect: "if_required",
         }),
         PAYMENT_CONFIRM_TIMEOUT_MS,
-        "Charge timed out waiting for the bank or wallet. Try again, or use Tap to Pay / a pay link."
+        CARD_CHARGE_TIMEOUT_MESSAGE
       )
+      if (payGenRef.current !== gen) return
       if (result.error) {
         throw new Error(
           formatStripeCardFailure(result.error, "Card was declined — try another card.")
@@ -206,6 +252,7 @@ function AdhocCardForm({
           PAYMENT_API_TIMEOUT_MS,
           "Card may have charged, but Lyncr confirmation timed out. Check Stripe before retrying."
         )
+        if (payGenRef.current !== gen) return
         if (!confirmRes.ok) {
           const json = (await confirmRes.json().catch(() => ({}))) as { error?: string }
           throw new Error(
@@ -218,22 +265,43 @@ function AdhocCardForm({
       }
       throw new Error("Payment finished but Stripe did not return a payment id. Check Stripe Dashboard.")
     } catch (e) {
+      if (payGenRef.current !== gen) return
       const message = formatPaymentCatchError(e, "Card payment failed — try another card.")
       setError(message)
       onError?.(message)
     } finally {
-      // Always clear spinner — even on timeout / hang recovery.
-      setBusy(false)
+      // Always clear spinner for this generation — even on timeout / hang recovery.
+      if (payGenRef.current === gen) setBusy(false)
     }
   }
 
   return (
     <div className="space-y-3 px-1 pb-2">
-      <PaymentElement
-        options={{
-          wallets: { applePay: "auto", googlePay: "auto" },
-        }}
-      />
+      {amountLabel ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+            Charging
+          </p>
+          <p className="text-lg font-bold tabular-nums text-emerald-100">{amountLabel}</p>
+        </div>
+      ) : null}
+
+      <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
+        {!elementReady ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Loading card form…
+          </div>
+        ) : null}
+        <PaymentElement
+          onReady={() => setElementReady(true)}
+          options={{
+            layout: "tabs",
+            wallets: { applePay: "auto", googlePay: "auto" },
+          }}
+        />
+      </div>
+
       {error ? (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
           <p className="text-xs font-semibold text-rose-300">Card charge failed</p>
@@ -241,19 +309,33 @@ function AdhocCardForm({
             <span className="font-semibold">Why: </span>
             {error}
           </p>
+          <p className="mt-1.5 text-[11px] leading-snug text-rose-100/80">
+            If this keeps hanging on Safari or in-app browsers, send a pay link instead.
+          </p>
         </div>
       ) : null}
+
+      {busy ? (
+        <button
+          type="button"
+          onClick={forceCancelCharge}
+          className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm font-semibold text-amber-100"
+        >
+          Cancel charge — unlock form
+        </button>
+      ) : null}
+
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={forceCancelCharge}
           className="flex-1 rounded-lg border border-zinc-700 px-3 py-2.5 text-sm font-semibold text-slate-300"
         >
           Back
         </button>
         <button
           type="button"
-          disabled={busy || !stripe}
+          disabled={busy || !stripe || !elementReady}
           onClick={() => void pay()}
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
@@ -262,7 +344,7 @@ function AdhocCardForm({
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Charging…
             </>
-          ) : !stripe ? (
+          ) : !stripe || !elementReady ? (
             "Loading…"
           ) : (
             "Charge card"
@@ -1379,7 +1461,9 @@ export function OwnerCollectPaymentSheet({
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
-                          ? "Enter an amount, then charge."
+                          ? clientSecret
+                            ? "Enter card details, then charge. Amount is shown below."
+                            : "Enter an amount, then charge."
                           : listTab === "history"
                             ? "Cards, Tap to Pay, and cash you have run."
                             : "Add a charge or pick a job on today’s schedule."}
@@ -1963,6 +2047,7 @@ export function OwnerCollectPaymentSheet({
                   >
                     <AdhocCardForm
                       stripeConnectAccountId={stripeConnectAccountId}
+                      amountLabel={fmtCents(tipChargeCents)}
                       onError={(message) => setTipLastError(message)}
                       onCancel={() => {
                         setClientSecret(null)
@@ -2367,6 +2452,7 @@ export function OwnerCollectPaymentSheet({
                   >
                     <AdhocCardForm
                       stripeConnectAccountId={stripeConnectAccountId}
+                      amountLabel={fmtCents(adhocBreakdown.totalCents)}
                       onCancel={() => {
                         setClientSecret(null)
                         setPublishableKey(null)

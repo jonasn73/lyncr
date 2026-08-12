@@ -6,8 +6,12 @@
 /** Default ceiling for create-intent / confirm API calls. */
 export const PAYMENT_API_TIMEOUT_MS = 25_000
 
-/** Ceiling for Stripe.js confirmPayment (3DS can take a bit; still must end). */
-export const PAYMENT_CONFIRM_TIMEOUT_MS = 90_000
+/**
+ * Ceiling for Stripe.js confirmPayment / elements.submit.
+ * Keep aggressive (≤30s): a 90s race still feels like an infinite spinner on-site.
+ * 3DS bank prompts usually finish well under this; after timeout, Cancel / pay link.
+ */
+export const PAYMENT_CONFIRM_TIMEOUT_MS = 25_000
 
 /** Ceiling for Terminal discover / connect on web (no infinite spinner). */
 export const TERMINAL_DISCOVER_TIMEOUT_MS = 20_000
@@ -15,9 +19,15 @@ export const TERMINAL_DISCOVER_TIMEOUT_MS = 20_000
 /** Ceiling for waiting on a customer tap once the reader is ready. */
 export const TERMINAL_COLLECT_TIMEOUT_MS = 120_000
 
+/** User-facing copy when card confirm hangs past the ceiling. */
+export const CARD_CHARGE_TIMEOUT_MESSAGE =
+  "Card charge timed out — try again or send a pay link."
+
 /**
  * Race a promise against a timeout. Rejects with a clear Error so UI can toast
- * and reset loading in `finally`.
+ * and reset loading in `finally`. Does not cancel the underlying work (Stripe.js
+ * has no AbortSignal for confirmPayment) — callers must still clear busy via
+ * finally + a generation counter / Cancel button.
  */
 export function withTimeout<T>(
   promise: Promise<T>,
@@ -30,13 +40,13 @@ export function withTimeout<T>(
       reject(new Error(message))
     }, ms)
   })
-  return Promise.race([promise, timeout]).finally(() => {
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
     if (timer !== undefined) clearTimeout(timer)
   }) as Promise<T>
 }
 
 /**
- * fetch() with AbortSignal.timeout — fails instead of hanging when the network
+ * fetch() with AbortSignal — fails instead of hanging when the network
  * or serverless function stalls.
  */
 export async function fetchWithTimeout(
@@ -45,10 +55,12 @@ export async function fetchWithTimeout(
   ms: number,
   timeoutMessage: string
 ): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
   try {
     return await fetch(input, {
       ...init,
-      signal: AbortSignal.timeout(ms),
+      signal: controller.signal,
     })
   } catch (e) {
     // AbortError / TimeoutError → plain message for toasts.
@@ -62,5 +74,7 @@ export async function fetchWithTimeout(
       throw new Error(timeoutMessage)
     }
     throw e
+  } finally {
+    clearTimeout(timer)
   }
 }

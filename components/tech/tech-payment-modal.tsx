@@ -36,6 +36,7 @@ import {
   tapToPayNoReaderMessage,
 } from "@/lib/stripe-payment-errors"
 import {
+  CARD_CHARGE_TIMEOUT_MESSAGE,
   fetchWithTimeout,
   PAYMENT_API_TIMEOUT_MS,
   PAYMENT_CONFIRM_TIMEOUT_MS,
@@ -1975,21 +1976,58 @@ function ManualCardForm(props: {
   const stripe = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
+  const [elementReady, setElementReady] = useState(false)
+  // Invalidate in-flight submit so a late Stripe resolve cannot re-stick the spinner.
+  const payGenRef = useRef(0)
 
   useEffect(() => {
     props.onError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clear once when form mounts
   }, [])
 
+  // Backup watchdog: clear spinner even if Promise.race never fires (Safari quirks).
+  useEffect(() => {
+    if (!submitting) return
+    const genAtStart = payGenRef.current
+    const watchdog = window.setTimeout(() => {
+      if (payGenRef.current !== genAtStart) return
+      payGenRef.current += 1
+      setSubmitting(false)
+      props.onError(CARD_CHARGE_TIMEOUT_MESSAGE)
+    }, PAYMENT_CONFIRM_TIMEOUT_MS + 1_500)
+    return () => window.clearTimeout(watchdog)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-arm when submitting flips
+  }, [submitting])
+
+  function forceCancelCharge() {
+    payGenRef.current += 1
+    setSubmitting(false)
+    props.onError(null)
+    props.onBack()
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!stripe || !elements) {
+    if (!stripe || !elements || !elementReady) {
       props.onError("Card form is still loading — wait a second and try again.")
       return
     }
+    const gen = ++payGenRef.current
     setSubmitting(true)
     props.onError(null)
     try {
+      const { error: submitError } = await withTimeout(
+        elements.submit(),
+        PAYMENT_CONFIRM_TIMEOUT_MS,
+        CARD_CHARGE_TIMEOUT_MESSAGE
+      )
+      if (payGenRef.current !== gen) return
+      if (submitError) {
+        props.onError(
+          formatStripeCardFailure(submitError, "Check the card details and try again.")
+        )
+        return
+      }
       const { error, paymentIntent } = await withTimeout(
         stripe.confirmPayment({
           elements,
@@ -2002,8 +2040,9 @@ function ManualCardForm(props: {
           },
         }),
         PAYMENT_CONFIRM_TIMEOUT_MS,
-        "Charge timed out waiting for the bank or wallet. Try again or use a pay link."
+        CARD_CHARGE_TIMEOUT_MESSAGE
       )
+      if (payGenRef.current !== gen) return
       if (error) {
         props.onError(
           formatStripeCardFailure(error, "Card was declined — try another card.")
@@ -2036,6 +2075,7 @@ function ManualCardForm(props: {
           PAYMENT_API_TIMEOUT_MS,
           "Card may have charged, but Lyncr confirmation timed out. Check Stripe before retrying."
         )
+        if (payGenRef.current !== gen) return
         if (!res.ok) {
           const json = (await res.json()) as { error?: string }
           throw new Error(
@@ -2059,32 +2099,57 @@ function ManualCardForm(props: {
           }),
         }).catch(() => {})
       }
+      if (payGenRef.current !== gen) return
       props.onSuccess(piId ?? null)
     } catch (err) {
+      if (payGenRef.current !== gen) return
       props.onError(formatPaymentCatchError(err, "Card payment failed — try another card."))
     } finally {
-      setSubmitting(false)
+      if (payGenRef.current === gen) setSubmitting(false)
     }
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Card details</p>
-      <div className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
-        <PaymentElement options={{ layout: "tabs" }} />
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+          Charging
+        </p>
+        <p className="text-lg font-bold tabular-nums text-emerald-100">{props.totalLabel}</p>
       </div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Card details</p>
+      <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
+        {!elementReady ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Loading card form…
+          </div>
+        ) : null}
+        <PaymentElement
+          onReady={() => setElementReady(true)}
+          options={{ layout: "tabs" }}
+        />
+      </div>
+      {submitting ? (
+        <button
+          type="button"
+          onClick={forceCancelCharge}
+          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm font-semibold text-amber-100"
+        >
+          Cancel charge — unlock form
+        </button>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          disabled={submitting}
-          onClick={props.onBack}
-          className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-semibold text-zinc-200 disabled:opacity-50"
+          onClick={forceCancelCharge}
+          className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-semibold text-zinc-200"
         >
           Back
         </button>
         <button
           type="submit"
-          disabled={!stripe || !elements || submitting}
+          disabled={!stripe || !elements || !elementReady || submitting}
           className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {submitting ? (
@@ -2092,11 +2157,16 @@ function ManualCardForm(props: {
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Charging…
             </>
+          ) : !elementReady ? (
+            "Loading…"
           ) : (
             `Pay ${props.totalLabel}`
           )}
         </button>
       </div>
+      <p className="text-[11px] leading-snug text-zinc-500">
+        If charge hangs on Safari or an in-app browser, go Back and send a pay link instead.
+      </p>
     </form>
   )
 }
