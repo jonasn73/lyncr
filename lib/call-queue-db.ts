@@ -5,11 +5,8 @@
 // voice keeps working before the migration is run (queue UI just shows empty).
 
 import { neon } from "@neondatabase/serverless"
-import {
-  busyMenuAnswerUnlockMs,
-  holdMaxWaitSecs,
-  lyncrHoldQueueName,
-} from "@/lib/hold-queue"
+import { busyMenuAnswerUnlockMs } from "@/lib/hold-queue-answer"
+import { holdMaxWaitSecs, lyncrHoldQueueName } from "@/lib/hold-queue"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 

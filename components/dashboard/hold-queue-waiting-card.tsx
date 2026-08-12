@@ -11,7 +11,7 @@ import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
-import { busyMenuAnswerUnlockMs, isHoldQueueAnswerable } from "@/lib/hold-queue"
+import { busyMenuAnswerUnlockMs, isHoldQueueAnswerable } from "@/lib/hold-queue-answer"
 
 type QueueCaller = {
   id: string

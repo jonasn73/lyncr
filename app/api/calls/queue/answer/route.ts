@@ -17,7 +17,8 @@ import {
   isReasonablePstnDialString,
   normalizePhoneNumberE164,
 } from "@/lib/db"
-import { isHoldQueueAnswerable, lyncrHoldQueueName } from "@/lib/hold-queue"
+import { lyncrHoldQueueName } from "@/lib/hold-queue"
+import { isHoldQueueAnswerable } from "@/lib/hold-queue-answer"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { getOrCreateCallControlApp } from "@/lib/telnyx-call-control-config"
 import {
