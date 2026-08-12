@@ -25,6 +25,12 @@ import { cn } from "@/lib/utils"
 import type { DispatchJob } from "@/lib/types"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
+  tipSignSheetSubtitle,
+  tipSignSheetTitle,
+  shouldOfferOptionalSignature,
+  type PaidChargeChannel,
+} from "@/lib/payment-slip-ui"
+import {
   ChargeResultSummary,
   type TipChargeResult,
 } from "@/components/payments/charge-result-summary"
@@ -142,6 +148,8 @@ export function TechPaymentModal(props: {
   // Tip + signature (same flow as walk-up Collect Payment).
   const [postPayStep, setPostPayStep] = useState<PostPayStep | null>(null)
   const [paidTotalCents, setPaidTotalCents] = useState(0)
+  /** How the base charge was taken — controls whether we show an optional signature pad. */
+  const [paidChargeChannel, setPaidChargeChannel] = useState<PaidChargeChannel | null>(null)
   const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
   const [tipChoice, setTipChoice] = useState<TipChoice>("none")
   const [customTipDollars, setCustomTipDollars] = useState("")
@@ -420,10 +428,15 @@ export function TechPaymentModal(props: {
     return Math.round(paidTotalCents * (pct / 100))
   }
 
-  /** Move to tip + signature after the main charge succeeds. */
-  function enterTipSignStep(piId: string | null, chargedCents: number) {
+  /** Move to optional tip (+ optional signature for some Tap tickets) after the main charge succeeds. */
+  function enterTipSignStep(
+    piId: string | null,
+    chargedCents: number,
+    channel: PaidChargeChannel
+  ) {
     setPaidPaymentIntentId(piId)
     setPaidTotalCents(chargedCents)
+    setPaidChargeChannel(channel)
     setTipChoice("none")
     setCustomTipDollars("")
     setSignaturePng(null)
@@ -458,6 +471,11 @@ export function TechPaymentModal(props: {
       })()
     }
   }
+
+  const offerOptionalSignature = shouldOfferOptionalSignature(
+    paidChargeChannel,
+    paidTotalCents
+  )
 
   function goToReceipt(nextTip?: TipChargeResult) {
     if (nextTip) setTipResult(nextTip)
@@ -505,15 +523,9 @@ export function TechPaymentModal(props: {
     if (!res.ok) throw new Error(json.error || "Could not save tip / signature")
   }
 
-  async function continueFromTipSign(opts?: {
-    skipTipCharge?: boolean
-    allowNoSignature?: boolean
-  }) {
+  async function continueFromTipSign(opts?: { skipTipCharge?: boolean }) {
     const tipCents = selectedTipCents()
-    if (!signaturePng && !opts?.allowNoSignature) {
-      setError("Have the customer sign below, or skip signature.")
-      return
-    }
+    // Signature is never required — card networks made it optional; keyed cards use ZIP/AVS.
     setSlipBusy(true)
     setError(null)
     try {
@@ -872,7 +884,7 @@ export function TechPaymentModal(props: {
         }),
       }).catch(() => {})
 
-      enterTipSignStep(piId || intent.paymentIntentId, totalCents)
+      enterTipSignStep(piId || intent.paymentIntentId, totalCents, "tap")
     } catch (e) {
       setError(formatPaymentCatchError(e, "Tap to Pay failed — try Manual Card Entry."))
       setMethod(null)
@@ -910,7 +922,7 @@ export function TechPaymentModal(props: {
     try {
       await saveCashInvoice()
       // Cash has no Stripe PI — tip can still be charged on card; signature is optional.
-      enterTipSignStep(null, totalCents)
+      enterTipSignStep(null, totalCents, "cash")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not record cash payment")
       setMethod(null)
@@ -1024,7 +1036,7 @@ export function TechPaymentModal(props: {
           <div>
             <h2 className="text-base font-bold text-white">
               {postPayStep === "tip_sign"
-                ? "Tip & signature"
+                ? tipSignSheetTitle(offerOptionalSignature)
                 : postPayStep === "tip_charge"
                   ? "Charge tip"
                   : postPayStep === "receipt"
@@ -1035,7 +1047,7 @@ export function TechPaymentModal(props: {
             </h2>
             <p className="text-xs text-zinc-500">
               {postPayStep === "tip_sign"
-                ? "Add a tip, sign, hand the phone back."
+                ? tipSignSheetSubtitle(offerOptionalSignature)
                 : props.job.customer_name || props.job.customer_phone || "Customer"}
             </p>
           </div>
@@ -1053,7 +1065,18 @@ export function TechPaymentModal(props: {
         {postPayStep === "tip_sign" ? (
           <div className="flex flex-col gap-2.5 overflow-y-auto px-4 py-3">
             <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-              <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+                <p className="text-[10px] text-emerald-200/70">
+                  {offerOptionalSignature
+                    ? "Optional tip / sign next"
+                    : paidChargeChannel === "manual_card"
+                      ? "ZIP verified on card — signature not needed"
+                      : paidChargeChannel === "cash"
+                        ? "Cash — tip optional"
+                        : "Optional tip next"}
+                </p>
+              </div>
               <p className="text-base font-bold tabular-nums text-emerald-300">{fmt(paidTotalCents)}</p>
             </div>
             <div>
@@ -1127,32 +1150,30 @@ export function TechPaymentModal(props: {
                 </p>
               ) : null}
             </div>
-            <CustomerSignaturePad
-              onChange={setSignaturePng}
-              canvasClassName="h-36 w-full sm:h-40"
-            />
-            <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-              {signaturePng
-                ? "Thanks — hand the phone back."
-                : "Hand the phone back when done."}
-            </p>
+            {offerOptionalSignature ? (
+              <>
+                <CustomerSignaturePad
+                  onChange={setSignaturePng}
+                  canvasClassName="h-36 w-full sm:h-40"
+                />
+                <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                  {signaturePng
+                    ? "Thanks — hand the phone back."
+                    : "Optional — hand the phone back when done."}
+                </p>
+              </>
+            ) : null}
             {error ? <p className="text-sm text-red-300">{error}</p> : null}
             <button
               type="button"
               disabled={slipBusy}
-              onClick={() =>
-                void continueFromTipSign({
-                  allowNoSignature: !signaturePng,
-                })
-              }
+              onClick={() => void continueFromTipSign()}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
             >
               {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               {selectedTipCents() >= 50
-                ? `Done · next charge tip ${fmt(selectedTipCents())}`
-                : signaturePng
-                  ? "Done — continue"
-                  : "Continue without signature"}
+                ? `Continue · charge tip ${fmt(selectedTipCents())}`
+                : "Continue"}
             </button>
           </div>
         ) : postPayStep === "tip_charge" ? (
@@ -1853,7 +1874,7 @@ export function TechPaymentModal(props: {
                       stripeConnectAccountId={stripeConnectAccountId}
                       onError={setError}
                       onSuccess={(piId) => {
-                        enterTipSignStep(piId || paymentIntentId, totalCents)
+                        enterTipSignStep(piId || paymentIntentId, totalCents, "manual_card")
                       }}
                       onBack={closePayPopup}
                     />

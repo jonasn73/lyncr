@@ -37,6 +37,14 @@ import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
+  tipSignHandBackCue,
+  tipSignPrimaryCta,
+  tipSignSheetSubtitle,
+  tipSignSheetTitle,
+  shouldOfferOptionalSignature,
+  type PaidChargeChannel,
+} from "@/lib/payment-slip-ui"
+import {
   ChargeResultSummary,
   type TipChargeResult,
 } from "@/components/payments/charge-result-summary"
@@ -349,6 +357,15 @@ function AdhocCardForm({
               layout: "tabs",
               // Wallets (Apple/Google Pay) can stall mount on mobile WebViews — card-only for keyed entry.
               wallets: { applePay: "never", googlePay: "never" },
+              // Always collect ZIP for AVS — keyed cards authenticate with postal code, not a signature.
+              fields: {
+                billingDetails: {
+                  address: {
+                    postalCode: "always",
+                    country: "never",
+                  },
+                },
+              },
             }}
           />
         ) : (
@@ -493,6 +510,8 @@ export function OwnerCollectPaymentSheet({
   // Set after a successful walk-up charge so we can tip / sign / email-SMS.
   const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
   const [paidTotalCents, setPaidTotalCents] = useState(0)
+  /** How the base charge was taken (keyed ZIP vs Tap vs cash) — controls signature UI. */
+  const [paidChargeChannel, setPaidChargeChannel] = useState<PaidChargeChannel | null>(null)
   const [tipChoice, setTipChoice] = useState<TipChoice>("none")
   const [customTipDollars, setCustomTipDollars] = useState("")
   const [signaturePng, setSignaturePng] = useState<string | null>(null)
@@ -530,6 +549,7 @@ export function OwnerCollectPaymentSheet({
     setTapListening(false)
     setPaidPaymentIntentId(null)
     setPaidTotalCents(0)
+    setPaidChargeChannel(null)
     setTipChoice("none")
     setCustomTipDollars("")
     setSignaturePng(null)
@@ -663,14 +683,19 @@ export function OwnerCollectPaymentSheet({
     }
   }, [open, mode, listTab])
 
-  /** After base charge succeeds: tip options + signature, then invoice. */
-  function enterTipSignStep(paymentIntentId: string, totalCents: number) {
+  /** After base charge succeeds: optional tip (+ optional signature for some Tap tickets). */
+  function enterTipSignStep(
+    paymentIntentId: string,
+    totalCents: number,
+    channel: PaidChargeChannel
+  ) {
     setClientSecret(null)
     setPublishableKey(null)
     setTapListening(false)
     setAdhocBusy(false)
     setPaidPaymentIntentId(paymentIntentId)
     setPaidTotalCents(totalCents)
+    setPaidChargeChannel(channel)
     setTipChoice("none")
     setCustomTipDollars("")
     setSignaturePng(null)
@@ -679,11 +704,19 @@ export function OwnerCollectPaymentSheet({
     setTipLastError(null)
     setMode("tip_sign")
     onCollected?.()
+    const offerSign = shouldOfferOptionalSignature(channel, totalCents)
     toast({
       title: "Card charged successfully",
-      description: "Add a tip (optional) and get a signature.",
+      description: offerSign
+        ? "Tip and signature are optional."
+        : "Add a tip if you want — signature is not needed.",
     })
   }
+
+  const offerOptionalSignature = shouldOfferOptionalSignature(
+    paidChargeChannel,
+    paidTotalCents
+  )
 
   function enterReceiptStep(nextTip?: TipChargeResult) {
     setClientSecret(null)
@@ -750,20 +783,10 @@ export function OwnerCollectPaymentSheet({
     if (!res.ok) throw new Error(json.error || "Could not save tip / signature")
   }
 
-  /** Save tip+signature; charge tip on card if ≥ $0.50, else go to invoice. */
-  async function continueFromTipSign(opts?: {
-    skipTipCharge?: boolean
-    allowNoSignature?: boolean
-  }) {
+  /** Save tip (+ optional signature); charge tip on card if ≥ $0.50, else go to invoice. */
+  async function continueFromTipSign(opts?: { skipTipCharge?: boolean }) {
     const tipCents = selectedTipCents()
-    if (!signaturePng && !opts?.allowNoSignature) {
-      toast({
-        title: "Signature needed",
-        description: "Have the customer sign below, or tap Continue without signature.",
-        variant: "destructive",
-      })
-      return
-    }
+    // Signature is never required — card networks made it optional; keyed cards use ZIP/AVS.
     setSlipBusy(true)
     try {
       await saveSlip({ tipCents })
@@ -1154,7 +1177,7 @@ export function OwnerCollectPaymentSheet({
         "Tap charged, but confirmation timed out. Check Stripe before retrying."
       ).catch(() => null)
 
-      enterTipSignStep(piId, totalAtCharge)
+      enterTipSignStep(piId, totalAtCharge, "tap")
     } catch (e) {
       toast({
         title: "Tap to Pay failed",
@@ -1520,7 +1543,7 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Send receipt"
                     : mode === "tip_sign"
-                      ? "Tip & signature"
+                      ? tipSignSheetTitle(offerOptionalSignature)
                       : mode === "tip_charge"
                         ? "Charge tip"
                         : mode === "adhoc"
@@ -1533,12 +1556,12 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? "Add a tip, sign, hand the phone back."
+                      ? tipSignSheetSubtitle(offerOptionalSignature)
                       : mode === "tip_charge"
                         ? "Collect the tip on Tap to Pay or card."
                         : mode === "adhoc"
                           ? clientSecret
-                            ? "Enter card details, then charge. Amount is shown below."
+                            ? "Enter card details + ZIP, then charge. Amount is shown below."
                             : "Enter an amount, then charge."
                           : listTab === "history"
                             ? "Cards, Tap to Pay, and cash you have run."
@@ -1938,7 +1961,16 @@ export function OwnerCollectPaymentSheet({
             ) : mode === "tip_sign" ? (
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                  <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-emerald-100">Payment received</p>
+                    <p className="text-[10px] text-emerald-200/70">
+                      {offerOptionalSignature
+                        ? "Optional tip / sign next"
+                        : paidChargeChannel === "manual_card"
+                          ? "ZIP verified on card — signature not needed"
+                          : "Optional tip next"}
+                    </p>
+                  </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
                   </p>
@@ -2016,35 +2048,35 @@ export function OwnerCollectPaymentSheet({
                   ) : null}
                 </div>
 
-                <CustomerSignaturePad
-                  onChange={setSignaturePng}
-                  canvasClassName="h-36 w-full sm:h-40"
-                />
-
-                {/* Customer-facing cue — short so the sheet stays compact. */}
-                <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-                  {signaturePng
-                    ? "Thanks — hand the phone back."
-                    : "Hand the phone back when done."}
-                </p>
+                {offerOptionalSignature ? (
+                  <>
+                    <CustomerSignaturePad
+                      onChange={setSignaturePng}
+                      canvasClassName="h-36 w-full sm:h-40"
+                      optional
+                    />
+                    <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                      {tipSignHandBackCue({
+                        offerSignature: true,
+                        hasSignature: Boolean(signaturePng),
+                      })}
+                    </p>
+                  </>
+                ) : null}
 
                 <button
                   type="button"
                   disabled={slipBusy}
-                  onClick={() =>
-                    void continueFromTipSign({
-                      // Tech continues after customer hands the phone back.
-                      allowNoSignature: !signaturePng,
-                    })
-                  }
+                  onClick={() => void continueFromTipSign()}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
                   {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                  {selectedTipCents() >= 50
-                    ? `Done · next charge tip ${fmtCents(selectedTipCents())}`
-                    : signaturePng
-                      ? "Done — continue"
-                      : "Continue without signature"}
+                  {tipSignPrimaryCta({
+                    offerSignature: offerOptionalSignature,
+                    hasSignature: Boolean(signaturePng),
+                    tipCents: selectedTipCents(),
+                    tipAmountLabel: fmtCents(selectedTipCents()),
+                  })}
                 </button>
               </div>
             ) : mode === "tip_charge" ? (
@@ -2552,7 +2584,7 @@ export function OwnerCollectPaymentSheet({
                         setPublishableKey(null)
                       }}
                       onDone={(paymentIntentId) => {
-                        enterTipSignStep(paymentIntentId, adhocBreakdown.totalCents)
+                        enterTipSignStep(paymentIntentId, adhocBreakdown.totalCents, "manual_card")
                       }}
                     />
                   </Elements>
