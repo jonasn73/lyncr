@@ -31,6 +31,7 @@ import {
   tipLastTotalNote,
   tipLastPrimaryCta,
   tipCustomerConfirmCta,
+  tipCustomerReadyNote,
   tipSignHandBackCue,
   tipSignSheetTitle,
   postPaySignSheetTitle,
@@ -1194,8 +1195,7 @@ export function TechPaymentModal(props: {
             </div>
             {method === "card" && savedPaymentMethodId ? (
               <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-                Hand the phone to the customer. Tip is last — Confirm charges once (job + tip).
-                No signature needed for keyed ZIP cards.
+                {tipCustomerReadyNote()}
               </p>
             ) : null}
             <div>

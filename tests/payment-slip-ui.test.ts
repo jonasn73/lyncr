@@ -32,8 +32,11 @@ describe("payment-slip-ui tip-last single charge", () => {
     expect(tipCentsFromChoice("custom", 100_00, "2.50")).toBe(250)
   })
 
-  it("tip sheet copy says one charge after tip", () => {
-    expect(tipLastSheetSubtitle("$10.00")).toContain("charge once")
+  it("tip sheet copy is customer-facing (no staff handoff)", () => {
+    expect(tipLastSheetSubtitle("$10.00")).toBe(
+      "Service $10.00. Add a tip if you like, then tap Confirm."
+    )
+    expect(tipLastSheetSubtitle()).toBe("Add a tip if you like, then tap Confirm.")
     expect(
       tipLastTotalNote({
         totalAmountLabel: "$11.50",

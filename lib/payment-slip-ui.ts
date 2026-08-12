@@ -53,21 +53,29 @@ export function tipSignSheetTitle(offerSignature: boolean): string {
   return offerSignature ? "Tip & signature" : "Add a tip"
 }
 
-/** Tip screen (last before money moves) — header subtitle. */
+/** Tip screen (customer-facing) — header subtitle. No staff coaching. */
 export function tipLastSheetSubtitle(baseAmountLabel?: string): string {
   const base = baseAmountLabel?.trim()
   if (base) {
-    return `Service ${base}. Add a tip if you like — then we charge once.`
+    return `Service ${base}. Add a tip if you like, then tap Confirm.`
   }
-  return "Add a tip if you like — then we charge once for job + tip."
+  return "Add a tip if you like, then tap Confirm."
 }
 
-/** Shown after card key-in, before tip (owner hands phone over). */
+/**
+ * Optional tip-step banner for keyed cards — customer only.
+ * Owner “hand the phone” belongs on the key-in step, not here.
+ */
+export function tipCustomerReadyNote(): string {
+  return "Add a tip if you like, then tap Confirm."
+}
+
+/** Shown on key-in step after save (owner still holding the phone). */
 export function cardKeyedHandOffCopy(): string {
   return "Card saved — next the customer adds a tip. Nothing charged yet."
 }
 
-/** Tip screen primary for customer-facing handoff. */
+/** Tip screen primary CTA (customer-facing). */
 export function tipCustomerConfirmCta(totalAmountLabel: string): string {
   return `Confirm · charge ${totalAmountLabel}`
 }

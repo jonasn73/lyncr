@@ -43,6 +43,8 @@ import {
   tipLastTotalNote,
   tipLastPrimaryCta,
   tipCustomerConfirmCta,
+  tipCustomerReadyNote,
+  cardKeyedHandOffCopy,
   tipSignSheetTitle,
   tipSignHandBackCue,
   postPaySignSheetTitle,
@@ -782,7 +784,7 @@ export function OwnerCollectPaymentSheet({
     setMode("tip_sign")
     toast({
       title: "Card saved",
-      description: "Hand the phone to the customer for tip. Nothing charged yet.",
+      description: cardKeyedHandOffCopy(),
     })
   }
 
@@ -2061,8 +2063,7 @@ export function OwnerCollectPaymentSheet({
 
                 {pendingMethod === "card" && savedPaymentMethodId ? (
                   <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-                    Hand the phone to the customer. Tip is last — Confirm charges once (job + tip).
-                    No signature needed for keyed ZIP cards.
+                    {tipCustomerReadyNote()}
                   </p>
                 ) : null}
 
