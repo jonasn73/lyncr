@@ -1,18 +1,15 @@
 /**
- * Post-charge Tip / signature sheet helpers.
+ * Tip + optional signature helpers for Collect / tech Charge.
  *
- * Card networks (Visa, Mastercard, Amex, Discover) made cardholder signatures
- * optional for card-present EMV/contactless. Card-not-present (keyed) payments
- * authenticate with AVS/ZIP + CVC — signature was never a network requirement.
+ * Customer order:
+ * 1) Enter amount (prepare)
+ * 2) Tip screen LAST (chips + optional signature when we already know Tap)
+ * 3) One PaymentIntent for service + tax + tip when they confirm
  *
- * Lyncr charges the main PaymentIntent first, then offers an optional tip (and
- * sometimes an optional signature). A tip ≥ $0.50 is a SEPARATE second
- * PaymentIntent (new card tap/entry) — not an update of the first charge.
- * Stripe’s Terminal on-receipt tip uses overcapture on one PI; Lyncr’s Collect
- * flow uses an explicit second charge so any business MCC can tip after pay.
+ * Tip is never a second card charge.
  */
 
-/** How the base charge was taken — drives whether we show a signature pad. */
+/** How the charge was taken — drives whether we show a signature pad. */
 export type PaidChargeChannel = "manual_card" | "tap" | "cash"
 
 /**
@@ -33,49 +30,100 @@ export function shouldOfferOptionalSignature(
   return amountCents >= OPTIONAL_SIGNATURE_MIN_CENTS
 }
 
+/** Tip % of a pre-tax+tax base (job / walk-up total before tip). */
+export function tipCentsFromChoice(
+  tipChoice: "none" | "15" | "18" | "20" | "custom",
+  baseCents: number,
+  customTipDollars: string
+): number {
+  if (tipChoice === "none") return 0
+  if (tipChoice === "custom") {
+    const dollars = parseFloat(customTipDollars)
+    if (!Number.isFinite(dollars) || dollars <= 0) return 0
+    return Math.round(dollars * 100)
+  }
+  const pct = Number(tipChoice)
+  if (!Number.isFinite(pct) || baseCents <= 0) return 0
+  return Math.round(baseCents * (pct / 100))
+}
+
 export function tipSignSheetTitle(offerSignature: boolean): string {
   return offerSignature ? "Tip & signature" : "Add a tip"
 }
 
-/**
- * Sheet header subtitle after the job/service amount is already charged.
- * Always warn that a tip means a second card charge (not a silent re-bill of the job).
- */
-export function tipSignSheetSubtitle(
-  offerSignature: boolean,
-  paidAmountLabel?: string
-): string {
-  // Prefer “Payment of $X received…” when we know the paid amount.
-  const paidBit = paidAmountLabel?.trim()
-    ? `Payment of ${paidAmountLabel.trim()} received.`
-    : "Payment received."
-  if (offerSignature) {
-    return `${paidBit} Tip and signature are optional — a tip charges the card again for the tip only.`
+/** Tip screen (last before money moves) — header subtitle. */
+export function tipLastSheetSubtitle(baseAmountLabel?: string): string {
+  const base = baseAmountLabel?.trim()
+  if (base) {
+    return `Service ${base}. Pick a tip — then we charge once (job + tip).`
   }
-  return `${paidBit} Tip is optional — a tip charges the card again for the tip only.`
+  return "Pick a tip — then we charge once for job + tip."
 }
 
-/**
- * Inline note under the tip % buttons when a tip amount is selected.
- * Makes clear: job is already paid; tip is a separate charge.
- */
+/** Total line on tip screen before Tap / Card. */
+export function tipLastTotalNote(opts: {
+  totalAmountLabel: string
+  tipCents: number
+  tipAmountLabel: string
+  baseAmountLabel: string
+}): string {
+  if (opts.tipCents > 0) {
+    return `Total to charge: ${opts.totalAmountLabel} (job ${opts.baseAmountLabel} + tip ${opts.tipAmountLabel})`
+  }
+  return `Total to charge: ${opts.totalAmountLabel} (no tip)`
+}
+
+/** Primary CTA on tip screen — starts the single charge. */
+export function tipLastPrimaryCta(opts: {
+  totalAmountLabel: string
+  tipCents: number
+}): string {
+  return `Charge ${opts.totalAmountLabel}`
+}
+
+/** Post-pay optional signature (after the single charge). */
+export function postPaySignSheetTitle(): string {
+  return "Optional signature"
+}
+
+export function postPaySignSheetSubtitle(): string {
+  return "Payment received — signature is optional (not required)."
+}
+
+export function postPaySignPrimaryCta(hasSignature: boolean): string {
+  return hasSignature ? "Done — continue" : "Continue without signature"
+}
+
+/** @deprecated Prefer tipLastSheetSubtitle */
+export function tipSignSheetSubtitle(
+  _offerSignature: boolean,
+  paidAmountLabel?: string
+): string {
+  return tipLastSheetSubtitle(paidAmountLabel)
+}
+
+/** @deprecated Prefer tipLastTotalNote */
 export function tipSignSecondChargeNote(opts: {
   tipAmountLabel: string
   paidAmountLabel: string
 }): string {
-  return `Payment of ${opts.paidAmountLabel} received. Adding a tip will charge the card again for ${opts.tipAmountLabel} (tip only — not the job again).`
+  return tipLastTotalNote({
+    totalAmountLabel: opts.paidAmountLabel,
+    tipCents: 1,
+    tipAmountLabel: opts.tipAmountLabel,
+    baseAmountLabel: opts.paidAmountLabel,
+  })
 }
 
-/** Primary CTA on the tip sheet (signature is never required). */
+/** @deprecated Prefer tipLastPrimaryCta / postPaySignPrimaryCta */
 export function tipSignPrimaryCta(opts: {
   offerSignature: boolean
   hasSignature: boolean
   tipCents: number
   tipAmountLabel: string
 }): string {
-  // Tip ≥ $0.50 → next screen asks for Tap/card again (second PaymentIntent).
-  if (opts.tipCents >= 50) {
-    return `Done · next: charge tip ${opts.tipAmountLabel} on card`
+  if (opts.tipCents > 0) {
+    return `Charge · includes tip ${opts.tipAmountLabel}`
   }
   if (opts.offerSignature && !opts.hasSignature) {
     return "Continue without signature"
@@ -83,10 +131,9 @@ export function tipSignPrimaryCta(opts: {
   if (opts.offerSignature && opts.hasSignature) {
     return "Done — continue"
   }
-  return "Continue"
+  return "Charge"
 }
 
-/** Short customer cue under the pad — omit when there is no signature section. */
 export function tipSignHandBackCue(opts: {
   offerSignature: boolean
   hasSignature: boolean
@@ -96,3 +143,16 @@ export function tipSignHandBackCue(opts: {
     ? "Thanks — hand the phone back."
     : "Signature is optional — or hand the phone back."
 }
+
+/** Aliases used by older tip-before naming during migrate */
+export const tipBeforeChargeSubtitle = tipLastSheetSubtitle
+export const tipBeforeChargeTotalNote = (opts: {
+  totalAmountLabel: string
+  tipCents: number
+  tipAmountLabel: string
+}) =>
+  tipLastTotalNote({
+    ...opts,
+    baseAmountLabel: opts.totalAmountLabel,
+  })
+export const tipBeforeChargePrimaryCta = tipLastPrimaryCta

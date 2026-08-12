@@ -33,6 +33,11 @@ type Body = {
   taxEnabled?: boolean
   /** Percent e.g. 6 for 6%. Used only when taxEnabled. */
   taxRatePercent?: number
+  /**
+   * Optional tip in cents, chosen BEFORE confirm.
+   * Added into the same PaymentIntent (one card charge = service + tax + tip).
+   */
+  tipCents?: number
 }
 
 export async function POST(req: NextRequest) {
@@ -91,7 +96,9 @@ export async function POST(req: NextRequest) {
         ? Math.min(30, taxRatePercent) / 100
         : 0
     const taxCents = rate > 0 ? Math.round(subtotalCents * rate) : 0
-    const chargeCents = subtotalCents + taxCents
+    // Tip chosen on the tip screen before confirm — same PI as service + tax.
+    const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
+    const chargeCents = subtotalCents + taxCents + tipCents
 
     try {
       const result = await createAdhocPaymentIntent({
@@ -103,6 +110,7 @@ export async function POST(req: NextRequest) {
         customerPhone: body.customerPhone,
         subtotalCents,
         taxCents,
+        tipCents,
       })
       return NextResponse.json({
         data: {
@@ -112,6 +120,7 @@ export async function POST(req: NextRequest) {
           chargeCents: result.chargeCents,
           subtotalCents,
           taxCents,
+          tipCents,
           commissionCents: result.commissionCents,
           transactionId: result.transaction?.id ?? null,
           publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,
@@ -151,12 +160,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: verified.error }, { status: 400 })
   }
 
+  // Tip from tip screen — added into the same job PaymentIntent (one swipe).
+  const tipCents = Math.max(0, Math.round(Number(body.tipCents) || 0))
+  const chargeCents = verified.chargeCents + tipCents
+
   try {
     const result = await createJobPaymentIntent({
       job: jobForCharge,
-      chargeCents: verified.chargeCents,
+      chargeCents,
       walletMethod,
       actingUserId: userId,
+      tipCents,
     })
 
     return NextResponse.json({
@@ -165,6 +179,7 @@ export async function POST(req: NextRequest) {
         clientSecret: result.clientSecret,
         paymentIntentId: result.paymentIntentId,
         chargeCents: result.chargeCents,
+        tipCents,
         commissionCents: result.commissionCents,
         transactionId: result.transaction?.id ?? null,
         publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() || null,

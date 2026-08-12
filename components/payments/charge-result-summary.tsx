@@ -107,7 +107,7 @@ export function ChargeResultSummary({
               </span>
             </li>
             <li className="text-[11px] leading-snug text-emerald-200/60">
-              Tip card charge succeeded.
+              Included in the same card charge (not a second swipe).
             </li>
           </>
         ) : null}

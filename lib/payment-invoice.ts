@@ -144,10 +144,20 @@ export async function loadPaymentInvoice(params: {
     0,
     slip?.tip_cents ?? (Number(full.metadata?.tip_cents || 0) || 0)
   )
+  // New flow: tip is inside the PaymentIntent amount. Old flow: tip was a 2nd PI
+  // (tip not in amount) — only then add tip on top of amount_received.
+  const tipIncludedInAmount =
+    String(full.metadata?.tip_included_in_amount || "") === "1" ||
+    (tipCents > 0 &&
+      amountCents >=
+        Math.max(0, Number(full.metadata?.subtotal_cents || 0)) + taxCents + tipCents - 1)
   const note = (full.metadata?.note || "").trim() || "Service"
   const customerName =
     (full.metadata?.customer_name || "").trim() || null
-  const serviceCents = Math.max(0, amountCents - taxCents)
+  const serviceCents = Math.max(
+    0,
+    tipIncludedInAmount ? amountCents - taxCents - tipCents : amountCents - taxCents
+  )
   const lines: PaymentInvoiceLine[] = [
     { label: note, amountCents: serviceCents },
   ]
@@ -176,7 +186,7 @@ export async function loadPaymentInvoice(params: {
     subtotalCents: serviceCents,
     taxCents,
     tipCents,
-    totalCents: amountCents + tipCents,
+    totalCents: tipIncludedInAmount ? amountCents : amountCents + tipCents,
     paymentMethodLabel: paymentMethodLabelFromIntent(full),
     signaturePng: slip?.signature_png || null,
     receiptUrl: `${appUrl}/r/${shortToken}`,

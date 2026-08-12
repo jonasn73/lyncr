@@ -189,6 +189,8 @@ export async function createJobPaymentIntent(params: {
   chargeCents: number
   walletMethod: WalletPaymentMethod
   actingUserId: string
+  /** Tip included in chargeCents (one PaymentIntent). */
+  tipCents?: number | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -197,6 +199,7 @@ export async function createJobPaymentIntent(params: {
     throw new Error("Job has no assigned technician")
   }
 
+  const tipCents = Math.max(0, Math.round(params.tipCents ?? 0))
   const commissionCents = commissionCentsFromCharge(params.chargeCents)
   if (commissionCents <= 0) {
     throw new Error("Commission amount is zero — check TECH_JOB_COMMISSION_RATE")
@@ -226,6 +229,8 @@ export async function createJobPaymentIntent(params: {
         acting_user_id: params.actingUserId,
         commission_cents: String(commissionCents),
         payment_method: params.walletMethod,
+        tip_cents: String(tipCents),
+        tip_included_in_amount: tipCents > 0 ? "1" : "0",
         stripe_connect_account_id: connect.accountId,
         lyncr_application_fee_cents: String(applicationFeeAmount),
       },
@@ -263,7 +268,7 @@ export async function createJobPaymentIntent(params: {
  */
 export async function createAdhocPaymentIntent(params: {
   ownerUserId: string
-  /** Final charge including tax (what Stripe collects). */
+  /** Final charge including tax + tip (what Stripe collects). */
   chargeCents: number
   walletMethod: WalletPaymentMethod
   note?: string | null
@@ -272,6 +277,8 @@ export async function createAdhocPaymentIntent(params: {
   /** Pre-tax amount in cents (defaults to chargeCents when tax off). */
   subtotalCents?: number | null
   taxCents?: number | null
+  /** Tip included in chargeCents (one PaymentIntent). */
+  tipCents?: number | null
 }): Promise<CreateJobPaymentIntentResult> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
@@ -283,11 +290,15 @@ export async function createAdhocPaymentIntent(params: {
   const note = (params.note ?? "").trim().slice(0, 120) || "Service"
   const customerName = (params.customerName ?? "").trim().slice(0, 80)
   const customerPhone = (params.customerPhone ?? "").trim().slice(0, 32)
+  const tipCents = Math.max(0, Math.round(params.tipCents ?? 0))
+  const taxCents = Math.max(0, Math.round(params.taxCents ?? 0))
   const subtotalCents = Math.max(
     0,
-    Math.round(params.subtotalCents ?? params.chargeCents - (params.taxCents ?? 0))
+    Math.round(
+      params.subtotalCents ??
+        params.chargeCents - taxCents - tipCents
+    )
   )
-  const taxCents = Math.max(0, Math.round(params.taxCents ?? 0))
   const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
     await import("@/lib/stripe-connect")
   const connect = await requireConnectReady(params.ownerUserId)
@@ -315,6 +326,9 @@ export async function createAdhocPaymentIntent(params: {
         customer_phone: customerPhone || "",
         subtotal_cents: String(subtotalCents),
         tax_cents: String(taxCents),
+        tip_cents: String(tipCents),
+        // Tip is inside amount — invoice must not add tip again on top.
+        tip_included_in_amount: tipCents > 0 ? "1" : "0",
         stripe_connect_account_id: connect.accountId,
         lyncr_application_fee_cents: String(applicationFeeAmount),
       },

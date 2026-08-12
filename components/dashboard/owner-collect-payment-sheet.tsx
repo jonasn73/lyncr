@@ -37,11 +37,15 @@ import type { DispatchJob } from "@/lib/types"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { CustomerSignaturePad } from "@/components/payments/customer-signature-pad"
 import {
-  tipSignHandBackCue,
-  tipSignPrimaryCta,
-  tipSignSecondChargeNote,
-  tipSignSheetSubtitle,
+  tipCentsFromChoice,
+  tipLastSheetSubtitle,
+  tipLastTotalNote,
+  tipLastPrimaryCta,
   tipSignSheetTitle,
+  tipSignHandBackCue,
+  postPaySignSheetTitle,
+  postPaySignSheetSubtitle,
+  postPaySignPrimaryCta,
   shouldOfferOptionalSignature,
   type PaidChargeChannel,
 } from "@/lib/payment-slip-ui"
@@ -70,7 +74,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
-type CollectMode = "list" | "adhoc" | "tip_sign" | "tip_charge" | "receipt"
+type CollectMode = "list" | "adhoc" | "tip_sign" | "sign" | "receipt"
 type ListTab = "collect" | "history"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
@@ -477,7 +481,7 @@ export function OwnerCollectPaymentSheet({
   /** Stripe Connect: shop must finish Get paid before card charges. */
   const [connectReady, setConnectReady] = useState<boolean | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
-  // list → jobs; adhoc → charge; tip_sign → tip+signature; tip_charge → tip card; receipt → invoice
+  // list → jobs; adhoc → amount; tip_sign → tip then ONE charge; sign → optional post-pay pad; receipt → invoice
   const [mode, setMode] = useState<CollectMode>("list")
   const [listTab, setListTab] = useState<ListTab>("collect")
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
@@ -508,20 +512,18 @@ export function OwnerCollectPaymentSheet({
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
   const [stripeConnectAccountId, setStripeConnectAccountId] = useState<string | null>(null)
-  // Set after a successful walk-up charge so we can tip / sign / email-SMS.
+  // Set after a successful walk-up charge (or pending base before tip charge).
   const [paidPaymentIntentId, setPaidPaymentIntentId] = useState<string | null>(null)
+  /** Service+tax base (pre-tip). Set when entering tip_sign; stays base for receipt summary. */
   const [paidTotalCents, setPaidTotalCents] = useState(0)
-  /** How the base charge was taken (keyed ZIP vs Tap vs cash) — controls signature UI. */
+  /** How the charge was taken (keyed ZIP vs Tap vs cash) — controls post-pay signature UI. */
   const [paidChargeChannel, setPaidChargeChannel] = useState<PaidChargeChannel | null>(null)
   const [tipChoice, setTipChoice] = useState<TipChoice>("none")
   const [customTipDollars, setCustomTipDollars] = useState("")
   const [signaturePng, setSignaturePng] = useState<string | null>(null)
   const [slipBusy, setSlipBusy] = useState(false)
-  const [tipChargeCents, setTipChargeCents] = useState(0)
-  /** Tip card outcome shown on the Send receipt screen. */
+  /** Tip included in the single charge — shown on the Send receipt screen. */
   const [tipResult, setTipResult] = useState<TipChargeResult>({ kind: "none" })
-  /** Last tip decline / reader error — used if tech continues without tip. */
-  const [tipLastError, setTipLastError] = useState<string | null>(null)
   const [receiptName, setReceiptName] = useState("")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState("")
@@ -555,9 +557,7 @@ export function OwnerCollectPaymentSheet({
     setCustomTipDollars("")
     setSignaturePng(null)
     setSlipBusy(false)
-    setTipChargeCents(0)
     setTipResult({ kind: "none" })
-    setTipLastError(null)
     setReceiptName("")
     setReceiptEmail("")
     setReceiptPhone("")
@@ -684,40 +684,61 @@ export function OwnerCollectPaymentSheet({
     }
   }, [open, mode, listTab])
 
-  /** After base charge succeeds: optional tip (+ optional signature for some Tap tickets). */
-  function enterTipSignStep(
-    paymentIntentId: string,
-    totalCents: number,
-    channel: PaidChargeChannel
+  /** From adhoc: go to tip screen BEFORE any money moves. */
+  function enterTipStepFromAmount() {
+    if (adhocBreakdown.totalCents < 50) {
+      toast({
+        title: "Enter an amount",
+        description: "Minimum is $0.50.",
+        variant: "destructive",
+      })
+      return
+    }
+    setClientSecret(null)
+    setPublishableKey(null)
+    setTapListening(false)
+    setAdhocBusy(false)
+    setPaidPaymentIntentId(null)
+    setPaidTotalCents(adhocBreakdown.totalCents)
+    setPaidChargeChannel(null)
+    setTipChoice("none")
+    setCustomTipDollars("")
+    setSignaturePng(null)
+    setTipResult({ kind: "none" })
+    setMode("tip_sign")
+  }
+
+  /** After the single charge succeeds: save tip on slip, then optional signature or receipt. */
+  function enterPostPaySignOrReceipt(
+    piId: string,
+    chargedCents: number,
+    channel: PaidChargeChannel,
+    tipCents: number
   ) {
     setClientSecret(null)
     setPublishableKey(null)
     setTapListening(false)
     setAdhocBusy(false)
-    setPaidPaymentIntentId(paymentIntentId)
-    setPaidTotalCents(totalCents)
+    setPaidPaymentIntentId(piId)
     setPaidChargeChannel(channel)
-    setTipChoice("none")
-    setCustomTipDollars("")
-    setSignaturePng(null)
-    setTipChargeCents(0)
-    setTipResult({ kind: "none" })
-    setTipLastError(null)
-    setMode("tip_sign")
+    // Keep paidTotalCents as service+tax base for ChargeResultSummary.
+    if (tipCents > 0) {
+      setTipResult({ kind: "charged", cents: tipCents })
+    } else {
+      setTipResult({ kind: "none" })
+    }
     onCollected?.()
-    const offerSign = shouldOfferOptionalSignature(channel, totalCents)
     toast({
-      title: "Card charged successfully",
-      description: offerSign
-        ? "Tip and signature are optional."
-        : "Add a tip if you want — signature is not needed.",
+      title: "Payment received",
+      description: fmtCents(chargedCents),
     })
+    if (shouldOfferOptionalSignature(channel, chargedCents)) {
+      setSignaturePng(null)
+      setMode("sign")
+    } else {
+      setMode("receipt")
+    }
   }
-
-  const offerOptionalSignature = shouldOfferOptionalSignature(
-    paidChargeChannel,
-    paidTotalCents
-  )
 
   function enterReceiptStep(nextTip?: TipChargeResult) {
     setClientSecret(null)
@@ -726,53 +747,29 @@ export function OwnerCollectPaymentSheet({
     setMode("receipt")
   }
 
-  /** Leave tip charge: mark tip charged / skipped / failed for the receipt summary. */
-  function finishTipChargeStep(
-    outcome: "charged" | "skipped" | "failed",
-    reason?: string
-  ) {
-    const cents = tipChargeCents
-    if (outcome === "charged") {
-      enterReceiptStep({ kind: "charged", cents })
-      return
-    }
-    if (outcome === "failed") {
-      enterReceiptStep({
-        kind: "failed",
-        cents,
-        reason: (reason || tipLastError || "Tip card was declined.").trim(),
-      })
-      return
-    }
-    // Skipped after a decline → still show the bank reason on receipt.
-    if (tipLastError) {
-      enterReceiptStep({ kind: "failed", cents, reason: tipLastError })
-      return
-    }
-    enterReceiptStep({ kind: "skipped", cents })
-  }
-
   function selectedTipCents(): number {
-    if (tipChoice === "none") return 0
-    if (tipChoice === "custom") {
-      const dollars = parseFloat(customTipDollars)
-      if (!Number.isFinite(dollars) || dollars <= 0) return 0
-      return Math.round(dollars * 100)
-    }
-    const pct = Number(tipChoice)
-    if (!Number.isFinite(pct) || paidTotalCents <= 0) return 0
-    return Math.round(paidTotalCents * (pct / 100))
+    return tipCentsFromChoice(tipChoice, paidTotalCents, customTipDollars)
   }
 
-  async function saveSlip(opts?: { tipPaymentIntentId?: string | null; tipCents?: number }) {
-    if (!paidPaymentIntentId) throw new Error("Missing payment id")
+  /** Total PI amount = service+tax base + tip (one charge). */
+  function chargeTotalCents(): number {
+    return Math.max(0, paidTotalCents) + selectedTipCents()
+  }
+
+  async function saveSlip(opts?: {
+    tipPaymentIntentId?: string | null
+    tipCents?: number
+    paymentIntentId?: string
+  }) {
+    const piId = opts?.paymentIntentId ?? paidPaymentIntentId
+    if (!piId) throw new Error("Missing payment id")
     const tipCents = opts?.tipCents ?? selectedTipCents()
     const res = await fetch("/api/payments/complete-slip", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        paymentIntentId: paidPaymentIntentId,
+        paymentIntentId: piId,
         tipCents,
         signaturePng,
         tipPaymentIntentId: opts?.tipPaymentIntentId ?? undefined,
@@ -784,36 +781,26 @@ export function OwnerCollectPaymentSheet({
     if (!res.ok) throw new Error(json.error || "Could not save tip / signature")
   }
 
-  /** Save tip (+ optional signature); charge tip on card if ≥ $0.50, else go to invoice. */
-  async function continueFromTipSign(opts?: { skipTipCharge?: boolean }) {
-    const tipCents = selectedTipCents()
-    // Signature is never required — card networks made it optional; keyed cards use ZIP/AVS.
+  /** Post-pay optional signature → receipt. */
+  async function continueFromSign() {
     setSlipBusy(true)
     try {
+      const tipCents =
+        tipResult.kind === "charged" ? tipResult.cents : selectedTipCents()
       await saveSlip({ tipCents })
-      if (tipCents >= 50 && !opts?.skipTipCharge) {
-        setTipChargeCents(tipCents)
-        setMode("tip_charge")
-        toast({
-          title: "Charge the tip",
-          description: `${fmtCents(tipCents)} — Tap to Pay or card.`,
-        })
-        return
-      }
       enterReceiptStep()
     } catch (e) {
       const message = e instanceof Error ? e.message : "Try again."
       toast({
-        title: "Could not save tip / signature",
+        title: "Could not save signature",
         description: message,
         variant: "destructive",
       })
-      // Card already charged — still advance so the owner is not stuck on this screen.
       if (paidPaymentIntentId) {
         enterReceiptStep()
         toast({
           title: "Payment is still complete",
-          description: "You can send the invoice next. Tip/signature may need a retry.",
+          description: "You can send the invoice next. Signature may need a retry.",
         })
       }
     } finally {
@@ -964,6 +951,8 @@ export function OwnerCollectPaymentSheet({
       note: adhocNote.trim() || "Service",
       taxEnabled,
       taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+      // Tip chosen on tip_sign — included in the same PaymentIntent (one charge).
+      tipCents: selectedTipCents(),
       ...(name ? { customerName: name } : {}),
       ...(phone ? { customerPhone: phone } : {}),
     }
@@ -1029,7 +1018,8 @@ export function OwnerCollectPaymentSheet({
       return
     }
 
-    const totalAtCharge = adhocBreakdown.totalCents
+    const tipCents = selectedTipCents()
+    const expectedChargeCents = paidTotalCents + tipCents
     setAdhocBusy(true)
     setTapListening(true)
     let terminal: Terminal | null = null
@@ -1052,6 +1042,7 @@ export function OwnerCollectPaymentSheet({
           paymentIntentId?: string
           publishableKey?: string | null
           stripeConnectAccountId?: string | null
+          chargeCents?: number
         }
       }
       if (!res.ok) throw new Error(json.error || "Could not start Tap to Pay")
@@ -1178,7 +1169,12 @@ export function OwnerCollectPaymentSheet({
         "Tap charged, but confirmation timed out. Check Stripe before retrying."
       ).catch(() => null)
 
-      enterTipSignStep(piId, totalAtCharge, "tap")
+      const charged =
+        typeof json.data?.chargeCents === "number" && json.data.chargeCents > 0
+          ? json.data.chargeCents
+          : expectedChargeCents
+      await saveSlip({ paymentIntentId: piId, tipCents }).catch(() => null)
+      enterPostPaySignOrReceipt(piId, charged, "tap", tipCents)
     } catch (e) {
       toast({
         title: "Tap to Pay failed",
@@ -1196,10 +1192,15 @@ export function OwnerCollectPaymentSheet({
     }
   }
 
-  /** Text or email a Stripe Checkout link for this walk-up amount. */
+  /** Text or email a Stripe Checkout link for this walk-up amount (+ tip from tip screen). */
   async function sendAdhocPayLink(channel: "sms" | "email") {
-    const dollars = parseAdhocDollars()
-    if (dollars == null) {
+    const tipCents = selectedTipCents()
+    // Bake tip into Checkout total when send-pay-link has no tipCents field.
+    const totalWithTipCents =
+      mode === "tip_sign" && paidTotalCents > 0
+        ? paidTotalCents + tipCents
+        : adhocBreakdown.totalCents + tipCents
+    if (totalWithTipCents < 50) {
       toast({
         title: "Enter an amount",
         description: "Minimum is $0.50.",
@@ -1217,9 +1218,10 @@ export function OwnerCollectPaymentSheet({
         body: JSON.stringify({
           channel,
           adhoc: true,
-          amount: dollars,
-          taxEnabled,
-          taxRatePercent: taxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
+          // Total already includes tax (+ tip when on tip screen) — do not re-apply tax.
+          amount: totalWithTipCents / 100,
+          taxEnabled: false,
+          taxRatePercent: 0,
           note: adhocNote.trim() || "Service",
           customerName: payLinkName.trim() || undefined,
           phone: channel === "sms" ? payLinkPhone.trim() : undefined,
@@ -1245,6 +1247,8 @@ export function OwnerCollectPaymentSheet({
           ? `Customer can pay ${fmtCents(json.data.chargeCents)}.`
           : "Link sent.",
       })
+      // Pay link — customer pays later; no tip/sign step after send.
+      resetAdhoc()
     } catch (e) {
       toast({
         title: "Could not send pay link",
@@ -1253,212 +1257,6 @@ export function OwnerCollectPaymentSheet({
       })
     } finally {
       setAdhocBusy(false)
-    }
-  }
-
-  /** Create a tip PaymentIntent (separate charge after the main payment). */
-  function tipIntentBody(paymentMethodType: "MANUAL_CARD" | "TAP_TO_PAY") {
-    if (tipChargeCents < 50) return null
-    return {
-      adhoc: true as const,
-      amount: tipChargeCents / 100,
-      paymentMethodType,
-      note: "Tip",
-      taxEnabled: false,
-      taxRatePercent: 0,
-    }
-  }
-
-  async function startTipCardIntent() {
-    const body = tipIntentBody("MANUAL_CARD")
-    if (!body) return
-    setAdhocBusy(true)
-    try {
-      const res = await fetchWithTimeout(
-        "/api/payments/create-intent",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-        PAYMENT_API_TIMEOUT_MS,
-        "Starting the tip charge timed out. Try again."
-      )
-      const json = (await res.json()) as {
-        error?: string
-        data?: {
-          clientSecret?: string
-          publishableKey?: string | null
-          stripeConnectAccountId?: string | null
-        }
-      }
-      if (!res.ok) throw new Error(json.error || "Could not start tip charge")
-      if (!json.data?.clientSecret) throw new Error("No client_secret returned")
-      setClientSecret(json.data.clientSecret)
-      setPublishableKey(json.data.publishableKey ?? null)
-      setStripeConnectAccountId(json.data.stripeConnectAccountId?.trim() || null)
-    } catch (e) {
-      toast({
-        title: "Could not start tip charge",
-        description: formatPaymentCatchError(e, "Try again."),
-        variant: "destructive",
-      })
-    } finally {
-      setAdhocBusy(false)
-    }
-  }
-
-  async function runTipTapToPay() {
-    const body = tipIntentBody("TAP_TO_PAY")
-    if (!body) return
-    setAdhocBusy(true)
-    setTapListening(true)
-    let terminal: Terminal | null = null
-    try {
-      const res = await fetchWithTimeout(
-        "/api/payments/create-intent",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-        PAYMENT_API_TIMEOUT_MS,
-        "Starting tip Tap to Pay timed out. Try card instead."
-      )
-      const json = (await res.json()) as {
-        error?: string
-        data?: {
-          clientSecret?: string
-          paymentIntentId?: string
-          publishableKey?: string | null
-        }
-      }
-      if (!res.ok) throw new Error(json.error || "Could not start tip Tap to Pay")
-      const secret = json.data?.clientSecret
-      if (!secret) throw new Error("No client_secret returned")
-
-      const pk = json.data?.publishableKey ?? publishableKey
-      const liveMode = isStripeLivePublishableKey(pk)
-      const allowSimulator = isStripeTestPublishableKey(pk)
-
-      const StripeTerminal = await withTimeout(
-        loadStripeTerminal(),
-        TERMINAL_DISCOVER_TIMEOUT_MS,
-        "Tap to Pay SDK timed out. Use card for the tip."
-      )
-      if (!StripeTerminal) throw new Error("Stripe Terminal SDK failed to load")
-
-      terminal = StripeTerminal.create({
-        onFetchConnectionToken: async () => {
-          const tokenRes = await fetchWithTimeout(
-            "/api/payments/terminal/connection-token",
-            {
-              method: "POST",
-              credentials: "include",
-            },
-            PAYMENT_API_TIMEOUT_MS,
-            "Terminal connection timed out."
-          )
-          const tokenJson = (await tokenRes.json()) as {
-            data?: { secret?: string }
-            error?: string
-          }
-          if (!tokenRes.ok || !tokenJson.data?.secret) {
-            throw new Error(tokenJson.error || "Could not fetch Terminal connection token")
-          }
-          return tokenJson.data.secret
-        },
-        onUnexpectedReaderDisconnect: () => setTapListening(false),
-      })
-
-      let discover = await withTimeout(
-        terminal.discoverReaders({ simulated: false }),
-        TERMINAL_DISCOVER_TIMEOUT_MS,
-        tapToPayNoReaderMessage(liveMode || !allowSimulator)
-      )
-      const noReal =
-        "error" in discover ||
-        !("discoveredReaders" in discover) ||
-        !discover.discoveredReaders?.length
-      if (noReal && allowSimulator && !liveMode) {
-        discover = await withTimeout(
-          terminal.discoverReaders({ simulated: true }),
-          TERMINAL_DISCOVER_TIMEOUT_MS,
-          tapToPayNoReaderMessage(false)
-        )
-      }
-      if ("error" in discover) {
-        throw new Error(formatPaymentCatchError(discover.error, "No tip reader found."))
-      }
-      const reader = discover.discoveredReaders?.[0]
-      if (!reader) throw new Error(tapToPayNoReaderMessage(liveMode || !allowSimulator))
-
-      const connected = await withTimeout(
-        terminal.connectReader(reader),
-        TERMINAL_DISCOVER_TIMEOUT_MS,
-        "Reader connect timed out."
-      )
-      if ("error" in connected) {
-        throw new Error(formatPaymentCatchError(connected.error, "Reader connect failed."))
-      }
-      const collected = await withTimeout(
-        terminal.collectPaymentMethod(secret),
-        TERMINAL_COLLECT_TIMEOUT_MS,
-        "No tip tap received in time."
-      )
-      if ("error" in collected) {
-        throw new Error(formatPaymentCatchError(collected.error, "Tip tap failed."))
-      }
-      const processed = await withTimeout(
-        terminal.processPayment(collected.paymentIntent),
-        PAYMENT_CONFIRM_TIMEOUT_MS,
-        "Tip charge timed out while processing."
-      )
-      if ("error" in processed) {
-        throw new Error(formatPaymentCatchError(processed.error, "Tip charge failed."))
-      }
-
-      const tipPi = String(processed.paymentIntent?.id || json.data?.paymentIntentId || "")
-      if (tipPi) {
-        await fetchWithTimeout(
-          "/api/payments/confirm",
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              paymentIntentId: tipPi,
-              stripeConnectAccountId: stripeConnectAccountId || undefined,
-            }),
-          },
-          PAYMENT_API_TIMEOUT_MS,
-          "Tip confirmation timed out."
-        ).catch(() => null)
-        await saveSlip({ tipPaymentIntentId: tipPi, tipCents: tipChargeCents })
-      }
-      setClientSecret(null)
-      setPublishableKey(null)
-      setTipLastError(null)
-      finishTipChargeStep("charged")
-      toast({ title: "Tip charged successfully", description: fmtCents(tipChargeCents) })
-    } catch (e) {
-      const reason = formatPaymentCatchError(e, "Tip Tap to Pay failed — try card.")
-      setTipLastError(reason)
-      toast({
-        title: "Tip charge failed",
-        description: reason,
-        variant: "destructive",
-      })
-    } finally {
-      setTapListening(false)
-      setAdhocBusy(false)
-      try {
-        await terminal?.disconnectReader()
-      } catch {
-        /* ignore */
-      }
     }
   }
 
@@ -1528,7 +1326,7 @@ export function OwnerCollectPaymentSheet({
           className={cn(
             // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
             "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
-            mode === "tip_sign"
+            mode === "tip_sign" || mode === "sign"
               ? "max-h-[min(88dvh,40rem)]"
               : "max-h-[92dvh]"
           )}
@@ -1544,9 +1342,9 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Send receipt"
                     : mode === "tip_sign"
-                      ? tipSignSheetTitle(offerOptionalSignature)
-                      : mode === "tip_charge"
-                        ? "Charge tip"
+                      ? tipSignSheetTitle(false)
+                      : mode === "sign"
+                        ? postPaySignSheetTitle()
                         : mode === "adhoc"
                           ? "Charge"
                           : listTab === "history"
@@ -1557,16 +1355,11 @@ export function OwnerCollectPaymentSheet({
                   {mode === "receipt"
                     ? "Email or text the customer a receipt."
                     : mode === "tip_sign"
-                      ? tipSignSheetSubtitle(
-                          offerOptionalSignature,
-                          fmtCents(paidTotalCents)
-                        )
-                      : mode === "tip_charge"
-                        ? "Second card charge — tip only (job already paid)."
+                      ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
+                      : mode === "sign"
+                        ? postPaySignSheetSubtitle()
                         : mode === "adhoc"
-                          ? clientSecret
-                            ? "Enter card details + ZIP, then charge. Amount is shown below."
-                            : "Enter an amount, then charge."
+                          ? "Enter an amount, then continue to tip."
                           : listTab === "history"
                             ? "Cards, Tap to Pay, and cash you have run."
                             : "Add a charge or pick a job on today’s schedule."}
@@ -1738,16 +1531,18 @@ export function OwnerCollectPaymentSheet({
                               if (!canReceipt || !tx.stripePaymentIntentId) return
                               // Re-open receipt send for this past charge.
                               setPaidPaymentIntentId(tx.stripePaymentIntentId)
-                              setPaidTotalCents(Math.round(tx.amount * 100))
+                              const tipCents =
+                                tx.tipCents && tx.tipCents > 0 ? tx.tipCents : 0
+                              const totalCents = Math.round(tx.amount * 100)
+                              // baseCents = service (+ tax) only; tip shown via tipResult
+                              setPaidTotalCents(Math.max(0, totalCents - tipCents))
                               setReceiptName(tx.customerName || "")
                               setReceiptPhone(tx.customerPhone || "")
-                              setTipLastError(null)
                               setTipResult(
-                                tx.tipCents && tx.tipCents > 0
-                                  ? { kind: "charged", cents: tx.tipCents }
+                                tipCents > 0
+                                  ? { kind: "charged", cents: tipCents }
                                   : { kind: "none" }
                               )
-                              setTipChargeCents(tx.tipCents && tx.tipCents > 0 ? tx.tipCents : 0)
                               setMode("receipt")
                             }}
                             className={cn(
@@ -1964,181 +1759,237 @@ export function OwnerCollectPaymentSheet({
               </>
             ) : mode === "tip_sign" ? (
               <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientSecret(null)
+                    setPublishableKey(null)
+                    setTapListening(false)
+                    setMode("adhoc")
+                  }}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  Back
+                </button>
+
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-                    <p className="text-[10px] text-emerald-200/70">
-                      Job paid — tip is a second card charge
-                    </p>
+                    <p className="text-sm font-semibold text-emerald-100">Service</p>
+                    <p className="text-[10px] text-emerald-200/70">Job + tax (before tip)</p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
                   </p>
                 </div>
 
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Add a tip
-                  </p>
-                  <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-                    {(
-                      [
-                        { id: "none" as const, label: "No tip" },
-                        { id: "15" as const, label: "15%" },
-                        { id: "18" as const, label: "18%" },
-                        { id: "20" as const, label: "20%" },
-                      ] as const
-                    ).map((opt) => (
+                {!clientSecret ? (
+                  <>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Add a tip
+                      </p>
+                      <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                        {(
+                          [
+                            { id: "none" as const, label: "No tip" },
+                            { id: "15" as const, label: "15%" },
+                            { id: "18" as const, label: "18%" },
+                            { id: "20" as const, label: "20%" },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setTipChoice(opt.id)}
+                            className={cn(
+                              "rounded-xl border py-2 text-xs font-semibold transition-colors",
+                              tipChoice === opt.id
+                                ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                                : "border-zinc-700 bg-zinc-900 text-slate-400"
+                            )}
+                          >
+                            {opt.label}
+                            {opt.id !== "none" && paidTotalCents > 0 ? (
+                              <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                                {fmtCents(
+                                  tipCentsFromChoice(opt.id, paidTotalCents, customTipDollars)
+                                )}
+                              </span>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
                       <button
-                        key={opt.id}
                         type="button"
-                        onClick={() => setTipChoice(opt.id)}
+                        onClick={() => setTipChoice("custom")}
                         className={cn(
-                          "rounded-xl border py-2 text-xs font-semibold transition-colors",
-                          tipChoice === opt.id
+                          "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
+                          tipChoice === "custom"
                             ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                             : "border-zinc-700 bg-zinc-900 text-slate-400"
                         )}
                       >
-                        {opt.label}
-                        {opt.id !== "none" && paidTotalCents > 0 ? (
-                          <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
-                            {fmtCents(Math.round(paidTotalCents * (Number(opt.id) / 100)))}
-                          </span>
-                        ) : null}
+                        Custom tip
                       </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTipChoice("custom")}
-                    className={cn(
-                      "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
-                      tipChoice === "custom"
-                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-slate-400"
-                    )}
-                  >
-                    Custom tip
-                  </button>
-                  {tipChoice === "custom" ? (
-                    <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                      <span className="text-sm font-semibold text-slate-400">$</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={customTipDollars}
-                        onChange={(e) => setCustomTipDollars(e.target.value)}
-                        className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
-                      />
-                    </div>
-                  ) : null}
-                  {selectedTipCents() > 0 ? (
-                    <p className="mt-1.5 text-xs leading-snug text-amber-200/90">
-                      {tipSignSecondChargeNote({
-                        tipAmountLabel: fmtCents(selectedTipCents()),
-                        paidAmountLabel: fmtCents(paidTotalCents),
-                      })}
-                    </p>
-                  ) : null}
-                </div>
-
-                {offerOptionalSignature ? (
-                  <>
-                    <CustomerSignaturePad
-                      onChange={setSignaturePng}
-                      canvasClassName="h-36 w-full sm:h-40"
-                      optional
-                    />
-                    <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
-                      {tipSignHandBackCue({
-                        offerSignature: true,
-                        hasSignature: Boolean(signaturePng),
-                      })}
-                    </p>
-                  </>
-                ) : null}
-
-                <button
-                  type="button"
-                  disabled={slipBusy}
-                  onClick={() => void continueFromTipSign()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                  {tipSignPrimaryCta({
-                    offerSignature: offerOptionalSignature,
-                    hasSignature: Boolean(signaturePng),
-                    tipCents: selectedTipCents(),
-                    tipAmountLabel: fmtCents(selectedTipCents()),
-                  })}
-                </button>
-              </div>
-            ) : mode === "tip_charge" ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
-                  <p className="text-sm font-semibold text-emerald-100">Tip amount</p>
-                  <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-300">
-                    {fmtCents(tipChargeCents)}
-                  </p>
-                  <p className="mt-1 text-[11px] text-emerald-200/70">
-                    Second card charge — tip only (job already paid). Tap to Pay or card.
-                  </p>
-                </div>
-
-                {!clientSecret ? (
-                  tapListening ? (
-                    <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
-                      <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
-                      <p className="text-sm font-semibold text-emerald-100">Ready for tip tap</p>
-                      <Loader2 className="h-4 w-4 animate-spin text-emerald-300" aria-hidden />
-                    </div>
-                  ) : (
-                    <div className="grid gap-2">
-                      <button
-                        type="button"
-                        disabled={adhocBusy}
-                        onClick={() => void runTipTapToPay()}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {adhocBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                        ) : (
-                          <Nfc className="h-4 w-4" aria-hidden />
-                        )}
-                        Tap to Pay tip
-                      </button>
-                      <button
-                        type="button"
-                        disabled={adhocBusy}
-                        onClick={() => void startTipCardIntent()}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                      >
-                        <CreditCard className="h-4 w-4" aria-hidden />
-                        Card for tip
-                      </button>
-                      {tipLastError ? (
-                        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5">
-                          <p className="text-xs font-semibold text-rose-300">Tip charge failed</p>
-                          <p className="mt-0.5 text-xs leading-snug text-rose-100/90">{tipLastError}</p>
+                      {tipChoice === "custom" ? (
+                        <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+                          <span className="text-sm font-semibold text-slate-400">$</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={customTipDollars}
+                            onChange={(e) => setCustomTipDollars(e.target.value)}
+                            className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
+                          />
                         </div>
                       ) : null}
-                      <button
-                        type="button"
-                        disabled={adhocBusy}
-                        onClick={() => {
-                          setClientSecret(null)
-                          finishTipChargeStep(tipLastError ? "failed" : "skipped")
-                        }}
-                        className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
-                      >
-                        {tipLastError ? "Continue without tip — send receipt" : "Skip tip charge"}
-                      </button>
+                      <p className="mt-1.5 text-xs leading-snug text-emerald-200/90">
+                        {tipLastTotalNote({
+                          totalAmountLabel: fmtCents(chargeTotalCents()),
+                          tipCents: selectedTipCents(),
+                          tipAmountLabel: fmtCents(selectedTipCents()),
+                          baseAmountLabel: fmtCents(paidTotalCents),
+                        })}
+                      </p>
                     </div>
-                  )
+
+                    {tapListening ? (
+                      <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
+                        <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
+                        <p className="text-sm font-semibold text-emerald-100">Ready for tap</p>
+                        <p className="text-xs text-emerald-200/80">
+                          Hold the customer’s card or phone near this device…
+                        </p>
+                        <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTapListening(false)
+                            setAdhocBusy(false)
+                            toast({
+                              title: "Tap cancelled",
+                              description: "Use Card or a pay link on this device.",
+                            })
+                          }}
+                          className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
+                        >
+                          Cancel — use Card instead
+                        </button>
+                      </div>
+                    ) : (
+                      <section>
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                          {tipLastPrimaryCta({
+                            totalAmountLabel: fmtCents(chargeTotalCents()),
+                            tipCents: selectedTipCents(),
+                          })}
+                        </p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => void runAdhocTapToPay()}
+                            className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              {adhocBusy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              ) : (
+                                <Nfc className="h-4 w-4" aria-hidden />
+                              )}
+                            </span>
+                            <span className="text-xs font-semibold text-white">Tap to Pay</span>
+                            <span className="text-[10px] text-zinc-500">NFC</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => void startAdhocIntent()}
+                            className="flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50"
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              <CreditCard className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="text-xs font-semibold text-white">Card</span>
+                            <span className="text-[10px] text-zinc-500">Key in</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adhocBusy}
+                            onClick={() => {
+                              setPayLinkOpen((v) => !v)
+                              setPayLinkUrl(null)
+                            }}
+                            className={cn(
+                              "col-span-2 flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50",
+                              payLinkOpen
+                                ? "border-emerald-500/50 bg-emerald-500/15"
+                                : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600"
+                            )}
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+                              <Link2 className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="text-xs font-semibold text-white">Pay link</span>
+                            <span className="text-[10px] text-zinc-500">Text / email</span>
+                          </button>
+                        </div>
+
+                        {payLinkOpen ? (
+                          <div className="mt-2 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+                            <input
+                              type="text"
+                              value={payLinkName}
+                              onChange={(e) => setPayLinkName(e.target.value)}
+                              placeholder="Customer name (optional)"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                            />
+                            <input
+                              type="tel"
+                              value={payLinkPhone}
+                              onChange={(e) => setPayLinkPhone(e.target.value)}
+                              placeholder="Mobile for text"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                            />
+                            <input
+                              type="email"
+                              value={payLinkEmail}
+                              onChange={(e) => setPayLinkEmail(e.target.value)}
+                              placeholder="Email"
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                            />
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <button
+                                type="button"
+                                disabled={adhocBusy || !payLinkPhone.trim()}
+                                onClick={() => void sendAdhocPayLink("sms")}
+                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                                Text
+                              </button>
+                              <button
+                                type="button"
+                                disabled={adhocBusy || !payLinkEmail.trim()}
+                                onClick={() => void sendAdhocPayLink("email")}
+                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2 text-xs font-semibold text-slate-100 disabled:opacity-50"
+                              >
+                                <Mail className="h-3.5 w-3.5" aria-hidden />
+                                Email
+                              </button>
+                            </div>
+                            {payLinkUrl ? (
+                              <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </section>
+                    )}
+                  </>
                 ) : publishableKey && stripeConnectAccountId ? (
                   <Elements
                     key={`${clientSecret}:${stripeConnectAccountId}`}
@@ -2146,54 +1997,39 @@ export function OwnerCollectPaymentSheet({
                     options={{
                       clientSecret,
                       appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
-                      // Show Stripe’s own loader until Payment Element is ready.
                       loader: "auto",
                     }}
                   >
                     <AdhocCardForm
                       stripeConnectAccountId={stripeConnectAccountId}
-                      amountLabel={fmtCents(tipChargeCents)}
-                      onError={(message) => setTipLastError(message)}
+                      amountLabel={fmtCents(chargeTotalCents())}
                       onCancel={() => {
                         setClientSecret(null)
                         setPublishableKey(null)
                       }}
-                      onDone={(tipPiId) => {
+                      onDone={(paymentIntentId) => {
                         void (async () => {
+                          const tipCents = selectedTipCents()
+                          const charged = paidTotalCents + tipCents
                           await saveSlip({
-                            tipPaymentIntentId: tipPiId,
-                            tipCents: tipChargeCents,
+                            paymentIntentId,
+                            tipCents,
                           }).catch(() => null)
-                          setClientSecret(null)
-                          setPublishableKey(null)
-                          setTipLastError(null)
-                          finishTipChargeStep("charged")
-                          toast({
-                            title: "Tip charged successfully",
-                            description: fmtCents(tipChargeCents),
-                          })
+                          enterPostPaySignOrReceipt(
+                            paymentIntentId,
+                            charged,
+                            "manual_card",
+                            tipCents
+                          )
                         })()
                       }}
                     />
-                    {tipLastError ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setClientSecret(null)
-                          setPublishableKey(null)
-                          finishTipChargeStep("failed")
-                        }}
-                        className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
-                      >
-                        Continue without tip — send receipt
-                      </button>
-                    ) : null}
                   </Elements>
                 ) : publishableKey && !stripeConnectAccountId ? (
                   <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
                     <p className="text-sm font-semibold text-rose-300">Missing connected Stripe account</p>
                     <p className="text-xs text-rose-100/80">
-                      Finish Get paid in Settings, then try the tip charge again.
+                      Card charges need Get paid finished in Settings.
                     </p>
                     <button
                       type="button"
@@ -2207,8 +2043,33 @@ export function OwnerCollectPaymentSheet({
                     </button>
                   </div>
                 ) : (
-                  <p className="text-sm text-rose-400">Missing Stripe publishable key.</p>
+                  <p className="text-sm text-rose-400">
+                    Missing Stripe publishable key. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
+                  </p>
                 )}
+              </div>
+            ) : mode === "sign" ? (
+              <div className="flex flex-col gap-2.5">
+                <CustomerSignaturePad
+                  onChange={setSignaturePng}
+                  canvasClassName="h-36 w-full sm:h-40"
+                  optional
+                />
+                <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                  {tipSignHandBackCue({
+                    offerSignature: true,
+                    hasSignature: Boolean(signaturePng),
+                  })}
+                </p>
+                <button
+                  type="button"
+                  disabled={slipBusy}
+                  onClick={() => void continueFromSign()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  {postPaySignPrimaryCta(Boolean(signaturePng))}
+                </button>
               </div>
             ) : mode === "receipt" ? (
               <div className="space-y-3">
@@ -2324,290 +2185,110 @@ export function OwnerCollectPaymentSheet({
                   Back
                 </button>
 
-                {!clientSecret ? (
-                  <>
-                    {/* Same compact amount card as job Charge */}
-                    <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
-                      <div className="flex items-end gap-2">
-                        <label className="min-w-0 flex-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                            Amount
-                          </span>
-                          <div className="relative mt-1">
-                            <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
-                              $
-                            </span>
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              min="0.50"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={adhocAmount}
-                              onChange={(e) => setAdhocAmount(e.target.value)}
-                              aria-label="Amount before tax"
-                              className={cn(
-                                "w-full rounded-lg border bg-zinc-950 py-2 pr-2.5 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500",
-                                adhocBreakdown.totalCents < 50
-                                  ? "border-amber-500/60"
-                                  : "border-zinc-700"
-                              )}
-                            />
-                          </div>
-                        </label>
-                        <div className="shrink-0 pb-0.5 text-right">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                            Total
-                          </p>
-                          <p className="text-lg font-bold tabular-nums text-emerald-300">
-                            {fmtCents(adhocBreakdown.totalCents)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/80 pt-2">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={taxEnabled}
-                          onClick={() => setTaxEnabled((v) => !v)}
-                          className="flex items-center gap-2 text-left"
-                        >
-                          <span
-                            className={cn(
-                              "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                              taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                                taxEnabled && "translate-x-4"
-                              )}
-                            />
-                          </span>
-                          <span className="text-xs font-medium text-zinc-300">
-                            Tax
-                            {taxEnabled
-                              ? ` ${adhocBreakdown.ratePercent.toFixed(0)}%`
-                              : ""}
-                          </span>
-                        </button>
-                        {taxEnabled ? (
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            max="30"
-                            step="0.01"
-                            value={taxRatePercent}
-                            onChange={(e) => setTaxRatePercent(e.target.value)}
-                            aria-label="Tax rate percent"
-                            className="w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-white outline-none"
-                          />
-                        ) : null}
-                      </div>
-
-                      <details className="group mt-2 border-t border-zinc-800/80 pt-2">
-                        <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
-                          <span className="group-open:hidden">
-                            Note{adhocNote.trim() ? " · set" : ""} · edit
-                          </span>
-                          <span className="hidden group-open:inline">Hide note</span>
-                        </summary>
+                {/* Amount only — charge happens after tip on tip_sign */}
+                <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+                  <div className="flex items-end gap-2">
+                    <label className="min-w-0 flex-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Amount
+                      </span>
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                          $
+                        </span>
                         <input
-                          type="text"
-                          value={adhocNote}
-                          onChange={(e) => setAdhocNote(e.target.value)}
-                          placeholder="e.g. Lockout"
-                          className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-500"
+                          type="number"
+                          inputMode="decimal"
+                          min="0.50"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={adhocAmount}
+                          onChange={(e) => setAdhocAmount(e.target.value)}
+                          aria-label="Amount before tax"
+                          className={cn(
+                            "w-full rounded-lg border bg-zinc-950 py-2 pr-2.5 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500",
+                            adhocBreakdown.totalCents < 50
+                              ? "border-amber-500/60"
+                              : "border-zinc-700"
+                          )}
                         />
-                      </details>
-                    </section>
-
-                    {tapListening ? (
-                      <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-6 text-center">
-                        <Nfc className="h-8 w-8 animate-pulse text-emerald-300" aria-hidden />
-                        <p className="text-sm font-semibold text-emerald-100">Ready for tap</p>
-                        <p className="text-xs text-emerald-200/80">
-                          Hold the customer’s card or phone near this device…
-                        </p>
-                        <Loader2 className="mt-1 h-4 w-4 animate-spin text-emerald-300" aria-hidden />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Escape hatch if Terminal hangs — reset UI so Card / pay link work.
-                            setTapListening(false)
-                            setAdhocBusy(false)
-                            toast({
-                              title: "Tap cancelled",
-                              description: "Use Card or a pay link on this device.",
-                            })
-                          }}
-                          className="mt-2 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-semibold text-slate-200"
-                        >
-                          Cancel — use Card instead
-                        </button>
                       </div>
-                    ) : (
-                      <section>
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                          How to collect
-                        </p>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            disabled={adhocBusy}
-                            onClick={() => void runAdhocTapToPay()}
-                            className={cn(
-                              "flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-50",
-                              "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
-                              adhocBreakdown.totalCents < 50 && "opacity-70"
-                            )}
-                          >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              {adhocBusy ? (
-                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                              ) : (
-                                <Nfc className="h-4 w-4" aria-hidden />
-                              )}
-                            </span>
-                            <span className="text-xs font-semibold text-white">Tap to Pay</span>
-                            <span className="text-[10px] text-zinc-500">NFC</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={adhocBusy}
-                            onClick={() => void startAdhocIntent()}
-                            className={cn(
-                              "flex flex-col items-start gap-1 rounded-xl border border-zinc-700 bg-zinc-800/40 px-3 py-2.5 text-left hover:border-zinc-600 disabled:opacity-50",
-                              adhocBreakdown.totalCents < 50 && "opacity-70"
-                            )}
-                          >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              <CreditCard className="h-4 w-4" aria-hidden />
-                            </span>
-                            <span className="text-xs font-semibold text-white">Card</span>
-                            <span className="text-[10px] text-zinc-500">Key in</span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={adhocBusy}
-                            onClick={() => {
-                              setPayLinkOpen((v) => !v)
-                              setPayLinkUrl(null)
-                            }}
-                            className={cn(
-                              "col-span-2 flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left disabled:opacity-50",
-                              payLinkOpen
-                                ? "border-emerald-500/50 bg-emerald-500/15"
-                                : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
-                              adhocBreakdown.totalCents < 50 && "opacity-70"
-                            )}
-                          >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
-                              <Link2 className="h-4 w-4" aria-hidden />
-                            </span>
-                            <span className="text-xs font-semibold text-white">Pay link</span>
-                            <span className="text-[10px] text-zinc-500">Text / email</span>
-                          </button>
-                        </div>
+                    </label>
+                    <div className="shrink-0 pb-0.5 text-right">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Total
+                      </p>
+                      <p className="text-lg font-bold tabular-nums text-emerald-300">
+                        {fmtCents(adhocBreakdown.totalCents)}
+                      </p>
+                    </div>
+                  </div>
 
-                        {payLinkOpen ? (
-                          <div className="mt-2 space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={payLinkName}
-                              onChange={(e) => setPayLinkName(e.target.value)}
-                              placeholder="Customer name (optional)"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <input
-                              type="tel"
-                              value={payLinkPhone}
-                              onChange={(e) => setPayLinkPhone(e.target.value)}
-                              placeholder="Mobile for text"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <input
-                              type="email"
-                              value={payLinkEmail}
-                              onChange={(e) => setPayLinkEmail(e.target.value)}
-                              placeholder="Email"
-                              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                            />
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <button
-                                type="button"
-                                disabled={adhocBusy || !payLinkPhone.trim()}
-                                onClick={() => void sendAdhocPayLink("sms")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                              >
-                                <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                                Text
-                              </button>
-                              <button
-                                type="button"
-                                disabled={adhocBusy || !payLinkEmail.trim()}
-                                onClick={() => void sendAdhocPayLink("email")}
-                                className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2 text-xs font-semibold text-slate-100 disabled:opacity-50"
-                              >
-                                <Mail className="h-3.5 w-3.5" aria-hidden />
-                                Email
-                              </button>
-                            </div>
-                            {payLinkUrl ? (
-                              <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </section>
-                    )}
-                  </>
-                ) : publishableKey && stripeConnectAccountId ? (
-                  <Elements
-                    key={`${clientSecret}:${stripeConnectAccountId}`}
-                    stripe={getStripePromise(publishableKey, stripeConnectAccountId)}
-                    options={{
-                      clientSecret,
-                      appearance: { theme: "night", variables: { colorPrimary: "#10b981" } },
-                      loader: "auto",
-                    }}
-                  >
-                    <AdhocCardForm
-                      stripeConnectAccountId={stripeConnectAccountId}
-                      amountLabel={fmtCents(adhocBreakdown.totalCents)}
-                      onCancel={() => {
-                        setClientSecret(null)
-                        setPublishableKey(null)
-                      }}
-                      onDone={(paymentIntentId) => {
-                        enterTipSignStep(paymentIntentId, adhocBreakdown.totalCents, "manual_card")
-                      }}
-                    />
-                  </Elements>
-                ) : publishableKey && !stripeConnectAccountId ? (
-                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-rose-300">Missing connected Stripe account</p>
-                    <p className="text-xs text-rose-100/80">
-                      Card charges need Get paid finished in Settings (Key Squad 502 Connect account).
-                    </p>
+                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/80 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setClientSecret(null)
-                        setPublishableKey(null)
-                      }}
-                      className="w-full rounded-lg border border-zinc-700 py-2 text-sm font-semibold text-slate-200"
+                      role="switch"
+                      aria-checked={taxEnabled}
+                      onClick={() => setTaxEnabled((v) => !v)}
+                      className="flex items-center gap-2 text-left"
                     >
-                      Back
+                      <span
+                        className={cn(
+                          "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+                          taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                            taxEnabled && "translate-x-4"
+                          )}
+                        />
+                      </span>
+                      <span className="text-xs font-medium text-zinc-300">
+                        Tax
+                        {taxEnabled ? ` ${adhocBreakdown.ratePercent.toFixed(0)}%` : ""}
+                      </span>
                     </button>
+                    {taxEnabled ? (
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="30"
+                        step="0.01"
+                        value={taxRatePercent}
+                        onChange={(e) => setTaxRatePercent(e.target.value)}
+                        aria-label="Tax rate percent"
+                        className="w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-white outline-none"
+                      />
+                    ) : null}
                   </div>
-                ) : (
-                  <p className="text-sm text-rose-400">
-                    Missing Stripe publishable key. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
-                  </p>
-                )}
+
+                  <details className="group mt-2 border-t border-zinc-800/80 pt-2">
+                    <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
+                      <span className="group-open:hidden">
+                        Note{adhocNote.trim() ? " · set" : ""} · edit
+                      </span>
+                      <span className="hidden group-open:inline">Hide note</span>
+                    </summary>
+                    <input
+                      type="text"
+                      value={adhocNote}
+                      onChange={(e) => setAdhocNote(e.target.value)}
+                      placeholder="e.g. Lockout"
+                      className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-500"
+                    />
+                  </details>
+                </section>
+
+                <button
+                  type="button"
+                  onClick={() => enterTipStepFromAmount()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+                >
+                  Continue to tip
+                </button>
               </div>
             )}
           </div>
