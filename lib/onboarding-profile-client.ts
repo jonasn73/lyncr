@@ -151,15 +151,23 @@ export async function startStripeSubscriptionCheckout(
 /** Sync subscription from Stripe after checkout (session id optional — falls back to email lookup). */
 export async function confirmStripeSubscriptionAfterCheckout(
   sessionId?: string | null
-): Promise<void> {
+): Promise<{ synced: boolean }> {
+  // Ask the server to link Stripe Checkout → Neon for this logged-in user.
   const res = await fetch("/api/billing/stripe/confirm", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: sessionId?.trim() || undefined }),
   })
-  const json = (await res.json().catch(() => ({}))) as { error?: string }
+  // Parse JSON even on errors so we can show Stripe’s message.
+  const json = (await res.json().catch(() => ({}))) as {
+    error?: string
+    data?: { synced?: boolean; reason?: string }
+  }
+  // Real failures (auth, Stripe down, bad session) still throw.
   if (!res.ok) throw new Error(json.error || "Could not sync subscription")
+  // Soft miss (no subscription yet) returns 200 + synced:false — callers may ignore.
+  return { synced: Boolean(json.data?.synced) }
 }
 
 /** Buy/provision the reserved DID on Telnyx after subscription is active. */
