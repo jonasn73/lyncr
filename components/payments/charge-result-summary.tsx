@@ -1,8 +1,8 @@
 "use client"
 
-// Clear card / tip charge result for the send-receipt step (success or fail + reason).
+// Celebratory paid hero for the send-receipt step (success or tip-fail + reason).
 
-import { CheckCircle2, XCircle, MinusCircle } from "lucide-react"
+import { Check, MinusCircle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /** Optional tip after the main card charge. */
@@ -38,119 +38,86 @@ export function ChargeResultSummary({
   const totalChargedCents = Math.max(0, baseCents) + tipChargedCents
   const tipFailed = tip.kind === "failed"
   const isCash = baseKind === "cash"
-  // Overall banner: amber if tip failed (base already succeeded to reach this screen).
-  const borderClass = tipFailed
-    ? "border-amber-500/40 bg-amber-500/10"
-    : "border-emerald-500/30 bg-emerald-500/10"
-  const headline = tipFailed
-    ? isCash
-      ? "Cash recorded — tip did not go through"
-      : "Card charged — tip did not go through"
-    : isCash
-      ? "Cash payment recorded"
-      : "Card charged successfully"
+
+  // Soft breakdown under the hero amount (not a dense checklist).
+  const detailParts: string[] = [`Service ${fmtCents(baseCents)}`]
+  if (tip.kind === "charged") {
+    detailParts.push(`Tip ${fmtCents(tip.cents)}`)
+  } else if (tip.kind === "skipped") {
+    detailParts.push("No tip")
+  } else if (tip.kind === "none" && tipChargedCents === 0) {
+    // Keep line short when tip was never offered / zero.
+  }
 
   return (
-    <div className={cn("rounded-xl border px-3 py-3", borderClass, className)}>
-      <div className="flex items-start gap-2">
-        {tipFailed ? (
-          <MinusCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden />
-        ) : (
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" aria-hidden />
+    <div className={cn("relative overflow-hidden text-center", className)}>
+      {/* Soft emerald wash — atmosphere without a heavy bordered “box”. */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 -top-6 h-28 opacity-60",
+          tipFailed
+            ? "bg-[radial-gradient(ellipse_at_top,_rgba(245,158,11,0.22),_transparent_70%)]"
+            : "bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.28),_transparent_70%)]"
         )}
-        <div className="min-w-0 flex-1">
-          <p
-            className={cn(
-              "text-sm font-semibold",
-              tipFailed ? "text-amber-100" : "text-emerald-100"
-            )}
-          >
-            {headline}
-          </p>
-          <p
-            className={cn(
-              "mt-0.5 text-lg font-bold tabular-nums",
-              tipFailed ? "text-amber-200" : "text-emerald-300"
-            )}
-          >
-            {fmtCents(totalChargedCents)}
-            <span className="ml-1.5 text-xs font-medium opacity-70">
-              {isCash && tip.kind !== "charged" ? "recorded" : "total charged"}
-            </span>
-          </p>
+        aria-hidden
+      />
+
+      <div className="relative flex flex-col items-center pt-1">
+        {/* Big check / status mark as the visual star. */}
+        <div
+          className={cn(
+            "flex h-14 w-14 items-center justify-center rounded-full shadow-[0_0_28px_-4px]",
+            tipFailed
+              ? "bg-amber-500/20 text-amber-300 shadow-amber-500/30 ring-1 ring-amber-400/35"
+              : "bg-emerald-500/20 text-emerald-300 shadow-emerald-500/40 ring-1 ring-emerald-400/40"
+          )}
+        >
+          {tipFailed ? (
+            <MinusCircle className="h-7 w-7" aria-hidden />
+          ) : (
+            <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
+          )}
         </div>
+
+        <p
+          className={cn(
+            "mt-3 text-[11px] font-semibold uppercase tracking-[0.14em]",
+            tipFailed ? "text-amber-200/80" : "text-emerald-300/80"
+          )}
+        >
+          {tipFailed ? (isCash ? "Cash recorded" : "Partially paid") : "Paid"}
+        </p>
+
+        <p
+          className={cn(
+            "mt-1 text-4xl font-bold tabular-nums tracking-tight",
+            tipFailed ? "text-amber-100" : "text-white"
+          )}
+        >
+          {fmtCents(totalChargedCents)}
+        </p>
+
+        {detailParts.length > 0 ? (
+          <p
+            className={cn(
+              "mt-1.5 text-xs tabular-nums",
+              tipFailed ? "text-amber-200/70" : "text-zinc-400"
+            )}
+          >
+            {detailParts.join(" · ")}
+          </p>
+        ) : null}
+
+        {tipFailed ? (
+          <div className="mt-3 w-full max-w-sm rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-left">
+            <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-rose-200">
+              <XCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Tip failed · {fmtCents(tip.cents)}
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-rose-100/90">{tip.reason}</p>
+          </div>
+        ) : null}
       </div>
-
-      <ul className="mt-3 space-y-2 border-t border-white/10 pt-3 text-xs">
-        <li className="flex items-start justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-200/90">
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
-            Service / job
-          </span>
-          <span className="tabular-nums font-semibold text-emerald-100">
-            {fmtCents(baseCents)}
-          </span>
-        </li>
-        <li className="text-[11px] leading-snug text-emerald-200/60">
-          {isCash ? "Cash marked collected in Lyncr." : "Stripe accepted this charge."}
-        </li>
-
-        {tip.kind === "charged" ? (
-          <>
-            <li className="flex items-start justify-between gap-3 pt-1">
-              <span className="inline-flex items-center gap-1.5 font-medium text-emerald-200/90">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
-                Tip
-              </span>
-              <span className="tabular-nums font-semibold text-emerald-100">
-                {fmtCents(tip.cents)}
-              </span>
-            </li>
-            <li className="text-[11px] leading-snug text-emerald-200/60">
-              Included in the same card charge (not a second swipe).
-            </li>
-          </>
-        ) : null}
-
-        {tip.kind === "skipped" ? (
-          <>
-            <li className="flex items-start justify-between gap-3 pt-1">
-              <span className="inline-flex items-center gap-1.5 font-medium text-slate-300">
-                <MinusCircle className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-                Tip not charged
-              </span>
-              <span className="tabular-nums font-semibold text-slate-400">
-                {fmtCents(tip.cents)}
-              </span>
-            </li>
-            <li className="text-[11px] leading-snug text-slate-400">
-              You skipped the tip card charge (tip may still be on the slip).
-            </li>
-          </>
-        ) : null}
-
-        {tip.kind === "failed" ? (
-          <>
-            <li className="flex items-start justify-between gap-3 pt-1">
-              <span className="inline-flex items-center gap-1.5 font-medium text-rose-200">
-                <XCircle className="h-3.5 w-3.5 shrink-0 text-rose-400" aria-hidden />
-                Tip failed
-              </span>
-              <span className="tabular-nums font-semibold text-rose-200">
-                {fmtCents(tip.cents)}
-              </span>
-            </li>
-            <li className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-2.5 py-2 text-[11px] leading-snug text-rose-100">
-              <span className="font-semibold text-rose-200">Why: </span>
-              {tip.reason}
-            </li>
-          </>
-        ) : null}
-      </ul>
-
-      <p className="mt-3 text-[11px] text-slate-400">
-        Optional — send a receipt by email or text.
-      </p>
     </div>
   )
 }

@@ -40,10 +40,11 @@ import {
   shouldOfferOptionalSignature,
   type PaidChargeChannel,
 } from "@/lib/payment-slip-ui"
+import { type TipChargeResult } from "@/components/payments/charge-result-summary"
 import {
-  ChargeResultSummary,
-  type TipChargeResult,
-} from "@/components/payments/charge-result-summary"
+  PaymentReceiptPanel,
+  type ReceiptChannel,
+} from "@/components/payments/payment-receipt-panel"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -170,6 +171,7 @@ export function TechPaymentModal(props: {
   const [receiptName, setReceiptName] = useState(() => props.job.customer_name?.trim() || "")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
+  const [receiptChannel, setReceiptChannel] = useState<ReceiptChannel>("email")
   const [receiptBusy, setReceiptBusy] = useState(false)
   /** Nested popup: pay-link form (card key-in is its own step). */
   const [activePopup, setActivePopup] = useState<"link" | null>(null)
@@ -1070,7 +1072,10 @@ export function TechPaymentModal(props: {
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
           "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
-          postPayStep === "tip_sign" || postPayStep === "sign" || postPayStep === "card_entry"
+          postPayStep === "tip_sign" ||
+          postPayStep === "sign" ||
+          postPayStep === "card_entry" ||
+          postPayStep === "receipt"
             ? "h-auto max-h-[min(88dvh,40rem)]"
             : "max-h-[92dvh]"
         )}
@@ -1079,30 +1084,39 @@ export function TechPaymentModal(props: {
         <div className="flex shrink-0 justify-center pb-0.5 pt-2.5" aria-hidden>
           <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
         </div>
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 pb-3 pt-1">
+        <div
+          className={cn(
+            "flex items-center justify-between px-4 pb-3 pt-1",
+            postPayStep === "receipt" ? "border-b-0 pb-1" : "border-b border-zinc-800"
+          )}
+        >
           <div>
-            <h2 className="text-base font-bold text-white">
-              {postPayStep === "tip_sign"
-                ? tipSignSheetTitle(false)
-                : postPayStep === "card_entry"
-                  ? "Key in card"
-                  : postPayStep === "sign"
-                    ? postPaySignSheetTitle()
-                    : postPayStep === "receipt"
-                      ? "Send receipt"
+            {postPayStep === "receipt" ? (
+              <h2 className="sr-only">Paid</h2>
+            ) : (
+              <h2 className="text-base font-bold text-white">
+                {postPayStep === "tip_sign"
+                  ? tipSignSheetTitle(false)
+                  : postPayStep === "card_entry"
+                    ? "Key in card"
+                    : postPayStep === "sign"
+                      ? postPaySignSheetTitle()
                       : showPaidSummary
                         ? "Payment received"
                         : "Charge"}
-            </h2>
-            <p className="text-xs text-zinc-500">
-              {postPayStep === "tip_sign"
-                ? tipLastSheetSubtitle(fmt(paidTotalCents))
-                : postPayStep === "card_entry"
-                  ? "Enter card + ZIP. Nothing charged until tip is done."
-                  : postPayStep === "sign"
-                    ? postPaySignSheetSubtitle()
-                    : props.job.customer_name || props.job.customer_phone || "Customer"}
-            </p>
+              </h2>
+            )}
+            {postPayStep !== "receipt" ? (
+              <p className="text-xs text-zinc-500">
+                {postPayStep === "tip_sign"
+                  ? tipLastSheetSubtitle(fmt(paidTotalCents))
+                  : postPayStep === "card_entry"
+                    ? "Enter card + ZIP. Nothing charged until tip is done."
+                    : postPayStep === "sign"
+                      ? postPaySignSheetSubtitle()
+                      : props.job.customer_name || props.job.customer_phone || "Customer"}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -1429,69 +1443,27 @@ export function TechPaymentModal(props: {
             </button>
           </div>
         ) : postPayStep === "receipt" ? (
-          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
-            <ChargeResultSummary
+          <div className="overflow-y-auto px-4 py-3 pb-5">
+            <PaymentReceiptPanel
               baseCents={paidTotalCents}
               tip={tipResult}
               baseKind={paidPaymentIntentId ? "card" : "cash"}
+              showSend={Boolean(paidPaymentIntentId)}
+              cashNote="Cash payment recorded (job + tip in one total)."
+              receiptName={receiptName}
+              onReceiptNameChange={setReceiptName}
+              receiptChannel={receiptChannel}
+              onReceiptChannelChange={setReceiptChannel}
+              receiptEmail={receiptEmail}
+              onReceiptEmailChange={setReceiptEmail}
+              receiptPhone={receiptPhone}
+              onReceiptPhoneChange={setReceiptPhone}
+              receiptBusy={receiptBusy}
+              error={error}
+              onSend={() => void sendReceipt(receiptChannel)}
+              onSkip={() => props.onCompleted()}
+              skipLabel="Done"
             />
-            {paidPaymentIntentId ? (
-              <>
-                <p className="text-xs text-zinc-500">Optional — email or text a receipt.</p>
-                <input
-                  value={receiptName}
-                  onChange={(e) => setReceiptName(e.target.value)}
-                  placeholder="Customer name"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
-                />
-                <input
-                  value={receiptEmail}
-                  onChange={(e) => setReceiptEmail(e.target.value)}
-                  placeholder="Email"
-                  inputMode="email"
-                  autoCapitalize="none"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
-                />
-                <input
-                  value={receiptPhone}
-                  onChange={(e) => setReceiptPhone(e.target.value)}
-                  placeholder="Mobile for text"
-                  inputMode="tel"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none"
-                />
-                {error ? <p className="text-sm text-red-300">{error}</p> : null}
-                <button
-                  type="button"
-                  disabled={receiptBusy || !receiptEmail.trim()}
-                  onClick={() => void sendReceipt("email")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {receiptBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  Email invoice
-                </button>
-                <button
-                  type="button"
-                  disabled={receiptBusy || !receiptPhone.trim()}
-                  onClick={() => void sendReceipt("sms")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  Text invoice
-                </button>
-              </>
-            ) : (
-              <p className="text-xs text-zinc-500">
-                Cash payment recorded (job + tip in one total).
-              </p>
-            )}
-            <button
-              type="button"
-              disabled={receiptBusy}
-              onClick={() => props.onCompleted()}
-              className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300"
-            >
-              Done
-            </button>
           </div>
         ) : showPaidSummary && paidLink ? (
           <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">

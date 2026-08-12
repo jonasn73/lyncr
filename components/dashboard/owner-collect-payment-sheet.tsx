@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   Nfc,
   Mail,
-  Phone,
   Link2,
   MessageSquare,
   Search,
@@ -53,10 +52,8 @@ import {
   shouldOfferOptionalSignature,
   type PaidChargeChannel,
 } from "@/lib/payment-slip-ui"
-import {
-  ChargeResultSummary,
-  type TipChargeResult,
-} from "@/components/payments/charge-result-summary"
+import { type TipChargeResult } from "@/components/payments/charge-result-summary"
+import { PaymentReceiptPanel } from "@/components/payments/payment-receipt-panel"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -1541,7 +1538,10 @@ export function OwnerCollectPaymentSheet({
           className={cn(
             // Content-height bottom sheet (not sparse full-screen) — matches Latest / job sheets.
             "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
-            mode === "tip_sign" || mode === "sign" || mode === "card_entry"
+            mode === "tip_sign" ||
+            mode === "sign" ||
+            mode === "card_entry" ||
+            mode === "receipt"
               ? "max-h-[min(88dvh,40rem)]"
               : "max-h-[92dvh]"
           )}
@@ -1550,13 +1550,20 @@ export function OwnerCollectPaymentSheet({
           <div className="flex shrink-0 justify-center pb-0.5 pt-2.5 md:hidden" aria-hidden>
             <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
           </div>
-          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-2 text-left md:pt-4">
+          <SheetHeader
+            className={cn(
+              "shrink-0 px-4 pb-3 pt-2 text-left md:pt-4",
+              // Receipt uses the Paid hero as the star — lighter chrome than tip/charge steps.
+              mode === "receipt" ? "border-b-0 pb-1" : "border-b border-zinc-800"
+            )}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <SheetTitle className="text-base font-bold text-slate-100">
-                  {mode === "receipt"
-                    ? "Send receipt"
-                    : mode === "tip_sign"
+                {mode === "receipt" ? (
+                  <SheetTitle className="sr-only">Paid</SheetTitle>
+                ) : (
+                  <SheetTitle className="text-base font-bold text-slate-100">
+                    {mode === "tip_sign"
                       ? tipSignSheetTitle(false)
                       : mode === "card_entry"
                         ? "Key in card"
@@ -1567,11 +1574,11 @@ export function OwnerCollectPaymentSheet({
                             : listTab === "history"
                               ? "Payment history"
                               : "Collect"}
-                </SheetTitle>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {mode === "receipt"
-                    ? "Email or text the customer a receipt."
-                    : mode === "tip_sign"
+                  </SheetTitle>
+                )}
+                {mode !== "receipt" ? (
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
                       : mode === "card_entry"
                         ? "Enter card + ZIP. Nothing charged until tip is done."
@@ -1582,7 +1589,8 @@ export function OwnerCollectPaymentSheet({
                             : listTab === "history"
                               ? "Cards, Tap to Pay, and cash you have run."
                               : "Add a charge or pick a job on today’s schedule."}
-                </p>
+                  </p>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -2258,108 +2266,22 @@ export function OwnerCollectPaymentSheet({
                 </button>
               </div>
             ) : mode === "receipt" ? (
-              <div className="space-y-3">
-                <ChargeResultSummary baseCents={paidTotalCents} tip={tipResult} />
-
-                <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Customer name (optional)
-                  </span>
-                  <input
-                    type="text"
-                    autoComplete="name"
-                    value={receiptName}
-                    onChange={(e) => setReceiptName(e.target.value)}
-                    placeholder="Who should it say it’s for?"
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReceiptChannel("email")}
-                    className={cn(
-                      "flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
-                      receiptChannel === "email"
-                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-slate-400"
-                    )}
-                  >
-                    <Mail className="h-4 w-4" aria-hidden />
-                    Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReceiptChannel("sms")}
-                    className={cn(
-                      "flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
-                      receiptChannel === "sms"
-                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-slate-400"
-                    )}
-                  >
-                    <Phone className="h-4 w-4" aria-hidden />
-                    Text / SMS
-                  </button>
-                </div>
-
-                {receiptChannel === "email" ? (
-                  <label className="block">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Email
-                    </span>
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      inputMode="email"
-                      value={receiptEmail}
-                      onChange={(e) => setReceiptEmail(e.target.value)}
-                      placeholder="customer@email.com"
-                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                    />
-                  </label>
-                ) : (
-                  <label className="block">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Phone
-                    </span>
-                    <input
-                      type="tel"
-                      autoComplete="tel"
-                      inputMode="tel"
-                      value={receiptPhone}
-                      onChange={(e) => setReceiptPhone(e.target.value)}
-                      placeholder="(502) 555-0100"
-                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
-                    />
-                  </label>
-                )}
-
-                <button
-                  type="button"
-                  disabled={receiptBusy}
-                  onClick={() => void sendReceipt()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {receiptBusy ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : receiptChannel === "email" ? (
-                    <Mail className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Phone className="h-4 w-4" aria-hidden />
-                  )}
-                  {receiptChannel === "email" ? "Send invoice email" : "Send invoice text"}
-                </button>
-                <button
-                  type="button"
-                  disabled={receiptBusy}
-                  onClick={finishAndClose}
-                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
-                >
-                  Skip — done
-                </button>
-              </div>
+              <PaymentReceiptPanel
+                baseCents={paidTotalCents}
+                tip={tipResult}
+                receiptName={receiptName}
+                onReceiptNameChange={setReceiptName}
+                receiptChannel={receiptChannel}
+                onReceiptChannelChange={setReceiptChannel}
+                receiptEmail={receiptEmail}
+                onReceiptEmailChange={setReceiptEmail}
+                receiptPhone={receiptPhone}
+                onReceiptPhoneChange={setReceiptPhone}
+                receiptBusy={receiptBusy}
+                onSend={() => void sendReceipt()}
+                onSkip={finishAndClose}
+                skipLabel="Skip — done"
+              />
             ) : (
               <div className="space-y-2.5">
                 <button
