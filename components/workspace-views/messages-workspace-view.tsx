@@ -4,7 +4,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send } from "lucide-react"
+import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,6 +30,13 @@ import {
   resolveMessagesDeepLinkPhone,
   shouldApplyMessagesDeepLink,
 } from "@/lib/messages-deep-link"
+import {
+  buildHeuristicSmsReplySuggestions,
+  extractBusinessNameFromSmsBody,
+  extractVehicleFromSmsBody,
+  type SmsReplyChip,
+  type SmsReplyIntent,
+} from "@/lib/sms-reply-suggestions"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
 
@@ -118,7 +125,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
 }: {
   isActive?: boolean
 }) {
-  const { activeOrganizationId } = useDashboardWorkspace()
+  const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const searchParams = useSearchParams()
   const router = useRouter()
   // Pause when Messages pane OR browser tab is hidden.
@@ -127,6 +134,11 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
       ? activeOrganizationId
       : null
+  // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
+  const workspaceBusinessName =
+    organizations.find((o) => o.id === activeOrganizationId)?.name?.trim() ||
+    organizations[0]?.name?.trim() ||
+    ""
 
   const cachedMessages = useSessionSeed(
     () => readMessagesCache(orgId),
@@ -142,6 +154,12 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  // True while POST /api/messaging/suggest-reply is in flight.
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  // Extra draft options from Suggest reply (tap fills composer — never auto-sends).
+  const [aiDrafts, setAiDrafts] = useState<string[]>([])
+  // Optional CRM display name for friendlier chip copy (loaded when a thread opens).
+  const [customerName, setCustomerName] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // Scroll the message list only — never the whole page (avoids jumping shared <main>).
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
@@ -290,6 +308,110 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
     }
   }, [threads, selectedPhone])
 
+  // Last inbound / outbound bodies for reply chips (empty thread → no suggestions).
+  const lastInboundBody = useMemo(() => {
+    if (!activeThread?.messages.length) return ""
+    const inbound = [...activeThread.messages]
+      .reverse()
+      .find((m) => m.direction === "inbound")
+    return (inbound?.body || "").trim()
+  }, [activeThread])
+
+  const lastOutboundBody = useMemo(() => {
+    if (!activeThread?.messages.length) return ""
+    const outbound = [...activeThread.messages]
+      .reverse()
+      .find((m) => m.direction === "outbound")
+    return (outbound?.body || "").trim()
+  }, [activeThread])
+
+  // Rule-based chips — same helpers as Latest Needs-reply sheet.
+  const replySuggest = useMemo(() => {
+    if (!lastInboundBody) {
+      return {
+        intent: "generic" as SmsReplyIntent,
+        chips: [] as SmsReplyChip[],
+        drafts: [] as string[],
+      }
+    }
+    return buildHeuristicSmsReplySuggestions({
+      customerMessage: lastInboundBody,
+      customerName,
+      businessName:
+        workspaceBusinessName ||
+        extractBusinessNameFromSmsBody(lastOutboundBody) ||
+        null,
+      vehicle: extractVehicleFromSmsBody(lastOutboundBody),
+      priorOutbound: lastOutboundBody || null,
+    })
+  }, [lastInboundBody, lastOutboundBody, customerName, workspaceBusinessName])
+
+  // Soft-reset suggestion UI when switching conversations.
+  useEffect(() => {
+    setAiDrafts([])
+    setSuggestLoading(false)
+    setCustomerName(null)
+  }, [selectedPhone])
+
+  // Best-effort CRM name for chip greetings (non-blocking).
+  useEffect(() => {
+    if (!isActive || !selectedPhone) return
+    let cancelled = false
+    const qs = new URLSearchParams({ phone: selectedPhone })
+    void fetch(`/api/customers?${qs}`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { customers?: Array<{ display_name?: string | null }> } | null) => {
+        if (cancelled) return
+        const name = String(json?.customers?.[0]?.display_name ?? "").trim()
+        setCustomerName(name || null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isActive, selectedPhone])
+
+  /** Suggest reply — fills drafts; never auto-sends. */
+  async function suggestReply() {
+    if (!lastInboundBody || suggestLoading) return
+    setSuggestLoading(true)
+    setAiDrafts([])
+    try {
+      const res = await fetch("/api/messaging/suggest-reply", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_message: lastInboundBody,
+          customer_name: customerName || undefined,
+          business_name: workspaceBusinessName || undefined,
+          prior_outbound: lastOutboundBody || undefined,
+          vehicle: extractVehicleFromSmsBody(lastOutboundBody) || undefined,
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { drafts?: string[] }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not suggest a reply")
+      const drafts = Array.isArray(json.data?.drafts) ? json.data!.drafts! : []
+      const next =
+        drafts.filter((d) => d.trim()).length > 0
+          ? drafts.filter((d) => d.trim())
+          : replySuggest.drafts
+      setAiDrafts(next)
+      if (next[0]) setDraft(next[0])
+    } catch {
+      // Offline / no key: still fill from local heuristic drafts.
+      if (replySuggest.drafts[0]) {
+        setAiDrafts(replySuggest.drafts)
+        setDraft(replySuggest.drafts[0])
+      }
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
+
   // tel:+1… for the open thread header (one-tap call on phones).
   const threadTelHref = activeThread ? buildTelHref(activeThread.customerPhone) : null
   // Pretty display next to the dial link (keeps parentheses/dashes).
@@ -360,6 +482,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
         setSendError(json.data.delivery_warning)
       }
       setDraft("")
+      setAiDrafts([])
     } catch (e) {
       setSendError(e instanceof Error ? e.message : "Could not send message")
     } finally {
@@ -630,6 +753,55 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
                 {sendError ? (
                   <p className="mb-2 text-xs text-red-300">{sendError}</p>
                 ) : null}
+
+                {/* Quick reply chips — only when the thread has an inbound message to answer. */}
+                {replySuggest.chips.length > 0 ? (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {replySuggest.chips.map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setDraft(chip.body)}
+                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Suggest reply → AI or rule-based drafts (still requires Send). */}
+                {lastInboundBody ? (
+                  <button
+                    type="button"
+                    onClick={() => void suggestReply()}
+                    disabled={suggestLoading}
+                    className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+                  >
+                    {suggestLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    Suggest reply
+                  </button>
+                ) : null}
+
+                {aiDrafts.length > 1 ? (
+                  <div className="mb-2 space-y-1.5">
+                    {aiDrafts.map((option, idx) => (
+                      <button
+                        key={`ai-draft-${idx}`}
+                        type="button"
+                        onClick={() => setDraft(option)}
+                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 text-left text-[11px] leading-snug text-foreground/90 hover:bg-muted/40"
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
                 <div className="flex items-end gap-2">
                   <Textarea
                     value={draft}
