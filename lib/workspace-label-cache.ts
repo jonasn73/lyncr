@@ -25,19 +25,21 @@ function isValidLabel(cached: WorkspaceLabelCache | null | undefined): cached is
 }
 
 /**
- * Session first, then optional SSR paint seed, then document cookie.
+ * Paint seed first (SSR HTML), then session, then document cookie.
  * Pass `paint` from useDashboardPaintSeeds().workspace during render/SSR.
+ * Prefer paint over session when both exist (React #418). Session fills gaps
+ * only inside useState / useSessionSeed — not every-render UI branching.
  */
 export function readWorkspaceLabelCache(
   paint?: WorkspaceLabelCache | null
 ): WorkspaceLabelCache | null {
+  if (isValidLabel(paint)) {
+    return { organizationId: paint.organizationId ?? null, name: paint.name.trim() }
+  }
+
   const fromSession = readPersistedCache<WorkspaceLabelCache>(WORKSPACE_LABEL_SESSION_KEY)
   if (isValidLabel(fromSession)) {
     return { organizationId: fromSession.organizationId ?? null, name: fromSession.name.trim() }
-  }
-
-  if (isValidLabel(paint)) {
-    return { organizationId: paint.organizationId ?? null, name: paint.name.trim() }
   }
 
   const fromCookie = readPaintSeedCookie<WorkspaceLabelCache>(WORKSPACE_LABEL_CACHE_SCOPE)

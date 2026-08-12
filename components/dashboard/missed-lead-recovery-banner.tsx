@@ -407,7 +407,12 @@ export const MissedLeadRecoveryBanner = memo(function MissedLeadRecoveryBanner({
               {phoneLabel}
             </p>
             <p className="mt-0.5 text-[11px] text-amber-200/70">
-              Missed{missedAgo ? ` · ${missedAgo}` : ""} · waiting for callback
+              {/* Relative “12m ago” can differ by a second SSR vs client — suppress that node only. */}
+              Missed
+              {missedAgo ? (
+                <span suppressHydrationWarning>{` · ${missedAgo}`}</span>
+              ) : null}{" "}
+              · waiting for callback
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center">

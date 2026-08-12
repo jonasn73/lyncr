@@ -79,14 +79,19 @@ function trimChrome(next: LinesChromeCache): LinesChromeCache {
 }
 
 /**
- * Session first, then optional SSR paint seed, then document cookie.
+ * Paint seed first (SSR HTML), then session, then document cookie.
  * Pass `paint` from useDashboardPaintSeeds().lines during render/SSR.
+ *
+ * Prefer paint over session when both exist so hard-refresh HTML matches hydrate
+ * (React #418). Session still fills gaps when the cookie seed is empty — only safe
+ * inside useState / useSessionSeed (initializer does not re-run on hydrate).
+ * Do not call this every render for UI branching; use `paintSeeds.lines` instead.
  */
 export function readLinesChromeCache(paint?: LinesChromeCache | null): LinesChromeCache | null {
+  if (isValidChrome(paint) && paint.lines.length > 0) return paint
+
   const fromSession = readPersistedCache<LinesChromeCache>(LINES_CHROME_SESSION_KEY)
   if (isValidChrome(fromSession) && fromSession.lines.length > 0) return fromSession
-
-  if (isValidChrome(paint) && paint.lines.length > 0) return paint
 
   const fromCookie = readPaintSeedCookie<LinesChromeCache>(LINES_CHROME_CACHE_SCOPE)
   if (!isValidChrome(fromCookie) || fromCookie.lines.length === 0) return null

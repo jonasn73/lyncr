@@ -136,24 +136,26 @@ function orgKey(organizationId: string | null | undefined): string {
 /**
  * Read the last successful telemetry fetch for this org (if still fresh).
  * Pass `paint` from useDashboardPaintSeeds() so SSR can seed without sessionStorage.
+ * Prefer paint over session when both exist (React #418).
  */
 export function readRoutingTelemetryCache(
   organizationId: string | null,
   cookieRaw?: string | null,
   paint?: RoutingTelemetryPaintSeed | null
 ): RoutingTelemetrySnapshot | undefined {
+  const want = orgKey(organizationId)
+
+  // Warm paint seed first — SSR HTML used this; hydrate must match.
+  if (paint?.snapshot && orgKey(paint.organizationId) === want) {
+    return normalizeRoutingTelemetrySnapshot(paint.snapshot)
+  }
+
   const fromSession = parseTelemetryRaw(
     readPersistedCache<RoutingTelemetrySnapshot & { dailyTalkDisplay?: string }>(
       routingTelemetryCacheKey(organizationId)
     )
   )
   if (fromSession) return fromSession
-
-  // Warm paint seed / cookie — only when org id matches (or both are default).
-  const want = orgKey(organizationId)
-  if (paint?.snapshot && orgKey(paint.organizationId) === want) {
-    return normalizeRoutingTelemetrySnapshot(paint.snapshot)
-  }
 
   const fromCookie =
     cookieRaw !== undefined

@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -37,11 +38,9 @@ import { extractUsAreaCode } from "@/lib/provision-line-types"
 import {
   readActivationLineCache,
   resolveInitialLineCarrierLive,
-  resolveInitialSubscriptionActive,
   writeActivationLineCache,
 } from "@/lib/activation-line-cache"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-import { readLinesChromeCache } from "@/lib/lines-chrome-cache"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
 
@@ -93,8 +92,9 @@ export function DashboardActivationProvider({
 }) {
   const { toast } = useToast()
   const paintSeeds = useDashboardPaintSeeds()
-  const linesPaint = readLinesChromeCache(paintSeeds.lines)
-  // Prefer explicit seed → lines chrome cookie → session activation cache.
+  // Cookie paint only during render — never sessionStorage here (React #418 hydrate mismatch).
+  const linesPaint = paintSeeds.lines
+  // Prefer explicit seed → lines chrome cookie. Session upgrades happen in useState init / effects.
   const seededLive =
     activationSeed?.lineCarrierLive === true || linesPaint?.lineCarrierLive === true
   const seededSub =
@@ -105,9 +105,9 @@ export function DashboardActivationProvider({
   // Sync seed from props / session cache / bootstrap — never paint Activating… when last known was live.
   const [carrierLive, setCarrierLive] = useState(() => resolveInitialLineCarrierLive(seededLive))
   const [loading, setLoading] = useState(() => {
+    // Match SSR: only cookie/prop seeds are visible on the server (no sessionStorage).
     if (activationSeed || linesPaint) return false
-    if (typeof window === "undefined") return true
-    return readActivationLineCache() == null && !resolveInitialLineCarrierLive(false)
+    return true
   })
   const [activating, setActivating] = useState(false)
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier>("starter")
@@ -285,12 +285,11 @@ export function DashboardActivationProvider({
     reservedDisplay,
   ])
 
+  // While loading, only use paint/prop seeds + carrierLive state — never sessionStorage
+  // during render (resolveInitialSubscriptionActive reads window → React #418).
   const subscriptionActive = !loading
     ? isVerifiedActiveSubscription(profile, carrierLive)
-    : activationSeed?.subscriptionActive === true ||
-      seededSub ||
-      resolveInitialSubscriptionActive(false) ||
-      carrierLive
+    : activationSeed?.subscriptionActive === true || seededSub || carrierLive
   // State already seeded from cache/bootstrap — never fall back to false while fetching.
   const lineCarrierLive = carrierLive
   // Sandbox alert only when the DID is not live yet — cancelled Stripe + live Telnyx is not sandbox.
@@ -303,6 +302,24 @@ export function DashboardActivationProvider({
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
   const hasActivationSeed = Boolean(activationSeed) || carrierLive
+
+  // After hydrate: apply session activation cache (invisible to SSR) before paint.
+  useLayoutEffect(() => {
+    if (carrierLive) {
+      setLoading(false)
+      return
+    }
+    const cached = readActivationLineCache()
+    if (cached?.lineCarrierLive) {
+      setCarrierLive(true)
+      setLoading(false)
+      return
+    }
+    if (resolveInitialLineCarrierLive(false)) {
+      setCarrierLive(true)
+      setLoading(false)
+    }
+  }, [carrierLive])
 
   // Persist last-known Live & Connected so hard refresh does not flash Activating… / Inactive.
   useEffect(() => {

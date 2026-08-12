@@ -121,8 +121,8 @@ export function DashboardWorkspaceProvider({
   const workspaceSeed = bootstrapSeed
     ? workspaceSeedFromBootstrap(bootstrapSeed, initialActiveOrganizationId)
     : null
-  // Cookie chrome when bootstrap session cache is invisible to SSR.
-  const linesPaint = readLinesChromeCache(paintSeeds?.lines ?? null)
+  // Cookie chrome only for render/SSR — session upgrades in useLayoutEffect below (#418).
+  const linesPaint = paintSeeds?.lines ?? null
 
   const router = useRouter()
   const activeTab = useDashboardActivePage()
@@ -278,6 +278,15 @@ export function DashboardWorkspaceProvider({
     if (boot) {
       const seed = workspaceSeedFromBootstrap(boot, orgId)
       hydrateWorkspaceFromBootstrap(seed)
+      return
+    }
+    // Lines chrome session (not used during render) — upgrade after hydrate.
+    const chrome = readLinesChromeCache()
+    if (chrome?.lines.length) {
+      setBusinessNumbers(linesChromeToBusinessNumbers(chrome))
+      setBusinessNumbersLoading(false)
+      if (chrome.activeLine) setActiveLine(chrome.activeLine)
+      if (chrome.organizationId) setActiveOrganizationIdState(chrome.organizationId)
       return
     }
     const cached = readCachedBusinessNumbers(orgId)

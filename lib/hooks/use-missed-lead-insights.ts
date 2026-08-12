@@ -63,30 +63,32 @@ function readCachedMissedLeads(): MissedLeadCallRow[] {
  */
 function readCachedMissedLeadSummary(paint?: MissedLeadsPaintSeed | null): MissedLeadInsights {
   const cached = readPersistedCache<MissedLeadsSessionCache>(MISSED_LEADS_CACHE_KEY)
-  if (cached) {
-    if (Array.isArray(cached.rows) && cached.rows.length > 0) {
-      return summarizeMissedLeadInsights(cached.rows, {
-        interceptedKeys: readInterceptedPhoneKeys(),
-      })
-    }
-    if (typeof cached.uniqueLeadsToday === "number" && cached.uniqueLeadsToday >= 0) {
-      return {
-        totalMissedToday: cached.totalMissedToday ?? 0,
-        uniqueLeadsToday: cached.uniqueLeadsToday,
-        recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
-      }
-    }
+
+  // Session rows win when present (layout-effect upgrade after hydrate).
+  if (cached && Array.isArray(cached.rows) && cached.rows.length > 0) {
+    return summarizeMissedLeadInsights(cached.rows, {
+      interceptedKeys: readInterceptedPhoneKeys(),
+    })
   }
 
-  // SSR / hard refresh — cookie paint seed (sessionStorage is invisible to the server).
+  // Cookie paint next — SSR HTML used this; hydrate must match when session is empty.
   const seeded = readMissedLeadsPaintSeed(paint)
   if (seeded) {
     return {
       totalMissedToday: seeded.totalMissedToday,
       uniqueLeadsToday: seeded.uniqueLeadsToday,
-      recentUnreturned: [],
+      recentUnreturned: Array.isArray(cached?.recentUnreturned) ? cached.recentUnreturned : [],
     }
   }
+
+  if (cached && typeof cached.uniqueLeadsToday === "number" && cached.uniqueLeadsToday >= 0) {
+    return {
+      totalMissedToday: cached.totalMissedToday ?? 0,
+      uniqueLeadsToday: cached.uniqueLeadsToday,
+      recentUnreturned: Array.isArray(cached.recentUnreturned) ? cached.recentUnreturned : [],
+    }
+  }
+
   return EMPTY
 }
 

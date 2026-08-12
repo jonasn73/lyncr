@@ -74,12 +74,15 @@ function isValidSeed(raw: MissedLeadsPaintSeed | null | undefined): raw is Misse
 }
 
 /**
- * Session first, then optional SSR paint seed, then document cookie.
- * Pass `paint` from useDashboardPaintSeeds().missedLeads during render/SSR.
+ * Paint seed first (SSR HTML), then session, then document cookie.
+ * Prefer paint over session when both exist (React #418).
  */
 export function readMissedLeadsPaintSeed(
   paint?: MissedLeadsPaintSeed | null
 ): MissedLeadsPaintSeed | null {
+  const fromPaint = normalizeMissedLeadsPaintSeed(paint)
+  if (fromPaint) return fromPaint
+
   const fromSession = readPersistedCache<MissedLeadsSessionCache>(MISSED_LEADS_CACHE_KEY)
   if (fromSession && typeof fromSession.uniqueLeadsToday === "number") {
     return normalizeMissedLeadsPaintSeed({
@@ -88,9 +91,6 @@ export function readMissedLeadsPaintSeed(
       localDayPeriodKey: fromSession.localDayPeriodKey,
     })
   }
-
-  const fromPaint = normalizeMissedLeadsPaintSeed(paint)
-  if (fromPaint) return fromPaint
 
   const fromCookie = normalizeMissedLeadsPaintSeed(
     readPaintSeedCookie<MissedLeadsPaintSeed>(MISSED_LEADS_CACHE_SCOPE)

@@ -317,15 +317,9 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
     "active-routing-mode",
     routingBusinessNumber?.trim() || "none"
   )
-  const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>(() => {
-    if (typeof window === "undefined" || !routingBusinessNumber?.trim()) return "your_phone"
-    const cached = readPersistedCache<{ mode: string }>(
-      persistedCacheKey("active-routing-mode", routingBusinessNumber.trim())
-    )
-    return cached?.mode ? normalizeActiveRoutingMode(cached.mode) : "your_phone"
-  })
+  const [activeRoutingMode, setActiveRoutingMode] = useState<ActiveRoutingMode>("your_phone")
 
-  // Re-seed when the active line changes (SSR hydrate + line switch).
+  // Re-seed from session after hydrate + when the active line changes (SSR-safe).
   useLayoutEffect(() => {
     if (!routingBusinessNumber?.trim()) return
     const cached = readPersistedCache<{ mode: string }>(routingModeCacheKey)

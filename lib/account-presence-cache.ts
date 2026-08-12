@@ -31,15 +31,16 @@ function isValidStatus(s: PresenceStatus | null | undefined): s is PresenceStatu
 }
 
 /**
- * Session first, then optional SSR paint seed, then cookie.
+ * Paint seed first (SSR HTML), then session, then cookie.
  * Pass `paint` from useDashboardPaintSeeds().presence during React render/SSR.
+ * Prefer paint over session when both exist (React #418).
  */
 export function readCachedPresence(paint?: PresenceStatus | null): PresenceStatus | null {
+  if (isValidStatus(paint)) return paint
+
   const fromSession = readPersistedCache<PresenceCache>(PRESENCE_SESSION_KEY)
   const sessionStatus = parsePresenceStatus(fromSession?.status)
   if (isValidStatus(sessionStatus)) return sessionStatus
-
-  if (isValidStatus(paint)) return paint
 
   const fromCookie = readPaintSeedCookie<PresenceCache>(PRESENCE_CACHE_SCOPE)
   return parsePresenceStatus(fromCookie?.status)

@@ -5,7 +5,6 @@ import { Suspense, memo, useEffect, useLayoutEffect, useState, type ReactNode } 
 import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
-import { readBillingSummaryCache } from "@/lib/billing-summary-cache"
 import {
   ActivityTableSkeleton,
   CallFlowStepsSkeleton,
@@ -69,10 +68,8 @@ function PaneLoadingFallback({ label }: { label: string }) {
   )
 }
 
-/** Pay chunk loading — paint last-known carrier credit so the tab doesn’t flash blank→$0→real. */
+/** Pay chunk loading — reserved layout only (no sessionStorage during render → #418). */
 function PayLoadingFallback() {
-  const cached = typeof window !== "undefined" ? readBillingSummaryCache() : null
-  const label = cached?.credit_balance_label
   return (
     <div className="min-h-[40vh] w-full px-4 pt-6" aria-busy="true" aria-label="Loading Pay">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
@@ -82,7 +79,7 @@ function PayLoadingFallback() {
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Lyncr Talk-Time Balance
           </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{label ?? "—"}</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3 opacity-60">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

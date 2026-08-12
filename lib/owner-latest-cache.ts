@@ -70,23 +70,25 @@ export function hasLatestSeed(
 /**
  * Read Latest cache. Pass `paint` from useDashboardPaintSeeds() on SSR/hydrate
  * so first paint matches warm cookies without a module singleton.
+ * Prefer paint over session when both exist (React #418).
  */
 export function readLatestCache(
   organizationId: string | null | undefined,
   paint?: LatestPaintSeed | null
 ): LatestCustomerAction[] {
   const want = orgCacheId(organizationId)
+
+  if (paint?.items != null && orgCacheId(paint.organizationId) === want) {
+    const items = sanitizeItems(paint.items)
+    return items.length > 0 ? items : EMPTY_LATEST
+  }
+
   const cached = readPersistedCache<LatestCache>(cacheKey(organizationId))
   if (cached && Array.isArray(cached.items)) {
     const items = sanitizeItems(cached.items)
     if (items.length > 0) return items
     // Confirmed empty session write — return stable empty (do not fall through to stale cookie).
     return EMPTY_LATEST
-  }
-
-  if (paint?.items != null && orgCacheId(paint.organizationId) === want) {
-    const items = sanitizeItems(paint.items)
-    return items.length > 0 ? items : EMPTY_LATEST
   }
 
   const fromCookie = readPaintSeedCookie<LatestPaintCookie>(OWNER_LATEST_COOKIE_SCOPE)

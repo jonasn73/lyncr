@@ -36,17 +36,19 @@ function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached 
 }
 
 /**
- * SessionStorage first, then optional SSR paint seed, then document cookie.
+ * Paint seed first (SSR HTML), then session, then document cookie.
  * Pass `paint` from useDashboardPaintSeeds().money during React render/SSR.
+ * Prefer paint over session when both exist (React #418).
+ * useLayoutEffect may call with no paint arg to upgrade from session after hydrate.
  */
 export function readHeaderMoneyCache(
   cookieRaw?: string | null,
   paint?: HeaderMoneyCache | null
 ): HeaderMoneyCache | null {
+  if (isValidMoneyCache(paint)) return paint
+
   const fromSession = readPersistedCache<HeaderMoneyCache>(HEADER_MONEY_SESSION_KEY)
   if (isValidMoneyCache(fromSession)) return fromSession
-
-  if (isValidMoneyCache(paint)) return paint
 
   if (cookieRaw !== undefined) {
     const fromServer = readPaintSeedCookieValue<HeaderMoneyCache>(cookieRaw)

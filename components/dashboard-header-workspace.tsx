@@ -9,7 +9,6 @@ import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { Organization } from "@/lib/types"
 import { organizationLabelFromBootstrap } from "@/lib/dashboard-bootstrap-seed"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-import { readWorkspaceLabelCache } from "@/lib/workspace-label-cache"
 
 function headerSeedOrganization(name: string): Organization {
   return {
@@ -202,8 +201,8 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const { dashboardMainBootstrapPromise, organizationsPromise } = useDashboardStream()
   const paintSeeds = useDashboardPaintSeeds()
-  // Cookie / session paint name — SSR must not paint empty then “Key Squad 502”.
-  const paintLabel = readWorkspaceLabelCache(paintSeeds.workspace)?.name
+  // Cookie paint name only — sessionStorage here mismatched SSR (“Business” → “Key Squad 502”).
+  const paintLabel = paintSeeds.workspace?.name?.trim() || ""
   const sessionLabel = sessionBusinessName?.trim() || ""
   const fallbackLabel = paintLabel || sessionLabel || "Business"
 

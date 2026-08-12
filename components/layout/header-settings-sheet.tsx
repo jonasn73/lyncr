@@ -178,7 +178,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   // SSR hydration: re-read session/cookie once before paint (org/key lag).
   useLayoutEffect(() => {
-    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    // No paint arg — allow sessionStorage upgrade after hydrate (safe; HTML already matched).
+    const cached = readHeaderMoneyCache()
     if (!cached) return
     setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
     setPendingCents((prev) => (prev === 0 && cached.pendingCents ? cached.pendingCents : prev))

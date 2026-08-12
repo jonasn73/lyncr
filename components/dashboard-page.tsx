@@ -22,7 +22,6 @@ import { primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   isOwnerWhoAnswersLabel,
-  readLinesChromeCache,
   writeLinesChromeCache,
 } from "@/lib/lines-chrome-cache"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
@@ -31,7 +30,8 @@ export function DashboardPage() {
   const { toast } = useToast()
   const bootstrap = useDashboardBootstrapEffective()
   const paintSeeds = useDashboardPaintSeeds()
-  const linesPaint = readLinesChromeCache(paintSeeds.lines)
+  // Cookie paint only — sessionStorage during render caused React #418 vs SSR HTML.
+  const linesPaint = paintSeeds.lines
   const {
     activeLine,
     setActiveLine,

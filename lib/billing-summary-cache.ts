@@ -37,17 +37,18 @@ function isValid(cached: BillingSummaryCache | null | undefined): cached is Bill
 }
 
 /**
- * Session first, then optional SSR paint seed, then cookie.
+ * Paint seed first (SSR HTML), then session, then cookie.
  * Pass `paint` from useDashboardPaintSeeds().billing during React render/SSR.
+ * Prefer paint over session when both exist (React #418).
  */
 export function readBillingSummaryCache(
   cookieRaw?: string | null,
   paint?: BillingSummaryCache | null
 ): BillingSummaryCache | null {
+  if (isValid(paint)) return paint
+
   const fromSession = readPersistedCache<BillingSummaryCache>(BILLING_SUMMARY_SESSION_KEY)
   if (isValid(fromSession)) return fromSession
-
-  if (isValid(paint)) return paint
 
   if (cookieRaw !== undefined) {
     const fromServer = readPaintSeedCookieValue<BillingSummaryCache>(cookieRaw)
