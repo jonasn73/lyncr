@@ -138,8 +138,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           <SettingsMenuRow
             grouped
             icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
-            title="Get paid"
-            subtitle="Bank transfers — send funds or view payout history"
+            title="Bank account"
+            subtitle="Set up or change the bank that receives card money"
             onClick={modals.openGetPaid}
           />
           <SettingsMenuRow

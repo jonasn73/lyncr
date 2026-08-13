@@ -178,7 +178,9 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
         ) : null}
 
         <p className="text-[11px] leading-relaxed text-slate-400">
-          Keep this for your records or insurance reimbursement.
+          {invoice.vehicleVin || invoice.vehicleLabel
+            ? "Keep this for your records or insurance reimbursement."
+            : "Keep this for your records."}
         </p>
       </div>
     </article>

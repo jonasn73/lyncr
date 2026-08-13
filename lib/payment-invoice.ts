@@ -232,20 +232,39 @@ export function paymentInvoicePdfUrl(invoice: PaymentInvoice): string {
   return `${appRoot}/api/receipt/${encodeURIComponent(token)}/pdf`
 }
 
-/** Email subject — clear for reimbursement / insurance filing. */
+/**
+ * Insurance / lockout reimbursement copy only when we have vehicle or VIN.
+ * Normal Collect / pay-link receipts should just say “receipt”.
+ */
+export function isReimbursementInvoice(invoice: PaymentInvoice): boolean {
+  // Lockout jobs store VIN — those receipts are for insurance filing.
+  if ((invoice.vehicleVin || "").trim()) return true
+  // Year/make/model on the invoice also means reimbursement style.
+  if ((invoice.vehicleLabel || "").trim()) return true
+  // Explicit note like “insurance reimbursement” keeps the old wording.
+  const note = `${invoice.paidNote || ""} ${invoice.description || ""}`.toLowerCase()
+  return /\breimbursement\b|\binsurance\b/.test(note)
+}
+
+/** Email subject — receipt by default; reimbursement only for vehicle/VIN jobs. */
 export function buildPaymentInvoiceEmailSubject(invoice: PaymentInvoice): string {
   const amount = fmtUsd(invoice.totalCents)
-  return `Your ${invoice.businessName} invoice / receipt for reimbursement (${amount})`
+  if (isReimbursementInvoice(invoice)) {
+    return `Your ${invoice.businessName} invoice / receipt for reimbursement (${amount})`
+  }
+  return `Your ${invoice.businessName} receipt (${amount})`
 }
 
 /** Plain-text invoice for SMS — short, human, includes view + PDF link. */
 export function buildPaymentInvoiceSms(invoice: PaymentInvoice): string {
   const amount = fmtUsd(invoice.totalCents)
   const paidHow = invoicePaidHowLabel(invoice)
-  // Keep under typical SMS length while staying useful for reimbursement.
+  const lead = isReimbursementInvoice(invoice)
+    ? `Your paid invoice / receipt for reimbursement — ${amount} (${paidHow}).`
+    : `Your paid receipt — ${amount} (${paidHow}).`
   return [
     `${invoice.businessName}`,
-    `Your paid invoice / receipt for reimbursement — ${amount} (${paidHow}).`,
+    lead,
     `Invoice ${invoice.invoiceNumber}`,
     invoice.vehicleLabel ? `Vehicle: ${invoice.vehicleLabel}` : "",
     invoice.vehicleVin ? `VIN: ${invoice.vehicleVin}` : "",
@@ -312,7 +331,11 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
         <tr><td style="padding:24px;">
           <p style="margin:0 0 4px;font-size:15px;color:#334155;">${greeting}</p>
           <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#64748b;">
-            Thanks for choosing ${escapeHtml(invoice.businessName)}. Here is your paid invoice / receipt for reimbursement — ${amount}, ${paidHow}.
+            Thanks for choosing ${escapeHtml(invoice.businessName)}. ${
+              isReimbursementInvoice(invoice)
+                ? `Here is your paid invoice / receipt for reimbursement — ${amount}, ${paidHow}.`
+                : `Here is your paid receipt — ${amount}, ${paidHow}.`
+            }
           </p>
           <table width="100%" style="font-size:13px;margin-bottom:18px;">
             <tr>
@@ -377,7 +400,11 @@ export function buildPaymentInvoiceEmailHtml(invoice: PaymentInvoice): string {
             </a>
           </p>
           <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.4;">
-            Keep this for your records or insurance reimbursement.
+            ${
+              isReimbursementInvoice(invoice)
+                ? "Keep this for your records or insurance reimbursement."
+                : "Keep this for your records."
+            }
           </p>
         </td></tr>
       </table>
@@ -394,7 +421,9 @@ export function buildPaymentInvoiceEmailText(invoice: PaymentInvoice): string {
   return [
     invoice.customerName ? `Hi ${invoice.customerName},` : "Hi,",
     "",
-    `Thanks for choosing ${invoice.businessName}. Here is your paid invoice / receipt for reimbursement.`,
+    isReimbursementInvoice(invoice)
+      ? `Thanks for choosing ${invoice.businessName}. Here is your paid invoice / receipt for reimbursement.`
+      : `Thanks for choosing ${invoice.businessName}. Here is your paid receipt.`,
     "",
     `INVOICE ${invoice.invoiceNumber}`,
     `Date paid: ${invoice.paidAtLabel}`,

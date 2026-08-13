@@ -158,9 +158,9 @@ export async function buildPaymentInvoicePdf(
   drawText(totalAmt, right - fontBold.widthOfTextAtSize(totalAmt, 14), y, 14, true, paidGreen)
 
   y -= 36
-  // Friendly footer for reimbursement use.
-  const footer =
-    "This is a paid invoice / receipt. Keep it for your records or reimbursement."
+  const footer = invoice.vehicleVin || invoice.vehicleLabel
+    ? "This is a paid invoice / receipt. Keep it for your records or reimbursement."
+    : "This is a paid receipt. Keep it for your records."
   drawText(footer.slice(0, 90), left, y, 9, false, muted)
   y -= 16
   drawText(`View online: ${invoice.receiptUrl}`.slice(0, 95), left, y, 8, false, muted)
