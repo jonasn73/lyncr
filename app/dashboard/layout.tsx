@@ -109,6 +109,12 @@ export default async function DashboardLayout({
         initialBootstrap={null}
         initialActiveOrganizationId={initialActiveOrganizationId}
         paintSeeds={paintSeeds}
+        // Keep the guard out of `children` so the active tab slot is only the page view.
+        onboardingGuard={
+          <Suspense fallback={null}>
+            <DashboardOnboardingGuard user={user} />
+          </Suspense>
+        }
         sessionAccount={{
           name: user.name?.trim() || "Account",
           email: user.email,
@@ -124,9 +130,6 @@ export default async function DashboardLayout({
             : {}),
         }}
       >
-        <Suspense fallback={null}>
-          <DashboardOnboardingGuard user={user} />
-        </Suspense>
         {children}
       </DashboardShell>
     </DashboardStreamProvider>

@@ -92,6 +92,7 @@ const DashboardAnsweredCallPopup = memo(function DashboardAnsweredCallPopup({
 
 export function DashboardShell({
   children,
+  onboardingGuard = null,
   pathnameFromRequest,
   sessionBusinessName,
   sessionAccount,
@@ -100,6 +101,8 @@ export function DashboardShell({
   paintSeeds = null,
 }: {
   children: React.ReactNode
+  /** Onboarding redirect check — must not sit inside the active tab slot (would break SSR pane). */
+  onboardingGuard?: React.ReactNode
   pathnameFromRequest: string | null
   /** Shown in the header workspace slot while orgs stream in on hard refresh. */
   sessionBusinessName?: string
@@ -174,15 +177,17 @@ export function DashboardShell({
   }, [refreshSession])
 
   const pathname = useMemo(() => {
-    if (!mounted && pathnameFromRequest != null && pathnameFromRequest.startsWith("/dashboard")) {
-      return pathnameFromRequest
-    }
-    if (clientPathname.startsWith("/dashboard")) {
-      return clientPathname
-    }
-    if (pathnameFromRequest && pathnameFromRequest.startsWith("/dashboard")) {
-      return pathnameFromRequest
-    }
+    // Middleware `x-sigo-pathname` — use until hydrate so chrome matches SSR HTML.
+    const fromRequest =
+      pathnameFromRequest != null && pathnameFromRequest.startsWith("/dashboard")
+        ? pathnameFromRequest
+        : null
+    // Client router path after mount / in-app tab clicks.
+    const fromClient = clientPathname.startsWith("/dashboard") ? clientPathname : null
+    // First paint: request path only — swapping to usePathname one frame later was a chrome flash.
+    if (!mounted && fromRequest) return fromRequest
+    if (fromClient) return fromClient
+    if (fromRequest) return fromRequest
     return "/dashboard"
   }, [mounted, pathnameFromRequest, clientPathname])
 
@@ -272,6 +277,7 @@ export function DashboardShell({
                       accountHeader={accountHeader}
                       headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
                     >
+                      {onboardingGuard}
                       <DashboardMainStreamGate activePage={activePage}>
                         <DashboardMainContent activePage={activePage} routedChildren={children} />
                       </DashboardMainStreamGate>
@@ -309,6 +315,7 @@ export function DashboardShell({
                       accountHeader={accountHeader}
                       headerCenter={<DashboardHeaderWorkspace sessionBusinessName={sessionBusinessName} />}
                     >
+                      {onboardingGuard}
                       <DashboardMainStreamGate activePage={activePage}>
                         <DashboardMainContent activePage={activePage} routedChildren={children} />
                       </DashboardMainStreamGate>

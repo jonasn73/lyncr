@@ -1,8 +1,10 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
-
 export const dynamic = "force-dynamic"
 
-/** Routing UI is mounted once in {@link DashboardPresenceHost}. */
+/**
+ * Lines / Routing UI is statically imported in {@link DashboardPresenceHost}
+ * (`DashboardPage`) so hard refresh SSR’s Who rings next + line cards from paint seeds.
+ * This route is a stub — do not mount a second DashboardPage here (would duplicate Lines).
+ */
 export default function DashboardRoute() {
-  return <DashboardTabView tab="dashboard" />
+  return null
 }

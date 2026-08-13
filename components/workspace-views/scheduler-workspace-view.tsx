@@ -2,7 +2,7 @@
 
 // Owner job scheduler — month calendar, tech swimlanes, manual-call dispatch.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -170,6 +170,20 @@ function SchedulerWorkspaceViewInner({
   const crmReturnRef = useRef<{ customerId: string | null } | null>(null)
   /** Intake View job — close drawer should expand PiP / restore the sheet. */
   const intakeReturnRef = useRef(false)
+
+  // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
+  useLayoutEffect(() => {
+    const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
+    const cached = readSchedulerBootstrapCache(monthKey, orgIdForSeed)
+    if (!cached) return
+    setEvents((prev) => (prev.length > 0 ? prev : cached.events))
+    setBlockouts((prev) => (prev.length > 0 ? prev : cached.blockouts))
+    setTechnicians((prev) => (prev.length > 0 ? prev : cached.technicians))
+    setLineIndustryTags((prev) => (prev.length > 0 ? prev : cached.lineIndustryTags))
+    if (cached.ownerUserId) setOwnerUserId((prev) => prev ?? cached.ownerUserId)
+    // Seeded calendar: drop loading so stats are not a skeleton bar on hard refresh.
+    setLoading(false)
+  }, [orgIdForSeed, visibleMonth])
 
   const {
     focusLeadId,
@@ -1242,7 +1256,7 @@ function SchedulerWorkspaceViewInner({
                         }}
                         className="mx-auto"
                       />
-                      {loading ? (
+                      {loading && events.length === 0 ? (
                         <SchedulerCalendarStatsSkeleton />
                       ) : (
                         <p className="mt-1 text-center text-xs text-zinc-500">

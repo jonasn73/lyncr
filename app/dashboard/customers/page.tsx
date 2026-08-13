@@ -1,6 +1,9 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
+import { CrmWorkspaceView } from "@/components/workspace-views/crm-workspace-view"
 
-/** CRM UI is mounted once in {@link DashboardPresenceHost} — this route is a stub. */
+export const dynamic = "force-dynamic"
+
+/** Statically import CRM so a hard refresh SSR’s Customers & Leads, not CrmPaneFallback. */
 export default function CustomersRoute() {
-  return <DashboardTabView tab="customers" />
+  // Presence host injects isActive after mount so polls pause when this pane is hidden.
+  return <CrmWorkspaceView />
 }

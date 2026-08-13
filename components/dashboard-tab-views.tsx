@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * Legacy route stubs + re-exports. Tab UI is driven by {@link DashboardPresenceHost}
- * in dashboard-main-content (all views stay mounted; CSS toggles visibility).
+ * Legacy re-exports. Primary tab UI is {@link DashboardPresenceHost}.
+ * Hard-refresh SSR comes from each dashboard route page's static import, passed
+ * in as `ssrActiveSlot` — do not render a second copy from DashboardTabView.
  */
 import type { DashboardPresencePageId } from "@/components/dashboard-presence-host"
 
@@ -13,6 +14,7 @@ export {
   isDashboardPresencePage as isWorkspaceTab,
 } from "@/components/dashboard-presence-host"
 
+/** @deprecated Route pages now return the real workspace view; this stays null. */
 export function DashboardTabView(_props: { tab: DashboardPresencePageId }) {
   return null
 }

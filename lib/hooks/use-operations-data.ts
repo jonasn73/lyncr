@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
@@ -362,14 +362,17 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   hasCallsRef.current = calls.length > 0
 
   // Warm in-memory cache from session once — never write module state during render (#185).
-  useEffect(() => {
-    if (!sessionSeed) return
-    if (!operationsCache) operationsCache = sessionSeed
-    setCalls((prev) => (prev.length > 0 ? prev : sessionSeed.calls))
-    setQuality((prev) => prev ?? sessionSeed.quality)
-    setInsights((prev) => prev ?? sessionSeed.insights)
-    // Seeded rows: drop loading immediately so tab click never shows gray bars.
-    if (sessionSeed.calls.length > 0) setLoading(false)
+  // useLayoutEffect: apply seed before browser paint so hard refresh is not skeleton → rows.
+  useLayoutEffect(() => {
+    // Prefer hook seed; peek sessionStorage if this layout pass still has SSR null.
+    const next = sessionSeed ?? peekOperationsCache()
+    if (!next) return
+    if (!operationsCache) operationsCache = next
+    setCalls((prev) => (prev.length > 0 ? prev : next.calls))
+    setQuality((prev) => prev ?? next.quality)
+    setInsights((prev) => prev ?? next.insights)
+    // Seeded rows (including empty "no calls yet"): drop loading so ActivityTableSkeleton cannot mount.
+    setLoading(false)
   }, [sessionSeed])
 
   useEffect(() => {

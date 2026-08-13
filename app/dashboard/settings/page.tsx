@@ -1,6 +1,9 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
+import { SettingsWorkspaceView } from "@/components/workspace-views/settings-workspace-view"
 
-/** Settings UI lives in {@link SettingsWorkspaceView} — menu rows open modals via {@link DashboardSettingsModalsHost}. */
+export const dynamic = "force-dynamic"
+
+/** Statically import Settings so a hard refresh SSR’s the menu list, not SettingsPaneFallback. */
 export default function SettingsRoute() {
-  return <DashboardTabView tab="settings" />
+  // Session snapshot from the layout already fills name/email on first paint.
+  return <SettingsWorkspaceView />
 }

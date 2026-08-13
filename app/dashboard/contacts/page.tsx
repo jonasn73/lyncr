@@ -1,5 +1,9 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
+import { MapWorkspaceView } from "@/components/workspace-views/map-workspace-view"
 
+export const dynamic = "force-dynamic"
+
+/** Statically import Map chrome so reload paints Dispatch Map header + height; Leaflet fills in after. */
 export default function ContactsRoute() {
-  return <DashboardTabView tab="contacts" />
+  // Leaflet stays ssr:false inside MapTab — only this shell is in the first HTML.
+  return <MapWorkspaceView />
 }

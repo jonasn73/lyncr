@@ -10,6 +10,7 @@ export const DashboardPageView = memo(function DashboardPageView({
 }: {
   children: ReactNode
   pathname?: string
+  /** Tab-click only — never true on hard refresh (opacity-0 placeholder looked like a flash). */
   animateEnter?: boolean
 }) {
   return (

@@ -1,6 +1,9 @@
-import { DashboardTabView } from "@/components/dashboard-tab-views"
+import { SchedulerWorkspaceView } from "@/components/workspace-views/scheduler-workspace-view"
 
-/** Scheduler UI is mounted once in {@link DashboardPresenceHost}. */
+export const dynamic = "force-dynamic"
+
+/** Statically import Scheduler so a hard refresh SSR’s calendar chrome, not SchedulerPaneFallback. */
 export default function SchedulerRoute() {
-  return <DashboardTabView tab="scheduler" />
+  // Session bootstrap cache is re-applied in useLayoutEffect before the first client paint.
+  return <SchedulerWorkspaceView />
 }

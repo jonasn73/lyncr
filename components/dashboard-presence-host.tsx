@@ -1,7 +1,18 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { Suspense, memo, useEffect, useLayoutEffect, useState, type ReactNode } from "react"
+import {
+  Suspense,
+  cloneElement,
+  isValidElement,
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react"
 import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
@@ -15,9 +26,14 @@ import {
   SettingsPaneFallback,
 } from "@/components/workspace-pane-fallbacks"
 import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
+import {
+  initialPresencePaneMounted,
+  shouldUseSsrActiveSlot,
+} from "@/lib/dashboard-presence-ssr"
 
-// Heavy workspace panes — code-split so Lines first paint does not parse CRM/Activity/etc.
-const ActivityWorkspaceView = dynamic(
+// Inactive tabs only — code-split + skip SSR so Lines/Activity first paint stays small.
+// The *active* hard-refresh URL is statically imported in that route's page.tsx.
+const ActivityWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
       default: m.ActivityWorkspaceView,
@@ -25,7 +41,7 @@ const ActivityWorkspaceView = dynamic(
   { ssr: false, loading: () => <ActivityPaneFallback /> }
 )
 
-const MessagesWorkspaceView = dynamic(
+const MessagesWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/messages-workspace-view").then((m) => ({
       default: m.MessagesWorkspaceView,
@@ -33,7 +49,7 @@ const MessagesWorkspaceView = dynamic(
   { ssr: false, loading: () => <MessagesPaneFallback /> }
 )
 
-const SchedulerWorkspaceView = dynamic(
+const SchedulerWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/scheduler-workspace-view").then((m) => ({
       default: m.SchedulerWorkspaceView,
@@ -41,7 +57,7 @@ const SchedulerWorkspaceView = dynamic(
   { ssr: false, loading: () => <SchedulerPaneFallback /> }
 )
 
-const CrmWorkspaceView = dynamic(
+const CrmWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
       default: m.CrmWorkspaceView,
@@ -49,7 +65,7 @@ const CrmWorkspaceView = dynamic(
   { ssr: false, loading: () => <CrmPaneFallback /> }
 )
 
-const MapWorkspaceView = dynamic(
+const MapWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
       default: m.MapWorkspaceView,
@@ -57,7 +73,7 @@ const MapWorkspaceView = dynamic(
   { ssr: false, loading: () => <MapPaneFallback /> }
 )
 
-const PayWorkspaceView = dynamic(
+const PayWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/pay-workspace-view").then((m) => ({
       default: m.PayWorkspaceView,
@@ -65,7 +81,7 @@ const PayWorkspaceView = dynamic(
   { ssr: false, loading: () => <PayPaneFallback /> }
 )
 
-const SettingsWorkspaceView = dynamic(
+const SettingsWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/settings-workspace-view").then((m) => ({
       default: m.SettingsWorkspaceView,
@@ -103,7 +119,8 @@ const PresencePane = memo(function PresencePane({
   /** Skip mounting heavy panes until the user opens the tab once. */
   deferUntilVisit?: boolean
 }) {
-  const [mounted, setMounted] = useState(!deferUntilVisit || active)
+  // Active tab starts mounted so hard refresh SSR HTML is not `null` then a flash.
+  const [mounted, setMounted] = useState(() => initialPresencePaneMounted(deferUntilVisit, active))
 
   useLayoutEffect(() => {
     if (active) setMounted(true)
@@ -122,12 +139,29 @@ function RoutingPane() {
   return <DashboardPage />
 }
 
+/** Pass live `isActive` into the statically imported page slot without remounting it. */
+function renderSsrActivePane(slot: ReactNode, isActive: boolean): ReactNode {
+  // page.tsx returns a single workspace view element — clone so polls pause off-tab.
+  if (isValidElement(slot)) {
+    return cloneElement(slot as ReactElement<{ isActive?: boolean }>, { isActive })
+  }
+  return slot
+}
+
 /** All primary dashboard views stay mounted; inactive panes use `hidden` so they never paint. */
 export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   activePage,
+  ssrActiveSlot = null,
 }: {
   activePage: DashboardPresencePageId
+  /** Statically imported view from the matching dashboard route page (hard-refresh SSR). */
+  ssrActiveSlot?: ReactNode
 }) {
+  // Freeze which URL was SSR’d — client tab clicks must not swap this slot into another pane.
+  const [ssrPage] = useState(activePage)
+  // Freeze the page element descriptor so navigation does not replace Activity with CRM children.
+  const ssrSlotRef = useRef(ssrActiveSlot)
+
   useEffect(() => {
     if (activePage === "scheduler") return
     clearMainScrollLock()
@@ -158,45 +192,74 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
 
   return (
     <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
-      {/* Lines defer when refreshing on another tab — intake lives in shell (LyncEngine), not here. */}
+      {/* Lines is statically imported here — intake lives in shell (LyncEngine), not this pane. */}
       <PresencePane active={activePage === "dashboard"} label="Routing" deferUntilVisit>
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
-        {/* null fallback: useSearchParams must not replace a painted Activity pane with skeleton chrome. */}
-        <Suspense fallback={null}>
-          <ActivityWorkspaceView isActive={activePage === "activity"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "activity") ? (
+          // Hard refresh of /dashboard/activity — real ActivityWorkspaceView from page.tsx (SSR).
+          renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
+        ) : (
+          // Visited later — code-split chunk; null Suspense so useSearchParams cannot wipe chrome.
+          <Suspense fallback={null}>
+            <ActivityWorkspaceViewLazy isActive={activePage === "activity"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
-        <Suspense fallback={null}>
-          <MessagesWorkspaceView isActive={activePage === "messages"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
+        ) : (
+          <Suspense fallback={null}>
+            <MessagesWorkspaceViewLazy isActive={activePage === "messages"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
-        <Suspense fallback={null}>
-          <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
+        ) : (
+          <Suspense fallback={null}>
+            <SchedulerWorkspaceViewLazy isActive={activePage === "scheduler"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>
-        <Suspense fallback={null}>
-          <CrmWorkspaceView isActive={activePage === "customers"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
+        ) : (
+          <Suspense fallback={null}>
+            <CrmWorkspaceViewLazy isActive={activePage === "customers"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
-        <Suspense fallback={null}>
-          <MapWorkspaceView isActive={activePage === "contacts"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "contacts") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
+        ) : (
+          <Suspense fallback={null}>
+            <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
-        <Suspense fallback={null}>
-          <PayWorkspaceView isActive={activePage === "pay"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
+        ) : (
+          <Suspense fallback={null}>
+            <PayWorkspaceViewLazy isActive={activePage === "pay"} />
+          </Suspense>
+        )}
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
-        <Suspense fallback={null}>
-          <SettingsWorkspaceView isActive={activePage === "settings"} />
-        </Suspense>
+        {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
+          renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
+        ) : (
+          <Suspense fallback={null}>
+            <SettingsWorkspaceViewLazy isActive={activePage === "settings"} />
+          </Suspense>
+        )}
       </PresencePane>
     </div>
   )

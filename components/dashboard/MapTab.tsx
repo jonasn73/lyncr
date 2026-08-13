@@ -31,14 +31,21 @@ import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
 import { cn } from "@/lib/utils"
 
-// Load Leaflet only in the browser (needs window / DOM).
+// Load Leaflet only in the browser (needs window / DOM). MapTab chrome SSRs around this.
 const DispatchLiveMap = dynamic(
   () =>
     import("@/components/workspace-views/dispatch-live-map").then((m) => ({
       default: m.DispatchLiveMap,
     })),
-  // Same zinc well as MapTab — never flash a smaller dark card while Leaflet loads.
-  { ssr: false, loading: () => <div className="h-full min-h-[18rem] w-full bg-background" /> }
+  {
+    ssr: false,
+    // Same well as MapTab — tiles fade in; never a flat zinc-950 rectangle.
+    loading: () => (
+      <div className="relative h-full min-h-[18rem] w-full bg-background">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]" />
+      </div>
+    ),
+  }
 )
 
 // Which list is open in the drawer / bottom sheet.

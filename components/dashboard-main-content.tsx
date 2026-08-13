@@ -31,8 +31,10 @@ export const DashboardMainContent = memo(function DashboardMainContent({
 
   if (isDashboardPresencePage(activePage)) {
     return (
+      // No enter animation on primary tabs — that opacity-0 → 1 read as a refresh flash.
       <DashboardPageView>
-        <DashboardPresenceHost activePage={activePage} />
+        {/* ssrActiveSlot is the statically imported page.tsx view for this URL. */}
+        <DashboardPresenceHost activePage={activePage} ssrActiveSlot={routedChildren} />
       </DashboardPageView>
     )
   }
