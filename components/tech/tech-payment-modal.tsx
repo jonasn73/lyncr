@@ -11,13 +11,13 @@ import {
   CreditCard,
   Link2,
   Loader2,
-  Mail,
   MessageSquare,
   Nfc,
   Plus,
   Trash2,
   X,
 } from "lucide-react"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
@@ -110,6 +110,11 @@ function centsToAmountInput(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
+/** True when the string has enough digits for a US SMS (10+). */
+function hasUsableSmsPhone(phone: string): boolean {
+  return phone.replace(/\D/g, "").length >= 10
+}
+
 let stripePromiseCache = new Map<string, Promise<Stripe | null>>()
 function getStripePromise(publishableKey: string, stripeAccount?: string | null) {
   const acct = (stripeAccount || "").trim()
@@ -149,12 +154,15 @@ export function TechPaymentModal(props: {
   const [publishableKey, setPublishableKey] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [stripeConnectAccountId, setStripeConnectAccountId] = useState<string | null>(null)
-  // Contact for “Text / email pay link”.
+  // Contact for “Text pay link” (SMS only).
   const [linkName, setLinkName] = useState(() => props.job.customer_name?.trim() || "")
   const [linkPhone, setLinkPhone] = useState(() => props.job.customer_phone?.trim() || "")
-  const [linkEmail, setLinkEmail] = useState("")
+  /** When false + known job phone: show “We’ll text …” instead of a blank input. */
+  const [linkPhoneEditing, setLinkPhoneEditing] = useState(
+    () => !hasUsableSmsPhone(props.job.customer_phone?.trim() || "")
+  )
   const [linkSentUrl, setLinkSentUrl] = useState<string | null>(null)
-  /** True only when SMS/email actually delivered (not just Checkout URL created). */
+  /** True only when SMS actually delivered (not just Checkout URL created). */
   const [linkDelivered, setLinkDelivered] = useState(false)
   // Tip LAST (before charge) + optional signature after pay (same as owner Collect).
   const [postPayStep, setPostPayStep] = useState<PostPayStep | null>(null)
@@ -445,7 +453,7 @@ export function TechPaymentModal(props: {
   /**
    * Amount screen → pick how to pay.
    * Card → key-in first (no charge). Tap / Cash → tip LAST, then one charge.
-   * Pay link → text/email popup only (NO owner tip).
+   * Pay link → SMS popup only (NO owner tip).
    */
   function enterTipStepWithMethod(next: PayMethod) {
     if (!requireChargeAmount()) return
@@ -467,8 +475,11 @@ export function TechPaymentModal(props: {
       void startCardEntry()
       return
     }
-    // Remote pay link: skip tip screen — open Text / Email popup on the amount step.
+    // Remote pay link: skip tip screen — open Text popup on the amount step.
     if (next === "link") {
+      const known = linkPhone.trim() || props.job.customer_phone?.trim() || ""
+      if (known && !linkPhone.trim()) setLinkPhone(known)
+      setLinkPhoneEditing(!hasUsableSmsPhone(known || linkPhone))
       setLinkSentUrl(null)
       setLinkDelivered(false)
       setPostPayStep(null)
@@ -975,13 +986,18 @@ export function TechPaymentModal(props: {
     }
   }
 
-  /** Create Stripe Checkout URL and text or email it to the customer. */
-  async function sendPayLink(channel: "sms" | "email") {
+  /** Create Stripe Checkout URL and text it to the customer (SMS only). */
+  async function sendPayLink() {
     setError(null)
     setLinkSentUrl(null)
     setLinkDelivered(false)
     if (totalCents < 50) {
       setError("Enter an amount of at least $0.50.")
+      return
+    }
+    if (!hasUsableSmsPhone(linkPhone)) {
+      setError("Enter the customer’s mobile number to text the link.")
+      setLinkPhoneEditing(true)
       return
     }
     // Warn when another unpaid link is still Waiting — offer replace.
@@ -1005,15 +1021,14 @@ export function TechPaymentModal(props: {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          channel,
+          channel: "sms",
           jobId: props.job.id,
           // API expects pre-tax dollars; tax is re-applied server-side (unless tip baked in).
           amount: linkAmountDollars,
           taxEnabled: linkTaxEnabled,
           taxRatePercent: linkTaxEnabled ? parseFloat(taxRatePercent) || 0 : 0,
           customerName: linkName.trim() || undefined,
-          phone: channel === "sms" ? linkPhone.trim() : undefined,
-          email: channel === "email" ? linkEmail.trim() : undefined,
+          phone: linkPhone.trim(),
           cancelWaitingLinks: waitingLinks.length > 0,
           lineItems: linkLineItems,
           note: linkLineItems
@@ -1031,15 +1046,13 @@ export function TechPaymentModal(props: {
       if (!res.ok || json.data?.sent === false) {
         throw new Error(
           json.error ||
-            (channel === "sms"
-              ? "Pay link created, but the text could not be delivered. Copy the link below."
-              : "Pay link created, but email could not be sent. Copy the link below.")
+            "Pay link created, but the text could not be delivered. Copy the link below."
         )
       }
       setLinkDelivered(true)
       void refreshSentLinks({ sync: false })
     } catch (e) {
-      setError(formatPaymentCatchError(e, "Could not send pay link — try again."))
+      setError(formatPaymentCatchError(e, "Could not text pay link — try again."))
     } finally {
       setBusy(false)
     }
@@ -1721,7 +1734,7 @@ export function TechPaymentModal(props: {
                     dimmed={totalCents < 50}
                     onClick={() => enterTipStepWithMethod("link")}
                     title="Pay link"
-                    subtitle="Text / email"
+                    subtitle="Text SMS"
                     icon={<Link2 className="h-4 w-4" />}
                   />
                   <PayOptionButton
@@ -1743,17 +1756,16 @@ export function TechPaymentModal(props: {
         )}
       </div>
 
-      {/* Pay link contact popup — overlays amount screen (no tip step). */}
+      {/* Pay link contact popup — overlays amount screen (SMS only, no tip). */}
       {activePopup === "link" ? (
-        <NestedPayPopup title="Text / email pay link" onClose={closePayPopup}>
+        <NestedPayPopup title="Text pay link" onClose={closePayPopup}>
           <p className="text-xs text-emerald-100/90">
-            Texts a short lyncr.app link for {fmt(totalCents)}. Customer pays on a branded page —
-            when they finish, the job is marked collected.
+            They open the link and pay {fmt(totalCents)}
           </p>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <label className="block">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              Customer name
+              Name (optional)
             </span>
             <input
               value={linkName}
@@ -1763,61 +1775,52 @@ export function TechPaymentModal(props: {
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
             />
           </label>
-          <label className="block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              Mobile for text
-            </span>
-            <input
-              value={linkPhone}
-              onChange={(e) => setLinkPhone(e.target.value)}
-              disabled={busy}
-              inputMode="tel"
-              placeholder="+15551234567"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-            />
-          </label>
-          <label className="block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              Email
-            </span>
-            <input
-              value={linkEmail}
-              onChange={(e) => setLinkEmail(e.target.value)}
-              disabled={busy}
-              inputMode="email"
-              autoCapitalize="none"
-              placeholder="customer@email.com"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
-            />
-          </label>
-          <div className="grid gap-2">
-            <button
-              type="button"
-              disabled={busy || !linkPhone.trim()}
-              onClick={() => void sendPayLink("sms")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <MessageSquare className="h-4 w-4" aria-hidden />
-              )}
-              Text pay link
-            </button>
-            <button
-              type="button"
-              disabled={busy || !linkEmail.trim()}
-              onClick={() => void sendPayLink("email")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
-            >
-              <Mail className="h-4 w-4" aria-hidden />
-              Email pay link
-            </button>
-          </div>
+          {!linkPhoneEditing && hasUsableSmsPhone(linkPhone) ? (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5">
+              <p className="text-sm font-semibold text-white">
+                We&apos;ll text {formatPhoneDisplay(linkPhone) || linkPhone.trim()}
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setLinkPhoneEditing(true)}
+                className="mt-1 text-[11px] font-semibold text-sky-300 underline disabled:opacity-50"
+              >
+                Wrong number?
+              </button>
+            </div>
+          ) : (
+            <label className="block">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Customer&apos;s mobile number
+              </span>
+              <input
+                value={linkPhone}
+                onChange={(e) => setLinkPhone(e.target.value)}
+                disabled={busy}
+                inputMode="tel"
+                placeholder="(502) 555-1234"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-60"
+              />
+            </label>
+          )}
+          <button
+            type="button"
+            disabled={busy || !hasUsableSmsPhone(linkPhone)}
+            onClick={() => void sendPayLink()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <MessageSquare className="h-4 w-4" aria-hidden />
+            )}
+            Text link
+          </button>
           {linkSentUrl ? (
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
               <p className="text-sm font-semibold text-emerald-200">
-                {linkDelivered ? "Link sent" : "Pay link ready (not delivered)"}
+                {linkDelivered ? "Link texted" : "Link ready (text didn’t go through)"}
               </p>
               <p className="mt-1 break-all text-[11px] text-emerald-100/80">{linkSentUrl}</p>
               <button

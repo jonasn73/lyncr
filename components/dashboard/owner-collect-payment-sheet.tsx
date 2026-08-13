@@ -19,7 +19,6 @@ import {
   Plus,
   ArrowLeft,
   Nfc,
-  Mail,
   Link2,
   MessageSquare,
   Search,
@@ -75,7 +74,12 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { openGetPaidModal } from "@/lib/settings-modals-events"
 
-/** list → pick job; adhoc → amount; card_entry → key-in; tip_sign → tip then charge (card/tap); send_link → text/email only (no tip); sign/receipt after pay. */
+/** True when the string has enough digits for a US SMS (10+). */
+function hasUsableSmsPhone(phone: string): boolean {
+  return phone.replace(/\D/g, "").length >= 10
+}
+
+/** list → pick job; adhoc → amount; card_entry → key-in; tip_sign → tip then charge (card/tap); send_link → SMS only (no tip); sign/receipt after pay. */
 type CollectMode =
   | "list"
   | "adhoc"
@@ -506,7 +510,7 @@ export function OwnerCollectPaymentSheet({
   const [connectReady, setConnectReady] = useState<boolean | null>(null)
   const [connectMessage, setConnectMessage] = useState<string | null>(null)
   // list → jobs; adhoc → amount + method; card_entry → key card (no charge);
-  // tip_sign → tip LAST then ONE charge (card/tap); send_link → text/email only; sign → optional pad; receipt
+  // tip_sign → tip LAST then ONE charge (card/tap); send_link → SMS only; sign → optional pad; receipt
   const [mode, setMode] = useState<CollectMode>("list")
   /** How they chose to pay on the amount step (tip comes after). */
   const [pendingMethod, setPendingMethod] = useState<PendingChargeMethod | null>(null)
@@ -558,10 +562,11 @@ export function OwnerCollectPaymentSheet({
   const [receiptPhone, setReceiptPhone] = useState("")
   const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("email")
   const [receiptBusy, setReceiptBusy] = useState(false)
-  // Pre-pay: text/email a Stripe Checkout link (walk-up).
+  // Pre-pay: text a Stripe Checkout link (walk-up / CRM).
   const [payLinkName, setPayLinkName] = useState("")
-  const [payLinkEmail, setPayLinkEmail] = useState("")
   const [payLinkPhone, setPayLinkPhone] = useState("")
+  /** When false + known phone: show “We’ll text …” instead of a blank input. */
+  const [payLinkPhoneEditing, setPayLinkPhoneEditing] = useState(true)
   const [payLinkUrl, setPayLinkUrl] = useState<string | null>(null)
 
   const resetAdhoc = useCallback(() => {
@@ -593,8 +598,8 @@ export function OwnerCollectPaymentSheet({
     setReceiptPhone("")
     setReceiptChannel("email")
     setPayLinkName("")
-    setPayLinkEmail("")
     setPayLinkPhone("")
+    setPayLinkPhoneEditing(true)
     setPayLinkUrl(null)
     setReceiptBusy(false)
     setHistorySearch("")
@@ -745,8 +750,16 @@ export function OwnerCollectPaymentSheet({
       void startCardEntry()
       return
     }
-    // Remote pay link: skip tip chips — go straight to Text / Email.
+    // Remote pay link: skip tip chips — SMS-only send step (no tip).
     if (method === "link") {
+      // Prefer CRM / caller phone already on the sheet so the owner rarely re-types it.
+      const known =
+        payLinkPhone.trim() ||
+        receiptPhone.trim() ||
+        (prefill?.customerPhone ?? "").trim() ||
+        ""
+      if (known && !payLinkPhone.trim()) setPayLinkPhone(known)
+      setPayLinkPhoneEditing(!hasUsableSmsPhone(known || payLinkPhone))
       setMode("send_link")
       return
     }
@@ -1415,8 +1428,8 @@ export function OwnerCollectPaymentSheet({
     }
   }
 
-  /** Text or email a Stripe Checkout link for service + tax only (no owner tip). */
-  async function sendAdhocPayLink(channel: "sms" | "email") {
+  /** Text a Stripe Checkout link for service + tax only (no owner tip). */
+  async function sendAdhocPayLink() {
     // Link amount = service (+ tax) only — tip is not chosen by the owner on send.
     const chargeCents =
       paidTotalCents > 0 ? paidTotalCents : adhocBreakdown.totalCents
@@ -1428,6 +1441,15 @@ export function OwnerCollectPaymentSheet({
       })
       return
     }
+    if (!hasUsableSmsPhone(payLinkPhone)) {
+      toast({
+        title: "Enter a mobile number",
+        description: "Need a valid phone to text the pay link.",
+        variant: "destructive",
+      })
+      setPayLinkPhoneEditing(true)
+      return
+    }
     setAdhocBusy(true)
     setPayLinkUrl(null)
     try {
@@ -1436,7 +1458,7 @@ export function OwnerCollectPaymentSheet({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          channel,
+          channel: "sms",
           adhoc: true,
           // Total already includes tax — do not re-apply tax. No tip baked in.
           amount: chargeCents / 100,
@@ -1444,8 +1466,7 @@ export function OwnerCollectPaymentSheet({
           taxRatePercent: 0,
           note: adhocNote.trim() || "Service",
           customerName: payLinkName.trim() || undefined,
-          phone: channel === "sms" ? payLinkPhone.trim() : undefined,
-          email: channel === "email" ? payLinkEmail.trim() : undefined,
+          phone: payLinkPhone.trim(),
         }),
       })
       const json = (await res.json()) as {
@@ -1456,13 +1477,11 @@ export function OwnerCollectPaymentSheet({
       if (!res.ok || json.data?.sent === false) {
         throw new Error(
           json.error ||
-            (channel === "sms"
-              ? "Pay link created, but the text could not be delivered. Copy the link below."
-              : "Pay link created, but email could not be sent. Copy the link below.")
+            "Pay link created, but the text could not be delivered. Copy the link below."
         )
       }
       toast({
-        title: channel === "sms" ? "Pay link texted" : "Pay link emailed",
+        title: "Pay link texted",
         description: json.data?.chargeCents
           ? `Customer can pay ${fmtCents(json.data.chargeCents)}.`
           : "Link sent.",
@@ -1575,7 +1594,7 @@ export function OwnerCollectPaymentSheet({
                     {mode === "tip_sign"
                       ? tipSignSheetTitle(false)
                       : mode === "send_link"
-                        ? "Send pay link"
+                        ? "Text pay link"
                         : mode === "card_entry"
                           ? "Key in card"
                           : mode === "sign"
@@ -1592,7 +1611,7 @@ export function OwnerCollectPaymentSheet({
                     {mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
                       : mode === "send_link"
-                        ? `Customer pays ${fmtCents(paidTotalCents)} on the link — no tip step here.`
+                        ? `They open the link and pay ${fmtCents(paidTotalCents)}`
                         : mode === "card_entry"
                           ? "Enter card + ZIP. Nothing charged until tip is done."
                           : mode === "sign"
@@ -2044,7 +2063,7 @@ export function OwnerCollectPaymentSheet({
                 )}
               </div>
             ) : mode === "send_link" ? (
-              // Pay link only: amount already set — enter phone/email and send (no tip chips).
+              // Pay link only: amount already set — text SMS (no tip chips, no email).
               <div className="flex flex-col gap-2.5">
                 <button
                   type="button"
@@ -2061,8 +2080,10 @@ export function OwnerCollectPaymentSheet({
 
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-emerald-100">Amount on link</p>
-                    <p className="text-[10px] text-emerald-200/70">Service + tax · customer pays remotely</p>
+                    <p className="text-sm font-semibold text-emerald-100">
+                      They open the link and pay {fmtCents(paidTotalCents)}
+                    </p>
+                    <p className="text-[10px] text-emerald-200/70">No tip on this step</p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-emerald-300">
                     {fmtCents(paidTotalCents)}
@@ -2070,54 +2091,55 @@ export function OwnerCollectPaymentSheet({
                 </div>
 
                 <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Send pay link for {fmtCents(paidTotalCents)}
-                  </p>
                   <input
                     type="text"
                     value={payLinkName}
                     onChange={(e) => setPayLinkName(e.target.value)}
-                    placeholder="Customer name (optional)"
+                    placeholder="Name (optional)"
                     className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
                   />
-                  <input
-                    type="tel"
-                    value={payLinkPhone}
-                    onChange={(e) => setPayLinkPhone(e.target.value)}
-                    placeholder="Mobile for text"
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                  />
-                  <input
-                    type="email"
-                    value={payLinkEmail}
-                    onChange={(e) => setPayLinkEmail(e.target.value)}
-                    placeholder="Email"
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
-                  />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      disabled={adhocBusy || !payLinkPhone.trim()}
-                      onClick={() => void sendAdhocPayLink("sms")}
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
-                    >
-                      {adhocBusy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                      ) : (
-                        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-                      )}
-                      Text
-                    </button>
-                    <button
-                      type="button"
-                      disabled={adhocBusy || !payLinkEmail.trim()}
-                      onClick={() => void sendAdhocPayLink("email")}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-900 py-2.5 text-xs font-semibold text-slate-100 disabled:opacity-50"
-                    >
-                      <Mail className="h-3.5 w-3.5" aria-hidden />
-                      Email
-                    </button>
-                  </div>
+                  {!payLinkPhoneEditing && hasUsableSmsPhone(payLinkPhone) ? (
+                    <div className="rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-2">
+                      <p className="text-sm font-semibold text-white">
+                        We&apos;ll text{" "}
+                        {formatPhoneDisplay(payLinkPhone) || payLinkPhone.trim()}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setPayLinkPhoneEditing(true)}
+                        className="mt-1 text-[11px] font-semibold text-sky-300 underline"
+                      >
+                        Wrong number?
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Customer&apos;s mobile number
+                      </span>
+                      <input
+                        type="tel"
+                        value={payLinkPhone}
+                        onChange={(e) => setPayLinkPhone(e.target.value)}
+                        inputMode="tel"
+                        placeholder="(502) 555-1234"
+                        className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-white outline-none"
+                      />
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    disabled={adhocBusy || !hasUsableSmsPhone(payLinkPhone)}
+                    onClick={() => void sendAdhocPayLink()}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {adhocBusy ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                    )}
+                    Text link
+                  </button>
                   {payLinkUrl ? (
                     <p className="break-all text-[10px] text-emerald-300/90">{payLinkUrl}</p>
                   ) : null}
@@ -2471,7 +2493,7 @@ export function OwnerCollectPaymentSheet({
                         <Link2 className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Pay link</span>
-                      <span className="text-[10px] text-zinc-500">Text / email</span>
+                      <span className="text-[10px] text-zinc-500">Text SMS</span>
                     </button>
                   </div>
                   <p className="mt-1.5 text-center text-[10px] text-zinc-500">
