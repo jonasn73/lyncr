@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Loader2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -60,13 +60,62 @@ function minutesFromSeconds(seconds: number): number {
   return Math.round((seconds / 60) * 10) / 10
 }
 
+/** Stripe return URL — isolated so useSearchParams cannot remount the Pay pane. */
+function PayCreditCheckoutBridge({
+  refreshBilling,
+}: {
+  refreshBilling: () => Promise<void>
+}) {
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const checkout = searchParams.get("credit_checkout")
+    const sessionId = searchParams.get("session_id")
+    if (checkout !== "success" || !sessionId) return
+
+    void (async () => {
+      try {
+        const result = await confirmCreditPackCheckout(sessionId)
+        toast({
+          title: "Carrier credit added",
+          description: `New balance: ${formatUsdFromCents(result.balance_after_cents)}.`,
+        })
+        if (result.provisioned) {
+          toast({
+            title: "Line activated",
+            description: "Your business number is now live on the Lyncr core network.",
+          })
+          window.dispatchEvent(new CustomEvent("zing-business-numbers-changed"))
+        } else if (result.provision_error) {
+          const needsPicker = /no longer available|pick a different/i.test(result.provision_error)
+          toast({
+            variant: needsPicker ? "default" : "destructive",
+            title: needsPicker ? "Pick a replacement number" : "Line not live yet",
+            description: result.provision_error,
+          })
+        }
+        await refreshBilling()
+      } catch (e) {
+        toast({
+          variant: "destructive",
+          title: "Credit sync failed",
+          description: e instanceof Error ? e.message : "Could not apply credit purchase",
+        })
+      }
+      window.history.replaceState({}, "", "/dashboard/pay")
+    })()
+  }, [searchParams, refreshBilling, toast])
+
+  return null
+}
+
 export const PayWorkspaceView = memo(function PayWorkspaceView({
   isActive = true,
 }: {
   isActive?: boolean
 }) {
   const { toast } = useToast()
-  const searchParams = useSearchParams()
   const paint = useDashboardPaintSeeds()
   const billingPaint = paint.billing
   // Last-known wallet / ledger before fetch — avoids $0.00 flash on Pay tab.
@@ -131,44 +180,6 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       cancelled = true
     }
   }, [isActive])
-
-  useEffect(() => {
-    const checkout = searchParams.get("credit_checkout")
-    const sessionId = searchParams.get("session_id")
-    if (checkout !== "success" || !sessionId) return
-
-    void (async () => {
-      try {
-        const result = await confirmCreditPackCheckout(sessionId)
-        toast({
-          title: "Carrier credit added",
-          description: `New balance: ${formatUsdFromCents(result.balance_after_cents)}.`,
-        })
-        if (result.provisioned) {
-          toast({
-            title: "Line activated",
-            description: "Your business number is now live on the Lyncr core network.",
-          })
-          window.dispatchEvent(new CustomEvent("zing-business-numbers-changed"))
-        } else if (result.provision_error) {
-          const needsPicker = /no longer available|pick a different/i.test(result.provision_error)
-          toast({
-            variant: needsPicker ? "default" : "destructive",
-            title: needsPicker ? "Pick a replacement number" : "Line not live yet",
-            description: result.provision_error,
-          })
-        }
-        await refreshBilling()
-      } catch (e) {
-        toast({
-          variant: "destructive",
-          title: "Credit sync failed",
-          description: e instanceof Error ? e.message : "Could not apply credit purchase",
-        })
-      }
-      window.history.replaceState({}, "", "/dashboard/pay")
-    })()
-  }, [searchParams, refreshBilling, toast])
 
   const balanceLabel = billing?.credit_balance_label ?? "—"
   const subscriptionActive = billing?.subscription_active === true
@@ -257,6 +268,10 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
 
   return (
     <WorkspacePage className="min-h-[32rem]">
+      {/* Isolated Suspense: checkout query must not unmount painted Pay chrome. */}
+      <Suspense fallback={null}>
+        <PayCreditCheckoutBridge refreshBilling={refreshBilling} />
+      </Suspense>
       <WorkspacePageHeader eyebrow="Billing" title="Pay" />
 
       {loadError ? (

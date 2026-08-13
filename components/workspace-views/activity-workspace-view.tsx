@@ -1,8 +1,8 @@
 "use client"
 
-import { Fragment, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import {
   CalendarDays,
   ChevronDown,
@@ -58,7 +58,11 @@ import {
 import {
   ActivityTableSkeleton,
 } from "@/components/workspace-content-skeletons"
-import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
+import {
+  ClientSearchParamsBridge,
+  readWindowSearchQuery,
+  searchQueryToParams,
+} from "@/components/client-search-params-bridge"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
@@ -66,7 +70,11 @@ import {
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
-import { useOperationsData, type UiCallRecord } from "@/lib/hooks/use-operations-data"
+import {
+  shouldShowOperationsSkeleton,
+  useOperationsData,
+  type UiCallRecord,
+} from "@/lib/hooks/use-operations-data"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import {
   filterActivityCallGroups,
@@ -1323,7 +1331,8 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
   }
 
   return (
-    <WorkspacePanel className="min-h-[380px]">
+    // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
+    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
       <div className="md:hidden">
         <ActivityCallsMobileList rows={rows} lineLabelMap={lineLabelMap} />
       </div>
@@ -1646,7 +1655,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {loading && calls.length === 0 ? (
+      {shouldShowOperationsSkeleton(loading, calls.length) ? (
         <ActivityTableSkeleton />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
@@ -1673,8 +1682,11 @@ function useLineLabelMap(): Map<string, string> {
 const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   // Presence host keeps this pane mounted — only poll while the tab is visible.
   isActive = true,
+  urlQuery,
 }: {
   isActive?: boolean
+  // Live URL query from ClientSearchParamsBridge (does not suspend this pane).
+  urlQuery: string
 }) {
   // Pause Activity polls when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
@@ -1684,7 +1696,8 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
-  const searchParams = useSearchParams()
+  // Parse ?filter= without useSearchParams() so tab clicks cannot remount this tree.
+  const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const router = useRouter()
   const [filter, setFilter] = useState<ActivityCallFilter>(() => {
     const param = searchParams.get("filter")
@@ -1742,15 +1755,19 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   )
 })
 
-/** Outer wrapper: useSearchParams suspends — keep Activities chrome instead of a dark box. */
+/** Outer wrapper: URL bridge is isolated — Inner stays mounted across tab clicks. */
 export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
   isActive = true,
 }: {
   isActive?: boolean
 }) {
+  // Seed from window so the first client paint has ?filter= before the bridge hydrates.
+  const [urlQuery, setUrlQuery] = useState(readWindowSearchQuery)
+  const onQuery = useCallback((q: string) => setUrlQuery(q), [])
   return (
-    <Suspense fallback={<ActivityPaneFallback />}>
-      <ActivityWorkspaceViewInner isActive={isActive} />
-    </Suspense>
+    <>
+      <ClientSearchParamsBridge onQuery={onQuery} />
+      <ActivityWorkspaceViewInner isActive={isActive} urlQuery={urlQuery} />
+    </>
   )
 })

@@ -141,6 +141,134 @@ export function softInvalidateOperationsDataCache() {
   operationsCache = { ...operationsCache, fetchedAt: 0 }
 }
 
+/** True only when we are loading AND have zero rows — never wipe a painted table. */
+export function shouldShowOperationsSkeleton(loading: boolean, callCount: number): boolean {
+  // Tab click / refetch must keep existing call rows on screen.
+  return loading && callCount === 0
+}
+
+/** First-paint loading: skeleton only when memory + session seed are both missing. */
+export function initialOperationsLoading(
+  seed: { calls?: unknown[] } | null | undefined
+): boolean {
+  // Any seed object means we already have a paint (including empty "no calls yet").
+  return seed == null
+}
+
+/** In-memory cache, else last sessionStorage snapshot (client only). */
+export function peekOperationsCache(): OperationsCache | null {
+  // Prefer the live tab cache so a hidden Activity pane stays warm.
+  if (operationsCache) return operationsCache
+  // Hard-refresh seed — never read sessionStorage during SSR.
+  return readSessionOperationsCache()
+}
+
+/** Shared fetch used by the hook and dashboard prefetch (Lines tab warms Activity). */
+let prefetchInflight: Promise<void> | null = null
+
+async function fetchOperationsSnapshot(bypassCache: boolean): Promise<OperationsCache | null> {
+  const cached = operationsCache
+  // Fresh in-memory rows: skip the network and keep the same object.
+  if (!bypassCache && cached && cacheIsFresh(cached)) return cached
+
+  const [callsRes, qualityRes] = await Promise.all([
+    fetch("/api/calls?limit=100", { credentials: "include" }),
+    fetch("/api/voice/quality?days=7", { credentials: "include" }),
+  ])
+
+  if (callsRes.status === 401) {
+    throw new Error("Session expired — sign out and sign in again to see call stats.")
+  }
+  if (!callsRes.ok) throw new Error("Failed to load calls")
+  const callsData = await callsRes.json()
+  const normalizedCalls: UiCallRecord[] = Array.isArray(callsData.calls)
+    ? callsData.calls.map((c: Record<string, unknown>) => {
+      const createdAtRaw = String(c.created_at || "")
+      const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date()
+      const statusRaw = String(c.status || "").toLowerCase()
+      // Keep empty when unknown — never invent "Owner" (that painted missed calls as Answered).
+      const routedToRaw = String(c.routed_to_name || "").trim()
+      const routedTo =
+        statusRaw.includes("ai") || routedToRaw.toLowerCase().includes("ai")
+          ? "AI Receptionist"
+          : routedToRaw
+      const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
+      const activityRaw = c.activity as CallActivityContext | null | undefined
+      const fromNumber = String(c.from_number || "")
+      const toNumber = String(c.to_number || "")
+      // Stable id only — never randomUUID (that remounted list rows and jumped scroll).
+      const stableId =
+        String(c.id || c.provider_call_sid || c.twilio_call_sid || "").trim() ||
+        `${fromNumber}|${toNumber}|${createdAt.toISOString()}`
+      return {
+        id: stableId,
+        type: normalizeCallType(c.call_type),
+        callerName: String(c.caller_name || "Unknown Caller"),
+        callerNumber: formatPhoneDisplay(fromNumber),
+        targetLineE164: toNumber,
+        routedTo,
+        routedToReceptionistId: receptionistId,
+        routedInitials: initialsFromName(routedTo),
+        routedColor: "bg-primary",
+        date: getDateLabel(createdAt),
+        time: createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        createdAt: createdAt.toISOString(),
+        rawCallType: String(c.call_type || "incoming"),
+        callStatus: String(c.status || ""),
+        answeredAt: c.answered_at ? String(c.answered_at) : null,
+        endedAt: c.ended_at ? String(c.ended_at) : null,
+        durationSeconds: Number(c.duration_seconds || 0),
+        hasRecording: Boolean(c.has_recording),
+        recordingUrl: c.recording_url ? String(c.recording_url) : null,
+        activity:
+          activityRaw && typeof activityRaw.intakeAction === "string"
+            ? activityRaw
+            : emptyActivityContext(),
+      }
+    })
+    : []
+
+  let qualitySummary: VoiceQualitySummary | null = null
+  let qualityInsights: VoiceOperationsInsights | null = null
+  if (qualityRes.ok) {
+    const q = await qualityRes.json()
+    if (q?.summary) qualitySummary = q.summary as VoiceQualitySummary
+    if (q?.insights) qualityInsights = q.insights as VoiceOperationsInsights
+  }
+
+  const next: OperationsCache = {
+    calls: normalizedCalls,
+    quality: qualitySummary,
+    insights: qualityInsights,
+    fetchedAt: Date.now(),
+  }
+  operationsCache = next
+  writeSessionOperationsCache(next)
+  return next
+}
+
+/** Warm Activity rows while the owner is still on Lines / another tab. */
+export function prefetchOperationsData(): void {
+  // Never run on the server (no credentials / no sessionStorage).
+  if (typeof window === "undefined") return
+  // Lift session seed into memory so the first Activity mount can paint instantly.
+  if (!operationsCache) {
+    const session = readSessionOperationsCache()
+    if (session) operationsCache = session
+  }
+  // Fresh cache: nothing to do.
+  if (operationsCache && cacheIsFresh(operationsCache)) return
+  // Dedupe overlapping dashboard + tab-click prefetches.
+  if (prefetchInflight) return
+  prefetchInflight = fetchOperationsSnapshot(false)
+    .catch(() => {
+      // Prefetch failure is quiet — the Activity hook will retry when the tab opens.
+    })
+    .then(() => {
+      prefetchInflight = null
+    })
+}
+
 function formatPhoneDisplay(phone: string | undefined | null): string {
   const v = String(phone || "")
   if (!v) return "Unknown"
@@ -221,12 +349,13 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   const enabled = options?.enabled !== false
   // Session seed via useSessionSeed (#185-safe) — paints last Activity rows on hard refresh.
   const sessionSeed = useSessionSeed(readSessionOperationsCache, null, "operations-v2")
-  const seed = operationsCache ?? sessionSeed
+  // Memory first, then session hook, then a direct sessionStorage peek (first client paint).
+  const seed = operationsCache ?? sessionSeed ?? peekOperationsCache()
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
-  // Full-page skeleton only when we have never loaded successfully in this tab.
-  const [loading, setLoading] = useState(() => seed == null)
+  // Full-table skeleton only when we have never loaded successfully in this tab.
+  const [loading, setLoading] = useState(() => initialOperationsLoading(seed))
   const [loadError, setLoadError] = useState<string | null>(null)
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
@@ -239,6 +368,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     setCalls((prev) => (prev.length > 0 ? prev : sessionSeed.calls))
     setQuality((prev) => prev ?? sessionSeed.quality)
     setInsights((prev) => prev ?? sessionSeed.insights)
+    // Seeded rows: drop loading immediately so tab click never shows gray bars.
     if (sessionSeed.calls.length > 0) setLoading(false)
   }, [sessionSeed])
 
@@ -247,7 +377,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     let mounted = true
 
     async function loadData(bypassCache: boolean) {
-      const cached = operationsCache
+      const cached = operationsCache ?? peekOperationsCache()
       if (!bypassCache && cached && cacheIsFresh(cached)) {
         if (!mounted) return
         setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(cached.calls) ? prev : cached.calls))
@@ -263,89 +393,23 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         // First load only — never blank the feed for a quiet poll / live-call refresh.
         setLoading(true)
         setLoadError(null)
+      } else {
+        // Rows already on screen: keep loading false so ActivityTableSkeleton cannot mount.
+        setLoading(false)
       }
       try {
-        const [callsRes, qualityRes] = await Promise.all([
-          fetch("/api/calls?limit=100", { credentials: "include" }),
-          fetch("/api/voice/quality?days=7", { credentials: "include" }),
-        ])
-
-        if (callsRes.status === 401) {
-          throw new Error("Session expired — sign out and sign in again to see call stats.")
-        }
-        if (!callsRes.ok) throw new Error("Failed to load calls")
-        const callsData = await callsRes.json()
-        const normalizedCalls: UiCallRecord[] = Array.isArray(callsData.calls)
-          ? callsData.calls.map((c: Record<string, unknown>) => {
-            const createdAtRaw = String(c.created_at || "")
-            const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date()
-            const statusRaw = String(c.status || "").toLowerCase()
-            // Keep empty when unknown — never invent "Owner" (that painted missed calls as Answered).
-            const routedToRaw = String(c.routed_to_name || "").trim()
-            const routedTo =
-              statusRaw.includes("ai") || routedToRaw.toLowerCase().includes("ai")
-                ? "AI Receptionist"
-                : routedToRaw
-            const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
-            const activityRaw = c.activity as CallActivityContext | null | undefined
-            const fromNumber = String(c.from_number || "")
-            const toNumber = String(c.to_number || "")
-            // Stable id only — never randomUUID (that remounted list rows and jumped scroll).
-            const stableId =
-              String(c.id || c.provider_call_sid || c.twilio_call_sid || "").trim() ||
-              `${fromNumber}|${toNumber}|${createdAt.toISOString()}`
-            return {
-              id: stableId,
-              type: normalizeCallType(c.call_type),
-              callerName: String(c.caller_name || "Unknown Caller"),
-              callerNumber: formatPhoneDisplay(fromNumber),
-              targetLineE164: toNumber,
-              routedTo,
-              routedToReceptionistId: receptionistId,
-              routedInitials: initialsFromName(routedTo),
-              routedColor: "bg-primary",
-              date: getDateLabel(createdAt),
-              time: createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-              createdAt: createdAt.toISOString(),
-              rawCallType: String(c.call_type || "incoming"),
-              callStatus: String(c.status || ""),
-              answeredAt: c.answered_at ? String(c.answered_at) : null,
-              endedAt: c.ended_at ? String(c.ended_at) : null,
-              durationSeconds: Number(c.duration_seconds || 0),
-              hasRecording: Boolean(c.has_recording),
-              recordingUrl: c.recording_url ? String(c.recording_url) : null,
-              activity:
-                activityRaw && typeof activityRaw.intakeAction === "string"
-                  ? activityRaw
-                  : emptyActivityContext(),
-            }
-          })
-          : []
-
-        let qualitySummary: VoiceQualitySummary | null = null
-        let qualityInsights: VoiceOperationsInsights | null = null
-        if (qualityRes.ok) {
-          const q = await qualityRes.json()
-          if (q?.summary) qualitySummary = q.summary as VoiceQualitySummary
-          if (q?.insights) qualityInsights = q.insights as VoiceOperationsInsights
-        }
-
-        if (!mounted) return
+        const snapshot = await fetchOperationsSnapshot(bypassCache)
+        if (!mounted || !snapshot) return
         // Skip identical payloads so Activities does not re-render / jump every poll.
-        setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(normalizedCalls) ? prev : normalizedCalls))
+        setCalls((prev) =>
+          callsFingerprint(prev) === callsFingerprint(snapshot.calls) ? prev : snapshot.calls
+        )
         setQuality((prev) =>
-          JSON.stringify(prev) === JSON.stringify(qualitySummary) ? prev : qualitySummary
+          JSON.stringify(prev) === JSON.stringify(snapshot.quality) ? prev : snapshot.quality
         )
         setInsights((prev) =>
-          JSON.stringify(prev) === JSON.stringify(qualityInsights) ? prev : qualityInsights
+          JSON.stringify(prev) === JSON.stringify(snapshot.insights) ? prev : snapshot.insights
         )
-        operationsCache = {
-          calls: normalizedCalls,
-          quality: qualitySummary,
-          insights: qualityInsights,
-          fetchedAt: Date.now(),
-        }
-        writeSessionOperationsCache(operationsCache)
         setLoadError(null)
       } catch (e) {
         if (!mounted) return

@@ -2,8 +2,8 @@
 
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
-import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,11 @@ import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { MessagesThreadListSkeleton } from "@/components/workspace-content-skeletons"
-import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
+import {
+  ClientSearchParamsBridge,
+  readWindowSearchQuery,
+  searchQueryToParams,
+} from "@/components/client-search-params-bridge"
 import {
   phoneMatchKey,
   resolveMessagesDeepLinkPhone,
@@ -124,11 +128,15 @@ function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
 const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   // Presence host keeps this pane mounted after first visit — only scroll/poll when visible.
   isActive = true,
+  urlQuery,
 }: {
   isActive?: boolean
+  // Live URL query from ClientSearchParamsBridge (does not suspend this pane).
+  urlQuery: string
 }) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
-  const searchParams = useSearchParams()
+  // Parse ?phone= / ?draft= without useSearchParams() remounting Messages on tab click.
+  const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const router = useRouter()
   // Pause when Messages pane OR browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
@@ -553,7 +561,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
       <WorkspacePanel
         className={cn(
-          "overflow-hidden md:grid md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1",
+          "overflow-hidden bg-background shadow-none ring-0 md:grid md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1",
           // Thread open: fill remaining shell (header + dock + compact title) so only bubbles scroll.
           threadOpen
             ? "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-3.75rem)] flex-col md:h-[calc(100dvh-var(--shell-header-h)-10rem)]"
@@ -839,15 +847,19 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   )
 })
 
-/** Outer wrapper: useSearchParams suspends — keep Messages chrome instead of a dark box. */
+/** Outer wrapper: URL bridge is isolated — Inner stays mounted across tab clicks. */
 export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
   isActive = true,
 }: {
   isActive?: boolean
 }) {
+  // Seed from window so ?phone= deep links paint before the bridge hydrates.
+  const [urlQuery, setUrlQuery] = useState(readWindowSearchQuery)
+  const onQuery = useCallback((q: string) => setUrlQuery(q), [])
   return (
-    <Suspense fallback={<MessagesPaneFallback />}>
-      <MessagesWorkspaceViewInner isActive={isActive} />
-    </Suspense>
+    <>
+      <ClientSearchParamsBridge onQuery={onQuery} />
+      <MessagesWorkspaceViewInner isActive={isActive} urlQuery={urlQuery} />
+    </>
   )
 })

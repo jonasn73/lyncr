@@ -43,7 +43,7 @@ export function CrmPaneFallback() {
         </h1>
       </header>
       <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
-        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-zinc-950/60">
+        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background">
           <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
             <div className="h-10 rounded-md border border-zinc-800 bg-zinc-900/80" />
             <div className="flex flex-wrap gap-1.5">
@@ -61,7 +61,7 @@ export function CrmPaneFallback() {
             <CrmListRowSkeleton count={6} />
           </div>
         </section>
-        <section className="hidden min-h-[20rem] rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-4 md:block" />
+        <section className="hidden min-h-[20rem] rounded-2xl border border-zinc-800/90 bg-background p-4 md:block" />
       </div>
     </div>
   )
@@ -72,7 +72,7 @@ export function MapPaneFallback() {
   return (
     <div
       className={cn(
-        "relative flex w-full flex-col overflow-hidden bg-zinc-950",
+        "relative flex w-full flex-col overflow-hidden bg-background",
         "h-[calc(100dvh-8.75rem)] min-h-[22rem]",
         "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}
@@ -107,7 +107,7 @@ export function MapPaneFallback() {
           ))}
         </div>
       </header>
-      <div className="relative min-h-0 flex-1 bg-zinc-950">
+      <div className="relative min-h-0 flex-1 bg-background">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]" />
       </div>
     </div>

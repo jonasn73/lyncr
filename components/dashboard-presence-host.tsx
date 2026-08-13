@@ -14,6 +14,7 @@ import {
   SchedulerPaneFallback,
   SettingsPaneFallback,
 } from "@/components/workspace-pane-fallbacks"
+import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
 
 // Heavy workspace panes — code-split so Lines first paint does not parse CRM/Activity/etc.
 const ActivityWorkspaceView = dynamic(
@@ -132,6 +133,29 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
     clearMainScrollLock()
   }, [activePage])
 
+  useEffect(() => {
+    // Warm Activity call rows while the owner is still on Lines (or any tab).
+    prefetchOperationsData()
+    // Preload heavy pane chunks on idle so the first tab click is not a dynamic() fallback flash.
+    const warmChunks = () => {
+      void import("@/components/workspace-views/activity-workspace-view")
+      void import("@/components/workspace-views/crm-workspace-view")
+      void import("@/components/workspace-views/messages-workspace-view")
+      void import("@/components/workspace-views/map-workspace-view")
+    }
+    const idleId =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(warmChunks, { timeout: 1800 })
+        : window.setTimeout(warmChunks, 1200)
+    return () => {
+      if (typeof window.cancelIdleCallback === "function" && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId)
+      } else {
+        window.clearTimeout(idleId)
+      }
+    }
+  }, [])
+
   return (
     <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
       {/* Lines defer when refreshing on another tab — intake lives in shell (LyncEngine), not here. */}
@@ -139,37 +163,38 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
-        <Suspense fallback={<ActivityPaneFallback />}>
+        {/* null fallback: useSearchParams must not replace a painted Activity pane with skeleton chrome. */}
+        <Suspense fallback={null}>
           <ActivityWorkspaceView isActive={activePage === "activity"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
-        <Suspense fallback={<MessagesPaneFallback />}>
+        <Suspense fallback={null}>
           <MessagesWorkspaceView isActive={activePage === "messages"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
-        <Suspense fallback={<SchedulerPaneFallback />}>
+        <Suspense fallback={null}>
           <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>
-        <Suspense fallback={<CrmPaneFallback />}>
+        <Suspense fallback={null}>
           <CrmWorkspaceView isActive={activePage === "customers"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
-        <Suspense fallback={<MapPaneFallback />}>
+        <Suspense fallback={null}>
           <MapWorkspaceView isActive={activePage === "contacts"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
-        <Suspense fallback={<PayPaneFallback />}>
+        <Suspense fallback={null}>
           <PayWorkspaceView isActive={activePage === "pay"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
-        <Suspense fallback={<SettingsPaneFallback />}>
+        <Suspense fallback={null}>
           <SettingsWorkspaceView isActive={activePage === "settings"} />
         </Suspense>
       </PresencePane>

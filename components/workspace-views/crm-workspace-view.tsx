@@ -2,9 +2,9 @@
 
 // Customers & Leads CRM hub — list + profile (desktop side panel / mobile centered dialog).
 
-import { memo, Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import {
   CalendarCheck,
   Car,
@@ -64,7 +64,11 @@ import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
-import { CrmPaneFallback } from "@/components/workspace-pane-fallbacks"
+import {
+  ClientSearchParamsBridge,
+  readWindowSearchQuery,
+  searchQueryToParams,
+} from "@/components/client-search-params-bridge"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -294,13 +298,17 @@ function readCrmListCache(filter: CrmFilter, q: string): CrmCustomerListItem[] {
 
 const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   isActive = true,
+  urlQuery,
 }: {
   isActive?: boolean
+  // Live URL query from ClientSearchParamsBridge (does not suspend this pane).
+  urlQuery: string
 }) {
   const isMobile = useIsMobile()
   const router = useRouter()
   const inboundCallPanel = useInboundCallPanelOptional()
-  const searchParams = useSearchParams()
+  // Parse ?tab= / ?customer= / ?phone= without useSearchParams() remounting CRM on tab click.
+  const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   // Pause CRM list fetches when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
   const tabParam = searchParams.get("tab")
@@ -1456,10 +1464,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // Factory so desktop panel + mobile dialog each get their own element tree.
   const renderProfileBody = () =>
     !selected ? (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-zinc-500">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading…
-      </div>
+      // Quiet empty chrome — a spinner here looked like CRM was still loading after tab click.
+      <p className="px-2 py-16 text-center text-sm text-zinc-500">
+        Select a customer to see their profile.
+      </p>
     ) : (
       <div className="space-y-5">
         {/* Compact primary actions — Call + Message templates; Collect under More. */}
@@ -2288,7 +2296,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
       <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
         {/* List — always visible (dimmed behind the mobile dialog) */}
-        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-zinc-950/60 md:min-h-0 md:max-h-[calc(100dvh-10rem)]">
+        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background md:min-h-0 md:max-h-[calc(100dvh-10rem)]">
           <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -2406,7 +2414,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         </section>
 
         {/* Desktop (md+): side panel — never a sheet/dialog */}
-        <section className="hidden rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-3 sm:p-4 md:sticky md:top-3 md:block md:min-h-[20rem] md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto">
+        <section className="hidden rounded-2xl border border-zinc-800/90 bg-background p-3 sm:p-4 md:sticky md:top-3 md:block md:min-h-[20rem] md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto">
           {!selectedId ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
               <UserRound className="h-8 w-8 opacity-50" />
@@ -2459,10 +2467,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
-            </div>
+            <p className="px-4 py-16 text-center text-sm text-zinc-500">
+              Select a customer to see their profile.
+            </p>
           )}
         </DialogContent>
       </Dialog>
@@ -2888,15 +2895,19 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   )
 })
 
-/** Outer wrapper: useSearchParams suspends — keep CRM chrome instead of a dark box. */
+/** Outer wrapper: URL bridge is isolated — Inner stays mounted across tab clicks. */
 export const CrmWorkspaceView = memo(function CrmWorkspaceView({
   isActive = true,
 }: {
   isActive?: boolean
 }) {
+  // Seed from window so ?tab= / ?customer= paint before the bridge hydrates.
+  const [urlQuery, setUrlQuery] = useState(readWindowSearchQuery)
+  const onQuery = useCallback((q: string) => setUrlQuery(q), [])
   return (
-    <Suspense fallback={<CrmPaneFallback />}>
-      <CrmWorkspaceViewInner isActive={isActive} />
-    </Suspense>
+    <>
+      <ClientSearchParamsBridge onQuery={onQuery} />
+      <CrmWorkspaceViewInner isActive={isActive} urlQuery={urlQuery} />
+    </>
   )
 })

@@ -11,9 +11,10 @@ import {
 
 const SKELETON_BLOCK = "rounded-xl bg-zinc-900 sigo-skeleton-breathe"
 
-/** GPU bloom wrapper for lists/cards after data is ready. */
+/** Wrapper for lists/cards after data is ready — no opacity fade (that looked like a dark overlay). */
 export function WorkspaceBloom({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("sigo-bloom-in", className)}>{children}</div>
+  // Passthrough only: sigo-bloom-in started at opacity 0 and dimmed painted rows.
+  return <div className={className}>{children}</div>
 }
 
 function SkeletonBar({ className }: { className?: string }) {
@@ -126,7 +127,8 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
 
 export function ActivityTableSkeleton() {
   return (
-    <WorkspacePanel className="min-h-[380px]">
+    // Match page bg-background — bg-card/90 looked like a darker overlay on tab click.
+    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
       <TableSkeletonBody
         columns={[
           { width: "w-[22%]", label: "Status" },

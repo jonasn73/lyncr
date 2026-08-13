@@ -38,7 +38,7 @@ const DispatchLiveMap = dynamic(
       default: m.DispatchLiveMap,
     })),
   // Same zinc well as MapTab — never flash a smaller dark card while Leaflet loads.
-  { ssr: false, loading: () => <div className="h-full min-h-[18rem] w-full bg-zinc-950" /> }
+  { ssr: false, loading: () => <div className="h-full min-h-[18rem] w-full bg-background" /> }
 )
 
 // Which list is open in the drawer / bottom sheet.
@@ -257,7 +257,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
     <div
       className={cn(
         // Fill the tab area above the bottom dock; avoid floating card over the nav.
-        "relative flex w-full flex-col overflow-hidden bg-zinc-950",
+        "relative flex w-full flex-col overflow-hidden bg-background",
         "h-[calc(100dvh-8.75rem)] min-h-[22rem]",
         "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}

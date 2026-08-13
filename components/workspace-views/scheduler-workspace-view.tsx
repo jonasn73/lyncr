@@ -2,8 +2,8 @@
 
 // Owner job scheduler — month calendar, tech swimlanes, manual-call dispatch.
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SCHEDULER_GLASS_CARD } from "@/lib/scheduler-ui-tokens"
@@ -14,7 +14,11 @@ import {
   WorkspacePageHeader,
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
-import { SchedulerPaneFallback } from "@/components/workspace-pane-fallbacks"
+import {
+  ClientSearchParamsBridge,
+  readWindowSearchQuery,
+  searchQueryToParams,
+} from "@/components/client-search-params-bridge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
@@ -97,20 +101,47 @@ function readSchedulerBootstrapCache(
   return cached
 }
 
-function SchedulerWorkspaceViewInner({ isActive = true }: { isActive?: boolean }) {
+function SchedulerWorkspaceViewInner({
+  isActive = true,
+  urlQuery,
+}: {
+  isActive?: boolean
+  // Live URL query from ClientSearchParamsBridge (does not suspend this pane).
+  urlQuery: string
+}) {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  // Parse ?focus= without useSearchParams() remounting Scheduler on tab click.
+  const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
+  const orgIdForSeed =
+    activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
-  const [events, setEvents] = useState<SchedulerEvent[]>([])
-  const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>([])
+  // Lazy session read once — never call sessionStorage on every render (#185).
+  const [events, setEvents] = useState<SchedulerEvent[]>(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.events ?? []
+  })
+  const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.blockouts ?? []
+  })
   const [blockoutModalOpen, setBlockoutModalOpen] = useState(false)
   const [deletingBlockoutId, setDeletingBlockoutId] = useState<string | null>(null)
-  const [technicians, setTechnicians] = useState<FieldTechnician[]>([])
-  const [lineIndustryTags, setLineIndustryTags] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+  const [technicians, setTechnicians] = useState<FieldTechnician[]>(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.technicians ?? []
+  })
+  const [lineIndustryTags, setLineIndustryTags] = useState<string[]>(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.lineIndustryTags ?? []
+  })
+  // Skeleton only when this month/org has never been cached.
+  const [loading, setLoading] = useState(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return !readSchedulerBootstrapCache(monthKey, orgIdForSeed)
+  })
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
   const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
     () => new Map()
@@ -1320,11 +1351,15 @@ function SchedulerWorkspaceViewInner({ isActive = true }: { isActive?: boolean }
   )
 }
 
-/** Outer wrapper: useSearchParams suspends — keep Scheduler chrome instead of a dark box. */
+/** Outer wrapper: URL bridge is isolated — Inner stays mounted across tab clicks. */
 export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
+  // Seed from window so ?focus= / ?from= paint before the bridge hydrates.
+  const [urlQuery, setUrlQuery] = useState(readWindowSearchQuery)
+  const onQuery = useCallback((q: string) => setUrlQuery(q), [])
   return (
-    <Suspense fallback={<SchedulerPaneFallback />}>
-      <SchedulerWorkspaceViewInner isActive={isActive} />
-    </Suspense>
+    <>
+      <ClientSearchParamsBridge onQuery={onQuery} />
+      <SchedulerWorkspaceViewInner isActive={isActive} urlQuery={urlQuery} />
+    </>
   )
 }

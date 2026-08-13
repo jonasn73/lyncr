@@ -316,19 +316,20 @@ export function ActivityStatusPill({
 
 /** Soft card chrome so missed rows never look like answered emerald cards. */
 export function activityRowAccentClass(status: ActivityCallStatus): string {
+  // Left border only — full-row tint stacked across Hold/Press 1 looked like a brown overlay.
   if (status === "answered" || status === "answered_from_queue" || status === "emergency") {
-    return "border-l-[3px] border-l-emerald-500/70 bg-emerald-500/[0.04]"
+    return "border-l-[3px] border-l-emerald-500/70 bg-transparent"
   }
   if (status === "ai_handled") {
-    return "border-l-[3px] border-l-violet-500/60 bg-violet-500/[0.04]"
+    return "border-l-[3px] border-l-violet-500/60 bg-transparent"
   }
   if (isHoldActivityStatus(status)) {
-    return "border-l-[3px] border-l-amber-500/70 bg-amber-500/[0.06]"
+    return "border-l-[3px] border-l-amber-500/70 bg-transparent"
   }
   if (isMissedActivityStatus(status)) {
-    return "border-l-[3px] border-l-rose-500 bg-rose-500/[0.07]"
+    return "border-l-[3px] border-l-rose-500 bg-transparent"
   }
-  return "border-l-[3px] border-l-transparent"
+  return "border-l-[3px] border-l-transparent bg-transparent"
 }
 
 export function WorkspaceDisclosureRow({

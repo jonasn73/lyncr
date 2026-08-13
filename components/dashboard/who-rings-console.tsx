@@ -45,7 +45,6 @@ export function WhoRingsConsole({
     <section
       className={cn(
         "rounded-2xl border border-border/60 bg-muted/15 px-4 py-3.5 sm:px-5 sm:py-4",
-        loading && "opacity-60",
         className
       )}
       aria-label="Who rings next"
@@ -109,7 +108,7 @@ export function WhoRingsConsole({
           className={cn(
             "inline-flex min-h-10 flex-1 items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-left text-xs font-semibold text-foreground transition-colors hover:bg-muted/40 sm:flex-none",
             MOBILE_TAP_TARGET,
-            loading && "pointer-events-none opacity-50"
+            loading && "pointer-events-none"
           )}
         >
           Who answers
@@ -122,7 +121,7 @@ export function WhoRingsConsole({
           className={cn(
             "inline-flex min-h-10 flex-1 items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-left text-xs font-semibold text-foreground transition-colors hover:bg-muted/40 sm:flex-none",
             MOBILE_TAP_TARGET,
-            loading && "pointer-events-none opacity-50"
+            loading && "pointer-events-none"
           )}
         >
           Greetings
