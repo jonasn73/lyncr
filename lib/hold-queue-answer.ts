@@ -1,7 +1,7 @@
 // ============================================
 // Client-safe hold-queue Answer unlock helpers
 // ============================================
-// Keep this file free of Telnyx/Twilio imports so Lines UI can import it.
+// Keep this file free of Telnyx imports so Lines UI can import it.
 
 import { envLyncrOrZing } from "@/lib/lyncr-env"
 

@@ -280,7 +280,7 @@ function searchParamsToFields(url: URL): Record<string, string> {
 
 type TwimlInstance = InstanceType<typeof VoiceResponse>
 
-/** Normal `<Response>` from the Twilio builder, or raw XML (e.g. `<Connect><AIAssistant>`). */
+/** Normal `<Response>` from the TeXML builder, or raw XML (e.g. `<Connect><AIAssistant>`). */
 type IncomingCallResult = { kind: "twiml"; texml: TwimlInstance } | { kind: "raw"; xml: string }
 
 type IncomingRoutingRowNonNull = NonNullable<Awaited<ReturnType<typeof getIncomingRoutingByNumber>>>

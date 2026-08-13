@@ -16,7 +16,7 @@ describe("resolveInboundPstnForwardAnswerOnBridge (cell PSTN forward)", () => {
     vi.unstubAllEnvs()
   })
 
-  it("builds cell `<Number>` dial without answerOnBridge after greeting pass", () => {
+  it("keeps answerOnBridge after greeting pass but omits ringTone when ringback is off", () => {
     vi.stubEnv("ZING_INBOUND_GREETING_FIRST", "1")
     const xml = buildFastReceptionistDialTexml({
       answerOnBridge: resolveInboundPstnForwardAnswerOnBridge(true),
@@ -25,7 +25,7 @@ describe("resolveInboundPstnForwardAnswerOnBridge (cell PSTN forward)", () => {
       receptionistE164: "+15551234567",
       includeRingback: false,
     })
-    expect(xml).not.toContain("answerOnBridge")
+    expect(xml).toContain('answerOnBridge="true"')
     expect(xml).not.toContain("ringTone")
   })
 })
@@ -156,7 +156,7 @@ describe("buildFastReceptionistDialTexml", () => {
       includeRingback: false,
     })
     expect(xml).toContain("<Say ")
-    expect(xml).toContain("Key Squad 502")
+    expect(xml).toContain("Key Squad five oh two")
     expect(xml.indexOf("<Say")).toBeLessThan(xml.indexOf("<Dial"))
     expect(xml).not.toContain("ringTone")
   })

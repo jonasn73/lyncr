@@ -31,7 +31,7 @@ describe("cleanTextForTTS", () => {
 })
 
 describe("normalizeCallControlSpeakVoice", () => {
-  it("upgrades Twilio-style Polly to AWS.Polly for Call Control Speak", () => {
+  it("upgrades TeXML Polly to AWS.Polly for Call Control Speak", () => {
     expect(normalizeCallControlSpeakVoice("Polly.Joanna-Neural")).toBe("AWS.Polly.Joanna-Neural")
     expect(normalizeCallControlSpeakVoice("Polly.Matthew-Neural")).toBe("AWS.Polly.Matthew-Neural")
   })

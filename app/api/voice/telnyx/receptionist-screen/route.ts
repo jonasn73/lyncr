@@ -1,7 +1,7 @@
 // ============================================
 // GET/POST /api/voice/telnyx/receptionist-screen
 // ============================================
-// Telnyx/TwiML: when `<Number url="…">` is used on outbound Dial, this URL is
+// Telnyx TeXML: when `<Number url="…">` is used on outbound Dial, this URL is
 // fetched after the callee answers. Returned TeXML plays only on their leg
 // (whisper) before they are bridged to the original caller.
 //

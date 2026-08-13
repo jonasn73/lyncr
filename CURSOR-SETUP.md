@@ -5,9 +5,9 @@
 ### 1. Install Dependencies
 ```bash
 pnpm install
-pnpm add telnyx twilio @neondatabase/serverless ai @ai-sdk/openai
+pnpm add telnyx @neondatabase/serverless ai @ai-sdk/openai
 # OR for Supabase:
-pnpm add telnyx twilio @supabase/supabase-js ai @ai-sdk/openai
+pnpm add telnyx @supabase/supabase-js ai @ai-sdk/openai
 ```
 
 ### 2. Create Database

@@ -448,7 +448,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
               required
-              placeholder="Twilio, Verizon, AT&T, T-Mobile…"
+              placeholder="Verizon, AT&T, T-Mobile…"
               className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
@@ -460,7 +460,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
               required
-              placeholder="Carrier account number or Twilio SID"
+              placeholder="Carrier account number"
               className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>

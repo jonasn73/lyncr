@@ -190,7 +190,7 @@ export function resolveIvrCallControlVoice(engineModel: string | null | undefine
     if (/^ElevenLabs\./i.test(raw)) return normalizeElevenLabsCallControlVoice(raw)
     return raw
   }
-  // Twilio-style Polly → AWS Polly on Call Control.
+  // TeXML Polly → AWS Polly on Call Control.
   if (/^Polly\./i.test(raw)) {
     return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
   }

@@ -1,4 +1,4 @@
-// Client-safe book-form source helpers (no DB / Twilio / SMS imports).
+// Client-safe book-form source helpers (no DB / Telnyx / SMS imports).
 // Used by CRM UI + server intake paths to label customer-filled vs operator-entered leads.
 
 /** Intake sources that mean the customer submitted a book / callback form. */

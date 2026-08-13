@@ -8,28 +8,28 @@ lyncr is a VoIP call routing app that lets small business owners manage who answ
 - **Frontend**: Next.js 16, React 19, TailwindCSS v4, shadcn/ui
 - **Backend**: Next.js API routes (already scaffolded)
 - **Database**: Postgres via Supabase or Neon (schema in scripts/001-create-schema.sql)
-- **Telephony**: Twilio or Telnyx (voice, numbers, recordings). Telnyx is the preferred provider; use /api/voice/telnyx/* and /api/numbers/telnyx for new setup.
+- **Telephony**: Telnyx only (voice, numbers, recordings, SMS). Use /api/voice/telnyx/* and /api/numbers/telnyx.
 - **AI**: Vercel AI SDK v6 for AI receptionist fallback
 - **Auth**: Supabase Auth or custom (bcrypt + HTTP-only cookies)
 
 ## Architecture
 
 ### How Call Routing Works
-1. Caller dials the business Twilio number
-2. Twilio hits POST /api/voice/incoming
+1. Caller dials the business Telnyx number
+2. Telnyx hits POST /api/voice/telnyx/incoming (TeXML)
 3. Server checks routing_config for this user
 4. If receptionist selected: Dial receptionist with timeout
-5. If no answer: POST /api/voice/fallback checks fallback_type
-   - "owner" -> Dial owner's cell
-   - "ai" -> Connect to AI assistant
-   - "voicemail" -> Play greeting + record
-6. POST /api/voice/status logs final call data
+5. If no answer: POST /api/voice/telnyx/fallback checks fallback_type
+ - "owner" -> Dial owner's cell
+ - "ai" -> Connect to AI assistant
+ - "voicemail" -> Play greeting + record
+6. POST /api/voice/telnyx/status logs final call data
 
 ### Database Schema (scripts/001-create-schema.sql)
 - users: business owners
 - receptionists: agents who answer calls, each has rate_per_minute
 - routing_config: who receives calls + fallback settings (one row per user)
-- phone_numbers: Twilio numbers owned/ported
+- phone_numbers: Telnyx numbers owned/ported
 - call_logs: every call with duration, recording URL, who it was routed to
 
 ### Shared Types (lib/types.ts)
@@ -38,8 +38,8 @@ All TypeScript interfaces for the database models and API request/response shape
 ### Database Client (lib/db.ts)
 Placeholder query functions. Every function has the correct signature and return type -- implement with your DB provider's client.
 
-### Twilio Client (lib/twilio.ts)
-REST client factory, webhook validator, TwiML builder, and app URL helper.
+### Telnyx Client (lib/telnyx.ts)
+REST client factory, TeXML builder (`lib/texml.ts`), and app URL helper.
 
 ## App Screens (components/)
 | File | Screen | Purpose |
@@ -54,22 +54,17 @@ REST client factory, webhook validator, TwiML builder, and app URL helper.
 ## API Routes (app/api/)
 | Route | Method | Purpose |
 |-------|--------|---------|
-| /api/voice/incoming | POST | Twilio webhook: routes incoming calls |
-| /api/voice/fallback | POST | Twilio webhook: handles no-answer fallback |
-| /api/voice/status | POST | Twilio webhook: logs call completion data |
-| /api/voice/recording-status | POST | Twilio webhook: attaches recording URLs |
-| /api/voice/ai-assistant | POST | Twilio webhook: AI answers + converses with caller |
-| /api/routing | GET/PUT | Read/update routing config |
-| /api/calls | GET | Paginated call history |
-| /api/numbers | GET/POST | List owned numbers / search available |
-| /api/numbers/buy | POST | Purchase a Twilio number |
-| /api/numbers/telnyx | GET | Search available Telnyx numbers (query: area_code, type) |
-| /api/numbers/telnyx/buy | POST | Purchase a Telnyx number (body: { phone_number }) |
 | /api/voice/telnyx/incoming | GET/POST | Telnyx TeXML: route incoming calls |
 | /api/voice/telnyx/fallback | POST | Telnyx: no-answer fallback |
 | /api/voice/telnyx/status | POST | Telnyx: call status callback |
 | /api/voice/telnyx/recording-status | POST | Telnyx: recording callback |
 | /api/voice/telnyx/ai-assistant | POST | Telnyx: AI receptionist |
+| /api/routing | GET/PUT | Read/update routing config |
+| /api/calls | GET | Paginated call history |
+| /api/numbers | GET/POST | List owned Telnyx numbers / search available |
+| /api/numbers/buy | POST | Purchase a Telnyx number (alias of /api/numbers/telnyx/buy) |
+| /api/numbers/telnyx | GET | Search available Telnyx numbers (query: area_code, type) |
+| /api/numbers/telnyx/buy | POST | Purchase a Telnyx number (body: { phone_number }) |
 | /api/numbers/port | POST | Submit a port request |
 | /api/analytics | GET | Agent talk time + pay calculations |
 | /api/payments/terminal/connection-token | POST | Stripe Terminal connection token (+ locationId for RN Tap to Pay) |
@@ -83,11 +78,7 @@ DATABASE_URL=                           # Neon
 NEXT_PUBLIC_SUPABASE_URL=               # Supabase
 SUPABASE_SERVICE_ROLE_KEY=              # Supabase
 
-# Twilio (optional if using Telnyx)
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-
-# Telnyx (preferred for new setups)
+# Telnyx
 TELNYX_API_KEY=                        # REST API + TeXML
 TELNYX_PUBLIC_KEY=                     # Optional: webhook signature verification
 NEXT_PUBLIC_APP_URL=                   # Your deployed URL (for webhook URLs)
@@ -103,8 +94,8 @@ GOOGLE_GEOCODING_API_KEY=               # If unset, falls back to free OpenStree
 1. Connect database (Supabase or Neon) - implement lib/db.ts functions
 2. Add authentication (Supabase Auth or custom)
 3. Wire UI components to real API routes (replace useState with SWR/fetch)
-4. Set up Twilio account + buy first number
-5. Configure Twilio webhooks to point to /api/voice/incoming
+4. Set up Telnyx account + buy first number
+5. Point Telnyx voice to /api/voice/telnyx/incoming
 6. Test call routing flow end-to-end
 7. Implement AI assistant fallback
 8. Add push notifications for missed calls
@@ -115,7 +106,7 @@ GOOGLE_GEOCODING_API_KEY=               # If unset, falls back to free OpenStree
 
 ## Coding Conventions
 - Use `async/await` for all DB and API calls
-- Validate all Twilio webhooks with `validateTwilioRequest()`
+- Voice/SMS/numbers go through Telnyx only (`lib/telnyx.ts`, `/api/voice/telnyx/*`)
 - Use parameterized queries only (never string interpolation for SQL)
 - All API routes return JSON with `{ data }` or `{ error }` shape
 - Phone numbers stored in E.164 format (+15551234567) internally

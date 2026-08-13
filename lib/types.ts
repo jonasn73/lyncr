@@ -1341,7 +1341,7 @@ export interface PhoneNumber {
   label: string // e.g. "Main Line"
   type: "local" | "toll-free"
   status: "active" | "pending" | "porting" | "released"
-  /** telnyx = purchased on Lyncr; external = Twilio/other forward to our TeXML webhook. */
+  /** telnyx = purchased on Lyncr; external = another carrier forwarded to our TeXML webhook. */
   source_provider: PhoneLineSourceProvider
   /** Owner confirmed webhook routing for external lines. */
   external_verified: boolean

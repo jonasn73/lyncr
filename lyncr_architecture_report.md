@@ -63,7 +63,7 @@ The codebase supports four distinct user experiences:
 |----------|----------------------|--------|
 | **Telnyx (primary)** | `telnyx` npm SDK 6.13.0, REST + TeXML | Inbound/outbound voice, number search/buy, Voice AI assistants, SMS, LNP porting, SIP/WebRTC credentials |
 | **Telnyx WebRTC** | `@telnyx/webrtc` 2.27.1 | Browser-based receptionist answering (`routing_endpoint = WEB`) |
-| **Twilio (legacy)** | `twilio` 5.12.2 | Legacy `numbers/buy` demo path; TwiML helpers in `lib/legacy-voice-provider.ts`; most `/api/voice/*` routes **re-export Telnyx handlers** |
+| **Telnyx TeXML** | `lib/texml.ts` | TwiML-compatible `<Response>` builder (no Twilio SDK) |
 | **Stripe** | `stripe` 17.7.0 | Subscriptions, carrier credit packs, 10DLC fees |
 | **Pusher** | `pusher` + `pusher-js` 5.3 / 8.5 | Realtime owner/receptionist/tech events |
 | **Vercel AI SDK** | `ai` 6.0.104 | AI receptionist tooling (alongside Telnyx Voice AI) |
@@ -218,7 +218,7 @@ Grouped by domain under `app/api/`:
 |------|---------|
 | `numbers/mine` | Owner's lines + routing summary |
 | `numbers/telnyx`, `numbers/telnyx/buy` | Search & purchase (primary) |
-| `numbers/buy` | Legacy Twilio purchase |
+| `numbers/buy` | Alias of `/api/numbers/telnyx/buy` |
 | `numbers/configure` | Wire TeXML app webhooks to line |
 | `numbers/port`, `numbers/porting/*` | LNP port requests & desk |
 | `porting/orders/*` | Formal port order lifecycle |
@@ -1047,7 +1047,7 @@ POST /api/webhooks/telnyx
 
 **File:** `lib/telnyx.ts`
 
-- `VoiceResponse` class mirrors Twilio TwiML API for familiarity
+- `VoiceResponse` class in `lib/texml.ts` builds Telnyx TeXML
 - `getAppUrl()` builds absolute webhook URLs from `NEXT_PUBLIC_APP_URL`
 - Whisper URLs on `<Number url="...">` for callee-only line ID (`lib/inbound-line-whisper.ts`)
 - Branded caller display via `fromDisplayName` (`lib/telnyx-caller-display.ts`)
@@ -1284,7 +1284,7 @@ Primary definitions in `lib/types.ts` (1,000+ lines):
 ## Appendix C: Known Architectural Notes
 
 1. **`lib/db.ts` is monolithic** (~12k lines) — all data access in one module; no ORM; heavy use of `unstable_cache` for inbound routing.
-2. **Telnyx-first, Twilio legacy** — new integrations should use `/api/voice/telnyx/*` and `/api/numbers/telnyx/*` exclusively.
+2. **Telnyx only** — voice, SMS, and numbers use `/api/voice/telnyx/*` and `/api/numbers/telnyx/*`.
 3. **`ai_leads` is multi-purpose** — leads, booked jobs, scheduler events, and dispatch queue share one table with JSONB `collected` fallback for unmigrated columns.
 4. **Migrations are manual** — schema changes require updating `scripts/MIGRATE-ALL.md` and user action in Neon.
 5. **Presence host tradeoff** — instant tab switches at cost of higher initial memory; heavy tabs use `deferUntilVisit`.

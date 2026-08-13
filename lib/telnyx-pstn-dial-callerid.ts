@@ -94,7 +94,7 @@ export function origFromQuerySuffixFromRaw(inboundFromRaw: string): string {
 }
 
 /**
- * Twilio/Telnyx `<Dial answerOnBridge>`.
+ * Telnyx TeXML `<Dial answerOnBridge>`.
  * **Default `true`:** US `ringTone` stays in sync with the receptionist PSTN ring (consistent caller audio).
  * Set `ZING_INBOUND_DIAL_ANSWER_ON_BRIDGE=0` to answer inbound immediately (can sound like a tone change when B-leg starts).
  */

@@ -1,7 +1,7 @@
 // ============================================
 // TeXML <Say> + Call Control Speak — natural TTS
 // ============================================
-// TeXML accepts Twilio-style `Polly.*-Neural`. Call Control Speak needs `AWS.Polly.*-Neural`
+// TeXML accepts `Polly.*-Neural`. Call Control Speak needs `AWS.Polly.*-Neural`
 // (or Azure / Telnyx / ElevenLabs). Sending bare `Polly.*` on Call Control often falls back
 // to a basic robotic voice — that was the Key Squad Busy / Available greet issue.
 // Optional SSML <prosody rate="…"> slightly speeds TeXML delivery (see LYNCR_TEXML_SAY_RATE).
@@ -59,7 +59,7 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
     if (/^ElevenLabs\./i.test(raw)) return normalizeElevenLabsCallControlVoice(raw)
     return raw
   }
-  // Twilio-style Polly on TeXML → AWS Polly on Call Control Speak.
+  // TeXML Polly id → AWS Polly on Call Control Speak.
   if (/^Polly\./i.test(raw)) {
     return `AWS.${raw.replace(/^Polly\./i, "Polly.")}`
   }
@@ -70,7 +70,7 @@ export function normalizeCallControlSpeakVoice(voice: string | null | undefined)
   return raw
 }
 
-/** Twilio <Say> attributes (Telnyx TeXML accepts TwiML-compatible XML). */
+/** TeXML `<Say>` voice + language attributes. */
 export function getTexmlSayVoiceAttributes(): { voice: string; language: string } {
   // Prefer LYNCR_*; legacy ZING_* still works until Vercel env is renamed.
   const voice = envLyncrOrZing("TEXML_SAY_VOICE") || DEFAULT_TEXML_SAY_VOICE
@@ -164,7 +164,7 @@ export function escapeXmlForSsml(text: string): string {
 
 /**
  * Body for <Say>: phonetic cleanup, then plain text or SSML prosody when rate ≠ 1.
- * Neural Polly/Google voices accept SSML in Say content per Twilio docs.
+ * Neural Polly/Google voices accept SSML inside TeXML `<Say>`.
  */
 export function texmlSayMessageBody(plainText: string): string {
   // Always phoneticize before TTS — DB stays "502", speech becomes "five oh two".

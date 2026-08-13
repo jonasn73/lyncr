@@ -1,62 +1,38 @@
-// ============================================
-// GET /api/numbers
-// POST /api/numbers (buy a number)
-// ============================================
-// Legacy numbers endpoint (kept for compatibility).
-// Primary number search/buy flow uses /api/numbers/telnyx and /api/numbers/telnyx/buy.
+// GET /api/numbers — list the signed-in owner's Telnyx lines.
+// POST /api/numbers — search available Telnyx numbers (same as GET /api/numbers/telnyx).
 
 import { NextRequest, NextResponse } from "next/server"
-import { getLegacyProviderClient } from "@/lib/legacy-voice-provider"
+import { getUserIdFromRequest } from "@/lib/auth"
 import { getPhoneNumbers } from "@/lib/db"
-import type { BuyNumberRequest } from "@/lib/types"
+import { GET as telnyxSearchGet } from "@/app/api/numbers/telnyx/route"
 
-const DEMO_USER_ID = "demo-user-id"
-
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const userId = getUserIdFromRequest(req.headers.get("cookie"))
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
   try {
-    const numbers = await getPhoneNumbers(DEMO_USER_ID)
+    const numbers = await getPhoneNumbers(userId)
     return NextResponse.json({ numbers })
   } catch (error) {
     console.error("[lyncr] Error fetching numbers:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch phone numbers" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to fetch phone numbers" }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body: BuyNumberRequest = await req.json()
-    const client = getLegacyProviderClient()
-
-    // Search for available numbers
-    const available = await client.availablePhoneNumbers("US")
-      .local.list({
-        areaCode: parseInt(body.area_code, 10),
-        limit: 5,
-      })
-
-    if (available.length === 0) {
-      return NextResponse.json(
-        { error: "No numbers available for that area code" },
-        { status: 404 }
-      )
+    const body = (await req.json().catch(() => ({}))) as {
+      area_code?: string
+      type?: string
     }
-
-    return NextResponse.json({
-      numbers: available.map((num) => ({
-        number: num.phoneNumber,
-        friendly_name: num.friendlyName,
-        type: "local" as const,
-        monthly_cost: 2.99, // Example local number pricing
-      })),
-    })
+    const url = new URL(req.url)
+    url.pathname = "/api/numbers/telnyx"
+    if (body.area_code) url.searchParams.set("area_code", String(body.area_code))
+    if (body.type) url.searchParams.set("type", String(body.type))
+    return telnyxSearchGet(new NextRequest(url, { headers: req.headers }))
   } catch (error) {
     console.error("[lyncr] Error searching numbers:", error)
-    return NextResponse.json(
-      { error: "Failed to search numbers" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to search numbers" }, { status: 500 })
   }
 }

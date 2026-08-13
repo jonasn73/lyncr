@@ -3599,7 +3599,7 @@ export async function closeStaleSandboxMockCalls(userId: string): Promise<number
   }
 }
 
-/** Resolve account owner from a Telnyx/Twilio call SID (for usage billing side-effects). */
+/** Resolve account owner from a Telnyx call SID (for usage billing side-effects). */
 export async function getCallLogUserIdByProviderSid(providerCallSid: string): Promise<string | null> {
   const sid = providerCallSid.trim()
   if (!sid) return null
@@ -8001,7 +8001,7 @@ export async function insertPhoneNumber(params: {
   }
 }
 
-/** Register an externally hosted DID (Twilio transfer) — active immediately, no carrier port. */
+/** Register an externally hosted DID (forwarded to Telnyx TeXML) — active immediately, no carrier port. */
 export async function insertExternalPhoneLine(params: {
   user_id: string
   organization_id: string

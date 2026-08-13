@@ -65,16 +65,7 @@ Legacy routes under `/api/voice/*` are adapters and should not be used for new i
 
 ## Data model (provider-neutral direction)
 
-We are migrating from Twilio-specific naming to provider-neutral naming.
-
-- New/target fields:
-  - `provider_call_sid`
-  - `provider_number_sid`
-- Legacy compatibility fields still present:
-  - `twilio_call_sid`
-  - `twilio_sid`
-
-During transition, DB logic supports fallback reads/writes so old data remains valid.
+Voice + numbers run on **Telnyx only**. Older Neon columns (`twilio_call_sid`, `twilio_sid`) may still exist on historical rows; new writes use `provider_call_sid` / `provider_number_sid`.
 
 ## Required migrations
 
@@ -118,18 +109,9 @@ When Presence is **Busy** (and no Available teammate answers first):
 
 Neon: run **`scripts/129-call-queue.sql`**. Env: **`LYNCR_HOLD_MUSIC_URL`**, **`LYNCR_INBOUND_CALL_CONTROL`** (legacy `ZING_*` still dual-read via `lib/lyncr-env.ts`).
 
-## Legacy components and naming
-
-- `lib/twilio.ts` and `lib/twilio-porting.ts` are compatibility re-export files.
-- New neutral helper files:
-  - `lib/legacy-voice-provider.ts`
-  - `lib/legacy-porting-provider.ts`
-
-Do not add new feature code to twilio-named files.
-
 ## Rules for future changes
 
-- New voice features must be added under `/api/voice/telnyx/*`.
-- Keep legacy adapter routes as thin re-exports only.
-- Prefer provider-neutral naming in types and database fields.
+- New voice features go under `/api/voice/telnyx/*` (TeXML builder: `lib/texml.ts`).
+- Number search/buy: `/api/numbers/telnyx` and `/api/numbers/telnyx/buy`.
+- Porting: Telnyx LNP via `/api/numbers/port` + `/api/webhooks/telnyx/porting`.
 - Update this document whenever call flow, provider integration, or schema conventions change.

@@ -1,4 +1,4 @@
-// POST /api/numbers/port — submit a native Telnyx LNP port request (no Twilio webhook forwarding).
+// POST /api/numbers/port — submit a native Telnyx LNP port request.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"

@@ -1,5 +1,7 @@
 # Full In-App Porting: Implementation Plan
 
+**Live implementation is Telnyx LNP** (`POST /api/numbers/port`, webhooks at `/api/webhooks/telnyx/porting`). Do not add Twilio Numbers/Port In APIs.
+
 So lyncr has **full control** over number porting (like other VoIP apps): customers start and complete the port entirely in the app. This doc is the roadmap.
 
 ---
