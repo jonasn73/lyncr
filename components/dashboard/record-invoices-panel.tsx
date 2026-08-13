@@ -11,6 +11,7 @@ import {
   Mail,
   MessageSquare,
   Pencil,
+  Receipt,
   RefreshCw,
   Search,
 } from "lucide-react"
@@ -41,14 +42,7 @@ function formatWhen(iso: string): string {
   })
 }
 
-function statusClass(status: string): string {
-  if (status === "sent") return "bg-emerald-500/15 text-emerald-300"
-  if (status === "failed") return "bg-rose-500/15 text-rose-300"
-  if (status === "partial") return "bg-amber-500/15 text-amber-200"
-  return "bg-zinc-800 text-zinc-400"
-}
-
-/** One-line delivery truth: Email ✓ · Text ✗ */
+/** Email/SMS delivery line — empty when it would just repeat the status badge. */
 function deliveryBits(inv: JobRecordInvoiceApi): string {
   const bits: string[] = []
   const ch = (inv.channelsRequested || "").toLowerCase()
@@ -60,8 +54,14 @@ function deliveryBits(inv: JobRecordInvoiceApi): string {
   if (wantSms) {
     bits.push(inv.smsOk ? "Text ✓" : inv.smsError ? "Text ✗" : "Text —")
   }
-  if (bits.length === 0) return inv.deliveryStatusLabel
   return bits.join(" · ")
+}
+
+function invoiceStatusClass(status: string): string {
+  if (status === "sent") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  if (status === "partial") return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+  return "border-zinc-600/50 bg-zinc-800/60 text-zinc-300"
 }
 
 export function RecordInvoicesPanel({
@@ -70,6 +70,10 @@ export function RecordInvoicesPanel({
   /** When set, skip local search box (parent owns search). */
   externalSearch,
   showSearch = true,
+  /** Hide count + Refresh when the parent sheet already has that chrome. */
+  showToolbar = true,
+  /** Same Today / Yesterday / All filter as Card payments (Money sheet). */
+  dayFilter = "all",
   /** Highlight this invoice id after a fresh send. */
   highlightId,
   compact = false,
@@ -79,6 +83,8 @@ export function RecordInvoicesPanel({
   jobId?: string | null
   externalSearch?: string
   showSearch?: boolean
+  showToolbar?: boolean
+  dayFilter?: "today" | "yesterday" | "all"
   highlightId?: string | null
   compact?: boolean
   onCount?: (n: number) => void
@@ -131,7 +137,18 @@ export function RecordInvoicesPanel({
             : json.error || "Could not load invoices"
         )
       }
-      const list = Array.isArray(json.data?.invoices) ? json.data!.invoices! : []
+      let list = Array.isArray(json.data?.invoices) ? json.data!.invoices! : []
+      if (dayFilter === "today" || dayFilter === "yesterday") {
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        if (dayFilter === "yesterday") start.setDate(start.getDate() - 1)
+        const end = new Date(start)
+        end.setDate(end.getDate() + 1)
+        list = list.filter((inv) => {
+          const t = new Date(inv.createdAt).getTime()
+          return t >= start.getTime() && t < end.getTime()
+        })
+      }
       setRows(list)
       onCount?.(list.length)
     } catch (e) {
@@ -141,7 +158,7 @@ export function RecordInvoicesPanel({
     } finally {
       setLoading(false)
     }
-  }, [customerId, jobId, q, onCount])
+  }, [customerId, jobId, q, dayFilter, onCount])
 
   useEffect(() => {
     void load()
@@ -264,20 +281,22 @@ export function RecordInvoicesPanel({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-zinc-500">
-          {loading ? "Loading…" : `${rows.length} invoice${rows.length === 1 ? "" : "s"}`}
-        </p>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-          Refresh
-        </button>
-      </div>
+      {showToolbar ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            {loading ? "Loading…" : `${rows.length} invoice${rows.length === 1 ? "" : "s"}`}
+          </p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
@@ -301,50 +320,54 @@ export function RecordInvoicesPanel({
             <li
               key={inv.id}
               className={cn(
-                "rounded-xl border px-3 py-2.5",
+                "rounded-xl border px-3 py-3",
                 isHighlight
                   ? "border-emerald-500/50 bg-emerald-500/10"
-                  : "border-zinc-800 bg-zinc-900/40"
+                  : "border-zinc-800 bg-zinc-900/50"
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold tabular-nums text-emerald-200">
-                    {formatMoney(inv.amountCents)}
-                    {inv.revision > 1 ? (
-                      <span className="ml-1.5 text-[10px] font-medium text-zinc-500">
-                        rev {inv.revision}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-zinc-500">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300">
+                  <Receipt className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-semibold text-slate-100">
+                      {inv.customerName ||
+                        (inv.customerPhone ? formatPhoneDisplay(inv.customerPhone) : null) ||
+                        inv.invoiceNumber}
+                    </p>
+                    <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">
+                      {formatMoney(inv.amountCents)}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
                     {formatWhen(inv.createdAt)}
                     {" · "}
                     {inv.paymentMethodLabel}
+                    {inv.revision > 1 ? ` · rev ${inv.revision}` : ""}
                     {" · "}
                     <span className="font-mono text-zinc-400">{inv.invoiceNumber}</span>
                   </p>
-                  {!customerId && (inv.customerName || inv.customerPhone) ? (
-                    <p className="mt-0.5 truncate text-[11px] text-zinc-400">
-                      {inv.customerName ||
-                        (inv.customerPhone ? formatPhoneDisplay(inv.customerPhone) : "")}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-[10px] text-zinc-500">{deliveryBits(inv)}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        invoiceStatusClass(inv.deliveryStatus)
+                      )}
+                    >
+                      {inv.deliveryStatusLabel}
+                    </span>
+                    {deliveryBits(inv) ? (
+                      <span className="text-[10px] text-zinc-500">{deliveryBits(inv)}</span>
+                    ) : null}
+                  </div>
                   {inv.deliveryStatus === "failed" || inv.deliveryStatus === "partial" ? (
-                    <p className="mt-0.5 text-[10px] text-rose-300/90">
+                    <p className="mt-1 text-[10px] text-rose-300/90">
                       {[inv.emailError, inv.smsError].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
                 </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
-                    statusClass(inv.deliveryStatus)
-                  )}
-                >
-                  {inv.deliveryStatusLabel}
-                </span>
               </div>
 
               <div className="mt-2 flex flex-wrap gap-1.5">

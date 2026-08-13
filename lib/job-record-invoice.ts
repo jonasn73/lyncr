@@ -83,9 +83,9 @@ export function paymentMethodLabelForRecord(method: RecordInvoicePaymentMethod):
 
 export function deliveryStatusLabel(status: RecordInvoiceDeliveryStatus): string {
   if (status === "sent") return "Sent"
-  if (status === "failed") return "Failed"
-  if (status === "partial") return "Partial"
-  return "Pending"
+  if (status === "failed") return "Send failed"
+  if (status === "partial") return "Partially sent"
+  return "Not sent"
 }
 
 function defaultPaymentNote(method: RecordInvoicePaymentMethod): string {

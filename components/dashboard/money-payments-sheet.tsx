@@ -92,6 +92,8 @@ export function MoneyPaymentsSheet({
   const [search, setSearch] = useState("")
   const [debouncedQ, setDebouncedQ] = useState("")
   const [selected, setSelected] = useState<OwnerCollectedTransaction | null>(null)
+  /** Remount invoices panel on Refresh so it refetches. */
+  const [invoicesTick, setInvoicesTick] = useState(0)
 
   // Invoice / receipt send form (for already-paid charges = statement of payment).
   const [receiptName, setReceiptName] = useState("")
@@ -241,9 +243,7 @@ export function MoneyPaymentsSheet({
       ? "Send invoice"
       : view === "detail"
         ? "Payment"
-        : listTab === "invoices"
-          ? "Invoices"
-          : "All payments"
+        : "Transactions"
 
   const subtitle =
     view === "invoice"
@@ -251,8 +251,8 @@ export function MoneyPaymentsSheet({
       : view === "detail"
         ? "Amount, method, and invoice options."
         : listTab === "invoices"
-          ? "Paid-outside invoices (Venmo, cash). Search name, phone, or invoice #."
-          : "Search by customer name or phone."
+          ? "Venmo and cash invoices you recorded."
+          : "Card and Tap charges."
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -300,7 +300,7 @@ export function MoneyPaymentsSheet({
                     : "text-slate-400 hover:text-slate-200"
                 )}
               >
-                Card payments
+                Cards
               </button>
               <button
                 type="button"
@@ -319,9 +319,7 @@ export function MoneyPaymentsSheet({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-          {view === "list" && listTab === "invoices" ? (
-            <RecordInvoicesPanel showSearch />
-          ) : view === "list" ? (
+          {view === "list" ? (
             <div className="space-y-3">
               <div className="relative">
                 <Search
@@ -339,7 +337,6 @@ export function MoneyPaymentsSheet({
                 />
               </div>
 
-              {/* Today / Yesterday / All — answers “where is yesterday’s payment?” */}
               <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
                 {(
                   [
@@ -366,26 +363,51 @@ export function MoneyPaymentsSheet({
 
               <div className="flex items-center justify-between gap-2 px-0.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  {debouncedQ
-                    ? "Matching charges"
-                    : dayFilter === "today"
-                      ? "Today’s charges"
-                      : dayFilter === "yesterday"
-                        ? "Yesterday’s charges"
-                        : "Recent charges"}
+                  {listTab === "invoices"
+                    ? debouncedQ
+                      ? "Matching invoices"
+                      : dayFilter === "today"
+                        ? "Today’s invoices"
+                        : dayFilter === "yesterday"
+                          ? "Yesterday’s invoices"
+                          : "Invoices"
+                    : debouncedQ
+                      ? "Matching charges"
+                      : dayFilter === "today"
+                        ? "Today’s charges"
+                        : dayFilter === "yesterday"
+                          ? "Yesterday’s charges"
+                          : "Charges"}
                 </p>
                 <button
                   type="button"
-                  onClick={() => void load()}
-                  disabled={loading}
+                  onClick={() => {
+                    if (listTab === "invoices") setInvoicesTick((n) => n + 1)
+                    else void load()
+                  }}
+                  disabled={listTab === "payments" && loading}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} aria-hidden />
+                  <RefreshCw
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      listTab === "payments" && loading && "animate-spin"
+                    )}
+                    aria-hidden
+                  />
                   Refresh
                 </button>
               </div>
 
-              {loading && rows.length === 0 ? (
+              {listTab === "invoices" ? (
+                <RecordInvoicesPanel
+                  key={invoicesTick}
+                  showSearch={false}
+                  showToolbar={false}
+                  externalSearch={debouncedQ}
+                  dayFilter={dayFilter}
+                />
+              ) : loading && rows.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   Loading payments…
