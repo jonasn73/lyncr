@@ -15,6 +15,7 @@ import {
   Percent,
   Shield,
   ShieldCheck,
+  LifeBuoy,
   Users,
   Volume2,
   Zap,
@@ -38,6 +39,7 @@ import { isVerifiedActiveSubscription } from "@/lib/onboarding-subscription-stat
 import { readActiveOrganizationId } from "@/lib/workspace-organizations"
 import { closeHeaderSettings } from "@/lib/settings-modals-events"
 import { PlatformNotificationSettings } from "@/components/admin/platform-notification-settings"
+import { openOwnerHelpSheet } from "@/lib/owner-help-events"
 
 type SettingsProfileSummary = {
   name: string
@@ -227,6 +229,16 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             onClick={() => {
               closeHeaderSettings()
               router.push("/dashboard/inventory")
+            }}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<LifeBuoy className="h-5 w-5 text-violet-300" aria-hidden />}
+            title="Help"
+            subtitle="Chat with Lyncr or report a problem"
+            onClick={() => {
+              closeHeaderSettings()
+              openOwnerHelpSheet("chat")
             }}
           />
           <SettingsMenuRow

@@ -9,6 +9,7 @@ export const ADMIN_NOTIFICATION_PREFERENCE_KEYS = [
   "push_operator_dispositions",
   "email_daily_revenue_digest",
   "email_system_fallback_alerts",
+  "sms_platform_health",
 ] as const
 
 export type AdminNotificationPreferenceKey = (typeof ADMIN_NOTIFICATION_PREFERENCE_KEYS)[number]
@@ -20,6 +21,7 @@ export const DEFAULT_ADMIN_NOTIFICATION_PREFERENCES: AdminNotificationPreference
   push_operator_dispositions: true,
   email_daily_revenue_digest: true,
   email_system_fallback_alerts: true,
+  sms_platform_health: true,
 }
 
 function readBool(raw: unknown, fallback: boolean): boolean {

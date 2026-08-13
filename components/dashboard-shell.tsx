@@ -18,6 +18,7 @@ import { SwrProvider } from "@/components/swr-provider"
 import { DashboardMainContent } from "@/components/dashboard-main-content"
 import { PhotoUploadNotificationBanner } from "@/components/dashboard/photo-upload-notification-banner"
 import { SupportChatReplyBanner } from "@/components/dashboard/support-chat-reply-banner"
+import { OwnerHelpSheet } from "@/components/owner-help-sheet"
 import { DashboardOperatorHeartbeatHost } from "@/components/dashboard/dashboard-operator-heartbeat-host"
 import { DeferredShellHost } from "@/components/dashboard/deferred-shell-host"
 import {
@@ -279,6 +280,7 @@ export function DashboardShell({
                         <DashboardOperatorHeartbeatHost />
                         <PhotoUploadNotificationBanner />
                         <SupportChatReplyBanner />
+                        <OwnerHelpSheet />
                       </DeferredShellHost>
                     </AppShell>
                     {/* Intake must stay mounted with LyncEngine — do not defer this popup. */}
@@ -311,6 +313,7 @@ export function DashboardShell({
                         <DashboardMainContent activePage={activePage} routedChildren={children} />
                       </DashboardMainStreamGate>
                       <SupportChatReplyBanner />
+                      <OwnerHelpSheet />
                     </AppShell>
                   </DispatchCommandBridgeProvider>
                 </DashboardNumbersModalProvider>

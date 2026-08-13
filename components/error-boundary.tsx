@@ -47,6 +47,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
       stack,
       componentStack,
     })
+    // Production: send to Sentry Replay/errors. Dev keeps the floating drawer only.
+    if (process.env.NODE_ENV === "production") {
+      void import("@sentry/nextjs").then((Sentry) => {
+        Sentry.captureException(error, { extra: { componentStack } })
+      })
+    }
     if (process.env.NODE_ENV === "development") {
       void import("@/lib/dev-error-log").then(({ pushDevErrorLog }) => {
         pushDevErrorLog({

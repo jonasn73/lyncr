@@ -4,13 +4,12 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import { ChevronDown, ChevronRight, CreditCard, Landmark, LifeBuoy, Loader2, LogOut, Receipt } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { DASHBOARD_PAGE_HREF } from "@/lib/dashboard-nav"
+import { openOwnerHelpSheet } from "@/lib/owner-help-events"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -784,14 +783,17 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 <SheetTitle className="text-base text-slate-100">Settings</SheetTitle>
                 <p className="truncate text-xs text-slate-500">{email}</p>
               </div>
-              <Link
-                href={DASHBOARD_PAGE_HREF.help}
-                onClick={() => setOpen(false)}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openOwnerHelpSheet("chat")
+                }}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
               >
                 <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
                 Help
-              </Link>
+              </button>
             </div>
           </SheetHeader>
 

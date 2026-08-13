@@ -49,7 +49,7 @@ export interface AdminOperatorWorkspaceOption {
 /** Platform owner quick-toggle profile — legacy; superseded by AdminNotificationPreferences. */
 export type MasterToggleMode = "tech" | "admin" | "passive"
 
-/** Granular platform-admin notification channel toggles (`080-admin-notification-preferences.sql`). */
+/** Granular platform-admin notification channel toggles (`080` + `136` health SMS). */
 export interface AdminNotificationPreferences {
   sms_local_job_assignments: boolean
   sms_global_out_of_state_bookings: boolean
@@ -57,6 +57,8 @@ export interface AdminNotificationPreferences {
   push_operator_dispositions: boolean
   email_daily_revenue_digest: boolean
   email_system_fallback_alerts: boolean
+  /** Text platform admins when Neon or Telnyx health goes red (`136`). */
+  sms_platform_health: boolean
 }
 
 export interface User {
@@ -775,6 +777,24 @@ export type AdminUserOverrideResult = {
 }
 
 export type LyncrAdminHealthStatus = "ok" | "error" | "unconfigured"
+
+/** Unread/open counts for the admin Support tab badge. */
+export interface AdminSupportPulse {
+  chat_unread: number
+  email_unread: number
+  open_feedback: number
+  attention_count: number
+}
+
+/** Platform-admin row used for health SMS/email (never shop owners). */
+export interface PlatformAdminContact {
+  id: string
+  email: string
+  name: string
+  phone: string
+  is_platform_admin: boolean
+  admin_notification_preferences: AdminNotificationPreferences
+}
 
 export interface LyncrAdminMetrics {
   total_users: number

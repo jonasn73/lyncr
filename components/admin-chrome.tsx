@@ -91,7 +91,45 @@ function moreIsActive(pathname: string) {
   return MORE_LINKS.some((item) => item.match(pathname))
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** Poll unread chat + email + open feedback for the Support tab badge. */
+function useAdminSupportPulse() {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch("/api/admin/support-pulse", { credentials: "include" })
+        const json = (await res.json().catch(() => ({}))) as { data?: { attention_count?: number } }
+        if (!cancelled && res.ok) setCount(Number(json.data?.attention_count ?? 0))
+      } catch {
+        // Badge is optional — ignore network blips.
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 30000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+  return count
+}
+
+function SupportCountBadge({ count, className }: { count: number; className?: string }) {
+  if (count < 1) return null
+  return (
+    <span
+      className={cn(
+        "min-w-[1.25rem] rounded-full bg-violet-600 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white",
+        className
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
+
+function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; supportCount?: number }) {
   const pathname = usePathname() ?? ""
   return (
     <nav className="flex flex-col gap-0.5 p-2">
@@ -112,6 +150,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
             {item.label}
+            {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
           </Link>
         )
       })}
@@ -122,9 +161,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function MobileBottomTabs({
   moreOpen,
   onMoreToggle,
+  supportCount = 0,
 }: {
   moreOpen: boolean
   onMoreToggle: () => void
+  supportCount?: number
 }) {
   const pathname = usePathname() ?? ""
   const moreActive = moreIsActive(pathname) || moreOpen
@@ -169,7 +210,12 @@ function MobileBottomTabs({
               : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
           )}
         >
-          <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="relative">
+            <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
+            {supportCount > 0 ? (
+              <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-violet-500" aria-hidden />
+            ) : null}
+          </span>
           <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">More</span>
         </button>
       </div>
@@ -182,11 +228,13 @@ function MoreSheet({
   onClose,
   onLogout,
   logoutBusy,
+  supportCount = 0,
 }: {
   open: boolean
   onClose: () => void
   onLogout: () => void
   logoutBusy: boolean
+  supportCount?: number
 }) {
   const pathname = usePathname() ?? ""
   if (!open) return null
@@ -236,6 +284,7 @@ function MoreSheet({
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden />
                 {item.label}
+                {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
               </Link>
             )
           })}
@@ -268,6 +317,7 @@ export function AdminChrome({
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
   const pageLabel = NAV.find((n) => n.match(pathname))?.label ?? "Admin"
+  const supportCount = useAdminSupportPulse()
 
   // Close overflow sheet when the route changes (e.g. user tapped another bottom tab).
   useEffect(() => {
@@ -292,7 +342,7 @@ export function AdminChrome({
             </div>
           </div>
         </div>
-        <NavLinks />
+        <NavLinks supportCount={supportCount} />
         <div className="mt-auto space-y-2 border-t border-slate-800 p-3">
           <p className="truncate text-[11px] text-slate-500">{userEmail}</p>
           {/* Desktop has no More sheet — keep Logout reachable in the sidebar footer */}
@@ -338,12 +388,17 @@ export function AdminChrome({
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         logoutBusy={busy}
+        supportCount={supportCount}
         onLogout={() => {
           setBusy(true)
           void signOutAndGoToLogin()
         }}
       />
-      <MobileBottomTabs moreOpen={moreOpen} onMoreToggle={() => setMoreOpen((o) => !o)} />
+      <MobileBottomTabs
+        moreOpen={moreOpen}
+        onMoreToggle={() => setMoreOpen((o) => !o)}
+        supportCount={supportCount}
+      />
     </div>
   )
 }

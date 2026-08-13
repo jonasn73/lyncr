@@ -29,6 +29,11 @@ const SECTIONS: { title: string; rows: PreferenceRow[] }[] = [
         label: "Out-of-state booking",
         description: "Text when a booking is outside the usual service area.",
       },
+      {
+        key: "sms_platform_health",
+        label: "Platform health SMS",
+        description: "Text you when Neon or Telnyx goes down (and once when it recovers). Never texts shop owners.",
+      },
     ],
   },
   {

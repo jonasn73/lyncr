@@ -2,7 +2,8 @@
 
 // Platform support — inbound emails (Resend) + in-app feedback + live chat.
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { startImpersonation } from "@/app/actions/admin-impersonation"
 import type {
   AdminSupportEmail,
   AdminSupportEmailListItem,
@@ -32,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { FileText, Paperclip, Send, X } from "lucide-react"
+import { FileText, Loader2, Paperclip, Send, X } from "lucide-react"
 
 const FEEDBACK_STATUSES: FeedbackStatus[] = ["open", "triaged", "closed"]
 
@@ -79,6 +80,8 @@ function LiveChatQueue() {
   const [pending, setPending] = useState<PendingAttachment[]>([])
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [activeUserId, setActiveUserId] = useState<string | null>(null)
+  const [impersonatePending, startImpersonateTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -115,13 +118,14 @@ function LiveChatQueue() {
       const json = (await res.json().catch(() => ({}))) as {
         data?: {
           messages?: SupportChatMessage[]
-          owner?: { business_name?: string; name?: string; email?: string } | null
+          owner?: { id?: string; business_name?: string; name?: string; email?: string } | null
         }
         error?: string
       }
       if (!res.ok) throw new Error(json.error ?? "Could not open conversation")
       setMessages(json.data?.messages ?? [])
       const o = json.data?.owner
+      setActiveUserId(o?.id?.trim() || null)
       setOwnerLabel(
         o
           ? `${o.business_name || "Business"} · ${o.name || ""} · ${o.email || ""}`.replace(/\s·\s$/, "")
@@ -299,6 +303,7 @@ function LiveChatQueue() {
         onOpenChange={(o) => {
           if (!o) {
             setActiveId(null)
+            setActiveUserId(null)
             setMessages([])
             setDraft("")
             setPending([])
@@ -310,8 +315,32 @@ function LiveChatQueue() {
           className="flex max-h-[92vh] flex-col gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-lg"
         >
           <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
-            <SheetTitle className="text-slate-50">Support chat</SheetTitle>
-            <p className="text-xs text-slate-500">{ownerLabel}</p>
+            <div className="flex items-start justify-between gap-2 pr-8">
+              <div className="min-w-0">
+                <SheetTitle className="text-slate-50">Support chat</SheetTitle>
+                <p className="text-xs text-slate-500">{ownerLabel}</p>
+              </div>
+              {activeUserId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={impersonatePending}
+                  className="shrink-0 border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                  onClick={() => {
+                    startImpersonateTransition(async () => {
+                      const result = await startImpersonation(activeUserId)
+                      if (result?.ok === false) toast.error(result.error)
+                    })
+                  }}
+                >
+                  {impersonatePending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : null}
+                  View as owner
+                </Button>
+              ) : null}
+            </div>
           </SheetHeader>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">

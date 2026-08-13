@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { insertFeedbackSubmission } from "@/lib/db"
 import { requireSessionUser } from "@/lib/admin-api-guard"
+import { appendHelpContextToFeedbackBody } from "@/lib/help-feedback-context"
 import type { FeedbackCategory } from "@/lib/types"
 
 const CATEGORIES: FeedbackCategory[] = ["issue", "feature", "billing", "other"]
@@ -17,16 +18,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const category = String(body?.category ?? "").trim() as FeedbackCategory
     const subject = String(body?.subject ?? "").trim()
-    const text = String(body?.body ?? "").trim()
+    const note = String(body?.body ?? "").trim()
     if (!CATEGORIES.includes(category)) {
       return NextResponse.json({ error: "Invalid category" }, { status: 400 })
     }
     if (subject.length < 3 || subject.length > 200) {
       return NextResponse.json({ error: "Subject must be 3–200 characters" }, { status: 400 })
     }
-    if (text.length < 10 || text.length > 8000) {
+    if (note.length < 10 || note.length > 8000) {
       return NextResponse.json({ error: "Details must be 10–8000 characters" }, { status: 400 })
     }
+    const text = appendHelpContextToFeedbackBody(note, {
+      pagePath: body?.page_path != null ? String(body.page_path) : null,
+      pageName: body?.page_name != null ? String(body.page_name) : null,
+      device: body?.device != null ? String(body.device) : null,
+    }).slice(0, 8000)
     const row = await insertFeedbackSubmission({
       user_id: ctx.userId,
       category,

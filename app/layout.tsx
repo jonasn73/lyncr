@@ -13,6 +13,7 @@ import {
   SITE_TITLE_TEMPLATE_SUFFIX,
 } from "@/lib/brand"
 import { DevErrorLogDrawer } from "@/components/dev-error-log-drawer"
+import { SentryUserContext } from "@/components/sentry-user-context"
 import "./globals.css"
 
 const inter = Inter({
@@ -78,6 +79,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
         {children}
+        <SentryUserContext />
         <Toaster />
         <SonnerToaster richColors position="top-center" closeButton />
         {/* Floating client error panel — stripped from production builds via NODE_ENV check. */}

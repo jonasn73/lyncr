@@ -20,6 +20,11 @@ export default function Error({
 
   useEffect(() => {
     console.error("[lyncr] app/error.tsx", error.message, error.digest, error.stack)
+    if (process.env.NODE_ENV === "production") {
+      void import("@sentry/nextjs").then((Sentry) => {
+        Sentry.captureException(error)
+      })
+    }
     const existing = readClientCrashDump()
     // Prefer a dump that already has a component stack from ErrorBoundary.
     if (existing?.componentStack || existing?.stack) {

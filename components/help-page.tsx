@@ -6,7 +6,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
+import { describeBrowserDevice } from "@/lib/help-feedback-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -41,6 +42,7 @@ type BillingSummary = {
 export function HelpPage() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const pathname = usePathname() ?? "/dashboard/help"
   const [user, setUser] = useState<SessionUser | null>(null)
   const [billing, setBilling] = useState<BillingSummary | null>(null)
   const [category, setCategory] = useState<string>("issue")
@@ -80,7 +82,14 @@ export function HelpPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, subject, body }),
+        body: JSON.stringify({
+          category,
+          subject,
+          body,
+          page_path: pathname,
+          page_name: "help",
+          device: describeBrowserDevice(typeof navigator !== "undefined" ? navigator.userAgent : ""),
+        }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -102,6 +111,9 @@ export function HelpPage() {
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Help & feedback</h1>
           <p className="mt-1 hidden text-sm text-muted-foreground md:block">
             Chat with Lyncr Support, check your plan balance, or send a written feedback note.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Evenings and weekends we still see messages. Replies usually come the next business morning.
           </p>
         </div>
         <SheetInfoTrigger onPress={() => setHelpSheetKey("help-page-overview")} label="About Help and feedback" />

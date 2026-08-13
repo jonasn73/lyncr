@@ -26,6 +26,10 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 
 # AI (optional - for AI receptionist)
 OPENAI_API_KEY=sk-...
+
+# Sentry (optional locally; required in Vercel production for crash + replay)
+NEXT_PUBLIC_SENTRY_DSN=
+# CRON_SECRET=   # Vercel Cron auth for /api/cron/platform-health
 ```
 
 ### 4. Implement Database Functions

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/sync-presence",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/platform-health",
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {

@@ -59,6 +59,8 @@ import type {
   UpdateOnboardingProfileRequest,
   LyncrAdminDirectoryRow,
   LyncrAdminMetrics,
+  AdminSupportPulse,
+  PlatformAdminContact,
   AdminUserOverrideResult,
   ReceptionistPayoutMetrics,
   TeamInvite,
@@ -17646,6 +17648,214 @@ export async function updateUserStripeConnect(
       )
     }
     throw e
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Platform health snapshots (`136-platform-health-snapshots.sql`) + support pulse
+// ---------------------------------------------------------------------------
+
+const PLATFORM_HEALTH_MISSING =
+  "Platform health snapshots missing — run scripts/136-platform-health-snapshots.sql in Neon (see scripts/MIGRATE-ALL.md)."
+
+/** Turn a snapshot DB row into ISO strings for the cron debounce logic. */
+function parsePlatformHealthSnapshotRow(row: Record<string, unknown>): {
+  check_name: "neon" | "telnyx"
+  status: "ok" | "error" | "unconfigured"
+  last_error_at: string | null
+  last_ok_at: string | null
+  last_alerted_at: string | null
+  last_recovery_alerted_at: string | null
+  updated_at: string
+} {
+  // Dates may arrive as Date objects or ISO strings depending on the driver.
+  const iso = (value: unknown): string | null => {
+    if (value == null) return null
+    if (value instanceof Date) return value.toISOString()
+    const text = String(value).trim()
+    return text || null
+  }
+  return {
+    check_name: String(row.check_name) as "neon" | "telnyx",
+    status: String(row.status) as "ok" | "error" | "unconfigured",
+    last_error_at: iso(row.last_error_at),
+    last_ok_at: iso(row.last_ok_at),
+    last_alerted_at: iso(row.last_alerted_at),
+    last_recovery_alerted_at: iso(row.last_recovery_alerted_at),
+    updated_at: iso(row.updated_at) ?? new Date().toISOString(),
+  }
+}
+
+/** Last known Neon/Telnyx status + last alert times (null before the first cron tick). */
+export async function getPlatformHealthSnapshot(checkName: "neon" | "telnyx") {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT check_name, status, last_error_at, last_ok_at, last_alerted_at, last_recovery_alerted_at, updated_at
+      FROM platform_health_snapshots
+      WHERE check_name = ${checkName}
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parsePlatformHealthSnapshotRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "platform_health_snapshots")) {
+      throw new Error(PLATFORM_HEALTH_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Upsert one probe result; optionally stamp last alert / recovery alert time. */
+export async function upsertPlatformHealthSnapshot(params: {
+  checkName: "neon" | "telnyx"
+  status: "ok" | "error" | "unconfigured"
+  markDownAlert?: boolean
+  markRecoveryAlert?: boolean
+}) {
+  const sql = getSql()
+  // Booleans become SQL parameters inside CASE WHEN $n THEN NOW().
+  const markDown = params.markDownAlert === true
+  const markUp = params.markRecoveryAlert === true
+  try {
+    const rows = await sql`
+      INSERT INTO platform_health_snapshots (
+        check_name, status, last_error_at, last_ok_at, last_alerted_at, last_recovery_alerted_at, updated_at
+      ) VALUES (
+        ${params.checkName},
+        ${params.status},
+        CASE WHEN ${params.status} = 'error' THEN NOW() ELSE NULL END,
+        CASE WHEN ${params.status} <> 'error' THEN NOW() ELSE NULL END,
+        CASE WHEN ${markDown} THEN NOW() ELSE NULL END,
+        CASE WHEN ${markUp} THEN NOW() ELSE NULL END,
+        NOW()
+      )
+      ON CONFLICT (check_name) DO UPDATE SET
+        status = EXCLUDED.status,
+        last_error_at = CASE
+          WHEN EXCLUDED.status = 'error' THEN NOW()
+          ELSE platform_health_snapshots.last_error_at
+        END,
+        last_ok_at = CASE
+          WHEN EXCLUDED.status <> 'error' THEN NOW()
+          ELSE platform_health_snapshots.last_ok_at
+        END,
+        last_alerted_at = CASE
+          WHEN ${markDown} THEN NOW()
+          ELSE platform_health_snapshots.last_alerted_at
+        END,
+        last_recovery_alerted_at = CASE
+          WHEN ${markUp} THEN NOW()
+          ELSE platform_health_snapshots.last_recovery_alerted_at
+        END,
+        updated_at = NOW()
+      RETURNING check_name, status, last_error_at, last_ok_at, last_alerted_at, last_recovery_alerted_at, updated_at
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("platform_health_snapshots upsert returned no row")
+    return parsePlatformHealthSnapshotRow(row)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "platform_health_snapshots")) {
+      throw new Error(PLATFORM_HEALTH_MISSING)
+    }
+    throw e
+  }
+}
+
+/** Platform admins only (is_platform_admin or bootstrap admin@lyncr.app) — never shop owners. */
+export async function listPlatformAdminContacts(): Promise<PlatformAdminContact[]> {
+  const sql = getSql()
+  const mapRow = (row: Record<string, unknown>, prefsUnknown?: unknown): PlatformAdminContact => {
+    const email = String(row.email ?? "")
+    return {
+      id: String(row.id),
+      email,
+      name: String(row.name ?? ""),
+      phone: String(row.phone ?? ""),
+      // This query only returns platform admins (flag or bootstrap email).
+      is_platform_admin: true,
+      admin_notification_preferences: parseAdminNotificationPreferences(prefsUnknown ?? row.admin_notification_preferences),
+    }
+  }
+  try {
+    const rows = await sql`
+      SELECT id, email, name, phone, is_platform_admin, admin_notification_preferences
+      FROM users
+      WHERE is_platform_admin = true
+         OR lower(trim(email)) = 'admin@lyncr.app'
+    `
+    return (rows as Record<string, unknown>[]).map((row) => mapRow(row))
+  } catch (e) {
+    // Prefs column missing — still return admins with defaults.
+    if (isMissingAdminNotificationPreferencesColumnError(e)) {
+      const rows = await sql`
+        SELECT id, email, name, phone, is_platform_admin
+        FROM users
+        WHERE is_platform_admin = true
+           OR lower(trim(email)) = 'admin@lyncr.app'
+      `
+      return (rows as Record<string, unknown>[]).map((row) => mapRow(row, {}))
+    }
+    // Flag column missing — fall back to the bootstrap admin email only.
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("is_platform_admin")) {
+      const rows = await sql`
+        SELECT id, email, name, phone
+        FROM users
+        WHERE lower(trim(email)) = 'admin@lyncr.app'
+      `
+      return (rows as Record<string, unknown>[]).map((row) => ({
+        id: String(row.id),
+        email: String(row.email ?? ""),
+        name: String(row.name ?? ""),
+        phone: String(row.phone ?? ""),
+        is_platform_admin: true,
+        admin_notification_preferences: parseAdminNotificationPreferences({}),
+      }))
+    }
+    throw e
+  }
+}
+
+/** Unread chat + unread support email + open feedback for the /admin Support badge. */
+export async function getAdminSupportPulse(): Promise<AdminSupportPulse> {
+  const sql = getSql()
+  let chat_unread = 0
+  let email_unread = 0
+  let open_feedback = 0
+  try {
+    const chatRows = await sql`
+      SELECT coalesce(sum(admin_unread_count), 0)::int AS chat_unread
+      FROM support_chat_threads
+    `
+    chat_unread = Number((chatRows[0] as { chat_unread?: number } | undefined)?.chat_unread ?? 0)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "support_chat_threads")) throw e
+  }
+  try {
+    const emailRows = await sql`
+      SELECT count(*)::int AS email_unread
+      FROM admin_support_emails
+      WHERE read_at IS NULL
+    `
+    email_unread = Number((emailRows[0] as { email_unread?: number } | undefined)?.email_unread ?? 0)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "admin_support_emails")) throw e
+  }
+  try {
+    const feedbackRows = await sql`
+      SELECT count(*)::int AS open_feedback
+      FROM feedback_submissions
+      WHERE status = 'open'
+    `
+    open_feedback = Number((feedbackRows[0] as { open_feedback?: number } | undefined)?.open_feedback ?? 0)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "feedback_submissions")) throw e
+  }
+  return {
+    chat_unread,
+    email_unread,
+    open_feedback,
+    attention_count: chat_unread + email_unread + open_feedback,
   }
 }
 

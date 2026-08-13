@@ -33,6 +33,7 @@ const adminUser: User = {
     push_operator_dispositions: true,
     email_daily_revenue_digest: true,
     email_system_fallback_alerts: true,
+    sms_platform_health: true,
   },
 }
 
@@ -41,6 +42,7 @@ describe("admin-notification-preferences", () => {
     const prefs = parseAdminNotificationPreferences({ push_live_inbound_ringing: false })
     expect(prefs.push_live_inbound_ringing).toBe(false)
     expect(prefs.sms_local_job_assignments).toBe(true)
+    expect(prefs.sms_platform_health).toBe(true)
   })
 
   it("detects out-of-state leads", () => {
