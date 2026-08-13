@@ -135,6 +135,36 @@ export type OwnerCollectedTransaction = {
   hasSignature: boolean
 }
 
+/**
+ * Wallet-facing status for one charge (shown on transaction rows, not the header chip).
+ * Card/Tap funds usually sit in Stripe Pending ~2 days before Available.
+ */
+export type CollectedChargeWalletStatus = "pending" | "clearing" | "paid" | "failed"
+
+/** Stripe typically makes card funds transferable after ~2 days. */
+const CARD_CLEARING_MS = 48 * 60 * 60 * 1000
+
+export function collectedChargeWalletStatus(
+  tx: Pick<OwnerCollectedTransaction, "status" | "createdAt" | "paymentMethod">,
+  nowMs: number = Date.now()
+): CollectedChargeWalletStatus {
+  if (tx.status === "FAILED") return "failed"
+  if (tx.status === "PENDING") return "pending"
+  // Cash never goes through Stripe clearing.
+  if (tx.paymentMethod === "CASH") return "paid"
+  const created = new Date(tx.createdAt).getTime()
+  if (!Number.isFinite(created)) return "paid"
+  if (nowMs - created < CARD_CLEARING_MS) return "clearing"
+  return "paid"
+}
+
+export function collectedChargeWalletLabel(status: CollectedChargeWalletStatus): string {
+  if (status === "failed") return "Failed"
+  if (status === "pending") return "Pending"
+  if (status === "clearing") return "Clearing"
+  return "Paid"
+}
+
 export type ListOwnerCollectedOptions = {
   /** Max rows (1–200). Default 100. */
   limit?: number

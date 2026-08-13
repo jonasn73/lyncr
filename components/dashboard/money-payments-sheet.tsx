@@ -15,8 +15,13 @@ import {
   Search,
   X,
 } from "lucide-react"
-import type { OwnerCollectedTransaction } from "@/lib/owner-collected"
-import { formatCollectedDollars } from "@/lib/owner-collected"
+import {
+  collectedChargeWalletLabel,
+  collectedChargeWalletStatus,
+  formatCollectedDollars,
+  type CollectedChargeWalletStatus,
+  type OwnerCollectedTransaction,
+} from "@/lib/owner-collected"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { estimateLyncrNetFromGrossCents } from "@/lib/header-money-cache"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -47,16 +52,10 @@ function methodLabel(method: OwnerCollectedTransaction["paymentMethod"]): string
   return "Card"
 }
 
-function statusClass(status: OwnerCollectedTransaction["status"]): string {
-  if (status === "COMPLETED") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
-  if (status === "FAILED") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+function walletStatusClass(status: CollectedChargeWalletStatus): string {
+  if (status === "paid") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
   return "border-amber-500/35 bg-amber-500/10 text-amber-200"
-}
-
-function statusLabel(status: OwnerCollectedTransaction["status"]): string {
-  if (status === "COMPLETED") return "Paid"
-  if (status === "FAILED") return "Failed"
-  return "Pending"
 }
 
 function rowTitle(tx: OwnerCollectedTransaction): string {
@@ -260,7 +259,8 @@ export function MoneyPaymentsSheet({
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+        overlayClassName="z-[7000]"
+        className="z-[7010] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
       >
         <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
           <div className="flex items-start justify-between gap-3">
@@ -408,6 +408,7 @@ export function MoneyPaymentsSheet({
               ) : (
                 <ul className="space-y-2">
                   {rows.map((tx) => {
+                    const walletStatus = collectedChargeWalletStatus(tx)
                     const subtitleParts = [
                       methodLabel(tx.paymentMethod),
                       tx.jobLabel,
@@ -427,9 +428,9 @@ export function MoneyPaymentsSheet({
                           <span
                             className={cn(
                               "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                              tx.status === "COMPLETED"
+                              walletStatus === "paid"
                                 ? "bg-emerald-500/15 text-emerald-400"
-                                : tx.status === "FAILED"
+                                : walletStatus === "failed"
                                   ? "bg-rose-500/15 text-rose-300"
                                   : "bg-amber-500/15 text-amber-200"
                             )}
@@ -453,10 +454,10 @@ export function MoneyPaymentsSheet({
                               <span
                                 className={cn(
                                   "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                  statusClass(tx.status)
+                                  walletStatusClass(walletStatus)
                                 )}
                               >
-                                {statusLabel(tx.status)}
+                                {collectedChargeWalletLabel(walletStatus)}
                               </span>
                               {!tx.jobId ? (
                                 <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
@@ -640,7 +641,10 @@ function PaymentDetail({
       </div>
 
       <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/40">
-        <DetailRow label="Status" value={statusLabel(tx.status)} />
+        <DetailRow
+          label="Status"
+          value={collectedChargeWalletLabel(collectedChargeWalletStatus(tx))}
+        />
         <DetailRow label="Method" value={methodLabel(tx.paymentMethod)} />
         <DetailRow label="When" value={formatWhen(tx.createdAt)} />
         {tx.jobLabel ? <DetailRow label="Job" value={tx.jobLabel} /> : null}

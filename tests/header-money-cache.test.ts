@@ -10,11 +10,12 @@ describe("resolveHeaderWalletChipDisplay", () => {
     expect(chip.chipLabel).toBe("Available")
   })
 
-  it("falls back to Pending when nothing is Available yet", () => {
+  it("falls back to pending amount when nothing is Available yet (chip still shows $ only)", () => {
     const chip = resolveHeaderWalletChipDisplay(0, 5_000, 200)
     expect(chip.mode).toBe("pending")
     expect(chip.amountCents).toBe(5_000)
-    expect(chip.chipLabel).toBe("Pending")
+    // Header chip no longer prints this word — used for aria/tooltip only.
+    expect(chip.chipLabel).toBe("In Stripe")
   })
 
   it("shows empty wallet when Available and Pending are both zero", () => {

@@ -5,7 +5,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ChevronDown, CreditCard, LifeBuoy, Loader2, LogOut } from "lucide-react"
+import { ChevronDown, ChevronRight, CreditCard, LifeBuoy, Loader2, LogOut, Receipt } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -34,7 +34,6 @@ import {
   type HeaderMoneyCache,
 } from "@/lib/header-money-cache"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
-import type { OwnerCollectedTransaction } from "@/lib/owner-collected"
 
 /**
  * Last-known wallet for header skeleton / first paint.
@@ -51,14 +50,6 @@ function formatMoneyCents(cents: number): string {
 }
 
 type CollectedPeriod = "today" | "yesterday" | "week" | "month" | "all"
-
-const PERIOD_OPTIONS: { id: CollectedPeriod; label: string; hint: string }[] = [
-  { id: "today", label: "Today", hint: "Collected since midnight (your timezone)" },
-  { id: "yesterday", label: "Yesterday", hint: "Previous calendar day" },
-  { id: "week", label: "This week", hint: "Monday through today" },
-  { id: "month", label: "This month", hint: "From the 1st through today" },
-  { id: "all", label: "All time", hint: "Every settled charge" },
-]
 
 // Heavy Stripe bundles — load only when Collect / Get paid actually open.
 const OwnerCollectPaymentSheet = dynamic(
@@ -178,9 +169,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   )
   // Wallet chip = Stripe balance only (not “sales today”).
   const amountReady = availableCents != null
-  // Recent charges + last bank payout — loaded when Money opens (visibility of “where did $ go?”).
-  const [recentPayments, setRecentPayments] = useState<OwnerCollectedTransaction[]>([])
-  const [recentPaymentsLoading, setRecentPaymentsLoading] = useState(false)
+  // Last bank payout — loaded when Money opens (answers “where did $ go?”).
   const [lastPayout, setLastPayout] = useState<{
     amountCents: number
     status: string
@@ -298,23 +287,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** Load recent charges + last bank payout when Money opens (answers “where did it go?”). */
+  /** Last bank payout when Money opens (answers “where did $ go?”). */
   const refreshMoneyExtras = useCallback(() => {
-    setRecentPaymentsLoading(true)
-    void fetch("/api/owner/collected/transactions?limit=12", {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { data?: { transactions?: OwnerCollectedTransaction[] } } | null) => {
-        const rows = Array.isArray(j?.data?.transactions) ? j!.data!.transactions! : []
-        // Prefer settled rows for the glance list; keep a few pending if that is all we have.
-        const paid = rows.filter((t) => t.status === "COMPLETED")
-        setRecentPayments((paid.length > 0 ? paid : rows).slice(0, 6))
-      })
-      .catch(() => setRecentPayments([]))
-      .finally(() => setRecentPaymentsLoading(false))
-
     void fetch("/api/payments/connect/payouts?limit=3", {
       credentials: "include",
       cache: "no-store",
@@ -446,7 +420,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   }, [])
 
   const openPayments = useCallback((day: "today" | "yesterday" | "all" = "all") => {
-    setMoneyOpen(false)
+    // Keep Money underneath so closing Transactions returns here.
     setPaymentsInitialTab("payments")
     setPaymentsDayFilter(day)
     setPaymentsMounted(true)
@@ -454,7 +428,6 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   }, [])
 
   const openInvoices = useCallback(() => {
-    setMoneyOpen(false)
     setPaymentsInitialTab("invoices")
     setPaymentsDayFilter("all")
     setPaymentsMounted(true)
@@ -484,25 +457,6 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   const firstName = name.trim().split(/\s+/)[0] || name
 
-  function recentPaymentTitle(tx: OwnerCollectedTransaction): string {
-    return (
-      tx.customerName ||
-      (tx.customerPhone ? tx.customerPhone : null) ||
-      (tx.jobId ? "Job payment" : "Walk-up charge")
-    )
-  }
-
-  function recentPaymentWhen(iso: string): string {
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return "—"
-    return d.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    })
-  }
-
   return (
     <>
       <div className="flex items-center gap-1.5">
@@ -516,31 +470,24 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
             chipAmountLabel && chipDisplay
-              ? `Wallet ${chipAmountLabel} ${chipDisplay.label}. Tap for sales and Send to bank.`
+              ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money.`
               : "Wallet — loading balance"
           }
           title={
             chipAmountLabel && chipDisplay
-              ? `${chipAmountLabel} · ${chipDisplay.chipLabel} — tap for details`
+              ? `${chipAmountLabel} · ${chipDisplay.label}`
               : "Loading account balance"
           }
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none">
-            {chipAmountLabel && amountReady && chipDisplay ? (
-              <>
-                <span className="text-xs font-bold tabular-nums" suppressHydrationWarning>
-                  {chipAmountLabel}
-                </span>
-                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                  {chipDisplay.chipLabel}
-                </span>
-              </>
-            ) : (
-              // Reserved width only — never pulse bars that look like broken "...." data.
-              <span className="inline-block h-3 w-14" aria-hidden />
-            )}
-          </span>
+          {chipAmountLabel && amountReady && chipDisplay ? (
+            <span className="text-xs font-bold tabular-nums" suppressHydrationWarning>
+              {chipAmountLabel}
+            </span>
+          ) : (
+            // Reserved width only — never pulse bars that look like broken "...." data.
+            <span className="inline-block h-3 w-10" aria-hidden />
+          )}
         </Button>
 
         {/* Account / Settings — avatar (+ name on larger screens), no dollar amount. */}
@@ -590,7 +537,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
             <p className="text-xs text-slate-500">
-              Wallet stays in Stripe until you tap Send to bank. Sales totals are separate.
+              Wallet stays here until you Send to bank. Open Transactions for the charge list.
             </p>
           </SheetHeader>
 
@@ -655,159 +602,49 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               </Button>
             </div>
 
-            {/* Customers paid today (sales — not the wallet balance) */}
-            <div className="rounded-xl border border-teal-500/25 bg-teal-500/10 px-4 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/70">
-                Customers paid today
-              </p>
-              <p className="mt-0.5 text-3xl font-bold tabular-nums text-teal-50">
-                {periodsReady && todayCents != null ? formatMoneyCents(todayCents) : "—"}
-              </p>
-
-              {todayNetCents != null ? (
-                <div className="mt-3 border-t border-teal-500/20 pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/60">
-                    Your cut after Lyncr fees
-                  </p>
-                  <p className="mt-0.5 text-xl font-bold tabular-nums text-teal-100">
-                    ~{formatMoneyCents(todayNetCents)}
-                  </p>
-                  <p className="mt-1 text-[11px] leading-snug text-teal-200/55">
-                    Lyncr takes about 2.9% + $0.30 per card payment. Cash stays with you — it does
-                    not go through Get paid.
-                  </p>
-                </div>
-              ) : null}
-
-              <p className="mt-3 text-[11px] leading-snug text-teal-200/50">
-                {periodsReady && todayCents != null && todayCents > 0
-                  ? "Card money clears into Available above (usually 1–2 days) — it does not leave Stripe until you Send to bank."
-                  : "Collect a card payment and it shows up here."}
-              </p>
-              <button
-                type="button"
-                onClick={() => openPayments("today")}
-                className="mt-2 text-xs font-semibold text-teal-300 underline-offset-2 hover:underline"
-              >
-                View today’s charges
-              </button>
-            </div>
-
-            {/* Recent charges — today / yesterday visibility */}
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Recent charges
-                  </p>
-                  <p className="text-[11px] leading-snug text-slate-500">
-                    Not the Lines Rescue $ number — these are real card payments.
-                  </p>
-                </div>
+            {/* Compact sales glance — tap a day to open the transactions popup */}
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { id: "today" as const, label: "Today" },
+                  { id: "yesterday" as const, label: "Yesterday" },
+                  { id: "week" as const, label: "This week" },
+                ] as const
+              ).map((opt) => (
                 <button
+                  key={opt.id}
                   type="button"
-                  onClick={() => openPayments("all")}
-                  className="shrink-0 text-xs font-semibold text-teal-300 underline-offset-2 hover:underline"
+                  onClick={() => openPayments(opt.id === "week" ? "all" : opt.id)}
+                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-zinc-900/70"
                 >
-                  View all
-                </button>
-              </div>
-              {recentPaymentsLoading && recentPayments.length === 0 ? (
-                <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-zinc-500">
-                  Loading charges…
-                </p>
-              ) : recentPayments.length === 0 ? (
-                <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-zinc-500">
-                  No settled charges yet.
-                </p>
-              ) : (
-                <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/60">
-                  {recentPayments.map((tx) => (
-                    <li key={tx.id}>
-                      <button
-                        type="button"
-                        onClick={() => openPayments("all")}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-zinc-900/50"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-100">
-                            {recentPaymentTitle(tx)}
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            {recentPaymentWhen(tx.createdAt)} ·{" "}
-                            {tx.paymentMethod === "TAP_TO_PAY"
-                              ? "Tap to Pay"
-                              : tx.paymentMethod === "CASH"
-                                ? "Cash"
-                                : "Card"}{" "}
-                            · {tx.status === "COMPLETED" ? "Paid" : tx.status}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-200">
-                          {formatMoneyCents(Math.round(tx.amount * 100))}
-                        </p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Sales history totals */}
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    Sales history
+                    {opt.label}
                   </p>
-                  <p className="hidden text-[11px] leading-snug text-slate-500 md:block">
-                    Full amount customers paid — before Lyncr card fees.
+                  <p className="mt-1 text-sm font-bold tabular-nums text-emerald-200">
+                    {periodCents(opt.id) != null ? formatMoneyCents(periodCents(opt.id)!) : "—"}
                   </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openPayments("all")}
-                  className="shrink-0 text-xs font-semibold text-teal-300 underline-offset-2 hover:underline"
-                >
-                  View all payments
                 </button>
-              </div>
-              <ul className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/60">
-                {PERIOD_OPTIONS.map((opt) => (
-                  <li key={opt.id}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openPayments(
-                          opt.id === "today" || opt.id === "yesterday" ? opt.id : "all"
-                        )
-                      }
-                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-zinc-900/50"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-100">{opt.label}</p>
-                        <p className="text-[11px] text-slate-500">{opt.hint}</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-200">
-                        {periodCents(opt.id) != null
-                          ? formatMoneyCents(periodCents(opt.id)!)
-                          : "—"}
-                      </p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              ))}
             </div>
+            {todayNetCents != null ? (
+              <p className="text-[11px] leading-snug text-slate-500">
+                Today after Lyncr fees ~{formatMoneyCents(todayNetCents)} (2.9% + $0.30 per card).
+              </p>
+            ) : null}
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button
-                type="button"
-                onClick={() => openPayments("yesterday")}
-                variant="outline"
-                className="h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
-              >
-                Yesterday’s charges
-              </Button>
+            <button
+              type="button"
+              onClick={() => openPayments("all")}
+              className="flex h-12 w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950/70 px-3.5 text-left hover:border-teal-500/40 hover:bg-zinc-900"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
+                <Receipt className="h-4 w-4 text-teal-300" aria-hidden />
+                Transactions
+              </span>
+              <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />
+            </button>
+
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 onClick={openInvoices}
@@ -819,9 +656,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <Button
                 type="button"
                 onClick={openCollect}
-                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 sm:col-span-2"
+                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
               >
-                Collect payment
+                Collect
               </Button>
             </div>
           </div>

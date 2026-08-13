@@ -110,7 +110,7 @@ export type HeaderWalletChipDisplay = {
   mode: "in_account" | "pending" | "zero"
   /** Longer wording for aria / tooltips. */
   label: string
-  /** Short chip subtitle so the $ is never a mystery number. */
+  /** Aria/tooltip only — the visible chip is just the $ amount. */
   chipLabel: string
 }
 
@@ -141,13 +141,14 @@ export function resolveHeaderWalletChipDisplay(
     }
   }
 
-  // Card pays still clearing — show that amount so the chip is not a fake $0.
+  // Card pays still clearing — show that $ so the chip is not a fake $0.
+  // Do not print “Pending” on the chip (that word belongs on each transaction).
   if (pending > 0) {
     return {
       amountCents: pending,
       mode: "pending",
-      label: "In Stripe · pending",
-      chipLabel: "Pending",
+      label: "In Stripe · still clearing",
+      chipLabel: "In Stripe",
     }
   }
 
