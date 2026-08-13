@@ -45,6 +45,7 @@ import {
   PaymentReceiptPanel,
   type ReceiptChannel,
 } from "@/components/payments/payment-receipt-panel"
+import { PayLinkSentPanel } from "@/components/payments/pay-link-sent-panel"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -66,8 +67,8 @@ import {
 
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash" | "link"
-/** Tip LAST (before money moves) → optional signature after pay → receipt. */
-type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt"
+/** Tip LAST (before money moves) → optional signature after pay → receipt; link_sent after SMS. */
+type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt" | "link_sent"
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
 /** Sent pay-link row from GET /api/payments/pay-links (with optional Stripe sync). */
@@ -1051,6 +1052,9 @@ export function TechPaymentModal(props: {
       }
       setLinkDelivered(true)
       void refreshSentLinks({ sync: false })
+      // Close the text form and show a clear success step (not a silent return).
+      setActivePopup(null)
+      setPostPayStep("link_sent")
     } catch (e) {
       setError(formatPaymentCatchError(e, "Could not text pay link — try again."))
     } finally {
@@ -1091,7 +1095,8 @@ export function TechPaymentModal(props: {
           postPayStep === "tip_sign" ||
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
-          postPayStep === "receipt"
+          postPayStep === "receipt" ||
+          postPayStep === "link_sent"
             ? "h-auto max-h-[min(88dvh,40rem)]"
             : "max-h-[92dvh]"
         )}
@@ -1103,12 +1108,16 @@ export function TechPaymentModal(props: {
         <div
           className={cn(
             "flex items-center justify-between px-4 pb-3 pt-1",
-            postPayStep === "receipt" ? "border-b-0 pb-1" : "border-b border-zinc-800"
+            postPayStep === "receipt" || postPayStep === "link_sent"
+              ? "border-b-0 pb-1"
+              : "border-b border-zinc-800"
           )}
         >
           <div>
             {postPayStep === "receipt" ? (
               <h2 className="sr-only">Paid</h2>
+            ) : postPayStep === "link_sent" ? (
+              <h2 className="sr-only">Link sent</h2>
             ) : (
               <h2 className="text-base font-bold text-white">
                 {postPayStep === "tip_sign"
@@ -1122,7 +1131,7 @@ export function TechPaymentModal(props: {
                         : "Charge"}
               </h2>
             )}
-            {postPayStep !== "receipt" ? (
+            {postPayStep !== "receipt" && postPayStep !== "link_sent" ? (
               <p className="text-xs text-zinc-500">
                 {postPayStep === "tip_sign"
                   ? tipLastSheetSubtitle(fmt(paidTotalCents))
@@ -1388,6 +1397,30 @@ export function TechPaymentModal(props: {
               onSend={() => void sendReceipt(receiptChannel)}
               onSkip={() => props.onCompleted()}
               skipLabel="Done"
+            />
+          </div>
+        ) : postPayStep === "link_sent" ? (
+          // Success after SMS — confirm before closing Charge.
+          <div className="overflow-y-auto px-4 py-3 pb-5">
+            <PayLinkSentPanel
+              phone={linkPhone}
+              amountCents={totalCents}
+              linkUrl={linkSentUrl}
+              onDone={() => {
+                // Deliberate close — back to Collect / job list.
+                setPostPayStep(null)
+                setLinkSentUrl(null)
+                setLinkDelivered(false)
+                setMethod(null)
+                props.onClose()
+              }}
+              onTextAgain={() => {
+                // Reopen the text form with the same phone + amount.
+                setPostPayStep(null)
+                setLinkDelivered(false)
+                setActivePopup("link")
+                setMethod("link")
+              }}
             />
           </div>
         ) : showPaidSummary && paidLink ? (

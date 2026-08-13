@@ -53,6 +53,7 @@ import {
 } from "@/lib/payment-slip-ui"
 import { type TipChargeResult } from "@/components/payments/charge-result-summary"
 import { PaymentReceiptPanel } from "@/components/payments/payment-receipt-panel"
+import { PayLinkSentPanel } from "@/components/payments/pay-link-sent-panel"
 import {
   formatPaymentCatchError,
   formatStripeCardFailure,
@@ -79,13 +80,14 @@ function hasUsableSmsPhone(phone: string): boolean {
   return phone.replace(/\D/g, "").length >= 10
 }
 
-/** list → pick job; adhoc → amount; card_entry → key-in; tip_sign → tip then charge (card/tap); send_link → SMS only (no tip); sign/receipt after pay. */
+/** list → pick job; adhoc → amount; card_entry → key-in; tip_sign → tip then charge (card/tap); send_link → SMS only (no tip); link_sent → success; sign/receipt after pay. */
 type CollectMode =
   | "list"
   | "adhoc"
   | "card_entry"
   | "tip_sign"
   | "send_link"
+  | "link_sent"
   | "sign"
   | "receipt"
 type ListTab = "collect" | "history"
@@ -1480,14 +1482,12 @@ export function OwnerCollectPaymentSheet({
             "Pay link created, but the text could not be delivered. Copy the link below."
         )
       }
-      toast({
-        title: "Pay link texted",
-        description: json.data?.chargeCents
-          ? `Customer can pay ${fmtCents(json.data.chargeCents)}.`
-          : "Link sent.",
-      })
-      // Pay link — customer pays later; no tip/sign step after send.
-      resetAdhoc()
+      // Prefer server-reported charge when present (tax/rounding).
+      if (typeof json.data?.chargeCents === "number" && json.data.chargeCents > 0) {
+        setPaidTotalCents(json.data.chargeCents)
+      }
+      // Stay on a clear success step — do not silently dump back to Collect home.
+      setMode("link_sent")
     } catch (e) {
       toast({
         title: "Could not send pay link",
@@ -1567,6 +1567,7 @@ export function OwnerCollectPaymentSheet({
             "flex h-auto flex-col gap-0 rounded-t-2xl rounded-b-none border-zinc-800 bg-[#101018] p-0 sm:max-w-lg",
             mode === "tip_sign" ||
             mode === "send_link" ||
+            mode === "link_sent" ||
             mode === "sign" ||
             mode === "card_entry" ||
             mode === "receipt"
@@ -1581,14 +1582,18 @@ export function OwnerCollectPaymentSheet({
           <SheetHeader
             className={cn(
               "shrink-0 px-4 pb-3 pt-2 text-left md:pt-4",
-              // Receipt uses the Paid hero as the star — lighter chrome than tip/charge steps.
-              mode === "receipt" ? "border-b-0 pb-1" : "border-b border-zinc-800"
+              // Paid / Link sent heroes are the star — lighter chrome than tip/charge steps.
+              mode === "receipt" || mode === "link_sent"
+                ? "border-b-0 pb-1"
+                : "border-b border-zinc-800"
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {mode === "receipt" ? (
                   <SheetTitle className="sr-only">Paid</SheetTitle>
+                ) : mode === "link_sent" ? (
+                  <SheetTitle className="sr-only">Link sent</SheetTitle>
                 ) : (
                   <SheetTitle className="text-base font-bold text-slate-100">
                     {mode === "tip_sign"
@@ -1606,7 +1611,7 @@ export function OwnerCollectPaymentSheet({
                                 : "Collect"}
                   </SheetTitle>
                 )}
-                {mode !== "receipt" ? (
+                {mode !== "receipt" && mode !== "link_sent" ? (
                   <p className="mt-0.5 text-xs text-slate-500">
                     {mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
@@ -2145,6 +2150,21 @@ export function OwnerCollectPaymentSheet({
                   ) : null}
                 </div>
               </div>
+            ) : mode === "link_sent" ? (
+              // Success after SMS — confirm before returning to Collect home.
+              <PayLinkSentPanel
+                phone={payLinkPhone}
+                amountCents={paidTotalCents}
+                linkUrl={payLinkUrl}
+                onDone={() => {
+                  // Deliberate return to Collect root (jobs / stats).
+                  resetAdhoc()
+                }}
+                onTextAgain={() => {
+                  // Keep amount + phone; reopen the text form.
+                  setMode("send_link")
+                }}
+              />
             ) : mode === "tip_sign" ? (
               <div className="flex flex-col gap-2.5">
                 <button
