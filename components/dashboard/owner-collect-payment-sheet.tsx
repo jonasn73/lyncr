@@ -684,17 +684,32 @@ export function OwnerCollectPaymentSheet({
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch("/api/owner/collected", {
-          credentials: "include",
-          cache: "no-store",
-        })
+        const res = await fetch(
+          `/api/owner/collected?timezone=${encodeURIComponent(
+            typeof Intl !== "undefined"
+              ? Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"
+              : "America/New_York"
+          )}`,
+          {
+            credentials: "include",
+            cache: "no-store",
+          }
+        )
         const json = (await res.json()) as {
-          data?: { todayCents?: number; weekCents?: number; monthCents?: number }
+          data?: {
+            todayCents?: number
+            yesterdayCents?: number
+            weekCents?: number
+            monthCents?: number
+            allTimeCents?: number
+          }
         }
         if (cancelled || !res.ok) return
         const today = json.data?.todayCents
+        const yesterday = json.data?.yesterdayCents
         const week = json.data?.weekCents
         const month = json.data?.monthCents
+        const allTime = json.data?.allTimeCents
         if (typeof today === "number") setCollectedTodayCents(today)
         if (typeof week === "number") setCollectedWeekCents(week)
         if (typeof month === "number") setCollectedMonthCents(month)
@@ -706,9 +721,10 @@ export function OwnerCollectPaymentSheet({
             pendingCents: prev?.pendingCents ?? 0,
             connectReady: prev?.connectReady ?? false,
             todayCents: today,
+            yesterdayCents: typeof yesterday === "number" ? yesterday : prev?.yesterdayCents ?? 0,
             weekCents: typeof week === "number" ? week : prev?.weekCents ?? 0,
             monthCents: month,
-            allTimeCents: prev?.allTimeCents ?? 0,
+            allTimeCents: typeof allTime === "number" ? allTime : prev?.allTimeCents ?? 0,
           })
         }
       } catch {

@@ -7,6 +7,7 @@ import { getUser } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
   computeLyncrApplicationFeeCents,
+  ensureManualConnectPayoutSchedule,
   getConnectBalanceSummary,
   getConnectReadyState,
 } from "@/lib/stripe-connect"
@@ -53,7 +54,11 @@ export async function GET(req: NextRequest) {
     let availableCents = 0
     let pendingCents = 0
     let currency = "usd"
+    let payoutSchedule: string = "unknown"
     if (state.accountId) {
+      // Enforce manual bank payouts so Available balance never auto-drains.
+      const schedule = await ensureManualConnectPayoutSchedule(state.accountId)
+      payoutSchedule = schedule.interval
       try {
         const bal = await getConnectBalanceSummary(state.accountId)
         availableCents = bal.availableCents
@@ -84,6 +89,8 @@ export async function GET(req: NextRequest) {
         availableCents,
         pendingCents,
         currency,
+        /** Always "manual" once enforced — money stays until Send to bank. */
+        payoutSchedule,
         feeExampleCents: computeLyncrApplicationFeeCents(10000),
         feeLabel: "2.9% + $0.30 per card payment",
         message: state.ready ? null : state.reason,

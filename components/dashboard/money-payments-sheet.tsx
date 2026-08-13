@@ -72,13 +72,20 @@ export function MoneyPaymentsSheet({
   onOpenChange,
   /** Open on Invoices tab (Venmo/cash history) instead of card payments. */
   initialTab = "payments",
+  /**
+   * Optional day filter for the payments list (Money → Yesterday / Today).
+   * "all" = no date filter (default search list).
+   */
+  initialDayFilter = "all",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialTab?: ListTab
+  initialDayFilter?: "today" | "yesterday" | "all"
 }) {
   const { toast } = useToast()
   const [listTab, setListTab] = useState<ListTab>(initialTab)
+  const [dayFilter, setDayFilter] = useState<"today" | "yesterday" | "all">(initialDayFilter)
   const [view, setView] = useState<View>("list")
   const [rows, setRows] = useState<OwnerCollectedTransaction[]>([])
   const [loading, setLoading] = useState(false)
@@ -100,10 +107,12 @@ export function MoneyPaymentsSheet({
     return () => window.clearTimeout(t)
   }, [search])
 
-  // When the sheet opens, honor initialTab (e.g. Money → Invoices).
+  // When the sheet opens, honor initialTab + day filter (e.g. Money → Yesterday).
   useEffect(() => {
-    if (open) setListTab(initialTab)
-  }, [open, initialTab])
+    if (!open) return
+    setListTab(initialTab)
+    setDayFilter(initialDayFilter)
+  }, [open, initialTab, initialDayFilter])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -120,13 +129,28 @@ export function MoneyPaymentsSheet({
         error?: string
       }
       if (!res.ok) throw new Error(json.error || "Could not load payments")
-      setRows(Array.isArray(json.data?.transactions) ? json.data!.transactions! : [])
+      let next = Array.isArray(json.data?.transactions) ? json.data!.transactions! : []
+      // Client-side Today / Yesterday filter using the phone’s local calendar.
+      if (dayFilter === "today" || dayFilter === "yesterday") {
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        if (dayFilter === "yesterday") {
+          start.setDate(start.getDate() - 1)
+        }
+        const end = new Date(start)
+        end.setDate(end.getDate() + 1)
+        next = next.filter((tx) => {
+          const t = new Date(tx.createdAt).getTime()
+          return t >= start.getTime() && t < end.getTime()
+        })
+      }
+      setRows(next)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load payments")
     } finally {
       setLoading(false)
     }
-  }, [debouncedQ])
+  }, [debouncedQ, dayFilter])
 
   useEffect(() => {
     if (!open) return
@@ -315,9 +339,40 @@ export function MoneyPaymentsSheet({
                 />
               </div>
 
+              {/* Today / Yesterday / All — answers “where is yesterday’s payment?” */}
+              <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                {(
+                  [
+                    { id: "today" as const, label: "Today" },
+                    { id: "yesterday" as const, label: "Yesterday" },
+                    { id: "all" as const, label: "All" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDayFilter(opt.id)}
+                    className={cn(
+                      "rounded-lg py-1.5 text-[11px] font-semibold",
+                      dayFilter === opt.id
+                        ? "bg-teal-500/20 text-teal-100"
+                        : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex items-center justify-between gap-2 px-0.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  {debouncedQ ? "Matching charges" : "Recent charges"}
+                  {debouncedQ
+                    ? "Matching charges"
+                    : dayFilter === "today"
+                      ? "Today’s charges"
+                      : dayFilter === "yesterday"
+                        ? "Yesterday’s charges"
+                        : "Recent charges"}
                 </p>
                 <button
                   type="button"

@@ -436,7 +436,8 @@ export function GetPaidSheet({
                     </div>
                     <p className="mt-2 text-[11px] text-emerald-200/70">
                       Pending becomes Available after card funds clear (often 1–2 days). Bank
-                      transfers are net of Lyncr’s fee ({status.feeLabel}) — they will not match
+                      transfers only happen when you tap Send to bank — Lyncr does not auto-payout.
+                      Transfers are net of Lyncr’s fee ({status.feeLabel}) — they will not match
                       Collected sales.
                     </p>
                   </div>

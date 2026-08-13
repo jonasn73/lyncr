@@ -20,6 +20,8 @@ export type HeaderMoneyCache = {
   /** Stripe Connect funds not yet ready to transfer (usually 1–2 business days). */
   pendingCents: number
   todayCents: number
+  /** Settled sales for the previous local calendar day (Money sheet “Yesterday”). */
+  yesterdayCents: number
   weekCents: number
   monthCents: number
   allTimeCents: number
@@ -31,6 +33,10 @@ function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached 
   // Older cookies omitted pendingCents — treat as 0 so we still seed the chip.
   if (typeof cached.pendingCents !== "number" || !Number.isFinite(cached.pendingCents)) {
     cached.pendingCents = 0
+  }
+  // Older cookies omitted yesterdayCents — treat as 0 so we still seed periods.
+  if (typeof cached.yesterdayCents !== "number" || !Number.isFinite(cached.yesterdayCents)) {
+    cached.yesterdayCents = 0
   }
   return true
 }
@@ -89,59 +95,66 @@ export function estimateLyncrNetFromGrossCents(grossCents: number): number {
 
 /**
  * What the header wallet chip should show at a glance.
- * Lead with today’s collected when > 0; otherwise fall through to money
- * already in the wallet (Available, then Pending) so we never imply $0
- * when card pays are still clearing.
- * The chip UI shows the dollar amount only — Available vs Pending lives in the Money sheet.
+ * Always Stripe Connect wallet (Available → Pending → $0) — never “sales today”.
+ * Swapping to today’s sales made $1 test charges look like ~$196 “vanished”.
+ * Today / yesterday sales live in the Money sheet (separate from wallet balance).
  */
 export type HeaderWalletChipDisplay = {
-  /** Big number on the chip. */
+  /** Big number on the chip = money still in Stripe for this shop. */
   amountCents: number
   /**
-   * today — customers paid today (primary daily story)
-   * in_account — no sales today, but transferable balance exists
-   * pending — no today/available, but funds still clearing
-   * zero — nothing today, nothing ready, nothing pending
+   * in_account — transferable Stripe available balance
+   * pending — funds still clearing (not yet available)
+   * zero — nothing ready and nothing pending
    */
-  mode: "today" | "in_account" | "pending" | "zero"
-  /**
-   * Internal mode label (not shown on the chip).
-   * Kept for callers that still branch on wording; chip renders amount only.
-   */
+  mode: "in_account" | "pending" | "zero"
+  /** Longer wording for aria / tooltips. */
   label: string
+  /** Short chip subtitle so the $ is never a mystery number. */
+  chipLabel: string
 }
 
 /**
- * Pick which amount the chip shows (priority only — no visible subtitle).
- * 1) Collected today > 0 → that amount
- * 2) Else Available > 0 → Available
- * 3) Else Pending > 0 → Pending (so we never flash a fake $0)
- * 4) Else $0
+ * Pick which amount the chip shows.
+ * 1) Available > 0 → Available (ready to transfer / in Stripe)
+ * 2) Else Pending > 0 → Pending (clearing — not a fake $0)
+ * 3) Else $0
+ *
+ * `todayCents` is ignored for the chip amount (kept on the signature so older
+ * call sites keep compiling). Sales totals belong in Money → Customers paid.
  */
 export function resolveHeaderWalletChipDisplay(
   availableCents: number,
   pendingCents: number,
-  todayCents: number | null | undefined
+  _todayCents?: number | null
 ): HeaderWalletChipDisplay {
   const available = Number.isFinite(availableCents) ? Math.max(0, availableCents) : 0
   const pending = Number.isFinite(pendingCents) ? Math.max(0, pendingCents) : 0
-  const today =
-    todayCents != null && Number.isFinite(todayCents) ? Math.max(0, todayCents) : null
 
-  // Daily story first — what customers paid today.
-  if (today != null && today > 0) {
-    return { amountCents: today, mode: "today", label: "Today" }
-  }
-
-  // Quiet day — show money already ready to transfer, if any.
+  // Money already ready to send to the bank.
   if (available > 0) {
-    return { amountCents: available, mode: "in_account", label: "In account" }
+    return {
+      amountCents: available,
+      mode: "in_account",
+      label: "In Stripe · available",
+      chipLabel: "Available",
+    }
   }
 
   // Card pays still clearing — show that amount so the chip is not a fake $0.
   if (pending > 0) {
-    return { amountCents: pending, mode: "pending", label: "Pending" }
+    return {
+      amountCents: pending,
+      mode: "pending",
+      label: "In Stripe · pending",
+      chipLabel: "Pending",
+    }
   }
 
-  return { amountCents: 0, mode: "zero", label: "Today" }
+  return {
+    amountCents: 0,
+    mode: "zero",
+    label: "In Stripe · empty",
+    chipLabel: "In Stripe",
+  }
 }

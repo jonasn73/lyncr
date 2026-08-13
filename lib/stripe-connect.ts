@@ -176,6 +176,12 @@ async function createEmbeddedFriendlyConnectAccount(
         fees: { payer: "application" },
         stripe_dashboard: { type: "none" },
       },
+      // Money stays in the Connect wallet until the owner taps Send to bank in Lyncr.
+      settings: {
+        payouts: {
+          schedule: { interval: "manual" },
+        },
+      },
       metadata: {
         lyncr_user_id: userId,
       },
@@ -408,6 +414,8 @@ export async function handleStripeConnectAccountUpdated(
     payoutsEnabled: account.payouts_enabled === true,
     detailsSubmitted: account.details_submitted === true,
   })
+  // Webhooks can re-enable automatic schedules — keep wallet manual.
+  void ensureManualConnectPayoutSchedule(account.id)
 }
 
 export type ConnectBalanceSummary = {
@@ -446,6 +454,40 @@ export async function getConnectBalanceSummary(
     availableCents: availableUsd,
     pendingCents: pendingUsd,
     currency: "usd",
+  }
+}
+
+/**
+ * Turn off Stripe’s automatic daily/weekly bank payouts.
+ * Money stays Available in the Connect wallet until the owner taps Send to bank.
+ * Safe to call often — no-ops when already manual.
+ */
+export async function ensureManualConnectPayoutSchedule(accountId: string): Promise<{
+  interval: string
+  updated: boolean
+}> {
+  const acct = String(accountId || "").trim()
+  if (!acct) return { interval: "unknown", updated: false }
+
+  const stripe = getStripeClient()
+  try {
+    const account = await stripe.accounts.retrieve(acct)
+    const interval = String(account.settings?.payouts?.schedule?.interval || "unknown")
+    if (interval === "manual") {
+      return { interval: "manual", updated: false }
+    }
+    await stripe.accounts.update(acct, {
+      settings: {
+        payouts: {
+          schedule: { interval: "manual" },
+        },
+      },
+    })
+    console.info("[stripe-connect] payout schedule → manual", acct, "was", interval)
+    return { interval: "manual", updated: true }
+  } catch (e) {
+    console.warn("[stripe-connect] ensureManualConnectPayoutSchedule:", e)
+    return { interval: "unknown", updated: false }
   }
 }
 

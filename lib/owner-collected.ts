@@ -1,12 +1,15 @@
-// Owner "amount collected" — completed job payments (today / week / month / all time).
+// Owner "amount collected" — completed job payments (today / yesterday / week / month / all time).
 
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { isMissingWalletSchemaError } from "@/lib/tech-wallet"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
 export type OwnerCollectedSummary = {
-  /** Customer / wallet-settled dollars collected today (local calendar day). */
+  /** Customer / wallet-settled dollars collected today (owner’s local calendar day). */
   todayCents: number
+  /** Settled dollars for the previous local calendar day. */
+  yesterdayCents: number
   /** Settled dollars since local Monday 00:00 (week-to-date). */
   weekCents: number
   /** Settled dollars collected since the start of the current month. */
@@ -17,38 +20,18 @@ export type OwnerCollectedSummary = {
   todayCount: number
 }
 
-function startOfLocalDayIso(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-/** Local week starts Monday (same idea as call-history filters). */
-function startOfLocalWeekIso(): string {
-  const d = new Date()
-  const day = d.getDay() // 0 = Sunday
-  const daysFromMonday = day === 0 ? 6 : day - 1
-  d.setDate(d.getDate() - daysFromMonday)
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-function startOfLocalMonthIso(): string {
-  const d = new Date()
-  d.setDate(1)
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
 /**
  * Sum completed wallet ledger rows on jobs owned by this business.
  * When TECH_JOB_COMMISSION_RATE is 1 (default), wallet amount ≈ customer charge.
+ * Day / week / month use the owner’s IANA timezone (not the UTC server clock).
  */
 export async function getOwnerCollectedSummary(
-  ownerUserId: string
+  ownerUserId: string,
+  timezone?: string | null
 ): Promise<OwnerCollectedSummary> {
   const empty: OwnerCollectedSummary = {
     todayCents: 0,
+    yesterdayCents: 0,
     weekCents: 0,
     monthCents: 0,
     allTimeCents: 0,
@@ -58,19 +41,35 @@ export async function getOwnerCollectedSummary(
   if (!uid) return empty
 
   const sql = neon(resolveNeonDatabaseUrl())
-  const dayStart = startOfLocalDayIso()
-  const weekStart = startOfLocalWeekIso()
-  const monthStart = startOfLocalMonthIso()
+  // Same sanitize path as Lines / routing telemetry so “today” matches the owner’s phone.
+  const tz = sanitizeIanaTimezone(timezone)
 
   try {
     // Job payments (via ai_leads owner) + walk-up / ad-hoc charges on the owner's wallet.
+    // Postgres timezone() + date_trunc so Louisville “yesterday” is not UTC “today”.
     const rows = await sql`
       SELECT
-        COALESCE(SUM(wt.amount) FILTER (WHERE wt.created_at >= ${dayStart}::timestamptz), 0)::float8 AS today_usd,
-        COALESCE(SUM(wt.amount) FILTER (WHERE wt.created_at >= ${weekStart}::timestamptz), 0)::float8 AS week_usd,
-        COALESCE(SUM(wt.amount) FILTER (WHERE wt.created_at >= ${monthStart}::timestamptz), 0)::float8 AS month_usd,
+        COALESCE(SUM(wt.amount) FILTER (
+          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
+            = date_trunc('day', timezone(${tz}, now()))
+        ), 0)::float8 AS today_usd,
+        COALESCE(SUM(wt.amount) FILTER (
+          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
+            = date_trunc('day', timezone(${tz}, now()) - interval '1 day')
+        ), 0)::float8 AS yesterday_usd,
+        COALESCE(SUM(wt.amount) FILTER (
+          WHERE date_trunc('week', timezone(${tz}, wt.created_at))
+            = date_trunc('week', timezone(${tz}, now()))
+        ), 0)::float8 AS week_usd,
+        COALESCE(SUM(wt.amount) FILTER (
+          WHERE date_trunc('month', timezone(${tz}, wt.created_at))
+            = date_trunc('month', timezone(${tz}, now()))
+        ), 0)::float8 AS month_usd,
         COALESCE(SUM(wt.amount), 0)::float8 AS all_time_usd,
-        COALESCE(COUNT(*) FILTER (WHERE wt.created_at >= ${dayStart}::timestamptz), 0)::int AS today_count
+        COALESCE(COUNT(*) FILTER (
+          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
+            = date_trunc('day', timezone(${tz}, now()))
+        ), 0)::int AS today_count
       FROM wallet_transactions wt
       LEFT JOIN ai_leads al ON al.id = wt.job_id
       WHERE wt.status = 'COMPLETED'
@@ -83,6 +82,7 @@ export async function getOwnerCollectedSummary(
     const row = rows[0] as
       | {
           today_usd?: number
+          yesterday_usd?: number
           week_usd?: number
           month_usd?: number
           all_time_usd?: number
@@ -90,11 +90,13 @@ export async function getOwnerCollectedSummary(
         }
       | undefined
     const todayUsd = Number(row?.today_usd ?? 0) || 0
+    const yesterdayUsd = Number(row?.yesterday_usd ?? 0) || 0
     const weekUsd = Number(row?.week_usd ?? 0) || 0
     const monthUsd = Number(row?.month_usd ?? 0) || 0
     const allTimeUsd = Number(row?.all_time_usd ?? 0) || 0
     return {
       todayCents: Math.round(todayUsd * 100),
+      yesterdayCents: Math.round(yesterdayUsd * 100),
       weekCents: Math.round(weekUsd * 100),
       monthCents: Math.round(monthUsd * 100),
       allTimeCents: Math.round(allTimeUsd * 100),
