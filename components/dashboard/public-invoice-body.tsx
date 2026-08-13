@@ -57,7 +57,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Invoice / receipt
+              Invoice
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{invoice.businessName}</h1>
             {invoice.businessPhone ? (
@@ -178,9 +178,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
         ) : null}
 
         <p className="text-[11px] leading-relaxed text-slate-400">
-          {invoice.vehicleVin || invoice.vehicleLabel
-            ? "Keep this for your records or insurance reimbursement."
-            : "Keep this for your records."}
+          Keep this for your records.
         </p>
       </div>
     </article>

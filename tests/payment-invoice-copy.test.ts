@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildPaymentInvoiceEmailHtml,
   buildPaymentInvoiceEmailSubject,
+  buildPaymentInvoiceEmailText,
   buildPaymentInvoiceSms,
-  isReimbursementInvoice,
   type PaymentInvoice,
 } from "@/lib/payment-invoice"
 
@@ -26,15 +27,29 @@ const base: PaymentInvoice = {
 }
 
 describe("payment invoice copy", () => {
-  it("does not say reimbursement for a normal Cash App receipt", () => {
-    expect(isReimbursementInvoice(base)).toBe(false)
-    expect(buildPaymentInvoiceEmailSubject(base)).toBe("Your Key Squad 502 receipt ($1.00)")
+  it("calls it an invoice, never reimbursement", () => {
+    expect(buildPaymentInvoiceEmailSubject(base)).toBe(
+      "Your Key Squad 502 invoice ($1.00)"
+    )
+    expect(buildPaymentInvoiceSms(base)).toContain("Your invoice — $1.00")
+    expect(buildPaymentInvoiceEmailHtml(base)).toContain("Here is your invoice")
+    expect(buildPaymentInvoiceEmailText(base)).toContain("Here is your invoice")
+    expect(buildPaymentInvoiceEmailSubject(base)).not.toMatch(/reimbursement/i)
     expect(buildPaymentInvoiceSms(base)).not.toMatch(/reimbursement/i)
+    expect(buildPaymentInvoiceEmailHtml(base)).not.toMatch(/reimbursement/i)
+    expect(buildPaymentInvoiceEmailText(base)).not.toMatch(/reimbursement/i)
   })
 
-  it("keeps reimbursement wording when vehicle/VIN is on the invoice", () => {
-    const inv = { ...base, vehicleLabel: "2004 LINCOLN Aviator", vehicleVin: "1GNEK13Z" }
-    expect(isReimbursementInvoice(inv)).toBe(true)
-    expect(buildPaymentInvoiceEmailSubject(inv)).toMatch(/reimbursement/i)
+  it("still does not say reimbursement when vehicle or VIN is on the invoice", () => {
+    const inv = {
+      ...base,
+      vehicleLabel: "2004 LINCOLN Aviator",
+      vehicleVin: "1GNEK13Z",
+    }
+    expect(buildPaymentInvoiceEmailSubject(inv)).toBe(
+      "Your Key Squad 502 invoice ($1.00)"
+    )
+    expect(buildPaymentInvoiceEmailHtml(inv)).not.toMatch(/reimbursement/i)
+    expect(buildPaymentInvoiceSms(inv)).not.toMatch(/reimbursement/i)
   })
 })

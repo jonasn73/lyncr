@@ -103,7 +103,7 @@ export const SERVICE_QUOTE_TYPES = [
 
 /**
  * Service types that show year / make / model / VIN on Edit Job.
- * Includes Lockout — reimbursement invoices need the vehicle + VIN even when
+ * Includes Lockout — invoices still show vehicle + VIN even when
  * the job is not a key-generation job.
  */
 export const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [

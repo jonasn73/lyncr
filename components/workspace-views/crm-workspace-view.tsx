@@ -1074,7 +1074,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
     )
   }
 
-  /** Open Send invoice for a job paid outside Lyncr (Venmo reimbursement). */
+  /** Open Send invoice for a job paid outside Lyncr (Venmo, cash, etc.). */
   const openRecordInvoice = (job?: CrmServiceHistoryItem | null) => {
     const item = job ?? headerJobTarget
     const garage = vehicles[0]
@@ -2718,8 +2718,8 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
                   Send paid invoice
                 </SheetTitle>
                 <SheetDescription className="mt-0.5 text-xs text-slate-500">
-                  Already paid (Venmo, cash, etc.) — emails or texts a paid invoice for
-                  reimbursement. No card charge.
+                  Already paid (Venmo, cash, etc.) — emails or texts a paid invoice.
+                  No card charge.
                 </SheetDescription>
               </div>
               <button
