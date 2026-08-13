@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   collectedChargeWalletLabel,
   collectedChargeWalletStatus,
+  isStalePendingCollectedCharge,
 } from "@/lib/owner-collected"
 
 const now = Date.parse("2026-08-12T20:00:00.000Z")
@@ -44,6 +45,27 @@ describe("collectedChargeWalletStatus", () => {
         now
       )
     ).toBe("paid")
+  })
+
+  it("hides abandoned PENDING walk-ups after 20 minutes", () => {
+    expect(
+      isStalePendingCollectedCharge(
+        { status: "PENDING", createdAt: "2026-08-12T00:37:52.415Z" },
+        now
+      )
+    ).toBe(true)
+    expect(
+      isStalePendingCollectedCharge(
+        { status: "PENDING", createdAt: "2026-08-12T19:50:00.000Z" },
+        now
+      )
+    ).toBe(false)
+    expect(
+      isStalePendingCollectedCharge(
+        { status: "COMPLETED", createdAt: "2026-08-12T00:38:07.193Z" },
+        now
+      )
+    ).toBe(false)
   })
 
   it("keeps failed / unsettled statuses", () => {

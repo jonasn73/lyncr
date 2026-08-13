@@ -165,6 +165,19 @@ export function collectedChargeWalletLabel(status: CollectedChargeWalletStatus):
   return "Paid"
 }
 
+/** Abandoned Collect attempts stay PENDING forever — hide them after 20 minutes. */
+const STALE_PENDING_MS = 20 * 60 * 1000
+
+export function isStalePendingCollectedCharge(
+  tx: Pick<OwnerCollectedTransaction, "status" | "createdAt">,
+  nowMs: number = Date.now()
+): boolean {
+  if (tx.status !== "PENDING") return false
+  const created = new Date(tx.createdAt).getTime()
+  if (!Number.isFinite(created)) return true
+  return nowMs - created > STALE_PENDING_MS
+}
+
 export type ListOwnerCollectedOptions = {
   /** Max rows (1–200). Default 100. */
   limit?: number
@@ -335,7 +348,9 @@ export async function listOwnerCollectedTransactions(
           LIMIT ${safeLimit}
         `
 
-    return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+    return (rows as Record<string, unknown>[])
+      .map(mapOwnerCollectedRow)
+      .filter((tx) => !isStalePendingCollectedCharge(tx))
   } catch (e) {
     // payment_slips / customers / collect_pay_links / customer_phone missing — leaner query.
     const msg = e instanceof Error ? e.message : String(e)
@@ -429,7 +444,9 @@ export async function listOwnerCollectedTransactions(
               ORDER BY wt.created_at DESC
               LIMIT ${safeLimit}
             `
-        return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+        return (rows as Record<string, unknown>[])
+          .map(mapOwnerCollectedRow)
+          .filter((tx) => !isStalePendingCollectedCharge(tx))
       } catch (e2) {
         if (isMissingWalletSchemaError(e2)) return []
         console.warn("[owner-collected] list fallback failed:", e2)
@@ -512,7 +529,9 @@ export async function listOwnerCollectedTransactionsForPhone(
       ORDER BY wt.created_at DESC
       LIMIT ${safeLimit}
     `
-    return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+    return (rows as Record<string, unknown>[])
+      .map(mapOwnerCollectedRow)
+      .filter((tx) => !isStalePendingCollectedCharge(tx))
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return []
     // Fallback without payment_slips / customers — still match walk-up by customer_phone digits.
@@ -553,10 +572,12 @@ export async function listOwnerCollectedTransactionsForPhone(
           ORDER BY wt.created_at DESC
           LIMIT ${safeLimit}
         `
-        return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
-      } catch (e2) {
-        if (isMissingWalletSchemaError(e2)) return []
-        // Last resort: job-phone only (no customer_phone column on wallet yet).
+          return (rows as Record<string, unknown>[])
+            .map(mapOwnerCollectedRow)
+            .filter((tx) => !isStalePendingCollectedCharge(tx))
+        } catch (e2) {
+          if (isMissingWalletSchemaError(e2)) return []
+          // Last resort: job-phone only (no customer_phone column on wallet yet).
         try {
           const rows = await sql`
             SELECT
@@ -585,7 +606,9 @@ export async function listOwnerCollectedTransactionsForPhone(
             ORDER BY wt.created_at DESC
             LIMIT ${safeLimit}
           `
-          return (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
+          return (rows as Record<string, unknown>[])
+            .map(mapOwnerCollectedRow)
+            .filter((tx) => !isStalePendingCollectedCharge(tx))
         } catch (e3) {
           console.warn("[owner-collected] phone list fallback failed:", e3)
           return []
