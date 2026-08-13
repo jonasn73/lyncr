@@ -19,7 +19,9 @@ export type DevLogEntry = {
 
 const MAX_ENTRIES = 80
 const listeners = new Set<() => void>()
-let entries: DevLogEntry[] = []
+/** One empty list forever — React caches getServerSnapshot by reference. */
+const EMPTY_LOGS: readonly DevLogEntry[] = []
+let entries: readonly DevLogEntry[] = EMPTY_LOGS
 
 function notify(): void {
   for (const cb of listeners) {
@@ -116,8 +118,13 @@ export function getDevErrorLogs(): readonly DevLogEntry[] {
   return entries
 }
 
+/** SSR snapshot — same function + same empty list every call (no `() => []`). */
+export function getDevErrorLogsServerSnapshot(): readonly DevLogEntry[] {
+  return EMPTY_LOGS
+}
+
 export function clearDevErrorLogs(): void {
-  entries = []
+  entries = EMPTY_LOGS
   notify()
 }
 

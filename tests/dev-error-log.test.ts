@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { parseComponentStackHint, parseStackLocation } from "@/lib/dev-error-log"
+import {
+  getDevErrorLogsServerSnapshot,
+  parseComponentStackHint,
+  parseStackLocation,
+} from "@/lib/dev-error-log"
 
 describe("parseStackLocation", () => {
   it("extracts webpack-internal app paths", () => {
@@ -19,6 +23,12 @@ describe("parseStackLocation", () => {
   it("returns null for empty stacks", () => {
     expect(parseStackLocation(null)).toBeNull()
     expect(parseStackLocation("")).toBeNull()
+  })
+})
+
+describe("getDevErrorLogsServerSnapshot", () => {
+  it("returns the same cached empty list every call", () => {
+    expect(getDevErrorLogsServerSnapshot()).toBe(getDevErrorLogsServerSnapshot())
   })
 })
 
