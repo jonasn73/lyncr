@@ -260,7 +260,8 @@ export function MoneyPaymentsSheet({
         side="bottom"
         showCloseButton={false}
         overlayClassName="z-[7000]"
-        className="z-[7010] flex max-h-[92dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+        // Same size on Cards and Invoices — don't hug 1 invoice into a tiny sheet.
+        className="z-[7010] !h-[88dvh] !max-h-[88dvh] w-full max-w-none flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0"
       >
         <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
           <div className="flex items-start justify-between gap-3">
