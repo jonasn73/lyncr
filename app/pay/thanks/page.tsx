@@ -103,7 +103,7 @@ function PayThanksInner() {
         <p className="mt-3 text-sm leading-relaxed text-emerald-200/85">
           {status === "loading"
             ? "Hang tight while we confirm with the card network."
-            : `Thank you for choosing ${shop}. A receipt may arrive by email or text if the business sent one.`}
+            : `Thank you for choosing ${shop}. A receipt is sent automatically by email and text when we have your contact info.`}
         </p>
         <p className="mt-3 text-xs leading-relaxed text-zinc-400">
           After the job, you may get a short thank-you text with a review link. You can close this

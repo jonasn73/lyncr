@@ -5105,6 +5105,8 @@ function parseCustomerRow(row: Record<string, unknown>): Customer {
     postal_code: String(row.postal_code ?? ""),
     country: String(row.country ?? "US"),
     notes: String(row.notes ?? ""),
+    // Present after migration 135; empty string when column missing from older SELECT *.
+    email: row.email != null ? String(row.email) : "",
     source_last_call_log_id: row.source_last_call_log_id ? String(row.source_last_call_log_id) : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
@@ -5207,48 +5209,100 @@ export async function upsertCustomerForUser(params: {
   country: string
   notes: string
   sourceLastCallLogId?: string | null
+  /** Optional email (Checkout / pay-link) — needs scripts/135. */
+  email?: string | null
 }): Promise<Customer> {
   const sql = getSql()
   const phone = normalizePhoneNumberE164(params.phoneE164)
   const sid = params.sourceLastCallLogId?.trim() || null
-  const rows = await sql`
-    INSERT INTO customers (
-      id, user_id, phone_e164, display_name, company_name, address_line1, address_line2,
-      city, region, postal_code, country, notes, source_last_call_log_id, created_at, updated_at
-    ) VALUES (
-      gen_random_uuid(),
-      ${params.userId},
-      ${phone},
-      ${params.displayName},
-      ${params.companyName},
-      ${params.addressLine1},
-      ${params.addressLine2},
-      ${params.city},
-      ${params.region},
-      ${params.postalCode},
-      ${params.country},
-      ${params.notes},
-      ${sid},
-      now(),
-      now()
-    )
-    ON CONFLICT (user_id, phone_e164) DO UPDATE SET
-      display_name = EXCLUDED.display_name,
-      company_name = EXCLUDED.company_name,
-      address_line1 = EXCLUDED.address_line1,
-      address_line2 = EXCLUDED.address_line2,
-      city = EXCLUDED.city,
-      region = EXCLUDED.region,
-      postal_code = EXCLUDED.postal_code,
-      country = EXCLUDED.country,
-      notes = EXCLUDED.notes,
-      source_last_call_log_id = COALESCE(EXCLUDED.source_last_call_log_id, customers.source_last_call_log_id),
-      updated_at = now()
-    RETURNING *
-  `
-  const row = rows[0] as Record<string, unknown> | undefined
-  if (!row) throw new Error("upsertCustomerForUser: no row returned")
-  return parseCustomerRow(row)
+  const email = (params.email ?? "").trim().toLowerCase().slice(0, 160)
+  try {
+    const rows = await sql`
+      INSERT INTO customers (
+        id, user_id, phone_e164, display_name, company_name, address_line1, address_line2,
+        city, region, postal_code, country, notes, email, source_last_call_log_id, created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        ${params.userId},
+        ${phone},
+        ${params.displayName},
+        ${params.companyName},
+        ${params.addressLine1},
+        ${params.addressLine2},
+        ${params.city},
+        ${params.region},
+        ${params.postalCode},
+        ${params.country},
+        ${params.notes},
+        ${email},
+        ${sid},
+        now(),
+        now()
+      )
+      ON CONFLICT (user_id, phone_e164) DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        company_name = EXCLUDED.company_name,
+        address_line1 = EXCLUDED.address_line1,
+        address_line2 = EXCLUDED.address_line2,
+        city = EXCLUDED.city,
+        region = EXCLUDED.region,
+        postal_code = EXCLUDED.postal_code,
+        country = EXCLUDED.country,
+        notes = EXCLUDED.notes,
+        email = CASE
+          WHEN EXCLUDED.email <> '' THEN EXCLUDED.email
+          ELSE customers.email
+        END,
+        source_last_call_log_id = COALESCE(EXCLUDED.source_last_call_log_id, customers.source_last_call_log_id),
+        updated_at = now()
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("upsertCustomerForUser: no row returned")
+    return parseCustomerRow(row)
+  } catch (e) {
+    // Pre-migration 135: customers.email column missing — upsert without email.
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!/email|column/i.test(msg)) throw e
+    const rows = await sql`
+      INSERT INTO customers (
+        id, user_id, phone_e164, display_name, company_name, address_line1, address_line2,
+        city, region, postal_code, country, notes, source_last_call_log_id, created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        ${params.userId},
+        ${phone},
+        ${params.displayName},
+        ${params.companyName},
+        ${params.addressLine1},
+        ${params.addressLine2},
+        ${params.city},
+        ${params.region},
+        ${params.postalCode},
+        ${params.country},
+        ${params.notes},
+        ${sid},
+        now(),
+        now()
+      )
+      ON CONFLICT (user_id, phone_e164) DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        company_name = EXCLUDED.company_name,
+        address_line1 = EXCLUDED.address_line1,
+        address_line2 = EXCLUDED.address_line2,
+        city = EXCLUDED.city,
+        region = EXCLUDED.region,
+        postal_code = EXCLUDED.postal_code,
+        country = EXCLUDED.country,
+        notes = EXCLUDED.notes,
+        source_last_call_log_id = COALESCE(EXCLUDED.source_last_call_log_id, customers.source_last_call_log_id),
+        updated_at = now()
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    if (!row) throw new Error("upsertCustomerForUser: no row returned")
+    return parseCustomerRow(row)
+  }
 }
 
 function parseCustomerVehicleRow(row: Record<string, unknown>): CustomerVehicle {
@@ -6640,58 +6694,162 @@ function isMissingCollectPayLinksTableError(e: unknown): boolean {
 
 export type CollectPayLinkRow = {
   token: string
-  stripe_session_id: string
+  /** Null until the customer confirms tip and Checkout is created (migration 135). */
+  stripe_session_id: string | null
   owner_user_id: string | null
   acting_user_id: string | null
+  tech_user_id: string | null
   job_id: string | null
+  /** Final charge (base + tip) once tip is chosen; base-only before that. */
   charge_cents: number
+  subtotal_cents: number
+  tax_cents: number
+  tip_cents: number
+  note: string
+  line_summary: string
   business_label: string
   customer_name: string
+  customer_phone: string
+  customer_email: string
+  receipt_sent_at: string | null
   created_at: string
   expires_at: string
 }
 
-/** Persist a short pay-link token (scripts/113-collect-pay-links.sql). */
+/** Persist a short pay-link token (scripts/113 + 135). Session may be null until tip. */
 export async function insertCollectPayLink(params: {
   token: string
-  stripeSessionId: string
+  stripeSessionId?: string | null
   ownerUserId?: string | null
   actingUserId?: string | null
+  techUserId?: string | null
   jobId?: string | null
   chargeCents: number
+  subtotalCents?: number
+  taxCents?: number
+  tipCents?: number
+  note?: string | null
+  lineSummary?: string | null
   businessLabel?: string | null
   customerName?: string | null
+  customerPhone?: string | null
+  customerEmail?: string | null
 }): Promise<CollectPayLinkRow | null> {
   const sql = getSql()
+  const subtotal = Math.max(0, Math.round(params.subtotalCents ?? params.chargeCents))
+  const tax = Math.max(0, Math.round(params.taxCents ?? 0))
+  const tip = Math.max(0, Math.round(params.tipCents ?? 0))
+  const phone = normalizePhoneNumberE164(params.customerPhone ?? "") || ""
+  const email = (params.customerEmail ?? "").trim().toLowerCase().slice(0, 160)
   try {
     const rows = await sql`
       INSERT INTO collect_pay_links (
-        token, stripe_session_id, owner_user_id, acting_user_id, job_id,
-        charge_cents, business_label, customer_name
+        token, stripe_session_id, owner_user_id, acting_user_id, tech_user_id, job_id,
+        charge_cents, subtotal_cents, tax_cents, tip_cents, note, line_summary,
+        business_label, customer_name, customer_phone, customer_email
       )
       VALUES (
-        ${params.token}, ${params.stripeSessionId}, ${params.ownerUserId ?? null},
-        ${params.actingUserId ?? null}, ${params.jobId ?? null}, ${params.chargeCents},
-        ${(params.businessLabel ?? "").trim()}, ${(params.customerName ?? "").trim()}
+        ${params.token}, ${params.stripeSessionId ?? null}, ${params.ownerUserId ?? null},
+        ${params.actingUserId ?? null}, ${params.techUserId ?? null}, ${params.jobId ?? null},
+        ${params.chargeCents}, ${subtotal}, ${tax}, ${tip},
+        ${(params.note ?? "").trim().slice(0, 120)},
+        ${(params.lineSummary ?? "").trim().slice(0, 120)},
+        ${(params.businessLabel ?? "").trim()}, ${(params.customerName ?? "").trim()},
+        ${phone}, ${email}
       )
       RETURNING *
     `
     const row = rows[0] as Record<string, unknown> | undefined
     if (!row) return null
-    return {
-      token: String(row.token),
-      stripe_session_id: String(row.stripe_session_id),
-      owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
-      acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
-      job_id: row.job_id != null ? String(row.job_id) : null,
-      charge_cents: Number(row.charge_cents) || 0,
-      business_label: String(row.business_label ?? ""),
-      customer_name: String(row.customer_name ?? ""),
-      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-      expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
-    }
+    return parseCollectPayLinkRow(row)
   } catch (e) {
     if (isMissingCollectPayLinksTableError(e)) return null
+    // Pre-migration 135: insert with legacy columns only.
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!/column|subtotal|tip_cents|customer_phone|tech_user/i.test(msg)) throw e
+    try {
+      const rows = await sql`
+        INSERT INTO collect_pay_links (
+          token, stripe_session_id, owner_user_id, acting_user_id, job_id,
+          charge_cents, business_label, customer_name
+        )
+        VALUES (
+          ${params.token}, ${params.stripeSessionId ?? `pending_${params.token}`},
+          ${params.ownerUserId ?? null},
+          ${params.actingUserId ?? null}, ${params.jobId ?? null}, ${params.chargeCents},
+          ${(params.businessLabel ?? "").trim()}, ${(params.customerName ?? "").trim()}
+        )
+        RETURNING *
+      `
+      const row = rows[0] as Record<string, unknown> | undefined
+      if (!row) return null
+      return parseCollectPayLinkRow(row)
+    } catch (e2) {
+      if (isMissingCollectPayLinksTableError(e2)) return null
+      throw e2
+    }
+  }
+}
+
+/** Attach a Checkout session + tip after the customer confirms tip on /pay/{token}. */
+export async function attachCollectPayLinkCheckoutSession(params: {
+  token: string
+  stripeSessionId: string
+  chargeCents: number
+  tipCents: number
+}): Promise<CollectPayLinkRow | null> {
+  const key = params.token.trim()
+  if (!key) return null
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE collect_pay_links
+      SET
+        stripe_session_id = ${params.stripeSessionId},
+        charge_cents = ${params.chargeCents},
+        tip_cents = ${Math.max(0, Math.round(params.tipCents))}
+      WHERE token = ${key}
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseCollectPayLinkRow(row) : null
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return null
+    // Pre-135: tip_cents missing — update session + charge only.
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!/tip_cents|column/i.test(msg)) throw e
+    const rows = await sql`
+      UPDATE collect_pay_links
+      SET
+        stripe_session_id = ${params.stripeSessionId},
+        charge_cents = ${params.chargeCents}
+      WHERE token = ${key}
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseCollectPayLinkRow(row) : null
+  }
+}
+
+/** Mark auto-receipt sent (idempotent). Returns false if already sent or missing. */
+export async function markCollectPayLinkReceiptSent(token: string): Promise<boolean> {
+  const key = token.trim()
+  if (!key) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE collect_pay_links
+      SET receipt_sent_at = now()
+      WHERE token = ${key}
+        AND receipt_sent_at IS NULL
+      RETURNING token
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return false
+    const msg = e instanceof Error ? e.message : String(e)
+    // Pre-migration 135: column missing — caller should fall back to PI metadata.
+    if (/receipt_sent_at|column/i.test(msg)) return false
     throw e
   }
 }
@@ -6759,17 +6917,63 @@ export async function getCollectPayLinkBySessionId(
 }
 
 function parseCollectPayLinkRow(row: Record<string, unknown>): CollectPayLinkRow {
+  const sessionRaw = row.stripe_session_id != null ? String(row.stripe_session_id).trim() : ""
+  // Legacy placeholder before migration 135 treated as "no session yet".
+  const pendingish =
+    !sessionRaw || sessionRaw.startsWith("pending_") || sessionRaw === "pending"
   return {
     token: String(row.token),
-    stripe_session_id: String(row.stripe_session_id),
+    stripe_session_id: pendingish ? null : sessionRaw,
     owner_user_id: row.owner_user_id != null ? String(row.owner_user_id) : null,
     acting_user_id: row.acting_user_id != null ? String(row.acting_user_id) : null,
+    tech_user_id: row.tech_user_id != null ? String(row.tech_user_id) : null,
     job_id: row.job_id != null ? String(row.job_id) : null,
     charge_cents: Number(row.charge_cents) || 0,
+    subtotal_cents: Number(row.subtotal_cents ?? row.charge_cents) || 0,
+    tax_cents: Number(row.tax_cents) || 0,
+    tip_cents: Number(row.tip_cents) || 0,
+    note: String(row.note ?? ""),
+    line_summary: String(row.line_summary ?? ""),
     business_label: String(row.business_label ?? ""),
     customer_name: String(row.customer_name ?? ""),
+    customer_phone: String(row.customer_phone ?? ""),
+    customer_email: String(row.customer_email ?? ""),
+    receipt_sent_at:
+      row.receipt_sent_at instanceof Date
+        ? row.receipt_sent_at.toISOString()
+        : row.receipt_sent_at
+          ? String(row.receipt_sent_at)
+          : null,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     expires_at: row.expires_at instanceof Date ? row.expires_at.toISOString() : String(row.expires_at),
+  }
+}
+
+/** Persist Checkout email onto the linked job's collected JSON (customer_email + email). */
+export async function patchJobCustomerEmailFromPayLink(params: {
+  jobId: string
+  email: string
+}): Promise<boolean> {
+  const jobId = params.jobId.trim()
+  const email = params.email.trim().toLowerCase().slice(0, 160)
+  if (!jobId || !email.includes("@")) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE ai_leads
+      SET collected =
+        coalesce(collected, '{}'::jsonb)
+        || jsonb_build_object(
+          'customer_email', ${email},
+          'email', ${email}
+        )
+      WHERE id = ${jobId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    console.warn("[patchJobCustomerEmailFromPayLink]", e)
+    return false
   }
 }
 

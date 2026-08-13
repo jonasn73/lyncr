@@ -1,6 +1,6 @@
 "use client"
 
-// Customer-facing pay page — CustomerPortalShell + Stripe Embedded Checkout (URL stays on lyncr.app).
+// Customer-facing pay page — tip first, then Stripe Embedded Checkout (URL stays on lyncr.app).
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { loadStripe } from "@stripe/stripe-js"
@@ -8,12 +8,25 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe
 import Link from "next/link"
 import { Loader2 } from "lucide-react"
 import { CustomerPortalShell } from "@/components/customer-portal-shell"
+import { tipCentsFromChoice, tipLastTotalNote } from "@/lib/payment-slip-ui"
+import { cn } from "@/lib/utils"
 
 function fmtUsd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
 
+type TipChoice = "none" | "15" | "18" | "20" | "custom"
+
 type PayPayload =
+  | {
+      status: "tip"
+      business_label: string
+      customer_name: string
+      base_cents: number
+      subtotal_cents?: number
+      tax_cents?: number
+      note?: string
+    }
   | {
       status: "open"
       client_secret: string
@@ -22,6 +35,8 @@ type PayPayload =
       business_label: string
       charge_cents: number
       customer_name: string
+      tip_cents?: number
+      base_cents?: number
     }
   | {
       status: "paid"
@@ -39,6 +54,10 @@ export function BrandedPayCheckout({ token }: { token: string }) {
   const [payload, setPayload] = useState<PayPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Tip chips (same options as in-person Collect).
+  const [tipChoice, setTipChoice] = useState<TipChoice>("none")
+  const [customTipDollars, setCustomTipDollars] = useState("")
+  const [tipBusy, setTipBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,6 +86,42 @@ export function BrandedPayCheckout({ token }: { token: string }) {
     void load()
   }, [load])
 
+  const baseCents =
+    payload?.status === "tip"
+      ? payload.base_cents
+      : payload?.status === "open" && typeof payload.base_cents === "number"
+        ? payload.base_cents
+        : 0
+
+  const selectedTipCents = useMemo(() => {
+    if (payload?.status !== "tip") return 0
+    return tipCentsFromChoice(tipChoice, baseCents, customTipDollars)
+  }, [payload, tipChoice, baseCents, customTipDollars])
+
+  const totalWithTip = baseCents + selectedTipCents
+
+  // After tip Confirm: create Checkout for job+tip, then show Embedded Checkout.
+  const confirmTip = useCallback(async () => {
+    setTipBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/pay/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipCents: selectedTipCents }),
+      })
+      const json = (await res.json()) as { error?: string; data?: PayPayload }
+      if (!res.ok || !json.data || json.data.status !== "open") {
+        throw new Error(json.error || "Could not start payment.")
+      }
+      setPayload(json.data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start payment.")
+    } finally {
+      setTipBusy(false)
+    }
+  }, [token, selectedTipCents])
+
   const stripePromise = useMemo(() => {
     if (!payload || payload.status !== "open") return null
     const acct = payload.stripe_account_id?.trim()
@@ -88,7 +143,9 @@ export function BrandedPayCheckout({ token }: { token: string }) {
       subtitle={
         payload?.status === "paid"
           ? "Payment complete — thank you."
-          : "Secure payment request"
+          : payload?.status === "tip"
+            ? "Add a tip, then pay securely"
+            : "Secure payment request"
       }
     >
       {loading ? (
@@ -96,7 +153,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
           <p className="text-sm">Loading secure payment…</p>
         </div>
-      ) : error ? (
+      ) : error && payload?.status !== "tip" ? (
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-5 py-6 text-center">
           <h2 className="text-lg font-semibold text-red-100">Link unavailable</h2>
           <p className="mt-2 text-sm text-red-200/90">{error}</p>
@@ -111,7 +168,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             Thanks — {payload.business_label} received {fmtUsd(payload.charge_cents)}.
           </p>
           <p className="mt-3 text-xs text-zinc-400">
-            After your visit, you may get a text with a review link — same branded page as this one.
+            A receipt is on the way by email and text when we have your contact info.
           </p>
           <Link
             href="/pay/thanks"
@@ -120,12 +177,130 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             Done
           </Link>
         </div>
+      ) : payload?.status === "tip" ? (
+        <div className="space-y-5">
+          <div className="text-center">
+            <p className="text-sm text-zinc-400">Service total</p>
+            <p className="mt-1 text-4xl font-bold tabular-nums text-amber-300">
+              {fmtUsd(baseCents)}
+            </p>
+            {payload.customer_name ? (
+              <p className="mt-2 text-sm text-zinc-500">For {payload.customer_name}</p>
+            ) : null}
+            {(payload.tax_cents ?? 0) > 0 ? (
+              <p className="mt-1 text-xs text-zinc-500">
+                Includes {fmtUsd(payload.tax_cents!)} tax
+              </p>
+            ) : null}
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Add a tip
+            </p>
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  { id: "none" as const, label: "No tip" },
+                  { id: "15" as const, label: "15%" },
+                  { id: "18" as const, label: "18%" },
+                  { id: "20" as const, label: "20%" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTipChoice(opt.id)}
+                  className={cn(
+                    "rounded-xl border py-2 text-xs font-semibold transition-colors",
+                    tipChoice === opt.id
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-400"
+                  )}
+                >
+                  {opt.label}
+                  {opt.id !== "none" && baseCents > 0 ? (
+                    <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                      {fmtUsd(tipCentsFromChoice(opt.id, baseCents, customTipDollars))}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTipChoice("custom")}
+              className={cn(
+                "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
+                tipChoice === "custom"
+                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-400"
+              )}
+            >
+              Custom tip
+            </button>
+            {tipChoice === "custom" ? (
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+                <span className="text-sm font-semibold text-zinc-400">$</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={customTipDollars}
+                  onChange={(e) => setCustomTipDollars(e.target.value)}
+                  className="w-full bg-transparent text-sm font-semibold tabular-nums text-white outline-none"
+                />
+              </div>
+            ) : null}
+            <p className="mt-2 text-xs leading-snug text-emerald-200/90">
+              {tipLastTotalNote({
+                totalAmountLabel: fmtUsd(totalWithTip),
+                tipCents: selectedTipCents,
+                tipAmountLabel: fmtUsd(selectedTipCents),
+                baseAmountLabel: fmtUsd(baseCents),
+              })}
+            </p>
+          </div>
+
+          {error ? (
+            <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-center text-sm text-red-100">
+              {error}
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            disabled={tipBusy}
+            onClick={() => void confirmTip()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {tipBusy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Preparing payment…
+              </>
+            ) : (
+              `Continue · ${fmtUsd(totalWithTip)}`
+            )}
+          </button>
+          <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+            Next you&apos;ll enter card or wallet details. Nothing is charged until you finish
+            payment.
+          </p>
+        </div>
       ) : payload?.status === "open" && stripePromise ? (
         <>
           <div className="text-center">
             <p className="text-4xl font-bold tabular-nums text-amber-300">
               {fmtUsd(payload.charge_cents)}
             </p>
+            {typeof payload.tip_cents === "number" && payload.tip_cents > 0 ? (
+              <p className="mt-1 text-xs text-emerald-200/90">
+                Includes {fmtUsd(payload.tip_cents)} tip
+              </p>
+            ) : null}
             {payload.customer_name ? (
               <p className="mt-2 text-sm text-zinc-500">For {payload.customer_name}</p>
             ) : null}
@@ -143,7 +318,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           <p className="mt-6 text-center text-[11px] leading-relaxed text-zinc-500">
             Pay with card, Apple Pay, Google Pay, Cash App, or Link when those methods are on for
             this shop. On iPhone Safari, Apple Pay shows when available. You&apos;ll stay on this
-            site when payment is complete.
+            site when payment is complete. A receipt is sent automatically by email and text.
           </p>
         </>
       ) : null}

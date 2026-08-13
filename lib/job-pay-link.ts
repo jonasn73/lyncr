@@ -24,7 +24,6 @@ import {
   commissionCentsFromCharge,
   confirmJobPaymentIntent,
   getJobPaymentContext,
-  type JobPaymentContext,
 } from "@/lib/job-payments"
 import {
   createWalletTransaction,
@@ -62,7 +61,9 @@ function makePayToken(): string {
 export type CreatePayLinkResult = {
   /** Branded short URL on lyncr.app (customer-facing). */
   url: string
+  /** Empty until the customer confirms tip and Checkout is created. */
   sessionId: string
+  /** Service + tax only (tip chosen later on /pay/{token}). */
   chargeCents: number
   payToken: string
   /** True when Venmo was accepted on this Checkout session. */
@@ -71,7 +72,10 @@ export type CreatePayLinkResult = {
   dynamicMethods?: boolean
 }
 
-/** Create an embedded Checkout session + short lyncr.app/pay/{token} URL. */
+/**
+ * Create a branded pay link WITHOUT a Stripe Checkout session yet.
+ * Customer opens /pay/{token}, picks tip, then we create Checkout for base+tip.
+ */
 export async function createCollectPayLinkCheckout(params: {
   actingUserId: string
   /** When set, ties payment to a job; otherwise walk-up / adhoc. */
@@ -82,6 +86,8 @@ export async function createCollectPayLinkCheckout(params: {
   note?: string | null
   customerName?: string | null
   customerEmail?: string | null
+  /** Phone the link was / will be texted to — used for auto SMS receipt. */
+  customerPhone?: string | null
   lineSummary?: string | null
 }): Promise<CreatePayLinkResult> {
   if (!isStripeConfigured()) {
@@ -92,12 +98,11 @@ export async function createCollectPayLinkCheckout(params: {
   }
 
   const jobId = (params.jobId ?? "").trim() || null
-  let job: JobPaymentContext | null = null
   let ownerUserId = params.actingUserId
   let techUserId = params.actingUserId
 
   if (jobId) {
-    job = await getJobPaymentContext(jobId)
+    const job = await getJobPaymentContext(jobId)
     if (!job) throw new Error("Job not found")
     const isTech = job.assignedTechId === params.actingUserId
     const isOwner = job.ownerUserId === params.actingUserId
@@ -110,42 +115,162 @@ export async function createCollectPayLinkCheckout(params: {
     if (!techUserId) throw new Error("Assign a technician before sending a pay link")
   }
 
+  // Ensure Connect is ready before we SMS a link the customer cannot pay on.
+  const { requireConnectReady } = await import("@/lib/stripe-connect")
+  await requireConnectReady(ownerUserId)
+
   const owner = await getUser(ownerUserId)
   const businessLabel =
     owner?.business_name?.trim() || owner?.name?.trim() || "Your service provider"
   const note = (params.note ?? "").trim().slice(0, 120) || (jobId ? "Job payment" : "Service payment")
   const customerName = (params.customerName ?? "").trim().slice(0, 80)
   const lineSummary = (params.lineSummary ?? "").trim().slice(0, 120) || note
-  const commissionCents = jobId
-    ? commissionCentsFromCharge(params.chargeCents)
-    : params.chargeCents
   const appUrl = getAppUrl().replace(/\/$/, "")
+  const payToken = makePayToken()
+  const customerPhone = normalizePhoneNumberE164(params.customerPhone ?? "") || ""
+  const customerEmail = (params.customerEmail ?? "").trim().toLowerCase().slice(0, 160)
+
+  // No Stripe session yet — tip step comes first on the branded page.
+  const inserted = await insertCollectPayLink({
+    token: payToken,
+    stripeSessionId: null,
+    ownerUserId,
+    actingUserId: params.actingUserId,
+    techUserId,
+    jobId,
+    chargeCents: params.chargeCents,
+    subtotalCents: params.subtotalCents,
+    taxCents: params.taxCents,
+    tipCents: 0,
+    note,
+    lineSummary,
+    businessLabel,
+    customerName,
+    customerPhone,
+    customerEmail,
+  }).catch((e) => {
+    console.warn("[pay-link] collect_pay_links insert failed:", e)
+    throw new Error(
+      "Could not save pay link. Run scripts/135-collect-pay-links-tip-receipt.sql in Neon, then try again."
+    )
+  })
+  if (!inserted) {
+    throw new Error(
+      "Could not save pay link. Run scripts/113-collect-pay-links.sql and scripts/135-collect-pay-links-tip-receipt.sql in Neon, then try again."
+    )
+  }
+
+  return {
+    url: `${appUrl}/pay/${payToken}`,
+    sessionId: "",
+    chargeCents: params.chargeCents,
+    payToken,
+  }
+}
+
+/** Create embedded Checkout for base + tip after the customer confirms tip. */
+export async function finalizeCollectPayLinkWithTip(params: {
+  token: string
+  tipCents: number
+}): Promise<{
+  clientSecret: string
+  sessionId: string
+  chargeCents: number
+  tipCents: number
+  baseCents: number
+  businessLabel: string
+  customerName: string
+  publishableKey: string
+  stripeAccountId: string | null
+  venmoIncluded: boolean
+  dynamicMethods: boolean
+}> {
+  if (!isStripeConfigured()) {
+    throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
+  }
+
+  const { getCollectPayLinkByToken, attachCollectPayLinkCheckoutSession } = await import("@/lib/db")
+  const row = await getCollectPayLinkByToken(params.token)
+  if (!row) throw new Error("This payment link is invalid or has expired.")
+
+  // Already has an open Checkout session — return it (idempotent refresh).
+  if (row.stripe_session_id) {
+    const resolved = await resolvePayLinkSession(params.token)
+    if (resolved?.session.client_secret) {
+      const { getStripePublishableKey } = await import("@/lib/stripe-config")
+      const publishableKey = getStripePublishableKey()
+      if (!publishableKey) throw new Error("Payments are not configured (publishable key).")
+      return {
+        clientSecret: resolved.session.client_secret,
+        sessionId: resolved.session.id,
+        chargeCents: resolved.chargeCents,
+        tipCents: row.tip_cents,
+        baseCents: Math.max(0, row.subtotal_cents + row.tax_cents) || resolved.chargeCents,
+        businessLabel: resolved.businessLabel,
+        customerName: resolved.customerName,
+        publishableKey,
+        stripeAccountId: resolved.stripeConnectAccountId,
+        venmoIncluded: Boolean(resolved.session.payment_method_types?.includes("venmo")),
+        dynamicMethods: true,
+      }
+    }
+    if (resolved?.session.payment_status === "paid") {
+      throw new Error("This payment link was already paid.")
+    }
+  }
+
+  const tipCents = Math.max(0, Math.round(params.tipCents))
+  const baseCents = Math.max(
+    0,
+    Math.round(
+      (row.subtotal_cents || 0) + (row.tax_cents || 0) || row.charge_cents || 0
+    )
+  )
+  if (baseCents < 50) throw new Error("amount must be at least $0.50")
+  const chargeCents = baseCents + tipCents
+  if (chargeCents < 50) throw new Error("amount must be at least $0.50")
+
+  const ownerUserId = (row.owner_user_id || "").trim()
+  if (!ownerUserId) throw new Error("Pay link is missing the business account.")
+  const actingUserId = (row.acting_user_id || ownerUserId).trim()
+  const techUserId = (row.tech_user_id || actingUserId || ownerUserId).trim()
+  const jobId = (row.job_id || "").trim() || null
+  const note = (row.note || "").trim() || (jobId ? "Job payment" : "Service payment")
+  const lineSummary = (row.line_summary || "").trim() || note
+  const customerName = (row.customer_name || "").trim().slice(0, 80)
+  const customerEmail = (row.customer_email || "").trim().toLowerCase() || undefined
+  const customerPhone = normalizePhoneNumberE164(row.customer_phone || "") || ""
+  const businessLabel = (row.business_label || "").trim() || "Your service provider"
+  const subtotalCents = Math.max(0, Math.round(row.subtotal_cents || baseCents - (row.tax_cents || 0)))
+  const taxCents = Math.max(0, Math.round(row.tax_cents || 0))
+  const commissionCents = jobId ? commissionCentsFromCharge(chargeCents) : chargeCents
   const checkoutType = jobId ? "job_payment_link" : "adhoc_payment_link"
   const lyncrKind = jobId ? "job_payment" : "adhoc_payment"
-  const payToken = makePayToken()
+  const appUrl = getAppUrl().replace(/\/$/, "")
+  const payToken = row.token
 
   const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
     await import("@/lib/stripe-connect")
   const connect = await requireConnectReady(ownerUserId)
-  const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
+  const applicationFeeAmount = computeLyncrApplicationFeeCents(chargeCents)
 
   const stripe = getStripeClient()
   const connectOpts = connectDirectChargeOptions(connect.accountId)
 
-  // Direct charges: register lyncr.app on the *connected* account (required for Apple/Google Pay / Link).
   await ensureStripeWalletPaymentMethodDomains({
     stripeAccount: connect.accountId,
   }).catch((e) => {
     console.warn("[pay-link] wallet domain register (connect):", e)
   })
-  // Also keep platform registration current (harmless; helps non-direct flows).
   await ensureStripeWalletPaymentMethodDomains().catch((e) => {
     console.warn("[pay-link] wallet domain register (platform):", e)
   })
 
-  // Shared Checkout fields — wallets (Apple/Google Pay) ride on `card` + domain registration.
-  // Omit payment_method_types so Stripe dynamic payment methods can show Card, Cash App,
-  // Venmo, Link, etc. based on Connect Dashboard enablement for this connected account.
+  const tipNote =
+    tipCents > 0 ? `Includes ${fmtUsd(tipCents)} tip` : "No tip"
+  const taxNote =
+    taxCents > 0 ? ` · Includes ${fmtUsd(taxCents)} tax` : ""
+
   const checkoutBase = {
     ui_mode: "embedded" as const,
     mode: "payment" as const,
@@ -154,24 +279,20 @@ export async function createCollectPayLinkCheckout(params: {
         request_three_d_secure: "automatic" as const,
       },
     },
-    // Service jobs don’t collect shipping — hide BNPL that usually requires it.
     excluded_payment_method_types: [
       ...COLLECT_CHECKOUT_EXCLUDED_PAYMENT_METHOD_TYPES,
     ],
     client_reference_id: ownerUserId,
-    customer_email: params.customerEmail?.trim() || undefined,
+    customer_email: customerEmail,
     line_items: [
       {
         quantity: 1,
         price_data: {
           currency: "usd",
-          unit_amount: params.chargeCents,
+          unit_amount: chargeCents,
           product_data: {
             name: lineSummary,
-            description:
-              params.taxCents > 0
-                ? `Includes ${fmtUsd(params.taxCents)} tax · ${businessLabel}`
-                : `Secure payment to ${businessLabel}`,
+            description: `${tipNote}${taxNote} · ${businessLabel}`.slice(0, 500),
           },
         },
       },
@@ -179,16 +300,19 @@ export async function createCollectPayLinkCheckout(params: {
     metadata: {
       checkout_type: checkoutType,
       user_id: ownerUserId,
-      acting_user_id: params.actingUserId,
+      acting_user_id: actingUserId,
       owner_user_id: ownerUserId,
       tech_user_id: techUserId,
       job_id: jobId || "",
-      charge_cents: String(params.chargeCents),
-      subtotal_cents: String(params.subtotalCents),
-      tax_cents: String(params.taxCents),
+      charge_cents: String(chargeCents),
+      subtotal_cents: String(subtotalCents),
+      tax_cents: String(taxCents),
+      tip_cents: String(tipCents),
+      tip_included_in_amount: tipCents > 0 ? "1" : "0",
       commission_cents: String(commissionCents),
       note,
       customer_name: customerName,
+      customer_phone: customerPhone,
       business_label: businessLabel.slice(0, 80),
       pay_token: payToken,
       lyncr_kind: lyncrKind,
@@ -205,13 +329,16 @@ export async function createCollectPayLinkCheckout(params: {
         job_id: jobId || "",
         owner_user_id: ownerUserId,
         tech_user_id: techUserId,
-        acting_user_id: params.actingUserId,
+        acting_user_id: actingUserId,
         commission_cents: String(commissionCents),
         payment_method: "MANUAL_CARD",
         note,
         customer_name: customerName,
-        subtotal_cents: String(params.subtotalCents),
-        tax_cents: String(params.taxCents),
+        customer_phone: customerPhone,
+        subtotal_cents: String(subtotalCents),
+        tax_cents: String(taxCents),
+        tip_cents: String(tipCents),
+        tip_included_in_amount: tipCents > 0 ? "1" : "0",
         pay_link: "1",
         pay_token: payToken,
         stripe_connect_account_id: connect.accountId,
@@ -225,7 +352,6 @@ export async function createCollectPayLinkCheckout(params: {
   let venmoIncluded = false
   let dynamicMethods = false
 
-  // 1) Preferred: dynamic payment methods (Dashboard-driven — Venmo, Cash App, Link, …).
   try {
     session = await stripe.checkout.sessions.create(
       {
@@ -240,7 +366,6 @@ export async function createCollectPayLinkCheckout(params: {
       "[pay-link] dynamic payment methods failed — falling back to explicit list:",
       dynamicErr
     )
-    // 2) Fallback: try explicit card + cashapp + link + venmo.
     try {
       const { excluded_payment_method_types: _excluded, ...withoutExclude } = checkoutBase
       void _excluded
@@ -271,33 +396,41 @@ export async function createCollectPayLinkCheckout(params: {
     }
   }
 
-  if (!session.id) throw new Error("Could not create payment session")
+  if (!session.id || !session.client_secret) {
+    throw new Error("Could not create payment session")
+  }
 
-  // Best-effort short-token index (works even before migration via Stripe metadata search).
-  await insertCollectPayLink({
+  await attachCollectPayLinkCheckoutSession({
     token: payToken,
     stripeSessionId: session.id,
-    ownerUserId,
-    actingUserId: params.actingUserId,
-    jobId,
-    chargeCents: params.chargeCents,
-    businessLabel,
-    customerName,
+    chargeCents,
+    tipCents,
   }).catch((e) => {
-    console.warn("[pay-link] collect_pay_links insert skipped:", e)
+    console.warn("[pay-link] attach session failed:", e)
   })
 
+  // Also save tip on payment_slips once we know the PI (after pay) — metadata already has tip.
+
+  const { getStripePublishableKey } = await import("@/lib/stripe-config")
+  const publishableKey = getStripePublishableKey()
+  if (!publishableKey) throw new Error("Payments are not configured (publishable key).")
+
   return {
-    url: `${appUrl}/pay/${payToken}`,
+    clientSecret: session.client_secret,
     sessionId: session.id,
-    chargeCents: params.chargeCents,
-    payToken,
+    chargeCents,
+    tipCents,
+    baseCents,
+    businessLabel,
+    customerName,
+    publishableKey,
+    stripeAccountId: connect.accountId,
     venmoIncluded,
     dynamicMethods,
   }
 }
 
-/** After Checkout succeeds — create/settle wallet credit and complete the job. */
+/** After Checkout succeeds — create/settle wallet credit, save email, auto-send receipt. */
 export async function fulfillCollectPayLinkFromCheckout(
   session: Stripe.Checkout.Session
 ): Promise<void> {
@@ -316,10 +449,12 @@ export async function fulfillCollectPayLinkFromCheckout(
   const jobId = (meta.job_id || "").trim() || null
   const ownerUserId = (meta.owner_user_id || meta.user_id || "").trim()
   const techUserId = (meta.tech_user_id || ownerUserId).trim()
+  const payToken = (meta.pay_token || "").trim()
   const commissionCents = Math.max(
     0,
     Math.round(Number(meta.commission_cents) || Number(meta.charge_cents) || 0)
   )
+  const tipCents = Math.max(0, Math.round(Number(meta.tip_cents) || 0))
   const walletUserId =
     checkoutType === "adhoc_payment_link" ? ownerUserId : techUserId || ownerUserId
 
@@ -337,17 +472,224 @@ export async function fulfillCollectPayLinkFromCheckout(
       status: "PENDING",
       paymentMethod: "MANUAL_CARD",
       stripePaymentIntentId: paymentIntentId,
+      customerPhone: (meta.customer_phone || "").trim() || null,
+      customerName: (meta.customer_name || "").trim() || null,
     })
   }
 
   await confirmJobPaymentIntent(paymentIntentId, {
     stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
   })
+
+  // Persist tip on payment_slips (same as in-person Collect) for invoice line items.
+  if (tipCents > 0 && ownerUserId) {
+    try {
+      const { upsertPaymentSlip } = await import("@/lib/payment-slips")
+      await upsertPaymentSlip({
+        userId: ownerUserId,
+        paymentIntentId,
+        tipCents,
+        tipPaymentIntentId: null,
+        signaturePng: null,
+        stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
+      })
+    } catch (e) {
+      console.warn("[pay-link] tip slip save failed:", e)
+    }
+  }
+
+  // Grab email Checkout collected and tie it to job / CRM / phone contact.
+  await persistPayLinkCustomerEmailFromSession(session).catch((e) => {
+    console.warn("[pay-link] email persist failed:", e)
+  })
+
+  // Auto email + SMS receipt (no owner action required).
+  await autoSendPayLinkReceipts({
+    session,
+    paymentIntentId,
+    ownerUserId,
+    actingUserId: (meta.acting_user_id || ownerUserId).trim(),
+    payToken,
+  }).catch((e) => {
+    console.warn("[pay-link] auto receipt failed:", e)
+  })
+}
+
+/** Save Checkout email onto the job + CRM customer (matched by pay-link phone). */
+async function persistPayLinkCustomerEmailFromSession(
+  session: Stripe.Checkout.Session
+): Promise<void> {
+  const emailRaw =
+    session.customer_details?.email?.trim() ||
+    session.customer_email?.trim() ||
+    ""
+  const email = emailRaw.toLowerCase().slice(0, 160)
+  if (!email.includes("@")) return
+
+  const meta = session.metadata || {}
+  const jobId = (meta.job_id || "").trim()
+  const ownerUserId = (meta.owner_user_id || meta.user_id || "").trim()
+  const customerName = (meta.customer_name || session.customer_details?.name || "").trim()
+  let phone = normalizePhoneNumberE164(meta.customer_phone || "") || ""
+
+  // Prefer phone stored on the pay-link row (SMS destination).
+  const payToken = (meta.pay_token || "").trim()
+  if ((!phone || !ownerUserId) && payToken) {
+    const { getCollectPayLinkByTokenAny } = await import("@/lib/db")
+    const row = await getCollectPayLinkByTokenAny(payToken)
+    if (row) {
+      if (!phone) phone = normalizePhoneNumberE164(row.customer_phone) || ""
+    }
+  }
+
+  if (jobId) {
+    const { patchJobCustomerEmailFromPayLink } = await import("@/lib/db")
+    await patchJobCustomerEmailFromPayLink({ jobId, email })
+  }
+
+  // Mirror onto PaymentIntent metadata for invoice / send-receipt.
+  try {
+    const stripe = getStripeClient()
+    const connectAccountId = (meta.stripe_connect_account_id || "").trim() || null
+    const piRef = session.payment_intent
+    const paymentIntentId = typeof piRef === "string" ? piRef : piRef?.id
+    if (paymentIntentId) {
+      await stripe.paymentIntents.update(
+        paymentIntentId,
+        {
+          metadata: {
+            customer_email: email,
+            ...(phone ? { customer_phone: phone } : {}),
+          },
+        },
+        connectAccountId ? { stripeAccount: connectAccountId } : undefined
+      )
+    }
+  } catch (e) {
+    console.warn("[pay-link] PI email metadata update failed:", e)
+  }
+
+  if (ownerUserId && phone) {
+    try {
+      const { upsertCustomerForUser } = await import("@/lib/db")
+      await upsertCustomerForUser({
+        userId: ownerUserId,
+        phoneE164: phone,
+        displayName: customerName || "Customer",
+        companyName: "",
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        region: "",
+        postalCode: "",
+        country: "US",
+        notes: "",
+        email,
+      })
+    } catch (e) {
+      console.warn("[pay-link] CRM email upsert failed:", e)
+    }
+  }
+}
+
+/** After pay-link success: email Checkout address + SMS the phone the link was texted to. */
+async function autoSendPayLinkReceipts(params: {
+  session: Stripe.Checkout.Session
+  paymentIntentId: string
+  ownerUserId: string
+  actingUserId: string
+  payToken: string
+}): Promise<void> {
+  if (!params.ownerUserId || !params.paymentIntentId) return
+
+  const meta = params.session.metadata || {}
+  let phone = normalizePhoneNumberE164(meta.customer_phone || "") || ""
+  let customerName = (meta.customer_name || "").trim()
+  const email =
+    (
+      params.session.customer_details?.email?.trim() ||
+      params.session.customer_email?.trim() ||
+      meta.customer_email ||
+      ""
+    )
+      .toLowerCase()
+      .slice(0, 160)
+
+  if (params.payToken) {
+    const { getCollectPayLinkByTokenAny, markCollectPayLinkReceiptSent } = await import(
+      "@/lib/db"
+    )
+    const row = await getCollectPayLinkByTokenAny(params.payToken)
+    if (row?.receipt_sent_at) return
+    if (row) {
+      if (!phone) phone = normalizePhoneNumberE164(row.customer_phone) || ""
+      if (!customerName) customerName = (row.customer_name || "").trim()
+    }
+    const claimed = await markCollectPayLinkReceiptSent(params.payToken)
+    if (!claimed) {
+      // Concurrent webhook already claimed, or migration 135 not applied yet.
+      const again = await getCollectPayLinkByTokenAny(params.payToken)
+      if (again?.receipt_sent_at) return
+      try {
+        const stripe = getStripeClient()
+        const connectAccountId =
+          (params.session.metadata?.stripe_connect_account_id || "").trim() || null
+        const intent = await stripe.paymentIntents.retrieve(
+          params.paymentIntentId,
+          connectAccountId ? { stripeAccount: connectAccountId } : undefined
+        )
+        if (intent.metadata?.receipt_auto_sent === "1") return
+        await stripe.paymentIntents.update(
+          params.paymentIntentId,
+          {
+            metadata: {
+              ...intent.metadata,
+              receipt_auto_sent: "1",
+            },
+          },
+          connectAccountId ? { stripeAccount: connectAccountId } : undefined
+        )
+      } catch (e) {
+        console.warn("[pay-link] receipt_auto_sent lock failed:", e)
+      }
+    }
+  } else {
+    return
+  }
+
+  const { sendPaymentReceipt } = await import("@/lib/payment-receipt-send")
+  const senderId = params.actingUserId || params.ownerUserId
+
+  if (email.includes("@")) {
+    const result = await sendPaymentReceipt({
+      userId: senderId,
+      paymentIntentId: params.paymentIntentId,
+      channel: "email",
+      customerName: customerName || undefined,
+      email,
+    })
+    if (!result.sent) {
+      console.warn("[pay-link] auto receipt email failed:", result.error)
+    }
+  }
+
+  if (phone) {
+    const result = await sendPaymentReceipt({
+      userId: senderId,
+      paymentIntentId: params.paymentIntentId,
+      channel: "sms",
+      customerName: customerName || undefined,
+      phone,
+    })
+    if (!result.sent) {
+      console.warn("[pay-link] auto receipt SMS failed:", result.error)
+    }
+  }
 }
 
 /**
  * Backup when checkout.session.completed is missed: create PENDING from PaymentIntent
- * metadata (pay links always set pay_link=1), then settle.
+ * metadata (pay links always set pay_link=1), then settle + receipt.
  */
 export async function fulfillCollectPayLinkFromPaymentIntent(
   intent: Stripe.PaymentIntent
@@ -365,6 +707,7 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
     0,
     Math.round(Number(meta.commission_cents) || intent.amount || 0)
   )
+  const tipCents = Math.max(0, Math.round(Number(meta.tip_cents) || 0))
   const walletUserId = kind === "adhoc_payment" ? ownerUserId : techUserId || ownerUserId
   if (!walletUserId || commissionCents <= 0) {
     console.error("[pay-link] PI missing wallet user or commission", intent.id)
@@ -380,12 +723,61 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
       status: "PENDING",
       paymentMethod: "MANUAL_CARD",
       stripePaymentIntentId: intent.id,
+      customerPhone: (meta.customer_phone || "").trim() || null,
+      customerName: (meta.customer_name || "").trim() || null,
     })
   }
 
   await confirmJobPaymentIntent(intent.id, {
     stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
   })
+
+  if (tipCents > 0 && ownerUserId) {
+    try {
+      const { upsertPaymentSlip } = await import("@/lib/payment-slips")
+      await upsertPaymentSlip({
+        userId: ownerUserId,
+        paymentIntentId: intent.id,
+        tipCents,
+        tipPaymentIntentId: null,
+        signaturePng: null,
+        stripeConnectAccountId: (meta.stripe_connect_account_id || "").trim() || null,
+      })
+    } catch (e) {
+      console.warn("[pay-link] tip slip save (PI) failed:", e)
+    }
+  }
+
+  // Prefer full Checkout session path for email + receipts when we can load it.
+  const payToken = (meta.pay_token || "").trim()
+  if (payToken) {
+    try {
+      const { getCollectPayLinkByTokenAny } = await import("@/lib/db")
+      const row = await getCollectPayLinkByTokenAny(payToken)
+      const sessionId = row?.stripe_session_id
+      if (sessionId) {
+        const stripe = getStripeClient()
+        const connectAccountId = (meta.stripe_connect_account_id || "").trim() || null
+        const session = await stripe.checkout.sessions.retrieve(
+          sessionId,
+          connectAccountId ? { stripeAccount: connectAccountId } : undefined
+        )
+        if (session.payment_status === "paid") {
+          await persistPayLinkCustomerEmailFromSession(session).catch(() => null)
+          await autoSendPayLinkReceipts({
+            session,
+            paymentIntentId: intent.id,
+            ownerUserId,
+            actingUserId: (meta.acting_user_id || ownerUserId).trim(),
+            payToken,
+          }).catch(() => null)
+          return
+        }
+      }
+    } catch (e) {
+      console.warn("[pay-link] PI backup session receipt path failed:", e)
+    }
+  }
 }
 
 export type CollectPayLinkStatus = {
@@ -417,14 +809,35 @@ export async function syncCollectPayLinkStatus(params: {
   let token = (params.token ?? "").trim()
   let sessionId = (params.stripeSessionId ?? "").trim()
 
-  const { getCollectPayLinkByToken, getCollectPayLinkBySessionId } = await import("@/lib/db")
+  const { getCollectPayLinkByToken, getCollectPayLinkBySessionId, getCollectPayLinkByTokenAny } =
+    await import("@/lib/db")
   let row =
     (sessionId ? await getCollectPayLinkBySessionId(sessionId) : null) ||
-    (token ? await getCollectPayLinkByToken(token) : null)
+    (token ? await getCollectPayLinkByToken(token) : null) ||
+    (token ? await getCollectPayLinkByTokenAny(token) : null)
 
   if (row) {
     token = row.token
-    sessionId = row.stripe_session_id
+    sessionId = row.stripe_session_id || ""
+  }
+
+  // Tip not chosen yet — no Checkout session. Still report Waiting so owner UI works.
+  if (!sessionId && row) {
+    const expired = new Date(row.expires_at).getTime() < Date.now()
+    return {
+      token: row.token,
+      url: `${appUrl}/pay/${row.token}`,
+      stripeSessionId: "",
+      jobId: row.job_id,
+      chargeCents: row.charge_cents,
+      customerName: row.customer_name,
+      businessLabel: row.business_label,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      paymentStatus: expired ? "expired" : "unpaid",
+      walletSettled: false,
+      fulfilledNow: false,
+    }
   }
   if (!sessionId) return null
 
@@ -525,7 +938,7 @@ export async function syncCollectPayLinksForJob(
   for (const row of rows) {
     const status = await syncCollectPayLinkStatus({
       token: row.token,
-      stripeSessionId: row.stripe_session_id,
+      stripeSessionId: row.stripe_session_id || null,
     })
     if (status) out.push(status)
   }
@@ -593,7 +1006,16 @@ export async function cancelCollectPayLink(params: {
 
   const expireSessionId = live?.stripeSessionId || row?.stripe_session_id || sessionId
   const expireToken = live?.token || row?.token || token
-  if (!expireSessionId) return { ok: false, error: "Pay link session missing" }
+  // Tip not chosen yet — expire the local row only (no Stripe session to cancel).
+  if (!expireSessionId) {
+    if (expireToken) await markCollectPayLinkExpired(expireToken).catch(() => false)
+    return {
+      ok: true,
+      token: expireToken || token,
+      alreadyPaid: false,
+      alreadyExpired: false,
+    }
+  }
 
   let connectAccountId: string | null = null
   if (ownerUserId) {

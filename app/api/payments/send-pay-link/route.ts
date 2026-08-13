@@ -112,7 +112,8 @@ export async function POST(req: NextRequest) {
       taxCents,
       note: body.note,
       customerName: body.customerName,
-      customerEmail: channel === "email" ? body.email : undefined,
+      customerEmail: channel === "email" ? body.email : body.email || undefined,
+      customerPhone: body.phone,
       lineSummary,
     })
 
@@ -155,6 +156,8 @@ export async function POST(req: NextRequest) {
         canceledWaiting,
         venmoIncluded: Boolean(checkout.venmoIncluded),
         dynamicMethods: Boolean(checkout.dynamicMethods),
+        // Checkout is created after the customer tips — wallets apply then.
+        tipOnPayPage: true,
         wallets: collectCheckoutWalletSummary({
           dynamicMethods: Boolean(checkout.dynamicMethods),
           venmoAttempted: true,

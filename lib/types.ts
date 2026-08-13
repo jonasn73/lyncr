@@ -1094,6 +1094,8 @@ export interface Customer {
   postal_code: string
   country: string
   notes: string
+  /** Optional email from Checkout / intake (scripts/135-collect-pay-links-tip-receipt.sql). */
+  email?: string
   source_last_call_log_id: string | null
   created_at: string
   updated_at: string
