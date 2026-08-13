@@ -16,9 +16,16 @@ import {
   type DevLogEntry,
 } from "@/lib/dev-error-log"
 
+/** Stable empty list for SSR — a new `[]` each call makes React loop forever. */
+const EMPTY_DEV_ERROR_LOGS: readonly DevLogEntry[] = []
+
 /** Subscribe to the in-memory log store (React 18 external store). */
 function useDevErrorLogs(): readonly DevLogEntry[] {
-  return useSyncExternalStore(subscribeDevErrorLog, getDevErrorLogs, () => [])
+  return useSyncExternalStore(
+    subscribeDevErrorLog,
+    getDevErrorLogs,
+    () => EMPTY_DEV_ERROR_LOGS
+  )
 }
 
 function kindLabel(kind: DevLogEntry["kind"]): string {
