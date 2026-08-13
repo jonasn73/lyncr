@@ -5,6 +5,7 @@ import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 import { ensureStripeWalletPaymentMethodDomains } from "@/lib/stripe-payment-method-domains"
 import {
+  COLLECT_CHECKOUT_EXCLUDED_PAYMENT_METHOD_TYPES,
   COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES,
   COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO,
   isUnsupportedPaymentMethodError,
@@ -66,6 +67,8 @@ export type CreatePayLinkResult = {
   payToken: string
   /** True when Venmo was accepted on this Checkout session. */
   venmoIncluded?: boolean
+  /** True when Checkout used Stripe dynamic payment methods (Dashboard-driven). */
+  dynamicMethods?: boolean
 }
 
 /** Create an embedded Checkout session + short lyncr.app/pay/{token} URL. */
@@ -127,21 +130,34 @@ export async function createCollectPayLinkCheckout(params: {
   const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
 
   const stripe = getStripeClient()
-  // Apple Pay / Google Pay on Embedded Checkout require the pay page domain registered.
+  const connectOpts = connectDirectChargeOptions(connect.accountId)
+
+  // Direct charges: register lyncr.app on the *connected* account (required for Apple/Google Pay / Link).
+  await ensureStripeWalletPaymentMethodDomains({
+    stripeAccount: connect.accountId,
+  }).catch((e) => {
+    console.warn("[pay-link] wallet domain register (connect):", e)
+  })
+  // Also keep platform registration current (harmless; helps non-direct flows).
   await ensureStripeWalletPaymentMethodDomains().catch((e) => {
-    console.warn("[pay-link] wallet domain register:", e)
+    console.warn("[pay-link] wallet domain register (platform):", e)
   })
 
   // Shared Checkout fields — wallets (Apple/Google Pay) ride on `card` + domain registration.
+  // Omit payment_method_types so Stripe dynamic payment methods can show Card, Cash App,
+  // Venmo, Link, etc. based on Connect Dashboard enablement for this connected account.
   const checkoutBase = {
     ui_mode: "embedded" as const,
     mode: "payment" as const,
-    // Prefer explicit US wallets: card (+ Apple/Google Pay), Cash App, Link; Venmo when allowed.
     payment_method_options: {
       card: {
         request_three_d_secure: "automatic" as const,
       },
     },
+    // Service jobs don’t collect shipping — hide BNPL that usually requires it.
+    excluded_payment_method_types: [
+      ...COLLECT_CHECKOUT_EXCLUDED_PAYMENT_METHOD_TYPES,
+    ],
     client_reference_id: ownerUserId,
     customer_email: params.customerEmail?.trim() || undefined,
     line_items: [
@@ -205,30 +221,54 @@ export async function createCollectPayLinkCheckout(params: {
     return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
   }
 
-  const connectOpts = connectDirectChargeOptions(connect.accountId)
-
-  // Try Venmo first; if this Connect account rejects it, retry without Venmo.
   let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>
   let venmoIncluded = false
+  let dynamicMethods = false
+
+  // 1) Preferred: dynamic payment methods (Dashboard-driven — Venmo, Cash App, Link, …).
   try {
     session = await stripe.checkout.sessions.create(
       {
         ...checkoutBase,
-        payment_method_types: [...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO],
       },
       connectOpts
     )
-    venmoIncluded = true
-  } catch (e) {
-    if (!isUnsupportedPaymentMethodError(e)) throw e
-    console.warn("[pay-link] Venmo/PM rejected — retrying without Venmo:", e)
-    session = await stripe.checkout.sessions.create(
-      {
-        ...checkoutBase,
-        payment_method_types: [...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES],
-      },
-      connectOpts
+    dynamicMethods = true
+    venmoIncluded = Boolean(session.payment_method_types?.includes("venmo"))
+  } catch (dynamicErr) {
+    console.warn(
+      "[pay-link] dynamic payment methods failed — falling back to explicit list:",
+      dynamicErr
     )
+    // 2) Fallback: try explicit card + cashapp + link + venmo.
+    try {
+      const { excluded_payment_method_types: _excluded, ...withoutExclude } = checkoutBase
+      void _excluded
+      session = await stripe.checkout.sessions.create(
+        {
+          ...withoutExclude,
+          payment_method_types: [
+            ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO,
+          ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+        },
+        connectOpts
+      )
+      venmoIncluded = true
+    } catch (e) {
+      if (!isUnsupportedPaymentMethodError(e)) throw e
+      console.warn("[pay-link] Venmo/PM rejected — retrying without Venmo:", e)
+      const { excluded_payment_method_types: _excluded2, ...withoutExclude2 } = checkoutBase
+      void _excluded2
+      session = await stripe.checkout.sessions.create(
+        {
+          ...withoutExclude2,
+          payment_method_types: [
+            ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES,
+          ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+        },
+        connectOpts
+      )
+    }
   }
 
   if (!session.id) throw new Error("Could not create payment session")
@@ -253,6 +293,7 @@ export async function createCollectPayLinkCheckout(params: {
     chargeCents: params.chargeCents,
     payToken,
     venmoIncluded,
+    dynamicMethods,
   }
 }
 

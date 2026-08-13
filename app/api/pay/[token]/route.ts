@@ -23,9 +23,6 @@ export async function GET(
   }
 
   try {
-    // Register lyncr.app for Apple Pay before returning the embedded session.
-    await ensureStripeWalletPaymentMethodDomains().catch(() => null)
-
     const resolved = await resolvePayLinkSession(key)
     if (!resolved) {
       return NextResponse.json(
@@ -33,6 +30,11 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    // Direct charges: wallets need lyncr.app on the connected account before Checkout mounts.
+    await ensureStripeWalletPaymentMethodDomains({
+      stripeAccount: resolved.stripeConnectAccountId,
+    }).catch(() => null)
 
     const { session, businessLabel, chargeCents, customerName } = resolved
 

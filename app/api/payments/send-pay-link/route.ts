@@ -10,6 +10,7 @@ import {
   createCollectPayLinkCheckout,
   sendCollectPayLink,
 } from "@/lib/job-pay-link"
+import { collectCheckoutWalletSummary } from "@/lib/stripe-collect-payment-methods"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -152,6 +153,13 @@ export async function POST(req: NextRequest) {
         sent: true,
         channel,
         canceledWaiting,
+        venmoIncluded: Boolean(checkout.venmoIncluded),
+        dynamicMethods: Boolean(checkout.dynamicMethods),
+        wallets: collectCheckoutWalletSummary({
+          dynamicMethods: Boolean(checkout.dynamicMethods),
+          venmoAttempted: true,
+          venmoIncluded: Boolean(checkout.venmoIncluded),
+        }),
       },
     })
   } catch (e) {

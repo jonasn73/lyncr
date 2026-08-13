@@ -1,9 +1,11 @@
 // Register lyncr.app for Apple Pay / Google Pay / Link on Embedded Checkout.
+// Direct charges (Connect) require domains on the *connected* account, not only the platform.
 
 import { getAppUrl } from "@/lib/telnyx"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 
-let ensurePromise: Promise<string[]> | null = null
+// Cache one in-flight / completed registration per Stripe account (or platform).
+const ensureByAccount = new Map<string, Promise<string[]>>()
 
 function hostnameFromAppUrl(): string | null {
   try {
@@ -32,24 +34,44 @@ export function stripeWalletDomainCandidates(): string[] {
   return out
 }
 
+export type EnsureWalletDomainsOpts = {
+  /**
+   * Connected account id for Connect *direct* charges.
+   * When set, domains are registered with Stripe-Account so Apple Pay / Google Pay / Link
+   * can appear on Embedded Checkout for that merchant.
+   */
+  stripeAccount?: string | null
+}
+
 /**
  * Ensure Apple Pay (and other wallet PMDs) can show on Embedded Checkout.
  * Safe to call often — Stripe accepts re-create for existing domains (or we ignore duplicates).
  */
-export async function ensureStripeWalletPaymentMethodDomains(): Promise<string[]> {
+export async function ensureStripeWalletPaymentMethodDomains(
+  opts?: EnsureWalletDomainsOpts
+): Promise<string[]> {
   if (!isStripeConfigured()) return []
-  if (!ensurePromise) {
-    ensurePromise = (async () => {
+
+  const stripeAccount = opts?.stripeAccount?.trim() || ""
+  const cacheKey = stripeAccount || "__platform__"
+  const requestOpts = stripeAccount ? { stripeAccount } : undefined
+
+  let pending = ensureByAccount.get(cacheKey)
+  if (!pending) {
+    pending = (async () => {
       const stripe = getStripeClient()
       const registered: string[] = []
       for (const domain_name of stripeWalletDomainCandidates()) {
         try {
-          const domain = await stripe.paymentMethodDomains.create({ domain_name })
+          const domain = await stripe.paymentMethodDomains.create(
+            { domain_name },
+            requestOpts
+          )
           registered.push(domain.domain_name)
           // If Apple Pay is inactive, ask Stripe to re-validate after association file is live.
           if (domain.apple_pay?.status && domain.apple_pay.status !== "active") {
             try {
-              await stripe.paymentMethodDomains.validate(domain.id)
+              await stripe.paymentMethodDomains.validate(domain.id, requestOpts)
             } catch {
               // Validation may need the association file; ignore — create still registers the domain.
             }
@@ -59,14 +81,23 @@ export async function ensureStripeWalletPaymentMethodDomains(): Promise<string[]
           // Already registered — list + enable.
           if (/already|exist/i.test(msg)) {
             try {
-              const listed = await stripe.paymentMethodDomains.list({ limit: 100 })
+              const listed = await stripe.paymentMethodDomains.list(
+                { limit: 100 },
+                requestOpts
+              )
               const match = listed.data.find((d) => d.domain_name === domain_name)
               if (match) {
                 if (!match.enabled) {
-                  await stripe.paymentMethodDomains.update(match.id, { enabled: true })
+                  await stripe.paymentMethodDomains.update(
+                    match.id,
+                    { enabled: true },
+                    requestOpts
+                  )
                 }
                 if (match.apple_pay?.status !== "active") {
-                  await stripe.paymentMethodDomains.validate(match.id).catch(() => null)
+                  await stripe.paymentMethodDomains
+                    .validate(match.id, requestOpts)
+                    .catch(() => null)
                 }
                 registered.push(domain_name)
               }
@@ -74,15 +105,18 @@ export async function ensureStripeWalletPaymentMethodDomains(): Promise<string[]
               // ignore
             }
           } else {
-            console.warn("[stripe-pmd] domain register failed:", domain_name, msg)
+            console.warn(
+              "[stripe-pmd] domain register failed:",
+              cacheKey,
+              domain_name,
+              msg
+            )
           }
         }
       }
       return registered
-    })().finally(() => {
-      // Allow a later retry after cold start if first pass failed hard.
-      // Keep cache for this process lifetime after success/attempt.
-    })
+    })()
+    ensureByAccount.set(cacheKey, pending)
   }
-  return ensurePromise
+  return pending
 }

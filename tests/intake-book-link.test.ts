@@ -59,5 +59,8 @@ describe("collect checkout payment methods", () => {
     expect(
       collectCheckoutWalletSummary({ venmoAttempted: true, venmoIncluded: false })
     ).toMatch(/Venmo was not available/)
+    expect(collectCheckoutWalletSummary({ dynamicMethods: true })).toMatch(
+      /Connected accounts/
+    )
   })
 })

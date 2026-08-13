@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
 
   let payToken: string | null = null
   let venmoIncluded = false
+  let dynamicMethods = false
 
   try {
     if (feeMode !== "none") {
@@ -174,6 +175,7 @@ export async function POST(req: NextRequest) {
       })
       payToken = checkout.payToken
       venmoIncluded = Boolean(checkout.venmoIncluded)
+      dynamicMethods = Boolean(checkout.dynamicMethods)
     }
 
     const created = await createIntakeBookLink({
@@ -214,6 +216,7 @@ export async function POST(req: NextRequest) {
     })
 
     const wallets = collectCheckoutWalletSummary({
+      dynamicMethods: feeMode !== "none" ? dynamicMethods : undefined,
       venmoAttempted: feeMode !== "none",
       venmoIncluded: feeMode !== "none" ? venmoIncluded : undefined,
     })
