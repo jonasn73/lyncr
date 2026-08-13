@@ -330,11 +330,17 @@ export function GetPaidSheet({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <SheetTitle className="text-base font-bold text-white">
-                {embedding ? "Finish payout setup" : "Get paid"}
+                {embedding
+                  ? "Finish bank setup"
+                  : status?.ready
+                    ? "Bank account"
+                    : "Set up bank"}
               </SheetTitle>
               {embedding ? null : (
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  Bank transfers live here — send available funds anytime, or let Stripe auto-pay.
+                  {status?.ready
+                    ? "Change bank details here. Send money from the Money wallet."
+                    : "Add your bank so card money can go to you."}
                 </p>
               )}
             </div>
@@ -411,34 +417,14 @@ export function GetPaidSheet({
                 </div>
 
                 {status?.ready ? (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                     <div className="flex items-center gap-2 text-emerald-100">
-                      <CheckCircle2 className="h-5 w-5" aria-hidden />
-                      <p className="text-sm font-semibold">Ready to collect payments</p>
+                      <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
+                      <p className="text-sm font-semibold">Bank is connected</p>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                          Available
-                        </p>
-                        <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
-                          {fmtCents(status.availableCents, status.currency)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                          Pending
-                        </p>
-                        <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-200">
-                          {fmtCents(status.pendingCents, status.currency)}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-[11px] text-emerald-200/70">
-                      Pending becomes Available after card funds clear (often 1–2 days). Bank
-                      transfers only happen when you tap Send to bank — Lyncr does not auto-payout.
-                      Transfers are net of Lyncr’s fee ({status.feeLabel}) — they will not match
-                      Collected sales.
+                    <p className="mt-1.5 text-[11px] leading-snug text-emerald-200/70">
+                      Wallet and Send to bank live on Money. This page is only for bank details and
+                      past transfers.
                     </p>
                   </div>
                 ) : (
@@ -518,7 +504,7 @@ export function GetPaidSheet({
                   </>
                 ) : (
                   <>
-                    {/* Manual bank transfer */}
+                    {/* Manual bank transfer — only when something is actually ready */}
                     <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                         Send to bank
@@ -530,8 +516,8 @@ export function GetPaidSheet({
                         </p>
                       ) : status.availableCents < 100 ? (
                         <p className="text-xs text-zinc-400">
-                          Nothing available to send yet. New charges stay in Pending until they
-                          clear.
+                          Nothing ready yet. Close this and use Money — Send to bank appears there
+                          after charges clear (usually 1–2 days).
                         </p>
                       ) : (
                         <>

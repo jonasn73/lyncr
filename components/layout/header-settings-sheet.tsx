@@ -5,7 +5,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ChevronDown, ChevronRight, CreditCard, LifeBuoy, Loader2, LogOut, Receipt } from "lucide-react"
+import { ChevronDown, ChevronRight, CreditCard, Landmark, LifeBuoy, Loader2, LogOut, Receipt } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -24,6 +24,7 @@ import {
   type CollectPaymentModalOpenDetail,
 } from "@/lib/settings-modals-events"
 import { prefetchCollectJobs } from "@/lib/hooks/use-collect-jobs-query"
+import { SendToBankPanel } from "@/components/dashboard/send-to-bank-panel"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   estimateLyncrNetFromGrossCents,
@@ -169,13 +170,15 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   )
   // Wallet chip = Stripe balance only (not “sales today”).
   const amountReady = availableCents != null
-  // Last bank payout — loaded when Money opens (answers “where did $ go?”).
-  const [lastPayout, setLastPayout] = useState<{
-    amountCents: number
-    status: string
-    createdLabel: string
-    arrivalDateLabel: string
-  } | null>(null)
+  // Recent bank transfers — loaded when Money opens.
+  const [bankTransfers, setBankTransfers] = useState<
+    {
+      amountCents: number
+      status: string
+      createdLabel: string
+      arrivalDateLabel: string
+    }[]
+  >([])
   const isMobile = useIsMobile()
 
   // SSR hydration: re-read session/cookie once before paint (org/key lag).
@@ -307,11 +310,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             }
           } | null
         ) => {
-          const first = j?.data?.payouts?.[0]
-          setLastPayout(first ?? null)
+          setBankTransfers(Array.isArray(j?.data?.payouts) ? j.data!.payouts! : [])
         }
       )
-      .catch(() => setLastPayout(null))
+      .catch(() => setBankTransfers([]))
   }, [])
 
   useEffect(() => {
@@ -537,69 +539,105 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
             <p className="text-xs text-slate-500">
-              Wallet stays here until you Send to bank. Open Transactions for the charge list.
+              Wallet, charges, and bank — all in one place.
             </p>
           </SheetHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-            {/* Wallet first — Available stays until manual Send to bank */}
+            {/* One hero number: ready-to-send if any, else still-clearing */}
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
-                In Stripe · available
-              </p>
-              <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-50">
-                {availableCents != null ? formatMoneyCents(availableCents) : "—"}
-              </p>
-              <p className="mt-1 text-[11px] leading-snug text-emerald-100/65">
-                This money stays here until you send it. Lyncr will not auto-transfer to your bank.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/30 px-2.5 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-200/60">
-                    Ready to send
-                  </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-100">
-                    {availableCents != null ? formatMoneyCents(availableCents) : "—"}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/30 px-2.5 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-200/60">
-                    Still clearing
-                  </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-100">
-                    {formatMoneyCents(pendingCents)}
-                  </p>
-                </div>
-              </div>
-              {lastPayout ? (
-                <div className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-2">
+              {(() => {
+                const ready = availableCents ?? 0
+                const clearing = pendingCents
+                const heroIsReady = ready >= 100
+                return (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                      {heroIsReady ? "Ready to send" : clearing > 0 ? "Still clearing" : "In Stripe"}
+                    </p>
+                    <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-50">
+                      {formatMoneyCents(heroIsReady ? ready : clearing)}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-snug text-emerald-100/65">
+                      {heroIsReady
+                        ? "Tap Send all when you want this in your bank. Lyncr will not auto-transfer."
+                        : clearing > 0
+                          ? "Customers already paid. Stripe holds it 1–2 days, then Send to bank appears here."
+                          : connectReady
+                            ? "No card money in the wallet yet. Collect a payment and it shows up here."
+                            : "Set up your bank once, then card money can land here."}
+                    </p>
+                    {heroIsReady && clearing > 0 ? (
+                      <p className="mt-2 text-[11px] text-emerald-200/60">
+                        Also still clearing: {formatMoneyCents(clearing)}
+                      </p>
+                    ) : null}
+                    {!heroIsReady && clearing > 0 && ready > 0 ? (
+                      <p className="mt-2 text-[11px] text-emerald-200/60">
+                        Ready to send: {formatMoneyCents(ready)} (under $1 — wait for more to clear)
+                      </p>
+                    ) : null}
+                  </>
+                )
+              })()}
+              {connectReady && (availableCents ?? 0) >= 100 ? (
+                <SendToBankPanel
+                  availableCents={availableCents ?? 0}
+                  onSent={() => {
+                    refreshMoney()
+                    refreshMoneyExtras()
+                  }}
+                />
+              ) : null}
+              {!connectReady ? (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setMoneyOpen(false)
+                    openGetPaidModal()
+                  }}
+                  className="mt-3 h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
+                >
+                  Set up bank
+                </Button>
+              ) : null}
+              {bankTransfers.length > 0 ? (
+                <div className="mt-3 space-y-1.5">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-200/70">
-                    Last sent to bank
+                    Sent to bank
                   </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-sky-50">
-                    {formatMoneyCents(lastPayout.amountCents)}
-                    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200/70">
-                      {lastPayout.status.replace(/_/g, " ")}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-sky-100/60">
-                    {lastPayout.createdLabel}
-                    {lastPayout.arrivalDateLabel !== "—"
-                      ? ` · arrives ${lastPayout.arrivalDateLabel}`
-                      : ""}
-                  </p>
+                  {bankTransfers.slice(0, 3).map((p, i) => (
+                    <div
+                      key={`${p.createdLabel}-${i}`}
+                      className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-2"
+                    >
+                      <p className="text-sm font-bold tabular-nums text-sky-50">
+                        {formatMoneyCents(p.amountCents)}
+                        <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200/70">
+                          {p.status.replace(/_/g, " ")}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-sky-100/60">
+                        {p.createdLabel}
+                        {p.arrivalDateLabel !== "—" ? ` · arrives ${p.arrivalDateLabel}` : ""}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               ) : null}
-              <Button
-                type="button"
-                onClick={() => {
-                  setMoneyOpen(false)
-                  openGetPaidModal()
-                }}
-                className="mt-3 h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
-              >
-                {connectReady ? "Send to bank" : "Set up Get paid"}
-              </Button>
+              {connectReady ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoneyOpen(false)
+                    openGetPaidModal()
+                  }}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-200/80 hover:text-emerald-100"
+                >
+                  <Landmark className="h-3.5 w-3.5" aria-hidden />
+                  Bank account
+                </button>
+              ) : null}
             </div>
 
             {/* Compact sales glance — tap a day to open the transactions popup */}
