@@ -2,7 +2,7 @@
 
 // Customers & Leads CRM hub — list + profile (desktop side panel / mobile centered dialog).
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -63,6 +63,8 @@ import {
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
+import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
+import { CrmPaneFallback } from "@/components/workspace-pane-fallbacks"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -290,7 +292,7 @@ function readCrmListCache(filter: CrmFilter, q: string): CrmCustomerListItem[] {
   return cached.customers.length > 0 ? cached.customers : EMPTY_CRM_ROWS
 }
 
-export const CrmWorkspaceView = memo(function CrmWorkspaceView({
+const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   isActive = true,
 }: {
   isActive?: boolean
@@ -2330,10 +2332,7 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
 
           <div className="p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
             {loading && rows.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading…
-              </div>
+              <CrmListRowSkeleton count={6} />
             ) : error ? (
               <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
             ) : rows.length === 0 ? (
@@ -2886,5 +2885,18 @@ export const CrmWorkspaceView = memo(function CrmWorkspaceView({
         </SheetContent>
       </Sheet>
     </div>
+  )
+})
+
+/** Outer wrapper: useSearchParams suspends — keep CRM chrome instead of a dark box. */
+export const CrmWorkspaceView = memo(function CrmWorkspaceView({
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
+  return (
+    <Suspense fallback={<CrmPaneFallback />}>
+      <CrmWorkspaceViewInner isActive={isActive} />
+    </Suspense>
   )
 })

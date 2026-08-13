@@ -6,91 +6,14 @@ import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import {
-  ActivityTableSkeleton,
-  CallFlowStepsSkeleton,
-} from "@/components/workspace-content-skeletons"
-import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
-
-/** Layout-matched placeholder while a deferred tab chunk loads (not an empty black flash). */
-function PaneLoadingFallback({ label }: { label: string }) {
-  if (label === "Activity") {
-    return (
-      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Activity">
-        <p className="mb-3 text-lg font-semibold text-foreground">Activity</p>
-        <ActivityTableSkeleton />
-      </div>
-    )
-  }
-  if (label === "CRM") {
-    return (
-      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading CRM">
-        <p className="mb-3 text-lg font-semibold text-foreground">Customers</p>
-        <ActivityTableSkeleton />
-      </div>
-    )
-  }
-  if (label === "scheduler") {
-    return (
-      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Scheduler">
-        <p className="mb-3 text-lg font-semibold text-foreground">Scheduler</p>
-        <SchedulerCalendarStatsSkeleton />
-        <div className="mt-4">
-          <CallFlowStepsSkeleton />
-        </div>
-      </div>
-    )
-  }
-  if (label === "Map") {
-    return (
-      <div
-        className="relative min-h-[70vh] w-full overflow-hidden bg-zinc-950"
-        aria-busy="true"
-        aria-label="Loading Map"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.9),transparent_55%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-40 border-t border-zinc-800/80 bg-zinc-950/90" />
-      </div>
-    )
-  }
-  if (label === "Messages") {
-    return (
-      <div className="w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label="Loading Messages">
-        <p className="mb-3 text-lg font-semibold text-foreground">Messages</p>
-        <div className="min-h-[20rem] rounded-2xl border border-border/60 bg-card/40" />
-      </div>
-    )
-  }
-  return (
-    <div className="min-h-[40vh] w-full px-3 pt-4 sm:px-4" aria-busy="true" aria-label={`Loading ${label}`}>
-      <p className="text-lg font-semibold text-foreground capitalize">{label}</p>
-      <div className="mt-4 min-h-[12rem] rounded-2xl border border-border/60 bg-card/40" />
-    </div>
-  )
-}
-
-/** Pay chunk loading — reserved layout only (no sessionStorage during render → #418). */
-function PayLoadingFallback() {
-  return (
-    <div className="min-h-[40vh] w-full px-4 pt-6" aria-busy="true" aria-label="Loading Pay">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
-      <p className="mt-1 text-lg font-semibold text-foreground">Pay</p>
-      <div className="mt-6 grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Lyncr Talk-Time Balance
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
-        </div>
-        <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3 opacity-60">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Talk-time used (recent)
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
-        </div>
-      </div>
-    </div>
-  )
-}
+  ActivityPaneFallback,
+  CrmPaneFallback,
+  MapPaneFallback,
+  MessagesPaneFallback,
+  PayPaneFallback,
+  SchedulerPaneFallback,
+  SettingsPaneFallback,
+} from "@/components/workspace-pane-fallbacks"
 
 // Heavy workspace panes — code-split so Lines first paint does not parse CRM/Activity/etc.
 const ActivityWorkspaceView = dynamic(
@@ -98,7 +21,7 @@ const ActivityWorkspaceView = dynamic(
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
       default: m.ActivityWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="Activity" /> }
+  { ssr: false, loading: () => <ActivityPaneFallback /> }
 )
 
 const MessagesWorkspaceView = dynamic(
@@ -106,7 +29,7 @@ const MessagesWorkspaceView = dynamic(
     import("@/components/workspace-views/messages-workspace-view").then((m) => ({
       default: m.MessagesWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="Messages" /> }
+  { ssr: false, loading: () => <MessagesPaneFallback /> }
 )
 
 const SchedulerWorkspaceView = dynamic(
@@ -114,7 +37,7 @@ const SchedulerWorkspaceView = dynamic(
     import("@/components/workspace-views/scheduler-workspace-view").then((m) => ({
       default: m.SchedulerWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="scheduler" /> }
+  { ssr: false, loading: () => <SchedulerPaneFallback /> }
 )
 
 const CrmWorkspaceView = dynamic(
@@ -122,7 +45,7 @@ const CrmWorkspaceView = dynamic(
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
       default: m.CrmWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="CRM" /> }
+  { ssr: false, loading: () => <CrmPaneFallback /> }
 )
 
 const MapWorkspaceView = dynamic(
@@ -130,7 +53,7 @@ const MapWorkspaceView = dynamic(
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
       default: m.MapWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="Map" /> }
+  { ssr: false, loading: () => <MapPaneFallback /> }
 )
 
 const PayWorkspaceView = dynamic(
@@ -138,7 +61,7 @@ const PayWorkspaceView = dynamic(
     import("@/components/workspace-views/pay-workspace-view").then((m) => ({
       default: m.PayWorkspaceView,
     })),
-  { ssr: false, loading: () => <PayLoadingFallback /> }
+  { ssr: false, loading: () => <PayPaneFallback /> }
 )
 
 const SettingsWorkspaceView = dynamic(
@@ -146,7 +69,7 @@ const SettingsWorkspaceView = dynamic(
     import("@/components/workspace-views/settings-workspace-view").then((m) => ({
       default: m.SettingsWorkspaceView,
     })),
-  { ssr: false, loading: () => <PaneLoadingFallback label="Settings" /> }
+  { ssr: false, loading: () => <SettingsPaneFallback /> }
 )
 
 /** Primary command-dock segments kept mounted for instant tab swaps (no route branch flash). */
@@ -216,37 +139,37 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="Activity" />}>
+        <Suspense fallback={<ActivityPaneFallback />}>
           <ActivityWorkspaceView isActive={activePage === "activity"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="Messages" />}>
+        <Suspense fallback={<MessagesPaneFallback />}>
           <MessagesWorkspaceView isActive={activePage === "messages"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="scheduler" />}>
+        <Suspense fallback={<SchedulerPaneFallback />}>
           <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="CRM" />}>
+        <Suspense fallback={<CrmPaneFallback />}>
           <CrmWorkspaceView isActive={activePage === "customers"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="Map" />}>
+        <Suspense fallback={<MapPaneFallback />}>
           <MapWorkspaceView isActive={activePage === "contacts"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
-        <Suspense fallback={<PayLoadingFallback />}>
+        <Suspense fallback={<PayPaneFallback />}>
           <PayWorkspaceView isActive={activePage === "pay"} />
         </Suspense>
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
-        <Suspense fallback={<PaneLoadingFallback label="Settings" />}>
+        <Suspense fallback={<SettingsPaneFallback />}>
           <SettingsWorkspaceView isActive={activePage === "settings"} />
         </Suspense>
       </PresencePane>

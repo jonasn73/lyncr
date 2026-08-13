@@ -37,7 +37,8 @@ const DispatchLiveMap = dynamic(
     import("@/components/workspace-views/dispatch-live-map").then((m) => ({
       default: m.DispatchLiveMap,
     })),
-  { ssr: false }
+  // Same zinc well as MapTab — never flash a smaller dark card while Leaflet loads.
+  { ssr: false, loading: () => <div className="h-full min-h-[18rem] w-full bg-zinc-950" /> }
 )
 
 // Which list is open in the drawer / bottom sheet.

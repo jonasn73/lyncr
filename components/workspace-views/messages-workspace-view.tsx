@@ -2,7 +2,7 @@
 
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,8 @@ import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import { MessagesThreadListSkeleton } from "@/components/workspace-content-skeletons"
+import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
 import {
   phoneMatchKey,
   resolveMessagesDeepLinkPhone,
@@ -119,7 +121,7 @@ function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
   return threads
 }
 
-export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
+const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   // Presence host keeps this pane mounted after first visit — only scroll/poll when visible.
   isActive = true,
 }: {
@@ -572,10 +574,7 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading && threads.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading messages…
-              </div>
+              <MessagesThreadListSkeleton count={6} />
             ) : threads.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />
@@ -837,5 +836,18 @@ export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
         </div>
       </WorkspacePanel>
     </WorkspacePage>
+  )
+})
+
+/** Outer wrapper: useSearchParams suspends — keep Messages chrome instead of a dark box. */
+export const MessagesWorkspaceView = memo(function MessagesWorkspaceView({
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
+  return (
+    <Suspense fallback={<MessagesPaneFallback />}>
+      <MessagesWorkspaceViewInner isActive={isActive} />
+    </Suspense>
   )
 })

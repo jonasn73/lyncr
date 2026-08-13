@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
+import { Fragment, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -58,6 +58,7 @@ import {
 import {
   ActivityTableSkeleton,
 } from "@/components/workspace-content-skeletons"
+import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
 import {
   WorkspaceRightSheetGate,
   useWorkspaceRightSheet,
@@ -1669,7 +1670,7 @@ function useLineLabelMap(): Map<string, string> {
   }, [businessNumbers])
 }
 
-export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
+const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   // Presence host keeps this pane mounted — only poll while the tab is visible.
   isActive = true,
 }: {
@@ -1738,5 +1739,18 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
         onFilterChange={handleFilterChange}
       />
     </WorkspaceRightSheetGate>
+  )
+})
+
+/** Outer wrapper: useSearchParams suspends — keep Activities chrome instead of a dark box. */
+export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
+  isActive = true,
+}: {
+  isActive?: boolean
+}) {
+  return (
+    <Suspense fallback={<ActivityPaneFallback />}>
+      <ActivityWorkspaceViewInner isActive={isActive} />
+    </Suspense>
   )
 })

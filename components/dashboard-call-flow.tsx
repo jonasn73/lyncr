@@ -19,7 +19,6 @@ import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing
 import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
 import { HoldQueueWaitingCard } from "@/components/dashboard/hold-queue-waiting-card"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
-import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
 import {
   LYNCR_ROUTING_MODE_CHANGED,
@@ -422,7 +421,15 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
   return (
     <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">
       {!callFlowUiReady && businessNumbers.length === 0 ? (
-        <CallFlowStepsSkeleton />
+        <WhoRingsConsole
+          ringsNow="…"
+          ifNoAnswer="…"
+          statusLabel="…"
+          onOpenWhoAnswers={openWhoAnswers}
+          onOpenGreetings={openScriptEditor}
+          onOpenAbout={() => setDashboardStoryKey("dashboard-call-flow")}
+          loading
+        />
       ) : businessNumbers.length === 0 ? (
         <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
           <div>

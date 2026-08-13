@@ -2,7 +2,7 @@
 
 // Owner job scheduler — month calendar, tech swimlanes, manual-call dispatch.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -14,6 +14,7 @@ import {
   WorkspacePageHeader,
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
+import { SchedulerPaneFallback } from "@/components/workspace-pane-fallbacks"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
@@ -96,7 +97,7 @@ function readSchedulerBootstrapCache(
   return cached
 }
 
-export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
+function SchedulerWorkspaceViewInner({ isActive = true }: { isActive?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inboundCallPanel = useInboundCallPanelOptional()
@@ -1316,5 +1317,14 @@ export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean
         }}
       />
     </>
+  )
+}
+
+/** Outer wrapper: useSearchParams suspends — keep Scheduler chrome instead of a dark box. */
+export function SchedulerWorkspaceView({ isActive = true }: { isActive?: boolean }) {
+  return (
+    <Suspense fallback={<SchedulerPaneFallback />}>
+      <SchedulerWorkspaceViewInner isActive={isActive} />
+    </Suspense>
   )
 }

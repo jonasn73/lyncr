@@ -20,20 +20,65 @@ function SkeletonBar({ className }: { className?: string }) {
   return <div className={cn(SKELETON_BLOCK, className)} aria-hidden />
 }
 
-/** Step 2–4 call-flow cards — matches FlowStepCard min height. */
+/** Who rings next card — same shape as WhoRingsConsole, not three dark boxes. */
 export function CallFlowStepsSkeleton() {
   return (
-    <div
-      className="flex min-h-[14.5rem] w-full flex-col gap-4 lg:flex-row lg:items-stretch"
-      aria-hidden
+    <section
+      className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3.5 sm:px-5 sm:py-4"
+      aria-busy="true"
+      aria-label="Loading who rings next"
     >
-      {[0, 1, 2].map((i) => (
-        <div
+      <div className="mb-3 flex items-center gap-2">
+        <div className="h-9 w-9 shrink-0 rounded-xl border border-primary/25 bg-primary/10" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <SkeletonBar className="h-4 w-32" />
+          <SkeletonBar className="hidden h-3 w-48 md:block" />
+        </div>
+      </div>
+      <div className="space-y-2.5">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-baseline justify-between gap-3">
+            <SkeletonBar className="h-3 w-20" />
+            <SkeletonBar className="h-4 w-28" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-border/50 pt-3">
+        <div className="h-10 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
+        <div className="h-10 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
+      </div>
+    </section>
+  )
+}
+
+/** CRM customer rows — matches list card height, not a spinner. */
+export function CrmListRowSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <ul className="space-y-1.5" aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <li
           key={i}
-          className={cn("min-h-[12.5rem] min-w-0 flex-1 rounded-2xl border border-border/40", SKELETON_BLOCK)}
-        />
+          className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2.5"
+        >
+          <SkeletonBar className="h-4 w-32 max-w-[70%]" />
+          <SkeletonBar className="mt-1.5 h-3 w-24 max-w-[50%]" />
+        </li>
       ))}
-    </div>
+    </ul>
+  )
+}
+
+/** Messages thread rows — matches conversation list, not a spinner. */
+export function MessagesThreadListSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <ul className="space-y-1" aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="rounded-xl px-3 py-3">
+          <SkeletonBar className="h-4 w-28 max-w-[60%]" />
+          <SkeletonBar className="mt-1.5 h-3 w-40 max-w-[80%]" />
+        </li>
+      ))}
+    </ul>
   )
 }
 
