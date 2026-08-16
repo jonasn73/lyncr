@@ -76,7 +76,10 @@ export async function enableAmberForWorkspace(params: {
   }
 
   const customerLine = existing.find(
-    (n) => n.status === "active" && !n.is_amber_control && Boolean(n.provider_number_sid || n.twilio_sid)
+    (n) =>
+      n.status === "active" &&
+      !n.is_amber_control &&
+      Boolean(n.provider_number_sid?.trim())
   )
   const area =
     (customerLine ? areaCodeFromE164(customerLine.number) : null) ||
