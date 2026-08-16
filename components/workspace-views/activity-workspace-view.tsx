@@ -842,8 +842,8 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
       />
       <DrawerScrollBody>
         <div className="space-y-3">
-          {/* Primary: same answered intake (service + outcome) as the live call sheet. */}
-          {canCompleteIntake ? (
+          {/* Missed: Call back is the only loud primary; note lands in the quiet row. */}
+          {!isMissedLog && canCompleteIntake ? (
             <button
               type="button"
               onClick={() => {
@@ -853,7 +853,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/55 hover:bg-teal-500/25 active:scale-[0.98]"
             >
               <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-              {isMissedLog ? "Add missed-call note" : "Log purpose & outcome"}
+              Log purpose & outcome
             </button>
           ) : null}
           {/* Primary: missed → Call back; answered → Continue in CRM. */}
@@ -874,6 +874,19 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </Link>
           ) : null}
           <div className="flex flex-wrap gap-2">
+            {isMissedLog && canCompleteIntake ? (
+              <button
+                type="button"
+                onClick={() => {
+                  openIntakeForActivityCall(inbound, call)
+                  onClose()
+                }}
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+              >
+                <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
+                Add note
+              </button>
+            ) : null}
             {isMissedLog && (canText || customerPhone) ? (
               <Link
                 href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
