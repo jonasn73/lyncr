@@ -291,7 +291,7 @@ export default function BookPageClient({
         ? "Almost done — secure deposit to hold your window."
         : wizardStep === "done"
           ? undefined
-          : "Tell us what you need — we'll confirm ASAP."
+          : "Tell us what you need — then pick ASAP or a time window."
 
   const shellStep =
     submitted || depositStatus === "success" || wizardStep === "done"
@@ -372,7 +372,7 @@ export default function BookPageClient({
 
           {depositStatus === "cancelled" ? (
             <p className="rounded-lg border border-teal-900/50 bg-teal-950/40 px-3 py-2 text-xs text-teal-200">
-              Deposit checkout was cancelled — your window was not held. Submit again when ready.
+              Deposit checkout was cancelled — your time wasn’t reserved. Submit again when you’re ready.
             </p>
           ) : null}
 

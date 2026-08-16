@@ -41,9 +41,9 @@ export function AppointmentConfirmSmsPanel({
   const shortPreset = useMemo(() => {
     const when = (appointmentLabel || "").trim()
     if (when) {
-      return `Hi ${customerFirstName}, your appointment is confirmed for ${when}. Reply if you need to change anything.`
+      return `Hi ${customerFirstName}, we received your request for ${when}. We'll confirm shortly. Reply if you need to change anything.`
     }
-    return `Hi ${customerFirstName}, your appointment is confirmed. Reply if you need to change anything.`
+    return `Hi ${customerFirstName}, we received your request. We'll confirm shortly. Reply if you need to change anything.`
   }, [appointmentLabel, customerFirstName])
 
   const [preset, setPreset] = useState<PresetId>("default")

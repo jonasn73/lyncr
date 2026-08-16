@@ -45,9 +45,9 @@ export function customerPortalBookSuccessCopy(opts: {
 }): { title: string; body: string; nextHint: string } {
   if (opts.asap) {
     return {
-      title: "Emergency request received",
-      body: "Thanks — we marked this as ASAP. A technician will reach out as soon as possible.",
-      nextHint: "Keep your phone close — we'll call or text shortly.",
+      title: "ASAP request received",
+      body: "Thanks — we marked this as ASAP. Someone will call or text to confirm when we can help.",
+      nextHint: "Keep your phone close — we'll reach out shortly.",
     }
   }
   if (opts.mode === "callback") {
@@ -72,7 +72,7 @@ export function customerPortalBookSuccessCopy(opts: {
     : ""
   return {
     title: "Booking received",
-    body: `Thanks — we received your details.${windowBit} A dispatcher will confirm shortly.`,
+    body: `Thanks — we received your details.${windowBit} We'll follow up to confirm a time.`,
     nextHint: "If a deposit is required, you'll get a secure pay link by text.",
   }
 }

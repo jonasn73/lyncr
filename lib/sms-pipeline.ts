@@ -35,7 +35,7 @@ function brandLabel(): string {
 /** Built-in copy used when the owner hasn't written a custom template. */
 export function defaultTemplate(phase: SmsPhase): string {
   if (phase === "booking") {
-    return "Hi {{customer_name}}, this is {{business_name}}. Your appointment is confirmed for {{time_slot}}. Reply here if anything changes."
+    return "Hi {{customer_name}}, this is {{business_name}}. Your request is in for {{time_slot}}. We'll confirm shortly. Reply here if anything changes."
   }
   if (phase === "route") {
     return "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!"

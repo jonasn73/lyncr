@@ -93,13 +93,15 @@ export function buildIntakeBookingCustomerSmsText(params: {
   const address = (params.serviceAddress ?? "").trim()
   const job = (params.jobType ?? "").trim()
 
-  let body = `Hi ${first}, ${business} confirmed your appointment`
+  let body = `Hi ${first}, ${business}`
   if (asap) {
-    body += " — we'll arrive as soon as possible"
+    body += " got your ASAP request. We'll call or text to confirm when we can get there"
   } else if (windowLabel) {
-    body += `. Preferred window: ${windowLabel}`
+    body += ` received your request. You're free: ${windowLabel}. We'll confirm a time`
   } else if (when) {
-    body += ` for ${when}`
+    body += ` received your request for ${when}. We'll confirm shortly`
+  } else {
+    body += " received your request. We'll confirm shortly"
   }
   body += "."
   if (address) body += ` Location: ${address}.`

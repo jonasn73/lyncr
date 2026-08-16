@@ -304,7 +304,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-slate-400">
         {wizardStep === "availability"
-          ? "Pick one day and a From–To window — no endless hour buttons."
+          ? "Pick one day and when you’re free (start–end)."
           : wizardStep === "pay"
             ? `Pay ${amountLabel} with Cash App, Apple Pay, card, or Link.`
             : invite?.fee_mode === "none"

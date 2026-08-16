@@ -45,7 +45,7 @@ const MAX_CUSTOM_SNIPPETS = 20
 /** Default copy shown as real editable text (not HTML placeholder — that disappears on click). */
 const DEFAULT_TEMPLATES = {
   booking:
-    "Hi {{customer_name}}, this is {{business_name}}. Your appointment is confirmed for {{time_slot}}. Reply here if anything changes.",
+    "Hi {{customer_name}}, this is {{business_name}}. Your request is in for {{time_slot}}. We'll confirm shortly. Reply here if anything changes.",
   route: "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!",
   review: "Thanks for choosing {{business_name}}, {{customer_name}}! Leave us a quick review: {{review_url}}",
 }
