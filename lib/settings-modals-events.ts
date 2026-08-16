@@ -17,6 +17,8 @@ export type CollectPaymentModalOpenDetail = {
   customerPhone?: string
   /** Jump straight to walk-up “Add charge” instead of the job list. */
   startAdhoc?: boolean
+  /** Open Collect on this open job (CRM / Messages unpaid path). */
+  jobId?: string
 }
 /** Ask the header wallet chip to re-fetch Stripe Available / Pending. */
 export const REFRESH_HEADER_MONEY_EVENT = "lyncr-refresh-header-money"

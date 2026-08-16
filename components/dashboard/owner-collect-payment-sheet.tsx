@@ -12,6 +12,7 @@ import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
 import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
+import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import {
   CreditCard,
   Loader2,
@@ -491,6 +492,8 @@ export function OwnerCollectPaymentSheet({
     customerName?: string
     customerPhone?: string
     startAdhoc?: boolean
+    /** When set, open TechPaymentModal for this job once the list loads. */
+    jobId?: string
   } | null
 }) {
   const { toast } = useToast()
@@ -519,6 +522,27 @@ export function OwnerCollectPaymentSheet({
   /** pm_… from deferred key-in — charged only after tip Confirm. */
   const [savedPaymentMethodId, setSavedPaymentMethodId] = useState<string | null>(null)
   const [listTab, setListTab] = useState<ListTab>("collect")
+
+  // CRM / Messages: open the matching job charge when prefill.jobId (or phone match) is set.
+  useEffect(() => {
+    if (!open || !prefill) return
+    const wantId = prefill.jobId?.trim() || ""
+    // Only auto-open a job when CRM/Messages asked for a job (or unpaid phone path with jobId).
+    if (!wantId) return
+    if (payJob) return
+    const byId = jobs.find((j) => j.id === wantId) ?? null
+    const byPhone =
+      byId ?? pickOpenCollectJobForPhone(jobs, prefill.customerPhone ?? null)
+    if (byPhone) {
+      setPayJob(byPhone)
+      return
+    }
+    // Job list loaded empty / mismatch — fall back to walk-up with name+phone.
+    if (!loading) {
+      setMode("adhoc")
+      setListTab("collect")
+    }
+  }, [open, prefill, jobs, loading, payJob])
   const [historyRows, setHistoryRows] = useState<OwnerCollectedTransaction[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -574,6 +598,7 @@ export function OwnerCollectPaymentSheet({
   const resetAdhoc = useCallback(() => {
     setMode("list")
     setListTab("collect")
+    setPayJob(null)
     setAdhocAmount("")
     setAdhocNote("")
     // Keep business tax defaults when resetting a charge (loaded separately).
@@ -1101,7 +1126,7 @@ export function OwnerCollectPaymentSheet({
     if (!open) return
     resetAdhoc()
 
-    // After reset: apply CRM / deep-link name+phone and optionally open Add charge.
+    // After reset: apply CRM / deep-link name+phone and optionally open Add charge / job.
     if (prefill) {
       const name = (prefill.customerName ?? "").trim()
       const phone = (prefill.customerPhone ?? "").trim()
@@ -1114,7 +1139,10 @@ export function OwnerCollectPaymentSheet({
         setReceiptPhone(phone)
         setReceiptChannel("sms")
       }
-      if (prefill.startAdhoc) {
+      // Job path wins over walk-up — open TechPaymentModal once jobs are ready.
+      if (prefill.jobId?.trim()) {
+        setListTab("collect")
+      } else if (prefill.startAdhoc) {
         setMode("adhoc")
         setListTab("collect")
       }

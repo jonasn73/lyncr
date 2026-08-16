@@ -24,6 +24,7 @@ import {
 import { buildTelHref } from "@/lib/phone-e164"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
+import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
@@ -276,12 +277,21 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   const openCollectForThread = useCallback(() => {
     if (!selectedPhone) return
+    const match = pickOpenCollectJobForPhone(collectJobs, selectedPhone)
+    if (match) {
+      openCollectPaymentModal({
+        customerName: customerName || undefined,
+        customerPhone: selectedPhone,
+        jobId: match.id,
+      })
+      return
+    }
     openCollectPaymentModal({
       customerName: customerName || undefined,
       customerPhone: selectedPhone,
       startAdhoc: true,
     })
-  }, [customerName, selectedPhone])
+  }, [customerName, selectedPhone, collectJobs])
 
   // Activity / Latest / CRM / rescue deep-link: /dashboard/messages?phone=+1…
   // Apply once, then clear the URL. Do NOT re-select on every threads poll (was yanking

@@ -50,6 +50,7 @@ import type {
   CrmLeadBadge,
   CrmServiceHistoryItem,
   CustomerVehicle,
+  DispatchJob,
 } from "@/lib/types"
 import {
   crmIntakeFilledByLabel,
@@ -61,6 +62,7 @@ import {
   type OwnerCollectedTransaction,
 } from "@/lib/owner-collected"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
+import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
@@ -1385,12 +1387,34 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     }
   }
 
-  /** Open Collect with this customer’s name + phone already filled in. */
-  const openCollectForCustomer = () => {
+  /** Open Collect on matching open job first; walk-up only when no open job. */
+  const openCollectForCustomer = async () => {
     if (!selected) return
+    const customerName = editName.trim() || selected.display_name || undefined
+    const customerPhone = selected.phone_e164
+    try {
+      const res = await fetch("/api/owner/jobs?scope=collect", {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as { data?: { jobs?: DispatchJob[] } }
+      const jobs = Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
+      const match = pickOpenCollectJobForPhone(jobs, customerPhone)
+      if (match) {
+        openCollectPaymentModal({
+          customerName,
+          customerPhone,
+          jobId: match.id,
+        })
+        return
+      }
+    } catch {
+      /* fall through to walk-up */
+    }
+    // No open job — walk-up Collect / Charge again with name+phone filled.
     openCollectPaymentModal({
-      customerName: editName.trim() || selected.display_name || undefined,
-      customerPhone: selected.phone_e164,
+      customerName,
+      customerPhone,
       startAdhoc: true,
     })
   }
@@ -1489,19 +1513,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             <MessageSquare className="h-3.5 w-3.5" />
             Message
           </button>
-          {/* Promote Collect when nothing is fully settled — same sheet as More → Collect. */}
-          {!isFullyPaidCustomer ? (
-            <button
-              type="button"
-              onClick={openCollectForCustomer}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
-              title="Collect payment"
-              aria-label="Collect payment"
-            >
-              <CreditCard className="h-3.5 w-3.5" />
-              Collect
-            </button>
-          ) : null}
+          {/* Collect always available — open job wins; walk-up when no open job. */}
+          <button
+            type="button"
+            onClick={() => void openCollectForCustomer()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
+            title="Collect payment"
+            aria-label="Collect payment"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            {isFullyPaidCustomer ? "Charge again" : "Collect"}
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -1516,7 +1538,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             <DropdownMenuContent align="start" className="z-[7200] min-w-[11rem] border-zinc-800 bg-zinc-950">
               {/* When Collect is already on the row, More keeps “Charge again” for repeat visits. */}
               <DropdownMenuItem
-                onClick={openCollectForCustomer}
+                onClick={() => void openCollectForCustomer()}
                 className="gap-2 text-xs focus:bg-zinc-900"
               >
                 <CreditCard className="h-3.5 w-3.5" />
@@ -2002,7 +2024,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </h3>
               <button
                 type="button"
-                onClick={openCollectForCustomer}
+                onClick={() => void openCollectForCustomer()}
                 className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
               >
                 <Plus className="h-3.5 w-3.5" />
