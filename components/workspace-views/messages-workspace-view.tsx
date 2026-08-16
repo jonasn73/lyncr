@@ -627,13 +627,19 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
             {loading && threads.length === 0 ? (
               <MessagesThreadListSkeleton count={6} />
             ) : threads.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+              <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />
                 <p className="text-sm font-medium text-foreground">No texts yet</p>
-                <p className="text-xs text-muted-foreground">
-                  When Missed Call Rescue texts a booking link, or a customer texts your line, the
-                  thread shows up here.
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  When a customer texts your line — or you text from Activity / CRM — the thread
+                  shows up here.
                 </p>
+                <Link
+                  href="/dashboard/activity"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                >
+                  Open Activity
+                </Link>
               </div>
             ) : (
               threads.map((thread) => {

@@ -1494,92 +1494,123 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       </p>
     ) : (
       <div className="space-y-5">
-        {/* Compact primary actions — Call + Message; Collect when they still owe. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={buildTelHref(selected.phone_e164) || undefined}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-200"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            Call
-          </a>
-          <button
-            type="button"
-            onClick={() => setMessageTemplatesOpen(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 hover:bg-sky-500/25"
-            title="Pick a text template to send"
-            aria-label="Pick a text template to send"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            Message
-          </button>
-          {/* Collect always available — open job wins; walk-up when no open job. */}
-          <button
-            type="button"
-            onClick={() => void openCollectForCustomer()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
-            title="Collect payment"
-            aria-label="Collect payment"
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-            {isFullyPaidCustomer ? "Charge again" : "Collect"}
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
-                aria-label="More actions"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-                More
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-[7200] min-w-[11rem] border-zinc-800 bg-zinc-950">
-              {/* When Collect is already on the row, More keeps “Charge again” for repeat visits. */}
-              <DropdownMenuItem
-                onClick={() => void openCollectForCustomer()}
-                className="gap-2 text-xs focus:bg-zinc-900"
-              >
-                <CreditCard className="h-3.5 w-3.5" />
-                {isFullyPaidCustomer ? "Charge again" : "Collect"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => openRecordInvoice(headerJobTarget)}
-                className="gap-2 text-xs focus:bg-zinc-900"
-              >
-                <Mail className="h-3.5 w-3.5" />
-                Send invoice
-              </DropdownMenuItem>
-              {salvageOpenLead ? (
-                <DropdownMenuItem
-                  onClick={openRescuePreview}
-                  className="gap-2 text-xs focus:bg-zinc-900"
+        {/* One loud next step by situation; Call / Message / more stay quieter. */}
+        {(() => {
+          const hasJobPrimary =
+            headerJobAction === "Book job" ||
+            headerJobAction === "Recover" ||
+            headerJobAction === "Open job" ||
+            headerJobAction === "View job"
+          const collectPrimary = !hasJobPrimary && !isFullyPaidCustomer
+          const quietBtn =
+            "inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 text-xs font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/80 hover:text-zinc-200"
+          return (
+            <div className="space-y-2">
+              {collectPrimary ? (
+                <button
+                  type="button"
+                  onClick={() => void openCollectForCustomer()}
+                  className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/30"
+                  title="Collect payment"
+                  aria-label="Collect payment"
                 >
-                  Draft rescue offer
-                </DropdownMenuItem>
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Collect
+                </button>
               ) : null}
-              {/* Book job only in More when it is NOT already the hero card primary CTA. */}
-              {headerJobAction &&
-              headerJobTarget &&
-              !(headerJobTarget.is_open_lead && headerJobAction === "Book job") ? (
-                <DropdownMenuItem
-                  onClick={() => openJobOnScheduler(headerJobTarget)}
-                  className="gap-2 text-xs focus:bg-zinc-900"
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={buildTelHref(selected.phone_e164) || undefined}
+                  className={quietBtn}
                 >
-                  <CalendarCheck className="h-3.5 w-3.5" />
-                  {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem asChild className="gap-2 text-xs focus:bg-zinc-900">
-                <Link href={messagesHref}>
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setMessageTemplatesOpen(true)}
+                  className={quietBtn}
+                  title="Pick a text template to send"
+                  aria-label="Pick a text template to send"
+                >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Open Messages thread
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                  Message
+                </button>
+                {!collectPrimary ? (
+                  <button
+                    type="button"
+                    onClick={() => void openCollectForCustomer()}
+                    className={quietBtn}
+                    title="Collect payment"
+                    aria-label="Collect payment"
+                  >
+                    <CreditCard className="h-3.5 w-3.5" />
+                    {isFullyPaidCustomer ? "Charge again" : "Collect"}
+                  </button>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={quietBtn}
+                      aria-label="More actions"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                      More
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="z-[7200] min-w-[11rem] border-zinc-800 bg-zinc-950">
+                    <DropdownMenuItem
+                      onClick={() => void openCollectForCustomer()}
+                      className="gap-2 text-xs focus:bg-zinc-900"
+                    >
+                      <CreditCard className="h-3.5 w-3.5" />
+                      {isFullyPaidCustomer ? "Charge again" : "Collect"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => openRecordInvoice(headerJobTarget)}
+                      className="gap-2 text-xs focus:bg-zinc-900"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Send invoice
+                    </DropdownMenuItem>
+                    {salvageOpenLead ? (
+                      <DropdownMenuItem
+                        onClick={openRescuePreview}
+                        className="gap-2 text-xs focus:bg-zinc-900"
+                      >
+                        Draft rescue offer
+                      </DropdownMenuItem>
+                    ) : null}
+                    {headerJobAction &&
+                    headerJobTarget &&
+                    !(headerJobTarget.is_open_lead && headerJobAction === "Book job") ? (
+                      <DropdownMenuItem
+                        onClick={() => openJobOnScheduler(headerJobTarget)}
+                        className="gap-2 text-xs focus:bg-zinc-900"
+                      >
+                        <CalendarCheck className="h-3.5 w-3.5" />
+                        {crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })}
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem asChild className="gap-2 text-xs focus:bg-zinc-900">
+                      <Link href={messagesHref}>
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Open Messages thread
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {hasJobPrimary ? (
+                <p className="px-0.5 text-[11px] text-zinc-500">
+                  Next job step is in the card below
+                  {headerJobAction ? ` (${crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })})` : ""}.
+                </p>
+              ) : null}
+            </div>
+          )
+        })()}
 
         {saveMsg && saveMsg !== "Saved" ? (
           <p className="text-xs text-rose-300">{saveMsg}</p>
@@ -2380,11 +2411,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             ) : error ? (
               <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
             ) : rows.length === 0 ? (
-              <p className="px-2 py-8 text-center text-sm text-zinc-500">
-                {filter === "book_forms"
-                  ? "No open book-form leads. When a customer submits your /book link, they show up here — even after you clear the Lines alert."
-                  : "No customers yet. Save a caller from intake — they’ll show up here."}
-              </p>
+              <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
+                <p className="text-sm font-medium text-zinc-300">
+                  {filter === "book_forms" ? "No open book-form leads" : "No customers yet"}
+                </p>
+                <p className="max-w-xs text-xs text-zinc-500">
+                  {filter === "book_forms"
+                    ? "When a customer submits your /book link, they show up here."
+                    : "Save a caller from Activity or intake — they’ll show up here."}
+                </p>
+                <Link
+                  href="/dashboard/activity"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                >
+                  Open Activity
+                </Link>
+              </div>
             ) : (
               <ul className="space-y-1.5">
                 {rows.map((row) => {

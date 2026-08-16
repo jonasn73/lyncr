@@ -856,52 +856,43 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               {isMissedLog ? "Add missed-call note" : "Log purpose & outcome"}
             </button>
           ) : null}
-          {/* Primary next step: CRM (+ Text) — then Call back / Book as secondary. */}
+          {/* Primary: Continue in CRM — Text / Call / Book quieter below. */}
           {canText || customerPhone ? (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
-                className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-teal-500/45 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/60 hover:bg-teal-500/25 active:scale-[0.98]"
-              >
-                <UserRound className="h-4 w-4 shrink-0" aria-hidden />
-                Continue in CRM
-              </Link>
-              {canText ? (
-                <Link
-                  href={messagesHref}
-                  className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-sky-400/55 hover:bg-sky-500/20 active:scale-[0.98]"
-                >
-                  <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
-                  Text
-                </Link>
-              ) : null}
-            </div>
+            <Link
+              href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-4 py-2.5 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/70 hover:bg-teal-500/30 active:scale-[0.98]"
+            >
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden />
+              Continue in CRM
+            </Link>
           ) : null}
-          {showCallBack ? (
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
+            {canText ? (
+              <Link
+                href={messagesHref}
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+                Text
+              </Link>
+            ) : null}
+            {showCallBack ? (
               <CallBackButton
                 phone={call.callerNumber}
                 openIntakeDraft={needsRevenueRescue(call)}
                 intakeCall={call}
                 missed={isMissedLog}
-                className="min-w-0 flex-1"
+                className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
               />
-              <SendBookLinkButton
-                phone={call.callerNumber}
-                callerName={call.callerName}
-                businessLine={call.targetLineE164}
-                callLogId={call.id}
-                className="min-w-0 flex-1"
-              />
-            </div>
-          ) : (
+            ) : null}
             <SendBookLinkButton
               phone={call.callerNumber}
               callerName={call.callerName}
               businessLine={call.targetLineE164}
               callLogId={call.id}
+              className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
             />
-          )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
             <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
@@ -1021,7 +1012,7 @@ function CallerNameWithCount({
   )
 }
 
-/** Shared next-step strip — CRM primary, Text + Call back + Book secondary. */
+/** Shared next-step strip — one loud CRM primary; Text / Call / Book as quiet chips. */
 function ActivityGroupActionBar({
   call,
   className,
@@ -1044,6 +1035,9 @@ function ActivityGroupActionBar({
   const messagesHref = canText
     ? `/dashboard/messages?phone=${encodeURIComponent(rawPhone)}`
     : null
+  // Quiet secondary chips — same actions, less “four equal buttons.”
+  const secondaryChip =
+    "!h-8 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -1052,7 +1046,7 @@ function ActivityGroupActionBar({
         <Link
           href={crmHref}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/45 bg-teal-500/15 px-3 text-[12px] font-semibold text-teal-50 hover:border-teal-400/60 hover:bg-teal-500/25"
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-[13px] font-semibold text-teal-50 shadow-sm shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
           aria-label="Continue in CRM"
           title="Continue in CRM"
         >
@@ -1060,13 +1054,16 @@ function ActivityGroupActionBar({
           Continue in CRM
         </Link>
       ) : null}
-      {/* Secondary moves — same tools as before, quieter under the CRM path. */}
+      {/* Secondary moves — quieter under the CRM path. */}
       <div className="flex flex-wrap items-center gap-1.5">
         {messagesHref ? (
           <Link
             href={messagesHref}
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-sky-500/35 bg-sky-500/10 px-2.5 text-[11px] font-semibold text-sky-100 hover:border-sky-400/50 hover:bg-sky-500/20"
+            className={cn(
+              "inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold",
+              secondaryChip
+            )}
             aria-label="Text in Messages"
             title="Text"
           >
@@ -1078,7 +1075,7 @@ function ActivityGroupActionBar({
           <CallBackButton
             phone={call.callerNumber}
             compact
-            className="!h-8 min-w-0 flex-1"
+            className={secondaryChip}
             openIntakeDraft={needsRevenueRescue(call) || hold}
             intakeCall={call}
             missed={missed}
@@ -1092,7 +1089,8 @@ function ActivityGroupActionBar({
           callLogId={call.id}
           compact
           className={cn(
-            "!h-8 !min-h-0 min-w-0 flex-1",
+            secondaryChip,
+            "!min-h-0",
             !canCallBack(call) && !messagesHref ? "w-full" : undefined
           )}
         />
@@ -1228,7 +1226,18 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
 
   if (rows.length === 0) {
     return (
-      <p className="px-4 py-12 text-center text-sm text-zinc-600">No calls yet</p>
+      <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        <p className="text-sm font-medium text-zinc-300">No calls yet</p>
+        <p className="max-w-xs text-xs text-zinc-500">
+          When someone dials your business line, the call shows up here so you can continue in CRM.
+        </p>
+        <Link
+          href="/dashboard"
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-teal-500/45 bg-teal-500/15 px-4 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
+        >
+          Open Lines
+        </Link>
+      </div>
     )
   }
 
@@ -1420,8 +1429,20 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <WorkspaceTd colSpan={8} className="py-12 text-center text-zinc-600">
-                No calls yet
+              <WorkspaceTd colSpan={8} className="!px-3 py-12">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <p className="text-sm font-medium text-zinc-300">No calls yet</p>
+                  <p className="max-w-sm text-xs text-zinc-500">
+                    When someone dials your business line, the call shows up here so you can continue
+                    in CRM.
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-teal-500/45 bg-teal-500/15 px-4 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
+                  >
+                    Open Lines
+                  </Link>
+                </div>
               </WorkspaceTd>
             </tr>
           ) : (
