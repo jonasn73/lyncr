@@ -681,23 +681,26 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />
             </button>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                onClick={openInvoices}
-                variant="outline"
-                className="h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
-              >
-                Invoices
-              </Button>
-              <Button
-                type="button"
-                onClick={openCollect}
-                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
-              >
-                Collect
-              </Button>
-            </div>
+            {/* Collect is the main “get paid” action — full width so it is obvious on a phone. */}
+            <Button
+              type="button"
+              onClick={openCollect}
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-2.5 text-white hover:bg-emerald-500"
+            >
+              <span className="text-sm font-semibold">Collect</span>
+              <span className="text-[11px] font-medium text-emerald-50/85">
+                Card, tap, or text a pay link
+              </span>
+            </Button>
+            {/* Invoices stays secondary under Collect — still one tap, less competing chrome. */}
+            <Button
+              type="button"
+              onClick={openInvoices}
+              variant="outline"
+              className="mt-2 h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
+            >
+              Invoices
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

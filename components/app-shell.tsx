@@ -9,7 +9,7 @@ import {
   memo,
 } from "react"
 import Link from "next/link"
-import { CreditCard, Loader2 } from "lucide-react"
+import { CreditCard, Loader2, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
@@ -26,7 +26,7 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { resolveHeaderWalletChipDisplay } from "@/lib/header-money-cache"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
-import { type PageId } from "@/lib/dashboard-nav"
+import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
 
 export type { PageId }
@@ -101,6 +101,31 @@ const AppShellHeader = memo(function AppShellHeader({
         {/* Command palette stays on ⌘K / Ctrl+K — no header search icon (cleans the menu). */}
         {useLinks ? (
           <AppNavCommandPalette enabled={useLinks} open={commandOpen} onOpenChange={onCommandOpenChange} />
+        ) : null}
+        {/* Phone only: Messages is not on the bottom bar — one-tap from the header. */}
+        {useLinks ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            asChild
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+          >
+            <Link href={DASHBOARD_PAGE_HREF.messages} aria-label="Messages">
+              <MessageSquare className="h-4 w-4" aria-hidden />
+            </Link>
+          </Button>
+        ) : onNavigate ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate("messages")}
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+            aria-label="Messages"
+          >
+            <MessageSquare className="h-4 w-4" aria-hidden />
+          </Button>
         ) : null}
         {useLinks ? <NotificationCenter /> : null}
         {useLinks && accountHeader?.kind === "loading" && <HeaderAccountMenuSkeleton />}
