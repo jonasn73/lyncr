@@ -811,6 +811,9 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
   const showCallBack = canCallBack(call)
   const callStatus = classifyCall(call)
   const isMissedLog = isMissedActivityStatus(callStatus)
+  const isHoldLog = isHoldActivityStatus(callStatus) || callStatus === "hold_press1"
+  // Same dial-first rule as Activity list: Missed + Busy / Hold / Press 1.
+  const dialFirst = (isMissedLog || isHoldLog) && showCallBack
   const activity = call.activity ?? {
     intakeAction: "No intake recorded",
     intakeDetail: null,
@@ -842,8 +845,8 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
       />
       <DrawerScrollBody>
         <div className="space-y-3">
-          {/* Missed: Call back is the only loud primary; note lands in the quiet row. */}
-          {!isMissedLog && canCompleteIntake ? (
+          {/* Dial-first: Call back is the only loud primary; note lands in the quiet row. */}
+          {!dialFirst && canCompleteIntake ? (
             <button
               type="button"
               onClick={() => {
@@ -856,13 +859,14 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               Log purpose & outcome
             </button>
           ) : null}
-          {/* Primary: missed → Call back; answered → Continue in CRM. */}
-          {isMissedLog && showCallBack ? (
+          {/* Primary: Missed/Busy/Hold → Call back; answered → Continue in CRM. */}
+          {dialFirst ? (
             <CallBackButton
               phone={call.callerNumber}
-              openIntakeDraft={needsRevenueRescue(call)}
+              openIntakeDraft={needsRevenueRescue(call) || isHoldLog}
               intakeCall={call}
-              missed
+              missed={isMissedLog}
+              hold={isHoldLog && !isMissedLog}
             />
           ) : canText || customerPhone ? (
             <Link
@@ -874,7 +878,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </Link>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            {isMissedLog && canCompleteIntake ? (
+            {dialFirst && canCompleteIntake ? (
               <button
                 type="button"
                 onClick={() => {
@@ -887,7 +891,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 Add note
               </button>
             ) : null}
-            {isMissedLog && (canText || customerPhone) ? (
+            {dialFirst && (canText || customerPhone) ? (
               <Link
                 href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
                 className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
@@ -905,7 +909,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 Text
               </Link>
             ) : null}
-            {!isMissedLog && showCallBack ? (
+            {!dialFirst && showCallBack ? (
               <CallBackButton
                 phone={call.callerNumber}
                 openIntakeDraft={needsRevenueRescue(call)}
@@ -1041,7 +1045,7 @@ function CallerNameWithCount({
   )
 }
 
-/** Shared next-step strip — missed: Call back loud; else Continue in CRM loud. */
+/** Shared next-step strip — Missed/Busy/Hold/Press 1: Call back loud; else CRM loud. */
 function ActivityGroupActionBar({
   call,
   className,
@@ -1068,8 +1072,8 @@ function ActivityGroupActionBar({
   const secondaryChip =
     "!h-8 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
   const canDial = canCallBack(call)
-  // Phase 1: missed rows lead with Call back; answered stay CRM-first.
-  const callBackPrimary = missed && canDial
+  // Dial-first for Missed + Busy / Hold / Press 1; answered stay CRM-first.
+  const callBackPrimary = (missed || hold) && canDial
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -1078,9 +1082,12 @@ function ActivityGroupActionBar({
           phone={call.callerNumber}
           openIntakeDraft={needsRevenueRescue(call) || hold}
           intakeCall={call}
-          missed
-          hold={false}
-          className="h-10 w-full shadow-sm shadow-rose-950/30"
+          missed={missed}
+          hold={hold && !missed}
+          className={cn(
+            "h-10 w-full",
+            missed ? "shadow-sm shadow-rose-950/30" : "shadow-sm shadow-amber-950/30"
+          )}
         />
       ) : crmHref ? (
         <Link
