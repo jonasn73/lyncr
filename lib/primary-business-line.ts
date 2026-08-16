@@ -137,9 +137,17 @@ export async function listActiveLinesFor10DlcAssignment(
 ): Promise<string[]> {
   const orgId = organizationId ?? null
   const out: string[] = []
+  // Never use Amber control DIDs as customer SMS From.
+  let amberSkip = new Set<string>()
+  try {
+    const { listAmberControlE164sForOwner } = await import("@/lib/amber-db")
+    amberSkip = new Set(await listAmberControlE164sForOwner(ownerUserId))
+  } catch {
+    amberSkip = new Set()
+  }
   const push = (raw: string | null | undefined) => {
     const e164 = raw?.trim() ? normalizePhoneNumberE164(raw) : ""
-    if (e164 && !out.includes(e164)) out.push(e164)
+    if (e164 && !out.includes(e164) && !amberSkip.has(e164)) out.push(e164)
   }
 
   if (!orgId || orgId.startsWith("legacy-")) {
@@ -147,6 +155,7 @@ export async function listActiveLinesFor10DlcAssignment(
     for (const line of lines) {
       if (line.status !== "active") continue
       if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+      if (line.is_amber_control === true) continue
       push(line.number)
     }
     return out
@@ -163,7 +172,8 @@ export async function listActiveLinesFor10DlcAssignment(
     const portRow = numbers.find((n) => normalizePhoneNumberE164(n.number) === portE164)
     if (
       portRow?.status === "active" &&
-      Boolean(portRow.provider_number_sid?.trim() || portRow.twilio_sid?.trim())
+      Boolean(portRow.provider_number_sid?.trim() || portRow.twilio_sid?.trim()) &&
+      portRow.is_amber_control !== true
     ) {
       push(portE164)
     }
@@ -176,6 +186,7 @@ export async function listActiveLinesFor10DlcAssignment(
   for (const line of numbers) {
     if (line.status !== "active") continue
     if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+    if (line.is_amber_control === true) continue
     push(line.number)
   }
   return out

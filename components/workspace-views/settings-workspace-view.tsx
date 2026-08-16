@@ -16,6 +16,7 @@ import {
   Shield,
   ShieldCheck,
   LifeBuoy,
+  Sparkles,
   Users,
   Volume2,
   Zap,
@@ -199,6 +200,13 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             title="Missed Call Rescue"
             subtitle="Auto booking-link textback + IVR capacity"
             onClick={modals.openMissedCallRescue}
+          />
+          <SettingsMenuRow
+            grouped
+            icon={<Sparkles className="h-5 w-5 text-amber-300" aria-hidden />}
+            title="Amber · Lyncr"
+            subtitle="Business assistant by text — Busy / Available from your phone"
+            onClick={modals.openAmber}
           />
           <SettingsMenuRow
             grouped

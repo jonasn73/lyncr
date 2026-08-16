@@ -1375,6 +1375,8 @@ export interface PhoneNumber {
   admin_routing_override_phone?: string | null
   /** Workspace-level override when line override is unset (`073`). */
   organization_admin_routing_override_phone?: string | null
+  /** Amber private assistant DID — never customer SMS From (`137`). */
+  is_amber_control?: boolean
   created_at: string
 }
 

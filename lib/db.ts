@@ -6143,6 +6143,7 @@ function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
     routing_pool_mode: parseRoutingPoolMode(row.routing_pool_mode),
     admin_routing_override_phone: lineOverride,
     organization_admin_routing_override_phone: orgOverride,
+    is_amber_control: row.is_amber_control === true || row.is_amber_control === "t",
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
 }
@@ -7781,7 +7782,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
       const rows = await sql`
         SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.twilio_sid, pn.number, pn.friendly_name,
           pn.label, pn.type, pn.status, pn.industry_tag, pn.routing_pool_mode, pn.source_provider, pn.external_verified,
-          pn.created_at, pn.admin_routing_override_phone,
+          pn.created_at, pn.admin_routing_override_phone, pn.is_amber_control,
           org.admin_routing_override_phone AS organization_admin_routing_override_phone
         FROM phone_numbers pn
         LEFT JOIN organizations org ON org.id = pn.organization_id
@@ -7794,7 +7795,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
     const rows = await sql`
       SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.twilio_sid, pn.number, pn.friendly_name,
         pn.label, pn.type, pn.status, pn.industry_tag, pn.routing_pool_mode, pn.source_provider, pn.external_verified,
-        pn.created_at, pn.admin_routing_override_phone,
+        pn.created_at, pn.admin_routing_override_phone, pn.is_amber_control,
         org.admin_routing_override_phone AS organization_admin_routing_override_phone
       FROM phone_numbers pn
       LEFT JOIN organizations org ON org.id = pn.organization_id
@@ -7803,7 +7804,13 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
     `
     return mapRows(rows)
   } catch (e) {
-    if (!isMissingPhoneLineAdminOverrideColumnError(e) && !isMissingOrganizationsSchemaError(e)) throw e
+    if (
+      !isMissingPhoneLineAdminOverrideColumnError(e) &&
+      !isMissingOrganizationsSchemaError(e) &&
+      !(e instanceof Error && e.message.includes("is_amber_control"))
+    ) {
+      throw e
+    }
     if (orgFilter) {
       const rows = await sql`
         SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,

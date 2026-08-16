@@ -17,6 +17,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/amber-presence",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/platform-health",
       "schedule": "*/5 * * * *"
     }

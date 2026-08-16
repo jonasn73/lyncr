@@ -4,6 +4,7 @@ export const OPEN_CARRIER_REGISTRATION_MODAL_EVENT = "lyncr-open-carrier-registr
 export const OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT = "lyncr-open-port-service-address-modal"
 export const OPEN_SMS_AUTOMATION_MODAL_EVENT = "lyncr-open-sms-automation-modal"
 export const OPEN_MISSED_CALL_RESCUE_MODAL_EVENT = "lyncr-open-missed-call-rescue-modal"
+export const OPEN_AMBER_MODAL_EVENT = "lyncr-open-amber-modal"
 export const OPEN_BUSINESS_PROFILE_MODAL_EVENT = "lyncr-open-business-profile-modal"
 export const OPEN_BILLING_MODAL_EVENT = "lyncr-open-billing-modal"
 export const OPEN_GET_PAID_MODAL_EVENT = "lyncr-open-get-paid-modal"
@@ -34,6 +35,7 @@ export const SETTINGS_CHILD_OPEN_EVENTS = [
   OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT,
   OPEN_SMS_AUTOMATION_MODAL_EVENT,
   OPEN_MISSED_CALL_RESCUE_MODAL_EVENT,
+  OPEN_AMBER_MODAL_EVENT,
   OPEN_BUSINESS_PROFILE_MODAL_EVENT,
   OPEN_BILLING_MODAL_EVENT,
   OPEN_GET_PAID_MODAL_EVENT,
