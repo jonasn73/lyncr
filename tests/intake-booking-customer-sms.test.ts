@@ -30,6 +30,27 @@ describe("intake booking confirmation SMS", () => {
     expect(text).not.toContain("Location:")
   })
 
+  it("uses ASAP copy instead of inventing an exact time", () => {
+    const text = buildIntakeBookingCustomerSmsText({
+      customerName: "Sam",
+      businessName: "Lyncr",
+      isAsap: true,
+      scheduledAtIso: "2026-07-25T15:00:00.000Z",
+    })
+    expect(text).toContain("as soon as possible")
+    expect(text).not.toContain(" for ")
+  })
+
+  it("uses preferred window label instead of pin time", () => {
+    const text = buildIntakeBookingCustomerSmsText({
+      customerName: "Sam",
+      businessName: "Lyncr",
+      availabilityLabel: "Sun, Aug 16 1:00 PM–5:00 PM",
+      scheduledAtIso: "2026-08-16T17:00:00.000Z",
+    })
+    expect(text).toContain("Preferred window: Sun, Aug 16 1:00 PM–5:00 PM")
+  })
+
   it("formats appointment time", () => {
     const label = formatAppointmentSmsTime("2026-07-25T15:00:00.000Z")
     expect(label).toBeTruthy()

@@ -28,6 +28,7 @@ import { MissedCallQuickLogPanel } from "@/components/dashboard/missed-call-quic
 import { AppointmentConfirmSmsPanel } from "@/components/messaging/appointment-confirm-sms-panel"
 import { SendBookLinkSheet } from "@/components/activity/send-book-link-sheet"
 import { IntakePipTray } from "@/components/dashboard/intake-pip-tray"
+import { IntakeSchedulePreferenceFields } from "@/components/dashboard/intake-schedule-preference-fields"
 import {
   SecondaryCallInterceptBanner,
   type SecondaryIncomingLeg,
@@ -131,6 +132,11 @@ import {
   subscribeAnsweredIntakeDismissed,
 } from "@/lib/answered-call-intake-dismiss"
 import { isFlatAddressReadyForDispatch } from "@/lib/intake-address-helpers"
+import {
+  formatIntakeScheduleSummary,
+  isIntakeSchedulePreferenceReady,
+  normalizeIntakeScheduleFields,
+} from "@/lib/intake-schedule-preference"
 import {
   clearIntakeDraft,
   getDraftByPhoneNumber,
@@ -1523,8 +1529,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       isFlatAddressReadyForDispatch({ addressLine1, city })
 
     skipNextDraftSaveRef.current = true
+    const restoredSchedule = normalizeIntakeScheduleFields({
+      scheduleUrgency: draftForm.scheduleUrgency,
+      scheduledDate: draftForm.scheduledDate,
+      scheduledTime: draftForm.scheduledTime,
+      availabilityFrom: draftForm.availabilityFrom,
+      availabilityTo: draftForm.availabilityTo,
+    })
     patchForm({
       ...draftForm,
+      ...restoredSchedule,
       serviceQuoteTypeId: resolvedService,
       displayName: draftForm.displayName.trim() || form.displayName,
       vehicleYear: year,
@@ -3412,10 +3426,27 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     [form.addressLine1, form.city, addressReady]
   )
 
-  /** Schedule step — date + time required before final book. */
+  /** Schedule step — ASAP or a valid day From–To window (same as /book). */
   const canConfirmSchedule = useMemo(
-    () => Boolean(form.scheduledDate.trim() && form.scheduledTime.trim()),
-    [form.scheduledDate, form.scheduledTime]
+    () => isIntakeSchedulePreferenceReady(form),
+    [
+      form.scheduleUrgency,
+      form.scheduledDate,
+      form.scheduledTime,
+      form.availabilityFrom,
+      form.availabilityTo,
+    ]
+  )
+
+  const scheduleSummaryLabel = useMemo(
+    () => formatIntakeScheduleSummary(form),
+    [
+      form.scheduleUrgency,
+      form.scheduledDate,
+      form.scheduledTime,
+      form.availabilityFrom,
+      form.availabilityTo,
+    ]
   )
 
   const canFinalizeBooking = useMemo(
@@ -3442,7 +3473,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           return
         }
         if (currentStep === "SCHEDULE_TIME") {
-          document.getElementById("intake-scheduled-date")?.focus()
+          document.getElementById("intake-schedule-asap")?.focus()
           return
         }
         if (currentStep === "SERVICE_SELECT") {
@@ -3546,6 +3577,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     const mergedCity = form.city.trim() || draftForm?.city?.trim() || ""
     const mergedDate = form.scheduledDate.trim() || draftForm?.scheduledDate?.trim() || ""
     const mergedTime = form.scheduledTime.trim() || draftForm?.scheduledTime?.trim() || ""
+    const mergedSchedule = normalizeIntakeScheduleFields({
+      scheduleUrgency: form.scheduleUrgency || draftForm?.scheduleUrgency || "",
+      scheduledDate: mergedDate,
+      scheduledTime: mergedTime,
+      availabilityFrom:
+        form.availabilityFrom.trim() || draftForm?.availabilityFrom?.trim() || "",
+      availabilityTo: form.availabilityTo.trim() || draftForm?.availabilityTo?.trim() || "",
+    })
     const mergedAddressReady =
       addressReady ||
       isFlatAddressReadyForDispatch({
@@ -3566,8 +3605,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
         region: form.region.trim() || draftForm.region,
         postalCode: form.postalCode.trim() || draftForm.postalCode,
         serviceAddress: form.serviceAddress || draftForm.serviceAddress,
-        scheduledDate: mergedDate,
-        scheduledTime: mergedTime,
+        scheduledDate: mergedSchedule.scheduledDate,
+        scheduledTime: mergedSchedule.scheduledTime,
+        scheduleUrgency: mergedSchedule.scheduleUrgency,
+        availabilityFrom: mergedSchedule.availabilityFrom,
+        availabilityTo: mergedSchedule.availabilityTo,
         notes: form.notes.trim() || draftForm.notes,
         jobType: form.jobType.trim() || draftForm.jobType,
       })
@@ -3603,8 +3645,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             vehicleModel: mergedModel,
             addressReady: mergedAddressReady,
             displayName: form.displayName.trim() || draftForm?.displayName?.trim() || "",
-            scheduledDate: mergedDate,
-            scheduledTime: mergedTime,
+            scheduledDate: mergedSchedule.scheduledDate,
+            scheduledTime: mergedSchedule.scheduledTime,
+            scheduleUrgency: mergedSchedule.scheduleUrgency,
+            availabilityFrom: mergedSchedule.availabilityFrom,
+            availabilityTo: mergedSchedule.availabilityTo,
           })
     setCurrentStep(next)
   }, [
@@ -4527,40 +4572,34 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
                           {currentStep === "SCHEDULE_TIME" ? (
                             <div className={cn(WS_SECTION, "grid gap-3")}>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                Schedule
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
+                              <IntakeSchedulePreferenceFields
+                                value={{
+                                  scheduleUrgency: form.scheduleUrgency,
+                                  scheduledDate: form.scheduledDate,
+                                  scheduledTime: form.scheduledTime,
+                                  availabilityFrom: form.availabilityFrom,
+                                  availabilityTo: form.availabilityTo,
+                                }}
+                                onChange={(patch) => patchForm(patch)}
+                                subtitle={
+                                  [form.addressLine1, form.city, form.postalCode]
+                                    .filter(Boolean)
+                                    .join(", ") ||
                                   form.serviceAddress?.formatted ||
-                                  "Service address selected"}
-                              </p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="intake-scheduled-date" className="text-xs">
-                                    Date <span className="text-primary">*</span>
-                                  </Label>
-                                  <Input
-                                    id="intake-scheduled-date"
-                                    type="date"
-                                    value={form.scheduledDate}
-                                    onChange={(e) => patchForm({ scheduledDate: e.target.value })}
-                                    className="h-10"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label htmlFor="intake-scheduled-time" className="text-xs">
-                                    Time <span className="text-primary">*</span>
-                                  </Label>
-                                  <Input
-                                    id="intake-scheduled-time"
-                                    type="time"
-                                    value={form.scheduledTime}
-                                    onChange={(e) => patchForm({ scheduledTime: e.target.value })}
-                                    className="h-10"
-                                  />
-                                </div>
-                              </div>
+                                  "Service address selected"
+                                }
+                              />
+                              {/* Hidden focus target for keyboard / a11y jump into Schedule. */}
+                              <button
+                                id="intake-schedule-asap"
+                                type="button"
+                                className="sr-only"
+                                onClick={() =>
+                                  patchForm({ scheduleUrgency: "asap", scheduledTime: "" })
+                                }
+                              >
+                                Focus ASAP
+                              </button>
                             </div>
                           ) : null}
 
@@ -4604,12 +4643,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   {[form.addressLine1, form.city, form.postalCode].filter(Boolean).join(", ") ||
                                     form.serviceAddress?.formatted ||
                                     "—"}
-                                  {form.scheduledDate.trim() && form.scheduledTime.trim() ? (
+                                  {scheduleSummaryLabel ? (
                                     <>
                                       {" · "}
-                                      <span className="tabular-nums">
-                                        {form.scheduledDate} · {form.scheduledTime}
-                                      </span>
+                                      <span className="tabular-nums">{scheduleSummaryLabel}</span>
                                     </>
                                   ) : (
                                     <span className="text-muted-foreground/80"> · Schedule next</span>
@@ -4633,7 +4670,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     form.serviceAddress?.formatted}
                                 </p>
                                 <p className="mt-1 text-sm tabular-nums text-muted-foreground">
-                                  {form.scheduledDate} at {form.scheduledTime}
+                                  {scheduleSummaryLabel || "Schedule preference saved"}
                                 </p>
                               </div>
                               {confirmSmsDraft && !confirmSmsResolved ? (
@@ -4651,11 +4688,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   customerFirstName={
                                     form.displayName.trim().split(/\s+/)[0] || "there"
                                   }
-                                  appointmentLabel={
-                                    form.scheduledDate && form.scheduledTime
-                                      ? `${form.scheduledDate} at ${form.scheduledTime}`
-                                      : null
-                                  }
+                                  appointmentLabel={scheduleSummaryLabel}
                                   onSent={() => setConfirmSmsResolved(true)}
                                   onSkip={() => {
                                     setConfirmSmsResolved(true)
@@ -4861,31 +4894,17 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       className="h-10"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ac-scheduled-date" className="text-xs">
-                        Appointment date
-                      </Label>
-                      <Input
-                        id="ac-scheduled-date"
-                        type="date"
-                        value={form.scheduledDate}
-                        onChange={(e) => patchForm({ scheduledDate: e.target.value })}
-                        className="h-10"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ac-scheduled-time" className="text-xs">
-                        Appointment time
-                      </Label>
-                      <Input
-                        id="ac-scheduled-time"
-                        type="time"
-                        value={form.scheduledTime}
-                        onChange={(e) => patchForm({ scheduledTime: e.target.value })}
-                        className="h-10"
-                      />
-                    </div>
+                  <div className="grid gap-3">
+                    <IntakeSchedulePreferenceFields
+                      value={{
+                        scheduleUrgency: form.scheduleUrgency,
+                        scheduledDate: form.scheduledDate,
+                        scheduledTime: form.scheduledTime,
+                        availabilityFrom: form.availabilityFrom,
+                        availabilityTo: form.availabilityTo,
+                      }}
+                      onChange={(patch) => patchForm(patch)}
+                    />
                   </div>
                 </fieldset>
 
@@ -5186,8 +5205,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                             ) : null}
                             {canConfirmSchedule
-                              ? "Confirm appointment →"
-                              : "Pick Date & Time to Finish"}
+                              ? form.scheduleUrgency === "asap"
+                                ? "Confirm ASAP →"
+                                : "Confirm window →"
+                              : "Pick ASAP or a window"}
                           </Button>
                         </div>
                         <Button

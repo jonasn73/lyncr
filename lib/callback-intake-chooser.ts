@@ -1,6 +1,7 @@
 // Returning-caller / callback intake helpers — chooser step + service prefill from CRM.
 
 import { serviceQuoteTypeIdFromBookJobKind } from "@/lib/book-customer-request"
+import { isIntakeSchedulePreferenceReady } from "@/lib/intake-schedule-preference"
 import { serviceQuoteTypeFromJobType, serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
 import {
   SERVICE_QUOTE_TYPE_IDS,
@@ -96,9 +97,12 @@ export function continueOpenQuoteStep(params: {
   addressReady: boolean
   /** Caller name — Customer step comes before Schedule. */
   displayName?: string
-  /** When both set (and name ready), Schedule is done — stay on Schedule to finalize. */
+  /** Soft schedule (ASAP / window) or legacy exact date+time. */
   scheduledDate?: string
   scheduledTime?: string
+  scheduleUrgency?: string
+  availabilityFrom?: string
+  availabilityTo?: string
 }): CallbackContinueStep {
   const serviceId = (params.serviceTypeId || "") as ServiceQuoteTypeId | ""
   // Unknown type — show Service wizard (decision card already dismissed).
@@ -118,10 +122,17 @@ export function continueOpenQuoteStep(params: {
   const nameReady = Boolean(String(params.displayName ?? "").trim())
   // Quote / outcomes before picking a time — Booked then advances to Schedule.
   if (!nameReady) return "CUSTOMER_NAME"
-  const scheduleReady = Boolean(
-    String(params.scheduledDate ?? "").trim() && String(params.scheduledTime ?? "").trim()
-  )
-  // Name filled but no date/time yet — land on Schedule to secure the appointment.
+  const scheduleReady = isIntakeSchedulePreferenceReady({
+    scheduleUrgency:
+      params.scheduleUrgency === "asap" || params.scheduleUrgency === "window"
+        ? params.scheduleUrgency
+        : "",
+    scheduledDate: params.scheduledDate,
+    scheduledTime: params.scheduledTime,
+    availabilityFrom: params.availabilityFrom,
+    availabilityTo: params.availabilityTo,
+  })
+  // Name filled but no ASAP/window yet — land on Schedule to secure the appointment.
   if (!scheduleReady) return "SCHEDULE_TIME"
   return "SCHEDULE_TIME"
 }

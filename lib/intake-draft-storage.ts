@@ -262,6 +262,9 @@ export function intakeDraftProgressFingerprint(
     draftField(form.displayName),
     draftField(form.scheduledDate),
     draftField(form.scheduledTime),
+    draftField(form.scheduleUrgency),
+    draftField(form.availabilityFrom),
+    draftField(form.availabilityTo),
     form.quotedPriceOverridden ? "1" : "0",
   ].join("|")
 }

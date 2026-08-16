@@ -56,6 +56,9 @@ const SAMPLE_FORM: ActiveCallFormState = {
   tiSku: "",
   scheduledDate: "",
   scheduledTime: "",
+  scheduleUrgency: "",
+  availabilityFrom: "",
+  availabilityTo: "",
 }
 
 /** Blank Service + default Lockout — should never trigger Restore. */

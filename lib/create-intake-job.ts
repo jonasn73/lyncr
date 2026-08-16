@@ -668,6 +668,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
             ownerForSms?.name?.trim() ||
             SITE_NAME,
           scheduledAtIso,
+          isAsap: collected.is_asap === true,
+          availabilityLabel:
+            typeof collected.availability_label === "string"
+              ? collected.availability_label
+              : typeof collected.availability === "string"
+                ? collected.availability
+                : null,
           serviceAddress: serviceAddressForSms,
           jobType,
         })
@@ -681,6 +688,13 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
       callLogId: input.callLogId,
       organizationId: input.organizationId,
       scheduledAtIso,
+      isAsap: collected.is_asap === true,
+      availabilityLabel:
+        typeof collected.availability_label === "string"
+          ? collected.availability_label
+          : typeof collected.availability === "string"
+            ? collected.availability
+            : null,
       serviceAddress: serviceAddressForSms,
       jobType,
     })

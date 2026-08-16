@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
+import { buildBookCollectedExtras, type BookUrgency } from "@/lib/book-customer-request"
 
 export const dynamic = "force-dynamic"
 
@@ -37,6 +38,14 @@ type CreateJobBody = {
   /** Transponder Island ordering SKU (e.g. TIK-SUB-37A). */
   ti_sku?: string | null
   scheduled_at?: string | null
+  /** Soft schedule preference — same shape as public /book collected extras. */
+  is_asap?: boolean
+  urgency?: "asap" | "window" | string | null
+  availability_date?: string | null
+  availability_from?: string | null
+  availability_to?: string | null
+  availability_label?: string | null
+  collected_extras?: Record<string, unknown> | null
   customer_lat?: number | null
   customer_lng?: number | null
   quoted_price_cents?: number | null
@@ -111,6 +120,28 @@ export async function POST(req: NextRequest) {
       tiSku: body.ti_sku?.trim() || null,
       scheduledAtIso: body.scheduled_at?.trim() || null,
       pendingCallback: body.pending_callback === true,
+      // Only allowlist schedule preference keys — never merge arbitrary client JSON into collected.
+      collectedExtras: (() => {
+        const urgencyRaw = String(body.urgency ?? "").trim().toLowerCase()
+        const isAsap = body.is_asap === true || urgencyRaw === "asap"
+        if (!isAsap && urgencyRaw !== "window") return null
+        const urgency: BookUrgency = isAsap ? "asap" : "window"
+        const fromExtras =
+          body.collected_extras && typeof body.collected_extras === "object"
+            ? body.collected_extras
+            : null
+        const labelFromExtras =
+          fromExtras && typeof fromExtras.availability_label === "string"
+            ? fromExtras.availability_label.trim()
+            : ""
+        return buildBookCollectedExtras({
+          urgency,
+          availabilityDate: body.availability_date?.trim() || null,
+          availabilityFrom: body.availability_from?.trim() || null,
+          availabilityTo: body.availability_to?.trim() || null,
+          availabilityLabel: body.availability_label?.trim() || labelFromExtras || null,
+        })
+      })(),
       serviceVenue:
         body.service_venue === "shop" || body.service_venue === "mobile"
           ? body.service_venue

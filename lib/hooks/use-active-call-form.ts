@@ -35,9 +35,12 @@ import type { VehicleFactoryOption } from "@/lib/vehicle-trim-features"
 import type { PlateLookupResult } from "@/lib/vehicle-plate-lookup"
 import {
   defaultIntakeScheduleDate,
-  defaultIntakeScheduleTime,
 } from "@/lib/intake-schedule-helpers"
-import { combineScheduledDateTimeLocal } from "@/lib/scheduler-utils"
+import {
+  buildIntakeScheduleCollectedExtras,
+  emptyIntakeScheduleFields,
+  intakeScheduleSoftPinIso,
+} from "@/lib/intake-schedule-preference"
 
 /** Manual-only call lifecycle shown in the intake sheet header. */
 export type ManualCallStatus = "ringing" | "answered" | "on_hold" | "completed"
@@ -134,10 +137,19 @@ export type ActiveCallFormState = {
   programmingMethod: string
   /** Transponder Island ordering SKU (e.g. TIK-SUB-37A) for the selected key. */
   tiSku: string
-  /** Appointment date (YYYY-MM-DD) used when booking from intake. */
+  /** Appointment date (YYYY-MM-DD) — day chip when scheduleUrgency is "window". */
   scheduledDate: string
-  /** Appointment time (HH:mm) used when booking from intake. */
+  /**
+   * Legacy exact time (HH:mm). Prefer availabilityFrom/To + scheduleUrgency
+   * (same model as public /book). Kept so older drafts still restore.
+   */
   scheduledTime: string
+  /** ASAP vs one-day window — empty until the operator picks on Schedule. */
+  scheduleUrgency: "" | "asap" | "window"
+  /** Window start (HH:mm) when scheduleUrgency is "window". */
+  availabilityFrom: string
+  /** Window end (HH:mm) when scheduleUrgency is "window". */
+  availabilityTo: string
   /** Intake clarification prompts already answered for this vehicle. */
   vehicleClarificationAnswers: string[]
   /** Service quote calculator selection id (see lib/service-quote-calculator). */
@@ -187,6 +199,9 @@ const EMPTY_FORM: ActiveCallFormState = {
   tiSku: "",
   scheduledDate: "",
   scheduledTime: "",
+  scheduleUrgency: "",
+  availabilityFrom: "",
+  availabilityTo: "",
   vehicleClarificationAnswers: [],
   // Empty until the operator picks — "lockout" here auto-fills jobType/price and
   // falsely triggers Restore draft ("Returning caller") on brand-new numbers.
@@ -500,10 +515,12 @@ export function useActiveCallForm(
     // Book forms often ship one address line — split city / ZIP so Location shows + is ready.
     const rawAddress = current.addressLine1?.trim() || ""
     const parsedAddress = rawAddress ? parseLooseAddressQuery(rawAddress) : null
+    const scheduleSeed = emptyIntakeScheduleFields()
     setForm({
       ...EMPTY_FORM,
+      ...scheduleSeed,
+      // Prefill today so the day chip is ready when they tap Schedule.
       scheduledDate: defaultIntakeScheduleDate(),
-      scheduledTime: defaultIntakeScheduleTime(),
       phoneNumber: current.from_number,
       displayName: current.caller_name?.trim() || "",
       vehicleYear: current.vehicleYear?.trim() || "",
@@ -1060,7 +1077,10 @@ export function useActiveCallForm(
 
         const scheduledAtIso = pendingCallback
           ? null
-          : combineScheduledDateTimeLocal(form.scheduledDate, form.scheduledTime)
+          : intakeScheduleSoftPinIso(form)
+        const scheduleExtras = pendingCallback
+          ? null
+          : buildIntakeScheduleCollectedExtras(form)
 
         const res = await fetch("/api/jobs/create", {
           method: "POST",
@@ -1102,6 +1122,21 @@ export function useActiveCallForm(
             organization_id: organizationId ?? null,
             pending_callback: pendingCallback,
             scheduled_at: scheduledAtIso,
+            is_asap: form.scheduleUrgency === "asap",
+            urgency: form.scheduleUrgency === "asap" || form.scheduleUrgency === "window"
+              ? form.scheduleUrgency
+              : null,
+            availability_date:
+              form.scheduleUrgency === "window" ? form.scheduledDate || null : null,
+            availability_from:
+              form.scheduleUrgency === "window" ? form.availabilityFrom || null : null,
+            availability_to:
+              form.scheduleUrgency === "window" ? form.availabilityTo || null : null,
+            availability_label:
+              scheduleExtras && typeof scheduleExtras.availability_label === "string"
+                ? scheduleExtras.availability_label
+                : null,
+            collected_extras: scheduleExtras,
             service_venue: form.serviceVenue === "shop" || form.serviceVenue === "mobile"
               ? form.serviceVenue
               : null,

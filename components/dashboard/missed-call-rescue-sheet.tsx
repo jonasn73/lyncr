@@ -196,12 +196,18 @@ function seedIntakeDraftForCallback(phone: string, displayName: string | null): 
     keyVariantId: "",
     keyProfileId: "",
     programmingMethod: "",
+    tiSku: "",
     scheduledDate: "",
     scheduledTime: "",
+    scheduleUrgency: "",
+    availabilityFrom: "",
+    availabilityTo: "",
     vehicleClarificationAnswers: [],
     serviceQuoteTypeId: "",
     quotedPriceCents: 0,
     quotedPriceOverridden: false,
+    serviceVenue: "",
+    customerOwnsKey: false,
   }
 
   const snapshot: Omit<IntakeDraftSnapshot, "savedAt"> = {

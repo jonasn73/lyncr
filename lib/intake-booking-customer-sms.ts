@@ -76,17 +76,31 @@ export function buildIntakeBookingCustomerSmsText(params: {
   customerName: string
   businessName: string
   scheduledAtIso?: string | null
+  /** Preferred window / ASAP label — preferred over inventing an exact pin time. */
+  availabilityLabel?: string | null
+  isAsap?: boolean
   serviceAddress?: string | null
   jobType?: string | null
 }): string {
   const first = params.customerName.split(/\s+/)[0]?.trim() || "there"
   const business = params.businessName.trim() || SITE_NAME
-  const when = formatAppointmentSmsTime(params.scheduledAtIso)
+  const asap = params.isAsap === true
+  const windowLabel = (params.availabilityLabel ?? "").trim()
+  const when =
+    asap || windowLabel
+      ? null
+      : formatAppointmentSmsTime(params.scheduledAtIso)
   const address = (params.serviceAddress ?? "").trim()
   const job = (params.jobType ?? "").trim()
 
   let body = `Hi ${first}, ${business} confirmed your appointment`
-  if (when) body += ` for ${when}`
+  if (asap) {
+    body += " — we'll arrive as soon as possible"
+  } else if (windowLabel) {
+    body += `. Preferred window: ${windowLabel}`
+  } else if (when) {
+    body += ` for ${when}`
+  }
   body += "."
   if (address) body += ` Location: ${address}.`
   if (job) body += ` Service: ${job}.`
@@ -103,6 +117,8 @@ export async function sendIntakeBookingCustomerSms(params: {
   callLogId?: string | null
   organizationId?: string | null
   scheduledAtIso?: string | null
+  availabilityLabel?: string | null
+  isAsap?: boolean
   serviceAddress?: string | null
   jobType?: string | null
 }): Promise<{ sent: boolean; error: string | null }> {
@@ -121,6 +137,8 @@ export async function sendIntakeBookingCustomerSms(params: {
     customerName: params.customerName,
     businessName: owner?.business_name?.trim() || owner?.name?.trim() || SITE_NAME,
     scheduledAtIso: params.scheduledAtIso,
+    availabilityLabel: params.availabilityLabel,
+    isAsap: params.isAsap,
     serviceAddress: params.serviceAddress,
     jobType: params.jobType,
   })
