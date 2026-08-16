@@ -195,7 +195,7 @@ describe("buildLatestCustomerActions", () => {
   it("drops stale unreplied inbound older than maxAgeHours", () => {
     const latest = buildLatestCustomerActions({
       nowMs: NOW,
-      maxAgeHours: 72,
+      maxAgeHours: 24,
       messages: [
         sms({
           id: "old",

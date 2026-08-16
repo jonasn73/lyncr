@@ -1,7 +1,7 @@
 "use client"
 
 // Lines Alerts — unreplied inbound, customer payments, jobs needing review SMS.
-// Hidden when empty; opening an alert clears it from the list (except job_finished).
+// Hidden when empty; opening clears book/paid rows; Clear dismisses any row (incl. job_finished).
 // Book-form rows open a booking-details sheet (not “new intake”); Book job continues work.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -19,6 +19,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  X,
   XCircle,
 } from "lucide-react"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -50,6 +51,7 @@ import {
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import {
+  dismissLatestAlert,
   excludeReadRepliesFromLatest,
   isDismissOnOpenLatestEvent,
   LATEST_SEEN_CHANGED_EVENT,
@@ -730,6 +732,21 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         {failedReviewJobIds.has(item.completedJobId) ? "Retry" : "Send"}
                       </button>
                     ) : null}
+                    {/* Clear — hide without opening (stale SMS, done-for-now thanks, etc.). */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        dismissLatestAlert(item)
+                        setSeenTick((n) => n + 1)
+                        if (selected?.id === item.id) setSelected(null)
+                      }}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      aria-label={`Clear alert for ${item.customerName || "customer"}`}
+                      title="Clear"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden />
+                    </button>
                   </div>
                 </li>
               )

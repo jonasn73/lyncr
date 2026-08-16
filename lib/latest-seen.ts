@@ -134,10 +134,10 @@ export function isLatestItemUnread(itemId: string): boolean {
 }
 
 /**
- * Drop Latest rows the owner already opened:
+ * Drop Latest rows the owner already opened or Cleared:
  * - customer replies (until a newer inbound)
  * - book_form / customer_paid (until a new submit / payment id)
- * Job-finished “needs review text” rows stay until Thanks + review is sent.
+ * - job_finished / paid+thanks (until Clear, or Thanks is sent and the API stops returning them)
  */
 export function excludeReadRepliesFromLatest(
   items: LatestCustomerAction[]
@@ -148,11 +148,24 @@ export function excludeReadRepliesFromLatest(
       if (!inboundAt) return true
       return isLatestReplyUnread(item.customerPhone, inboundAt)
     }
-    if (isDismissOnOpenLatestEvent(item.event, item)) {
-      return isLatestItemUnread(item.id)
-    }
+    // Opened (book/paid) or Cleared (any non-reply) — row id stamped in localStorage.
+    if (item.id && !isLatestItemUnread(item.id)) return false
     return true
   })
+}
+
+/**
+ * Owner tapped Clear — hide this alert without opening it.
+ * Replies use the phone stamp; everything else uses the row id.
+ */
+export function dismissLatestAlert(item: LatestCustomerAction): void {
+  if (item.event === "replied" && item.customerPhone) {
+    markLatestReplySeen(item.customerPhone)
+    return
+  }
+  if (item.id) {
+    markLatestItemSeen(item.id)
+  }
 }
 
 /**

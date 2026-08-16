@@ -56,12 +56,21 @@ const AppShellHeader = memo(function AppShellHeader({
     <header
       className={cn(
         // Above map body / Leaflet chrome; notification popover portals at z-[9999].
-        "sticky top-0 z-50 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:px-5 sm:py-3.5",
+        // Mobile + business name: two columns (name left, actions right). sm+: logo | name | actions.
+        "sticky top-0 z-50 grid shrink-0 items-center gap-2 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:gap-3 sm:px-5 sm:py-3.5",
+        headerCenter
+          ? "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]"
+          : "grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]",
         SHELL_ACRYLIC_SURFACE
       )}
     >
-      {/* Logo stays above the workspace chip so a long business name never covers it. */}
-      <div className="relative z-30 flex shrink-0 items-center justify-self-start">
+      {/* Desktop: Lyncr mark left. Mobile with workspace chip: hide mark — name takes this slot. */}
+      <div
+        className={cn(
+          "relative z-30 flex shrink-0 items-center justify-self-start",
+          headerCenter ? "hidden sm:flex" : "flex"
+        )}
+      >
       {useLinks ? (
         <Link
           href="/dashboard"
@@ -71,7 +80,6 @@ const AppShellHeader = memo(function AppShellHeader({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
-          {/* Mobile: cyan mark only so the org switcher isn’t crushed; sm+: mark + lyncr. */}
           <BrandWordmark size="md" className="hidden sm:inline-flex" />
         </Link>
       ) : (
@@ -90,7 +98,7 @@ const AppShellHeader = memo(function AppShellHeader({
       </div>
 
       {headerCenter ? (
-        <div className="relative z-10 flex min-w-0 max-w-full justify-center justify-self-center overflow-hidden pointer-events-auto px-0.5 sm:px-2">
+        <div className="relative z-10 flex min-w-0 max-w-full justify-self-start overflow-hidden pointer-events-auto px-0.5 sm:col-start-2 sm:justify-center sm:justify-self-center sm:px-2">
           {headerCenter}
         </div>
       ) : (

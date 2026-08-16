@@ -242,7 +242,8 @@ export function DashboardHeaderWorkspace({ sessionBusinessName }: { sessionBusin
   )
 
   return (
-    <div className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
+    // Mobile: flush left (fills the L slot). sm+: centered under the header.
+    <div className="flex w-full min-w-0 max-w-full items-center justify-start gap-1.5 overflow-hidden sm:justify-center">
       <div className="min-w-0 w-full max-w-full flex-1 sm:w-[min(100%,16rem)] sm:flex-none">
         {switcher}
       </div>

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 import {
+  dismissLatestAlert,
   excludeReadRepliesFromLatest,
   markLatestAttentionOpened,
   markLatestItemSeen,
@@ -198,5 +199,38 @@ describe("excludeReadRepliesFromLatest", () => {
     }
     markLatestAttentionOpened(job)
     expect(excludeReadRepliesFromLatest([job])).toHaveLength(1)
+  })
+
+  it("drops job_finished after Clear (dismissLatestAlert)", () => {
+    const job: LatestCustomerAction = {
+      id: "job-3",
+      customerPhone: "+15552220003",
+      customerName: "Sam",
+      event: "job_finished",
+      kind: "job",
+      headline: "Sam · job finished",
+      statusLine: "Send thanks + review",
+      preview: "Oak Ave",
+      at: "2026-08-01T11:00:00.000Z",
+      deliveryLabel: null,
+      reviewLinkOpened: false,
+      reviewLinkClicks: 0,
+      lastOutbound: null,
+      lastInbound: null,
+      completedJobId: "job-3",
+    }
+    dismissLatestAlert(job)
+    expect(excludeReadRepliesFromLatest([job])).toHaveLength(0)
+  })
+
+  it("drops paid+thanks-pending after Clear", () => {
+    const item = paid({
+      id: "wallet-tx-clear",
+      at: "2026-08-01T16:00:00.000Z",
+      thanksReviewPending: true,
+      statusLine: "Payment received · Send thanks",
+    })
+    dismissLatestAlert(item)
+    expect(excludeReadRepliesFromLatest([item])).toHaveLength(0)
   })
 })

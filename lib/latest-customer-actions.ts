@@ -205,8 +205,8 @@ export type LatestBookFormHint = {
   bookingSource?: string | null
 }
 
-/** Default: drop unreplied inbound older than this (stale “2d ago” noise). */
-export const LATEST_INBOUND_MAX_AGE_HOURS = 72
+/** Default: drop unreplied inbound older than this (stale “1d ago” noise). */
+export const LATEST_INBOUND_MAX_AGE_HOURS = 24
 
 /** Default: keep “Customer paid” rows for this many hours after settle. */
 export const LATEST_PAID_MAX_AGE_HOURS = 24
@@ -236,7 +236,7 @@ export function buildLatestCustomerActions(params: {
   /** Recent public /book or Activity book-link submits. */
   bookForms?: LatestBookFormHint[]
   limit?: number
-  /** Drop unreplied inbound older than this many hours (default 72). */
+  /** Drop unreplied inbound older than this many hours (default 24). */
   maxAgeHours?: number
   /** Drop customer_paid older than this many hours (default 24). */
   paidMaxAgeHours?: number
