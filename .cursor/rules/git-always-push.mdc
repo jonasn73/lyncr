@@ -1,13 +1,13 @@
 ---
-description: Always commit, push, and deploy to Vercel after code changes
+description: Always commit, push, and deploy — except Lyncr Product Team gated work
 alwaysApply: true
 ---
 
 # Always commit and deploy
 
-When a task **changes, adds, or deletes** files in this project (including edits made by the AI in Cursor), **always finish with commit + push + production deploy** — do not wait for the user to ask.
+When a task **changes, adds, or deletes** files in this project (including edits made by the AI in Cursor), **normally** finish with commit + push + production deploy — do not wait for the user to ask.
 
-1. From the project root (`zing`): `git status`
+1. From the project root: `git status`
 2. If there are changes: `git add` the relevant paths (or `git add -A` when appropriate)
 3. `git commit -m "Short imperative description of what changed"`
 4. `git push origin main`
@@ -18,6 +18,14 @@ When a task **changes, adds, or deletes** files in this project (including edits
 If push fails (auth, network), give the user the **exact commands** to run in Terminal. Still run `npm run deploy:vercel` so production updates even when push failed.
 
 If there is **nothing to commit**, say so briefly — no empty commit, and skip deploy.
+
+# Exception: Lyncr Product Team
+
+If the work is running under **Lyncr Boss** / Product Team rules (see `lyncr-product-team.mdc`):
+
+- Do **not** change product app code until the owner replies **`Approve Phase 1`**.
+- After Phase 1 build: do **not** deploy, publish, or change live Telnyx / send real customer SMS / create live charges unless the owner explicitly approves that exact action after the final Lyncr Boss report.
+- Team setup files under `.cursor/` may be committed so the team persists; skip app production deploy unless the owner asks.
 
 # Vercel vs Telnyx
 
