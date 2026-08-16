@@ -9401,6 +9401,7 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
         : pick(["dispatch_status"]),
     quoted_price_cents: quotedCents,
     billing_balance_cents: quotedCents,
+    review_sms_sent_at: pick(["review_sms_sent_at"]),
   }
 }
 

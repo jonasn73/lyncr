@@ -104,6 +104,8 @@ function toCollectDispatchJob(
     // Prefill Collect / pay-link amount from the booked balance.
     quoted_price_cents:
       source.quoted_price_cents ?? source.billing_balance_cents ?? null,
+    review_sms_sent_at:
+      "review_sms_sent_at" in source ? source.review_sms_sent_at ?? null : null,
   }
 }
 
@@ -1013,12 +1015,13 @@ export function JobDetailDrawer({
       {collectJob ? (
         <TechPaymentModal
           job={collectJob}
+          offerFinishJob
           onClose={() => setCollectJob(null)}
           onCompleted={() => {
             setCollectJob(null)
             toast({
               title: "Payment recorded",
-              description: "Send a receipt from Collect if you have not already.",
+              description: "Job updated if you finished it from Collect.",
             })
             // Refresh Active Job so paid pay-link badges can catch up.
             if (jobId) {

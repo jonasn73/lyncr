@@ -2546,6 +2546,7 @@ export function OwnerCollectPaymentSheet({
         <TechPaymentModal
           job={payJob}
           showBack
+          offerFinishJob
           onClose={() => setPayJob(null)}
           onCompleted={() => {
             setPayJob(null)

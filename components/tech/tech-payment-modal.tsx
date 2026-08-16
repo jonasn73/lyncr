@@ -67,8 +67,14 @@ import {
 
 type Line = { id: string; label: string; amount: string }
 type PayMethod = "tap" | "card" | "cash" | "link"
-/** Tip LAST (before money moves) → optional signature after pay → receipt; link_sent after SMS. */
-type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt" | "link_sent"
+/** Tip LAST (before money moves) → optional signature after pay → receipt → optional finish job. */
+type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt" | "link_sent" | "finish_job"
+
+/** True when Collect can still offer Complete (not already done/cancelled). */
+function isCollectJobStillOpen(job: DispatchJob): boolean {
+  const s = (job.job_status ?? "").toLowerCase()
+  return s !== "completed" && s !== "cancelled" && s !== "canceled"
+}
 type TipChoice = "none" | "15" | "18" | "20" | "custom"
 
 /** Sent pay-link row from GET /api/payments/pay-links (with optional Stripe sync). */
@@ -134,6 +140,11 @@ export function TechPaymentModal(props: {
   onCompleted: () => void
   /** When opened from Collect — show Back to the job list (same as Walk-up). */
   showBack?: boolean
+  /**
+   * After receipt, offer Complete & thanks (owner Collect / Scheduler only).
+   * Tech console leaves this false — techs use their own Work Complete path.
+   */
+  offerFinishJob?: boolean
 }) {
   const [lines, setLines] = useState<Line[]>(() => initialLines(props.job))
   // Editable pre-tax amount (dollars). Kept in sync with line items unless the user typed a custom total.
@@ -182,6 +193,8 @@ export function TechPaymentModal(props: {
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
   const [receiptChannel, setReceiptChannel] = useState<ReceiptChannel>("email")
   const [receiptBusy, setReceiptBusy] = useState(false)
+  /** Completing the job from the post-pay finish step. */
+  const [finishBusy, setFinishBusy] = useState(false)
   /** Nested popup: pay-link form (card key-in is its own step). */
   const [activePopup, setActivePopup] = useState<"link" | null>(null)
   /** pm_… from deferred key-in — charged only after tip Confirm. */
@@ -795,11 +808,66 @@ export function TechPaymentModal(props: {
       })
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error || "Could not send receipt")
-      props.onCompleted()
+      continueAfterReceipt()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send receipt")
     } finally {
       setReceiptBusy(false)
+    }
+  }
+
+  /** After receipt send/skip — offer Complete + thanks when the job is still open (owner only). */
+  function continueAfterReceipt() {
+    const offerFinish = props.offerFinishJob !== false
+    if (offerFinish && isCollectJobStillOpen(props.job)) {
+      setError(null)
+      setPostPayStep("finish_job")
+      return
+    }
+    props.onCompleted()
+  }
+
+  /** Complete the job (optional thanks SMS) or leave it open and close Collect. */
+  async function finishJobAfterPay(choice: "thanks" | "complete_only" | "keep_open") {
+    if (choice === "keep_open") {
+      props.onCompleted()
+      return
+    }
+    const jobId = props.job.id
+    if (!jobId) {
+      props.onCompleted()
+      return
+    }
+    setFinishBusy(true)
+    setError(null)
+    try {
+      const sendThanks = choice === "thanks"
+      const res = await fetch(`/api/owner/jobs/${encodeURIComponent(jobId)}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "completed",
+          ...(sendThanks ? { send_review_sms: true } : {}),
+        }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        data?: { review_sms?: { sent: boolean; error: string | null } | null }
+      }
+      if (!res.ok) throw new Error(json.error || "Could not complete job")
+      const reviewSms = json.data?.review_sms
+      if (sendThanks && reviewSms && !reviewSms.sent) {
+        // Keep the finish screen open so the owner can see the error / try Complete only.
+        setError(reviewSms.error || "Job completed — thanks SMS failed. Try again from the job, or tap Complete only.")
+        setFinishBusy(false)
+        return
+      }
+      props.onCompleted()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not complete job")
+    } finally {
+      setFinishBusy(false)
     }
   }
 
@@ -1096,7 +1164,8 @@ export function TechPaymentModal(props: {
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
           postPayStep === "receipt" ||
-          postPayStep === "link_sent"
+          postPayStep === "link_sent" ||
+          postPayStep === "finish_job"
             ? "h-auto max-h-[min(88dvh,40rem)]"
             : "max-h-[92dvh]"
         )}
@@ -1108,7 +1177,9 @@ export function TechPaymentModal(props: {
         <div
           className={cn(
             "flex items-center justify-between px-4 pb-3 pt-1",
-            postPayStep === "receipt" || postPayStep === "link_sent"
+            postPayStep === "receipt" ||
+              postPayStep === "link_sent" ||
+              postPayStep === "finish_job"
               ? "border-b-0 pb-1"
               : "border-b border-zinc-800"
           )}
@@ -1118,6 +1189,8 @@ export function TechPaymentModal(props: {
               <h2 className="sr-only">Paid</h2>
             ) : postPayStep === "link_sent" ? (
               <h2 className="sr-only">Link sent</h2>
+            ) : postPayStep === "finish_job" ? (
+              <h2 className="sr-only">Finish job</h2>
             ) : (
               <h2 className="text-base font-bold text-white">
                 {postPayStep === "tip_sign"
@@ -1131,7 +1204,9 @@ export function TechPaymentModal(props: {
                         : "Charge"}
               </h2>
             )}
-            {postPayStep !== "receipt" && postPayStep !== "link_sent" ? (
+            {postPayStep !== "receipt" &&
+            postPayStep !== "link_sent" &&
+            postPayStep !== "finish_job" ? (
               <p className="text-xs text-zinc-500">
                 {postPayStep === "tip_sign"
                   ? tipLastSheetSubtitle(fmt(paidTotalCents))
@@ -1146,7 +1221,7 @@ export function TechPaymentModal(props: {
           <button
             type="button"
             onClick={props.onClose}
-            disabled={busy || tapListening || slipBusy}
+            disabled={busy || tapListening || slipBusy || finishBusy}
             className="rounded-lg p-2 text-zinc-400 hover:text-white disabled:opacity-40"
             aria-label="Close"
           >
@@ -1395,9 +1470,53 @@ export function TechPaymentModal(props: {
               receiptBusy={receiptBusy}
               error={error}
               onSend={() => void sendReceipt(receiptChannel)}
-              onSkip={() => props.onCompleted()}
-              skipLabel="Done"
+              onSkip={continueAfterReceipt}
+              skipLabel="Skip — continue"
             />
+          </div>
+        ) : postPayStep === "finish_job" ? (
+          <div className="overflow-y-auto px-4 py-3 pb-5">
+            <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-5 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
+              <p className="mt-2 text-sm font-semibold text-emerald-100">Payment recorded</p>
+              <p className="mt-1 text-xs text-emerald-200/80">Finish this job?</p>
+            </div>
+            {error ? <p className="mt-3 text-center text-sm text-red-300">{error}</p> : null}
+            <div className="mt-4 space-y-2">
+              {/* Skip thanks if already sent — avoid a duplicate customer SMS. */}
+              {!props.job.review_sms_sent_at ? (
+                <button
+                  type="button"
+                  disabled={finishBusy}
+                  onClick={() => void finishJobAfterPay("thanks")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {finishBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  Complete & send thanks
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={finishBusy}
+                onClick={() => void finishJobAfterPay("complete_only")}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
+                  props.job.review_sms_sent_at
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                    : "border border-zinc-700 bg-zinc-900/60 text-zinc-100 hover:bg-zinc-800"
+                )}
+              >
+                Complete only
+              </button>
+              <button
+                type="button"
+                disabled={finishBusy}
+                onClick={() => void finishJobAfterPay("keep_open")}
+                className="w-full rounded-xl py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
+              >
+                Keep open
+              </button>
+            </div>
           </div>
         ) : postPayStep === "link_sent" ? (
           // Success after SMS — confirm before closing Charge.

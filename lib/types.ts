@@ -173,6 +173,8 @@ export interface DispatchJob {
   dispatch_status?: string | null
   quoted_price_cents?: number | null
   billing_balance_cents?: number | null
+  /** ISO when Thanks + review SMS was sent — skip duplicate thanks after Collect. */
+  review_sms_sent_at?: string | null
 }
 
 /** Owner calendar event derived from ai_leads (BOOKED / PENDING_TIME). */

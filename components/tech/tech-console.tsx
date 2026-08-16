@@ -305,6 +305,7 @@ export function TechConsole(props: {
       {paymentJob && (
         <TechPaymentModal
           job={paymentJob}
+          offerFinishJob={false}
           onClose={() => setPaymentJob(null)}
           onCompleted={() => {
             setPaymentJob(null)
