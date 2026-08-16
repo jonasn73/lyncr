@@ -2580,7 +2580,10 @@ export function OwnerCollectPaymentSheet({
             setPayJob(null)
             onOpenChange(false)
             onCollected?.()
-            toast({ title: "Payment collected", description: "Header total updated." })
+            toast({
+              title: "Collect finished",
+              description: "Payment recorded. Job status updated if you completed it.",
+            })
           }}
         />
       ) : null}

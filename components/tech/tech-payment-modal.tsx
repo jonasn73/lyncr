@@ -1190,7 +1190,7 @@ export function TechPaymentModal(props: {
             ) : postPayStep === "link_sent" ? (
               <h2 className="sr-only">Link sent</h2>
             ) : postPayStep === "finish_job" ? (
-              <h2 className="sr-only">Finish job</h2>
+              <h2 className="text-base font-bold text-white">Finish this job</h2>
             ) : (
               <h2 className="text-base font-bold text-white">
                 {postPayStep === "tip_sign"
@@ -1216,6 +1216,8 @@ export function TechPaymentModal(props: {
                       ? postPaySignSheetSubtitle()
                       : props.job.customer_name || props.job.customer_phone || "Customer"}
               </p>
+            ) : postPayStep === "finish_job" ? (
+              <p className="text-xs text-zinc-500">Paid — one tap to close it out</p>
             ) : null}
           </div>
           <button
@@ -1471,28 +1473,43 @@ export function TechPaymentModal(props: {
               error={error}
               onSend={() => void sendReceipt(receiptChannel)}
               onSkip={continueAfterReceipt}
-              skipLabel="Skip — continue"
+              skipLabel={
+                props.offerFinishJob !== false && isCollectJobStillOpen(props.job)
+                  ? "Skip receipt — finish job"
+                  : "Skip — continue"
+              }
             />
           </div>
         ) : postPayStep === "finish_job" ? (
           <div className="overflow-y-auto px-4 py-3 pb-5">
-            <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-5 text-center">
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-5 text-center">
               <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
-              <p className="mt-2 text-sm font-semibold text-emerald-100">Payment recorded</p>
-              <p className="mt-1 text-xs text-emerald-200/80">Finish this job?</p>
+              <p className="mt-2 text-base font-semibold text-emerald-50">Payment recorded</p>
+              <p className="mt-1.5 text-sm text-emerald-100/90">
+                Close the job now so it doesn’t sit half-finished.
+              </p>
+              {!props.job.review_sms_sent_at ? (
+                <p className="mt-2 text-[11px] leading-snug text-emerald-200/75">
+                  Thanks texts the customer a short thank-you (and review link when set up).
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] leading-snug text-emerald-200/75">
+                  Thanks already sent — you can complete the job.
+                </p>
+              )}
             </div>
             {error ? <p className="mt-3 text-center text-sm text-red-300">{error}</p> : null}
-            <div className="mt-4 space-y-2">
-              {/* Skip thanks if already sent — avoid a duplicate customer SMS. */}
+            <div className="mt-4 space-y-2.5">
+              {/* Loud primary — owner Collect: paid → done + thanks. */}
               {!props.job.review_sms_sent_at ? (
                 <button
                   type="button"
                   disabled={finishBusy}
                   onClick={() => void finishJobAfterPay("thanks")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/50 hover:bg-emerald-500 disabled:opacity-50"
                 >
                   {finishBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                  Complete & send thanks
+                  Complete &amp; send thanks
                 </button>
               ) : null}
               <button
@@ -1500,21 +1517,21 @@ export function TechPaymentModal(props: {
                 disabled={finishBusy}
                 onClick={() => void finishJobAfterPay("complete_only")}
                 className={cn(
-                  "flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
+                  "flex min-h-11 w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
                   props.job.review_sms_sent_at
-                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                    : "border border-zinc-700 bg-zinc-900/60 text-zinc-100 hover:bg-zinc-800"
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/50 hover:bg-emerald-500"
+                    : "border border-zinc-700/80 bg-zinc-950/50 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-100"
                 )}
               >
-                Complete only
+                {props.job.review_sms_sent_at ? "Complete job" : "Complete only — no thanks text"}
               </button>
               <button
                 type="button"
                 disabled={finishBusy}
                 onClick={() => void finishJobAfterPay("keep_open")}
-                className="w-full rounded-xl py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
+                className="w-full rounded-xl py-2.5 text-sm font-medium text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-300 disabled:opacity-50"
               >
-                Keep open
+                Keep job open
               </button>
             </div>
           </div>
