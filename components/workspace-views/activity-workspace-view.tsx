@@ -856,8 +856,15 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               {isMissedLog ? "Add missed-call note" : "Log purpose & outcome"}
             </button>
           ) : null}
-          {/* Primary: Continue in CRM — Text / Call / Book quieter below. */}
-          {canText || customerPhone ? (
+          {/* Primary: missed → Call back; answered → Continue in CRM. */}
+          {isMissedLog && showCallBack ? (
+            <CallBackButton
+              phone={call.callerNumber}
+              openIntakeDraft={needsRevenueRescue(call)}
+              intakeCall={call}
+              missed
+            />
+          ) : canText || customerPhone ? (
             <Link
               href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-4 py-2.5 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/70 hover:bg-teal-500/30 active:scale-[0.98]"
@@ -867,6 +874,15 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </Link>
           ) : null}
           <div className="flex flex-wrap gap-2">
+            {isMissedLog && (canText || customerPhone) ? (
+              <Link
+                href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+              >
+                <UserRound className="h-4 w-4 shrink-0" aria-hidden />
+                Continue in CRM
+              </Link>
+            ) : null}
             {canText ? (
               <Link
                 href={messagesHref}
@@ -876,12 +892,12 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 Text
               </Link>
             ) : null}
-            {showCallBack ? (
+            {!isMissedLog && showCallBack ? (
               <CallBackButton
                 phone={call.callerNumber}
                 openIntakeDraft={needsRevenueRescue(call)}
                 intakeCall={call}
-                missed={isMissedLog}
+                missed={false}
                 className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
               />
             ) : null}
@@ -1012,7 +1028,7 @@ function CallerNameWithCount({
   )
 }
 
-/** Shared next-step strip — one loud CRM primary; Text / Call / Book as quiet chips. */
+/** Shared next-step strip — missed: Call back loud; else Continue in CRM loud. */
 function ActivityGroupActionBar({
   call,
   className,
@@ -1038,11 +1054,22 @@ function ActivityGroupActionBar({
   // Quiet secondary chips — same actions, less “four equal buttons.”
   const secondaryChip =
     "!h-8 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
+  const canDial = canCallBack(call)
+  // Phase 1: missed rows lead with Call back; answered stay CRM-first.
+  const callBackPrimary = missed && canDial
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      {/* Primary: land in CRM where Book / Message / Collect already live. */}
-      {crmHref ? (
+      {callBackPrimary ? (
+        <CallBackButton
+          phone={call.callerNumber}
+          openIntakeDraft={needsRevenueRescue(call) || hold}
+          intakeCall={call}
+          missed
+          hold={false}
+          className="h-10 w-full shadow-sm shadow-rose-950/30"
+        />
+      ) : crmHref ? (
         <Link
           href={crmHref}
           onClick={(e) => e.stopPropagation()}
@@ -1054,8 +1081,23 @@ function ActivityGroupActionBar({
           Continue in CRM
         </Link>
       ) : null}
-      {/* Secondary moves — quieter under the CRM path. */}
+      {/* Secondary moves — quieter under the primary path. */}
       <div className="flex flex-wrap items-center gap-1.5">
+        {callBackPrimary && crmHref ? (
+          <Link
+            href={crmHref}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold",
+              secondaryChip
+            )}
+            aria-label="Continue in CRM"
+            title="Continue in CRM"
+          >
+            <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Continue in CRM
+          </Link>
+        ) : null}
         {messagesHref ? (
           <Link
             href={messagesHref}
@@ -1071,7 +1113,7 @@ function ActivityGroupActionBar({
             Text
           </Link>
         ) : null}
-        {canCallBack(call) ? (
+        {!callBackPrimary && canDial ? (
           <CallBackButton
             phone={call.callerNumber}
             compact
@@ -1091,7 +1133,7 @@ function ActivityGroupActionBar({
           className={cn(
             secondaryChip,
             "!min-h-0",
-            !canCallBack(call) && !messagesHref ? "w-full" : undefined
+            !canDial && !messagesHref && !(callBackPrimary && crmHref) ? "w-full" : undefined
           )}
         />
       </div>
