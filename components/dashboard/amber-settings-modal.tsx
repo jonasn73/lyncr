@@ -23,6 +23,8 @@ type AmberStatus = {
   amber_number: string | null
   owner_mobile_e164: string | null
   owner_mobile_verified: boolean
+  /** Lyncr alert/dispatch phone — prefill before Amber verify. */
+  suggested_mobile_e164?: string | null
   display_name: string
   promise: string
 }
@@ -65,7 +67,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
       }
       if (json.data) {
         setStatus(json.data)
-        if (json.data.owner_mobile_e164) setMobile(json.data.owner_mobile_e164)
+        // Prefer already-verified Amber mobile; else Lyncr’s known alert phone.
+        const prefill =
+          json.data.owner_mobile_e164 || json.data.suggested_mobile_e164 || ""
+        if (prefill) setMobile(prefill)
       }
     } finally {
       setLoading(false)
@@ -191,6 +196,11 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             {status?.enabled ? (
               <div className="space-y-2">
                 <p className="text-xs font-semibold">Verify personal mobile</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {status.suggested_mobile_e164 && !status.owner_mobile_verified
+                    ? `We filled in your Lyncr alert phone (${formatPhoneDisplay(status.suggested_mobile_e164)}). Tap Text me a code once so Amber only obeys that number.`
+                    : "We text a one-time code so only your phone can command Amber — not someone who finds the Amber number."}
+                </p>
                 <Input
                   inputMode="tel"
                   placeholder="+1…"

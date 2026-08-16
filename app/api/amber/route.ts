@@ -13,7 +13,8 @@ import {
   setAmberOwnerMobileVerified,
 } from "@/lib/amber-db"
 import { enableAmberForWorkspace } from "@/lib/amber-enable"
-import { normalizePhoneNumberE164, isReasonablePstnDialString } from "@/lib/db"
+import { getOnboardingProfile, getUser, normalizePhoneNumberE164, isReasonablePstnDialString } from "@/lib/db"
+import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 
@@ -32,12 +33,18 @@ export async function GET(req: NextRequest) {
   try {
     const organizationId = orgFrom(req)
     const row = await getAmberWorkspace({ userId, organizationId })
+    // Same personal cell Lyncr already uses for Instant lead / Latest alerts.
+    const [profile, user] = await Promise.all([getOnboardingProfile(userId), getUser(userId)])
+    const suggestedMobile = resolveLeadAlertSmsRecipient(profile, user)
+
     return NextResponse.json({
       data: {
         enabled: Boolean(row?.enabled),
         amber_number: row?.amber_number ?? null,
         owner_mobile_e164: row?.owner_mobile_e164 ?? null,
         owner_mobile_verified: Boolean(row?.owner_mobile_verified_at),
+        // Prefill verify field — still requires one code so Amber only obeys that phone.
+        suggested_mobile_e164: suggestedMobile,
         presence_available_at: row?.presence_available_at ?? null,
         timezone: row?.timezone ?? "America/New_York",
         display_name: "Amber · Lyncr",
