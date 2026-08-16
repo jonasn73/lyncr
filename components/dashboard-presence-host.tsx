@@ -28,6 +28,7 @@ import {
 import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
 import {
   initialPresencePaneMounted,
+  shouldMountPresencePane,
   shouldUseSsrActiveSlot,
 } from "@/lib/dashboard-presence-ssr"
 
@@ -120,13 +121,19 @@ const PresencePane = memo(function PresencePane({
   deferUntilVisit?: boolean
 }) {
   // Active tab starts mounted so hard refresh SSR HTML is not `null` then a flash.
-  const [mounted, setMounted] = useState(() => initialPresencePaneMounted(deferUntilVisit, active))
+  const [visited, setVisited] = useState(() => initialPresencePaneMounted(deferUntilVisit, active))
+  // First click: `active` is true while `visited` is still false — mount this frame (no blank).
+  const shouldMount = shouldMountPresencePane(deferUntilVisit, visited, active)
+  if (shouldMount && !visited) {
+    // Adjusting state during render from props (React-approved pattern).
+    setVisited(true)
+  }
 
   useLayoutEffect(() => {
-    if (active) setMounted(true)
+    if (active) setVisited(true)
   }, [active])
 
-  if (!mounted) return null
+  if (!shouldMount) return null
 
   return (
     <section role="tabpanel" aria-label={label} aria-hidden={!active} hidden={!active} className="w-full">
@@ -170,12 +177,15 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   useEffect(() => {
     // Warm Activity call rows while the owner is still on Lines (or any tab).
     prefetchOperationsData()
-    // Preload heavy pane chunks on idle so the first tab click is not a dynamic() fallback flash.
+    // Warm Map + Activity chunks ASAP so the first tab click is not a dynamic() blank.
+    void import("@/components/workspace-views/map-workspace-view")
+    void import("@/components/workspace-views/activity-workspace-view")
+    // Preload remaining heavy panes on idle.
     const warmChunks = () => {
-      void import("@/components/workspace-views/activity-workspace-view")
       void import("@/components/workspace-views/crm-workspace-view")
       void import("@/components/workspace-views/messages-workspace-view")
       void import("@/components/workspace-views/map-workspace-view")
+      void import("@/components/workspace-views/activity-workspace-view")
     }
     const idleId =
       typeof window.requestIdleCallback === "function"
@@ -238,7 +248,8 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "contacts") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
-          <Suspense fallback={null}>
+          // Keep Dispatch Map chrome while the chunk loads — never a blank frame.
+          <Suspense fallback={<MapPaneFallback />}>
             <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
           </Suspense>
         )}

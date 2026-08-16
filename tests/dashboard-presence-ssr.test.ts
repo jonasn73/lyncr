@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   initialPresencePaneMounted,
   isDashboardRouteSsrPane,
+  shouldMountPresencePane,
   shouldUseDeferredDynamicPane,
   shouldUseSsrActiveSlot,
 } from "@/lib/dashboard-presence-ssr"
@@ -36,5 +37,13 @@ describe("dashboard presence SSR active tab", () => {
     expect(initialPresencePaneMounted(true, true)).toBe(true)
     expect(initialPresencePaneMounted(true, false)).toBe(false)
     expect(initialPresencePaneMounted(false, false)).toBe(true)
+  })
+
+  it("mounts a deferred tab on the first click without a blank frame", () => {
+    // visited=false + active=true must still mount (Map / CRM first open).
+    expect(shouldMountPresencePane(true, false, true)).toBe(true)
+    expect(shouldMountPresencePane(true, false, false)).toBe(false)
+    expect(shouldMountPresencePane(true, true, false)).toBe(true)
+    expect(shouldMountPresencePane(false, false, false)).toBe(true)
   })
 })

@@ -66,6 +66,25 @@ export function initialPresencePaneMounted(deferUntilVisit: boolean, active: boo
 }
 
 /**
+ * Whether the pane should render on this pass.
+ * When the owner first clicks a deferred tab, `active` flips true while
+ * `visited` is still false — returning true here avoids a one-frame blank
+ * (null) before useLayoutEffect can set visited.
+ */
+export function shouldMountPresencePane(
+  deferUntilVisit: boolean,
+  visited: boolean,
+  active: boolean
+): boolean {
+  // Always-on panes (no defer) stay mounted.
+  if (!deferUntilVisit) return true
+  // Already opened once this session.
+  if (visited) return true
+  // First click / hard-refresh active URL — mount immediately (no null flash).
+  return active
+}
+
+/**
  * True when this pane should load via `dynamic(ssr: false)` (inactive / not
  * the hard-refresh URL). The active SSR slot must never take this path.
  */

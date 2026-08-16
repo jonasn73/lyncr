@@ -78,3 +78,13 @@ export function readPaintSeedCookieValue<T>(raw: string | null | undefined): T |
     }
   }
 }
+
+/** Delete a paint-seed cookie (logout / org switch — stop stale SSR flash). */
+export function clearPaintSeedCookie(scope: string): void {
+  if (typeof document === "undefined") return
+  try {
+    document.cookie = `${paintSeedCookieName(scope)}=; Path=/; Max-Age=0; SameSite=Lax`
+  } catch {
+    /* ignore */
+  }
+}

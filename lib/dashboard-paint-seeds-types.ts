@@ -10,6 +10,7 @@ import type { BillingSummaryCache } from "@/lib/billing-summary-cache"
 import type { WorkspaceLabelCache } from "@/lib/workspace-label-cache"
 import type { LinesChromeCache } from "@/lib/lines-chrome-cache"
 import type { MissedLeadsPaintSeed } from "@/lib/missed-lead-insights-cache"
+import type { OperationsPaintSeed } from "@/lib/operations-paint-cache"
 
 /** Last-known dashboard values from paint cookies (SSR) or empty. */
 export type DashboardPaintSeeds = {
@@ -29,6 +30,8 @@ export type DashboardPaintSeeds = {
   lines: LinesChromeCache | null
   /** MISSED ticker “N leads” sublabel — counts only. */
   missedLeads: MissedLeadsPaintSeed | null
+  /** Compact Activity call rows for hard-refresh first paint. */
+  operations: OperationsPaintSeed | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -43,4 +46,5 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   workspace: null,
   lines: null,
   missedLeads: null,
+  operations: null,
 }

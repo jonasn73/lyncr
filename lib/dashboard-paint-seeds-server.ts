@@ -34,7 +34,13 @@ import {
   MISSED_LEADS_COOKIE,
   readMissedLeadsFromCookieRaw,
 } from "@/lib/missed-lead-insights-cache"
+import {
+  OPERATIONS_PAINT_COOKIE,
+  operationsPaintMatchesOrg,
+  readOperationsPaintFromCookieRaw,
+} from "@/lib/operations-paint-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
+import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
 type TelemetryPaintCookie = {
@@ -93,6 +99,20 @@ export function readDashboardPaintSeedsFromCookies(
   const missedLeadsRaw = getCookie(MISSED_LEADS_COOKIE)
   const missedLeads = readMissedLeadsFromCookieRaw(missedLeadsRaw)
 
+  const operationsRaw = getCookie(OPERATIONS_PAINT_COOKIE)
+  const operationsParsed = readOperationsPaintFromCookieRaw(operationsRaw)
+  // Prefer active-shop cookie, then Lines / workspace paint labels.
+  const activeOrgId =
+    getCookie(ACTIVE_ORGANIZATION_COOKIE)?.trim() ||
+    lines?.organizationId ||
+    workspace?.organizationId ||
+    null
+  // Never SSR another shop’s callers into the Activity seed payload.
+  const operations =
+    operationsParsed && operationsPaintMatchesOrg(operationsParsed, activeOrgId)
+      ? operationsParsed
+      : null
+
   if (
     !moneyOk &&
     !telemetry &&
@@ -101,7 +121,8 @@ export function readDashboardPaintSeedsFromCookies(
     !presence &&
     !workspace &&
     !lines &&
-    !missedLeads
+    !missedLeads &&
+    !operations
   ) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
@@ -117,5 +138,6 @@ export function readDashboardPaintSeedsFromCookies(
     workspace,
     lines,
     missedLeads,
+    operations,
   }
 }

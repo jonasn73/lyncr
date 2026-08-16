@@ -4,6 +4,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import {
+  operationsPaintToUiCalls,
+  readOperationsPaintSeed,
+  writeOperationsPaintSeed,
+  clearOperationsPaintSeed,
+  operationsPaintMatchesOrg,
+} from "@/lib/operations-paint-cache"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -79,6 +88,8 @@ type OperationsCache = {
 }
 
 let operationsCache: OperationsCache | null = null
+/** Active shop id for paint-cookie writes (hook keeps this current). */
+let lastOperationsOrgId: string | null = null
 
 function cacheIsFresh(c: OperationsCache) {
   return Date.now() - c.fetchedAt < CACHE_TTL_MS
@@ -88,27 +99,59 @@ const SESSION_STORAGE_KEY = "zing_operations_v2"
 /** Keep JSON small for sessionStorage quota (~5MB). */
 const SESSION_MAX_CALLS = 80
 
-function writeSessionOperationsCache(c: OperationsCache) {
-  if (typeof window === "undefined") return
+type SessionOperationsPayload = OperationsCache & {
+  /** Shop that owns these rows — reject on mismatch. */
+  organizationId: string | null
+}
+
+function resolveOperationsOrgId(organizationId: string | null = null): string | null {
+  if (organizationId) return organizationId
+  if (lastOperationsOrgId) return lastOperationsOrgId
+  if (typeof window === "undefined") return null
   try {
-    const trimmed: OperationsCache = {
+    // Fallback so Lines prefetch still tags the paint cookie with the active shop.
+    return readActiveOrganizationId()
+  } catch {
+    return null
+  }
+}
+
+function writeSessionOperationsCache(c: OperationsCache, organizationId: string | null = null) {
+  if (typeof window === "undefined") return
+  const orgId = resolveOperationsOrgId(organizationId)
+  try {
+    const trimmed: SessionOperationsPayload = {
       ...c,
       calls: c.calls.slice(0, SESSION_MAX_CALLS),
+      organizationId: orgId,
     }
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(trimmed))
   } catch {
     /* quota / private mode */
   }
+  // Cookie seed so the *next* hard refresh can SSR Activity rows (not gray bars).
+  // Skip overwrite when we still have no shop id but an org-tagged cookie already exists.
+  const existingPaint = readOperationsPaintSeed()
+  if (orgId == null && existingPaint?.organizationId) return
+  writeOperationsPaintSeed(c.calls, c.fetchedAt, orgId)
 }
 
 /** Read last Activity rows from sessionStorage (hard refresh seed). */
-function readSessionOperationsCache(): OperationsCache | null {
+function readSessionOperationsCache(
+  organizationId?: string | null
+): OperationsCache | null {
   if (typeof window === "undefined") return null
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as OperationsCache
+    const parsed = JSON.parse(raw) as SessionOperationsPayload
     if (!parsed || !Array.isArray(parsed.calls)) return null
+    const seedOrg = parsed.organizationId ?? null
+    const wantOrg =
+      organizationId !== undefined ? organizationId : resolveOperationsOrgId(null)
+    // Known shop + different seed shop → treat as missing (no cross-shop flash).
+    if (wantOrg != null && seedOrg != null && seedOrg !== wantOrg) return null
+    if (wantOrg != null && seedOrg == null) return null
     return {
       calls: parsed.calls.map(normalizeUiCallRecord),
       quality: parsed.quality ?? null,
@@ -130,6 +173,8 @@ export function clearOperationsDataCache() {
       /* ignore */
     }
   }
+  // Drop hard-refresh cookie so the next login cannot SSR another shop’s callers.
+  clearOperationsPaintSeed()
 }
 
 /**
@@ -155,12 +200,23 @@ export function initialOperationsLoading(
   return seed == null
 }
 
-/** In-memory cache, else last sessionStorage snapshot (client only). */
+/** In-memory cache, else last sessionStorage / paint cookie snapshot (client only). */
 export function peekOperationsCache(): OperationsCache | null {
+  const wantOrg = resolveOperationsOrgId(null)
   // Prefer the live tab cache so a hidden Activity pane stays warm.
   if (operationsCache) return operationsCache
   // Hard-refresh seed — never read sessionStorage during SSR.
-  return readSessionOperationsCache()
+  const fromSession = readSessionOperationsCache(wantOrg)
+  if (fromSession) return fromSession
+  // Cookie mirror — available on first client tick even when sessionStorage lagged.
+  const fromCookie = readOperationsPaintSeed(wantOrg)
+  if (!fromCookie) return null
+  return {
+    calls: operationsPaintToUiCalls(fromCookie),
+    quality: null,
+    insights: null,
+    fetchedAt: fromCookie.fetchedAt,
+  }
 }
 
 /** Shared fetch used by the hook and dashboard prefetch (Lines tab warms Activity). */
@@ -243,7 +299,7 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
     fetchedAt: Date.now(),
   }
   operationsCache = next
-  writeSessionOperationsCache(next)
+  writeSessionOperationsCache(next, lastOperationsOrgId)
   return next
 }
 
@@ -347,10 +403,35 @@ export type UseOperationsDataOptions = {
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
-  // Session seed via useSessionSeed (#185-safe) — paints last Activity rows on hard refresh.
-  const sessionSeed = useSessionSeed(readSessionOperationsCache, null, "operations-v2")
-  // Memory first, then session hook, then a direct sessionStorage peek (first client paint).
-  const seed = operationsCache ?? sessionSeed ?? peekOperationsCache()
+  // Cookie paint from layout — SSR HTML can already include last Activity rows.
+  const paintSeeds = useDashboardPaintSeeds()
+  // Prefer lines chrome org, else workspace label org (same shop the header shows).
+  const activeOrgId =
+    paintSeeds.lines?.organizationId ??
+    paintSeeds.workspace?.organizationId ??
+    (typeof window !== "undefined" ? readActiveOrganizationId() : null)
+  lastOperationsOrgId = activeOrgId
+  const paintOpsRaw = paintSeeds.operations
+  // Ignore another shop’s cookie so we never flash the wrong callers.
+  const paintOps =
+    paintOpsRaw && operationsPaintMatchesOrg(paintOpsRaw, activeOrgId) ? paintOpsRaw : null
+  // Session seed re-keys when the shop changes so we never re-apply Shop A under Shop B.
+  const sessionSeed = useSessionSeed(
+    () => readSessionOperationsCache(activeOrgId),
+    null,
+    activeOrgId ?? "operations-v2"
+  )
+  // Memory → session → cookie peek → SSR paint cookie (never invent rows).
+  const seedFromPaint =
+    paintOps != null
+      ? {
+          calls: operationsPaintToUiCalls(paintOps),
+          quality: null as VoiceQualitySummary | null,
+          insights: null as VoiceOperationsInsights | null,
+          fetchedAt: paintOps.fetchedAt,
+        }
+      : null
+  const seed = operationsCache ?? sessionSeed ?? peekOperationsCache() ?? seedFromPaint
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
@@ -361,11 +442,41 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
 
+  // When the owner switches shops, drop memory / session / cookie so we do not keep the old list.
+  useLayoutEffect(() => {
+    if (activeOrgId == null) return
+    const cachedCookie = readOperationsPaintSeed()
+    const cookieMismatch =
+      cachedCookie != null && !operationsPaintMatchesOrg(cachedCookie, activeOrgId)
+    // Session key exists but does not match this shop → clear it.
+    let sessionMismatch = false
+    try {
+      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as SessionOperationsPayload
+        const seedOrg = parsed?.organizationId ?? null
+        sessionMismatch = seedOrg !== activeOrgId
+      }
+    } catch {
+      sessionMismatch = false
+    }
+    if (!cookieMismatch && !sessionMismatch) return
+    operationsCache = null
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+    if (cookieMismatch) clearOperationsPaintSeed()
+    setCalls([])
+    setLoading(true)
+  }, [activeOrgId])
+
   // Warm in-memory cache from session once — never write module state during render (#185).
   // useLayoutEffect: apply seed before browser paint so hard refresh is not skeleton → rows.
   useLayoutEffect(() => {
-    // Prefer hook seed; peek sessionStorage if this layout pass still has SSR null.
-    const next = sessionSeed ?? peekOperationsCache()
+    // Prefer hook seed; peek sessionStorage / cookie if this layout pass still has SSR null.
+    const next = sessionSeed ?? peekOperationsCache() ?? seedFromPaint
     if (!next) return
     if (!operationsCache) operationsCache = next
     setCalls((prev) => (prev.length > 0 ? prev : next.calls))
@@ -373,7 +484,9 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     setInsights((prev) => prev ?? next.insights)
     // Seeded rows (including empty "no calls yet"): drop loading so ActivityTableSkeleton cannot mount.
     setLoading(false)
-  }, [sessionSeed])
+    // seedFromPaint is request-stable from cookies; omit identity churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionSeed, activeOrgId])
 
   useEffect(() => {
     if (!enabled) return

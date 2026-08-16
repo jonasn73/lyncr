@@ -52,6 +52,7 @@ describe("operations activity paint", () => {
 
   it("peeks sessionStorage seed without requiring the Activity tab to mount", () => {
     const payload = {
+      organizationId: null as string | null,
       calls: [
         {
           id: "seed-1",
