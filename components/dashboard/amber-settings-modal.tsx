@@ -58,6 +58,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
   const [searching, setSearching] = useState(false)
   const [lines, setLines] = useState<AvailableLine[]>([])
   const [picked, setPicked] = useState<string | null>(null)
+  /** When verified, owner can reopen the code form to switch phones. */
+  const [changeNumberOpen, setChangeNumberOpen] = useState(false)
 
   const orgQs =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
@@ -89,6 +91,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
         if (json.data.suggested_area_code) {
           setAreaCode(json.data.suggested_area_code)
         }
+        // Fresh load while verified → stay on success screen (not the form).
+        if (json.data.owner_mobile_verified) setChangeNumberOpen(false)
       }
     } finally {
       setLoading(false)
@@ -99,6 +103,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
     if (open) {
       setLines([])
       setPicked(null)
+      setChangeNumberOpen(false)
+      setCode("")
       void load()
     }
   }, [open, load])
@@ -185,6 +191,92 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
   }
 
   const sms = status?.sms
+  const verified = Boolean(status?.owner_mobile_verified)
+  const showVerifyForm = Boolean(status?.enabled) && (!verified || changeNumberOpen)
+
+  function renderVerifyForm() {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold">
+          {verified ? "Change personal mobile" : "Verify personal mobile"}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {status?.suggested_mobile_e164 && !verified
+            ? `We filled in your Lyncr alert phone (${formatPhoneDisplay(status.suggested_mobile_e164)}). Tap Text me a code once so Amber only obeys that number.`
+            : "We text a one-time code so only your phone can command Amber — not someone who finds the Amber number."}
+        </p>
+        <Input
+          inputMode="tel"
+          placeholder="+1…"
+          value={mobile}
+          onChange={(e) => setMobile(e.target.value)}
+          disabled={busy}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          disabled={busy || !mobile.trim()}
+          onClick={async () => {
+            const result = await post("verify_start", { mobile })
+            if (result.ok) {
+              const usedFrom =
+                typeof result.data?.used_from === "string"
+                  ? formatPhoneDisplay(result.data.used_from)
+                  : null
+              toast({
+                title: "Code sent",
+                description: usedFrom
+                  ? `Look for a text from ${usedFrom} (usually your business line). Enter the 6-digit code below.`
+                  : "Check your texts — usually from your business line. Enter the 6-digit code below.",
+              })
+            }
+          }}
+        >
+          Text me a code
+        </Button>
+        <Input
+          inputMode="numeric"
+          placeholder="6-digit code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          disabled={busy}
+        />
+        <Button
+          type="button"
+          className="w-full"
+          disabled={busy || !code.trim()}
+          onClick={async () => {
+            const result = await post("verify_confirm", { mobile, code })
+            if (result.ok) {
+              setCode("")
+              setChangeNumberOpen(false)
+              toast({
+                title: "You’re verified",
+                description: "Save Amber as a contact, then text STATUS to try it.",
+              })
+            }
+          }}
+        >
+          Confirm code
+        </Button>
+        {verified && changeNumberOpen ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full text-xs text-muted-foreground"
+            disabled={busy}
+            onClick={() => {
+              setChangeNumberOpen(false)
+              setCode("")
+            }}
+          >
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -211,10 +303,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   ? ` · ${formatPhoneDisplay(status.amber_number)}`
                   : ""}
               </p>
-              {status?.owner_mobile_verified ? (
+              {verified ? (
                 <p className="mt-1 text-[11px] text-emerald-400">
                   Personal mobile verified
-                  {status.owner_mobile_e164
+                  {status?.owner_mobile_e164
                     ? ` · ${formatPhoneDisplay(status.owner_mobile_e164)}`
                     : ""}
                 </p>
@@ -370,7 +462,56 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
               </div>
             ) : null}
 
-            {status?.enabled && status.amber_number ? (
+            {/* After verify: success + next steps (no leftover code form). */}
+            {status?.enabled && verified && !changeNumberOpen && status.amber_number ? (
+              <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+                <div>
+                  <p className="text-xs font-semibold text-emerald-400">You’re set</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Amber will only take commands from{" "}
+                    {status.owner_mobile_e164
+                      ? formatPhoneDisplay(status.owner_mobile_e164)
+                      : "your verified phone"}
+                    .
+                  </p>
+                </div>
+                <ol className="space-y-2.5 text-[11px] text-muted-foreground">
+                  <li className="leading-snug">
+                    <span className="font-semibold text-foreground">1. Save this contact</span>
+                    <br />
+                    On your phone, save{" "}
+                    <span className="font-semibold tabular-nums text-foreground">
+                      {formatPhoneDisplay(status.amber_number)}
+                    </span>{" "}
+                    as{" "}
+                    <span className="font-semibold text-foreground">Amber · Lyncr</span>.
+                  </li>
+                  <li className="leading-snug">
+                    <span className="font-semibold text-foreground">2. Try a command</span>
+                    <br />
+                    Text Amber{" "}
+                    <span className="font-semibold text-foreground">STATUS</span> or{" "}
+                    <span className="font-semibold text-foreground">HELP</span>
+                    . Then use{" "}
+                    <span className="font-semibold text-foreground">BUSY</span> /{" "}
+                    <span className="font-semibold text-foreground">AVAILABLE</span> when
+                    you’re on a job.
+                  </li>
+                </ol>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-auto w-full px-0 py-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  disabled={busy}
+                  onClick={() => setChangeNumberOpen(true)}
+                >
+                  Change verified number
+                </Button>
+              </div>
+            ) : null}
+
+            {/* Before verify: quiet tip to save Amber while finishing setup. */}
+            {status?.enabled && !verified && status.amber_number ? (
               <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
                 <p className="text-xs font-semibold">Save this contact</p>
                 <p className="text-[11px] text-muted-foreground">
@@ -380,70 +521,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
               </div>
             ) : null}
 
-            {status?.enabled ? (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold">Verify personal mobile</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {status.suggested_mobile_e164 && !status.owner_mobile_verified
-                    ? `We filled in your Lyncr alert phone (${formatPhoneDisplay(status.suggested_mobile_e164)}). Tap Text me a code once so Amber only obeys that number.`
-                    : "We text a one-time code so only your phone can command Amber — not someone who finds the Amber number."}
-                </p>
-                <Input
-                  inputMode="tel"
-                  placeholder="+1…"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  disabled={busy}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full"
-                  disabled={busy || !mobile.trim()}
-                  onClick={async () => {
-                    const result = await post("verify_start", { mobile })
-                    if (result.ok) {
-                      const usedFrom =
-                        typeof result.data?.used_from === "string"
-                          ? formatPhoneDisplay(result.data.used_from)
-                          : null
-                      toast({
-                        title: "Code sent",
-                        description: usedFrom
-                          ? `Look for a text from ${usedFrom} (usually your business line). Enter the 6-digit code below.`
-                          : "Check your texts — usually from your business line. Enter the 6-digit code below.",
-                      })
-                    }
-                  }}
-                >
-                  Text me a code
-                </Button>
-                <Input
-                  inputMode="numeric"
-                  placeholder="6-digit code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  disabled={busy}
-                />
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={busy || !code.trim()}
-                  onClick={async () => {
-                    const result = await post("verify_confirm", { mobile, code })
-                    if (result.ok) {
-                      setCode("")
-                      toast({
-                        title: "Phone verified",
-                        description: "You can text Amber: BUSY, AVAILABLE, STATUS, HELP.",
-                      })
-                    }
-                  }}
-                >
-                  Confirm code
-                </Button>
-              </div>
-            ) : null}
+            {showVerifyForm ? renderVerifyForm() : null}
 
             <p className="text-[11px] leading-snug text-muted-foreground">
               Phase 1: Amber can set Busy / Available (and Busy until a time). Customer reply
