@@ -26,10 +26,11 @@ describe("customer portal journey helpers", () => {
     expect(customerPortalStepLabel("review")).toBe("Review")
   })
 
-  it("returns ASAP emergency copy when flagged", () => {
+  it("returns ASAP request copy when flagged", () => {
     const copy = customerPortalBookSuccessCopy({ mode: "callback", asap: true })
-    expect(copy.title.toLowerCase()).toContain("emergency")
+    expect(copy.title.toLowerCase()).toContain("asap")
     expect(copy.body.toLowerCase()).toContain("asap")
+    expect(copy.title.toLowerCase()).not.toContain("emergency")
   })
 
   it("returns callback follow-up copy (we'll call you)", () => {
