@@ -1,5 +1,6 @@
 /**
  * Enable Amber for a shop — buy business-owned control DID + wire workspace.
+ * Owner can pick a specific E.164; otherwise we search by area code (legacy).
  */
 
 import {
@@ -8,6 +9,7 @@ import {
   markPhoneNumberAsAmberControl,
   upsertAmberWorkspace,
 } from "@/lib/amber-db"
+import { ensureAmberOnWorkspaceCampaign } from "@/lib/amber-sms-campaign"
 import { getPhoneNumbers, normalizePhoneNumberE164 } from "@/lib/db"
 import { purchasePhoneNumberForUser } from "@/lib/number-allocation"
 import { getTelnyxApiKey } from "@/lib/telnyx-config"
@@ -51,8 +53,15 @@ export async function enableAmberForWorkspace(params: {
   userId: string
   organizationId: string | null
   timezone?: string
+  /** Owner-picked E.164 from in-app search — preferred over auto-pick. */
+  phoneNumberE164?: string | null
 }): Promise<
-  | { ok: true; amberNumber: string; phoneNumberId: string }
+  | {
+      ok: true
+      amberNumber: string
+      phoneNumberId: string
+      sms: Awaited<ReturnType<typeof ensureAmberOnWorkspaceCampaign>>
+    }
   | { ok: false; error: string; reason?: string }
 > {
   const existing = await getPhoneNumbers(params.userId, params.organizationId)
@@ -72,38 +81,71 @@ export async function enableAmberForWorkspace(params: {
       eventType: "enabled_existing",
       detail: { number: alreadyAmber.number },
     })
-    return { ok: true, amberNumber: alreadyAmber.number, phoneNumberId: alreadyAmber.id }
+    const sms = await ensureAmberOnWorkspaceCampaign({
+      userId: params.userId,
+      organizationId: params.organizationId,
+      amberNumber: alreadyAmber.number,
+    })
+    return {
+      ok: true,
+      amberNumber: alreadyAmber.number,
+      phoneNumberId: alreadyAmber.id,
+      sms,
+    }
   }
 
-  const customerLine = existing.find(
-    (n) =>
-      n.status === "active" &&
-      !n.is_amber_control &&
-      Boolean(n.provider_number_sid?.trim())
-  )
-  const area =
-    (customerLine ? areaCodeFromE164(customerLine.number) : null) ||
-    "502"
+  const picked = params.phoneNumberE164
+    ? normalizePhoneNumberE164(params.phoneNumberE164)
+    : null
 
   let purchased: string | null = null
   let lastError = "No numbers available in that area"
-  for (const code of [area, "502", "212"]) {
-    const candidate = await searchOneLocalNumber(code)
-    if (!candidate) continue
+
+  if (picked) {
     const result = await purchasePhoneNumberForUser(
       params.userId,
-      candidate,
+      picked,
       AMBER_LABEL,
-      candidate,
+      picked,
       params.organizationId
     )
     if (result.ok) {
       purchased = result.phone_number
-      break
+    } else {
+      lastError = result.error
+      if (result.reason === "tier_limit" || result.reason === "insufficient_credit") {
+        return { ok: false, error: result.error, reason: result.reason }
+      }
+      return { ok: false, error: result.error || lastError, reason: result.reason || "carrier_error" }
     }
-    lastError = result.error
-    if (result.reason === "tier_limit" || result.reason === "insufficient_credit") {
-      return { ok: false, error: result.error, reason: result.reason }
+  } else {
+    const customerLine = existing.find(
+      (n) =>
+        n.status === "active" &&
+        !n.is_amber_control &&
+        Boolean(n.provider_number_sid?.trim())
+    )
+    const area =
+      (customerLine ? areaCodeFromE164(customerLine.number) : null) || "502"
+
+    for (const code of [area, "502", "212"]) {
+      const candidate = await searchOneLocalNumber(code)
+      if (!candidate) continue
+      const result = await purchasePhoneNumberForUser(
+        params.userId,
+        candidate,
+        AMBER_LABEL,
+        candidate,
+        params.organizationId
+      )
+      if (result.ok) {
+        purchased = result.phone_number
+        break
+      }
+      lastError = result.error
+      if (result.reason === "tier_limit" || result.reason === "insufficient_credit") {
+        return { ok: false, error: result.error, reason: result.reason }
+      }
     }
   }
 
@@ -132,8 +174,36 @@ export async function enableAmberForWorkspace(params: {
     userId: params.userId,
     organizationId: params.organizationId,
     eventType: "enabled_purchased",
-    detail: { number: purchased },
+    detail: { number: purchased, picked: Boolean(picked) },
   })
 
-  return { ok: true, amberNumber: purchased, phoneNumberId }
+  // Attach to this shop’s approved campaign inside Lyncr (no Telnyx Mission Control).
+  const sms = await ensureAmberOnWorkspaceCampaign({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    amberNumber: purchased,
+  })
+  await insertAmberAuditEvent({
+    userId: params.userId,
+    organizationId: params.organizationId,
+    eventType: "sms_campaign_attach",
+    detail: { number: purchased, sms_state: sms.state, campaign_id: sms.campaign_id },
+  })
+
+  return { ok: true, amberNumber: purchased, phoneNumberId, sms }
+}
+
+/** Suggested area code for the Amber picker (from main business line). */
+export async function suggestAmberAreaCode(params: {
+  userId: string
+  organizationId: string | null
+}): Promise<string> {
+  const existing = await getPhoneNumbers(params.userId, params.organizationId)
+  const customerLine = existing.find(
+    (n) =>
+      n.status === "active" &&
+      !n.is_amber_control &&
+      Boolean(n.provider_number_sid?.trim())
+  )
+  return (customerLine ? areaCodeFromE164(customerLine.number) : null) || "502"
 }

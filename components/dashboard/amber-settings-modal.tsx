@@ -1,6 +1,6 @@
 "use client"
 
-// Settings sheet — turn on Amber, verify personal mobile, save contact tip.
+// Settings sheet — pick Amber number, auto-attach SMS campaign, verify personal mobile.
 
 import { useCallback, useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -17,17 +17,29 @@ import { useToast } from "@/hooks/use-toast"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
+import { cn } from "@/lib/utils"
+
+type AmberSmsView = {
+  state: "ready" | "pending" | "not_assigned" | "no_campaign" | "failed" | "unknown"
+  campaign_id: string | null
+  workspace_campaign_ready: boolean
+  label: string
+  detail: string | null
+}
 
 type AmberStatus = {
   enabled: boolean
   amber_number: string | null
   owner_mobile_e164: string | null
   owner_mobile_verified: boolean
-  /** Lyncr alert/dispatch phone — prefill before Amber verify. */
   suggested_mobile_e164?: string | null
+  suggested_area_code?: string | null
   display_name: string
   promise: string
+  sms?: AmberSmsView | null
 }
+
+type AvailableLine = { number: string; display: string }
 
 type Props = {
   open: boolean
@@ -42,6 +54,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
   const [status, setStatus] = useState<AmberStatus | null>(null)
   const [mobile, setMobile] = useState("")
   const [code, setCode] = useState("")
+  const [areaCode, setAreaCode] = useState("502")
+  const [searching, setSearching] = useState(false)
+  const [lines, setLines] = useState<AvailableLine[]>([])
+  const [picked, setPicked] = useState<string | null>(null)
 
   const orgQs =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
@@ -67,10 +83,12 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
       }
       if (json.data) {
         setStatus(json.data)
-        // Prefer already-verified Amber mobile; else Lyncr’s known alert phone.
         const prefill =
           json.data.owner_mobile_e164 || json.data.suggested_mobile_e164 || ""
         if (prefill) setMobile(prefill)
+        if (json.data.suggested_area_code) {
+          setAreaCode(json.data.suggested_area_code)
+        }
       }
     } finally {
       setLoading(false)
@@ -78,7 +96,11 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
   }, [orgQs, toast])
 
   useEffect(() => {
-    if (open) void load()
+    if (open) {
+      setLines([])
+      setPicked(null)
+      void load()
+    }
   }, [open, load])
 
   async function post(
@@ -117,6 +139,53 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
     }
   }
 
+  async function searchNumbers() {
+    const ac = areaCode.replace(/\D/g, "").slice(0, 3)
+    if (ac.length !== 3) {
+      toast({
+        title: "Enter a 3-digit area code",
+        variant: "destructive",
+      })
+      return
+    }
+    setSearching(true)
+    setPicked(null)
+    try {
+      const res = await fetch(
+        `/api/numbers/telnyx?area_code=${encodeURIComponent(ac)}&type=local&page_size=12`,
+        { credentials: "include" }
+      )
+      const data = (await res.json().catch(() => ({}))) as {
+        numbers?: { number: string }[]
+        error?: string
+      }
+      if (!res.ok) {
+        toast({
+          title: "Could not search numbers",
+          description: data.error || "Try another area code.",
+          variant: "destructive",
+        })
+        setLines([])
+        return
+      }
+      const next = (data.numbers || [])
+        .map((n) => String(n.number || "").trim())
+        .filter(Boolean)
+        .map((number) => ({ number, display: formatPhoneDisplay(number) }))
+      setLines(next)
+      if (next.length === 0) {
+        toast({
+          title: "No numbers in that area",
+          description: "Try a nearby area code.",
+        })
+      }
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const sms = status?.sms
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -149,31 +218,97 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                     ? ` · ${formatPhoneDisplay(status.owner_mobile_e164)}`
                     : ""}
                 </p>
-              ) : (
+              ) : status?.enabled ? (
                 <p className="mt-1 text-[11px] text-amber-400">
                   Verify your personal mobile before Amber will take commands.
                 </p>
-              )}
+              ) : null}
             </div>
 
             {!status?.enabled ? (
-              <Button
-                type="button"
-                className="w-full"
-                disabled={busy}
-                onClick={async () => {
-                  const result = await post("enable")
-                  if (result.ok) {
-                    toast({
-                      title: "Amber number ready",
-                      description:
-                        "This uses one business line slot + carrier credit. Next: verify your personal phone.",
-                    })
-                  }
-                }}
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Turn on Amber (buy private number)"}
-              </Button>
+              <div className="space-y-3 rounded-xl border border-border/60 px-3 py-3">
+                <p className="text-xs font-semibold">Pick Amber’s private number</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Choose an area code, pick a number, then turn Amber on. Lyncr attaches it to
+                  your SMS campaign automatically — you stay in this app.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    inputMode="numeric"
+                    placeholder="Area code"
+                    value={areaCode}
+                    onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                    disabled={busy || searching}
+                    className="w-24"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1"
+                    disabled={busy || searching || areaCode.length !== 3}
+                    onClick={() => void searchNumbers()}
+                  >
+                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Find numbers"}
+                  </Button>
+                </div>
+                {lines.length > 0 ? (
+                  <ul className="max-h-48 space-y-1.5 overflow-y-auto">
+                    {lines.map((line) => (
+                      <li key={line.number}>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setPicked(line.number)}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm tabular-nums transition-colors",
+                            picked === line.number
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border/60 bg-background text-muted-foreground hover:border-border"
+                          )}
+                        >
+                          <span>{line.display}</span>
+                          {picked === line.number ? (
+                            <span className="text-[10px] font-semibold uppercase text-primary">
+                              Selected
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={busy || !picked}
+                  onClick={async () => {
+                    if (!picked) return
+                    const result = await post("enable", { phone_number: picked })
+                    if (result.ok) {
+                      const smsState =
+                        result.data?.sms &&
+                        typeof result.data.sms === "object" &&
+                        result.data.sms !== null &&
+                        "state" in result.data.sms
+                          ? String((result.data.sms as AmberSmsView).state)
+                          : null
+                      toast({
+                        title: "Amber number ready",
+                        description:
+                          smsState === "pending"
+                            ? "Number bought. SMS is activating on your campaign — verify codes still use your business line for now."
+                            : "Uses one business line slot + carrier credit. Next: verify your personal phone.",
+                      })
+                    }
+                  }}
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Turn on Amber with this number"
+                  )}
+                </Button>
+              </div>
             ) : (
               <Button
                 type="button"
@@ -188,6 +323,52 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                 Turn Amber off
               </Button>
             )}
+
+            {status?.enabled && status.amber_number ? (
+              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
+                <p className="text-xs font-semibold">SMS on your Lyncr campaign</p>
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    sms?.state === "ready"
+                      ? "text-emerald-400"
+                      : sms?.state === "pending"
+                        ? "text-amber-400"
+                        : "text-muted-foreground"
+                  )}
+                >
+                  {sms?.label || "Checking…"}
+                </p>
+                {sms?.detail ? (
+                  <p className="text-[11px] text-muted-foreground">{sms.detail}</p>
+                ) : null}
+                {sms?.state === "no_campaign" ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Open Settings → Carrier / SMS registration if you still need to finish
+                    approval. Everything stays in Lyncr.
+                  </p>
+                ) : null}
+                {sms && sms.state !== "ready" && sms.state !== "no_campaign" ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    disabled={busy}
+                    onClick={async () => {
+                      const result = await post("retry_sms_campaign")
+                      if (result.ok) {
+                        toast({
+                          title: "SMS activation refreshed",
+                          description: "Status updates below. Pending can take a little while.",
+                        })
+                      }
+                    }}
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Retry SMS activation"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
 
             {status?.enabled && status.amber_number ? (
               <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">

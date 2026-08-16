@@ -1,5 +1,5 @@
 // GET /api/amber — Amber status for the active shop
-// POST /api/amber — enable (buy control DID) | disable | verify mobile start/confirm
+// POST /api/amber — enable (buy picked DID) | disable | verify | retry_sms_campaign
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -12,9 +12,18 @@ import {
   setAmberEnabled,
   setAmberOwnerMobileVerified,
 } from "@/lib/amber-db"
-import { enableAmberForWorkspace } from "@/lib/amber-enable"
+import { enableAmberForWorkspace, suggestAmberAreaCode } from "@/lib/amber-enable"
+import {
+  ensureAmberOnWorkspaceCampaign,
+  getAmberSmsCampaignView,
+} from "@/lib/amber-sms-campaign"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
-import { getOnboardingProfile, getUser, normalizePhoneNumberE164, isReasonablePstnDialString } from "@/lib/db"
+import {
+  getOnboardingProfile,
+  getUser,
+  normalizePhoneNumberE164,
+  isReasonablePstnDialString,
+} from "@/lib/db"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 
@@ -34,7 +43,28 @@ export async function GET(req: NextRequest) {
     const organizationId = orgFrom(req)
     const row = await getAmberWorkspace({ userId, organizationId })
     // Same personal cell Lyncr already uses for Instant lead / Latest alerts.
-    const [profile, user] = await Promise.all([getOnboardingProfile(userId), getUser(userId)])
+    const [profile, user, suggestedArea] = await Promise.all([
+      getOnboardingProfile(userId),
+      getUser(userId),
+      suggestAmberAreaCode({ userId, organizationId }),
+    ])
+    let sms = await getAmberSmsCampaignView({
+      userId,
+      organizationId,
+      amberNumber: row?.amber_number ?? null,
+    })
+    // Existing Amber lines: attach to the shop campaign automatically (stay in Lyncr).
+    if (
+      row?.enabled &&
+      row.amber_number &&
+      (sms.state === "not_assigned" || sms.state === "failed")
+    ) {
+      sms = await ensureAmberOnWorkspaceCampaign({
+        userId,
+        organizationId,
+        amberNumber: row.amber_number,
+      })
+    }
     const suggestedMobile = resolveLeadAlertSmsRecipient(profile, user)
 
     return NextResponse.json({
@@ -45,10 +75,12 @@ export async function GET(req: NextRequest) {
         owner_mobile_verified: Boolean(row?.owner_mobile_verified_at),
         // Prefill verify field — still requires one code so Amber only obeys that phone.
         suggested_mobile_e164: suggestedMobile,
+        suggested_area_code: suggestedArea,
         presence_available_at: row?.presence_available_at ?? null,
         timezone: row?.timezone ?? "America/New_York",
         display_name: "Amber · Lyncr",
         promise: "Amber is your business assistant by text.",
+        sms,
       },
     })
   } catch (e) {
@@ -75,6 +107,7 @@ export async function POST(req: NextRequest) {
       mobile?: string
       code?: string
       timezone?: string
+      phone_number?: string
     }
     const action = String(body.action || "").trim()
     const organizationId = orgFrom(req, body)
@@ -83,10 +116,17 @@ export async function POST(req: NextRequest) {
       const tz =
         (typeof body.timezone === "string" && body.timezone.trim()) ||
         resolveBrowserTimezone()
+      const phoneNumber = body.phone_number
+        ? normalizePhoneNumberE164(String(body.phone_number))
+        : null
+      if (body.phone_number && !phoneNumber) {
+        return NextResponse.json({ error: "Pick a valid phone number." }, { status: 400 })
+      }
       const result = await enableAmberForWorkspace({
         userId,
         organizationId,
         timezone: tz,
+        phoneNumberE164: phoneNumber,
       })
       if (!result.ok) {
         const status =
@@ -97,10 +137,33 @@ export async function POST(req: NextRequest) {
         data: {
           amber_number: result.amberNumber,
           phone_number_id: result.phoneNumberId,
+          sms: result.sms,
           message:
             "Amber is on. Verify your personal mobile, then save this number as Amber · Lyncr.",
         },
       })
+    }
+
+    if (action === "retry_sms_campaign") {
+      const workspace = await getAmberWorkspace({ userId, organizationId })
+      if (!workspace?.amber_number) {
+        return NextResponse.json(
+          { error: "Turn Amber on and pick a number first." },
+          { status: 400 }
+        )
+      }
+      const sms = await ensureAmberOnWorkspaceCampaign({
+        userId,
+        organizationId,
+        amberNumber: workspace.amber_number,
+      })
+      await insertAmberAuditEvent({
+        userId,
+        organizationId,
+        eventType: "sms_campaign_retry",
+        detail: { number: workspace.amber_number, sms_state: sms.state, campaign_id: sms.campaign_id },
+      })
+      return NextResponse.json({ data: { sms } })
     }
 
     if (action === "disable") {
