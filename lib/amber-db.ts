@@ -412,18 +412,33 @@ export async function createAmberMobileVerification(params: {
       WHERE user_id = ${params.userId}::uuid
         AND mobile_e164 = ${mobile}
     `
-    await sql`
-      INSERT INTO amber_mobile_verifications (
-        user_id, organization_id, mobile_e164, code_hash, expires_at
-      )
-      VALUES (
-        ${params.userId}::uuid,
-        ${params.organizationId}::uuid,
-        ${mobile},
-        ${hashAmberVerifyCode(params.code)},
-        ${expires.toISOString()}::timestamptz
-      )
-    `
+    if (params.organizationId) {
+      await sql`
+        INSERT INTO amber_mobile_verifications (
+          user_id, organization_id, mobile_e164, code_hash, expires_at
+        )
+        VALUES (
+          ${params.userId}::uuid,
+          ${params.organizationId}::uuid,
+          ${mobile},
+          ${hashAmberVerifyCode(params.code)},
+          ${expires.toISOString()}::timestamptz
+        )
+      `
+    } else {
+      await sql`
+        INSERT INTO amber_mobile_verifications (
+          user_id, organization_id, mobile_e164, code_hash, expires_at
+        )
+        VALUES (
+          ${params.userId}::uuid,
+          NULL,
+          ${mobile},
+          ${hashAmberVerifyCode(params.code)},
+          ${expires.toISOString()}::timestamptz
+        )
+      `
+    }
     return { expiresAt: expires.toISOString() }
   } catch (e) {
     if (isMissingAmberRelation(e)) throw amberMigrationError()

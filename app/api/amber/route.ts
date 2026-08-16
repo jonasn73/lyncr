@@ -13,9 +13,9 @@ import {
   setAmberOwnerMobileVerified,
 } from "@/lib/amber-db"
 import { enableAmberForWorkspace } from "@/lib/amber-enable"
+import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
 import { getOnboardingProfile, getUser, normalizePhoneNumberE164, isReasonablePstnDialString } from "@/lib/db"
 import { resolveLeadAlertSmsRecipient } from "@/lib/lead-sms-recipient"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 
 function orgFrom(req: NextRequest, body?: { organization_id?: string }): string | null {
@@ -133,21 +133,29 @@ export async function POST(req: NextRequest) {
         mobileE164: mobile,
         code,
       })
-      // Send code FROM Amber number so the owner starts the Amber thread.
-      const sent = await sendTelnyxSms({
-        toE164: mobile,
-        fromE164: workspace.amber_number,
-        text: `Amber · Lyncr code: ${code}. Enter this in Settings to verify your phone. Customers never see this Amber number.`,
+      const sent = await sendAmberOwnerSms({
         userId,
+        organizationId,
+        amberNumber: workspace.amber_number,
+        toOwnerMobile: mobile,
+        text: `Amber · Lyncr code: ${code}. Enter this in Settings to verify your phone.`,
       })
       if (!sent.ok) {
         return NextResponse.json(
-          { error: sent.error || "Could not send verification text." },
+          {
+            error:
+              sent.error ||
+              "Could not send verification text. Check carrier SMS registration, then try again.",
+          },
           { status: 502 }
         )
       }
       return NextResponse.json({
-        data: { sent: true, mobile },
+        data: {
+          sent: true,
+          mobile,
+          used_from: sent.used_from ?? null,
+        },
       })
     }
 
@@ -170,11 +178,12 @@ export async function POST(req: NextRequest) {
       })
       const workspace = await getAmberWorkspace({ userId, organizationId })
       if (workspace?.amber_number) {
-        await sendTelnyxSms({
-          toE164: mobile,
-          fromE164: workspace.amber_number,
-          text: "Amber is your business assistant by text. Save this contact as Amber · Lyncr. Reply HELP for commands.",
+        await sendAmberOwnerSms({
           userId,
+          organizationId,
+          amberNumber: workspace.amber_number,
+          toOwnerMobile: mobile,
+          text: "Amber is your business assistant by text. Save the Amber number shown in Settings as Amber · Lyncr. Reply HELP for commands.",
         })
       }
       return NextResponse.json({ data: { verified: true, mobile } })

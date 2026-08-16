@@ -14,8 +14,8 @@ import {
   setAmberPresenceAvailableAt,
   type AmberWorkspaceRow,
 } from "@/lib/amber-db"
+import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
 import { normalizePhoneNumberE164 } from "@/lib/db"
-import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
 function phonesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
   const x = normalizePhoneNumberE164(a || "")
@@ -42,13 +42,12 @@ async function replyFromAmber(params: {
   toOwnerMobile: string
   text: string
 }): Promise<void> {
-  const from = params.amber.amber_number
-  if (!from) return
-  const sent = await sendTelnyxSms({
-    toE164: params.toOwnerMobile,
-    fromE164: from,
-    text: params.text,
+  const sent = await sendAmberOwnerSms({
     userId: params.amber.user_id,
+    organizationId: params.amber.organization_id,
+    amberNumber: params.amber.amber_number,
+    toOwnerMobile: params.toOwnerMobile,
+    text: params.text,
   })
   if (!sent.ok) {
     console.warn(`[amber] reply failed: ${sent.error}`)

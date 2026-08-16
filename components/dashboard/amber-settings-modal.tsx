@@ -218,7 +218,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                     if (ok) {
                       toast({
                         title: "Code sent",
-                        description: "Check your texts from Amber for the 6-digit code.",
+                        description:
+                          "Check your texts — it may come from Amber or your business line. Enter the 6-digit code below.",
                       })
                     }
                   }}
