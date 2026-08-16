@@ -186,7 +186,7 @@ export function JobMoneyRail({
     } catch {
       toast({
         title: "Deposit link failed",
-        description: "Check Stripe Get paid setup, then try again.",
+        description: "Check bank setup in Money, then try again.",
         variant: "destructive",
       })
     } finally {

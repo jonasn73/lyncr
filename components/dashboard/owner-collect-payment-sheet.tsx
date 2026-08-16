@@ -1652,7 +1652,7 @@ export function OwnerCollectPaymentSheet({
                               ? "Charge"
                               : listTab === "history"
                                 ? "Payment history"
-                                : "Collect"}
+                                : "Collect from customer"}
                   </SheetTitle>
                 )}
                 {mode !== "receipt" && mode !== "link_sent" ? (
@@ -1759,7 +1759,7 @@ export function OwnerCollectPaymentSheet({
                     }}
                     className="font-semibold text-emerald-300 underline-offset-2 hover:underline"
                   >
-                    Get paid
+                    Bank &amp; payouts
                   </button>
                   .
                 </p>
@@ -1921,21 +1921,21 @@ export function OwnerCollectPaymentSheet({
               <>
                 {connectReady === false ? (
                   <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-amber-50">Finish Get paid to accept cards</p>
+                    <p className="text-sm font-semibold text-amber-50">Finish bank setup to accept cards</p>
                     <p className="mt-1 text-xs leading-snug text-amber-100/80">
                       {connectMessage ||
-                        "Set up your bank in Lyncr so customers pay your business and funds go to your account."}
+                        "Connect your bank once so customers pay your business and funds go to your account."}
                     </p>
                     <button
                       type="button"
                       onClick={() => {
                         onOpenChange(false)
-                        // Let Collect close, then open Get paid above anything else.
+                        // Let Collect close, then open bank setup above anything else.
                         window.setTimeout(() => openGetPaidModal(), 50)
                       }}
                       className="mt-2.5 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
                     >
-                      Open Get paid
+                      Open bank setup
                     </button>
                   </div>
                 ) : null}
@@ -1944,8 +1944,8 @@ export function OwnerCollectPaymentSheet({
                   onClick={() => {
                     if (connectReady === false) {
                       toast({
-                        title: "Get paid required",
-                        description: "Finish payout setup before collecting card payments.",
+                        title: "Bank setup required",
+                        description: "Finish bank setup before collecting card payments.",
                         variant: "destructive",
                       })
                       window.setTimeout(() => openGetPaidModal(), 50)
@@ -2001,8 +2001,8 @@ export function OwnerCollectPaymentSheet({
                             onClick={() => {
                               if (connectReady === false && !(link && (link.paymentStatus === "paid" || link.walletSettled))) {
                                 toast({
-                                  title: "Get paid required",
-                                  description: "Finish payout setup before collecting card payments.",
+                                  title: "Bank setup required",
+                                  description: "Finish bank setup before collecting card payments.",
                                   variant: "destructive",
                                 })
                                 window.setTimeout(() => openGetPaidModal(), 50)
@@ -2096,7 +2096,7 @@ export function OwnerCollectPaymentSheet({
                   <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
                     <p className="text-sm font-semibold text-rose-300">Card form not ready</p>
                     <p className="text-xs text-rose-100/80">
-                      Finish Get paid in Settings, then try Card again.
+                      Finish bank setup, then try Card again.
                     </p>
                     <button
                       type="button"

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   if (user.account_role === "field_tech") {
     return NextResponse.json(
-      { error: "Ask the business owner to finish Get paid in Settings." },
+      { error: "Ask the business owner to finish bank setup in Money." },
       { status: 403 }
     )
   }

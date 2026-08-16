@@ -4,6 +4,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, Suspense } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { ChevronDown, ChevronRight, CreditCard, Landmark, LifeBuoy, Loader2, LogOut, Receipt } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -471,7 +472,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
             chipAmountLabel && chipDisplay
-              ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money.`
+              ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money — Collect, bank, or Lyncr bill.`
               : "Wallet — loading balance"
           }
           title={
@@ -538,7 +539,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
             <p className="text-xs text-slate-500">
-              Wallet, charges, and bank — all in one place.
+              Collect = charge customers. Bank = your payouts. Lyncr bill = your subscription.
             </p>
           </SheetHeader>
 
@@ -597,7 +598,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   }}
                   className="mt-3 h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
                 >
-                  Set up bank
+                  Set up bank for payouts
                 </Button>
               ) : null}
               {bankTransfers.length > 0 ? (
@@ -634,7 +635,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   className="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-200/80 hover:text-emerald-100"
                 >
                   <Landmark className="h-3.5 w-3.5" aria-hidden />
-                  Bank account
+                  Bank &amp; payouts
                 </button>
               ) : null}
             </div>
@@ -681,15 +682,15 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />
             </button>
 
-            {/* Collect is the main “get paid” action — full width so it is obvious on a phone. */}
+            {/* Collect = charge the customer (not Lyncr bill, not bank setup). */}
             <Button
               type="button"
               onClick={openCollect}
               className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-2.5 text-white hover:bg-emerald-500"
             >
-              <span className="text-sm font-semibold">Collect</span>
+              <span className="text-sm font-semibold">Collect from customer</span>
               <span className="text-[11px] font-medium text-emerald-50/85">
-                Card, tap, or text a pay link
+                Charge a job — card, tap, or pay link
               </span>
             </Button>
             {/* Invoices = outside-Lyncr records (Venmo/cash), not card charging. */}
@@ -699,11 +700,21 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               variant="outline"
               className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-950/50 px-4 py-2 text-slate-100 hover:bg-zinc-900 hover:text-white"
             >
-              <span className="text-sm font-semibold">Invoices</span>
+              <span className="text-sm font-semibold">Outside payments</span>
               <span className="text-[11px] font-medium text-slate-400">
-                Already paid outside Lyncr (Venmo, cash)
+                Record Venmo / cash already paid
               </span>
             </Button>
+            <Link
+              href="/dashboard/pay"
+              onClick={() => setMoneyOpen(false)}
+              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-center hover:border-zinc-600 hover:bg-zinc-900/70"
+            >
+              <span className="text-sm font-semibold text-slate-200">Lyncr bill</span>
+              <span className="text-[11px] font-medium text-slate-500">
+                Your app subscription — not customer charges
+              </span>
+            </Link>
           </div>
         </SheetContent>
       </Sheet>
@@ -740,7 +751,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
                 <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
                   <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
-                  Opening Get paid…
+                  Opening bank setup…
                 </div>
               </div>
             ) : null

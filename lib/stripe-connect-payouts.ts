@@ -52,11 +52,11 @@ export async function resolveOwnerConnectAccount(userId: string): Promise<{
   const user = await getUser(userId)
   if (!user) throw new Error("Not authenticated")
   if (user.account_role === "field_tech") {
-    throw new Error("Ask the business owner to transfer funds from Get paid.")
+    throw new Error("Ask the business owner to transfer funds from Bank & payouts.")
   }
   const state = await getConnectReadyState(userId)
   if (!state.accountId) {
-    throw new Error("Finish Get paid setup before transferring to your bank.")
+    throw new Error("Finish bank setup before transferring to your bank.")
   }
   return {
     accountId: state.accountId,
@@ -87,7 +87,7 @@ export async function createConnectPayout(params: {
   const { accountId, payoutsEnabled } = await resolveOwnerConnectAccount(params.userId)
   if (!payoutsEnabled) {
     throw new Error(
-      "Bank payouts are not enabled yet. Finish Get paid setup, or wait for Stripe to approve payouts."
+      "Bank payouts are not enabled yet. Finish bank setup, or wait for Stripe to approve payouts."
     )
   }
 

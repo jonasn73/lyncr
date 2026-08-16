@@ -272,7 +272,10 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       <Suspense fallback={null}>
         <PayCreditCheckoutBridge refreshBilling={refreshBilling} />
       </Suspense>
-      <WorkspacePageHeader eyebrow="Billing" title="Your Lyncr bill" />
+      <WorkspacePageHeader eyebrow="Lyncr bill" title="Your Lyncr subscription" />
+      <p className="text-sm text-muted-foreground">
+        This is what you pay Lyncr for the app — not customer Collect charges.
+      </p>
 
       {loadError ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

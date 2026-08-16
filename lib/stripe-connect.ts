@@ -11,7 +11,7 @@ import {
 } from "@/lib/db"
 
 export const CONNECT_NOT_READY_MESSAGE =
-  "Finish Get paid in Settings before accepting card payments. Customers pay your business — funds go to your bank."
+  "Finish bank setup before accepting card payments. Customers pay your business — funds go to your bank."
 
 /** Lyncr platform fee: 2.9% + $0.30 (overridable via env). */
 export function computeLyncrApplicationFeeCents(chargeCents: number): number {
