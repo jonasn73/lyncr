@@ -10,8 +10,10 @@ import {
   ClipboardList,
   Clock,
   MapPin,
+  MessageSquare,
   Phone,
   PhoneMissed,
+  UserRound,
 } from "lucide-react"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
@@ -854,6 +856,27 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               {isMissedLog ? "Add missed-call note" : "Log purpose & outcome"}
             </button>
           ) : null}
+          {/* Primary next step: CRM (+ Text) — then Call back / Book as secondary. */}
+          {canText || customerPhone ? (
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
+                className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-teal-500/45 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/60 hover:bg-teal-500/25 active:scale-[0.98]"
+              >
+                <UserRound className="h-4 w-4 shrink-0" aria-hidden />
+                Continue in CRM
+              </Link>
+              {canText ? (
+                <Link
+                  href={messagesHref}
+                  className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-sky-400/55 hover:bg-sky-500/20 active:scale-[0.98]"
+                >
+                  <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+                  Text
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           {showCallBack ? (
             <div className="flex flex-wrap gap-2">
               <CallBackButton
@@ -998,7 +1021,7 @@ function CallerNameWithCount({
   )
 }
 
-/** Shared Call / book / CRM strip — used once at group level when a day-group is expanded. */
+/** Shared next-step strip — CRM primary, Text + Call back + Book secondary. */
 function ActivityGroupActionBar({
   call,
   className,
@@ -1010,38 +1033,70 @@ function ActivityGroupActionBar({
   const st = classifyCall(call)
   const missed = isMissedActivityStatus(st)
   const hold = isHoldActivityStatus(st) || st === "hold_press1"
+  const rawPhone = call.callerNumber?.trim() || ""
+  const hasPhone = Boolean(rawPhone && rawPhone !== "—")
+  const phoneForLink = hasPhone ? toE164(rawPhone) || rawPhone : ""
+  const canText =
+    hasPhone && (Boolean(toE164(rawPhone)) || rawPhone.replace(/\D/g, "").length >= 10)
+  const crmHref = hasPhone
+    ? `/dashboard/customers?phone=${encodeURIComponent(phoneForLink)}`
+    : null
+  const messagesHref = canText
+    ? `/dashboard/messages?phone=${encodeURIComponent(rawPhone)}`
+    : null
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
-      {canCallBack(call) ? (
-        <CallBackButton
-          phone={call.callerNumber}
-          compact
-          className="!h-8 min-w-0 flex-1"
-          openIntakeDraft={needsRevenueRescue(call) || hold}
-          intakeCall={call}
-          missed={missed}
-          hold={hold && !missed}
-        />
-      ) : null}
-      <SendBookLinkButton
-        phone={call.callerNumber}
-        callerName={call.callerName}
-        businessLine={call.targetLineE164}
-        callLogId={call.id}
-        compact
-        className={cn("!h-8 !min-h-0", canCallBack(call) ? "min-w-0 flex-1" : "w-full")}
-      />
-      {call.callerNumber && call.callerNumber !== "—" ? (
+    <div className={cn("space-y-1.5", className)}>
+      {/* Primary: land in CRM where Book / Message / Collect already live. */}
+      {crmHref ? (
         <Link
-          href={`/dashboard/customers?phone=${encodeURIComponent(toE164(call.callerNumber) || call.callerNumber)}`}
+          href={crmHref}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-900/60 px-2.5 text-[11px] font-semibold text-zinc-300 hover:border-zinc-500"
-          aria-label="Open CRM"
-          title="CRM"
+          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/45 bg-teal-500/15 px-3 text-[12px] font-semibold text-teal-50 hover:border-teal-400/60 hover:bg-teal-500/25"
+          aria-label="Continue in CRM"
+          title="Continue in CRM"
         >
-          CRM
+          <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Continue in CRM
         </Link>
       ) : null}
+      {/* Secondary moves — same tools as before, quieter under the CRM path. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {messagesHref ? (
+          <Link
+            href={messagesHref}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-8 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-sky-500/35 bg-sky-500/10 px-2.5 text-[11px] font-semibold text-sky-100 hover:border-sky-400/50 hover:bg-sky-500/20"
+            aria-label="Text in Messages"
+            title="Text"
+          >
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Text
+          </Link>
+        ) : null}
+        {canCallBack(call) ? (
+          <CallBackButton
+            phone={call.callerNumber}
+            compact
+            className="!h-8 min-w-0 flex-1"
+            openIntakeDraft={needsRevenueRescue(call) || hold}
+            intakeCall={call}
+            missed={missed}
+            hold={hold && !missed}
+          />
+        ) : null}
+        <SendBookLinkButton
+          phone={call.callerNumber}
+          callerName={call.callerName}
+          businessLine={call.targetLineE164}
+          callLogId={call.id}
+          compact
+          className={cn(
+            "!h-8 !min-h-0 min-w-0 flex-1",
+            !canCallBack(call) && !messagesHref ? "w-full" : undefined
+          )}
+        />
+      </div>
     </div>
   )
 }
@@ -1502,9 +1557,12 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       <WorkspaceTd colSpan={8} className="!px-3 !py-3">
                         <div className="space-y-2">
                           {multi ? (
-                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
-                              Calls today · tap a row for details
-                            </p>
+                            <>
+                              <ActivityGroupActionBar call={call} className="max-w-xl" />
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                                Calls today · tap a row for details
+                              </p>
+                            </>
                           ) : null}
                           <div
                             className={cn(
