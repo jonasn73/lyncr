@@ -1,11 +1,18 @@
-// Track which Latest attention items the owner already opened (localStorage).
+// Track which Latest attention items the owner already opened (localStorage + paint cookie).
 // Read replies leave Latest until a newer inbound arrives.
 // Book-form + payment rows leave Latest once opened (detail / View booking / View).
+// Paint cookie mirrors stamps so SSR first paint matches Clear/open (no flash).
 
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
+import {
+  mergeSeenMaps,
+  readLatestSeenPaintCookie,
+  writeLatestSeenPaintCookie,
+  type LatestSeenPaint,
+} from "@/lib/latest-seen-paint"
 
 const REPLY_STORAGE_KEY = "lyncr-latest-reply-seen-v1"
-/** Stable Latest row ids (book_form / customer_paid) the owner already opened. */
+/** Stable Latest row ids (book_form / customer_paid / Clear) the owner already opened. */
 const ITEM_STORAGE_KEY = "lyncr-latest-item-seen-v1"
 
 /** Same-tab signal so Latest can drop a row without waiting for the next poll. */
@@ -31,6 +38,26 @@ function readMap(storageKey: string): SeenMap {
   }
 }
 
+/** Push localStorage seen maps into the paint cookie for the next SSR. */
+function syncSeenPaintCookie() {
+  if (typeof document === "undefined") return
+  const fromLs: LatestSeenPaint = {
+    replies: readMap(REPLY_STORAGE_KEY),
+    items: readMap(ITEM_STORAGE_KEY),
+  }
+  // Merge so a briefly stale localStorage cannot wipe a newer cookie stamp.
+  const fromCookie = readLatestSeenPaintCookie()
+  writeLatestSeenPaintCookie({
+    replies: mergeSeenMaps(fromCookie.replies, fromLs.replies),
+    items: mergeSeenMaps(fromCookie.items, fromLs.items),
+  })
+}
+
+/** Call once on Lines mount — older Clear stamps may only live in localStorage. */
+export function ensureLatestSeenPaintCookieSynced(): void {
+  syncSeenPaintCookie()
+}
+
 function writeMap(storageKey: string, map: SeenMap) {
   if (typeof localStorage === "undefined") return
   try {
@@ -43,6 +70,7 @@ function writeMap(storageKey: string, map: SeenMap) {
   } catch {
     /* ignore quota / private mode */
   }
+  syncSeenPaintCookie()
 }
 
 function notifySeenChanged(detail: { phoneKey?: string; itemId?: string }) {
@@ -54,11 +82,34 @@ function notifySeenChanged(detail: { phoneKey?: string; itemId?: string }) {
   }
 }
 
+/**
+ * Merge paint-cookie + localStorage seen maps (newer stamp wins).
+ * SSR passes paint only; browser merges both so Clear never flashes back.
+ */
+export function resolveLatestSeenPaint(
+  paint?: LatestSeenPaint | null
+): LatestSeenPaint {
+  const fromPaint = paint ?? { replies: {}, items: {} }
+  if (typeof localStorage === "undefined") {
+    return {
+      replies: { ...fromPaint.replies },
+      items: { ...fromPaint.items },
+    }
+  }
+  return {
+    replies: mergeSeenMaps(fromPaint.replies, readMap(REPLY_STORAGE_KEY)),
+    items: mergeSeenMaps(fromPaint.items, readMap(ITEM_STORAGE_KEY)),
+  }
+}
+
 /** When the owner last opened this phone’s Latest detail or Messages thread. */
-export function getLatestReplySeenAt(phone: string): string | null {
+export function getLatestReplySeenAt(
+  phone: string,
+  paint?: LatestSeenPaint | null
+): string | null {
   const key = latestPhoneKey(phone)
   if (key.length < 10) return null
-  return readMap(REPLY_STORAGE_KEY)[key] ?? null
+  return resolveLatestSeenPaint(paint).replies[key] ?? null
 }
 
 /** Mark a customer phone as seen (opens detail sheet or Messages). */
@@ -69,7 +120,7 @@ export function markLatestReplySeen(phone: string, at = new Date().toISOString()
   const prev = map[key]
   // Only move forward — never un-see a newer stamp with an older one.
   if (prev && (Date.parse(prev) || 0) >= (Date.parse(at) || 0)) {
-    // Still notify so Latest can drop a row that was already stamped.
+    syncSeenPaintCookie()
     notifySeenChanged({ phoneKey: key })
     return
   }
@@ -82,10 +133,14 @@ export function markLatestReplySeen(phone: string, at = new Date().toISOString()
  * True when there is a newer inbound reply than the last time the owner opened it.
  * Used to keep “Customer replied” rows in Latest only while unread.
  */
-export function isLatestReplyUnread(phone: string, inboundAt: string): boolean {
+export function isLatestReplyUnread(
+  phone: string,
+  inboundAt: string,
+  paint?: LatestSeenPaint | null
+): boolean {
   const inboundMs = Date.parse(inboundAt) || 0
   if (!inboundMs) return true
-  const seen = getLatestReplySeenAt(phone)
+  const seen = getLatestReplySeenAt(phone, paint)
   if (!seen) return true
   return inboundMs > (Date.parse(seen) || 0)
 }
@@ -104,10 +159,13 @@ export function isDismissOnOpenLatestEvent(
 }
 
 /** When the owner last opened this Latest row (book form / payment). */
-export function getLatestItemSeenAt(itemId: string): string | null {
+export function getLatestItemSeenAt(
+  itemId: string,
+  paint?: LatestSeenPaint | null
+): string | null {
   const id = itemId.trim()
   if (!id) return null
-  return readMap(ITEM_STORAGE_KEY)[id] ?? null
+  return resolveLatestSeenPaint(paint).items[id] ?? null
 }
 
 /**
@@ -120,6 +178,7 @@ export function markLatestItemSeen(itemId: string, at = new Date().toISOString()
   const map = readMap(ITEM_STORAGE_KEY)
   const prev = map[id]
   if (prev && (Date.parse(prev) || 0) >= (Date.parse(at) || 0)) {
+    syncSeenPaintCookie()
     notifySeenChanged({ itemId: id })
     return
   }
@@ -129,8 +188,11 @@ export function markLatestItemSeen(itemId: string, at = new Date().toISOString()
 }
 
 /** True until the owner opens this book-form / payment Latest row. */
-export function isLatestItemUnread(itemId: string): boolean {
-  return !getLatestItemSeenAt(itemId)
+export function isLatestItemUnread(
+  itemId: string,
+  paint?: LatestSeenPaint | null
+): boolean {
+  return !getLatestItemSeenAt(itemId, paint)
 }
 
 /**
@@ -138,18 +200,22 @@ export function isLatestItemUnread(itemId: string): boolean {
  * - customer replies (until a newer inbound)
  * - book_form / customer_paid (until a new submit / payment id)
  * - job_finished / paid+thanks (until Clear, or Thanks is sent and the API stops returning them)
+ *
+ * Pass `paint` on SSR so dismissed rows never paint in the first HTML.
  */
 export function excludeReadRepliesFromLatest(
-  items: LatestCustomerAction[]
+  items: LatestCustomerAction[],
+  paint?: LatestSeenPaint | null
 ): LatestCustomerAction[] {
+  const seen = resolveLatestSeenPaint(paint)
   return items.filter((item) => {
     if (item.event === "replied") {
       const inboundAt = item.lastInbound?.created_at
       if (!inboundAt) return true
-      return isLatestReplyUnread(item.customerPhone, inboundAt)
+      return isLatestReplyUnread(item.customerPhone, inboundAt, seen)
     }
-    // Opened (book/paid) or Cleared (any non-reply) — row id stamped in localStorage.
-    if (item.id && !isLatestItemUnread(item.id)) return false
+    // Opened (book/paid) or Cleared (any non-reply) — row id stamped.
+    if (item.id && !isLatestItemUnread(item.id, seen)) return false
     return true
   })
 }

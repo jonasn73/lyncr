@@ -146,7 +146,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
   const { activeOrganizationId } = useDashboardWorkspace()
   const inbound = useInboundCallPanelOptional()
   // Shared cache + fetch — both CSS layout twins reuse one request / last paint.
-  const { items: rawItems, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
+  const { items: rawItems, loading, refresh: load, setItems } = useOwnerLatest(activeOrganizationId)
   const [selected, setSelected] = useState<LatestCustomerAction | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   /** Job ids whose last Thanks+review send failed — show Retry on the row. */
@@ -531,9 +531,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     }
   }, [])
 
-  // Empty → hide the whole Alerts block (no empty “Recent activity” chrome).
-  // Keep the detail sheet if they just opened the last remaining alert.
-  if (items.length === 0 && !selected) return null
+  // Empty → hide Alerts (no empty chrome). While first load is still unknown, reserve
+  // one-card height so Available / Caller ID do not jump when rows arrive.
+  if (items.length === 0 && !selected) {
+    if (loading) {
+      return (
+        <div className="mt-3 w-full text-left" aria-hidden>
+          <div className="mb-2 h-5 w-14 rounded bg-muted/25" />
+          <div className="h-[4.75rem] rounded-xl border border-border/50 bg-muted/10" />
+        </div>
+      )
+    }
+    return null
+  }
 
   return (
     <>
@@ -738,6 +748,8 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                       onClick={(e) => {
                         e.stopPropagation()
                         dismissLatestAlert(item)
+                        // Drop from live list + rewrite paint cookie (same as open/seen).
+                        setItems((prev) => prev.filter((row) => row.id !== item.id))
                         setSeenTick((n) => n + 1)
                         if (selected?.id === item.id) setSelected(null)
                       }}

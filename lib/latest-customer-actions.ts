@@ -523,3 +523,26 @@ export function isHotLatestAction(
     item.event === "book_form"
   )
 }
+
+/**
+ * Drop paint/session Latest rows that are past the same age caps as the live feed.
+ * Stops “2d ago” alerts flashing after refresh when the unreplied window shrank.
+ */
+export function isFreshLatestPaintItem(
+  item: LatestCustomerAction,
+  nowMs = Date.now()
+): boolean {
+  const atMs = Date.parse(item.at) || 0
+  if (!atMs) return true
+  if (item.event === "replied") {
+    return atMs >= nowMs - LATEST_INBOUND_MAX_AGE_HOURS * 60 * 60 * 1000
+  }
+  if (item.event === "customer_paid") {
+    return atMs >= nowMs - LATEST_PAID_MAX_AGE_HOURS * 60 * 60 * 1000
+  }
+  if (item.event === "book_form") {
+    return atMs >= nowMs - LATEST_BOOK_FORM_MAX_AGE_HOURS * 60 * 60 * 1000
+  }
+  // job_finished is day-scoped by the API — keep paint rows until Clear / send.
+  return true
+}

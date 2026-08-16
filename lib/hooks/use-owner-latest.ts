@@ -16,6 +16,7 @@ import {
 } from "@/lib/owner-latest-cache"
 import {
   excludeReadRepliesFromLatest,
+  ensureLatestSeenPaintCookieSynced,
   LATEST_SEEN_CHANGED_EVENT,
 } from "@/lib/latest-seen"
 import { refreshHeaderMoney } from "@/lib/settings-modals-events"
@@ -139,6 +140,11 @@ export function useOwnerLatest(activeOrganizationId: string | null | undefined) 
   // First successful fetch only seeds “seen” ids — later fetches can toast new payments / book forms.
   const primedPaidToastRef = useRef(false)
   const primedBookToastRef = useRef(false)
+
+  // Promote legacy localStorage Clear/open stamps into the paint cookie (next refresh).
+  useEffect(() => {
+    ensureLatestSeenPaintCookieSynced()
+  }, [])
 
   useEffect(() => {
     if (items.length > 0) setLoading(false)

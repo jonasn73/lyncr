@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildLatestCustomerActions,
   classifyOutboundSmsKind,
+  isFreshLatestPaintItem,
   isHotLatestAction,
 } from "@/lib/latest-customer-actions"
 import type { SmsMessage } from "@/lib/types"
@@ -216,6 +217,52 @@ describe("buildLatestCustomerActions", () => {
     expect(isHotLatestAction({ event: "replied" } as never)).toBe(true)
     expect(isHotLatestAction({ event: "customer_paid" } as never)).toBe(true)
     expect(isHotLatestAction({ event: "book_form" } as never)).toBe(true)
+  })
+
+  it("isFreshLatestPaintItem drops unreplied inbound older than 24h", () => {
+    const now = Date.parse("2026-08-16T20:00:00.000Z")
+    expect(
+      isFreshLatestPaintItem(
+        {
+          id: "r-old",
+          customerPhone: "+15551110001",
+          customerName: "Old",
+          event: "replied",
+          kind: "other",
+          headline: "Old replied",
+          statusLine: "Needs reply",
+          preview: "hi",
+          at: "2026-08-14T20:00:00.000Z",
+          deliveryLabel: null,
+          reviewLinkOpened: false,
+          reviewLinkClicks: 0,
+          lastOutbound: null,
+          lastInbound: null,
+        },
+        now
+      )
+    ).toBe(false)
+    expect(
+      isFreshLatestPaintItem(
+        {
+          id: "r-new",
+          customerPhone: "+15551110001",
+          customerName: "New",
+          event: "replied",
+          kind: "other",
+          headline: "New replied",
+          statusLine: "Needs reply",
+          preview: "hi",
+          at: "2026-08-16T10:00:00.000Z",
+          deliveryLabel: null,
+          reviewLinkOpened: false,
+          reviewLinkClicks: 0,
+          lastOutbound: null,
+          lastInbound: null,
+        },
+        now
+      )
+    ).toBe(true)
   })
 
   it("surfaces book_form ASAP submits", () => {

@@ -3,9 +3,18 @@
  */
 
 import {
+  isFreshLatestPaintItem,
   isHotLatestAction,
   type LatestCustomerAction,
 } from "@/lib/latest-customer-actions"
+import {
+  excludeReadRepliesFromLatest,
+} from "@/lib/latest-seen"
+import {
+  readLatestSeenPaintCookie,
+  readLatestSeenPaintFromCookieRaw,
+  type LatestSeenPaint,
+} from "@/lib/latest-seen-paint"
 import {
   paintSeedCookieName,
   readPaintSeedCookie,
@@ -37,9 +46,17 @@ function cacheKey(organizationId: string | null | undefined): string {
   return persistedCacheKey("owner-latest", orgCacheId(organizationId))
 }
 
-function sanitizeItems(items: unknown): LatestCustomerAction[] {
+/**
+ * Hot-only + age caps + Clear/open filter — same list SSR and client should paint.
+ */
+export function sanitizeLatestItems(
+  items: unknown,
+  seenPaint?: LatestSeenPaint | null,
+  nowMs = Date.now()
+): LatestCustomerAction[] {
   if (!Array.isArray(items)) return []
-  return items.filter(isHotLatestAction)
+  const hot = items.filter(isHotLatestAction).filter((row) => isFreshLatestPaintItem(row, nowMs))
+  return excludeReadRepliesFromLatest(hot, seenPaint ?? null)
 }
 
 export const EMPTY_LATEST: LatestCustomerAction[] = []
@@ -74,18 +91,23 @@ export function hasLatestSeed(
  */
 export function readLatestCache(
   organizationId: string | null | undefined,
-  paint?: LatestPaintSeed | null
+  paint?: LatestPaintSeed | null,
+  seenPaint?: LatestSeenPaint | null
 ): LatestCustomerAction[] {
   const want = orgCacheId(organizationId)
+  // Browser: merge cookie + localStorage. SSR: caller passes cookie-only seen paint.
+  const seen =
+    seenPaint ??
+    (typeof document !== "undefined" ? readLatestSeenPaintCookie() : null)
 
   if (paint?.items != null && orgCacheId(paint.organizationId) === want) {
-    const items = sanitizeItems(paint.items)
+    const items = sanitizeLatestItems(paint.items, seen)
     return items.length > 0 ? items : EMPTY_LATEST
   }
 
   const cached = readPersistedCache<LatestCache>(cacheKey(organizationId))
   if (cached && Array.isArray(cached.items)) {
-    const items = sanitizeItems(cached.items)
+    const items = sanitizeLatestItems(cached.items, seen)
     if (items.length > 0) return items
     // Confirmed empty session write — return stable empty (do not fall through to stale cookie).
     return EMPTY_LATEST
@@ -93,17 +115,29 @@ export function readLatestCache(
 
   const fromCookie = readPaintSeedCookie<LatestPaintCookie>(OWNER_LATEST_COOKIE_SCOPE)
   if (fromCookie?.items != null && orgCacheId(fromCookie.organizationId) === want) {
-    const items = sanitizeItems(fromCookie.items)
+    const items = sanitizeLatestItems(fromCookie.items, seen)
     return items.length > 0 ? items : EMPTY_LATEST
   }
   return EMPTY_LATEST
+}
+
+/** Server layout helper — sanitize Latest cookie with the seen paint cookie. */
+export function sanitizeLatestPaintCookieItems(
+  items: unknown,
+  seenCookieRaw: string | null | undefined,
+  nowMs = Date.now()
+): LatestCustomerAction[] {
+  const seen = readLatestSeenPaintFromCookieRaw(seenCookieRaw)
+  return sanitizeLatestItems(items, seen, nowMs)
 }
 
 export function writeLatestCache(
   organizationId: string | null | undefined,
   items: LatestCustomerAction[]
 ): void {
-  const sanitized = sanitizeItems(items)
+  const seen =
+    typeof document !== "undefined" ? readLatestSeenPaintCookie() : null
+  const sanitized = sanitizeLatestItems(items, seen)
   writePersistedCache(cacheKey(organizationId), {
     items: sanitized,
   } satisfies LatestCache)

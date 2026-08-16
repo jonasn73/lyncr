@@ -17,7 +17,11 @@ import {
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
 import { BILLING_SUMMARY_COOKIE, type BillingSummaryCache } from "@/lib/billing-summary-cache"
-import { OWNER_LATEST_COOKIE } from "@/lib/owner-latest-cache"
+import {
+  OWNER_LATEST_COOKIE,
+  sanitizeLatestPaintCookieItems,
+} from "@/lib/owner-latest-cache"
+import { LATEST_SEEN_COOKIE } from "@/lib/latest-seen-paint"
 import {
   PRESENCE_COOKIE,
   readPresencePaintFromCookieRaw,
@@ -78,9 +82,13 @@ export function readDashboardPaintSeedsFromCookies(
 
   const latestRaw = getCookie(OWNER_LATEST_COOKIE)
   const latestCookie = readPaintSeedCookieValue<LatestPaintCookie>(latestRaw)
+  const seenRaw = getCookie(LATEST_SEEN_COOKIE)
   // Keep empty arrays — they mean “confirmed nothing hot”, not “unknown / still loading”.
+  // Age + Clear/open stamps applied here so SSR matches the hydrated list (no flash).
   const latest =
-    latestCookie?.items && Array.isArray(latestCookie.items) ? latestCookie.items : null
+    latestCookie?.items && Array.isArray(latestCookie.items)
+      ? sanitizeLatestPaintCookieItems(latestCookie.items, seenRaw)
+      : null
 
   const billingRaw = getCookie(BILLING_SUMMARY_COOKIE)
   const billing = readPaintSeedCookieValue<BillingSummaryCache>(billingRaw)
