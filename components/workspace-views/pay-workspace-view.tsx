@@ -272,7 +272,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       <Suspense fallback={null}>
         <PayCreditCheckoutBridge refreshBilling={refreshBilling} />
       </Suspense>
-      <WorkspacePageHeader eyebrow="Billing" title="Pay" />
+      <WorkspacePageHeader eyebrow="Billing" title="Your Lyncr bill" />
 
       {loadError ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

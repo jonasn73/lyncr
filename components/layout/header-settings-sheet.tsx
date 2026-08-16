@@ -692,14 +692,17 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 Card, tap, or text a pay link
               </span>
             </Button>
-            {/* Invoices stays secondary under Collect — still one tap, less competing chrome. */}
+            {/* Invoices = outside-Lyncr records (Venmo/cash), not card charging. */}
             <Button
               type="button"
               onClick={openInvoices}
               variant="outline"
-              className="mt-2 h-11 w-full border-zinc-700 bg-zinc-950/50 text-sm font-semibold text-slate-100 hover:bg-zinc-900 hover:text-white"
+              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-950/50 px-4 py-2 text-slate-100 hover:bg-zinc-900 hover:text-white"
             >
-              Invoices
+              <span className="text-sm font-semibold">Invoices</span>
+              <span className="text-[11px] font-medium text-slate-400">
+                Already paid outside Lyncr (Venmo, cash)
+              </span>
             </Button>
           </div>
         </SheetContent>

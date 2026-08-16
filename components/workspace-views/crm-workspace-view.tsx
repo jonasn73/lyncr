@@ -1470,7 +1470,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       </p>
     ) : (
       <div className="space-y-5">
-        {/* Compact primary actions — Call + Message templates; Collect under More. */}
+        {/* Compact primary actions — Call + Message; Collect when they still owe. */}
         <div className="flex flex-wrap items-center gap-2">
           <a
             href={buildTelHref(selected.phone_e164) || undefined}
@@ -1489,6 +1489,19 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             <MessageSquare className="h-3.5 w-3.5" />
             Message
           </button>
+          {/* Promote Collect when nothing is fully settled — same sheet as More → Collect. */}
+          {!isFullyPaidCustomer ? (
+            <button
+              type="button"
+              onClick={openCollectForCustomer}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 text-xs font-semibold text-teal-100 hover:bg-teal-500/25"
+              title="Collect payment"
+              aria-label="Collect payment"
+            >
+              <CreditCard className="h-3.5 w-3.5" />
+              Collect
+            </button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -1501,6 +1514,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="z-[7200] min-w-[11rem] border-zinc-800 bg-zinc-950">
+              {/* When Collect is already on the row, More keeps “Charge again” for repeat visits. */}
               <DropdownMenuItem
                 onClick={openCollectForCustomer}
                 className="gap-2 text-xs focus:bg-zinc-900"

@@ -4,7 +4,8 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ClipboardList, Loader2, MessageSquare, Send, Sparkles } from "lucide-react"
+import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,6 +23,8 @@ import {
 } from "@/lib/book-form-details-handoff"
 import { buildTelHref } from "@/lib/phone-e164"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
+import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
+import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
@@ -249,6 +252,36 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   }, [loadMessages, pollEnabled])
 
   const threads = useMemo(() => groupIntoThreads(messages), [messages])
+
+  // Warm Collect jobs while a thread is open — used to show Collect when this phone still owes.
+  const { jobs: collectJobs } = useCollectJobsQuery(isActive && Boolean(selectedPhone))
+  const threadHasUnpaidJob = useMemo(() => {
+    if (!selectedPhone) return false
+    const want = phoneMatchKey(selectedPhone)
+    if (!want) return false
+    return collectJobs.some((job) => {
+      const status = (job.job_status ?? "").toLowerCase()
+      // Ignore completed/cancelled — collect-jobs can fall back to recent finished jobs.
+      if (status === "completed" || status === "cancelled" || status === "canceled") {
+        return false
+      }
+      const jobPhone = phoneMatchKey(job.customer_phone || "")
+      return Boolean(jobPhone && jobPhone === want)
+    })
+  }, [collectJobs, selectedPhone])
+
+  const crmHrefForThread = selectedPhone
+    ? `/dashboard/customers?phone=${encodeURIComponent(selectedPhone)}`
+    : "/dashboard/customers"
+
+  const openCollectForThread = useCallback(() => {
+    if (!selectedPhone) return
+    openCollectPaymentModal({
+      customerName: customerName || undefined,
+      customerPhone: selectedPhone,
+      startAdhoc: true,
+    })
+  }, [customerName, selectedPhone])
 
   // Activity / Latest / CRM / rescue deep-link: /dashboard/messages?phone=+1…
   // Apply once, then clear the URL. Do NOT re-select on every threads poll (was yanking
@@ -667,7 +700,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   {threadTelHref ? (
                     // One-tap call: tap the number → phone dialer opens.
                     <a
@@ -686,6 +719,28 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     {activeThread.messages.length} message
                     {activeThread.messages.length === 1 ? "" : "s"}
                   </p>
+                </div>
+                {/* Journey shortcuts — CRM always; Collect when an open job matches this phone. */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Link
+                    href={crmHrefForThread}
+                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
+                    aria-label="Open customer in CRM"
+                  >
+                    <UserRound className="h-3.5 w-3.5" aria-hidden />
+                    CRM
+                  </Link>
+                  {threadHasUnpaidJob ? (
+                    <button
+                      type="button"
+                      onClick={openCollectForThread}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                      aria-label="Collect payment"
+                    >
+                      <CreditCard className="h-3.5 w-3.5" aria-hidden />
+                      Collect
+                    </button>
+                  ) : null}
                 </div>
               </div>
 

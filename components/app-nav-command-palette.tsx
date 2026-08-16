@@ -45,7 +45,7 @@ const JUMP_PAGES = [
   { id: "activity", label: "Activity", href: "/dashboard/activity", icon: ClipboardList },
   { id: "messages", label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { id: "contacts", label: "Map", href: "/dashboard/contacts", icon: Map },
-  { id: "pay", label: "Pay", href: "/dashboard/pay", icon: BarChart3 },
+  { id: "pay", label: "Billing", href: "/dashboard/pay", icon: BarChart3 },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings },
   { id: "inventory", label: "Key inventory", href: "/dashboard/inventory", icon: Package },
   { id: "help", label: "Help & feedback", href: "/dashboard/help", icon: LifeBuoy },

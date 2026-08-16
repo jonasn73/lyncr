@@ -40,7 +40,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { id: "activity", label: "Activity", icon: ClipboardList },
   { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "contacts", label: "Map", icon: Map },
-  { id: "pay", label: "Pay", icon: BarChart3 },
+  { id: "pay", label: "Billing", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
