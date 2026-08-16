@@ -133,12 +133,14 @@ export async function POST(req: NextRequest) {
         mobileE164: mobile,
         code,
       })
+      // Prefer shop line — Amber can look “assigned” on 10DLC while carriers still drop SMS.
       const sent = await sendAmberOwnerSms({
         userId,
         organizationId,
         amberNumber: workspace.amber_number,
         toOwnerMobile: mobile,
         text: `Amber · Lyncr code: ${code}. Enter this in Settings to verify your phone.`,
+        preferBusinessLine: true,
       })
       if (!sent.ok) {
         return NextResponse.json(
@@ -184,6 +186,7 @@ export async function POST(req: NextRequest) {
           amberNumber: workspace.amber_number,
           toOwnerMobile: mobile,
           text: "Amber is your business assistant by text. Save the Amber number shown in Settings as Amber · Lyncr. Reply HELP for commands.",
+          preferBusinessLine: true,
         })
       }
       return NextResponse.json({ data: { verified: true, mobile } })

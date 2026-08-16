@@ -81,7 +81,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
     if (open) void load()
   }, [open, load])
 
-  async function post(action: string, extra?: Record<string, string>) {
+  async function post(
+    action: string,
+    extra?: Record<string, string>
+  ): Promise<{ ok: true; data?: Record<string, unknown> } | { ok: false }> {
     setBusy(true)
     try {
       const res = await fetch(`/api/amber${orgQs}`, {
@@ -95,17 +98,20 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
           ...extra,
         }),
       })
-      const json = (await res.json().catch(() => ({}))) as { error?: string; data?: unknown }
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: Record<string, unknown>
+      }
       if (!res.ok) {
         toast({
           title: "Could not update Amber",
           description: json.error || "Try again.",
           variant: "destructive",
         })
-        return false
+        return { ok: false }
       }
       await load()
-      return true
+      return { ok: true, data: json.data }
     } finally {
       setBusy(false)
     }
@@ -156,8 +162,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                 className="w-full"
                 disabled={busy}
                 onClick={async () => {
-                  const ok = await post("enable")
-                  if (ok) {
+                  const result = await post("enable")
+                  if (result.ok) {
                     toast({
                       title: "Amber number ready",
                       description:
@@ -175,8 +181,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                 className="w-full"
                 disabled={busy}
                 onClick={async () => {
-                  const ok = await post("disable")
-                  if (ok) toast({ title: "Amber paused" })
+                  const result = await post("disable")
+                  if (result.ok) toast({ title: "Amber paused" })
                 }}
               >
                 Turn Amber off
@@ -214,12 +220,17 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   className="w-full"
                   disabled={busy || !mobile.trim()}
                   onClick={async () => {
-                    const ok = await post("verify_start", { mobile })
-                    if (ok) {
+                    const result = await post("verify_start", { mobile })
+                    if (result.ok) {
+                      const usedFrom =
+                        typeof result.data?.used_from === "string"
+                          ? formatPhoneDisplay(result.data.used_from)
+                          : null
                       toast({
                         title: "Code sent",
-                        description:
-                          "Check your texts — it may come from Amber or your business line. Enter the 6-digit code below.",
+                        description: usedFrom
+                          ? `Look for a text from ${usedFrom} (usually your business line). Enter the 6-digit code below.`
+                          : "Check your texts — usually from your business line. Enter the 6-digit code below.",
                       })
                     }
                   }}
@@ -238,8 +249,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   className="w-full"
                   disabled={busy || !code.trim()}
                   onClick={async () => {
-                    const ok = await post("verify_confirm", { mobile, code })
-                    if (ok) {
+                    const result = await post("verify_confirm", { mobile, code })
+                    if (result.ok) {
                       setCode("")
                       toast({
                         title: "Phone verified",
