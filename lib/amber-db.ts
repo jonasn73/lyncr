@@ -364,6 +364,52 @@ export async function listAmberDueForAvailable(now = new Date()): Promise<AmberW
   }
 }
 
+/** Soonest future Busy-until for this owner (any enabled Amber workspace). */
+export async function getAmberBusyUntilForOwner(
+  userId: string
+): Promise<{ availableAt: string; timezone: string } | null> {
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT
+        a.presence_available_at::text AS available_at,
+        a.timezone
+      FROM amber_workspaces a
+      WHERE a.user_id = ${userId}::uuid
+        AND a.enabled = true
+        AND a.presence_available_at IS NOT NULL
+        AND a.presence_available_at > now()
+      ORDER BY a.presence_available_at ASC
+      LIMIT 1
+    `
+    const row = rows[0] as { available_at?: string; timezone?: string } | undefined
+    if (!row?.available_at) return null
+    return {
+      availableAt: String(row.available_at),
+      timezone: String(row.timezone || "America/New_York"),
+    }
+  } catch (e) {
+    if (isMissingAmberRelation(e)) return null
+    throw e
+  }
+}
+
+/** Clear Busy-until timers when the owner flips Available in the app. */
+export async function clearAmberPresenceUntilForOwner(userId: string): Promise<void> {
+  const sql = sqlClient()
+  try {
+    await sql`
+      UPDATE amber_workspaces
+      SET presence_available_at = NULL, updated_at = now()
+      WHERE user_id = ${userId}::uuid
+        AND presence_available_at IS NOT NULL
+    `
+  } catch (e) {
+    if (isMissingAmberRelation(e)) return
+    throw e
+  }
+}
+
 export async function insertAmberAuditEvent(params: {
   userId: string
   organizationId?: string | null

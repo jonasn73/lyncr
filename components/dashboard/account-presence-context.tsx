@@ -1,6 +1,6 @@
 "use client"
 
-// Shared account presence for Lines — Available toggle + call-flow cards stay in sync.
+// Shared account presence for Lines — Available toggle + Amber Busy-until stay in sync.
 
 import {
   createContext,
@@ -30,6 +30,9 @@ type AccountPresenceContextValue = {
    * UI should not highlight Available/Busy while false (avoids Available→Busy flash).
    */
   presenceReady: boolean
+  /** ISO timestamp when Amber will flip back to Available (Busy until…). */
+  presenceAvailableAt: string | null
+  presenceTimezone: string | null
   loading: boolean
   saving: boolean
   /** True when cell ring is skipped (Presence Busy). */
@@ -47,6 +50,12 @@ function parsePresenceStatus(raw: string | undefined | null): PresenceStatus {
   return "AVAILABLE"
 }
 
+type PresencePayload = {
+  presence_status?: string
+  presence_available_at?: string | null
+  presence_timezone?: string | null
+}
+
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   // Cookie + session seed — Busy/Available paints correctly on hard refresh (SSR too).
   const paintSeeds = useDashboardPaintSeeds()
@@ -56,6 +65,8 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     "account-presence"
   )
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
+  const [presenceAvailableAt, setPresenceAvailableAt] = useState<string | null>(null)
+  const [presenceTimezone, setPresenceTimezone] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   // Don’t show a spinner when we already painted from cache.
   const [fetching, setFetching] = useState(false)
@@ -64,6 +75,8 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
 
   const presenceStatus = liveStatus ?? cachedSeed ?? "AVAILABLE"
   const presenceReady = liveStatus != null || cachedSeed != null
+  const hasUntil =
+    Boolean(presenceAvailableAt) && isBusyPresenceStatus(presenceStatus)
 
   const paintedFromCacheRef = useRef(false)
   if (presenceReady) paintedFromCacheRef.current = true
@@ -73,15 +86,35 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     writeCachedPresence(next)
   }, [])
 
+  const applyPayload = useCallback(
+    (data: PresencePayload | undefined) => {
+      const next = parsePresenceStatus(data?.presence_status)
+      setStatus(next)
+      const until =
+        typeof data?.presence_available_at === "string" && data.presence_available_at.trim()
+          ? data.presence_available_at
+          : null
+      setPresenceAvailableAt(until)
+      setPresenceTimezone(
+        typeof data?.presence_timezone === "string" && data.presence_timezone.trim()
+          ? data.presence_timezone
+          : null
+      )
+      if (next === "AVAILABLE") {
+        setPresenceAvailableAt(null)
+      }
+    },
+    [setStatus]
+  )
+
   const refresh = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? paintedFromCacheRef.current
       if (!silent) setFetching(true)
       try {
         const res = await fetch("/api/routing/presence", { credentials: "include" })
-        const json = (await res.json()) as { data?: { presence_status?: string } }
-        const next = parsePresenceStatus(json.data?.presence_status)
-        setStatus(next)
+        const json = (await res.json()) as { data?: PresencePayload }
+        applyPayload(json.data)
         paintedFromCacheRef.current = true
       } catch {
         // Keep cached / current status on network errors — don’t snap to Available.
@@ -92,7 +125,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         setFetching(false)
       }
     },
-    [setStatus]
+    [applyPayload, setStatus]
   )
 
   useEffect(() => {
@@ -100,19 +133,37 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh, pollEnabled])
 
-  // Re-read presence periodically so the bar matches the DB if something else changes it.
+  // Poll faster while Busy-until is active so Amber SMS shows up sooner on Lines.
   useEffect(() => {
     if (!pollEnabled) return
+    const ms = hasUntil ? 12_000 : 60_000
     const id = window.setInterval(() => {
       void refresh({ silent: true })
-    }, 60_000)
+    }, ms)
     return () => window.clearInterval(id)
+  }, [refresh, pollEnabled, hasUntil])
+
+  // Returning to the tab / Lines — re-check so Amber flips don’t wait a full minute.
+  useEffect(() => {
+    if (!pollEnabled) return
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh({ silent: true })
+    }
+    window.addEventListener("focus", onVisible)
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.removeEventListener("focus", onVisible)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [refresh, pollEnabled])
 
   const setPresenceStatus = useCallback(
     async (next: PresenceStatus) => {
       const prev = presenceStatus
+      const prevUntil = presenceAvailableAt
+      const prevTz = presenceTimezone
       setStatus(next)
+      if (next === "AVAILABLE") setPresenceAvailableAt(null)
       setSaving(true)
       try {
         const res = await fetch("/api/routing/presence", {
@@ -124,10 +175,12 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         const json = (await res.json()) as {
           error?: string
           migration?: string
-          data?: { presence_status?: string }
+          data?: PresencePayload
         }
         if (!res.ok) {
           setStatus(prev)
+          setPresenceAvailableAt(prevUntil)
+          setPresenceTimezone(prevTz)
           toast({
             title: "Could not update presence",
             description: json.migration
@@ -137,10 +190,11 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
           })
           return
         }
-        const saved = parsePresenceStatus(json.data?.presence_status || next)
-        setStatus(saved)
+        applyPayload(json.data ?? { presence_status: next })
       } catch (e) {
         setStatus(prev)
+        setPresenceAvailableAt(prevUntil)
+        setPresenceTimezone(prevTz)
         toast({
           title: "Could not update presence",
           description: e instanceof Error ? e.message : "Try again.",
@@ -150,7 +204,7 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
         setSaving(false)
       }
     },
-    [presenceStatus, setStatus]
+    [presenceStatus, presenceAvailableAt, presenceTimezone, setStatus, applyPayload]
   )
 
   // Stable wrapper so context consumers do not see a new `refresh` identity every paint.
@@ -160,6 +214,8 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
     () => ({
       presenceStatus,
       presenceReady,
+      presenceAvailableAt,
+      presenceTimezone,
       // Spinner only when we have nothing to show yet (not during silent revalidate).
       loading: !presenceReady && fetching,
       saving,
@@ -167,7 +223,16 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       setPresenceStatus,
       refresh: refreshLoud,
     }),
-    [presenceStatus, presenceReady, fetching, saving, setPresenceStatus, refreshLoud]
+    [
+      presenceStatus,
+      presenceReady,
+      presenceAvailableAt,
+      presenceTimezone,
+      fetching,
+      saving,
+      setPresenceStatus,
+      refreshLoud,
+    ]
   )
 
   return (
@@ -181,6 +246,8 @@ export function useAccountPresence(): AccountPresenceContextValue {
     return {
       presenceStatus: "AVAILABLE",
       presenceReady: false,
+      presenceAvailableAt: null,
+      presenceTimezone: null,
       loading: false,
       saving: false,
       presenceBypass: false,

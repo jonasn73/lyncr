@@ -5,6 +5,7 @@
 import { setAccountPresence, getAccountPresence } from "@/lib/account-presence"
 import {
   amberHelpText,
+  formatAmberUntilLabel,
   parseAmberCommand,
   resolveAmberUntilInstant,
 } from "@/lib/amber-commands"
@@ -22,19 +23,6 @@ function phonesMatch(a: string | null | undefined, b: string | null | undefined)
   const y = normalizePhoneNumberE164(b || "")
   if (!x || !y || x.length < 10 || y.length < 10) return false
   return x.slice(-10) === y.slice(-10)
-}
-
-function formatUntilLabel(at: Date, timezone: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone || "America/New_York",
-      hour: "numeric",
-      minute: "2-digit",
-      timeZoneName: "short",
-    }).format(at)
-  } catch {
-    return at.toISOString()
-  }
 }
 
 async function replyFromAmber(params: {
@@ -104,7 +92,7 @@ export async function tryHandleAmberInboundSms(params: {
     const presence = await getAccountPresence(amber.user_id)
     const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
     const until = amber.presence_available_at
-      ? formatUntilLabel(new Date(amber.presence_available_at), amber.timezone)
+      ? formatAmberUntilLabel(new Date(amber.presence_available_at), amber.timezone)
       : null
     reply = busy
       ? until
@@ -136,7 +124,7 @@ export async function tryHandleAmberInboundSms(params: {
         await setAmberPresenceAvailableAt({ amberWorkspaceId: amber.id, availableAt: null })
       } else {
         await setAmberPresenceAvailableAt({ amberWorkspaceId: amber.id, availableAt: when })
-        untilLabel = formatUntilLabel(when, amber.timezone)
+        untilLabel = formatAmberUntilLabel(when, amber.timezone)
         reply = `You're Busy until ${untilLabel}. Your Busy call-routing is on (phone does not ring first). I'll set you Available at ${untilLabel}. Reply AVAILABLE anytime to go free now.`
       }
     } else {

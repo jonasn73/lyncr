@@ -151,3 +151,17 @@ export function amberHelpText(): string {
     "Customers never see this Amber number.",
   ].join("\n")
 }
+
+/** Format Amber “Busy until” for SMS and Lines UI. */
+export function formatAmberUntilLabel(at: Date, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone || "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(at)
+  } catch {
+    return at.toISOString()
+  }
+}
