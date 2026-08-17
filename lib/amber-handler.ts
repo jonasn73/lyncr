@@ -29,6 +29,7 @@ async function replyFromAmber(params: {
   amber: AmberWorkspaceRow
   toOwnerMobile: string
   text: string
+  amberOnly?: boolean
 }): Promise<void> {
   const sent = await sendAmberOwnerSms({
     userId: params.amber.user_id,
@@ -36,6 +37,7 @@ async function replyFromAmber(params: {
     amberNumber: params.amber.amber_number,
     toOwnerMobile: params.toOwnerMobile,
     text: params.text,
+    amberOnly: params.amberOnly,
   })
   if (!sent.ok) {
     console.warn(`[amber] reply failed: ${sent.error}`)
@@ -58,20 +60,28 @@ export async function tryHandleAmberInboundSms(params: {
   const from = normalizePhoneNumberE164(params.fromE164)
   const verified = amber.owner_mobile_e164
 
+  const { claimAmberInboundMessageId } = await import("@/lib/amber-coworker-db")
+  const fresh = await claimAmberInboundMessageId(params.telnyxMessageId)
+  if (!fresh) return true
+
   // Strangers: no business data, optional STOP/HELP only.
   if (!verified || !phonesMatch(from, verified)) {
     const upper = params.text.trim().toUpperCase()
     if (upper === "STOP" || upper === "STOPALL" || upper === "UNSUBSCRIBE" || upper === "CANCEL" || upper === "END" || upper === "QUIT") {
+      // Never fall back to the shop line for a stranger who texted Amber.
       await replyFromAmber({
         amber,
         toOwnerMobile: from,
         text: "Amber alerts paused for this phone. Text START to the business support team or turn Amber back on in Lyncr Settings.",
+        amberOnly: true,
       })
     } else if (upper === "HELP" || upper === "INFO") {
+      // Same rule: Amber DID only, so the business number stays off this thread.
       await replyFromAmber({
         amber,
         toOwnerMobile: from,
         text: "Amber · Lyncr business assistant. Only the verified owner mobile can run commands. Msg&data rates may apply.",
+        amberOnly: true,
       })
     }
     await insertAmberAuditEvent({
@@ -83,12 +93,61 @@ export async function tryHandleAmberInboundSms(params: {
     return true
   }
 
-  const cmd = parseAmberCommand(params.text)
+  const {
+    parseAmberCoworkerCommand,
+    isAmberStopKeyword,
+    isAmberStartKeyword,
+    isBareAmberPresenceCommand,
+  } = await import("@/lib/amber-coworker-commands")
+  const {
+    getOpenAmberJobThread,
+    setAmberCoworkerPaused,
+  } = await import("@/lib/amber-coworker-db")
+  const {
+    draftAmberCustomerSms,
+    sendAmberApprovedCustomerSms,
+    skipAmberJobThread,
+  } = await import("@/lib/amber-coworker")
+
   let reply = ""
 
-  if (cmd.kind === "help") {
+  if (isAmberStopKeyword(params.text)) {
+    await setAmberCoworkerPaused({ amberWorkspaceId: amber.id, paused: true })
+    reply =
+      "Leftover job pings paused. Text START to resume. BUSY / AVAILABLE still work."
+    await insertAmberAuditEvent({
+      userId: amber.user_id,
+      organizationId: amber.organization_id,
+      eventType: "coworker_paused",
+      detail: { source: "sms" },
+    })
+    await replyFromAmber({ amber, toOwnerMobile: from, text: reply, amberOnly: true })
+    return true
+  }
+  if (isAmberStartKeyword(params.text)) {
+    await setAmberCoworkerPaused({ amberWorkspaceId: amber.id, paused: false })
+    reply = "Leftover job pings are on again. I’ll text you when a book form sits too long."
+    await insertAmberAuditEvent({
+      userId: amber.user_id,
+      organizationId: amber.organization_id,
+      eventType: "coworker_resumed",
+      detail: { source: "sms" },
+    })
+    await replyFromAmber({ amber, toOwnerMobile: from, text: reply, amberOnly: true })
+    return true
+  }
+
+  let coworkerChannel = false
+  const cmd = parseAmberCommand(params.text)
+  const thread = await getOpenAmberJobThread({
+    userId: amber.user_id,
+    amberWorkspaceId: amber.id,
+  })
+  const honorPresence = !thread || isBareAmberPresenceCommand(params.text)
+
+  if (honorPresence && cmd.kind === "help") {
     reply = amberHelpText()
-  } else if (cmd.kind === "status") {
+  } else if (honorPresence && cmd.kind === "status") {
     const presence = await getAccountPresence(amber.user_id)
     const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
     const until = amber.presence_available_at
@@ -99,7 +158,7 @@ export async function tryHandleAmberInboundSms(params: {
         ? `STATUS: Busy until ${until}. Your Busy call-routing is on (phone does not ring first).`
         : "STATUS: Busy. Your Busy call-routing is on (phone does not ring first)."
       : "STATUS: Available. Your phone rings first."
-  } else if (cmd.kind === "available") {
+  } else if (honorPresence && cmd.kind === "available") {
     await setAccountPresence({ ownerUserId: amber.user_id, presenceStatus: "AVAILABLE" })
     await setAmberPresenceAvailableAt({ amberWorkspaceId: amber.id, availableAt: null })
     reply =
@@ -110,7 +169,7 @@ export async function tryHandleAmberInboundSms(params: {
       eventType: "presence_available",
       detail: { source: "sms" },
     })
-  } else if (cmd.kind === "busy") {
+  } else if (honorPresence && cmd.kind === "busy") {
     await setAccountPresence({ ownerUserId: amber.user_id, presenceStatus: "ON_JOB" })
     let untilLabel: string | null = null
     if (cmd.untilLocalTime) {
@@ -139,18 +198,45 @@ export async function tryHandleAmberInboundSms(params: {
       detail: { source: "sms", until: untilLabel, untilRaw: cmd.untilLocalTime },
     })
   } else {
-    reply =
-      "I didn't catch that. Reply HELP for commands, or try: BUSY until 4:30pm / AVAILABLE / STATUS."
-    await insertAmberAuditEvent({
-      userId: amber.user_id,
-      organizationId: amber.organization_id,
-      eventType: "inbound_unknown",
-      detail: { raw: params.text.slice(0, 200) },
-    })
+    const coworker = parseAmberCoworkerCommand(params.text)
+    coworkerChannel = Boolean(thread)
+    if (thread && coworker.kind === "send") {
+      if (thread.state !== "awaiting_send") {
+        reply = "Tell me what to say first — then I’ll draft it and wait for SEND."
+      } else {
+        const sent = await sendAmberApprovedCustomerSms({ amber, thread })
+        reply = sent.ok
+          ? `Sent to ${thread.customer_name?.trim().split(/\s+/)[0] || "the customer"} from your business line.`
+          : sent.error
+      }
+    } else if (thread && coworker.kind === "skip") {
+      await skipAmberJobThread({ amber, thread })
+      reply = "Skipped. I won’t text the customer about that request."
+    } else if (thread && coworker.kind === "instruction" && coworker.text) {
+      reply = await draftAmberCustomerSms({
+        amber,
+        thread,
+        instruction: coworker.text,
+      })
+    } else {
+      reply =
+        "I didn't catch that. Reply HELP for commands, or try: BUSY until 4:30pm / AVAILABLE / STATUS."
+      await insertAmberAuditEvent({
+        userId: amber.user_id,
+        organizationId: amber.organization_id,
+        eventType: "inbound_unknown",
+        detail: { raw: params.text.slice(0, 200) },
+      })
+    }
   }
 
   if (reply) {
-    await replyFromAmber({ amber, toOwnerMobile: from, text: reply })
+    await replyFromAmber({
+      amber,
+      toOwnerMobile: from,
+      text: reply,
+      amberOnly: coworkerChannel,
+    })
   }
   return true
 }

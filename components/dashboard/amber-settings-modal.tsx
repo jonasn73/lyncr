@@ -524,8 +524,8 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             {showVerifyForm ? renderVerifyForm() : null}
 
             <p className="text-[11px] leading-snug text-muted-foreground">
-              Phase 1: Amber can set Busy / Available (and Busy until a time). Customer reply
-              drafts come later. Every customer text still uses your normal business number.
+              Amber texts you about leftover book jobs, drafts the customer SMS, and sends only
+              after you reply SEND. Busy / Available still work. Customers never see this number.
             </p>
           </div>
         )}

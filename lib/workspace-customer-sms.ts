@@ -10,6 +10,8 @@ import {
   type TelnyxSmsErrorType,
 } from "@/lib/telnyx-sms"
 import type { SmsMessage } from "@/lib/types"
+import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
+import { listAmberControlE164sForOwner } from "@/lib/amber-db"
 
 export type WorkspaceCustomerSmsResult =
   | {
@@ -46,11 +48,26 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
     ? normalizePhoneNumberE164(params.fromE164)
     : ""
 
+  const sender = await resolveWorkspaceSmsSender(params.ownerUserId, params.organizationId)
+  const amberSkip = new Set(await listAmberControlE164sForOwner(params.ownerUserId))
+  let fromE164 = fromHint || (sender.ok ? sender.from_e164 : "")
+  if (fromE164 && amberSkip.has(fromE164)) {
+    fromE164 = sender.ok && !amberSkip.has(sender.from_e164) ? sender.from_e164 : ""
+  }
+  if (!fromE164) {
+    return {
+      ok: false,
+      error: sender.ok
+        ? "Customer SMS cannot send from the Amber number."
+        : sender.message || "No business line available for customer SMS.",
+    }
+  }
+
   const sent = await sendTelnyxSms({
     toE164,
     text,
     userId: params.ownerUserId,
-    fromE164: fromHint || undefined,
+    fromE164,
   })
 
   if (!sent.ok) {

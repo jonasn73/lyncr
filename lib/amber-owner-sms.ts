@@ -23,10 +23,13 @@ export async function sendAmberOwnerSms(params: {
   text: string
   /** When true (verify codes), try the shop line first — more reliable than a new Amber DID. */
   preferBusinessLine?: boolean
+  /** When true (coworker pings / SEND approval), never fall back to the shop line. */
+  amberOnly?: boolean
 }): Promise<AmberSmsResult> {
   const to = params.toOwnerMobile
   const amber = params.amberNumber?.trim() || null
   const preferBusiness = Boolean(params.preferBusinessLine)
+  const amberOnly = Boolean(params.amberOnly)
 
   async function sendFromAmber(text: string): Promise<AmberSmsResult> {
     if (!amber) {
@@ -76,6 +79,20 @@ export async function sendAmberOwnerSms(params: {
       ...result,
       used_from: result.ok ? result.from : business.from_e164,
     }
+  }
+
+  // Coworker pings must stay on the Amber DID so SEND replies hit the handler.
+  if (amberOnly) {
+    const only = await sendFromAmber(params.text)
+    if (only.ok && only.delivery_warning) {
+      return {
+        ok: false,
+        error: only.delivery_warning,
+        errorType: "10DLC_BLOCK",
+        used_from: amber ?? undefined,
+      }
+    }
+    return only
   }
 
   // Verify / critical codes: shop line first (known working for lead alerts).
