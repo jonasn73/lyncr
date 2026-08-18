@@ -64,5 +64,6 @@ describe("amberHelpText", () => {
     expect(amberHelpText()).toContain("BUSY")
     expect(amberHelpText()).toContain("ok")
     expect(amberHelpText().toLowerCase()).toContain("important events")
+    expect(amberHelpText().toLowerCase()).toContain("dismiss that one")
   })
 })

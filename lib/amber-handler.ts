@@ -306,7 +306,7 @@ export async function tryHandleAmberInboundSms(params: {
       }
     } else {
       reply = thread
-        ? "I didn’t catch that. Try skip plus their name, ok to send a draft, What’s my status, Any important events?, or I’m free."
+        ? "I didn’t catch that. Try skip plus their name, dismiss that one, ok to send a draft, What’s my status, Any important events?, or I’m free."
         : "I didn’t catch that. Try What’s my status, Any important events?, I’m slammed until 4:30, or I’m free."
       await insertAmberAuditEvent({
         userId: amber.user_id,

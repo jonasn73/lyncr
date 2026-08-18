@@ -39,6 +39,7 @@ describe("formatAmberBriefingSms", () => {
     })
     expect(waiting).toContain("Isaac")
     expect(waiting).toContain("…2058")
+    expect(waiting).toContain("\n")
     expect(waiting.toLowerCase()).toContain("still need you")
   })
 
@@ -54,6 +55,7 @@ describe("formatAmberBriefingSms", () => {
     expect(text).toContain("Noah")
     expect(text).toContain("…1219")
     expect(text).toContain("ASAP")
+    expect(text).toContain("\n\nStill need you:")
     expect(text).not.toContain("Main St")
     expect(text).not.toContain("+1")
   })

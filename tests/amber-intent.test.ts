@@ -21,6 +21,7 @@ describe("status in plain English", () => {
 describe("classifyAmberLeftoverIntentLocal", () => {
   it("skips named leftovers and pass", () => {
     expect(classifyAmberLeftoverIntentLocal("dismiss Flavio")).toBe("skip")
+    expect(classifyAmberLeftoverIntentLocal("Dismiss that one")).toBe("skip")
     expect(classifyAmberLeftoverIntentLocal("I'm done with Flavio")).toBe("skip")
   })
 

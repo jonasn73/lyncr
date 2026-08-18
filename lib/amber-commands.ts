@@ -251,7 +251,7 @@ export function amberHelpText(): string {
     "Any important events? — leftover book jobs still waiting (first names only).",
     "HELP — this list.",
     "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
-    "Tell me what to change, skip Noah, or say don’t text them.",
+    "Tell me what to change, skip Noah, dismiss that one, or say don’t text them.",
     "No reply in 15 min → I tell them we got it.",
     "I’m slammed until 4 — Busy, then Available at that time.",
     "STOP — pause leftover pings. START — resume.",

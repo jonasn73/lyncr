@@ -33,8 +33,8 @@ export function formatAmberBriefingSms(params: {
     const tail = row.last4.length === 4 ? ` · …${row.last4}` : ""
     return `• ${row.name}${tail}${asap}`
   })
-  const more = extra > 0 ? ` +${extra} more on Lines.` : " Open Lines to handle them."
-  return `${status} Still need you:\n${bullets.join("\n")}${more}`
+  const more = extra > 0 ? `\n+${extra} more on Lines.` : "\nOpen Lines to handle them."
+  return `${status}\n\nStill need you:\n${bullets.join("\n")}${more}`
 }
 
 /** Hey reply — status plus leftovers so Amber feels awake without a cheat-sheet. */
@@ -49,10 +49,10 @@ export function formatAmberHelloSms(params: {
       : "You’re Busy. Your phone does not ring first."
     : "You’re Available. Your phone rings first."
   if (params.lines.length === 0) {
-    return `Hey. ${status} Nothing waiting.`
+    return `Hey.\n${status}\nNothing waiting.`
   }
   const body = formatAmberBriefingSms({ busy: params.busy, lines: params.lines })
-  return `Hey. ${body}`
+  return `Hey.\n${body}`
 }
 
 function lineFromLead(params: {

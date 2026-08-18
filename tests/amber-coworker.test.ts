@@ -6,6 +6,7 @@ import {
   buildCustomerDraftFromInstruction,
   buildGotItHoldingCustomerSms,
   buildGotItOwnerRecapSms,
+  formatAmberSubmittedAgo,
   isAmberSendKeyword,
   isAmberSilentLeftoverDue,
   isAmberSkipKeyword,
@@ -82,6 +83,17 @@ describe("parseAmberCoworkerCommand", () => {
     expect(isAmberSkipKeyword("tell him dismiss the extra key")).toBe(false)
   })
 
+  it("treats dismiss that one as skip of the leftover, not a customer draft", () => {
+    expect(isAmberSkipKeyword("Dismiss that one")).toBe(true)
+    expect(isAmberSkipKeyword("Dismiss that one.")).toBe(true)
+    expect(isAmberSkipKeyword("dismiss these")).toBe(true)
+    expect(isAmberSkipKeyword("dismiss those")).toBe(true)
+    expect(parseAmberCoworkerCommand("Dismiss that one").kind).toBe("skip")
+    expect(extractAmberSkipCustomerName("Dismiss that one")).toBeNull()
+    expect(amberSkipNameMatchesCustomer(null, "Flavio Bernardino")).toBe(true)
+    expect(isAmberSkipKeyword("dismiss that leftover")).toBe(false)
+  })
+
   it("treats other text as instruction", () => {
     const cmd = parseAmberCoworkerCommand("tell him we don't have a tech until tomorrow")
     expect(cmd.kind).toBe("instruction")
@@ -138,10 +150,36 @@ describe("draft copy", () => {
     })
     expect(text).toContain("Joe McCants")
     expect(text).toContain("…2716")
+    expect(text).toContain("\n")
     expect(text).toContain("I’d send")
     expect(text).toContain("ok")
     expect(text).toContain("15 min")
+    expect(text).toContain("dismiss that one")
     expect(text).not.toContain("SEND")
+    expect(text).not.toContain("2639 min")
+  })
+
+  it("uses short leftover lines and human submitted time", () => {
+    expect(formatAmberSubmittedAgo(40)).toBe("40 min ago")
+    expect(formatAmberSubmittedAgo(2639)).toBe("about 2 days ago")
+    const text = buildAmberLeftoverPingText({
+      customerName: "Flavio Bernardino",
+      jobLabel: "Key replacement (Origination)",
+      addressSnippet: "2030 Frankfort Ave, Louisville",
+      minutesAgo: 2639,
+      urgency: "asap",
+      last4: "1505",
+      alreadyGotShopText: true,
+    })
+    expect(text).toContain("Leftover · Flavio Bernardino")
+    expect(text).toContain("…1505")
+    expect(text).toContain("Key replacement")
+    expect(text).not.toContain("Origination")
+    expect(text).toContain("about 2 days ago")
+    expect(text).not.toContain("2639 min")
+    expect(text).toContain("skip Flavio")
+    expect(text).toContain("dismiss that one")
+    expect(text.split("\n").length).toBeGreaterThan(5)
   })
 
   it("still pings the owner when the customer already got a we-got-it", () => {

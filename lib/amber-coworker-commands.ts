@@ -24,6 +24,9 @@ export const AMBER_SILENT_LEFTOVER_MS = AMBER_SILENT_LEFTOVER_MINUTES * 60 * 100
 /** Words after “skip” that are not a customer name (keep as an instruction). */
 const SKIP_NAME_STOPWORDS = new Set([
   "THIS",
+  "THAT",
+  "THESE",
+  "THOSE",
   "IT",
   "ONE",
   "THE",
@@ -100,9 +103,18 @@ export function isAmberSendKeyword(raw: string): boolean {
   )
 }
 
+/** Uppercase command text with trailing punctuation stripped (iPhone often adds a period). */
+function amberSkipCommandUpper(raw: string): string {
+  return normalizeAmberSmsBody(raw)
+    .toUpperCase()
+    .replace(/'/g, "")
+    .replace(/[.?!,;:]+$/g, "")
+    .trim()
+}
+
 /** True when “skip Noah” / “dismiss Flavio” names the leftover (not “skip until tomorrow”). */
 export function extractAmberSkipCustomerName(raw: string): string | null {
-  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  const upper = amberSkipCommandUpper(raw)
   const patterns = [
     /^(?:PLEASE\s+)?(?:SKIP|DISMISS|CLEAR|DROP|REMOVE|IGNORE|CLOSE)\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
     /^PASS ON\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
@@ -142,7 +154,15 @@ export function isAmberSkipNamedLeftover(raw: string): boolean {
 
 /** True when the owner wants to close without texting the customer. */
 export function isAmberSkipKeyword(raw: string): boolean {
-  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  // “Dismiss that one” must skip — not become a draft to the customer.
+  const upper = amberSkipCommandUpper(raw)
+  if (
+    /^(?:PLEASE\s+)?(?:SKIP|DISMISS|CLEAR|DROP|REMOVE|IGNORE|CLOSE)\s+(?:THAT|THIS|THESE|THOSE|IT)(?:\s+ONE)?(?:\s+PLEASE)?$/.test(
+      upper
+    )
+  ) {
+    return true
+  }
   return (
     upper === "SKIP" ||
     upper === "SKIP THIS" ||
@@ -181,8 +201,9 @@ export function isAmberSkipKeyword(raw: string): boolean {
     upper === "IM DONE" ||
     upper === "I AM DONE" ||
     upper === "DONE WITH THIS" ||
+    upper === "NOT THIS ONE" ||
+    upper === "NOT THAT ONE" ||
     /^PASS ON\s+[A-Z][A-Z'-]{1,24}\b/.test(upper) ||
-    // skip Noah / dismiss Flavio — one open leftover, so naming them skips that ping
     isAmberSkipNamedLeftover(raw)
   )
 }
@@ -273,7 +294,17 @@ export function amberAddressSnippet(params: {
   return full.slice(0, 80)
 }
 
-/** Owner ping: facts + one question. */
+/** Human “how long ago” for leftover pings (avoid 2639 min ago). */
+export function formatAmberSubmittedAgo(minutesAgo: number): string {
+  const mins = Math.max(1, Math.round(minutesAgo))
+  if (mins < 90) return `${mins} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 36) return `about ${hours} hr ago`
+  const days = Math.max(1, Math.round(mins / (60 * 24)))
+  return `about ${days} day${days === 1 ? "" : "s"} ago`
+}
+
+/** Owner ping: facts + one question, one fact per line so it is readable outside. */
 export function buildAmberLeftoverPingText(params: {
   customerName: string
   jobLabel: string
@@ -286,29 +317,45 @@ export function buildAmberLeftoverPingText(params: {
   alreadyGotShopText?: boolean
 }): string {
   const who = String(params.customerName || "Customer").trim() || "Customer"
-  const job = String(params.jobLabel || "request").trim() || "request"
-  const place = params.addressSnippet ? ` · ${params.addressSnippet}` : ""
+  const job = String(params.jobLabel || "request")
+    .trim()
+    .replace(/\s*\([^)]*\)/g, "")
+    .trim() || "request"
+  const place = String(params.addressSnippet || "").trim()
   const mins = Math.max(1, Math.round(params.minutesAgo))
-  const asap = String(params.urgency || "").toLowerCase() === "asap" ? " ASAP" : ""
+  const asap = String(params.urgency || "").toLowerCase() === "asap"
   const last4 = String(params.last4 || "").replace(/\D/g, "").slice(-4)
-  const phoneBit = last4.length === 4 ? ` · …${last4}` : ""
   const draft = String(params.draftBody || "").trim()
+  const first = who.split(/\s+/)[0] || "them"
   const already = params.alreadyGotShopText === true
-  const lines = [
-    `${who}${phoneBit} · ${job}${place}.${asap} Submitted ${mins} min ago, still open.`,
-  ]
+  const lines = [`Leftover · ${who}`]
+  const meta: string[] = []
+  if (last4.length === 4) meta.push(`…${last4}`)
+  if (asap) meta.push("ASAP")
+  if (meta.length) lines.push(meta.join(" · "))
+  lines.push(job)
+  if (place) lines.push(place)
+  lines.push("")
+  lines.push(`Submitted ${formatAmberSubmittedAgo(mins)}. Still open.`)
   if (already) {
     lines.push("They already got a we-got-it from the shop line.")
-    lines.push("Reply skip Flavio, dismiss Flavio, or tell me a check-in to send.")
+    lines.push("")
+    lines.push(`Reply skip ${first} / dismiss that one`)
+    lines.push("or tell me a check-in to send.")
   } else if (draft) {
-    lines.push(`I’d send: “${draft}”`)
-    lines.push("Reply ok to send that, tell me what to change, or don’t text them.")
-    lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
+    lines.push("")
+    lines.push(`I’d send:`)
+    lines.push(`“${draft}”`)
+    lines.push("")
+    lines.push("Reply ok to send, or skip / dismiss that one.")
+    lines.push("No reply in 15 min → I’ll tell them we got it.")
   } else {
-    lines.push("What should I text them? Or say if you don’t want to.")
-    lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
+    lines.push("")
+    lines.push("What should I text them?")
+    lines.push("Or skip / dismiss that one.")
+    lines.push("No reply in 15 min → I’ll tell them we got it.")
   }
-  return lines.join(" ")
+  return lines.join("\n")
 }
 
 /** Join year/make/model for customer SMS (empty when we have none). */
@@ -421,8 +468,12 @@ export function buildAmberDraftPreviewText(params: {
 }): string {
   const who = params.customerFirstName || "them"
   return [
-    `Draft to ${who} (…${params.last4}): “${params.draftBody}”`,
-    "Want me to send that? Reply ok if it’s right, tell me what to change, or don’t send it.",
+    `Draft to ${who} (…${params.last4}):`,
+    "",
+    `“${params.draftBody}”`,
+    "",
+    "Want me to send that?",
+    "Reply ok — or tell me what to change.",
   ].join("\n")
 }
 
@@ -448,7 +499,7 @@ export function isBareAmberPresenceCommand(raw: string): boolean {
 export function amberCoworkerHelpLines(): string[] {
   return [
     "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
-    "Tell me what to say and I’ll show a new draft. Skip Noah or don’t text them to skip.",
+    "Tell me what to say and I’ll show a new draft. Skip Noah, dismiss that one, or don’t text them to skip.",
     "No reply in 15 min → I tell them we got it.",
     "STOP — pause leftover pings. START — resume.",
   ]
