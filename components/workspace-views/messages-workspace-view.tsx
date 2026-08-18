@@ -17,16 +17,16 @@ import {
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
-  bookFormHandoffMatchesPhone,
-  peekBookFormDetailsHandoff,
+  findLatestBookFormForPhone,
   requestReopenBookFormDetail,
 } from "@/lib/book-form-details-handoff"
 import { buildTelHref } from "@/lib/phone-e164"
+import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
-import { markLatestReplySeen } from "@/lib/latest-seen"
+import { markLatestReplySeen, excludeReadRepliesFromLatest } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { MessagesThreadListSkeleton } from "@/components/workspace-content-skeletons"
@@ -153,6 +153,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
       ? activeOrganizationId
       : null
+  // Shared Latest cache — leftover book forms for the orange thread banner.
+  const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
   const workspaceBusinessName =
     organizations.find((o) => o.id === activeOrganizationId)?.name?.trim() ||
@@ -170,6 +172,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
+  // Leftover book form for this thread (banner + chips — no Lines tap required).
+  const threadBookForm = useMemo(
+    () =>
+      selectedPhone
+        ? findLatestBookFormForPhone(excludeReadRepliesFromLatest(latestItems), selectedPhone)
+        : null,
+    [latestItems, selectedPhone]
+  )
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -391,10 +401,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   // Rule-based chips — inbound replies plus booking follow-ups even if they have not written back.
   const replySuggest = useMemo(() => {
-    const handoff =
-      selectedPhone && bookFormHandoffMatchesPhone(selectedPhone)
-        ? peekBookFormDetailsHandoff()
-        : null
+    const handoff = threadBookForm
     const chipName = customerName || handoff?.customerName || null
     const business =
       workspaceBusinessName ||
@@ -507,6 +514,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     customerName,
     workspaceBusinessName,
     selectedPhone,
+    threadBookForm,
     customSnippets,
     statusTemplates,
     routeTemplate,
@@ -620,21 +628,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     ? formatPhoneDisplay(activeThread.customerPhone)
     : ""
 
-  // Book-form alert context: offer a way back to submitted fields (SMS alone won’t show them).
-  const showBookingDetailsBanner = Boolean(
-    isActive &&
-      selectedPhone &&
-      bookFormHandoffMatchesPhone(selectedPhone)
-  )
-  const bookingHandoffPreview = showBookingDetailsBanner
-    ? peekBookFormDetailsHandoff()
-    : null
+  const showBookingDetailsBanner = Boolean(isActive && selectedPhone && threadBookForm)
 
-  /** Leave Messages and reopen the Lines booking-details sheet. */
+  /** Slide the existing Booking request sheet over this thread. */
   const openBookingDetailsFromBanner = useCallback(() => {
-    requestReopenBookFormDetail()
-    router.push("/dashboard")
-  }, [router])
+    if (!threadBookForm) return
+    requestReopenBookFormDetail(threadBookForm)
+  }, [threadBookForm])
 
   // Opening a thread clears the Latest unread dot for that phone.
   useEffect(() => {
@@ -865,8 +865,26 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0 flex-1">
-                  {threadTelHref ? (
-                    // One-tap call: tap the number → phone dialer opens.
+                  {customerName ? (
+                    <>
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {customerName}
+                      </p>
+                      {threadTelHref ? (
+                        <a
+                          href={threadTelHref}
+                          className="inline-flex min-h-9 max-w-full items-center truncate text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                          aria-label={`Call ${threadPhoneLabel}`}
+                        >
+                          {threadPhoneLabel}
+                        </a>
+                      ) : (
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {threadPhoneLabel}
+                        </p>
+                      )}
+                    </>
+                  ) : threadTelHref ? (
                     <a
                       href={threadTelHref}
                       className="inline-flex min-h-11 max-w-full items-center truncate text-sm font-semibold text-foreground underline-offset-2 hover:underline"
@@ -912,11 +930,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 // Escape hatch: SMS only has the pick-a-time link — form data lives on Lines.
                 <div className="shrink-0 border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
                   <p className="text-[11px] font-medium text-orange-100/90">
-                    {bookingHandoffPreview?.customerName
-                      ? `${bookingHandoffPreview.customerName} submitted a booking`
+                    {threadBookForm?.customerName
+                      ? `${threadBookForm.customerName} submitted a booking`
                       : "Customer submitted a booking"}
-                    {bookingHandoffPreview?.preview
-                      ? ` · ${bookingHandoffPreview.preview}`
+                    {threadBookForm?.preview
+                      ? ` · ${threadBookForm.preview}`
                       : ""}
                   </p>
                   <button

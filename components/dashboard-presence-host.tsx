@@ -203,7 +203,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   return (
     <div className="w-full min-h-0 md:min-h-[calc(100dvh-4rem)]">
       {/* Lines is statically imported here — intake lives in shell (LyncEngine), not this pane. */}
-      <PresencePane active={activePage === "dashboard"} label="Routing" deferUntilVisit>
+      <PresencePane active={activePage === "dashboard"} label="Routing">
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>

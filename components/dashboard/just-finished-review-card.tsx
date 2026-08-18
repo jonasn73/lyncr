@@ -360,12 +360,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       }
       if (phone.trim()) markSeen(phone)
       setSelected(null)
+      // Already in this thread — close the sheet; do not bounce the inbox.
+      if (pathname.startsWith("/dashboard/messages")) return
       const qs = new URLSearchParams({ phone })
       const draftText = String(draft ?? "").trim()
       if (draftText) qs.set("draft", draftText)
       router.push(`/dashboard/messages?${qs.toString()}`)
     },
-    [markSeen, router]
+    [markSeen, pathname, router]
   )
 
   /** Open CRM profile for this phone (secondary action from booking sheet). */
@@ -515,18 +517,20 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     [toast]
   )
 
-  /** Reopen booking details after “View booking details” from Messages. */
-  const tryReopenBookFormDetail = useCallback(() => {
-    // Only reopen on Lines — never open the sheet while Messages is still active.
-    const path =
-      typeof window !== "undefined" ? window.location.pathname : pathname
-    const onLines = path === "/dashboard" || path === "/dashboard/"
-    if (!onLines) return
+  /** Reopen booking details from Messages without leaving the text thread. */
+  const tryReopenBookFormDetail = useCallback((itemFromEvent?: LatestCustomerAction | null) => {
+    const fromEvent = itemFromEvent?.event === "book_form" ? itemFromEvent : null
+    if (fromEvent) {
+      consumeBookFormReopenPending()
+      setSelected(fromEvent)
+      return
+    }
+    // Navigation fallback — only if Messages asked us to reopen (pending flag).
     if (!consumeBookFormReopenPending()) return
     const item = peekBookFormDetailsHandoff()
     if (!item || item.event !== "book_form") return
     setSelected(item)
-  }, [pathname])
+  }, [])
 
   useEffect(() => {
     // Lines tab visible again after Messages handoff.
@@ -535,12 +539,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
   useEffect(() => {
     // Same-tab signal when Lines is already mounted under the presence host.
-    window.addEventListener(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT, tryReopenBookFormDetail)
+    const onOpen = (ev: Event) => {
+      const detail = (ev as CustomEvent<LatestCustomerAction>).detail
+      tryReopenBookFormDetail(detail)
+    }
+    window.addEventListener(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT, onOpen)
     return () => {
-      window.removeEventListener(
-        LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT,
-        tryReopenBookFormDetail
-      )
+      window.removeEventListener(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT, onOpen)
     }
   }, [tryReopenBookFormDetail])
 

@@ -2,7 +2,7 @@
 
 // Customers & Leads CRM hub — list + profile (desktop side panel / mobile centered dialog).
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -63,6 +63,7 @@ import {
 } from "@/lib/owner-collected"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
+import { pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
@@ -343,6 +344,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
+  // Apply ?phone= once so closing the card does not immediately reopen it.
+  const phoneDeepLinkAppliedRef = useRef<string | null>(null)
+  // CRM pane stays mounted — false until we see it active so Messages → CRM can reopen.
+  const crmWasActiveRef = useRef(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([])
   const [history, setHistory] = useState<CrmServiceHistoryItem[]>([])
@@ -423,6 +428,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     setSelectedId(customerParam)
   }, [customerParam])
 
+  // Messages CRM chip: open this phone’s card, including a second tap after close.
+  useEffect(() => {
+    const becameActive = isActive && !crmWasActiveRef.current
+    crmWasActiveRef.current = isActive
+    if (becameActive && !selectedId) phoneDeepLinkAppliedRef.current = null
+    if (customerParam) return
+    const phoneParam = searchParams.get("phone")?.trim() || ""
+    const key = phoneParam.replace(/\D/g, "").slice(-10)
+    if (key.length < 10) return
+    if (phoneDeepLinkAppliedRef.current === key) return
+    const id = pickCrmCustomerIdForPhone(rows, phoneParam)
+    if (!id) return
+    phoneDeepLinkAppliedRef.current = key
+    setSelectedId(id)
+  }, [isActive, customerParam, rows, searchParams, selectedId])
+
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 280)
     return () => window.clearTimeout(t)
@@ -450,12 +471,21 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         setError(null)
         setSelectedId((prev) => {
           if (prev && list.some((r) => r.id === prev)) return prev
+          const phoneParam = searchParams.get("phone")?.trim() || ""
+          const key = phoneParam.replace(/\D/g, "").slice(-10)
+          // Already opened (or closed) this phone’s card — don’t yank it back open on poll.
+          if (key.length >= 10 && phoneDeepLinkAppliedRef.current === key) return null
+          const fromPhone = pickCrmCustomerIdForPhone(list, phoneParam)
+          if (fromPhone) {
+            phoneDeepLinkAppliedRef.current = key
+            return fromPhone
+          }
           return null
         })
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false))
-  }, [debounced, filter, pollEnabled])
+  }, [debounced, filter, pollEnabled, searchParams])
 
   // Filter/search change — drop live override so the matching seed can show.
   useEffect(() => {

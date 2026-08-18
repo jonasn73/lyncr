@@ -17,6 +17,22 @@ function phoneKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
 }
 
+/** Newest leftover book form for this phone (not only the last Lines tap). */
+export function findLatestBookFormForPhone(
+  items: ReadonlyArray<LatestCustomerAction>,
+  phone: string
+): LatestCustomerAction | null {
+  const key = phoneKey(phone)
+  if (key.length < 10) return null
+  const matches = items.filter(
+    (row) => row.event === "book_form" && phoneKey(row.customerPhone) === key
+  )
+  if (matches.length === 0) return null
+  return matches.reduce((newest, row) =>
+    new Date(row.at).getTime() > new Date(newest.at).getTime() ? row : newest
+  )
+}
+
 /** Persist the book-form row for “View booking details” from Messages. */
 export function writeBookFormDetailsHandoff(item: LatestCustomerAction): void {
   if (typeof window === "undefined") return
@@ -62,16 +78,24 @@ export function clearBookFormDetailsHandoff(): void {
   }
 }
 
-/** Messages → Lines: mark pending reopen and notify a mounted Alerts card. */
-export function requestReopenBookFormDetail(): void {
+/**
+ * Open the existing Booking request sheet over the current tab (Messages or Lines).
+ * Pass the book-form row when we have it so we do not depend on a prior Lines tap.
+ */
+export function requestReopenBookFormDetail(item?: LatestCustomerAction | null): void {
   if (typeof window === "undefined") return
+  const next = item?.event === "book_form" ? item : peekBookFormDetailsHandoff()
+  if (!next || next.event !== "book_form") return
+  writeBookFormDetailsHandoff(next)
   try {
     sessionStorage.setItem(BOOK_FORM_REOPEN_PENDING_KEY, "1")
   } catch {
-    // ignore
+    // ignore quota / private mode
   }
   try {
-    window.dispatchEvent(new CustomEvent(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT))
+    window.dispatchEvent(
+      new CustomEvent(LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT, { detail: next })
+    )
   } catch {
     // ignore
   }
