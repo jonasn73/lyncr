@@ -103,7 +103,7 @@ export async function classifyAmberLeftoverIntentAi(params: {
           {
             role: "system",
             content:
-              'Classify an owner SMS about one leftover book job. Return JSON {"intent":"skip|send|status|ask|draft","confidence":0-1}. skip = do not text the customer. send = approve an already-quoted draft only. status = owner asking if they are Busy/Available. draft = they are dictating a customer text. ask = unclear. Never invent times or prices. If unsure, intent ask and confidence below 0.7.',
+              'Classify an owner SMS about one leftover book job. Return JSON {"intent":"skip|send|status|ask|draft","confidence":0-1}. skip = do not text the customer (skip, dismiss, clear, drop, I am done with them). send = approve an already-quoted draft only. status = owner asking if they are Busy/Available. draft = they are dictating a customer text. ask = unclear. Never invent times or prices. If unsure, intent ask and confidence below 0.7.',
           },
           {
             role: "user",

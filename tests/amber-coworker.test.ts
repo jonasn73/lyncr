@@ -9,6 +9,8 @@ import {
   isAmberSendKeyword,
   isAmberSilentLeftoverDue,
   isAmberSkipKeyword,
+  extractAmberSkipCustomerName,
+  amberSkipNameMatchesCustomer,
   isBareAmberPresenceCommand,
   parseAmberCoworkerCommand,
   shouldHoldLeftoverPing,
@@ -64,6 +66,20 @@ describe("parseAmberCoworkerCommand", () => {
     expect(isAmberSkipKeyword("skip until tomorrow")).toBe(false)
     expect(parseAmberCoworkerCommand("LATER").kind).toBe("skip")
     expect(parseAmberCoworkerCommand("skip noah").kind).toBe("skip")
+  })
+
+  it("treats dismiss Flavio and similar talk as skip", () => {
+    expect(isAmberSkipKeyword("dismiss Flavio")).toBe(true)
+    expect(isAmberSkipKeyword("Dismiss flavio bernardino")).toBe(true)
+    expect(isAmberSkipKeyword("clear Flavio")).toBe(true)
+    expect(isAmberSkipKeyword("I'm done with Flavio")).toBe(true)
+    expect(isAmberSkipKeyword("take Flavio off")).toBe(true)
+    expect(isAmberSkipKeyword("dismiss this")).toBe(true)
+    expect(parseAmberCoworkerCommand("dismiss Flavio").kind).toBe("skip")
+    expect(extractAmberSkipCustomerName("dismiss Flavio")).toBe("FLAVIO")
+    expect(amberSkipNameMatchesCustomer("FLAVIO", "Flavio Bernardino")).toBe(true)
+    expect(amberSkipNameMatchesCustomer("FLAVIO", "Isaac Kontcho")).toBe(false)
+    expect(isAmberSkipKeyword("tell him dismiss the extra key")).toBe(false)
   })
 
   it("treats other text as instruction", () => {

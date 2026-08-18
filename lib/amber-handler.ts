@@ -98,6 +98,8 @@ export async function tryHandleAmberInboundSms(params: {
     isAmberStopKeyword,
     isAmberStartKeyword,
     isBareAmberPresenceCommand,
+    extractAmberSkipCustomerName,
+    amberSkipNameMatchesCustomer,
   } = await import("@/lib/amber-coworker-commands")
   const {
     getOpenAmberJobThread,
@@ -232,7 +234,7 @@ export async function tryHandleAmberInboundSms(params: {
     })
   } else {
     const coworker = parseAmberCoworkerCommand(params.text)
-    coworkerChannel = Boolean(thread)
+    coworkerChannel = Boolean(thread) || coworker.kind === "skip"
     if (thread && coworker.kind === "send") {
       if (thread.state !== "awaiting_send") {
         reply =
@@ -243,9 +245,23 @@ export async function tryHandleAmberInboundSms(params: {
           ? `Sent to ${thread.customer_name?.trim().split(/\s+/)[0] || "the customer"} from your business line.`
           : sent.error
       }
-    } else if (thread && coworker.kind === "skip") {
-      await skipAmberJobThread({ amber, thread })
-      reply = "Okay — I won’t text them about that request."
+    } else if (coworker.kind === "skip") {
+      const saidName = extractAmberSkipCustomerName(params.text)
+      if (!thread) {
+        reply = saidName
+          ? `Nothing leftover open for ${saidName[0]}${saidName.slice(1).toLowerCase()}. If they’re still on Lines, tap Clear on that card.`
+          : "Nothing leftover waiting right now."
+      } else if (!amberSkipNameMatchesCustomer(saidName, thread.customer_name)) {
+        const holding = thread.customer_name?.trim().split(/\s+/)[0] || "them"
+        const said = saidName
+          ? `${saidName[0]}${saidName.slice(1).toLowerCase()}`
+          : "them"
+        reply = `I’m holding ${holding}, not ${said}. Reply skip ${holding} to close that, or tell me what to text them.`
+      } else {
+        const first = thread.customer_name?.trim().split(/\s+/)[0] || "them"
+        await skipAmberJobThread({ amber, thread })
+        reply = `Okay — ${first} is off the leftover list. I won’t text them about that request.`
+      }
     } else if (thread && coworker.kind === "instruction" && coworker.text) {
       const { resolveAmberLeftoverIntent, buildAmberClarifySms } = await import("@/lib/amber-intent")
       const first = thread.customer_name?.trim().split(/\s+/)[0] || "them"

@@ -100,20 +100,44 @@ export function isAmberSendKeyword(raw: string): boolean {
   )
 }
 
+/** True when “skip Noah” / “dismiss Flavio” names the leftover (not “skip until tomorrow”). */
+export function extractAmberSkipCustomerName(raw: string): string | null {
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  const patterns = [
+    /^(?:PLEASE\s+)?(?:SKIP|DISMISS|CLEAR|DROP|REMOVE|IGNORE|CLOSE)\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
+    /^PASS ON\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
+    /^(?:PLEASE\s+)?(?:DONT|DO NOT)\s+TEXT\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
+    /^(?:IM|I AM)\s+DONE WITH\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
+    /^(?:DONT|DO NOT)\s+(?:WORRY ABOUT|BOTHER WITH)\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/,
+    /^TAKE\s+([A-Z][A-Z'-]{1,24})\s+OFF\b/,
+  ]
+  for (const re of patterns) {
+    const m = re.exec(upper)
+    if (!m?.[1]) continue
+    if (m[1] === "THEM" || m[1] === "HIM" || m[1] === "HER") continue
+    if (SKIP_NAME_STOPWORDS.has(m[1])) continue
+    return m[1]
+  }
+  return null
+}
+
+/** True when a named skip is for this leftover (Flavio matches Flavio Bernardino). */
+export function amberSkipNameMatchesCustomer(
+  saidName: string | null,
+  customerName: string | null
+): boolean {
+  if (!saidName) return true
+  const first = String(customerName || "")
+    .trim()
+    .split(/\s+/)[0]
+    ?.toUpperCase()
+    .replace(/'/g, "")
+  return Boolean(first && first === saidName)
+}
+
 /** True when “skip Noah” / “don’t text Joe” names the leftover (not “skip until tomorrow”). */
 export function isAmberSkipNamedLeftover(raw: string): boolean {
-  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
-  // skip Noah  /  skip Noah Medley
-  const skipName = /^SKIP\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
-  if (skipName && !SKIP_NAME_STOPWORDS.has(skipName[1])) return true
-  const passName = /^PASS ON\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
-  if (passName && !SKIP_NAME_STOPWORDS.has(passName[1])) return true
-  // don’t text Noah (him/her/them already match the exact skip list)
-  const dontName = /^(?:DONT|DO NOT)\s+TEXT\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
-  if (!dontName) return false
-  const token = dontName[1]
-  if (token === "THEM" || token === "HIM" || token === "HER") return false
-  return !SKIP_NAME_STOPWORDS.has(token)
+  return extractAmberSkipCustomerName(raw) != null
 }
 
 /** True when the owner wants to close without texting the customer. */
@@ -144,7 +168,21 @@ export function isAmberSkipKeyword(raw: string): boolean {
     upper === "PASS" ||
     upper === "PASS ON THIS" ||
     upper === "PASS ON IT" ||
-    // skip Noah — one open leftover, so naming them skips that ping
+    upper === "DISMISS" ||
+    upper === "DISMISS THIS" ||
+    upper === "DISMISS IT" ||
+    upper === "DISMISS HIM" ||
+    upper === "DISMISS HER" ||
+    upper === "CLEAR THIS" ||
+    upper === "CLEAR IT" ||
+    upper === "DROP THIS" ||
+    upper === "DROP IT" ||
+    upper === "REMOVE THIS" ||
+    upper === "IM DONE" ||
+    upper === "I AM DONE" ||
+    upper === "DONE WITH THIS" ||
+    /^PASS ON\s+[A-Z][A-Z'-]{1,24}\b/.test(upper) ||
+    // skip Noah / dismiss Flavio — one open leftover, so naming them skips that ping
     isAmberSkipNamedLeftover(raw)
   )
 }
@@ -261,7 +299,7 @@ export function buildAmberLeftoverPingText(params: {
   ]
   if (already) {
     lines.push("They already got a we-got-it from the shop line.")
-    lines.push("Reply skip plus their name if you’re done, or tell me a check-in to send.")
+    lines.push("Reply skip Flavio, dismiss Flavio, or tell me a check-in to send.")
   } else if (draft) {
     lines.push(`I’d send: “${draft}”`)
     lines.push("Reply ok to send that, tell me what to change, or don’t text them.")

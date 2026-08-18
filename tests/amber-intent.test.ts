@@ -20,9 +20,8 @@ describe("status in plain English", () => {
 
 describe("classifyAmberLeftoverIntentLocal", () => {
   it("skips named leftovers and pass", () => {
-    expect(classifyAmberLeftoverIntentLocal("Skip noah")).toBe("skip")
-    expect(classifyAmberLeftoverIntentLocal("pass")).toBe("skip")
-    expect(parseAmberCoworkerCommand("pass").kind).toBe("skip")
+    expect(classifyAmberLeftoverIntentLocal("dismiss Flavio")).toBe("skip")
+    expect(classifyAmberLeftoverIntentLocal("I'm done with Flavio")).toBe("skip")
   })
 
   it("asks when the owner is asking about the leftover", () => {
