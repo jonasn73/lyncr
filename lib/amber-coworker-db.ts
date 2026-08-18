@@ -545,7 +545,7 @@ export async function listSilentOpenAmberThreads(): Promise<SilentAmberThreadRow
       FROM amber_job_threads t
       JOIN amber_workspaces w ON w.id = t.amber_workspace_id
       JOIN phone_numbers p ON p.id = w.phone_number_id AND p.is_amber_control = true
-      WHERE t.state = 'awaiting_instruction'
+      WHERE t.state IN ('awaiting_instruction', 'awaiting_send')
         AND t.pinged_at IS NOT NULL
         AND t.pinged_at <= now() - interval '45 minutes'
         AND w.enabled = true

@@ -487,15 +487,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                     <span className="font-semibold text-foreground">Amber · Lyncr</span>.
                   </li>
                   <li className="leading-snug">
-                    <span className="font-semibold text-foreground">2. Try a command</span>
+                    <span className="font-semibold text-foreground">2. Text Amber like a coworker</span>
                     <br />
-                    Text Amber{" "}
-                    <span className="font-semibold text-foreground">STATUS</span> or{" "}
-                    <span className="font-semibold text-foreground">HELP</span>
-                    . Then use{" "}
-                    <span className="font-semibold text-foreground">BUSY</span> /{" "}
-                    <span className="font-semibold text-foreground">AVAILABLE</span> when
-                    you’re on a job.
+                    Try “I’m slammed until 4:30” or “I’m free.” When she shows a leftover draft,
+                    reply ok to send it.
                   </li>
                 </ol>
                 <Button
@@ -524,10 +519,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             {showVerifyForm ? renderVerifyForm() : null}
 
             <p className="text-[11px] leading-snug text-muted-foreground">
-              Amber texts you about leftover book jobs. If you don’t reply in about 45 minutes,
-              it tells the customer we got the request (no times or prices) and moves on. You
-              can still say what to text, then SEND. SKIP means don’t text them. Busy / Available
-              still work. Customers never see this number.
+              Amber texts you leftover book jobs with a draft. Reply ok to send it, or tell her
+              what to change. If you don’t reply in about 45 minutes, she tells them we got the
+              request (no times or prices) and moves on. Don’t text them means skip. Customers
+              never see this number.
             </p>
           </div>
         )}

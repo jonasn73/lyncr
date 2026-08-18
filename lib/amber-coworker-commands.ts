@@ -33,10 +33,28 @@ export type AmberCoworkerCommand =
   | { kind: "start" }
   | { kind: "instruction"; text: string }
 
-/** True when the whole SMS is SEND (not “yes” / “ok”). */
+/** True when the owner is approving the quoted draft (normal talk, not a password). */
 export function isAmberSendKeyword(raw: string): boolean {
-  const upper = normalizeAmberSmsBody(raw).toUpperCase()
-  return upper === "SEND"
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  return (
+    upper === "SEND" ||
+    upper === "YES" ||
+    upper === "YEP" ||
+    upper === "YEAH" ||
+    upper === "YEA" ||
+    upper === "OK" ||
+    upper === "OKAY" ||
+    upper === "SEND IT" ||
+    upper === "SEND THAT" ||
+    upper === "SEND THIS" ||
+    upper === "YEAH SEND IT" ||
+    upper === "YES SEND IT" ||
+    upper === "YEP SEND IT" ||
+    upper === "GO AHEAD" ||
+    upper === "LOOKS GOOD" ||
+    upper === "SHIP IT" ||
+    upper === "DO IT"
+  )
 }
 
 /** True when the owner wants to close without texting the customer. */
@@ -44,10 +62,21 @@ export function isAmberSkipKeyword(raw: string): boolean {
   const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
   return (
     upper === "SKIP" ||
+    upper === "SKIP THIS" ||
+    upper === "SKIP THIS ONE" ||
+    upper === "SKIP IT" ||
     upper === "NO" ||
+    upper === "NAH" ||
+    upper === "NOPE" ||
     upper === "DONT" ||
     upper === "DONT SEND" ||
     upper === "DO NOT SEND" ||
+    upper === "DONT TEXT THEM" ||
+    upper === "DONT TEXT HIM" ||
+    upper === "DONT TEXT HER" ||
+    upper === "DO NOT TEXT THEM" ||
+    upper === "NEVERMIND" ||
+    upper === "NEVER MIND" ||
     upper === "LATER" ||
     upper === "IGNORE"
   )
@@ -147,6 +176,7 @@ export function buildAmberLeftoverPingText(params: {
   minutesAgo: number
   urgency: string
   last4?: string | null
+  draftBody?: string | null
 }): string {
   const who = String(params.customerName || "Customer").trim() || "Customer"
   const job = String(params.jobLabel || "request").trim() || "request"
@@ -155,11 +185,18 @@ export function buildAmberLeftoverPingText(params: {
   const asap = String(params.urgency || "").toLowerCase() === "asap" ? " ASAP" : ""
   const last4 = String(params.last4 || "").replace(/\D/g, "").slice(-4)
   const phoneBit = last4.length === 4 ? ` · …${last4}` : ""
-  return [
+  const draft = String(params.draftBody || "").trim()
+  const lines = [
     `${who}${phoneBit} · ${job}${place}.${asap} Submitted ${mins} min ago, still open.`,
-    "Reply what to say, then SEND. SKIP — don’t text them.",
-    "If I don’t hear back in 45 min, I’ll tell them we got the request (no times or prices).",
-  ].join(" ")
+  ]
+  if (draft) {
+    lines.push(`I’d send: “${draft}”`)
+    lines.push("Reply ok to send that, tell me what to change, or don’t text them.")
+  } else {
+    lines.push("What should I text them? Or say if you don’t want to.")
+  }
+  lines.push("If I don’t hear back in 45 min, I’ll tell them we got the request.")
+  return lines.join(" ")
 }
 
 /** Boring holding SMS — no ETAs, prices, or “we’re on the way.” */
@@ -219,7 +256,7 @@ export function buildAmberDraftPreviewText(params: {
   const who = params.customerFirstName || "them"
   return [
     `Draft to ${who} (…${params.last4}): “${params.draftBody}”`,
-    "Reply SEND to send that exact text, tell me what to change, or SKIP.",
+    "Want me to send that? Reply ok if it’s right, tell me what to change, or don’t send it.",
   ].join("\n")
 }
 
@@ -230,16 +267,20 @@ export function isBareAmberPresenceCommand(raw: string): boolean {
     /^(HELP|\?|HI|HELLO|STATUS|STAT|AVAILABLE|AVAIL|FREE|BUSY)\b/.test(upper) ||
     /^I'?M\s+(FREE|AVAILABLE)\b/.test(upper) ||
     /^MAKE\s+ME\s+BUSY\b/.test(upper) ||
-    /^SET\s+ME\s+(TO\s+)?BUSY\b/.test(upper)
+    /^SET\s+ME\s+(TO\s+)?BUSY\b/.test(upper) ||
+    /^I'?M\s+ON\s+A\s+JOB\b/.test(upper) ||
+    /^I'?M\s+SLAMMED\b/.test(upper) ||
+    /^I'?M\s+BUSY\b/.test(upper) ||
+    /^SLAMMED\s+UNTIL\b/.test(upper)
   )
 }
 
 /** Extra HELP lines for leftover jobs. */
 export function amberCoworkerHelpLines(): string[] {
   return [
-    "Leftover book jobs: I’ll ping you. No reply in 45 min → I tell them we got it.",
-    "SEND — send the quoted draft from your business line.",
-    "SKIP — close without texting the customer.",
+    "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
+    "Tell me what to say and I’ll show a new draft. Don’t text them to skip.",
+    "No reply in 45 min → I tell them we got it.",
     "STOP — pause leftover pings. START — resume.",
   ]
 }

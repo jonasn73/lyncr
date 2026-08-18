@@ -202,7 +202,8 @@ export async function tryHandleAmberInboundSms(params: {
     coworkerChannel = Boolean(thread)
     if (thread && coworker.kind === "send") {
       if (thread.state !== "awaiting_send") {
-        reply = "Tell me what to say first — then I’ll draft it and wait for SEND."
+        reply =
+          "Nothing to send yet. Tell me what you want them to hear — I’ll show you a draft first."
       } else {
         const sent = await sendAmberApprovedCustomerSms({ amber, thread })
         reply = sent.ok
@@ -211,7 +212,7 @@ export async function tryHandleAmberInboundSms(params: {
       }
     } else if (thread && coworker.kind === "skip") {
       await skipAmberJobThread({ amber, thread })
-      reply = "Skipped. I won’t text the customer about that request."
+      reply = "Okay — I won’t text them about that request."
     } else if (thread && coworker.kind === "instruction" && coworker.text) {
       reply = await draftAmberCustomerSms({
         amber,
@@ -220,7 +221,7 @@ export async function tryHandleAmberInboundSms(params: {
       })
     } else {
       reply =
-        "I didn't catch that. Reply HELP for commands, or try: BUSY until 4:30pm / AVAILABLE / STATUS."
+        "I didn’t catch that. Try: I’m slammed until 4:30, I’m free, or tell me what to text the customer."
       await insertAmberAuditEvent({
         userId: amber.user_id,
         organizationId: amber.organization_id,

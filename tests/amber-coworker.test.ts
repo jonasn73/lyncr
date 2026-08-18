@@ -14,16 +14,22 @@ import {
 } from "@/lib/amber-coworker-commands"
 
 describe("parseAmberCoworkerCommand", () => {
-  it("only treats exact SEND as send", () => {
+  it("treats yes and send it as send", () => {
     expect(isAmberSendKeyword("SEND")).toBe(true)
-    expect(isAmberSendKeyword("yes")).toBe(false)
-    expect(isAmberSendKeyword("ok")).toBe(false)
+    expect(isAmberSendKeyword("yes")).toBe(true)
+    expect(isAmberSendKeyword("ok")).toBe(true)
+    expect(isAmberSendKeyword("yeah send it")).toBe(true)
+    expect(isAmberSendKeyword("yes tell him tomorrow")).toBe(false)
     expect(parseAmberCoworkerCommand("SEND").kind).toBe("send")
+    expect(parseAmberCoworkerCommand("ok").kind).toBe("send")
   })
 
-  it("parses skip words", () => {
+  it("parses skip words including skip this", () => {
     expect(isAmberSkipKeyword("SKIP")).toBe(true)
-    expect(isAmberSkipKeyword("don't")).toBe(true)
+    expect(isAmberSkipKeyword("skip this")).toBe(true)
+    expect(isAmberSkipKeyword("don't text them")).toBe(true)
+    expect(isAmberSkipKeyword("don’t text them")).toBe(true)
+    expect(isAmberSkipKeyword("nevermind")).toBe(true)
     expect(parseAmberCoworkerCommand("LATER").kind).toBe("skip")
   })
 
@@ -37,8 +43,10 @@ describe("parseAmberCoworkerCommand", () => {
 })
 
 describe("isBareAmberPresenceCommand", () => {
-  it("treats BUSY as presence and a sentence as instruction", () => {
+  it("treats BUSY and I'm slammed as presence", () => {
     expect(isBareAmberPresenceCommand("BUSY until 4:30")).toBe(true)
+    expect(isBareAmberPresenceCommand("I'm slammed until 4")).toBe(true)
+    expect(isBareAmberPresenceCommand("I’m slammed until 4")).toBe(true)
     expect(isBareAmberPresenceCommand("tell him I'm on a job until tomorrow")).toBe(false)
   })
 })
@@ -75,11 +83,13 @@ describe("draft copy", () => {
       minutesAgo: 40,
       urgency: "asap",
       last4: "2716",
+      draftBody: "Hi Joe — we got your request. We’ll follow up. — Key Squad 502",
     })
     expect(text).toContain("Joe McCants")
     expect(text).toContain("…2716")
-    expect(text).toContain("45 min")
-    expect(text).toContain("SEND")
+    expect(text).toContain("I’d send")
+    expect(text).toContain("ok")
+    expect(text).not.toContain("SEND")
   })
 
   it("builds a holding SMS with no times or prices", () => {

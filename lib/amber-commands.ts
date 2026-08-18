@@ -12,7 +12,11 @@ export type AmberCommand =
 
 /** Normalize owner SMS body for matching. */
 export function normalizeAmberSmsBody(raw: string): string {
-  return raw.replace(/\s+/g, " ").trim()
+  // iPhone often inserts curly apostrophes in I’m / don’t.
+  return raw
+    .replace(/[\u2018\u2019\u201B`´]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /**
@@ -52,7 +56,10 @@ export function parseAmberCommand(raw: string): AmberCommand {
     /^BUSY\b/i.test(text) ||
     /\bmake\s+me\s+busy\b/i.test(text) ||
     /\bi'?m\s+on\s+a\s+job\b/i.test(text) ||
-    /\bset\s+me\s+(to\s+)?busy\b/i.test(text)
+    /\bset\s+me\s+(to\s+)?busy\b/i.test(text) ||
+    /\bi'?m\s+slammed\b/i.test(text) ||
+    /\bi'?m\s+busy\b/i.test(text) ||
+    /^slammed\s+until\b/i.test(text)
   ) {
     return { kind: "busy", untilLocalTime }
   }
@@ -148,9 +155,9 @@ export function amberHelpText(): string {
     "AVAILABLE — your phone rings first again.",
     "STATUS — Busy/Available right now.",
     "HELP — this list.",
-    "Leftover book jobs: I’ll ping you. No reply in 45 min → I tell them we got it.",
-    "SEND — send the quoted draft from your business line.",
-    "SKIP — close without texting the customer.",
+    "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
+    "Tell me what to change, or say don’t text them.",
+    "I’m slammed until 4 — Busy, then Available at that time.",
     "STOP — pause leftover pings. START — resume.",
     "Customers never see this Amber number.",
   ].join("\n")

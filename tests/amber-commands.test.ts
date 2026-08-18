@@ -13,8 +13,8 @@ describe("parseAmberCommand", () => {
     expect(parseAmberCommand("BUSY").kind).toBe("busy")
   })
 
-  it("parses busy until time", () => {
-    const cmd = parseAmberCommand("Make me busy until 4:30. I'm on a job.")
+  it("parses I'm slammed until a time", () => {
+    const cmd = parseAmberCommand("I'm slammed until 4:30")
     expect(cmd.kind).toBe("busy")
     if (cmd.kind === "busy") {
       expect(cmd.untilLocalTime).toMatch(/4:30/i)
@@ -44,6 +44,6 @@ describe("amberHelpText", () => {
   it("mentions Amber and BUSY", () => {
     expect(amberHelpText()).toContain("Amber")
     expect(amberHelpText()).toContain("BUSY")
-    expect(amberHelpText()).toContain("45 min")
+    expect(amberHelpText()).toContain("ok")
   })
 })

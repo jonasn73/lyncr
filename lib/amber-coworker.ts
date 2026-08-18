@@ -5,9 +5,11 @@
 import { getUser } from "@/lib/db"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
 import {
+  AMBER_SILENT_LEFTOVER_MS,
   buildAmberDraftPreviewText,
   buildAmberLeftoverPingText,
   buildCustomerDraftFromInstruction,
+  buildGotItHoldingCustomerSms,
   buildGotItOwnerRecapSms,
   amberCustomerFirstName,
   amberPhoneLast4,
@@ -199,6 +201,20 @@ export async function processAmberLeftoverBookJobs(): Promise<{
     claimedWorkspaces.add(c.amber_workspace_id)
 
     const minutesAgo = Math.max(1, Math.round((Date.now() - Date.parse(c.created_at)) / 60_000))
+    const user = await getUser(c.user_id)
+    const businessName = String(user?.business_name ?? "").trim() || "us"
+    const first = amberCustomerFirstName(c.customer_name)
+    // Quote a safe got-it draft so the owner can reply ok — no SEND password.
+    const holding = buildGotItHoldingCustomerSms({
+      customerFirstName: first,
+      businessName,
+    })
+    await updateAmberJobThread({
+      threadId: claimed.id,
+      state: "awaiting_send",
+      draftBody: holding,
+      draftExpiresAt: new Date(Date.now() + AMBER_SILENT_LEFTOVER_MS),
+    })
     const text = buildAmberLeftoverPingText({
       customerName: c.customer_name || "Customer",
       jobLabel: c.job_label,
@@ -206,6 +222,7 @@ export async function processAmberLeftoverBookJobs(): Promise<{
       minutesAgo,
       urgency: c.urgency,
       last4: amberPhoneLast4(c.caller_e164),
+      draftBody: holding,
     })
     const sent = await pingOwnerFromAmber({
       userId: c.user_id,
