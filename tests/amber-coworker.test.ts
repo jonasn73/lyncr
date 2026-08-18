@@ -128,6 +128,23 @@ describe("draft copy", () => {
     expect(text).not.toContain("SEND")
   })
 
+  it("still pings the owner when the customer already got a we-got-it", () => {
+    const text = buildAmberLeftoverPingText({
+      customerName: "Isaac Kontcho",
+      jobLabel: "lost key",
+      addressSnippet: "2400 S 4th",
+      minutesAgo: 8,
+      urgency: "asap",
+      last4: "2058",
+      alreadyGotShopText: true,
+    })
+    expect(text).toContain("Isaac")
+    expect(text.toLowerCase()).toContain("we-got-it")
+    expect(text.toLowerCase()).toContain("skip")
+    expect(text).not.toContain("I’d send")
+    expect(text).not.toContain("15 min")
+  })
+
   it("builds a holding SMS with no times or prices", () => {
     const text = buildGotItHoldingCustomerSms({
       customerFirstName: "Joe",

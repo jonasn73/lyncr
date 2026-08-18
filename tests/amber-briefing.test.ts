@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseAmberCommand } from "@/lib/amber-commands"
-import { formatAmberBriefingSms, isAmberBriefingPhrase } from "@/lib/amber-briefing"
+import { formatAmberBriefingSms, formatAmberHelloSms, isAmberBriefingPhrase } from "@/lib/amber-briefing"
 import { isBareAmberPresenceCommand } from "@/lib/amber-coworker-commands"
 
 describe("isAmberBriefingPhrase", () => {
@@ -9,9 +9,13 @@ describe("isAmberBriefingPhrase", () => {
     expect(isAmberBriefingPhrase("anything I should know")).toBe(true)
     expect(isAmberBriefingPhrase("what's waiting")).toBe(true)
     expect(isAmberBriefingPhrase("what did I miss")).toBe(true)
+    expect(isAmberBriefingPhrase("What's going on around my business")).toBe(true)
+    expect(isAmberBriefingPhrase("What's going around my dashboard?")).toBe(true)
     expect(parseAmberCommand("Any important events?").kind).toBe("briefing")
     expect(isBareAmberPresenceCommand("Any important events?")).toBe(true)
+    expect(isBareAmberPresenceCommand("What's going on around my business")).toBe(true)
     expect(isAmberBriefingPhrase("tell him we can come tomorrow")).toBe(false)
+    expect(isAmberBriefingPhrase("tell him what's going on")).toBe(false)
     expect(parseAmberCommand("Hey").kind).toBe("greeting")
   })
 })
@@ -21,6 +25,21 @@ describe("formatAmberBriefingSms", () => {
     const text = formatAmberBriefingSms({ busy: false, lines: [] })
     expect(text).toContain("Available")
     expect(text.toLowerCase()).toContain("clear")
+  })
+
+  it("puts leftovers on a Hey so the owner does not have to ask twice", () => {
+    const empty = formatAmberHelloSms({ busy: false, untilLabel: null, lines: [] })
+    expect(empty.startsWith("Hey.")).toBe(true)
+    expect(empty.toLowerCase()).toContain("nothing waiting")
+    expect(empty.toLowerCase()).not.toContain("what's my status")
+    const waiting = formatAmberHelloSms({
+      busy: false,
+      untilLabel: null,
+      lines: [{ name: "Isaac", last4: "2058", urgency: "asap" }],
+    })
+    expect(waiting).toContain("Isaac")
+    expect(waiting).toContain("…2058")
+    expect(waiting.toLowerCase()).toContain("still need you")
   })
 
   it("lists first names and last four only, no addresses", () => {

@@ -37,19 +37,23 @@ export function isAmberGreetingPhrase(raw: string): boolean {
   )
 }
 
-/** Short hello with live Busy/Available — not a cheat-sheet. */
+/** Short hello with live Busy/Available — greeting also adds leftovers in the handler. */
 export function amberHelloSms(params: { busy: boolean; untilLabel: string | null }): string {
   const status = params.busy
     ? params.untilLabel
       ? `You’re Busy until ${params.untilLabel}. Your phone does not ring first.`
       : "You’re Busy. Your phone does not ring first."
     : "You’re Available. Your phone rings first."
-  return `Hey. ${status} You can text What’s my status, I’m slammed until 4:30, or I’m free.`
+  return `Hey. ${status}`
 }
 
 /** True when the owner wants a short “what still needs me” leftover list. */
 export function isAmberBriefingPhrase(raw: string): boolean {
   const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  // A customer-draft instruction is not a briefing question.
+  if (/^(PLEASE\s+)?(TELL|TEXT|DRAFT|MESSAGE)\s+(HIM|HER|THEM|JOE|THE CUSTOMER)\b/.test(upper)) {
+    return false
+  }
   return (
     /ANY IMPORTANT EVENTS/.test(upper) ||
     /ANYTHING (IMPORTANT|WAITING|OPEN|I SHOULD KNOW)/.test(upper) ||
@@ -57,11 +61,27 @@ export function isAmberBriefingPhrase(raw: string): boolean {
     /WHATS OPEN/.test(upper) ||
     /WHATS LEFTOVER/.test(upper) ||
     /ANYTHING I NEED/.test(upper) ||
+    /WHATS GOING ON/.test(upper) ||
+    /WHAT IS GOING ON/.test(upper) ||
+    /WHATS GOING AROUND/.test(upper) ||
+    /WHAT IS GOING AROUND/.test(upper) ||
+    /WHATS HAPPENING/.test(upper) ||
+    /WHAT IS HAPPENING/.test(upper) ||
+    /\bMY (BUSINESS|SHOP|DASHBOARD)\b/.test(upper) ||
+    /\bAROUND (MY )?(BUSINESS|SHOP|DASHBOARD)\b/.test(upper) ||
+    /CATCH ME UP/.test(upper) ||
+    /FILL ME IN/.test(upper) ||
+    /WHO NEEDS ME/.test(upper) ||
+    /ANY JOBS WAITING/.test(upper) ||
+    /WHATS ON MY PLATE/.test(upper) ||
+    /HOW ARE THINGS/.test(upper) ||
+    /WHAT DID I MISS/.test(upper) ||
     upper === "BRIEFING" ||
     upper === "WHATS UP" ||
     upper === "ANYTHING?" ||
     upper === "UPDATES" ||
-    upper === "WHAT DID I MISS"
+    upper === "WHAT DID I MISS" ||
+    upper === "DASHBOARD"
   )
 }
 

@@ -215,7 +215,7 @@ export type LeftoverBookCandidate = {
 }
 
 /**
- * Book-form leads still status lead, older than 20 minutes, no Amber thread yet.
+ * Book-form leads still status lead, older than 5 minutes, no Amber thread yet.
  * Caller still filters quiet hours, daily cap, and one-open-thread.
  */
 export async function listLeftoverBookFormCandidates(limit = 15): Promise<LeftoverBookCandidate[]> {
@@ -277,7 +277,7 @@ export async function listLeftoverBookFormCandidates(limit = 15): Promise<Leftov
          )
        )
       JOIN phone_numbers p ON p.id = w.phone_number_id AND p.is_amber_control = true
-      WHERE l.created_at < now() - interval '20 minutes'
+      WHERE l.created_at < now() - interval '5 minutes'
         AND l.created_at > now() - interval '48 hours'
         AND lower(trim(coalesce(nullif(trim(l.job_status), ''), nullif(trim(l.collected->>'job_status'), ''), 'lead'))) = 'lead'
         AND coalesce(l.collected->>'source', '') IN (

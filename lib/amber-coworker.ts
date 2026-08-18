@@ -164,10 +164,6 @@ export async function processAmberLeftoverBookJobs(): Promise<{
       customerPhone: c.caller_e164,
       sinceIso: c.created_at,
     })
-    if (alreadySms) {
-      skipped += 1
-      continue
-    }
     const recovered = await lostLeadRecoveryAlreadySent({
       userId: c.user_id,
       customerPhone: c.caller_e164,
@@ -207,20 +203,21 @@ export async function processAmberLeftoverBookJobs(): Promise<{
     const businessName = String(user?.business_name ?? "").trim() || "us"
     const first = amberCustomerFirstName(c.customer_name)
     const settings = await getOwnerSmsSettings(c.user_id).catch(() => null)
-    // Quote a safe got-it draft so the owner can reply ok — no SEND password.
-    const holding = buildGotItHoldingCustomerSms({
-      customerFirstName: first,
-      businessName,
-      jobLabel: c.job_label,
-      urgency: c.urgency,
-      addressSnippet: c.address_snippet,
-      template: settings?.sms_booking_template,
-    })
+    const holding = alreadySms
+      ? ""
+      : buildGotItHoldingCustomerSms({
+          customerFirstName: first,
+          businessName,
+          jobLabel: c.job_label,
+          urgency: c.urgency,
+          addressSnippet: c.address_snippet,
+          template: settings?.sms_booking_template,
+        })
     await updateAmberJobThread({
       threadId: claimed.id,
-      state: "awaiting_send",
-      draftBody: holding,
-      draftExpiresAt: new Date(Date.now() + AMBER_SILENT_LEFTOVER_MS),
+      state: alreadySms ? "awaiting_instruction" : "awaiting_send",
+      draftBody: holding || null,
+      draftExpiresAt: alreadySms ? null : new Date(Date.now() + AMBER_SILENT_LEFTOVER_MS),
     })
     const text = buildAmberLeftoverPingText({
       customerName: c.customer_name || "Customer",
@@ -229,7 +226,8 @@ export async function processAmberLeftoverBookJobs(): Promise<{
       minutesAgo,
       urgency: c.urgency,
       last4: amberPhoneLast4(c.caller_e164),
-      draftBody: holding,
+      draftBody: holding || null,
+      alreadyGotShopText: alreadySms,
     })
     const sent = await pingOwnerFromAmber({
       userId: c.user_id,

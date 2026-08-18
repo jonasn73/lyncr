@@ -5,7 +5,6 @@
 import { setAccountPresence, getAccountPresence } from "@/lib/account-presence"
 import {
   amberHelpText,
-  amberHelloSms,
   formatAmberUntilLabel,
   parseAmberCommand,
   resolveAmberUntilInstant,
@@ -160,7 +159,15 @@ export async function tryHandleAmberInboundSms(params: {
     const until = amber.presence_available_at
       ? formatAmberUntilLabel(new Date(amber.presence_available_at), amber.timezone)
       : null
-    reply = amberHelloSms({ busy, untilLabel: until })
+    const { loadAmberBriefingLines, formatAmberHelloSms } = await import("@/lib/amber-briefing")
+    const lines = await loadAmberBriefingLines({ amber })
+    reply = formatAmberHelloSms({ busy, untilLabel: until, lines })
+    await insertAmberAuditEvent({
+      userId: amber.user_id,
+      organizationId: amber.organization_id,
+      eventType: "greeting",
+      detail: { leftoverCount: lines.length },
+    })
   } else if (honorPresence && cmd.kind === "status") {
     const presence = await getAccountPresence(amber.user_id)
     const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"

@@ -244,6 +244,8 @@ export function buildAmberLeftoverPingText(params: {
   urgency: string
   last4?: string | null
   draftBody?: string | null
+  /** True when the shop line already sent the we-got-it text. */
+  alreadyGotShopText?: boolean
 }): string {
   const who = String(params.customerName || "Customer").trim() || "Customer"
   const job = String(params.jobLabel || "request").trim() || "request"
@@ -253,16 +255,21 @@ export function buildAmberLeftoverPingText(params: {
   const last4 = String(params.last4 || "").replace(/\D/g, "").slice(-4)
   const phoneBit = last4.length === 4 ? ` · …${last4}` : ""
   const draft = String(params.draftBody || "").trim()
+  const already = params.alreadyGotShopText === true
   const lines = [
     `${who}${phoneBit} · ${job}${place}.${asap} Submitted ${mins} min ago, still open.`,
   ]
-  if (draft) {
+  if (already) {
+    lines.push("They already got a we-got-it from the shop line.")
+    lines.push("Reply skip plus their name if you’re done, or tell me a check-in to send.")
+  } else if (draft) {
     lines.push(`I’d send: “${draft}”`)
     lines.push("Reply ok to send that, tell me what to change, or don’t text them.")
+    lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
   } else {
     lines.push("What should I text them? Or say if you don’t want to.")
+    lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
   }
-  lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
   return lines.join(" ")
 }
 
