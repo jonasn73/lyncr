@@ -147,7 +147,7 @@ export const HOLD_REPROMPT_DEFAULT =
 
 /** Spoken when max wait is reached — offer SMS once, then hang up. */
 export const HOLD_MAX_WAIT_SMS_PROMPT =
-  "We are still tied up. We just texted you a booking link so you can grab the next open slot. Goodbye."
+  "We are still tied up. We just texted you a booking link so you can tell us when you need us. Goodbye."
 
 /**
  * Soft Busy default — honest about hold + press 1.
@@ -155,4 +155,4 @@ export const HOLD_MAX_WAIT_SMS_PROMPT =
  * Do not overwrite custom Key Squad greetings in the DB — defaults only.
  */
 export const HOLD_AWARE_BUSY_PROMPT =
-  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to pick a time, or just stay on the line and we'll keep you updated."
+  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to tell us when you need us, or just stay on the line and we'll keep you updated."

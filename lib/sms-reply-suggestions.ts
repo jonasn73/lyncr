@@ -79,7 +79,7 @@ export function detectSmsReplyIntent(inboundBody: string): SmsReplyIntent {
     return "cancel"
   }
 
-  // Asking to book or pick a time.
+  // Asking to book or send availability.
   if (
     /\b(schedule|reschedule|book(ing)?|appointment|available|availability)\b/.test(t) ||
     /\b(when can|what time|this (morning|afternoon|evening)|tomorrow|today|this week)\b/.test(t) ||
@@ -128,7 +128,7 @@ export function extractVehicleFromSmsBody(body: string | null | undefined): stri
  * Prefer an explicit business name; else try “Name — …” prefix on outbound.
  */
 export function extractBusinessNameFromSmsBody(body: string | null | undefined): string | null {
-  // Outbound often starts with “Key Squad 502 — pick a time: …”
+  // Outbound often starts with “Key Squad 502 — when you need us: …”
   const text = String(body ?? "").trim()
   const m = text.match(/^([A-Za-z0-9][A-Za-z0-9 &'./-]{1,40})\s+[—–-]\s+/)
   if (m?.[1] && !/^(hi|hey|hello|thanks)\b/i.test(m[1])) return m[1].trim()

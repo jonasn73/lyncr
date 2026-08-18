@@ -22,7 +22,7 @@ export const TELNYX_MENU_PROMPT =
  * Default only — custom Greetings text in Neon is left alone.
  */
 export const TELNYX_MENU_BUSY_PROMPT =
-  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to pick a time, or just stay on the line and we'll keep you updated."
+  "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to tell us when you need us, or just stay on the line and we'll keep you updated."
 
 /** @deprecated Use TELNYX_MENU_BUSY_PROMPT — kept so older rows still resolve. */
 export const TELNYX_MENU_ON_JOB_PROMPT = TELNYX_MENU_BUSY_PROMPT
@@ -113,9 +113,9 @@ function formatBookingLinkSmsBody(
     const shop = normalizeBookingSmsShopLabel(businessLabel)
     return `${shop} — still want to book? ${link}`
   }
-  // Press-1 / hold / IVR — short, named, clear “pick a time”.
+  // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
   const shop = normalizeBookingSmsShopLabel(businessLabel)
-  return `${shop} — pick a time: ${link}`
+  return `${shop} — when you need us: ${link}`
 }
 
 /** Absolute tracking links: /book/<id> or short /b/<code>. */
@@ -132,7 +132,7 @@ export function buildTelnyxMenuBookingSms(
   bookUrlOrBase = "https://lyncr.app/book",
   businessLineE164?: string | null,
   tone: BookingLinkSmsTone = "booking_link",
-  /** Shop name for SMS (“Key Squad — pick a time…”). */
+  /** Shop name for SMS (“Key Squad — when you need us…”). */
   businessLabel?: string | null
 ): string {
   const trimmed = bookUrlOrBase.trim()

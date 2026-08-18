@@ -56,7 +56,7 @@ export function customerPortalBookSuccessCopy(opts: {
       : ""
     return {
       title: "Request received",
-      body: `Thanks — we got your info.${windowBit} A technician will follow up to confirm a time.`,
+      body: `Thanks — we got your info.${windowBit} A technician will follow up to confirm.`,
       nextHint: "Keep an eye on your phone — we'll call or text you shortly.",
     }
   }
@@ -72,7 +72,7 @@ export function customerPortalBookSuccessCopy(opts: {
     : ""
   return {
     title: "Booking received",
-    body: `Thanks — we received your details.${windowBit} We'll follow up to confirm a time.`,
+    body: `Thanks — we received your details.${windowBit} We'll follow up to confirm.`,
     nextHint: "If a deposit is required, you'll get a secure pay link by text.",
   }
 }

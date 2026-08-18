@@ -60,7 +60,7 @@ export const DAY_BUSY_FALLBACK_PROMPT =
 
 /** Unified busy / on-job / closed / calendar — SMS already fired when this plays. */
 export const TIED_UP_BOOKING_PROMPT =
-  "We just texted you a booking link. Press 1 or stay on the line to grab the next open slot."
+  "We just texted you a booking link. Press 1 or stay on the line to tell us when you need us."
 
 /** Live call waiting — dial returned BUSY / CONGESTION. */
 export const LIVE_CALL_WAITING_PROMPT =

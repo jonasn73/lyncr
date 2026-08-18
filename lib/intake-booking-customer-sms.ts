@@ -97,7 +97,7 @@ export function buildIntakeBookingCustomerSmsText(params: {
   if (asap) {
     body += " got your ASAP request. We'll call or text to confirm when we can get there"
   } else if (windowLabel) {
-    body += ` received your request. You're free: ${windowLabel}. We'll confirm a time`
+    body += ` received your request. You're free: ${windowLabel}. We'll confirm`
   } else if (when) {
     body += ` received your request for ${when}. We'll confirm shortly`
   } else {

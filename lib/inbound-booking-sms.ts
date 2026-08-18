@@ -49,7 +49,7 @@ export async function sendInboundBookingSms(opts: {
   ownerUserId: string | null
   businessLineE164: string
   source: string
-  /** Shop name for SMS (“Key Squad — pick a time…”). */
+  /** Shop name for SMS (“Key Squad — when you need us…”). */
   businessLabel?: string | null
   /** Press-1 vs missed vs hold-timeout copy. */
   tone?: BookingLinkSmsTone

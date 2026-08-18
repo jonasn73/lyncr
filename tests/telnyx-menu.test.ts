@@ -53,7 +53,8 @@ describe("telnyx menu IVR helpers", () => {
   it("builds Digits=1 SMS with the From phone in the booking link", () => {
     const sms = buildTelnyxMenuBookingSms("+15025550100")
     expect(sms).toContain("https://lyncr.app/book?phone=%2B15025550100")
-    expect(sms).toContain("Key Squad — pick a time:")
+    expect(sms).toContain("Key Squad — when you need us:")
+    expect(sms).not.toContain("pick a time")
     expect(sms).not.toContain("missed your call")
   })
 
@@ -64,7 +65,7 @@ describe("telnyx menu IVR helpers", () => {
     )
     expect(sms).toContain("https://lyncr.app/book/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     expect(sms).not.toContain("phone=")
-    expect(sms).toContain("Key Squad — pick a time:")
+    expect(sms).toContain("Key Squad — when you need us:")
   })
 
   it("names the shop in booking SMS when a label is passed", () => {
@@ -75,7 +76,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad 5O2"
     )
-    expect(sms).toContain("Key Squad 502 — pick a time:")
+    expect(sms).toContain("Key Squad 502 — when you need us:")
   })
 
   it("uses warm recovery copy for missed-call booking SMS", () => {
@@ -113,7 +114,7 @@ describe("telnyx menu IVR helpers", () => {
       "booking_link",
       "Key Squad"
     )
-    expect(sms).toBe("Key Squad — pick a time: https://lyncr.app/b/XYZ23456")
+    expect(sms).toBe("Key Squad — when you need us: https://lyncr.app/b/XYZ23456")
   })
 
   it("builds Digits=1 / Digits=2 Say+Hangup TeXML with neural Polly voice", () => {

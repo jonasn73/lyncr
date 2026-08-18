@@ -32,7 +32,7 @@ describe("sms reply suggestions", () => {
       )
     ).toBe("2023 Ford Expedition")
     expect(
-      extractBusinessNameFromSmsBody("Key Squad 502 — pick a time: https://lyncr.app/b/x")
+      extractBusinessNameFromSmsBody("Key Squad 502 — when you need us: https://lyncr.app/b/x")
     ).toBe("Key Squad 502")
   })
 

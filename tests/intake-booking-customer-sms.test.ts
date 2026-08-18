@@ -53,7 +53,8 @@ describe("intake booking confirmation SMS", () => {
       scheduledAtIso: "2026-08-16T17:00:00.000Z",
     })
     expect(text).toContain("You're free: Sun, Aug 16 1:00 PM–5:00 PM")
-    expect(text).toContain("We'll confirm a time")
+    expect(text).toContain("We'll confirm")
+    expect(text).not.toContain("We'll confirm a time")
     expect(text).not.toContain("confirmed your appointment")
   })
 
