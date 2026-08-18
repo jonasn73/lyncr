@@ -41,7 +41,10 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 sm:px-6 sm:py-4",
+        "rounded-2xl border px-4 py-3 sm:px-6 sm:py-4",
+        isBusy
+          ? "border-amber-400/80 bg-amber-500/10"
+          : "border-border/60 bg-muted/15",
         className
       )}
       aria-label="Presence status"
@@ -82,14 +85,19 @@ export function PresenceStatusBar({ className }: { className?: string }) {
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5",
+            isBusy && "bg-amber-500/25 ring-2 ring-amber-300"
+          )}
+        >
           {presenceReady ? (
             isAvailable ? (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
                 Active
               </span>
             ) : (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-200">
                 Busy
               </span>
             )
@@ -106,6 +114,15 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               void setPresenceStatus(next ? "AVAILABLE" : PRESENCE_BUSY_WRITE_STATUS)
             }}
             aria-label="Available — your phone rings first when on"
+            className={cn(
+              // Bigger than the default switch so you can see it outside.
+              "h-7 w-11 border-2",
+              isBusy
+                ? "data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:border-amber-100 dark:data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
+                : "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-200 dark:data-[state=checked]:bg-emerald-500",
+              "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-md dark:[&_[data-slot=switch-thumb]]:bg-white",
+              "[&_[data-slot=switch-thumb][data-state=checked]]:translate-x-[1.35rem]"
+            )}
           />
         </div>
       </div>
