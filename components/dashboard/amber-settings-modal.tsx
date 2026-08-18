@@ -524,8 +524,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             {showVerifyForm ? renderVerifyForm() : null}
 
             <p className="text-[11px] leading-snug text-muted-foreground">
-              Amber texts you about leftover book jobs, drafts the customer SMS, and sends only
-              after you reply SEND. Busy / Available still work. Customers never see this number.
+              Amber texts you about leftover book jobs. If you don’t reply in about 45 minutes,
+              it tells the customer we got the request (no times or prices) and moves on. You
+              can still say what to text, then SEND. SKIP means don’t text them. Busy / Available
+              still work. Customers never see this number.
             </p>
           </div>
         )}

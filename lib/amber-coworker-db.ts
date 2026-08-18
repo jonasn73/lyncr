@@ -483,9 +483,10 @@ export async function claimAmberLeftoverThread(params: {
 export async function expireStaleAmberDrafts(): Promise<AmberJobThreadRow[]> {
   const sql = sqlClient()
   try {
+    // Draft timed out — keep the leftover open so 45-min cover can still fire.
     const rows = await sql`
       UPDATE amber_job_threads
-      SET state = 'expired', resolved_at = now(), updated_at = now()
+      SET state = 'awaiting_instruction', updated_at = now()
       WHERE state = 'awaiting_send'
         AND draft_expires_at IS NOT NULL
         AND draft_expires_at < now()
@@ -506,6 +507,67 @@ export async function expireStaleAmberDrafts(): Promise<AmberJobThreadRow[]> {
         last_instruction
     `
     return (rows as Record<string, unknown>[]).map(mapThread)
+  } catch (e) {
+    if (isMissingCoworkerRelation(e)) return []
+    throw e
+  }
+}
+
+export type SilentAmberThreadRow = AmberJobThreadRow & {
+  pinged_at: string
+  amber_number: string
+  owner_mobile_e164: string
+}
+
+/** Open leftover threads whose owner ping is older than 45 minutes. */
+export async function listSilentOpenAmberThreads(): Promise<SilentAmberThreadRow[]> {
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT
+        t.id::text,
+        t.amber_workspace_id::text,
+        t.user_id::text,
+        t.organization_id::text,
+        t.lead_id::text,
+        t.customer_phone,
+        t.customer_name,
+        t.job_label,
+        t.address_snippet,
+        t.urgency,
+        t.state,
+        t.draft_body,
+        t.draft_expires_at::text,
+        t.last_instruction,
+        t.pinged_at::text,
+        p.number AS amber_number,
+        w.owner_mobile_e164
+      FROM amber_job_threads t
+      JOIN amber_workspaces w ON w.id = t.amber_workspace_id
+      JOIN phone_numbers p ON p.id = w.phone_number_id AND p.is_amber_control = true
+      WHERE t.state = 'awaiting_instruction'
+        AND t.pinged_at IS NOT NULL
+        AND t.pinged_at <= now() - interval '45 minutes'
+        AND w.enabled = true
+        AND w.coworker_paused_at IS NULL
+        AND w.owner_mobile_verified_at IS NOT NULL
+      ORDER BY t.pinged_at ASC
+      LIMIT 20
+    `
+    const out: SilentAmberThreadRow[] = []
+    for (const raw of rows as Record<string, unknown>[]) {
+      const amberNumber = normalizePhoneNumberE164(String(raw.amber_number || ""))
+      const owner = normalizePhoneNumberE164(String(raw.owner_mobile_e164 || ""))
+      const pinged = raw.pinged_at != null ? String(raw.pinged_at) : ""
+      if (!amberNumber || !owner || !pinged) continue
+      out.push({
+        ...mapThread(raw),
+        pinged_at: pinged,
+        amber_number: amberNumber,
+        owner_mobile_e164: owner,
+      })
+    }
+    return out
   } catch (e) {
     if (isMissingCoworkerRelation(e)) return []
     throw e

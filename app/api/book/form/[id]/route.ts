@@ -11,6 +11,7 @@ import {
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
+import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { getAppUrl } from "@/lib/telnyx"
 import {
   getIntakeBookLinkById,
@@ -214,6 +215,16 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       summary: `${jobType} — ${customerName}`,
       collected: collectedExtras,
     })
+
+    // ASAP Activity book-link: same shop-line “we got it” as the public form.
+    if (urgency === "asap") {
+      await sendGotItHoldingCustomerSms({
+        ownerUserId: link.ownerUserId,
+        leadId: result.lead_id,
+        customerPhone: phone,
+        customerName,
+      }).catch((e) => console.warn("[book/form] got-it SMS failed:", e))
+    }
 
     const requiresPayment = link.feeMode !== "none" && Boolean(link.payToken)
     const payUrl = requiresPayment

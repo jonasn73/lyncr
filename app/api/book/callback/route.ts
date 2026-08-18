@@ -15,6 +15,7 @@ import {
 } from "@/lib/book-customer-request"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { notifyOwnerBookFormSubmitted } from "@/lib/book-form-owner-alert"
+import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { toE164 } from "@/lib/phone-e164"
 
 export const dynamic = "force-dynamic"
@@ -182,6 +183,16 @@ export async function POST(req: NextRequest) {
       collected: collectedExtras,
       bookingSource: bookingSource || null,
     })
+
+    // ASAP submit: customer gets a shop-line “we got it” right away (no times/prices).
+    if (urgency === "asap") {
+      await sendGotItHoldingCustomerSms({
+        ownerUserId: owner.id,
+        leadId: job.lead_id,
+        customerPhone,
+        customerName,
+      }).catch((e) => console.warn("[POST /api/book/callback] got-it SMS failed:", e))
+    }
 
     return NextResponse.json({
       data: {

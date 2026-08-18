@@ -8,6 +8,7 @@ import {
   buildAmberDraftPreviewText,
   buildAmberLeftoverPingText,
   buildCustomerDraftFromInstruction,
+  buildGotItOwnerRecapSms,
   amberCustomerFirstName,
   amberPhoneLast4,
   shouldHoldLeftoverPing,
@@ -18,11 +19,13 @@ import {
   customerAlreadyGotOutboundSms,
   expireStaleAmberDrafts,
   listLeftoverBookFormCandidates,
+  listSilentOpenAmberThreads,
   lostLeadRecoveryAlreadySent,
   markAmberThreadPingFailed,
   updateAmberJobThread,
   type AmberJobThreadRow,
 } from "@/lib/amber-coworker-db"
+import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
 import { insertAmberAuditEvent, type AmberWorkspaceRow } from "@/lib/amber-db"
@@ -119,8 +122,12 @@ async function polishDraft(params: {
   }
 }
 
-/** Cron: leftover book forms → one Amber “what should we do?” */
-export async function processAmberLeftoverBookJobs(): Promise<{ pinged: number; skipped: number }> {
+/** Cron: leftover book forms → ping, then cover if the owner stays silent. */
+export async function processAmberLeftoverBookJobs(): Promise<{
+  pinged: number
+  skipped: number
+  autoHeld: number
+}> {
   const expired = await expireStaleAmberDrafts()
   for (const thread of expired) {
     await insertAmberAuditEvent({
@@ -130,6 +137,9 @@ export async function processAmberLeftoverBookJobs(): Promise<{ pinged: number; 
       detail: { lead_id: thread.lead_id, thread_id: thread.id },
     })
   }
+
+  // Unstick unanswered leftovers before claiming a new one.
+  const silent = await processSilentAmberLeftovers()
 
   const candidates = await listLeftoverBookFormCandidates(12)
   let pinged = 0
@@ -224,7 +234,75 @@ export async function processAmberLeftoverBookJobs(): Promise<{ pinged: number; 
     })
   }
 
-  return { pinged, skipped }
+  return { pinged, skipped, autoHeld: silent.autoHeld }
+}
+
+/** After 45 minutes with no SEND/SKIP, text the customer a holding note and free the queue. */
+export async function processSilentAmberLeftovers(): Promise<{ autoHeld: number; skipped: number }> {
+  const stale = await listSilentOpenAmberThreads()
+  let autoHeld = 0
+  let skipped = 0
+  for (const thread of stale) {
+    const first = amberCustomerFirstName(thread.customer_name)
+    // If the shop already texted after this leftover ping, don't send a second note.
+    const already = await customerAlreadyGotOutboundSms({
+      userId: thread.user_id,
+      customerPhone: thread.customer_phone,
+      sinceIso: thread.pinged_at,
+    })
+    let sentOk = already
+    if (!already) {
+      const hold = await sendGotItHoldingCustomerSms({
+        ownerUserId: thread.user_id,
+        organizationId: thread.organization_id,
+        leadId: thread.lead_id,
+        customerPhone: thread.customer_phone,
+        customerName: thread.customer_name,
+        amberNumber: thread.amber_number,
+      })
+      sentOk = hold.sent
+      if (!hold.sent) {
+        await insertAmberAuditEvent({
+          userId: thread.user_id,
+          organizationId: thread.organization_id,
+          eventType: "coworker_auto_hold_failed",
+          detail: { lead_id: thread.lead_id, thread_id: thread.id, error: hold.error ?? "send_failed" },
+        })
+        // Close anyway so later leftovers can ping; owner gets a recap.
+        await updateAmberJobThread({ threadId: thread.id, state: "expired" })
+        await pingOwnerFromAmber({
+          userId: thread.user_id,
+          organizationId: thread.organization_id,
+          amberNumber: thread.amber_number,
+          toOwnerMobile: thread.owner_mobile_e164,
+          text: `Couldn't text ${first} from your business line. I closed that leftover so the next one can ping. Try Messages if you still want to follow up.`,
+        })
+        skipped += 1
+        continue
+      }
+    }
+    await updateAmberJobThread({ threadId: thread.id, state: "sent" })
+    await insertAmberAuditEvent({
+      userId: thread.user_id,
+      organizationId: thread.organization_id,
+      eventType: "coworker_auto_hold",
+      detail: {
+        lead_id: thread.lead_id,
+        thread_id: thread.id,
+        already_sent: already,
+        last4: amberPhoneLast4(thread.customer_phone),
+      },
+    })
+    await pingOwnerFromAmber({
+      userId: thread.user_id,
+      organizationId: thread.organization_id,
+      amberNumber: thread.amber_number,
+      toOwnerMobile: thread.owner_mobile_e164,
+      text: buildGotItOwnerRecapSms({ customerFirstName: first, alreadySent: already }),
+    })
+    if (sentOk) autoHeld += 1
+  }
+  return { autoHeld, skipped }
 }
 
 export async function draftAmberCustomerSms(params: {

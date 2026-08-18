@@ -5,8 +5,25 @@
 
 import { normalizeAmberSmsBody } from "@/lib/amber-commands"
 
+/** How long we wait after a leftover ping before covering the customer. */
+export const AMBER_SILENT_LEFTOVER_MS = 45 * 60 * 1000
+
 /** Open thread states that wait for the owner. */
 export type AmberThreadState = "awaiting_instruction" | "awaiting_send" | "sent" | "skipped" | "expired" | "ping_failed"
+
+/** True when the leftover ping is old enough to auto-send the holding note. */
+export function isAmberSilentLeftoverDue(params: {
+  pingedAt: Date | string | null | undefined
+  now?: Date
+  waitMs?: number
+}): boolean {
+  if (!params.pingedAt) return false
+  const pinged = params.pingedAt instanceof Date ? params.pingedAt : new Date(params.pingedAt)
+  const ms = pinged.getTime()
+  if (!Number.isFinite(ms)) return false
+  const wait = params.waitMs ?? AMBER_SILENT_LEFTOVER_MS
+  return (params.now ?? new Date()).getTime() - ms >= wait
+}
 
 /** Extra owner keywords while a leftover thread is open. */
 export type AmberCoworkerCommand =
@@ -139,9 +156,32 @@ export function buildAmberLeftoverPingText(params: {
   const last4 = String(params.last4 || "").replace(/\D/g, "").slice(-4)
   const phoneBit = last4.length === 4 ? ` · …${last4}` : ""
   return [
-    `${who}${phoneBit} · ${job}${place}.${asap} Submitted ${mins} min ago, still open. What should we do?`,
-    "Reply in your own words. I’ll draft the customer text. SEND to ship it, SKIP to ignore.",
+    `${who}${phoneBit} · ${job}${place}.${asap} Submitted ${mins} min ago, still open.`,
+    "Reply what to say, then SEND. SKIP — don’t text them.",
+    "If I don’t hear back in 45 min, I’ll tell them we got the request (no times or prices).",
   ].join(" ")
+}
+
+/** Boring holding SMS — no ETAs, prices, or “we’re on the way.” */
+export function buildGotItHoldingCustomerSms(params: {
+  customerFirstName: string
+  businessName: string
+}): string {
+  const who = params.customerFirstName || "there"
+  const biz = String(params.businessName || "").trim() || "us"
+  return `Hi ${who} — we got your request. We’ll follow up. — ${biz}`
+}
+
+/** Private Amber recap after the holding SMS goes out. */
+export function buildGotItOwnerRecapSms(params: {
+  customerFirstName: string
+  alreadySent?: boolean
+}): string {
+  const who = params.customerFirstName || "the customer"
+  if (params.alreadySent) {
+    return `${who} already got a shop text. Moving on to the next leftover.`
+  }
+  return `Told ${who} we got the request. Next leftover can ping now.`
 }
 
 /** Turn owner instruction into a customer SMS (no invented prices/times). */
@@ -159,7 +199,7 @@ export function buildCustomerDraftFromInstruction(params: {
   )
   body = body.replace(/^(that\s+)/i, "")
   if (!body) {
-    body = `Hi ${who}, we got your request and will follow up shortly.`
+    body = `Hi ${who}, we got your request and will follow up.`
   } else if (!/^hi\b/i.test(body)) {
     const rest = body.charAt(0).toLowerCase() + body.slice(1)
     body = `Hi ${who} — ${rest}`
@@ -197,7 +237,7 @@ export function isBareAmberPresenceCommand(raw: string): boolean {
 /** Extra HELP lines for leftover jobs. */
 export function amberCoworkerHelpLines(): string[] {
   return [
-    "Leftover book jobs: I’ll text you, then draft a customer SMS.",
+    "Leftover book jobs: I’ll ping you. No reply in 45 min → I tell them we got it.",
     "SEND — send the quoted draft from your business line.",
     "SKIP — close without texting the customer.",
     "STOP — pause leftover pings. START — resume.",

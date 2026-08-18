@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+  AMBER_SILENT_LEFTOVER_MS,
   buildAmberLeftoverPingText,
   buildCustomerDraftFromInstruction,
+  buildGotItHoldingCustomerSms,
+  buildGotItOwnerRecapSms,
   isAmberSendKeyword,
+  isAmberSilentLeftoverDue,
   isAmberSkipKeyword,
   isBareAmberPresenceCommand,
   parseAmberCoworkerCommand,
@@ -74,7 +78,46 @@ describe("draft copy", () => {
     })
     expect(text).toContain("Joe McCants")
     expect(text).toContain("…2716")
-    expect(text).toContain("What should we do")
+    expect(text).toContain("45 min")
     expect(text).toContain("SEND")
+  })
+
+  it("builds a holding SMS with no times or prices", () => {
+    const text = buildGotItHoldingCustomerSms({
+      customerFirstName: "Joe",
+      businessName: "Key Squad 502",
+    })
+    expect(text).toContain("Joe")
+    expect(text).toContain("Key Squad 502")
+    expect(text.toLowerCase()).toContain("got your request")
+    expect(text.toLowerCase()).not.toContain("shortly")
+    expect(text.toLowerCase()).not.toContain("on the way")
+  })
+
+  it("recaps the owner after auto-hold", () => {
+    expect(buildGotItOwnerRecapSms({ customerFirstName: "Joe" })).toContain("Told Joe")
+    expect(buildGotItOwnerRecapSms({ customerFirstName: "Joe", alreadySent: true })).toContain(
+      "already got"
+    )
+  })
+})
+
+describe("isAmberSilentLeftoverDue", () => {
+  it("waits 45 minutes after the ping", () => {
+    const pinged = new Date("2026-08-17T16:00:00.000Z")
+    expect(
+      isAmberSilentLeftoverDue({
+        pingedAt: pinged,
+        now: new Date("2026-08-17T16:44:00.000Z"),
+        waitMs: AMBER_SILENT_LEFTOVER_MS,
+      })
+    ).toBe(false)
+    expect(
+      isAmberSilentLeftoverDue({
+        pingedAt: pinged,
+        now: new Date("2026-08-17T16:45:00.000Z"),
+        waitMs: AMBER_SILENT_LEFTOVER_MS,
+      })
+    ).toBe(true)
   })
 })

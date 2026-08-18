@@ -148,7 +148,7 @@ export function amberHelpText(): string {
     "AVAILABLE — your phone rings first again.",
     "STATUS — Busy/Available right now.",
     "HELP — this list.",
-    "Leftover book jobs: I’ll ask what to do, then draft a customer SMS.",
+    "Leftover book jobs: I’ll ping you. No reply in 45 min → I tell them we got it.",
     "SEND — send the quoted draft from your business line.",
     "SKIP — close without texting the customer.",
     "STOP — pause leftover pings. START — resume.",

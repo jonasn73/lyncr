@@ -44,5 +44,6 @@ describe("amberHelpText", () => {
   it("mentions Amber and BUSY", () => {
     expect(amberHelpText()).toContain("Amber")
     expect(amberHelpText()).toContain("BUSY")
+    expect(amberHelpText()).toContain("45 min")
   })
 })
