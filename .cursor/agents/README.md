@@ -28,7 +28,8 @@ Owner-facing entry: **Lyncr Boss** only.
 
 ## Hard rules
 
-- Inspect / recommend by default — **no** automatic product code, deploy, SMS, charges, Telnyx, or deletes.
+- Inspect / recommend by default — **no** automatic product code, deploy, SMS to customers, charges, Telnyx buy, or deletes.
+- **Live testers:** Solo Owner, Customer Booking, Flow, and Journey sign up as their own TEST users and click through lyncr.app. Never log into Key Squad to “test.” See `.cursor/skills/lyncr-live-testers/SKILL.md`.
 - Product app changes require owner: `Approve Phase 1`.
 - Deploy / live actions require a **separate** explicit OK after Boss’s final report + Release Manager input.
 - `.cursor/` team setup may be committed so the system persists; skip app production deploy unless the owner asks.

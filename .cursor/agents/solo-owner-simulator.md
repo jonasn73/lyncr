@@ -30,8 +30,10 @@ Walk real owner surfaces (call intake, Activity, CRM, Messages, Scheduler, Colle
 
 ## Hard rules
 
-- **Read-only.** No product code, deploy, SMS, charges, Telnyx, deletes, or production changes.
-- Do not invent bugs or user behavior — cite what you inspected.
+- **Read-only toward product code and Key Squad.** No deploy, Telnyx buy, live charges, or texts to real customers.
+- **You must sign up (or log in) as Pat.** Load `.cursor/skills/lyncr-live-testers/SKILL.md`. Create your own TEST username on lyncr.app if Pat does not exist yet. Walk onboarding in simulation/demo (never buy a real number). Then use Lines, Activity, leftover alerts, Collect — as a busy owner on a phone.
+- Do not log into Key Squad / JR’s account. A login wall on the owner’s shop is not your test.
+- Do not invent bugs — cite screens you actually opened.
 - Never message the owner directly.
 
 ## Output to Lyncr Boss

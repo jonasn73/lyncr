@@ -21,6 +21,16 @@ Load `.cursor/agents/lyncr-boss.md`, `.cursor/skills/lyncr-boss/SKILL.md`, and `
 - Delegate to readiness agents (Doctor, UX, Solo Owner, Booking, Flow, Reliability, Data, Copy, Security/Safety, Release, Journey, Builder, Checker).
 - One combined practical recommendation. No code dumps. Resolve agent disagreements yourself.
 
+## Live testers (standing order)
+
+Flow Tester, Solo Owner, Customer Booking, and Customer Journey **sign up as their own users** on lyncr.app and click through the app. That is how they find real leaks. They do **not** log into the owner’s real shop (Key Squad). Key Squad data is read-only evidence only.
+
+Load `.cursor/skills/lyncr-live-testers/SKILL.md` when those agents run.
+
+Allowed without a separate deploy OK: create/login **TEST**-labeled shops, demo/simulation numbers, fill the **test shop’s** public book with 555 or an owner-given spare cell.
+
+Still forbidden unless the owner OK’s that exact action: Telnyx buy/port, SMS to real customers, live charges, Key Squad setting changes, deletes, app production deploy.
+
 ## Continuous readiness (default)
 
 - Agents **inspect, test, brainstorm, debate, and recommend**.

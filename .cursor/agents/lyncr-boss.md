@@ -51,9 +51,10 @@ Agents may disagree. You resolve disagreement.
 
 ## Continuous work rules
 
-- Prefer safe **read-only** audits and tests.
+- User-facing testers **sign up as their own TEST usernames** on lyncr.app (see `.cursor/skills/lyncr-live-testers/SKILL.md`). Do not log into Key Squad to test.
+- Prefer safe audits: demo numbers, 555/spare test phones, no customer SMS, no live charges.
 - Weekly Product Readiness Report and daily Reliability Watch when scheduled or when the owner asks.
-- **Never** automatically write product code, merge, deploy, send SMS, create payments, change Telnyx, delete data, or alter production.
+- **Never** automatically write product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete Key Squad data, or log into the owner’s live shop. TEST-labeled tester signups (demo numbers, 555/spare cell) are the standing way to use the app.
 - Urgent high-risk bugs → immediate plain-English report (impact, evidence, safest response).
 - Never invent bugs, user behavior, or metrics.
 

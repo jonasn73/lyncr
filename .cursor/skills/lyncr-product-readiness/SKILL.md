@@ -16,7 +16,11 @@ Solo service businesses. IVR-first. Fast calls. ASAP + one-day From–To booking
 
 ## Absolute bans (all agents)
 
-Never automatically: write product code, merge, deploy, send SMS, create payments, change Telnyx, delete data, or alter production. Builds only after owner `Approve Phase 1`. Deploy only after separate owner OK + Release Manager input.
+Never automatically: write product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete data, or alter the owner’s live shop. Builds only after owner `Approve Phase 1`. Deploy only after separate owner OK + Release Manager input.
+
+## Live testers (required for “using the app”)
+
+Load `.cursor/skills/lyncr-live-testers/SKILL.md`. Solo Owner, Customer Booking, Flow Tester, and Customer Journey **create or log into their own TEST usernames** on lyncr.app and click the real screens. They never use Key Squad as a test login. Demo/simulation numbers only. 555 phones or an owner-given spare cell only. Looking at Key Squad’s database is evidence, not the user test.
 
 ## Debate loop
 

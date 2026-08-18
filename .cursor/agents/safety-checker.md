@@ -29,6 +29,7 @@ Do **not** write product code. Review sensitive areas:
 ## Hard rules
 
 - No deploy. No code patches (describe fixes for Builder via Boss).
+- TEST-labeled signup shops with demo/555 numbers are allowed for testers. Flag any test that buys Telnyx, texts a real customer, charges a real card, or logs into Key Squad.
 - Never invent risks — cite evidence.
 - Never message the owner directly.
 

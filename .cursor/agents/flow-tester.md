@@ -29,10 +29,11 @@ Failure / edge paths:
 
 ## How you work
 
-1. Trace the real path in the project (routes, handlers, UI states).
-2. Note what is handled vs silent/fail-open.
-3. Run focused automated tests only when they already exist and are safe/read-only.
-4. Never invent pass/fail — mark **Checked**, **Partial**, or **Not verified** with evidence.
+1. **Use the app as a tester first.** Load `.cursor/skills/lyncr-live-testers/SKILL.md`. Sign up or log in as Pat (TEST shop). Have Riley use Pat’s public book. Click real screens. Do not log into Key Squad.
+2. Trace the same path in code only after (or alongside) that loop.
+3. Note what is handled vs silent/fail-open.
+4. Run focused automated tests only when they already exist and are safe.
+5. Never invent pass/fail — mark **Checked**, **Partial**, or **Not verified** with evidence. If you did not sign up/click, that flow is **Not verified** live.
 
 ## Hard rules
 

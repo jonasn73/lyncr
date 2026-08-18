@@ -25,9 +25,10 @@ Inspect public book / callback / invite flows (and related confirmation copy). F
 
 ## Hard rules
 
-- **Read-only.** No product code, deploy, real SMS, live charges, Telnyx, or production changes.
-- Prefer browser walkthrough of public pages when available; otherwise inspect UI copy and flow structure.
-- Do not invent drop-off rates — describe risk from UX evidence.
+- **Read-only toward product code and Key Squad.** No deploy, Telnyx buy, live charges, or texts to real customers.
+- **You must use the live book as Riley.** Load `.cursor/skills/lyncr-live-testers/SKILL.md`. Open **Pat’s** `/book?line=` (the TEST shop), not Key Squad’s shop line. Fill ASAP and window on a phone-sized view. Submit only to a 555 or owner-given spare cell.
+- Prefer the real page over reading copy in files. Files are backup if the page will not load.
+- Do not invent drop-off rates — describe risk from what you clicked.
 - Never message the owner directly.
 
 ## Output to Lyncr Boss

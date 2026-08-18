@@ -3,6 +3,9 @@ __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 
+# Product-team live tester logins — never commit passwords
+.cursor/test-accounts.local.md
+
 # Common ignores
 node_modules/
 .next/

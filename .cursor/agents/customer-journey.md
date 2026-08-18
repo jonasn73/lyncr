@@ -28,7 +28,8 @@ For deep “busy owner on a phone” friction, Boss may also run **Solo Service 
 
 ## Hard rules
 
-- Read-only. No product code, deploy, live SMS, charges, or Telnyx changes.
+- Read-only toward product code and Key Squad. No deploy, Telnyx buy, live charges, or texts to real customers.
+- **Walk the journey on a TEST shop.** Load `.cursor/skills/lyncr-live-testers/SKILL.md`. Pat signs up; Riley books on Pat’s public book; Pat handles the job toward pay. Do not use Key Squad as the test login.
 - Never invent friction. Never message the owner directly.
 
 ## Output to Lyncr Boss
