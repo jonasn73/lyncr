@@ -156,9 +156,15 @@ describe("excludeReadRepliesFromLatest", () => {
     expect(excludeReadRepliesFromLatest(items)).toHaveLength(1)
   })
 
-  it("drops book_form after open even if the same id returns from the API", () => {
+  it("keeps book_form after View / open until Book, Call, or Clear", () => {
     const item = bookForm({ id: "book-lead-1", at: "2026-08-01T15:00:00.000Z" })
     markLatestAttentionOpened(item)
+    expect(excludeReadRepliesFromLatest([item])).toHaveLength(1)
+  })
+
+  it("drops book_form after Clear", () => {
+    const item = bookForm({ id: "book-lead-clear", at: "2026-08-01T15:00:00.000Z" })
+    dismissLatestAlert(item)
     expect(excludeReadRepliesFromLatest([item])).toHaveLength(0)
   })
 

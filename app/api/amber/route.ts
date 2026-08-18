@@ -108,6 +108,8 @@ export async function POST(req: NextRequest) {
       code?: string
       timezone?: string
       phone_number?: string
+      lead_id?: string
+      customer_phone?: string
     }
     const action = String(body.action || "").trim()
     const organizationId = orgFrom(req, body)
@@ -253,6 +255,18 @@ export async function POST(req: NextRequest) {
         })
       }
       return NextResponse.json({ data: { verified: true, mobile } })
+    }
+
+    if (action === "skip_leftover") {
+      // Owner Book / Call / Clear — close Amber leftover so we do not auto-text later.
+      const { skipOpenAmberLeftoverForOwner } = await import("@/lib/amber-coworker")
+      const result = await skipOpenAmberLeftoverForOwner({
+        userId,
+        organizationId,
+        leadId: body.lead_id,
+        customerPhone: body.customer_phone,
+      })
+      return NextResponse.json({ data: result })
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })

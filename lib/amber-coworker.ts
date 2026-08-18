@@ -12,6 +12,7 @@ import {
   buildGotItHoldingCustomerSms,
   buildGotItOwnerRecapSms,
   amberCustomerFirstName,
+  amberLeftoverMatchesHandledJob,
   amberPhoneLast4,
   shouldHoldLeftoverPing,
 } from "@/lib/amber-coworker-commands"
@@ -20,6 +21,7 @@ import {
   countAmberPingsSince,
   customerAlreadyGotOutboundSms,
   expireStaleAmberDrafts,
+  getOpenAmberJobThread,
   listLeftoverBookFormCandidates,
   listSilentOpenAmberThreads,
   lostLeadRecoveryAlreadySent,
@@ -30,7 +32,7 @@ import {
 import { sendGotItHoldingCustomerSms } from "@/lib/got-it-customer-sms"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
-import { insertAmberAuditEvent, type AmberWorkspaceRow } from "@/lib/amber-db"
+import { getAmberWorkspace, insertAmberAuditEvent, type AmberWorkspaceRow } from "@/lib/amber-db"
 
 const DRAFT_TTL_MS = 15 * 60 * 1000
 const MAX_PINGS_PER_DAY = 5
@@ -254,7 +256,7 @@ export async function processAmberLeftoverBookJobs(): Promise<{
   return { pinged, skipped, autoHeld: silent.autoHeld }
 }
 
-/** After 45 minutes with no SEND/SKIP, text the customer a holding note and free the queue. */
+/** After 15 minutes with no SEND/SKIP, text the customer a holding note and free the queue. */
 export async function processSilentAmberLeftovers(): Promise<{ autoHeld: number; skipped: number }> {
   const stale = await listSilentOpenAmberThreads()
   let autoHeld = 0
@@ -409,4 +411,35 @@ export async function skipAmberJobThread(params: {
     eventType: "coworker_skipped",
     detail: { lead_id: params.thread.lead_id, thread_id: params.thread.id },
   })
+}
+
+/** Close the open leftover when the owner Books, Calls, or Clears it — no customer SMS. */
+export async function skipOpenAmberLeftoverForOwner(params: {
+  userId: string
+  organizationId: string | null
+  leadId?: string | null
+  customerPhone?: string | null
+}): Promise<{ skipped: boolean }> {
+  const amber = await getAmberWorkspace({
+    userId: params.userId,
+    organizationId: params.organizationId,
+  })
+  if (!amber?.id) return { skipped: false }
+  const thread = await getOpenAmberJobThread({
+    userId: params.userId,
+    amberWorkspaceId: amber.id,
+  })
+  if (!thread) return { skipped: false }
+  if (
+    !amberLeftoverMatchesHandledJob({
+      threadLeadId: thread.lead_id,
+      threadPhone: thread.customer_phone,
+      leadId: params.leadId,
+      customerPhone: params.customerPhone,
+    })
+  ) {
+    return { skipped: false }
+  }
+  await skipAmberJobThread({ amber, thread })
+  return { skipped: true }
 }

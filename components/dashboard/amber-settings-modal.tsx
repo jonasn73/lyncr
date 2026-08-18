@@ -520,9 +520,9 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             <p className="text-[11px] leading-snug text-muted-foreground">
               Amber texts you leftover book jobs with a draft. Reply ok to send it, or tell her
-              what to change. If you don’t reply in about 45 minutes, she tells them we got the
-              request (no times or prices) and moves on. Don’t text them means skip. Customers
-              never see this number.
+              what to change. If you don’t reply in about 15 minutes, she tells them we got the
+              request (no times or prices) and moves on. Skip Noah or don’t text them means skip.
+              Customers never see this number.
             </p>
           </div>
         )}

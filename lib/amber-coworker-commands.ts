@@ -5,8 +5,25 @@
 
 import { normalizeAmberSmsBody } from "@/lib/amber-commands"
 
-/** How long we wait after a leftover ping before covering the customer. */
-export const AMBER_SILENT_LEFTOVER_MS = 45 * 60 * 1000
+/** Minutes we wait after a leftover ping before covering the customer (keep in sync with SQL). */
+export const AMBER_SILENT_LEFTOVER_MINUTES = 15
+/** Same wait in milliseconds for tests and draft timers. */
+export const AMBER_SILENT_LEFTOVER_MS = AMBER_SILENT_LEFTOVER_MINUTES * 60 * 1000
+/** Words after “skip” that are not a customer name (keep as an instruction). */
+const SKIP_NAME_STOPWORDS = new Set([
+  "THIS",
+  "IT",
+  "ONE",
+  "THE",
+  "A",
+  "AN",
+  "UNTIL",
+  "TO",
+  "MY",
+  "YOUR",
+  "ME",
+  "US",
+])
 
 /** Open thread states that wait for the owner. */
 export type AmberThreadState = "awaiting_instruction" | "awaiting_send" | "sent" | "skipped" | "expired" | "ping_failed"
@@ -25,7 +42,21 @@ export function isAmberSilentLeftoverDue(params: {
   return (params.now ?? new Date()).getTime() - ms >= wait
 }
 
-/** Extra owner keywords while a leftover thread is open. */
+/** True when Book / Call / Clear is for the leftover Amber is holding. */
+export function amberLeftoverMatchesHandledJob(params: {
+  threadLeadId: string | null | undefined
+  threadPhone: string | null | undefined
+  leadId?: string | null
+  customerPhone?: string | null
+}): boolean {
+  const lead = String(params.leadId || "").trim()
+  const threadLead = String(params.threadLeadId || "").trim()
+  if (lead && threadLead && lead === threadLead) return true
+  const a = String(params.customerPhone || "").replace(/\D/g, "").slice(-10)
+  const b = String(params.threadPhone || "").replace(/\D/g, "").slice(-10)
+  return a.length >= 10 && a === b
+}
+
 export type AmberCoworkerCommand =
   | { kind: "send" }
   | { kind: "skip" }
@@ -57,6 +88,20 @@ export function isAmberSendKeyword(raw: string): boolean {
   )
 }
 
+/** True when “skip Noah” / “don’t text Joe” names the leftover (not “skip until tomorrow”). */
+export function isAmberSkipNamedLeftover(raw: string): boolean {
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  // skip Noah  /  skip Noah Medley
+  const skipName = /^SKIP\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
+  if (skipName && !SKIP_NAME_STOPWORDS.has(skipName[1])) return true
+  // don’t text Noah (him/her/them already match the exact skip list)
+  const dontName = /^(?:DONT|DO NOT)\s+TEXT\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
+  if (!dontName) return false
+  const token = dontName[1]
+  if (token === "THEM" || token === "HIM" || token === "HER") return false
+  return !SKIP_NAME_STOPWORDS.has(token)
+}
+
 /** True when the owner wants to close without texting the customer. */
 export function isAmberSkipKeyword(raw: string): boolean {
   const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
@@ -78,7 +123,9 @@ export function isAmberSkipKeyword(raw: string): boolean {
     upper === "NEVERMIND" ||
     upper === "NEVER MIND" ||
     upper === "LATER" ||
-    upper === "IGNORE"
+    upper === "IGNORE" ||
+    // skip Noah — one open leftover, so naming them skips that ping
+    isAmberSkipNamedLeftover(raw)
   )
 }
 
@@ -195,7 +242,7 @@ export function buildAmberLeftoverPingText(params: {
   } else {
     lines.push("What should I text them? Or say if you don’t want to.")
   }
-  lines.push("If I don’t hear back in 45 min, I’ll tell them we got the request.")
+  lines.push("If I don’t hear back in 15 min, I’ll tell them we got the request.")
   return lines.join(" ")
 }
 
@@ -279,8 +326,8 @@ export function isBareAmberPresenceCommand(raw: string): boolean {
 export function amberCoworkerHelpLines(): string[] {
   return [
     "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
-    "Tell me what to say and I’ll show a new draft. Don’t text them to skip.",
-    "No reply in 45 min → I tell them we got it.",
+    "Tell me what to say and I’ll show a new draft. Skip Noah or don’t text them to skip.",
+    "No reply in 15 min → I tell them we got it.",
     "STOP — pause leftover pings. START — resume.",
   ]
 }

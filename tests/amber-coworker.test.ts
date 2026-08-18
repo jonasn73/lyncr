@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   AMBER_SILENT_LEFTOVER_MS,
+  amberLeftoverMatchesHandledJob,
   buildAmberLeftoverPingText,
   buildCustomerDraftFromInstruction,
   buildGotItHoldingCustomerSms,
@@ -13,6 +14,33 @@ import {
   shouldHoldLeftoverPing,
 } from "@/lib/amber-coworker-commands"
 
+describe("amberLeftoverMatchesHandledJob", () => {
+  it("matches leftover by lead id or last 10 phone digits", () => {
+    expect(
+      amberLeftoverMatchesHandledJob({
+        threadLeadId: "lead-1",
+        threadPhone: "+15025550112",
+        leadId: "lead-1",
+      })
+    ).toBe(true)
+    expect(
+      amberLeftoverMatchesHandledJob({
+        threadLeadId: "lead-1",
+        threadPhone: "+15025550112",
+        customerPhone: "(502) 555-0112",
+      })
+    ).toBe(true)
+    expect(
+      amberLeftoverMatchesHandledJob({
+        threadLeadId: "lead-1",
+        threadPhone: "+15025550112",
+        leadId: "other",
+        customerPhone: "+15025550999",
+      })
+    ).toBe(false)
+  })
+})
+
 describe("parseAmberCoworkerCommand", () => {
   it("treats yes and send it as send", () => {
     expect(isAmberSendKeyword("SEND")).toBe(true)
@@ -24,13 +52,18 @@ describe("parseAmberCoworkerCommand", () => {
     expect(parseAmberCoworkerCommand("ok").kind).toBe("send")
   })
 
-  it("parses skip words including skip this", () => {
+  it("parses skip words including skip this and skip Noah", () => {
     expect(isAmberSkipKeyword("SKIP")).toBe(true)
     expect(isAmberSkipKeyword("skip this")).toBe(true)
     expect(isAmberSkipKeyword("don't text them")).toBe(true)
     expect(isAmberSkipKeyword("don’t text them")).toBe(true)
     expect(isAmberSkipKeyword("nevermind")).toBe(true)
+    expect(isAmberSkipKeyword("Skip noah")).toBe(true)
+    expect(isAmberSkipKeyword("skip Noah Medley")).toBe(true)
+    expect(isAmberSkipKeyword("don't text noah")).toBe(true)
+    expect(isAmberSkipKeyword("skip until tomorrow")).toBe(false)
     expect(parseAmberCoworkerCommand("LATER").kind).toBe("skip")
+    expect(parseAmberCoworkerCommand("skip noah").kind).toBe("skip")
   })
 
   it("treats other text as instruction", () => {
@@ -89,6 +122,7 @@ describe("draft copy", () => {
     expect(text).toContain("…2716")
     expect(text).toContain("I’d send")
     expect(text).toContain("ok")
+    expect(text).toContain("15 min")
     expect(text).not.toContain("SEND")
   })
 
@@ -113,19 +147,19 @@ describe("draft copy", () => {
 })
 
 describe("isAmberSilentLeftoverDue", () => {
-  it("waits 45 minutes after the ping", () => {
+  it("waits 15 minutes after the ping", () => {
     const pinged = new Date("2026-08-17T16:00:00.000Z")
     expect(
       isAmberSilentLeftoverDue({
         pingedAt: pinged,
-        now: new Date("2026-08-17T16:44:00.000Z"),
+        now: new Date("2026-08-17T16:14:00.000Z"),
         waitMs: AMBER_SILENT_LEFTOVER_MS,
       })
     ).toBe(false)
     expect(
       isAmberSilentLeftoverDue({
         pingedAt: pinged,
-        now: new Date("2026-08-17T16:45:00.000Z"),
+        now: new Date("2026-08-17T16:15:00.000Z"),
         waitMs: AMBER_SILENT_LEFTOVER_MS,
       })
     ).toBe(true)

@@ -1,6 +1,7 @@
 // Track which Latest attention items the owner already opened (localStorage + paint cookie).
 // Read replies leave Latest until a newer inbound arrives.
-// Book-form + payment rows leave Latest once opened (detail / View booking / View).
+// Book-form leftovers stay until Book, Call, or Clear — looking is not done.
+// Payment rows leave Latest once opened (detail / View).
 // Paint cookie mirrors stamps so SSR first paint matches Clear/open (no flash).
 
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
@@ -147,15 +148,18 @@ export function isLatestReplyUnread(
 
 /**
  * Events that leave Latest as soon as the owner opens them (not job_finished).
- * Payment rows that still need Thanks + review stay until that SMS is sent
- * (same persistence as a standalone job_finished alert).
+ * Book forms do not — peeking at View booking must not hide an open leftover.
+ * Payment rows that still need Thanks + review stay until that SMS is sent.
  */
 export function isDismissOnOpenLatestEvent(
   event: LatestCustomerAction["event"],
   item?: Pick<LatestCustomerAction, "thanksReviewPending"> | null
 ): boolean {
+  // Paid + thanks still needed stays like a job-finished alert.
   if (event === "customer_paid" && item?.thanksReviewPending) return false
-  return event === "book_form" || event === "customer_paid"
+  // Leftover book jobs stay on home until Book, Call, or Clear.
+  if (event === "book_form") return false
+  return event === "customer_paid"
 }
 
 /** When the owner last opened this Latest row (book form / payment). */
@@ -169,7 +173,7 @@ export function getLatestItemSeenAt(
 }
 
 /**
- * Mark a Latest attention row as seen (detail sheet, View booking, or View).
+ * Mark a Latest attention row as seen (Clear, Book, Call, or payment View).
  * Persists so the row stays gone after refresh / next poll.
  */
 export function markLatestItemSeen(itemId: string, at = new Date().toISOString()): void {
@@ -236,7 +240,8 @@ export function dismissLatestAlert(item: LatestCustomerAction): void {
 
 /**
  * Persist + same-tab notify when the owner opens a Latest attention item.
- * Replies use phone stamps; book forms / payments use row id.
+ * Replies use phone stamps; payments use row id.
+ * Book forms stay until Book / Call / Clear (use dismissLatestAlert).
  * job_finished (and paid+thanks-pending) stay until Send.
  */
 export function markLatestAttentionOpened(item: LatestCustomerAction): void {

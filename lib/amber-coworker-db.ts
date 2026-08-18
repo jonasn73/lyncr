@@ -483,7 +483,7 @@ export async function claimAmberLeftoverThread(params: {
 export async function expireStaleAmberDrafts(): Promise<AmberJobThreadRow[]> {
   const sql = sqlClient()
   try {
-    // Draft timed out — keep the leftover open so 45-min cover can still fire.
+    // Draft timed out — keep the leftover open so 15-min cover can still fire.
     const rows = await sql`
       UPDATE amber_job_threads
       SET state = 'awaiting_instruction', updated_at = now()
@@ -519,7 +519,7 @@ export type SilentAmberThreadRow = AmberJobThreadRow & {
   owner_mobile_e164: string
 }
 
-/** Open leftover threads whose owner ping is older than 45 minutes. */
+/** Open leftover threads whose owner ping is older than 15 minutes (matches AMBER_SILENT_LEFTOVER_MINUTES). */
 export async function listSilentOpenAmberThreads(): Promise<SilentAmberThreadRow[]> {
   const sql = sqlClient()
   try {
@@ -545,9 +545,9 @@ export async function listSilentOpenAmberThreads(): Promise<SilentAmberThreadRow
       FROM amber_job_threads t
       JOIN amber_workspaces w ON w.id = t.amber_workspace_id
       JOIN phone_numbers p ON p.id = w.phone_number_id AND p.is_amber_control = true
-      WHERE t.state IN ('awaiting_instruction', 'awaiting_send')
+      WHERE t.state = 'awaiting_instruction'
         AND t.pinged_at IS NOT NULL
-        AND t.pinged_at <= now() - interval '45 minutes'
+        AND t.pinged_at <= now() - interval '15 minutes'
         AND w.enabled = true
         AND w.coworker_paused_at IS NULL
         AND w.owner_mobile_verified_at IS NOT NULL

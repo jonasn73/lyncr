@@ -183,6 +183,27 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     })
   }, [rawItems, selectedId])
 
+  const skipAmberLeftoverForItem = useCallback(
+    (item: LatestCustomerAction) => {
+      const leadId = String(item.bookFormLeadId || "").trim()
+      const phone = String(item.customerPhone || "").trim()
+      if (!leadId && !phone) return
+      // Close Amber leftover so a later 15-min cover does not text them.
+      void fetch("/api/amber", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "skip_leftover",
+          organization_id: activeOrganizationId || undefined,
+          lead_id: leadId || undefined,
+          customer_phone: phone || undefined,
+        }),
+      }).catch(() => {})
+    },
+    [activeOrganizationId]
+  )
+
   /** Persist seen + drop from Latest immediately (reply / book / payment). */
   const markAttentionOpened = useCallback(
     (item: LatestCustomerAction) => {
@@ -219,7 +240,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
 
   const openDetail = useCallback(
     (item: LatestCustomerAction) => {
-      // Opening detail counts as read → leaves Latest (except job_finished).
+      // Replies / paid still count as read. Book forms stay on Lines until Book, Call, or Clear.
       markAttentionOpened(item)
       // Stash book-form fields so Messages can offer “View booking details”.
       if (item.event === "book_form") writeBookFormDetailsHandoff(item)
@@ -367,8 +388,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
       if (!phone) return
       setSelected(null)
       clearBookFormDetailsHandoff()
-      // Persist seen + drop from Latest even if intake hydrate is still catching up.
-      markAttentionOpened(item)
+      // Owner actually booked — drop the leftover from Lines (View does not).
+      dismissLatestAlert(item)
+      skipAmberLeftoverForItem(item)
+      setItems((prev) => prev.filter((row) => row.id !== item.id))
+      setSeenTick((n) => n + 1)
       // Resolve calculator id from chip / stored type (AKL chip beats Lockout default).
       const fromKind = serviceQuoteTypeIdFromBookJobKind(item.bookFormJobKind)
       const rawStored = String(item.bookFormServiceQuoteTypeId ?? "").trim()
@@ -421,7 +445,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             : undefined,
       })
     },
-    [inbound, markAttentionOpened, router]
+    [inbound, router, setItems, skipAmberLeftoverForItem]
   )
 
   /** One-tap unreachable SMS + mark Called · no answer on the lead. */
@@ -748,6 +772,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                       onClick={(e) => {
                         e.stopPropagation()
                         dismissLatestAlert(item)
+                        skipAmberLeftoverForItem(item)
                         // Drop from live list + rewrite paint cookie (same as open/seen).
                         setItems((prev) => prev.filter((row) => row.id !== item.id))
                         setSeenTick((n) => n + 1)
@@ -796,6 +821,14 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               onOpenMessages={openInMessages}
               onOpenJob={openJobDrawer}
               onOpenBookIntake={openBookIntake}
+              onCallBookForm={(it) => {
+                // Tapping Call counts as handling the leftover — drop it from Lines.
+                dismissLatestAlert(it)
+                skipAmberLeftoverForItem(it)
+                setItems((prev) => prev.filter((row) => row.id !== it.id))
+                setSeenTick((n) => n + 1)
+                setSelected(null)
+              }}
               onSendUnreachable={(it) => void sendUnreachableSms(it)}
               onOpenCrm={openInCrm}
             />
@@ -819,6 +852,7 @@ function LatestActionDetail({
   onOpenBookIntake,
   onSendUnreachable,
   onOpenCrm,
+  onCallBookForm,
 }: {
   item: LatestCustomerAction
   organizationId: string | null
@@ -832,6 +866,7 @@ function LatestActionDetail({
   onOpenBookIntake: (item: LatestCustomerAction) => void
   onSendUnreachable: (item: LatestCustomerAction) => void
   onOpenCrm: (phone: string) => void
+  onCallBookForm: (item: LatestCustomerAction) => void
 }) {
   // Toast for send / cancel / suggest feedback inside this sheet.
   const { toast } = useToast()
@@ -1536,6 +1571,7 @@ function LatestActionDetail({
               {telHref ? (
                 <a
                   href={telHref}
+                  onClick={() => onCallBookForm(item)}
                   className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40"
                 >
                   <Phone className="h-3.5 w-3.5" />

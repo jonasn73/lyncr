@@ -47,7 +47,7 @@ Owner standing order: agents **create their own usernames and test the app**. Do
 
 ## Parked (wait for Approve Phase 1)
 
-Leftover jobs stay on home until Book / Call / Clear; next leftover does not wait all day; “skip [name]” skips. Owner said keep this in mind (Aug 18, 2026). Do not build until they reply **Approve Phase 1**.
+None right now. Leftover home + faster unstick + skip-by-name shipped after owner Approve + deploy (Aug 18 2026).
 
 ## Continuous reports
 

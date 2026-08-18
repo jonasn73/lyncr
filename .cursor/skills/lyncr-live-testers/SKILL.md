@@ -58,6 +58,6 @@ Report to Lyncr Boss: what you tried, the exact screen/error, and what you could
 
 555 numbers will not receive texts. UI leaks still count. To prove a real SMS, Boss must get a **spare test cell from the owner** first. Never “borrow” a customer number.
 
-## Parked build (do not start until owner says Approve Phase 1)
+## Parked build
 
-Leftover jobs stay on home until Book / Call / Clear; next leftover does not wait all day; “skip [name]” skips. Owner said keep this in mind — not approved to build yet.
+Leftover home + 15-min unstick + skip-by-name was approved and shipped (owner Approve + deploy, Aug 18 2026). Do not rebuild it unless Boss opens a new Phase 1.
