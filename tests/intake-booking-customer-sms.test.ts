@@ -46,17 +46,26 @@ describe("intake booking confirmation SMS", () => {
     expect(text).not.toContain("arrive as soon as possible")
   })
 
-  it("mentions the window they typed without slot language", () => {
+  it("mentions the vehicle when the follow-up template includes {{vehicle}}", () => {
     const text = buildIntakeBookingCustomerSmsText({
       customerName: "Sam",
       businessName: "Lyncr",
       availabilityLabel: "Sun, Aug 16 1:00 PM–5:00 PM",
       scheduledAtIso: "2026-08-16T17:00:00.000Z",
     })
-    expect(text).toContain("Sun, Aug 16 1:00 PM–5:00 PM")
+    expect(text).toContain("we got your request")
     expect(text).not.toContain("You're free:")
-    expect(text).not.toContain("We'll confirm a time")
+    expect(text).not.toContain("Sun, Aug 16")
     expect(text).not.toContain("confirmed your appointment")
+  })
+
+  it("uses a saved Follow-up template", () => {
+    const text = buildIntakeBookingCustomerSmsText({
+      customerName: "Isaac Kontcho",
+      businessName: "Key Squad 502",
+      template: "Hey {{customer_name}} — got it. — {{business_name}}",
+    })
+    expect(text).toBe("Hey Isaac — got it. — Key Squad 502")
   })
 
   it("formats appointment time", () => {

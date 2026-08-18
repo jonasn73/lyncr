@@ -41,11 +41,11 @@ type TemplateFieldKey = "sms_booking_template" | "sms_route_template" | "sms_rev
 type SmsTabId = "booking" | "route" | "review" | "status" | "quick"
 
 const SMS_TABS: { id: SmsTabId; label: string }[] = [
+  { id: "booking", label: "Follow-up" },
   { id: "status", label: "Status" },
   { id: "route", label: "On the way" },
   { id: "review", label: "Thanks" },
   { id: "quick", label: "Your texts" },
-  { id: "booking", label: "Extra" },
 ]
 
 const MAX_CUSTOM_SNIPPETS = 20
@@ -95,11 +95,11 @@ export function SmsAutomationForm({ onSaved }: Props) {
   const [settings, setSettings] = useState<SmsSettings>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<SmsTabId>("status")
+  const [tab, setTab] = useState<SmsTabId>("booking")
   // Last message box the owner tapped — tags insert here.
-  const [activeField, setActiveField] = useState<TemplateFieldKey>("sms_review_template")
+  const [activeField, setActiveField] = useState<TemplateFieldKey>("sms_booking_template")
   const [activeStatusKey, setActiveStatusKey] = useState<keyof OwnerSmsStatusTemplates | null>(
-    "check_in"
+    null
   )
   const bookingRef = useRef<HTMLTextAreaElement | null>(null)
   const routeRef = useRef<HTMLTextAreaElement | null>(null)
@@ -322,7 +322,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
   const activeLabel = activeStatusKey
     ? SMS_STATUS_TEMPLATE_META.find((m) => m.key === activeStatusKey)?.title || "Status update"
     : activeField === "sms_booking_template"
-      ? "Extra confirmation"
+      ? "Follow-up"
       : activeField === "sms_route_template"
         ? "On the way"
         : "Thanks + review"
@@ -377,7 +377,11 @@ export function SmsAutomationForm({ onSaved }: Props) {
           <div className="flex flex-wrap gap-1.5">
             {TAGS.filter(({ tag }) => {
               if (tab === "booking") {
-                return tag === "{{customer_name}}" || tag === "{{business_name}}"
+                return (
+                  tag === "{{customer_name}}" ||
+                  tag === "{{business_name}}" ||
+                  tag === "{{vehicle}}"
+                )
               }
               if (tab === "route") {
                 return (
@@ -434,11 +438,12 @@ export function SmsAutomationForm({ onSaved }: Props) {
       <div className="min-h-0 flex-1 overflow-y-auto pr-0.5" role="tabpanel">
         {tab === "booking" ? (
           <PhaseBlock
-            title="Extra confirmation"
-            description="Usually leave auto off. Lyncr already texts when they submit the form."
-            autoLabel="Send a second confirmation when a job is booked"
-            enabled={settings.sms_booking_enabled}
-            onToggle={(v) => patch("sms_booking_enabled", v)}
+            title="Follow-up / we got it"
+            description="Sent after they submit the book form. This is the text you can edit."
+            hideAuto
+            autoLabel=""
+            enabled={false}
+            onToggle={() => {}}
             value={settings.sms_booking_template}
             onChange={(v) => patch("sms_booking_template", v)}
             disabled={saving}
@@ -699,6 +704,7 @@ function PhaseBlock(props: {
   textareaRef: RefObject<HTMLTextAreaElement | null>
   onActivate: () => void
   onCaret: (el: HTMLTextAreaElement) => void
+  hideAuto?: boolean
 }) {
   return (
     <div
@@ -731,15 +737,17 @@ function PhaseBlock(props: {
         disabled={props.disabled}
         aria-label={`${props.title} message`}
       />
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
-        <p className="text-xs text-zinc-400">{props.autoLabel}</p>
-        <Switch
-          checked={props.enabled}
-          onCheckedChange={props.onToggle}
-          disabled={props.disabled}
-          aria-label={props.autoLabel}
-        />
-      </div>
+      {props.hideAuto ? null : (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
+          <p className="text-xs text-zinc-400">{props.autoLabel}</p>
+          <Switch
+            checked={props.enabled}
+            onCheckedChange={props.onToggle}
+            disabled={props.disabled}
+            aria-label={props.autoLabel}
+          />
+        </div>
+      )}
     </div>
   )
 }

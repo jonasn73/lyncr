@@ -162,6 +162,20 @@ describe("draft copy", () => {
     expect(text.toLowerCase()).not.toContain("on the way")
   })
 
+  it("uses a saved Follow-up template from SMS templates", () => {
+    const text = buildGotItHoldingCustomerSms({
+      customerFirstName: "Isaac",
+      businessName: "Key Squad 502",
+      vehicle: "2011 BMW 128i",
+      jobLabel: "Keys lost (AKL)",
+      template: "Hey {{customer_name}} — we got the {{vehicle}}. — {{business_name}}",
+    })
+    expect(text).toContain("Isaac")
+    expect(text).toContain("2011 BMW 128i key")
+    expect(text).toContain("Key Squad 502")
+    expect(text).not.toContain("{{")
+  })
+
   it("recaps the owner after auto-hold", () => {
     expect(buildGotItOwnerRecapSms({ customerFirstName: "Joe" })).toContain("Told Joe")
     expect(buildGotItOwnerRecapSms({ customerFirstName: "Joe", alreadySent: true })).toContain(

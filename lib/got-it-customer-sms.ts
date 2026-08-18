@@ -4,7 +4,7 @@
  */
 
 import { SITE_NAME } from "@/lib/brand"
-import { getUser, updateAiLeadSmsOutcome } from "@/lib/db"
+import { getOwnerSmsSettings, getUser, updateAiLeadSmsOutcome } from "@/lib/db"
 import {
   amberCustomerFirstName,
   buildGotItHoldingCustomerSms,
@@ -45,6 +45,8 @@ export async function sendGotItHoldingCustomerSms(params: {
       make: params.vehicleMake,
       model: params.vehicleModel,
     })
+  // Use the Follow-up wording from SMS templates when the owner saved one.
+  const settings = await getOwnerSmsSettings(params.ownerUserId).catch(() => null)
   const text = buildGotItHoldingCustomerSms({
     customerFirstName: first,
     businessName,
@@ -53,6 +55,7 @@ export async function sendGotItHoldingCustomerSms(params: {
     urgency: params.urgency,
     availabilityLabel: params.availabilityLabel,
     addressSnippet: params.addressSnippet,
+    template: settings?.sms_booking_template,
   })
 
   // Always From the business line, never the Amber control number.

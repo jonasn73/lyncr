@@ -2,7 +2,7 @@
  * Amber leftover book-form coworker — ping owner, draft, send only on SEND.
  */
 
-import { getUser } from "@/lib/db"
+import { getOwnerSmsSettings, getUser } from "@/lib/db"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
 import {
   AMBER_SILENT_LEFTOVER_MS,
@@ -206,6 +206,7 @@ export async function processAmberLeftoverBookJobs(): Promise<{
     const user = await getUser(c.user_id)
     const businessName = String(user?.business_name ?? "").trim() || "us"
     const first = amberCustomerFirstName(c.customer_name)
+    const settings = await getOwnerSmsSettings(c.user_id).catch(() => null)
     // Quote a safe got-it draft so the owner can reply ok — no SEND password.
     const holding = buildGotItHoldingCustomerSms({
       customerFirstName: first,
@@ -213,6 +214,7 @@ export async function processAmberLeftoverBookJobs(): Promise<{
       jobLabel: c.job_label,
       urgency: c.urgency,
       addressSnippet: c.address_snippet,
+      template: settings?.sms_booking_template,
     })
     await updateAmberJobThread({
       threadId: claimed.id,

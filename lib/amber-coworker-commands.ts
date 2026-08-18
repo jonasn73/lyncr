@@ -9,6 +9,13 @@ import {
   isAmberStatusPhrase,
   normalizeAmberSmsBody,
 } from "@/lib/amber-commands"
+import {
+  DEFAULT_SMS_PHASE_TEMPLATES,
+  LEGACY_SMS_PHASE_TEMPLATES,
+  renderSmsTemplate,
+  stockOrSaved,
+  withOptionalVehicleTemplate,
+} from "@/lib/sms-template-defaults"
 
 /** Minutes we wait after a leftover ping before covering the customer (keep in sync with SQL). */
 export const AMBER_SILENT_LEFTOVER_MINUTES = 15
@@ -298,6 +305,8 @@ export function buildGotItHoldingCustomerSms(params: {
   urgency?: string | null
   availabilityLabel?: string | null
   addressSnippet?: string | null
+  /** Owner Follow-up template from SMS templates. Empty uses stock copy. */
+  template?: string | null
 }): string {
   const who = params.customerFirstName || "there"
   const biz = String(params.businessName || "").trim() || "us"
@@ -305,11 +314,20 @@ export function buildGotItHoldingCustomerSms(params: {
     vehicle: params.vehicle,
     jobLabel: params.jobLabel,
   })
-  const lead = need
-    ? `Hey ${who} — we got your request for the ${need}.`
-    : `Hey ${who} — we got your request.`
-  const close = ` We’ll follow up here. Text us here for any update or change. — ${biz}`
-  return `${lead}${close}`.replace(/\s+/g, " ").trim().slice(0, 320)
+  const template = stockOrSaved(
+    params.template,
+    DEFAULT_SMS_PHASE_TEMPLATES.booking,
+    LEGACY_SMS_PHASE_TEMPLATES.booking
+  )
+  const filled = withOptionalVehicleTemplate(template, need)
+  return renderSmsTemplate(filled, {
+    customer_name: who,
+    business_name: biz,
+    vehicle: need,
+  })
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 320)
 }
 
 /** Private Amber recap after the holding SMS goes out. */

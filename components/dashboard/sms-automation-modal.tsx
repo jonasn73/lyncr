@@ -21,7 +21,7 @@ export function SmsAutomationModal({ open, onOpenChange }: Props) {
         <DialogHeader className="shrink-0">
           <DialogTitle>SMS templates</DialogTitle>
           <DialogDescription>
-            Edit the texts you actually send. Unused job-pause and extra confirmation sit behind Extra / More.
+            Edit the texts you actually send. Follow-up is the auto we-got-it after they book. Status is the chip in Messages.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

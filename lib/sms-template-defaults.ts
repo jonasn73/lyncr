@@ -5,7 +5,7 @@
 
 export const DEFAULT_SMS_PHASE_TEMPLATES = {
   booking:
-    "Hey {{customer_name}} — we got your request. We’ll follow up here. Text us here for any update or change. — {{business_name}}",
+    "Hey {{customer_name}} — we got your request for the {{vehicle}}. We’ll follow up here. Text us here for any update or change. — {{business_name}}",
   route:
     "Hey {{customer_name}} — I’m on my way. Text us here for any update or change. — {{business_name}}",
   review:
@@ -16,6 +16,7 @@ export const DEFAULT_SMS_PHASE_TEMPLATES = {
 export const LEGACY_SMS_PHASE_TEMPLATES = {
   booking: [
     "Hi {{customer_name}}, this is {{business_name}}. Your request is in for {{time_slot}}. We'll confirm shortly. Reply here if anything changes.",
+    "Hey {{customer_name}} — we got your request. We’ll follow up here. Text us here for any update or change. — {{business_name}}",
   ],
   route: [
     "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!",
@@ -37,4 +38,23 @@ export function stockOrSaved(
   const normalized = t.replace(/\s+/g, " ")
   if (legacy.some((old) => old.replace(/\s+/g, " ").trim() === normalized)) return current
   return t
+}
+
+/** Fill {{tag}} tokens. Unknown tags become empty. */
+export function renderSmsTemplate(template: string, vars: Record<string, string>): string {
+  const lower: Record<string, string> = {}
+  for (const [k, v] of Object.entries(vars)) lower[k.toLowerCase()] = v
+  return template
+    .replace(/\{\{\s*([\w]+)\s*\}\}/g, (_m, key: string) => lower[key.toLowerCase()] ?? "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+\./g, ".")
+    .trim()
+}
+
+/** Drop “for the {{vehicle}}” when we don’t know the vehicle or job. */
+export function withOptionalVehicleTemplate(template: string, vehicle: string): string {
+  if (vehicle.trim()) return template
+  return template
+    .replace(/\s+for the \{\{\s*vehicle\s*\}\}/gi, "")
+    .replace(/\s+for \{\{\s*vehicle\s*\}\}/gi, "")
 }

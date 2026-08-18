@@ -2,6 +2,7 @@
 
 import { SITE_NAME } from "@/lib/brand"
 import {
+  getOwnerSmsSettings,
   getPhoneNumbers,
   getUser,
   isReasonablePstnDialString,
@@ -10,6 +11,7 @@ import {
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
+import { buildGotItHoldingCustomerSms } from "@/lib/amber-coworker-commands"
 
 /** Resolve a business DID for From + logging (call line → first owned line). */
 async function resolveBusinessLine(params: {
@@ -73,18 +75,20 @@ export function buildIntakeBookingCustomerSmsText(params: {
   customerName: string
   businessName: string
   scheduledAtIso?: string | null
-  /** Preferred window / ASAP label — preferred over inventing an exact pin time. */
   availabilityLabel?: string | null
   isAsap?: boolean
   serviceAddress?: string | null
   jobType?: string | null
+  template?: string | null
 }): string {
   const first = params.customerName.split(/\s+/)[0]?.trim() || "there"
   const business = params.businessName.trim() || SITE_NAME
-  // Prefer the window they typed. Never say ASAP, never dump street/job codes, never invent a pin time.
-  const windowLabel = (params.availabilityLabel ?? "").trim()
-  const forBit = windowLabel ? ` for ${windowLabel}` : ""
-  return `Hey ${first} — we got your request${forBit}. We’ll follow up here. Text us here for any update or change. — ${business}`
+  // Same Follow-up template as the book-form we-got-it text. No ASAP, street, or window dump.
+  return buildGotItHoldingCustomerSms({
+    customerFirstName: first,
+    businessName: business,
+    template: params.template,
+  })
 }
 
 export async function sendIntakeBookingCustomerSms(params: {
@@ -112,6 +116,7 @@ export async function sendIntakeBookingCustomerSms(params: {
     businessLine: params.businessLine,
     callLogId: params.callLogId,
   })
+  const settings = await getOwnerSmsSettings(params.ownerUserId).catch(() => null)
   const text = buildIntakeBookingCustomerSmsText({
     customerName: params.customerName,
     businessName: owner?.business_name?.trim() || owner?.name?.trim() || SITE_NAME,
@@ -120,6 +125,7 @@ export async function sendIntakeBookingCustomerSms(params: {
     isAsap: params.isAsap,
     serviceAddress: params.serviceAddress,
     jobType: params.jobType,
+    template: settings?.sms_booking_template,
   })
 
   const orgId =

@@ -58,8 +58,8 @@ export const SMS_STATUS_TEMPLATE_META: {
 }[] = [
   {
     key: "check_in",
-    title: "Status / check in",
-    description: "Fills the Status chip in Messages.",
+    title: "Status chip",
+    description: "Fills Status in Messages (still need help?).",
   },
   {
     key: "late",
