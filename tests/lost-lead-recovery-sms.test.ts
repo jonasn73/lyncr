@@ -22,7 +22,7 @@ vi.mock("@/lib/telnyx-sms", () => ({
 import { markLostLeadFailed10Dlc } from "@/lib/lost-leads"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
-import { sendLostLeadRecoverySms } from "@/lib/lost-lead-recovery-sms"
+import { buildLostLeadRecoverySmsTemplate, sendLostLeadRecoverySms } from "@/lib/lost-lead-recovery-sms"
 
 const sampleRow: LostLeadRow = {
   id: "lost-1",
@@ -45,6 +45,14 @@ const sampleRow: LostLeadRow = {
 }
 
 describe("sendLostLeadRecoverySms", () => {
+  it("uses a human check-in and does not invent a price", () => {
+    const body = buildLostLeadRecoverySmsTemplate(sampleRow)
+    expect(body.toLowerCase()).toContain("still need help")
+    expect(body).toContain("2018 Ford F-150")
+    expect(body).not.toMatch(/\$\d/)
+    expect(body.toLowerCase()).not.toContain("reply yes")
+  })
+
   it("marks failed_10dlc and publishes salvage-recovery-blocked on 10DLC errors", async () => {
     vi.mocked(sendTelnyxSms).mockResolvedValue({
       ok: false,

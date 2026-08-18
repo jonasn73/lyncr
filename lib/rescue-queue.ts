@@ -37,5 +37,5 @@ export function buildRescueOfferSmsPreview(params: {
   offerDollars: number
 }): string {
   const name = params.customerName?.trim() || "there"
-  return `Hi ${name} — we can still help today at $${params.offerDollars}. Reply YES to lock in this rate.`
+  return `Hey ${name} — we can still help today at $${params.offerDollars}. Text us here if that works.`
 }

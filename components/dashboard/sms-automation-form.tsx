@@ -10,8 +10,16 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_SMS_STATUS_TEMPLATES,
+  EXTRA_SMS_STATUS_KEYS,
+  LEGACY_SMS_STATUS_TEMPLATES,
+  PRIMARY_SMS_STATUS_KEYS,
   SMS_STATUS_TEMPLATE_META,
 } from "@/lib/sms-status-templates"
+import {
+  DEFAULT_SMS_PHASE_TEMPLATES,
+  LEGACY_SMS_PHASE_TEMPLATES,
+  stockOrSaved,
+} from "@/lib/sms-template-defaults"
 import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 
 type SmsSettings = {
@@ -33,22 +41,17 @@ type TemplateFieldKey = "sms_booking_template" | "sms_route_template" | "sms_rev
 type SmsTabId = "booking" | "route" | "review" | "status" | "quick"
 
 const SMS_TABS: { id: SmsTabId; label: string }[] = [
-  { id: "booking", label: "Booking" },
+  { id: "status", label: "Status" },
   { id: "route", label: "On the way" },
   { id: "review", label: "Thanks" },
-  { id: "status", label: "Status" },
-  { id: "quick", label: "Quick texts" },
+  { id: "quick", label: "Your texts" },
+  { id: "booking", label: "Extra" },
 ]
 
 const MAX_CUSTOM_SNIPPETS = 20
 
 /** Default copy shown as real editable text (not HTML placeholder — that disappears on click). */
-const DEFAULT_TEMPLATES = {
-  booking:
-    "Hi {{customer_name}}, this is {{business_name}}. Your request is in for {{time_slot}}. We'll confirm shortly. Reply here if anything changes.",
-  route: "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!",
-  review: "Thanks for choosing {{business_name}}, {{customer_name}}! Leave us a quick review: {{review_url}}",
-}
+const DEFAULT_TEMPLATES = DEFAULT_SMS_PHASE_TEMPLATES
 
 const EMPTY: SmsSettings = {
   sms_booking_enabled: false,
@@ -62,19 +65,22 @@ const EMPTY: SmsSettings = {
   sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },
 }
 
-function withDefaultTemplate(saved: string | null | undefined, fallback: string): string {
-  const t = typeof saved === "string" ? saved.trim() : ""
-  return t || fallback
+function withDefaultTemplate(
+  saved: string | null | undefined,
+  fallback: string,
+  legacy: readonly string[] = []
+): string {
+  return stockOrSaved(saved, fallback, legacy)
 }
 
 /** Tags Lyncr fills in at send time — tap to drop into the active message. */
 const TAGS: { tag: string; label: string }[] = [
   { tag: "{{customer_name}}", label: "Customer name" },
   { tag: "{{business_name}}", label: "Business name" },
-  { tag: "{{time_slot}}", label: "Appointment time" },
   { tag: "{{tech_name}}", label: "Tech name" },
   { tag: "{{eta_minutes}}", label: "ETA minutes (late text)" },
   { tag: "{{review_url}}", label: "Review link" },
+  { tag: "{{vehicle}}", label: "Vehicle / job" },
 ]
 
 const fieldClass =
@@ -89,10 +95,12 @@ export function SmsAutomationForm({ onSaved }: Props) {
   const [settings, setSettings] = useState<SmsSettings>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<SmsTabId>("review")
+  const [tab, setTab] = useState<SmsTabId>("status")
   // Last message box the owner tapped — tags insert here.
   const [activeField, setActiveField] = useState<TemplateFieldKey>("sms_review_template")
-  const [activeStatusKey, setActiveStatusKey] = useState<keyof OwnerSmsStatusTemplates | null>(null)
+  const [activeStatusKey, setActiveStatusKey] = useState<keyof OwnerSmsStatusTemplates | null>(
+    "check_in"
+  )
   const bookingRef = useRef<HTMLTextAreaElement | null>(null)
   const routeRef = useRef<HTMLTextAreaElement | null>(null)
   const reviewRef = useRef<HTMLTextAreaElement | null>(null)
@@ -111,27 +119,48 @@ export function SmsAutomationForm({ onSaved }: Props) {
           sms_route_enabled: s.sms_route_enabled === true,
           sms_review_enabled: s.sms_review_enabled === true,
           // Empty DB values → show default wording as editable text (not a vanishing placeholder).
-          sms_booking_template: withDefaultTemplate(s.sms_booking_template, DEFAULT_TEMPLATES.booking),
-          sms_route_template: withDefaultTemplate(s.sms_route_template, DEFAULT_TEMPLATES.route),
-          sms_review_template: withDefaultTemplate(s.sms_review_template, DEFAULT_TEMPLATES.review),
+          sms_booking_template: withDefaultTemplate(
+            s.sms_booking_template,
+            DEFAULT_TEMPLATES.booking,
+            LEGACY_SMS_PHASE_TEMPLATES.booking
+          ),
+          sms_route_template: withDefaultTemplate(
+            s.sms_route_template,
+            DEFAULT_TEMPLATES.route,
+            LEGACY_SMS_PHASE_TEMPLATES.route
+          ),
+          sms_review_template: withDefaultTemplate(
+            s.sms_review_template,
+            DEFAULT_TEMPLATES.review,
+            LEGACY_SMS_PHASE_TEMPLATES.review
+          ),
           google_review_url: s.google_review_url ?? "",
           sms_custom_snippets: Array.isArray(s.sms_custom_snippets) ? s.sms_custom_snippets : [],
           sms_status_templates: {
+            check_in: withDefaultTemplate(
+              s.sms_status_templates?.check_in,
+              DEFAULT_SMS_STATUS_TEMPLATES.check_in,
+              LEGACY_SMS_STATUS_TEMPLATES.check_in
+            ),
             late: withDefaultTemplate(
               s.sms_status_templates?.late,
-              DEFAULT_SMS_STATUS_TEMPLATES.late
+              DEFAULT_SMS_STATUS_TEMPLATES.late,
+              LEGACY_SMS_STATUS_TEMPLATES.late
             ),
             arrived: withDefaultTemplate(
               s.sms_status_templates?.arrived,
-              DEFAULT_SMS_STATUS_TEMPLATES.arrived
+              DEFAULT_SMS_STATUS_TEMPLATES.arrived,
+              LEGACY_SMS_STATUS_TEMPLATES.arrived
             ),
             paused_wait: withDefaultTemplate(
               s.sms_status_templates?.paused_wait,
-              DEFAULT_SMS_STATUS_TEMPLATES.paused_wait
+              DEFAULT_SMS_STATUS_TEMPLATES.paused_wait,
+              LEGACY_SMS_STATUS_TEMPLATES.paused_wait
             ),
             paused_parts: withDefaultTemplate(
               s.sms_status_templates?.paused_parts,
-              DEFAULT_SMS_STATUS_TEMPLATES.paused_parts
+              DEFAULT_SMS_STATUS_TEMPLATES.paused_parts,
+              LEGACY_SMS_STATUS_TEMPLATES.paused_parts
             ),
           },
         })
@@ -293,7 +322,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
   const activeLabel = activeStatusKey
     ? SMS_STATUS_TEMPLATE_META.find((m) => m.key === activeStatusKey)?.title || "Status update"
     : activeField === "sms_booking_template"
-      ? "Booking confirmation"
+      ? "Extra confirmation"
       : activeField === "sms_route_template"
         ? "On the way"
         : "Thanks + review"
@@ -310,7 +339,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
       setActiveStatusKey(null)
       setActiveField("sms_review_template")
     } else if (next === "status") {
-      setActiveStatusKey("late")
+      setActiveStatusKey("check_in")
     }
   }
 
@@ -346,7 +375,43 @@ export function SmsAutomationForm({ onSaved }: Props) {
             Tap a tag into <span className="font-semibold text-foreground">{activeLabel}</span>
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {TAGS.map(({ tag, label }) => (
+            {TAGS.filter(({ tag }) => {
+              if (tab === "booking") {
+                return tag === "{{customer_name}}" || tag === "{{business_name}}"
+              }
+              if (tab === "route") {
+                return (
+                  tag === "{{customer_name}}" ||
+                  tag === "{{business_name}}" ||
+                  tag === "{{tech_name}}"
+                )
+              }
+              if (tab === "review") {
+                return (
+                  tag === "{{customer_name}}" ||
+                  tag === "{{business_name}}" ||
+                  tag === "{{review_url}}"
+                )
+              }
+              if (tab === "status") {
+                if (activeStatusKey === "late") {
+                  return (
+                    tag === "{{customer_name}}" ||
+                    tag === "{{business_name}}" ||
+                    tag === "{{eta_minutes}}"
+                  )
+                }
+                if (activeStatusKey === "check_in") {
+                  return (
+                    tag === "{{customer_name}}" ||
+                    tag === "{{business_name}}" ||
+                    tag === "{{vehicle}}"
+                  )
+                }
+                return tag === "{{customer_name}}" || tag === "{{business_name}}"
+              }
+              return false
+            }).map(({ tag, label }) => (
               <button
                 key={tag}
                 type="button"
@@ -369,9 +434,9 @@ export function SmsAutomationForm({ onSaved }: Props) {
       <div className="min-h-0 flex-1 overflow-y-auto pr-0.5" role="tabpanel">
         {tab === "booking" ? (
           <PhaseBlock
-            title="Booking confirmation"
-            description="Sent when a job is booked."
-            autoLabel="Send automatically on booking"
+            title="Extra confirmation"
+            description="Usually leave auto off. Lyncr already texts when they submit the form."
+            autoLabel="Send a second confirmation when a job is booked"
             enabled={settings.sms_booking_enabled}
             onToggle={(v) => patch("sms_booking_enabled", v)}
             value={settings.sms_booking_template}
@@ -390,7 +455,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
         {tab === "route" ? (
           <PhaseBlock
             title="On the way"
-            description="When someone starts the route."
+            description="Fills On my way in Messages. Auto-send only if you turn it on."
             autoLabel="Send automatically on Start route"
             enabled={settings.sms_route_enabled}
             onToggle={(v) => patch("sms_route_enabled", v)}
@@ -449,9 +514,11 @@ export function SmsAutomationForm({ onSaved }: Props) {
         {tab === "status" ? (
           <section className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
             <p className="text-xs text-zinc-500">
-              Late / on site / paused texts. Use {"{{eta_minutes}}"} in the late message.
+              These fill the chips in Messages. Tap a chip, then Send — nothing goes out by itself.
             </p>
-            {SMS_STATUS_TEMPLATE_META.map((meta) => (
+            {SMS_STATUS_TEMPLATE_META.filter((meta) =>
+              PRIMARY_SMS_STATUS_KEYS.includes(meta.key)
+            ).map((meta) => (
               <div
                 key={meta.key}
                 className={cn(
@@ -488,6 +555,55 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 />
               </div>
             ))}
+            <details className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-2">
+              <summary className="cursor-pointer text-xs font-semibold text-zinc-400">
+                More (job pause texts)
+              </summary>
+              <p className="mt-1.5 text-[11px] text-zinc-500">
+                Only used if you pause a job on the board. Most shops never tap these.
+              </p>
+              <div className="mt-2 space-y-3">
+                {SMS_STATUS_TEMPLATE_META.filter((meta) =>
+                  EXTRA_SMS_STATUS_KEYS.includes(meta.key)
+                ).map((meta) => (
+                  <div
+                    key={meta.key}
+                    className={cn(
+                      "space-y-1.5 rounded-lg p-2",
+                      activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
+                    )}
+                  >
+                    <p className="text-xs font-semibold text-amber-100/90">{meta.title}</p>
+                    <p className="text-[11px] text-zinc-500">{meta.description}</p>
+                    <textarea
+                      ref={(el) => {
+                        statusRefs.current[meta.key] = el
+                      }}
+                      rows={2}
+                      className={fieldClass + " resize-y"}
+                      value={settings.sms_status_templates[meta.key]}
+                      onChange={(e) => {
+                        patch("sms_status_templates", {
+                          ...settings.sms_status_templates,
+                          [meta.key]: e.target.value,
+                        })
+                        rememberCaret(e.currentTarget)
+                      }}
+                      onFocus={(e) => {
+                        setActiveStatusKey(meta.key)
+                        rememberCaret(e.currentTarget)
+                      }}
+                      onClick={(e) => rememberCaret(e.currentTarget)}
+                      onKeyUp={(e) => rememberCaret(e.currentTarget)}
+                      onSelect={(e) => rememberCaret(e.currentTarget)}
+                      maxLength={480}
+                      disabled={saving}
+                      aria-label={meta.title}
+                    />
+                  </div>
+                ))}
+              </div>
+            </details>
           </section>
         ) : null}
 
@@ -510,7 +626,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
             </div>
             {settings.sms_custom_snippets.length === 0 ? (
               <p className="text-xs text-zinc-500">
-                No custom texts yet. Tap Add — e.g. “On my way in 20”.
+                No custom texts yet. Tap Add — they show as extra chips in Messages.
               </p>
             ) : (
               <ul className="space-y-3">

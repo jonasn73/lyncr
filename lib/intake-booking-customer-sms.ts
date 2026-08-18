@@ -11,9 +11,6 @@ import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 
-const CANCELLATION_POLICY =
-  "Cancellations within 5 minutes of dispatch: no charge. After that, a fee may apply."
-
 /** Resolve a business DID for From + logging (call line → first owned line). */
 async function resolveBusinessLine(params: {
   ownerUserId: string
@@ -84,30 +81,10 @@ export function buildIntakeBookingCustomerSmsText(params: {
 }): string {
   const first = params.customerName.split(/\s+/)[0]?.trim() || "there"
   const business = params.businessName.trim() || SITE_NAME
-  const asap = params.isAsap === true
+  // Prefer the window they typed. Never say ASAP, never dump street/job codes, never invent a pin time.
   const windowLabel = (params.availabilityLabel ?? "").trim()
-  const when =
-    asap || windowLabel
-      ? null
-      : formatAppointmentSmsTime(params.scheduledAtIso)
-  const address = (params.serviceAddress ?? "").trim()
-  const job = (params.jobType ?? "").trim()
-
-  let body = `Hi ${first}, ${business}`
-  if (asap) {
-    body += " got your ASAP request. We'll call or text to confirm when we can get there"
-  } else if (windowLabel) {
-    body += ` received your request. You're free: ${windowLabel}. We'll confirm`
-  } else if (when) {
-    body += ` received your request for ${when}. We'll confirm shortly`
-  } else {
-    body += " received your request. We'll confirm shortly"
-  }
-  body += "."
-  if (address) body += ` Location: ${address}.`
-  if (job) body += ` Service: ${job}.`
-  body += ` Reply here if anything changes.\n\n${CANCELLATION_POLICY}`
-  return body
+  const forBit = windowLabel ? ` for ${windowLabel}` : ""
+  return `Hey ${first} — we got your request${forBit}. We’ll follow up here. Text us here for any update or change. — ${business}`
 }
 
 export async function sendIntakeBookingCustomerSms(params: {

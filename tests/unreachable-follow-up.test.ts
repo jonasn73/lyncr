@@ -22,7 +22,7 @@ describe("unreachable follow-up SMS", () => {
         businessName: "Key Squad 502",
       })
     ).toBe(
-      "Hi Sam, a technician from Key Squad 502 called and couldn’t reach you. Reply here or book."
+      "Hey Sam — we tried calling and didn’t catch you. Text us here for any update or change. — Key Squad 502"
     )
   })
 

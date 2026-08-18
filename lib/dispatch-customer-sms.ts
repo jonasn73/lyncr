@@ -9,6 +9,7 @@ import {
   normalizePhoneNumberE164,
 } from "@/lib/db"
 import { renderTemplate } from "@/lib/sms-pipeline"
+import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import type { OwnerSmsSettings } from "@/lib/types"
@@ -54,8 +55,7 @@ export async function sendDispatchEnRouteCustomerSms(params: {
   if (settings.sms_route_enabled !== true) return
 
   const template =
-    settings.sms_route_template?.trim() ||
-    "Hi {{customer_name}}, your {{business_name}} technician is on the way. See you soon!"
+    settings.sms_route_template?.trim() || DEFAULT_SMS_PHASE_TEMPLATES.route
   const text = renderTemplate(template, {
     customer_name: ctx.customer_name?.trim() || "there",
     business_name: businessName,

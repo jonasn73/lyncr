@@ -1169,13 +1169,11 @@ export async function sendCollectPayLink(params: {
   if (params.channel === "sms") {
     const toE164 = normalizePhoneNumberE164(params.phone ?? "")
     if (!toE164) return { sent: false, error: "Enter a valid phone number" }
-    const greeting = customerName ? `Hi ${customerName} — ` : ""
+    const greeting = customerName ? `Hey ${customerName} — ` : ""
     const text = [
-      `${greeting}${businessLabel} sent you a secure payment request for ${amount}.`,
-      "",
-      "Pay here:",
+      `${greeting}${businessLabel} sent a pay link for ${amount}.`,
       params.url,
-    ].join("\n")
+    ].join(" ")
     const result = await sendTelnyxSms({
       userId: params.actingUserId,
       toE164,

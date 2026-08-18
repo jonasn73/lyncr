@@ -106,12 +106,11 @@ function formatBookingLinkSmsBody(
 ): string {
   // True miss (rang team / no answer) — distinct from press-1.
   if (tone === "missed_call") {
-    return `Sorry we missed your call — book here: ${link}`
+    return `Sorry we missed your call — when you need us: ${link}`
   }
-  // Hold max-wait — soft nudge, still one SMS max (dedupe elsewhere).
   if (tone === "hold_timeout") {
     const shop = normalizeBookingSmsShopLabel(businessLabel)
-    return `${shop} — still want to book? ${link}`
+    return `${shop} — still need help? Tell us when you need us: ${link}`
   }
   // Press-1 / hold / IVR — they send availability (ASAP or a window), not our slots.
   const shop = normalizeBookingSmsShopLabel(businessLabel)

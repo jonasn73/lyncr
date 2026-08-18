@@ -167,73 +167,70 @@ export function buildHeuristicSmsReplySuggestions(
     chips.push({
       id: "cancel-thanks",
       label: "Thanks — closed",
-      body: `Thanks for letting us know, ${who}. Wishing you the best — reach out anytime if you need ${businessLabel} again.`,
+      body: `Hey ${who} — thanks for letting us know. Reach out anytime if you need ${businessLabel} again.`,
     })
     chips.push({
       id: "cancel-understood",
       label: "Understood",
-      body: `Understood, ${who}. We've closed out your request. Thank you for considering ${businessLabel}.`,
+      body: `Hey ${who} — understood, we’ll close this out. Text ${businessLabel} anytime.`,
     })
     drafts.push(
-      `Hi ${who}, thanks for the update — glad you found a solution. We've marked your request closed. If you ever need ${businessLabel}, we're here.`
+      `Hey ${who} — thanks for the update. We’ll close this out. Text ${businessLabel} anytime you need us.`
     )
     drafts.push(
-      `Thanks for letting us know, ${who}. No problem at all — take care, and feel free to text ${businessLabel} anytime.`
+      `Hey ${who} — no problem at all. Take care, and text ${businessLabel} anytime.`
     )
   } else if (intent === "schedule") {
-    // Scheduling follow-up chips.
     chips.push({
       id: "schedule-windows",
-      label: "Send windows",
-      body: `Hi ${who}, happy to get you on the schedule${vehicle ? ` for the ${vehicle}` : ""}. What days/times work best? — ${businessLabel}`,
+      label: "When works?",
+      body: `Hey ${who} — happy to help${vehicle ? ` with the ${vehicle}` : ""}. What days work best? Text us here. — ${businessLabel}`,
     })
     chips.push({
       id: "schedule-today",
       label: "Today ok?",
-      body: `Hi ${who}, we still have availability today — want us to pencil you in? Reply with a time window. — ${businessLabel}`,
+      body: `Hey ${who} — we can still help today if you need us. Text a window that works. — ${businessLabel}`,
     })
     drafts.push(
-      `Hi ${who}, thanks for getting back to us. Reply with a couple of time windows that work and we'll lock one in${vehicle ? ` for the ${vehicle}` : ""}. — ${businessLabel}`
+      `Hey ${who} — thanks for getting back. Text a couple windows that work${vehicle ? ` for the ${vehicle}` : ""} and we’ll follow up here. — ${businessLabel}`
     )
   } else if (intent === "thanks") {
     chips.push({
       id: "thanks-ack",
       label: "You're welcome",
-      body: `You're welcome, ${who}! Happy to help. — ${businessLabel}`,
+      body: `You’re welcome, ${who} — happy to help. — ${businessLabel}`,
     })
-    drafts.push(`You're welcome, ${who}! Text us anytime. — ${businessLabel}`)
+    drafts.push(`You’re welcome, ${who}. Text us anytime. — ${businessLabel}`)
   } else if (intent === "question") {
     chips.push({
       id: "question-soon",
-      label: "We'll reply soon",
-      body: `Thanks ${who} — got your question. We'll get back to you shortly. — ${businessLabel}`,
+      label: "Got it",
+      body: `Hey ${who} — got your question. We’ll follow up here. — ${businessLabel}`,
     })
     chips.push({
       id: "question-call",
       label: "Can we call?",
-      body: `Hi ${who}, happy to help with that. Is it ok if we give you a quick call? — ${businessLabel}`,
+      body: `Hey ${who} — happy to help. Ok if we give you a quick call? — ${businessLabel}`,
     })
     drafts.push(
-      `Hi ${who}, thanks for your message — we'll follow up shortly with details${vehicle ? ` on the ${vehicle}` : ""}. — ${businessLabel}`
+      `Hey ${who} — thanks for the text. We’ll follow up here${vehicle ? ` on the ${vehicle}` : ""}. — ${businessLabel}`
     )
   } else {
-    // Generic catch-all.
     chips.push({
       id: "generic-soon",
-      label: "We'll get back",
-      body: `Thanks ${who} — we'll get back to you shortly. — ${businessLabel}`,
+      label: "We’ll follow up",
+      body: `Hey ${who} — we’ll follow up here. Text us here for any update or change. — ${businessLabel}`,
     })
     drafts.push(
-      `Hi ${who}, thanks for your message. We'll follow up shortly. — ${businessLabel}`
+      `Hey ${who} — thanks for the text. We’ll follow up here. — ${businessLabel}`
     )
   }
 
-  // Always offer a safe generic chip when not already the primary.
   if (!chips.some((c) => c.id === "generic-soon")) {
     chips.push({
       id: "generic-soon",
-      label: "We'll get back",
-      body: `Thanks — we'll get back to you shortly. — ${businessLabel}`,
+      label: "We’ll follow up",
+      body: `Hey ${who} — we’ll follow up here. — ${businessLabel}`,
     })
   }
 
@@ -265,12 +262,12 @@ export function buildJobFinishedFollowUpChips(input: {
     {
       id: "job-glad",
       label: "Glad we helped",
-      body: `Hi ${who}, glad we could help today. Text ${businessLabel} anytime you need us.`,
+      body: `Hey ${who} — glad we could help today. Text ${businessLabel} anytime you need us.`,
     },
     {
       id: "job-checkin",
       label: "All good?",
-      body: `Hi ${who}, just checking in — everything still working well? — ${businessLabel}`,
+      body: `Hey ${who} — just checking in, everything still working well? — ${businessLabel}`,
     },
   ]
 }
@@ -302,12 +299,12 @@ export function buildConversationFollowUpChips(input: {
     {
       id: "follow-onway",
       label: "On my way",
-      body: `Hi ${who} — I’m on my way${need ? ` for the ${need}` : ""}. Text us here for any update or change. — ${businessLabel}`,
+      body: `Hey ${who} — I’m on my way${need ? ` for the ${need}` : ""}. Text us here for any update or change. — ${businessLabel}`,
     },
     {
       id: "follow-details",
       label: "Need details",
-      body: `Hi ${who} — can you text us any extra details (gate code, exact spot, extra keys)? — ${businessLabel}`,
+      body: `Hey ${who} — can you text any extra details (gate code, extra keys)? — ${businessLabel}`,
     },
   ]
 }
@@ -348,11 +345,11 @@ export async function generateSmsReplySuggestions(
           {
             role: "system",
             content:
-              "You help a small-business owner reply to a customer SMS. " +
+              "You help a locksmith owner reply to a customer SMS. " +
               "Return JSON only: {\"drafts\":[\"string\",\"string\"]}. " +
-              "Write 1 or 2 short SMS replies (under 280 chars each) the owner can send. " +
-              "Match the customer's intent (cancel → polite close; schedule → ask for times; thanks → brief ack). " +
-              "Use the business name when provided. Never invent prices or appointments. Do not auto-send — drafts only.",
+              "Write 1 or 2 short texts (under 280 chars) that sound like a person on a phone, not a robot. " +
+              "Start with Hey {first name}. Sign off with the business name. " +
+              "Never invent prices, ETAs, discounts, or appointment times. Do not auto-send — drafts only.",
           },
           {
             role: "user",

@@ -19,7 +19,7 @@ export function buildDepositSmsStagingTemplate(options: {
   const name = (options.customerName ?? "").trim() || "there"
   const amount = (options.amountLabel ?? "").trim()
   const amountClause = amount ? ` (${amount} deposit)` : ""
-  return `Hi ${name} — to lock in your booking, please secure your deposit${amountClause} here: ${options.depositUrl}`
+  return `Hey ${name} — here’s a deposit link${amountClause}: ${options.depositUrl}`
 }
 
 /** Build amount label + SMS preview for a suggested deposit against a job balance. */

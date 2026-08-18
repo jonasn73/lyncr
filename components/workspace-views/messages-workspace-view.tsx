@@ -48,7 +48,8 @@ import {
   type SmsReplyChip,
   type SmsReplyIntent,
 } from "@/lib/sms-reply-suggestions"
-import { formatVehicleForSms } from "@/lib/amber-coworker-commands"
+import { formatVehicleForSms, formatCustomerNeedPhrase } from "@/lib/amber-coworker-commands"
+import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
 import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -183,6 +184,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
     ...DEFAULT_SMS_STATUS_TEMPLATES,
   })
+  const [routeTemplate, setRouteTemplate] = useState(DEFAULT_SMS_PHASE_TEMPLATES.route)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // Scroll the message list only — never the whole page (avoids jumping shared <main>).
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
@@ -408,6 +410,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       extractVehicleFromSmsBody(lastOutboundBody) ||
       ""
     const jobLabel = String(handoff?.bookFormJobType || "").trim()
+    const need = formatCustomerNeedPhrase({ vehicle, jobLabel })
     const inbound = lastInboundBody
       ? buildHeuristicSmsReplySuggestions({
           customerMessage: lastInboundBody,
@@ -431,13 +434,34 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       .trim()
       .split(/\s+/)[0] || "there"
     const biz = String(business || "").trim() || "us"
+    const vehicleBit = need ? `the ${need}` : "that"
     const fillTags = (body: string) =>
       body
         .replace(/\{\{\s*customer_name\s*\}\}/gi, first)
         .replace(/\{\{\s*business_name\s*\}\}/gi, biz)
-        .replace(/\{\{\s*vehicle\s*\}\}/gi, vehicle || "")
+        .replace(/\{\{\s*vehicle\s*\}\}/gi, vehicleBit)
         .replace(/[ \t]{2,}/g, " ")
         .trim()
+    const fromTemplates: SmsReplyChip[] = [
+      {
+        id: "follow-status",
+        label: "Status",
+        body: renderStatusSms(
+          statusTemplates.check_in || DEFAULT_SMS_STATUS_TEMPLATES.check_in,
+          {
+            customer_name: first,
+            business_name: biz,
+            vehicle: vehicleBit,
+          }
+        ),
+      },
+      {
+        id: "follow-onway",
+        label: "On my way",
+        body: fillTags(routeTemplate || DEFAULT_SMS_PHASE_TEMPLATES.route),
+      },
+    ]
+    const details = follow.filter((c) => c.id === "follow-details")
     const statusChips: SmsReplyChip[] = [
       {
         id: "status-late",
@@ -467,7 +491,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       }))
     const seen = new Set<string>()
     const chips: SmsReplyChip[] = []
-    for (const chip of [...inbound.chips.slice(0, 2), ...follow, ...statusChips, ...saved]) {
+    for (const chip of [...inbound.chips.slice(0, 2), ...fromTemplates, ...details, ...statusChips, ...saved]) {
       if (!chip.body.trim() || seen.has(chip.id)) continue
       seen.add(chip.id)
       chips.push(chip)
@@ -485,6 +509,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     selectedPhone,
     customSnippets,
     statusTemplates,
+    routeTemplate,
   ])
 
   // Soft-reset suggestion UI when switching conversations.
@@ -523,6 +548,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           data?: {
             sms_custom_snippets?: OwnerSmsSnippet[]
             sms_status_templates?: OwnerSmsStatusTemplates
+            sms_route_template?: string | null
           }
         } | null) => {
           if (cancelled || !json?.data) return
@@ -536,6 +562,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               ...json.data.sms_status_templates,
             })
           }
+          const route = String(json.data.sms_route_template || "").trim()
+          if (route) setRouteTemplate(route)
         }
       )
       .catch(() => {})

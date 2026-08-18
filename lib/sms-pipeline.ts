@@ -6,6 +6,7 @@
 // template with live job data, and goes out white-labeled (no infrastructure provider name exposed).
 
 import { SITE_NAME } from "@/lib/brand"
+import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import {
   claimScheduledSms,
   getLeadDispatchContext,
@@ -34,13 +35,7 @@ function brandLabel(): string {
 
 /** Built-in copy used when the owner hasn't written a custom template. */
 export function defaultTemplate(phase: SmsPhase): string {
-  if (phase === "booking") {
-    return "Hi {{customer_name}}, this is {{business_name}}. Your request is in for {{time_slot}}. We'll confirm shortly. Reply here if anything changes."
-  }
-  if (phase === "route") {
-    return "Hi {{customer_name}}, your {{business_name}} technician {{tech_name}} is on the way. See you soon!"
-  }
-  return "Thanks for choosing {{business_name}}, {{customer_name}}! We'd love your feedback — leave a quick review: {{review_url}}"
+  return DEFAULT_SMS_PHASE_TEMPLATES[phase]
 }
 
 /** Replace {{tag}} tokens (case-insensitive); unknown tags collapse to empty. */
@@ -115,7 +110,7 @@ export async function runSmsPipeline(params: {
   const vars: Record<string, string> = {
     customer_name: ctx.customer_name?.trim() || "there",
     business_name: owner?.business_name?.trim() || brandLabel(),
-    time_slot: ctx.time_slot?.trim() || "your scheduled time",
+    time_slot: ctx.time_slot?.trim() || "",
     tech_name: params.techName?.trim() || "your technician",
     review_url: reviewUrl,
     location: ctx.location?.trim() || "",
@@ -217,7 +212,7 @@ export async function sendManualThanksReviewSms(params: {
   const vars: Record<string, string> = {
     customer_name: ctx.customer_name?.trim() || "there",
     business_name: owner?.business_name?.trim() || brandLabel(),
-    time_slot: ctx.time_slot?.trim() || "your scheduled time",
+    time_slot: ctx.time_slot?.trim() || "",
     tech_name: params.techName?.trim() || "your technician",
     review_url: reviewUrl,
     location: ctx.location?.trim() || "",
@@ -229,7 +224,7 @@ export async function sendManualThanksReviewSms(params: {
     settings.sms_review_template?.trim() ||
     (reviewUrl
       ? defaultTemplate("review")
-      : "Thanks for choosing {{business_name}}, {{customer_name}}! We appreciate your business.")
+      : "Hey {{customer_name}} — thanks for choosing {{business_name}}.")
   const body = renderTemplate(template, vars)
     .replace(/\s+/g, " ")
     .replace(/\s+:/g, ":")

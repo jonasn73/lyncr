@@ -35,8 +35,8 @@ export function buildUnreachableFollowUpSms(params: {
       .trim()
       .replace(/\s+/g, " ") || "our team"
   const link = String(params.shortLink ?? "").trim()
-  const base = `Hi ${who}, a technician from ${shop} called and couldn’t reach you. Reply here or book`
-  return link ? `${base}: ${link}` : `${base}.`
+  const base = `Hey ${who} — we tried calling and didn’t catch you. Text us here for any update or change. — ${shop}`
+  return link ? `${base} ${link}` : base
 }
 
 /** Normalize callback_outcome from collected JSON. */

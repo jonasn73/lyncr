@@ -1,18 +1,17 @@
 /** Shared Quick SMS / late-ETA preset helpers for owner → customer texts. */
 
-/** Answered / active-job follow-ups (ETA, en route). */
+/** Answered / active-job follow-ups. */
 export const CUSTOMER_SMS_QUICK_TEMPLATES = [
-  "Stuck on a job, text you right back!",
-  "On my way — give me 10 minutes.",
-  "Got your call. What's the address?",
-  "Tech is en route — please stay near the vehicle.",
+  "Hey — stuck on a job, I’ll text you back here.",
+  "Hey — I’m on my way. Text us here for any update or change.",
+  "Hey — got your call. What’s the address?",
 ] as const
 
-/** Missed / unanswered recovery texts — callback + book, not “on my way”. */
+/** Missed / unanswered recovery texts — callback, not “on my way.” */
 export const MISSED_CALL_SMS_QUICK_TEMPLATES = [
-  "Sorry I missed you — when works?",
-  "Sorry we missed your call — can I call you back?",
-  "Got your missed call. Reply with your address and we'll get you booked.",
+  "Hey — sorry we missed your call. Text us here if you still need help.",
+  "Hey — sorry we missed you. Want a callback?",
+  "Hey — got your missed call. Reply with the address and we’ll take it from there.",
 ] as const
 
 /** One-tap ETA minutes on the Today board / composer. */
@@ -21,7 +20,7 @@ export const ETA_MINUTE_PRESETS = [5, 15, 23, 30] as const
 /** Build a running-late SMS body from an ETA in minutes. */
 export function buildRunningLateSms(etaMinutes: number): string {
   const mins = Math.max(1, Math.min(180, Math.round(etaMinutes) || 15))
-  return `Running about ${mins} minutes late — on my way. Sorry for the wait!`
+  return `Running about ${mins} minutes late. Sorry about that.`
 }
 
 /** Build a plain “on my way” SMS with an ETA in minutes. */

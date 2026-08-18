@@ -12,24 +12,17 @@ import {
   type TelnyxSmsErrorType,
 } from "@/lib/telnyx-sms"
 
-function formatPrice(cents: number | null): string {
-  if (cents == null || cents <= 0) return "a competitive rate"
-  return `$${Math.round(cents / 100)}`
-}
-
 function vehicleLabel(row: LostLeadRow): string {
   const parts = [row.vehicle_year, row.vehicle_make, row.vehicle_model].filter(Boolean)
-  return parts.length ? parts.join(" ") : "your vehicle"
+  return parts.length ? parts.join(" ") : ""
 }
 
 /** Deterministic fallback when OPENAI_API_KEY is not configured. */
 export function buildLostLeadRecoverySmsTemplate(row: LostLeadRow): string {
-  const price = formatPrice(row.last_quoted_price_cents)
   const vehicle = vehicleLabel(row)
-  const service = row.service_type?.trim() || "locksmith service"
+  const need = vehicle ? `the ${vehicle}` : "that"
   return (
-    `Hi — sorry we missed you on ${service} for ${vehicle}. ` +
-    `We can still help today starting around ${price}. Reply YES for a quick callback or call us back anytime.`
+    `Hey — just checking in, do you still need help with ${need}? Text us here for any update or change.`
   ).slice(0, 320)
 }
 
@@ -40,11 +33,11 @@ export async function generateLostLeadRecoverySms(row: LostLeadRow): Promise<str
   if (!apiKey) return template
 
   const prompt = [
-    "Write one short SMS (max 300 chars) to win back a locksmith customer who declined price or hung up.",
-    "Tone: friendly, local business, no emojis, include a soft discount or callback offer.",
-    `Quoted price: ${formatPrice(row.last_quoted_price_cents)}`,
+    "Write one short SMS (max 300 chars) checking if they still need locksmith help.",
+    "Tone: a person texting from a phone. Start with Hey. No emojis.",
+    "Never invent prices, discounts, ETAs, or appointment times.",
     `Service: ${row.service_type ?? "locksmith"}`,
-    `Vehicle: ${vehicleLabel(row)}`,
+    `Vehicle: ${vehicleLabel(row) || "unknown"}`,
     `Failure reason: ${row.failure_reason}`,
   ].join("\n")
 

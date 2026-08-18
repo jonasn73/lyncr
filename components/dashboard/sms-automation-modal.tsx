@@ -21,7 +21,7 @@ export function SmsAutomationModal({ open, onOpenChange }: Props) {
         <DialogHeader className="shrink-0">
           <DialogTitle>SMS templates</DialogTitle>
           <DialogDescription>
-            Pick a tab, edit the text, tap a tag to insert it. Save when you’re done.
+            Edit the texts you actually send. Unused job-pause and extra confirmation sit behind Extra / More.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -339,10 +339,10 @@ export function buildCustomerDraftFromInstruction(params: {
   )
   body = body.replace(/^(that\s+)/i, "")
   if (!body) {
-    body = `Hi ${who}, we got your request and will follow up.`
-  } else if (!/^hi\b/i.test(body)) {
+    body = `Hey ${who} — we got your request. We’ll follow up here.`
+  } else if (!/^(hi|hey)\b/i.test(body)) {
     const rest = body.charAt(0).toLowerCase() + body.slice(1)
-    body = `Hi ${who} — ${rest}`
+    body = `Hey ${who} — ${rest}`
   }
   if (!new RegExp(biz.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(body) && body.length < 240) {
     body = `${body.replace(/[.!?]+$/, "")}. — ${biz}`

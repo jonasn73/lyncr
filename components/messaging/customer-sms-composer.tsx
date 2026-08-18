@@ -280,22 +280,6 @@ export function CustomerSmsComposer({
             >
               I&apos;m here
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => sendStatusQuick("paused_wait")}
-              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
-            >
-              Paused / back soon
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => sendStatusQuick("paused_parts")}
-              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
-            >
-              Parts / later
-            </button>
           </div>
         </div>
       ) : null}

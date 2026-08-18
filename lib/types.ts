@@ -349,12 +349,14 @@ export interface OwnerSmsSnippet {
   body: string
 }
 
-/** Field status customer SMS copy (scripts/118) — late / on site / paused. */
+/** Field status customer SMS copy (scripts/118) — late / on site / paused / check-in. */
 export interface OwnerSmsStatusTemplates {
   late: string
   arrived: string
   paused_wait: string
   paused_parts: string
+  /** Status chip in Messages. */
+  check_in: string
 }
 
 /** Owner's automated customer SMS engine settings (`onboarding_profiles` — scripts/062 + 117/118). */

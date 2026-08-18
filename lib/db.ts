@@ -95,6 +95,7 @@ import {
   DEFAULT_SMS_STATUS_TEMPLATES,
   normalizeSmsStatusTemplates,
 } from "./sms-status-templates"
+import { DEFAULT_SMS_PHASE_TEMPLATES, LEGACY_SMS_PHASE_TEMPLATES, stockOrSaved } from "./sms-template-defaults"
 import { isAccountRoutingBlocked, parseAccountStatus } from "./account-status"
 import { defaultProfileFromUserIndustry } from "./business-industries"
 import { isOnboardingTelnyxSimulationMode } from "./onboarding-telnyx-provision-mode"
@@ -11919,9 +11920,21 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
       sms_booking_enabled: row.sms_booking_enabled === true,
       sms_route_enabled: row.sms_route_enabled === true,
       sms_review_enabled: row.sms_review_enabled === true,
-      sms_booking_template: row.sms_booking_template != null ? String(row.sms_booking_template) : null,
-      sms_route_template: row.sms_route_template != null ? String(row.sms_route_template) : null,
-      sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
+      sms_booking_template: stockOrSaved(
+        row.sms_booking_template != null ? String(row.sms_booking_template) : "",
+        DEFAULT_SMS_PHASE_TEMPLATES.booking,
+        LEGACY_SMS_PHASE_TEMPLATES.booking
+      ),
+      sms_route_template: stockOrSaved(
+        row.sms_route_template != null ? String(row.sms_route_template) : "",
+        DEFAULT_SMS_PHASE_TEMPLATES.route,
+        LEGACY_SMS_PHASE_TEMPLATES.route
+      ),
+      sms_review_template: stockOrSaved(
+        row.sms_review_template != null ? String(row.sms_review_template) : "",
+        DEFAULT_SMS_PHASE_TEMPLATES.review,
+        LEGACY_SMS_PHASE_TEMPLATES.review
+      ),
       google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
       sms_custom_snippets: normalizeOwnerSmsSnippets(row.sms_custom_snippets),
       sms_status_templates: normalizeSmsStatusTemplates(row.sms_status_templates),
@@ -11945,9 +11958,21 @@ export async function getOwnerSmsSettings(userId: string): Promise<OwnerSmsSetti
           sms_booking_enabled: row.sms_booking_enabled === true,
           sms_route_enabled: row.sms_route_enabled === true,
           sms_review_enabled: row.sms_review_enabled === true,
-          sms_booking_template: row.sms_booking_template != null ? String(row.sms_booking_template) : null,
-          sms_route_template: row.sms_route_template != null ? String(row.sms_route_template) : null,
-          sms_review_template: row.sms_review_template != null ? String(row.sms_review_template) : null,
+          sms_booking_template: stockOrSaved(
+            row.sms_booking_template != null ? String(row.sms_booking_template) : "",
+            DEFAULT_SMS_PHASE_TEMPLATES.booking,
+            LEGACY_SMS_PHASE_TEMPLATES.booking
+          ),
+          sms_route_template: stockOrSaved(
+            row.sms_route_template != null ? String(row.sms_route_template) : "",
+            DEFAULT_SMS_PHASE_TEMPLATES.route,
+            LEGACY_SMS_PHASE_TEMPLATES.route
+          ),
+          sms_review_template: stockOrSaved(
+            row.sms_review_template != null ? String(row.sms_review_template) : "",
+            DEFAULT_SMS_PHASE_TEMPLATES.review,
+            LEGACY_SMS_PHASE_TEMPLATES.review
+          ),
           google_review_url: row.google_review_url != null ? String(row.google_review_url) : null,
           sms_custom_snippets: [],
           sms_status_templates: { ...DEFAULT_SMS_STATUS_TEMPLATES },

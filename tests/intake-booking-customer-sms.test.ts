@@ -5,7 +5,7 @@ import {
 } from "@/lib/intake-booking-customer-sms"
 
 describe("intake booking confirmation SMS", () => {
-  it("includes request time, address, and job type without over-promising", () => {
+  it("sounds like a person and skips street, job codes, and policy dumps", () => {
     const text = buildIntakeBookingCustomerSmsText({
       customerName: "Patrick Smith",
       businessName: "Key Squad 502",
@@ -13,13 +13,14 @@ describe("intake booking confirmation SMS", () => {
       serviceAddress: "123 Main St, Louisville, KY",
       jobType: "Lockout",
     })
-    expect(text).toContain("Hi Patrick")
+    expect(text).toContain("Hey Patrick")
     expect(text).toContain("Key Squad 502")
-    expect(text).toContain("received your request")
-    expect(text).toContain("We'll confirm shortly")
-    expect(text).toContain("Location: 123 Main St, Louisville, KY")
-    expect(text).toContain("Service: Lockout")
-    expect(text).toContain("Reply here if anything changes")
+    expect(text).toContain("we got your request")
+    expect(text.toLowerCase()).toContain("update or change")
+    expect(text).not.toContain("123 Main")
+    expect(text).not.toContain("Lockout")
+    expect(text.toLowerCase()).not.toContain("asap")
+    expect(text.toLowerCase()).not.toContain("cancellations")
     expect(text).not.toContain("confirmed your appointment")
   })
 
@@ -28,32 +29,32 @@ describe("intake booking confirmation SMS", () => {
       customerName: "Sam",
       businessName: "Lyncr",
     })
-    expect(text).toContain("Hi Sam, Lyncr received your request. We'll confirm shortly.")
-    expect(text).not.toContain("Location:")
+    expect(text).toBe(
+      "Hey Sam — we got your request. We’ll follow up here. Text us here for any update or change. — Lyncr"
+    )
   })
 
-  it("uses ASAP copy instead of inventing an exact time", () => {
+  it("does not say ASAP even when the job is marked urgent", () => {
     const text = buildIntakeBookingCustomerSmsText({
       customerName: "Sam",
       businessName: "Lyncr",
       isAsap: true,
       scheduledAtIso: "2026-07-25T15:00:00.000Z",
     })
-    expect(text).toContain("ASAP request")
-    expect(text).toContain("confirm when we can get there")
+    expect(text.toLowerCase()).not.toContain("asap")
+    expect(text).toContain("we got your request")
     expect(text).not.toContain("arrive as soon as possible")
-    expect(text).not.toContain(" for ")
   })
 
-  it("uses preferred window label instead of pin time", () => {
+  it("mentions the window they typed without slot language", () => {
     const text = buildIntakeBookingCustomerSmsText({
       customerName: "Sam",
       businessName: "Lyncr",
       availabilityLabel: "Sun, Aug 16 1:00 PM–5:00 PM",
       scheduledAtIso: "2026-08-16T17:00:00.000Z",
     })
-    expect(text).toContain("You're free: Sun, Aug 16 1:00 PM–5:00 PM")
-    expect(text).toContain("We'll confirm")
+    expect(text).toContain("Sun, Aug 16 1:00 PM–5:00 PM")
+    expect(text).not.toContain("You're free:")
     expect(text).not.toContain("We'll confirm a time")
     expect(text).not.toContain("confirmed your appointment")
   })
