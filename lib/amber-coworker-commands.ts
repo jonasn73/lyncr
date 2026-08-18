@@ -3,7 +3,7 @@
  * Pure helpers (no DB) so tests stay fast.
  */
 
-import { normalizeAmberSmsBody } from "@/lib/amber-commands"
+import { isAmberStatusPhrase, normalizeAmberSmsBody } from "@/lib/amber-commands"
 
 /** Minutes we wait after a leftover ping before covering the customer (keep in sync with SQL). */
 export const AMBER_SILENT_LEFTOVER_MINUTES = 15
@@ -94,6 +94,8 @@ export function isAmberSkipNamedLeftover(raw: string): boolean {
   // skip Noah  /  skip Noah Medley
   const skipName = /^SKIP\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
   if (skipName && !SKIP_NAME_STOPWORDS.has(skipName[1])) return true
+  const passName = /^PASS ON\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
+  if (passName && !SKIP_NAME_STOPWORDS.has(passName[1])) return true
   // don’t text Noah (him/her/them already match the exact skip list)
   const dontName = /^(?:DONT|DO NOT)\s+TEXT\s+([A-Z][A-Z'-]{1,24})(?:\s|$)/.exec(upper)
   if (!dontName) return false
@@ -124,6 +126,12 @@ export function isAmberSkipKeyword(raw: string): boolean {
     upper === "NEVER MIND" ||
     upper === "LATER" ||
     upper === "IGNORE" ||
+    upper === "SKIP THAT" ||
+    upper === "SKIP HIM" ||
+    upper === "SKIP HER" ||
+    upper === "PASS" ||
+    upper === "PASS ON THIS" ||
+    upper === "PASS ON IT" ||
     // skip Noah — one open leftover, so naming them skips that ping
     isAmberSkipNamedLeftover(raw)
   )
@@ -311,6 +319,7 @@ export function buildAmberDraftPreviewText(params: {
 export function isBareAmberPresenceCommand(raw: string): boolean {
   const upper = normalizeAmberSmsBody(raw).toUpperCase()
   return (
+    isAmberStatusPhrase(raw) ||
     /^(HELP|\?|HI|HELLO|STATUS|STAT|AVAILABLE|AVAIL|FREE|BUSY)\b/.test(upper) ||
     /^I'?M\s+(FREE|AVAILABLE)\b/.test(upper) ||
     /^MAKE\s+ME\s+BUSY\b/.test(upper) ||

@@ -143,7 +143,8 @@ export async function tryHandleAmberInboundSms(params: {
     userId: amber.user_id,
     amberWorkspaceId: amber.id,
   })
-  const honorPresence = !thread || isBareAmberPresenceCommand(params.text)
+  const honorPresence =
+    !thread || isBareAmberPresenceCommand(params.text) || cmd.kind === "help" || cmd.kind === "status"
 
   if (honorPresence && cmd.kind === "help") {
     reply = amberHelpText()
@@ -214,11 +215,47 @@ export async function tryHandleAmberInboundSms(params: {
       await skipAmberJobThread({ amber, thread })
       reply = "Okay — I won’t text them about that request."
     } else if (thread && coworker.kind === "instruction" && coworker.text) {
-      reply = await draftAmberCustomerSms({
-        amber,
-        thread,
-        instruction: coworker.text,
+      const { resolveAmberLeftoverIntent, buildAmberClarifySms } = await import("@/lib/amber-intent")
+      const first = thread.customer_name?.trim().split(/\s+/)[0] || "them"
+      const hasQuotedDraft = thread.state === "awaiting_send" && Boolean(thread.draft_body?.trim())
+      const intent = await resolveAmberLeftoverIntent({
+        text: coworker.text,
+        customerFirstName: first,
+        hasQuotedDraft,
       })
+      if (intent === "skip") {
+        await skipAmberJobThread({ amber, thread })
+        reply = "Okay — I won’t text them about that request."
+      } else if (intent === "send") {
+        if (thread.state !== "awaiting_send") {
+          reply =
+            "Nothing to send yet. Tell me what you want them to hear — I’ll show you a draft first."
+        } else {
+          const sent = await sendAmberApprovedCustomerSms({ amber, thread })
+          reply = sent.ok
+            ? `Sent to ${first} from your business line.`
+            : sent.error
+        }
+      } else if (intent === "status") {
+        const presence = await getAccountPresence(amber.user_id)
+        const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
+        const until = amber.presence_available_at
+          ? formatAmberUntilLabel(new Date(amber.presence_available_at), amber.timezone)
+          : null
+        reply = busy
+          ? until
+            ? `STATUS: Busy until ${until}. Your Busy call-routing is on (phone does not ring first).`
+            : "STATUS: Busy. Your Busy call-routing is on (phone does not ring first)."
+          : "STATUS: Available. Your phone rings first."
+      } else if (intent === "ask") {
+        reply = buildAmberClarifySms({ customerFirstName: first, hasQuotedDraft })
+      } else {
+        reply = await draftAmberCustomerSms({
+          amber,
+          thread,
+          instruction: coworker.text,
+        })
+      }
     } else {
       reply =
         "I didn’t catch that. Try: I’m slammed until 4:30, I’m free, or tell me what to text the customer."

@@ -19,6 +19,28 @@ export function normalizeAmberSmsBody(raw: string): string {
     .trim()
 }
 
+/** True when the owner is asking Busy/Available — not setting Busy. */
+export function isAmberStatusPhrase(raw: string): boolean {
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  return (
+    upper === "STATUS" ||
+    upper === "STAT" ||
+    upper === "MY STATUS" ||
+    upper === "WHATS MY STATUS" ||
+    upper === "WHAT IS MY STATUS" ||
+    upper === "WHATS THE STATUS" ||
+    upper === "WHAT IS THE STATUS" ||
+    upper === "HOWS MY STATUS" ||
+    upper === "HOW IS MY STATUS" ||
+    upper === "AM I BUSY" ||
+    upper === "AM I AVAILABLE" ||
+    upper === "AM I FREE" ||
+    /^WHATS MY (STATUS|AVAILABILITY)\b/.test(upper) ||
+    /^WHAT IS MY (STATUS|AVAILABILITY)\b/.test(upper) ||
+    /^AM I (BUSY|AVAILABLE|FREE)\b/.test(upper)
+  )
+}
+
 /**
  * Parse an owner reply to Amber.
  * Phase 1: HELP, STATUS, BUSY, AVAILABLE, and phrases like "busy until 4:30".
@@ -27,12 +49,12 @@ export function parseAmberCommand(raw: string): AmberCommand {
   const text = normalizeAmberSmsBody(raw)
   if (!text) return { kind: "unknown", raw: "" }
 
-  const upper = text.toUpperCase()
+  const upper = text.toUpperCase().replace(/'/g, "")
 
   if (upper === "HELP" || upper === "?" || upper === "HI" || upper === "HELLO") {
     return { kind: "help" }
   }
-  if (upper === "STATUS" || upper === "STAT") {
+  if (isAmberStatusPhrase(text)) {
     return { kind: "status" }
   }
   if (
@@ -153,7 +175,7 @@ export function amberHelpText(): string {
     "BUSY — skip your phone (Busy routing).",
     "BUSY until 4:30 — Busy, then Available at that time.",
     "AVAILABLE — your phone rings first again.",
-    "STATUS — Busy/Available right now.",
+    "STATUS — Busy/Available right now. “What’s my status” works too.",
     "HELP — this list.",
     "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
     "Tell me what to change, skip Noah, or say don’t text them.",

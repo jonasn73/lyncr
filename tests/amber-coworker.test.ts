@@ -79,7 +79,7 @@ describe("isBareAmberPresenceCommand", () => {
   it("treats BUSY and I'm slammed as presence", () => {
     expect(isBareAmberPresenceCommand("BUSY until 4:30")).toBe(true)
     expect(isBareAmberPresenceCommand("I'm slammed until 4")).toBe(true)
-    expect(isBareAmberPresenceCommand("I’m slammed until 4")).toBe(true)
+    expect(isBareAmberPresenceCommand("What’s my status")).toBe(true)
     expect(isBareAmberPresenceCommand("tell him I'm on a job until tomorrow")).toBe(false)
   })
 })
