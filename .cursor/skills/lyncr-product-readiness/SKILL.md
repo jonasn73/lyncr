@@ -16,7 +16,9 @@ Solo service businesses. IVR-first. Fast calls. ASAP + one-day From–To booking
 
 ## Absolute bans (all agents)
 
-Never automatically: write product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete data, or alter the owner’s live shop. Builds only after owner `Approve Phase 1`. Deploy only after separate owner OK + Release Manager input.
+Never automatically: write **new-feature** product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete data, or alter the owner’s live shop. New features only after owner `Approve Phase 1`. New-feature deploy only after separate owner OK + Release Manager input.
+
+**Hunt & ship leaks (owner standing order):** testers hunt continuously on TEST shops. For small leaks in already-shipped Amber talk / leftover jobs / Lines home, Boss may build + Checker/Safety + production deploy without a new Phase 1 card, then tell the owner what shipped. Still never SMS real Key Squad customers to test.
 
 ## Live testers (required for “using the app”)
 

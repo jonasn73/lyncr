@@ -54,7 +54,8 @@ Agents may disagree. You resolve disagreement.
 - User-facing testers **sign up as their own TEST usernames** on lyncr.app (see `.cursor/skills/lyncr-live-testers/SKILL.md`). Do not log into Key Squad to test.
 - Prefer safe audits: demo numbers, 555/spare test phones, no customer SMS, no live charges.
 - Weekly Product Readiness Report and daily Reliability Watch when scheduled or when the owner asks.
-- **Never** automatically write product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete Key Squad data, or log into the owner’s live shop. TEST-labeled tester signups (demo numbers, 555/spare cell) are the standing way to use the app.
+- **Never** automatically write **new-feature** product code, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete Key Squad data, or log into the owner’s live shop. TEST-labeled tester signups (demo numbers, 555/spare cell) are the standing way to use the app.
+- **Hunt & ship leaks (owner standing order):** testers hunt continuously. For small leaks in already-shipped Amber talk / leftover jobs / Lines home, Boss builds, checks, and deploys without waiting for screenshots or a new Approve Phase 1 card, then tells the owner what shipped. Still never SMS real Key Squad customers to test. New screens / AI voice / Telnyx buy / live charges / deletes / Key Squad setting changes still need a FEATURE card.
 - Urgent high-risk bugs → immediate plain-English report (impact, evidence, safest response).
 - Never invent bugs, user behavior, or metrics.
 
@@ -62,7 +63,9 @@ Agents may disagree. You resolve disagreement.
 
 IVR-first, fast calls, ASAP + one-day availability window, SMS + pay links + invoices + receipts, polish before big new features, mobile-first, business data separation, webhook safety.
 
-## Approval gate (mandatory before any product code change)
+## Approval gate (mandatory before **new-feature** product code)
+
+Hunt & ship leaks (already-shipped Amber / leftover / Lines home) skip this card. Everything else still uses it.
 
 Show exactly:
 

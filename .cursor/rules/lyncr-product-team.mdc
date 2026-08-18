@@ -27,30 +27,38 @@ Flow Tester, Solo Owner, Customer Booking, and Customer Journey **sign up as the
 
 Load `.cursor/skills/lyncr-live-testers/SKILL.md` when those agents run.
 
+The owner should **not** have to screenshot every miss. Testers hunt continuously on TEST shops. When they find a leak in already-shipped Amber talk, leftover jobs, or Lines home, Boss fixes it in the same session (see Hunt & ship leaks).
+
 Allowed without a separate deploy OK: create/login **TEST**-labeled shops, demo/simulation numbers, fill the **test shop’s** public book with 555 or an owner-given spare cell.
 
-Still forbidden unless the owner OK’s that exact action: Telnyx buy/port, SMS to real customers, live charges, Key Squad setting changes, deletes, app production deploy.
+Still forbidden unless the owner OK’s that exact action: Telnyx buy/port, SMS to real Key Squad customers, live charges, Key Squad setting changes, deletes.
 
 ## Continuous readiness (default)
 
 - Agents **inspect, test, brainstorm, debate, and recommend**.
-- They do **not** automatically write product code, merge, deploy, send SMS, create payments, change Telnyx, delete data, or alter production.
+- They do **not** automatically write **new** product features, merge, deploy, send SMS to real customers, create payments, change Telnyx, delete data, or alter the live Key Squad shop.
+- **Hunt & ship leaks (owner standing order, Aug 18 2026):** for small leaks in **already-shipped** Amber talk / leftover jobs / Lines home (greetings, status, skip, briefing, leftover stay-on-home, “I didn’t catch that”), Boss may **build + Checker/Safety + commit + push + production deploy** in the same session **without** a new Approve Phase 1 card. Then tell the owner what shipped, in plain English. Do not wait for the owner to paste screenshots.
+- Still need a FEATURE card + `Approve Phase 1` for: new screens, new product areas, AI voice, Telnyx buy/port, live charges, deletes, Key Squad setting changes.
 - Urgent high-risk findings → Boss reports immediately (impact, evidence, safest response).
 - Never invent bugs, behavior, or metrics.
 
 ## Approval gate
 
-No product-app code changes until the owner replies **`Approve Phase 1`** after the exact FEATURE / WHAT WILL CHANGE / WHAT I WILL NOTICE / RISKS / PHASE 1 card ending with:
+No **new-feature** product-app code until the owner replies **`Approve Phase 1`** after the exact FEATURE / WHAT WILL CHANGE / WHAT I WILL NOTICE / RISKS / PHASE 1 card ending with:
 
 `Reply 'Approve Phase 1' to build this. Nothing will be deployed.`
 
+Hunt & ship leaks (above) are the exception for already-shipped Amber / leftover / Lines home.
+
 ## Deploy & live actions
 
-For **product** work: do **not** commit+push+deploy, send real customer SMS, create live charges, delete data, change production settings, or change live Telnyx — unless the owner explicitly approves that exact action **after** the final Lyncr Boss report (prefer Release Manager READY / READY WITH RISKS).
+For **new features**: do **not** commit+push+deploy, send real customer SMS, create live charges, delete data, change production settings, or change live Telnyx — unless the owner explicitly approves that exact action **after** the final Lyncr Boss report (prefer Release Manager READY / READY WITH RISKS).
 
-This **overrides** `.cursor/rules/git-always-push.mdc` for Lyncr Boss / Product Team product changes.
+Hunt & ship leaks **may** production-deploy after Checker/Safety, then report to the owner. Still never SMS real Key Squad customers to test.
 
-Exception: creating or updating `.cursor/agents`, `.cursor/rules`, `.cursor/skills`, or `.cursor/commands` for this team may be committed so the team stays permanent — still no production “ship the app” deploy unless the owner asks.
+This **overrides** `.cursor/rules/git-always-push.mdc` for Lyncr Boss / Product Team **new-feature** work. Hunt & ship leaks follow git-always-push (commit + push + Vercel).
+
+Exception: creating or updating `.cursor/agents`, `.cursor/rules`, `.cursor/skills`, or `.cursor/commands` for this team may be committed so the team stays permanent — still no production “ship the app” deploy for **new features** unless the owner asks.
 
 ## Product rules (never forget)
 

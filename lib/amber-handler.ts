@@ -149,7 +149,8 @@ export async function tryHandleAmberInboundSms(params: {
     isBareAmberPresenceCommand(params.text) ||
     cmd.kind === "help" ||
     cmd.kind === "greeting" ||
-    cmd.kind === "status"
+    cmd.kind === "status" ||
+    cmd.kind === "briefing"
 
   if (honorPresence && cmd.kind === "help") {
     reply = amberHelpText()
@@ -171,6 +172,18 @@ export async function tryHandleAmberInboundSms(params: {
         ? `STATUS: Busy until ${until}. Your Busy call-routing is on (phone does not ring first).`
         : "STATUS: Busy. Your Busy call-routing is on (phone does not ring first)."
       : "STATUS: Available. Your phone rings first."
+  } else if (honorPresence && cmd.kind === "briefing") {
+    const presence = await getAccountPresence(amber.user_id)
+    const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
+    const { loadAmberBriefingLines, formatAmberBriefingSms } = await import("@/lib/amber-briefing")
+    const lines = await loadAmberBriefingLines({ amber })
+    reply = formatAmberBriefingSms({ busy, lines })
+    await insertAmberAuditEvent({
+      userId: amber.user_id,
+      organizationId: amber.organization_id,
+      eventType: "briefing",
+      detail: { leftoverCount: lines.length },
+    })
   } else if (honorPresence && cmd.kind === "available") {
     await setAccountPresence({ ownerUserId: amber.user_id, presenceStatus: "AVAILABLE" })
     await setAmberPresenceAvailableAt({ amberWorkspaceId: amber.id, availableAt: null })
@@ -270,8 +283,8 @@ export async function tryHandleAmberInboundSms(params: {
       }
     } else {
       reply = thread
-        ? "I didn’t catch that. Try skip plus their name, ok to send a draft, What’s my status, or I’m free."
-        : "I didn’t catch that. Try What’s my status, I’m slammed until 4:30, or I’m free."
+        ? "I didn’t catch that. Try skip plus their name, ok to send a draft, What’s my status, Any important events?, or I’m free."
+        : "I didn’t catch that. Try What’s my status, Any important events?, I’m slammed until 4:30, or I’m free."
       await insertAmberAuditEvent({
         userId: amber.user_id,
         organizationId: amber.organization_id,

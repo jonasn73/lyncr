@@ -7,6 +7,7 @@ export type AmberCommand =
   | { kind: "help" }
   | { kind: "greeting" }
   | { kind: "status" }
+  | { kind: "briefing" }
   | { kind: "available" }
   | { kind: "busy"; untilLocalTime: string | null }
   | { kind: "unknown"; raw: string }
@@ -46,6 +47,24 @@ export function amberHelloSms(params: { busy: boolean; untilLabel: string | null
   return `Hey. ${status} You can text What’s my status, I’m slammed until 4:30, or I’m free.`
 }
 
+/** True when the owner wants a short “what still needs me” leftover list. */
+export function isAmberBriefingPhrase(raw: string): boolean {
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  return (
+    /ANY IMPORTANT EVENTS/.test(upper) ||
+    /ANYTHING (IMPORTANT|WAITING|OPEN|I SHOULD KNOW)/.test(upper) ||
+    /WHATS WAITING/.test(upper) ||
+    /WHATS OPEN/.test(upper) ||
+    /WHATS LEFTOVER/.test(upper) ||
+    /ANYTHING I NEED/.test(upper) ||
+    upper === "BRIEFING" ||
+    upper === "WHATS UP" ||
+    upper === "ANYTHING?" ||
+    upper === "UPDATES" ||
+    upper === "WHAT DID I MISS"
+  )
+}
+
 /** True when the owner is asking Busy/Available — not setting Busy. */
 export function isAmberStatusPhrase(raw: string): boolean {
   const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
@@ -70,7 +89,7 @@ export function isAmberStatusPhrase(raw: string): boolean {
 
 /**
  * Parse an owner reply to Amber.
- * Phase 1: HELP, STATUS, BUSY, AVAILABLE, and phrases like "busy until 4:30".
+ * Phase 1: HELP, greeting, STATUS, briefing, BUSY, AVAILABLE, and phrases like "busy until 4:30".
  */
 export function parseAmberCommand(raw: string): AmberCommand {
   const text = normalizeAmberSmsBody(raw)
@@ -86,6 +105,9 @@ export function parseAmberCommand(raw: string): AmberCommand {
   }
   if (isAmberStatusPhrase(text)) {
     return { kind: "status" }
+  }
+  if (isAmberBriefingPhrase(text)) {
+    return { kind: "briefing" }
   }
   if (
     upper === "AVAILABLE" ||
@@ -206,6 +228,7 @@ export function amberHelpText(): string {
     "BUSY until 4:30 — Busy, then Available at that time.",
     "AVAILABLE — your phone rings first again.",
     "STATUS — Busy/Available right now. “What’s my status” works too.",
+    "Any important events? — leftover book jobs still waiting (first names only).",
     "HELP — this list.",
     "If a book request sits, I’ll ping you with a draft. Reply ok to send it.",
     "Tell me what to change, skip Noah, or say don’t text them.",

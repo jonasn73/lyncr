@@ -8,7 +8,7 @@ description: >-
 
 # Live tester accounts
 
-Owner standing order (Aug 18, 2026): agents **create their own usernames and test the app**. That is how real leaks are found. Reading Key Squad’s live numbers is evidence, not a substitute for signing up.
+Owner standing order (Aug 18, 2026): agents **create their own usernames and test the app continuously**. The owner should not have to screenshot every miss. That is how real leaks are found. Reading Key Squad’s live numbers is evidence, not a substitute for signing up. When testers find a leak in already-shipped Amber talk, leftover jobs, or Lines home, report it to Boss so the fix can ship the same session.
 
 Lyncr Boss loads this skill whenever Flow Tester, Solo Owner, Customer Booking, or Customer Journey run.
 

@@ -3,7 +3,12 @@
  * Pure helpers (no DB) so tests stay fast.
  */
 
-import { isAmberGreetingPhrase, isAmberStatusPhrase, normalizeAmberSmsBody } from "@/lib/amber-commands"
+import {
+  isAmberBriefingPhrase,
+  isAmberGreetingPhrase,
+  isAmberStatusPhrase,
+  normalizeAmberSmsBody,
+} from "@/lib/amber-commands"
 
 /** Minutes we wait after a leftover ping before covering the customer (keep in sync with SQL). */
 export const AMBER_SILENT_LEFTOVER_MINUTES = 15
@@ -321,6 +326,7 @@ export function isBareAmberPresenceCommand(raw: string): boolean {
   return (
     isAmberStatusPhrase(raw) ||
     isAmberGreetingPhrase(raw) ||
+    isAmberBriefingPhrase(raw) ||
     /^(HELP|\?|HI|HELLO|STATUS|STAT|AVAILABLE|AVAIL|FREE|BUSY)\b/.test(upper) ||
     /^I'?M\s+(FREE|AVAILABLE)\b/.test(upper) ||
     /^MAKE\s+ME\s+BUSY\b/.test(upper) ||
