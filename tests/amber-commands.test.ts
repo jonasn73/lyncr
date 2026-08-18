@@ -8,11 +8,21 @@ import {
 describe("parseAmberCommand", () => {
   it("parses HELP STATUS AVAILABLE BUSY", () => {
     expect(parseAmberCommand("HELP").kind).toBe("help")
+    expect(parseAmberCommand("Hey").kind).toBe("greeting")
+    expect(parseAmberCommand("Hey amber").kind).toBe("greeting")
+    expect(parseAmberCommand("HI").kind).toBe("greeting")
     expect(parseAmberCommand("STATUS").kind).toBe("status")
     expect(parseAmberCommand("What's my status").kind).toBe("status")
     expect(parseAmberCommand("am I free").kind).toBe("status")
     expect(parseAmberCommand("AVAILABLE").kind).toBe("available")
     expect(parseAmberCommand("BUSY").kind).toBe("busy")
+  })
+
+  it("treats hey and hey amber as a greeting, not a leftover draft", () => {
+    expect(parseAmberCommand("Hey").kind).toBe("greeting")
+    expect(parseAmberCommand("Hey amber").kind).toBe("greeting")
+    expect(parseAmberCommand("HI").kind).toBe("greeting")
+    expect(parseAmberCommand("HELP").kind).toBe("help")
   })
 
   it("parses I'm slammed until a time", () => {

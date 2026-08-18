@@ -5,6 +5,7 @@
 
 export type AmberCommand =
   | { kind: "help" }
+  | { kind: "greeting" }
   | { kind: "status" }
   | { kind: "available" }
   | { kind: "busy"; untilLocalTime: string | null }
@@ -17,6 +18,32 @@ export function normalizeAmberSmsBody(raw: string): string {
     .replace(/[\u2018\u2019\u201B`´]/g, "'")
     .replace(/\s+/g, " ")
     .trim()
+}
+
+/** True when the owner is just saying hi — not asking for the full command list. */
+export function isAmberGreetingPhrase(raw: string): boolean {
+  const upper = normalizeAmberSmsBody(raw).toUpperCase().replace(/'/g, "")
+  return (
+    upper === "HI" ||
+    upper === "HEY" ||
+    upper === "HELLO" ||
+    upper === "YO" ||
+    upper === "SUP" ||
+    /^HEY\s+(AMBER|THERE|LYNCR)\b/.test(upper) ||
+    /^HI\s+(AMBER|THERE|LYNCR)\b/.test(upper) ||
+    /^HELLO\s+(AMBER|THERE|LYNCR)\b/.test(upper) ||
+    /^GOOD (MORNING|AFTERNOON|EVENING|NIGHT)\b/.test(upper)
+  )
+}
+
+/** Short hello with live Busy/Available — not a cheat-sheet. */
+export function amberHelloSms(params: { busy: boolean; untilLabel: string | null }): string {
+  const status = params.busy
+    ? params.untilLabel
+      ? `You’re Busy until ${params.untilLabel}. Your phone does not ring first.`
+      : "You’re Busy. Your phone does not ring first."
+    : "You’re Available. Your phone rings first."
+  return `Hey. ${status} You can text What’s my status, I’m slammed until 4:30, or I’m free.`
 }
 
 /** True when the owner is asking Busy/Available — not setting Busy. */
@@ -51,8 +78,11 @@ export function parseAmberCommand(raw: string): AmberCommand {
 
   const upper = text.toUpperCase().replace(/'/g, "")
 
-  if (upper === "HELP" || upper === "?" || upper === "HI" || upper === "HELLO") {
+  if (upper === "HELP" || upper === "?") {
     return { kind: "help" }
+  }
+  if (isAmberGreetingPhrase(text)) {
+    return { kind: "greeting" }
   }
   if (isAmberStatusPhrase(text)) {
     return { kind: "status" }

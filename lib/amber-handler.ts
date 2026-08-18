@@ -5,6 +5,7 @@
 import { setAccountPresence, getAccountPresence } from "@/lib/account-presence"
 import {
   amberHelpText,
+  amberHelloSms,
   formatAmberUntilLabel,
   parseAmberCommand,
   resolveAmberUntilInstant,
@@ -144,10 +145,21 @@ export async function tryHandleAmberInboundSms(params: {
     amberWorkspaceId: amber.id,
   })
   const honorPresence =
-    !thread || isBareAmberPresenceCommand(params.text) || cmd.kind === "help" || cmd.kind === "status"
+    !thread ||
+    isBareAmberPresenceCommand(params.text) ||
+    cmd.kind === "help" ||
+    cmd.kind === "greeting" ||
+    cmd.kind === "status"
 
   if (honorPresence && cmd.kind === "help") {
     reply = amberHelpText()
+  } else if (honorPresence && cmd.kind === "greeting") {
+    const presence = await getAccountPresence(amber.user_id)
+    const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
+    const until = amber.presence_available_at
+      ? formatAmberUntilLabel(new Date(amber.presence_available_at), amber.timezone)
+      : null
+    reply = amberHelloSms({ busy, untilLabel: until })
   } else if (honorPresence && cmd.kind === "status") {
     const presence = await getAccountPresence(amber.user_id)
     const busy = presence.presenceStatus === "ON_JOB" || presence.presenceStatus === "CLOSED"
@@ -257,8 +269,9 @@ export async function tryHandleAmberInboundSms(params: {
         })
       }
     } else {
-      reply =
-        "I didn’t catch that. Try: I’m slammed until 4:30, I’m free, or tell me what to text the customer."
+      reply = thread
+        ? "I didn’t catch that. Try skip plus their name, ok to send a draft, What’s my status, or I’m free."
+        : "I didn’t catch that. Try What’s my status, I’m slammed until 4:30, or I’m free."
       await insertAmberAuditEvent({
         userId: amber.user_id,
         organizationId: amber.organization_id,
