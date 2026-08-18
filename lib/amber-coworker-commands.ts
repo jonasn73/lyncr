@@ -259,14 +259,49 @@ export function buildAmberLeftoverPingText(params: {
   return lines.join(" ")
 }
 
-/** Boring holding SMS — no ETAs, prices, or “we’re on the way.” */
+/** Join year/make/model for customer SMS (empty when we have none). */
+export function formatVehicleForSms(params: {
+  year?: string | null
+  make?: string | null
+  model?: string | null
+}): string {
+  return [params.year, params.make, params.model]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ")
+}
+
+/** Holding SMS — human, recaps what they asked, no ETAs/prices/“on the way.” */
 export function buildGotItHoldingCustomerSms(params: {
   customerFirstName: string
   businessName: string
+  jobLabel?: string | null
+  vehicle?: string | null
+  urgency?: string | null
+  availabilityLabel?: string | null
+  addressSnippet?: string | null
 }): string {
   const who = params.customerFirstName || "there"
   const biz = String(params.businessName || "").trim() || "us"
-  return `Hi ${who} — we got your request. We’ll follow up. — ${biz}`
+  const job = String(params.jobLabel || "").trim()
+  const vehicle = String(params.vehicle || "").trim()
+  const asap = String(params.urgency || "").toLowerCase() === "asap"
+  const windowLabel = String(params.availabilityLabel || "").trim()
+  const street = String(params.addressSnippet || "").trim()
+
+  let what = ""
+  if (job && vehicle) what = `${job} on the ${vehicle}`
+  else if (job) what = job
+  else if (vehicle) what = `the ${vehicle}`
+
+  const lead = asap
+    ? `Hi ${who} — we got your ASAP request${what ? ` for ${what}` : ""}.`
+    : `Hi ${who} — we got your request${what ? ` for ${what}` : ""}.`
+  const windowBit = !asap && windowLabel ? ` We noted you’re free ${windowLabel}.` : ""
+  const addrBit = street && street.length <= 80 ? ` We have you at ${street}.` : ""
+  const close =
+    " We’ll follow up at this number. Text us here anytime if you have a question or something changes."
+  return `${lead}${windowBit}${addrBit}${close} — ${biz}`.replace(/\s+/g, " ").trim().slice(0, 320)
 }
 
 /** Private Amber recap after the holding SMS goes out. */

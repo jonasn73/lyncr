@@ -216,15 +216,20 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       collected: collectedExtras,
     })
 
-    // ASAP Activity book-link: same shop-line “we got it” as the public form.
-    if (urgency === "asap") {
-      await sendGotItHoldingCustomerSms({
-        ownerUserId: link.ownerUserId,
-        leadId: result.lead_id,
-        customerPhone: phone,
-        customerName,
-      }).catch((e) => console.warn("[book/form] got-it SMS failed:", e))
-    }
+    // Shop-line “we got it” — same human recap as the public form.
+    await sendGotItHoldingCustomerSms({
+      ownerUserId: link.ownerUserId,
+      leadId: result.lead_id,
+      customerPhone: phone,
+      customerName,
+      jobLabel: jobType,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      urgency,
+      availabilityLabel,
+      addressSnippet: address || null,
+    }).catch((e) => console.warn("[book/form] got-it SMS failed:", e))
 
     const requiresPayment = link.feeMode !== "none" && Boolean(link.payToken)
     const payUrl = requiresPayment

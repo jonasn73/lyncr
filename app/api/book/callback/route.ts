@@ -184,15 +184,20 @@ export async function POST(req: NextRequest) {
       bookingSource: bookingSource || null,
     })
 
-    // ASAP submit: customer gets a shop-line “we got it” right away (no times/prices).
-    if (urgency === "asap") {
-      await sendGotItHoldingCustomerSms({
-        ownerUserId: owner.id,
-        leadId: job.lead_id,
-        customerPhone,
-        customerName,
-      }).catch((e) => console.warn("[POST /api/book/callback] got-it SMS failed:", e))
-    }
+    // Shop-line “we got it” — recaps the request, invites them to text this number.
+    await sendGotItHoldingCustomerSms({
+      ownerUserId: owner.id,
+      leadId: job.lead_id,
+      customerPhone,
+      customerName,
+      jobLabel: jobType,
+      vehicleYear: year,
+      vehicleMake: make,
+      vehicleModel: model,
+      urgency,
+      availabilityLabel,
+      addressSnippet: addressLine1 || null,
+    }).catch((e) => console.warn("[POST /api/book/callback] got-it SMS failed:", e))
 
     return NextResponse.json({
       data: {

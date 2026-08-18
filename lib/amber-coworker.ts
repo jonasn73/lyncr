@@ -210,6 +210,9 @@ export async function processAmberLeftoverBookJobs(): Promise<{
     const holding = buildGotItHoldingCustomerSms({
       customerFirstName: first,
       businessName,
+      jobLabel: c.job_label,
+      urgency: c.urgency,
+      addressSnippet: c.address_snippet,
     })
     await updateAmberJobThread({
       threadId: claimed.id,
@@ -278,6 +281,9 @@ export async function processSilentAmberLeftovers(): Promise<{ autoHeld: number;
         customerPhone: thread.customer_phone,
         customerName: thread.customer_name,
         amberNumber: thread.amber_number,
+        jobLabel: thread.job_label,
+        urgency: thread.urgency,
+        addressSnippet: thread.address_snippet,
       })
       sentOk = hold.sent
       if (!hold.sent) {

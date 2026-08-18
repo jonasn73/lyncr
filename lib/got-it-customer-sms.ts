@@ -8,11 +8,12 @@ import { getUser, updateAiLeadSmsOutcome } from "@/lib/db"
 import {
   amberCustomerFirstName,
   buildGotItHoldingCustomerSms,
+  formatVehicleForSms,
 } from "@/lib/amber-coworker-commands"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
 
-/** Send the boring holding note. No times, prices, or “we’re on the way.” */
+/** Send a human holding note. No invented times, prices, or “we’re on the way.” */
 export async function sendGotItHoldingCustomerSms(params: {
   ownerUserId: string
   organizationId?: string | null
@@ -20,6 +21,14 @@ export async function sendGotItHoldingCustomerSms(params: {
   customerPhone: string
   customerName: string | null
   amberNumber?: string | null
+  jobLabel?: string | null
+  vehicleYear?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  vehicle?: string | null
+  urgency?: string | null
+  availabilityLabel?: string | null
+  addressSnippet?: string | null
 }): Promise<{ sent: boolean; error: string | null }> {
   // Load the shop name for the sign-off.
   const owner = await getUser(params.ownerUserId)
@@ -29,9 +38,21 @@ export async function sendGotItHoldingCustomerSms(params: {
     SITE_NAME
   // First name only — do not put address or full phone in the customer text.
   const first = amberCustomerFirstName(params.customerName)
+  const vehicle =
+    String(params.vehicle || "").trim() ||
+    formatVehicleForSms({
+      year: params.vehicleYear,
+      make: params.vehicleMake,
+      model: params.vehicleModel,
+    })
   const text = buildGotItHoldingCustomerSms({
     customerFirstName: first,
     businessName,
+    jobLabel: params.jobLabel,
+    vehicle,
+    urgency: params.urgency,
+    availabilityLabel: params.availabilityLabel,
+    addressSnippet: params.addressSnippet,
   })
 
   // Always From the business line, never the Amber control number.

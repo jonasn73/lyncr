@@ -41,12 +41,16 @@ import {
   shouldApplyMessagesDeepLink,
 } from "@/lib/messages-deep-link"
 import {
+  buildConversationFollowUpChips,
   buildHeuristicSmsReplySuggestions,
   extractBusinessNameFromSmsBody,
   extractVehicleFromSmsBody,
   type SmsReplyChip,
   type SmsReplyIntent,
 } from "@/lib/sms-reply-suggestions"
+import { formatVehicleForSms } from "@/lib/amber-coworker-commands"
+import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
+import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
 
@@ -174,6 +178,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [aiDrafts, setAiDrafts] = useState<string[]>([])
   // Optional CRM display name for friendlier chip copy (loaded when a thread opens).
   const [customerName, setCustomerName] = useState<string | null>(null)
+  // Saved shortcuts + status copy from Settings → SMS templates (fill composer, never auto-send).
+  const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
+  const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
+    ...DEFAULT_SMS_STATUS_TEMPLATES,
+  })
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // Scroll the message list only — never the whole page (avoids jumping shared <main>).
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)
@@ -378,26 +387,105 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     return (outbound?.body || "").trim()
   }, [activeThread])
 
-  // Rule-based chips — same helpers as Latest Needs-reply sheet.
+  // Rule-based chips — inbound replies plus booking follow-ups even if they have not written back.
   const replySuggest = useMemo(() => {
-    if (!lastInboundBody) {
-      return {
-        intent: "generic" as SmsReplyIntent,
-        chips: [] as SmsReplyChip[],
-        drafts: [] as string[],
-      }
-    }
-    return buildHeuristicSmsReplySuggestions({
-      customerMessage: lastInboundBody,
-      customerName,
-      businessName:
-        workspaceBusinessName ||
-        extractBusinessNameFromSmsBody(lastOutboundBody) ||
-        null,
-      vehicle: extractVehicleFromSmsBody(lastOutboundBody),
-      priorOutbound: lastOutboundBody || null,
+    const handoff =
+      selectedPhone && bookFormHandoffMatchesPhone(selectedPhone)
+        ? peekBookFormDetailsHandoff()
+        : null
+    const chipName = customerName || handoff?.customerName || null
+    const business =
+      workspaceBusinessName ||
+      extractBusinessNameFromSmsBody(lastOutboundBody) ||
+      null
+    const vehicle =
+      formatVehicleForSms({
+        year: handoff?.bookFormVehicleYear,
+        make: handoff?.bookFormVehicleMake,
+        model: handoff?.bookFormVehicleModel,
+      }) ||
+      extractVehicleFromSmsBody(handoff?.preview) ||
+      extractVehicleFromSmsBody(lastOutboundBody) ||
+      ""
+    const jobLabel = String(handoff?.bookFormJobType || "").trim()
+    const inbound = lastInboundBody
+      ? buildHeuristicSmsReplySuggestions({
+          customerMessage: lastInboundBody,
+          customerName: chipName,
+          businessName: business,
+          vehicle,
+          priorOutbound: lastOutboundBody || null,
+        })
+      : {
+          intent: "generic" as SmsReplyIntent,
+          chips: [] as SmsReplyChip[],
+          drafts: [] as string[],
+        }
+    const follow = buildConversationFollowUpChips({
+      customerName: chipName,
+      businessName: business,
+      vehicle,
+      jobLabel,
     })
-  }, [lastInboundBody, lastOutboundBody, customerName, workspaceBusinessName])
+    const first = String(chipName || "")
+      .trim()
+      .split(/\s+/)[0] || "there"
+    const biz = String(business || "").trim() || "us"
+    const fillTags = (body: string) =>
+      body
+        .replace(/\{\{\s*customer_name\s*\}\}/gi, first)
+        .replace(/\{\{\s*business_name\s*\}\}/gi, biz)
+        .replace(/\{\{\s*vehicle\s*\}\}/gi, vehicle || "")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim()
+    const statusChips: SmsReplyChip[] = [
+      {
+        id: "status-late",
+        label: "Running late",
+        body: renderStatusSms(statusTemplates.late || DEFAULT_SMS_STATUS_TEMPLATES.late, {
+          customer_name: first,
+          business_name: biz,
+          eta_minutes: 15,
+        }),
+      },
+      {
+        id: "status-here",
+        label: "I'm here",
+        body: renderStatusSms(statusTemplates.arrived || DEFAULT_SMS_STATUS_TEMPLATES.arrived, {
+          customer_name: first,
+          business_name: biz,
+        }),
+      },
+    ]
+    const saved = customSnippets
+      .filter((snip) => snip?.body?.trim())
+      .slice(0, 4)
+      .map((snip) => ({
+        id: `snip-${snip.id}`,
+        label: snip.label?.trim() || "Saved text",
+        body: fillTags(snip.body),
+      }))
+    const seen = new Set<string>()
+    const chips: SmsReplyChip[] = []
+    for (const chip of [...inbound.chips.slice(0, 2), ...follow, ...statusChips, ...saved]) {
+      if (!chip.body.trim() || seen.has(chip.id)) continue
+      seen.add(chip.id)
+      chips.push(chip)
+    }
+    return {
+      intent: inbound.intent,
+      chips: chips.slice(0, 8),
+      drafts: inbound.drafts,
+    }
+  }, [
+    lastInboundBody,
+    lastOutboundBody,
+    customerName,
+    workspaceBusinessName,
+    selectedPhone,
+    customSnippets,
+    statusTemplates,
+  ])
 
   // Soft-reset suggestion UI when switching conversations.
   useEffect(() => {
@@ -423,6 +511,38 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       cancelled = true
     }
   }, [isActive, selectedPhone])
+
+  // Load saved SMS shortcuts once while Messages is open.
+  useEffect(() => {
+    if (!isActive) return
+    let cancelled = false
+    void fetch("/api/owner/sms-settings", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (json: {
+          data?: {
+            sms_custom_snippets?: OwnerSmsSnippet[]
+            sms_status_templates?: OwnerSmsStatusTemplates
+          }
+        } | null) => {
+          if (cancelled || !json?.data) return
+          const list = Array.isArray(json.data.sms_custom_snippets)
+            ? json.data.sms_custom_snippets
+            : []
+          setCustomSnippets(list.filter((s) => s?.body?.trim()))
+          if (json.data.sms_status_templates && typeof json.data.sms_status_templates === "object") {
+            setStatusTemplates({
+              ...DEFAULT_SMS_STATUS_TEMPLATES,
+              ...json.data.sms_status_templates,
+            })
+          }
+        }
+      )
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isActive])
 
   /** Suggest reply — fills drafts; never auto-sends. */
   async function suggestReply() {
@@ -832,7 +952,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   <p className="mb-2 text-xs text-red-300">{sendError}</p>
                 ) : null}
 
-                {/* Quick reply chips — only when the thread has an inbound message to answer. */}
+                {/* Quick reply chips — tap fills the box. You still tap Send. */}
                 {replySuggest.chips.length > 0 ? (
                   <div className="mb-2 flex flex-wrap gap-1.5">
                     {replySuggest.chips.map((chip) => (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildConversationFollowUpChips,
   buildHeuristicSmsReplySuggestions,
   buildJobFinishedFollowUpChips,
   detectSmsReplyIntent,
@@ -64,5 +65,21 @@ describe("sms reply suggestions", () => {
     expect(chips.every((c) => c.body.includes("Nathaniel") || c.body.includes("Key Squad"))).toBe(
       true
     )
+  })
+
+  it("builds status follow-up chips from vehicle and job without sending", () => {
+    const chips = buildConversationFollowUpChips({
+      customerName: "Isaac Kontcho",
+      businessName: "Key Squad 502",
+      vehicle: "2011 BMW 128i",
+      jobLabel: "Keys lost (AKL)",
+    })
+    const status = chips.find((c) => c.id === "follow-status")
+    expect(status?.label).toBe("Status")
+    expect(status?.body).toContain("Isaac")
+    expect(status?.body).toContain("BMW")
+    expect(status?.body.toLowerCase()).toContain("still need")
+    expect(chips.some((c) => c.id === "follow-onway")).toBe(true)
+    expect(chips.every((c) => c.body.includes("Key Squad 502"))).toBe(true)
   })
 })

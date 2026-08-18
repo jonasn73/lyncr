@@ -274,6 +274,45 @@ export function buildJobFinishedFollowUpChips(input: {
 }
 
 /**
+ * Chips for an open Messages thread even when the customer has not written back.
+ * Tap fills the composer — never auto-sends. Uses booking/vehicle context when we have it.
+ */
+export function buildConversationFollowUpChips(input: {
+  customerName?: string | null
+  businessName?: string | null
+  vehicle?: string | null
+  jobLabel?: string | null
+}): SmsReplyChip[] {
+  const who = firstName(input.customerName)
+  const businessLabel = biz(input.businessName)
+  const vehicle = String(input.vehicle || "").trim()
+  const job = String(input.jobLabel || "").trim()
+  const thing = vehicle
+    ? `the ${vehicle}${job ? ` (${job})` : ""}`
+    : job
+      ? `that ${job}`
+      : "that request"
+
+  return [
+    {
+      id: "follow-status",
+      label: "Status",
+      body: `Hey ${who} — just checking in, do you still need help with ${thing}? Text us here. — ${businessLabel}`,
+    },
+    {
+      id: "follow-onway",
+      label: "On my way",
+      body: `Hi ${who} — I’m on my way${vehicle ? ` for the ${vehicle}` : ""}. Text this number if anything changes. — ${businessLabel}`,
+    },
+    {
+      id: "follow-details",
+      label: "Need details",
+      body: `Hi ${who} — can you text us any extra details (gate code, exact spot, extra keys)? We’ll keep it on this thread. — ${businessLabel}`,
+    },
+  ]
+}
+
+/**
  * Optional OpenAI polish of 1–2 reply drafts.
  * Falls back to heuristic drafts when OPENAI_API_KEY is missing or the call fails.
  */
