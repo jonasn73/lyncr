@@ -137,28 +137,29 @@ describe("draft copy", () => {
     expect(text).toContain("Key Squad 502")
     expect(text.toLowerCase()).toContain("got your")
     expect(text.toLowerCase()).toContain("text us here")
-    expect(text.toLowerCase()).toContain("question")
+    expect(text.toLowerCase()).toContain("update or change")
     expect(text.toLowerCase()).not.toContain("on the way")
     expect(text.toLowerCase()).not.toMatch(/\$\d/)
   })
 
-  it("recaps job and vehicle without inventing a time", () => {
+  it("names the vehicle key and skips ASAP, window, and street", () => {
     const text = buildGotItHoldingCustomerSms({
       customerFirstName: "Isaac",
       businessName: "Key Squad 502",
       jobLabel: "Keys lost (AKL)",
       vehicle: "2011 BMW 128i",
       urgency: "asap",
+      availabilityLabel: "Tue 1:00 PM–5:00 PM",
       addressSnippet: "2400 S 4th Street",
     })
     expect(text).toContain("Isaac")
-    expect(text).toContain("BMW")
-    expect(text).toContain("Keys lost")
-    expect(text).toContain("2400 S 4th")
-    expect(text.toLowerCase()).toContain("asap")
-    expect(text.toLowerCase()).toContain("this number")
+    expect(text).toContain("2011 BMW 128i key")
+    expect(text.toLowerCase()).toContain("update or change")
+    expect(text.toLowerCase()).not.toContain("asap")
+    expect(text).not.toContain("AKL")
+    expect(text).not.toContain("1:00")
+    expect(text).not.toContain("2400")
     expect(text.toLowerCase()).not.toContain("on the way")
-    expect(text.toLowerCase()).not.toContain("$")
   })
 
   it("recaps the owner after auto-hold", () => {

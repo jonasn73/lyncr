@@ -271,7 +271,25 @@ export function formatVehicleForSms(params: {
     .join(" ")
 }
 
-/** Holding SMS — human, recaps what they asked, no ETAs/prices/“on the way.” */
+/**
+ * How we name the job in a customer text: vehicle + “key” when it’s a key job.
+ * Never ASAP, never their window, never shop codes like (AKL).
+ */
+export function formatCustomerNeedPhrase(params: {
+  vehicle?: string | null
+  jobLabel?: string | null
+}): string {
+  const vehicle = String(params.vehicle || "").trim()
+  const rawJob = String(params.jobLabel || "").trim()
+  const job = rawJob.replace(/\s*\([^)]*\)/g, "").trim()
+  const keyJob = /\b(key|keys|akl|lockout|ignition|fob)\b/i.test(`${rawJob} ${job}`)
+  if (vehicle && keyJob) return `${vehicle} key`
+  if (vehicle) return vehicle
+  if (job) return job
+  return ""
+}
+
+/** Holding SMS — human recap. No ASAP, no window, no street, no ETAs/prices. */
 export function buildGotItHoldingCustomerSms(params: {
   customerFirstName: string
   businessName: string
@@ -283,25 +301,15 @@ export function buildGotItHoldingCustomerSms(params: {
 }): string {
   const who = params.customerFirstName || "there"
   const biz = String(params.businessName || "").trim() || "us"
-  const job = String(params.jobLabel || "").trim()
-  const vehicle = String(params.vehicle || "").trim()
-  const asap = String(params.urgency || "").toLowerCase() === "asap"
-  const windowLabel = String(params.availabilityLabel || "").trim()
-  const street = String(params.addressSnippet || "").trim()
-
-  let what = ""
-  if (job && vehicle) what = `${job} on the ${vehicle}`
-  else if (job) what = job
-  else if (vehicle) what = `the ${vehicle}`
-
-  const lead = asap
-    ? `Hi ${who} — we got your ASAP request${what ? ` for ${what}` : ""}.`
-    : `Hi ${who} — we got your request${what ? ` for ${what}` : ""}.`
-  const windowBit = !asap && windowLabel ? ` We noted you’re free ${windowLabel}.` : ""
-  const addrBit = street && street.length <= 80 ? ` We have you at ${street}.` : ""
-  const close =
-    " We’ll follow up at this number. Text us here anytime if you have a question or something changes."
-  return `${lead}${windowBit}${addrBit}${close} — ${biz}`.replace(/\s+/g, " ").trim().slice(0, 320)
+  const need = formatCustomerNeedPhrase({
+    vehicle: params.vehicle,
+    jobLabel: params.jobLabel,
+  })
+  const lead = need
+    ? `Hey ${who} — we got your request for the ${need}.`
+    : `Hey ${who} — we got your request.`
+  const close = ` We’ll follow up here. Text us here for any update or change. — ${biz}`
+  return `${lead}${close}`.replace(/\s+/g, " ").trim().slice(0, 320)
 }
 
 /** Private Amber recap after the holding SMS goes out. */

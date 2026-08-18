@@ -1,6 +1,8 @@
 // Rule-based SMS reply chips + drafts for the Latest “Needs reply” sheet.
 // Used by the UI immediately; the suggest-reply API can polish with OpenAI.
 
+import { formatCustomerNeedPhrase } from "@/lib/amber-coworker-commands"
+
 /** What the customer’s last inbound message seems to be about. */
 export type SmsReplyIntent =
   | "cancel"
@@ -285,29 +287,27 @@ export function buildConversationFollowUpChips(input: {
 }): SmsReplyChip[] {
   const who = firstName(input.customerName)
   const businessLabel = biz(input.businessName)
-  const vehicle = String(input.vehicle || "").trim()
-  const job = String(input.jobLabel || "").trim()
-  const thing = vehicle
-    ? `the ${vehicle}${job ? ` (${job})` : ""}`
-    : job
-      ? `that ${job}`
-      : "that request"
+  const need = formatCustomerNeedPhrase({
+    vehicle: input.vehicle,
+    jobLabel: input.jobLabel,
+  })
+  const thing = need ? `the ${need}` : "that"
 
   return [
     {
       id: "follow-status",
       label: "Status",
-      body: `Hey ${who} — just checking in, do you still need help with ${thing}? Text us here. — ${businessLabel}`,
+      body: `Hey ${who} — just checking in, do you still need help with ${thing}? Text us here for any update or change. — ${businessLabel}`,
     },
     {
       id: "follow-onway",
       label: "On my way",
-      body: `Hi ${who} — I’m on my way${vehicle ? ` for the ${vehicle}` : ""}. Text this number if anything changes. — ${businessLabel}`,
+      body: `Hi ${who} — I’m on my way${need ? ` for the ${need}` : ""}. Text us here for any update or change. — ${businessLabel}`,
     },
     {
       id: "follow-details",
       label: "Need details",
-      body: `Hi ${who} — can you text us any extra details (gate code, exact spot, extra keys)? We’ll keep it on this thread. — ${businessLabel}`,
+      body: `Hi ${who} — can you text us any extra details (gate code, exact spot, extra keys)? — ${businessLabel}`,
     },
   ]
 }
