@@ -178,19 +178,33 @@ async function wasIvrActionCompleted(callSid: string): Promise<boolean> {
   }
 }
 
-/** First webhook wins — second status event cannot send another follow-up SMS. */
-async function claimIvrActionForRescue(callSid: string): Promise<boolean> {
+/**
+ * First webhook wins. Returns true = this request may send SMS.
+ * If there is no call log row yet, we still allow send (do not skip a real miss).
+ * If a row exists and is already claimed, skip.
+ */
+export async function claimIvrActionForRescue(callSid: string): Promise<boolean> {
   if (!callSid.trim()) return false
   const sql = sqlClient()
   try {
-    const rows = await sql`
+    const claimed = await sql`
       UPDATE call_logs
       SET ivr_action_completed = true
       WHERE (provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid})
         AND COALESCE(ivr_action_completed, false) = false
       RETURNING id
     `
-    return (rows as unknown[]).length > 0
+    if ((claimed as unknown[]).length > 0) return true
+    const existing = await sql`
+      SELECT id
+      FROM call_logs
+      WHERE provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid}
+      LIMIT 1
+    `
+    // No row → still send (cooldown on the SMS itself covers a later double).
+    if ((existing as unknown[]).length === 0) return true
+    // Row exists but we did not claim it → another webhook already won.
+    return false
   } catch {
     // If the column is missing, still allow one send (old DBs).
     return !(await wasIvrActionCompleted(callSid))
