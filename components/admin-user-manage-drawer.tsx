@@ -387,6 +387,72 @@ export function AdminUserManageDrawer({
               <p className="text-xs text-slate-500">Bypasses self-service purchase — assigns or updates the primary active line.</p>
             </div>
 
+            {/* Per-line override — this is what shows the purple bar on a shop dashboard. */}
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-emerald-300" aria-hidden />
+                <Label className="text-slate-200">Active phone lines</Label>
+              </div>
+              <p className="text-xs text-slate-500">
+                Each shop on this login has a line. Clear “Admin override” and Save to turn off direct routing.
+              </p>
+              {controlsLoading && !controls ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
+                </div>
+              ) : !controls || controls.phone_lines.length === 0 ? (
+                <p className="text-xs text-slate-500">No provisioned lines on this account.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {controls.phone_lines.map((line) => {
+                    const shopName =
+                      controls.organizations.find((o) => o.id === line.organization_id)?.name ?? line.label
+                    return (
+                    <li
+                      key={line.id}
+                      className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-100">{shopName}</p>
+                          <p className="truncate font-mono text-xs text-slate-300">{line.number}</p>
+                          <p className="truncate text-[11px] text-slate-500">
+                            {line.label} · <span className="capitalize">{line.status}</span>
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 border-red-900/60 bg-red-950/30 text-red-200 hover:bg-red-900/40"
+                          disabled={releaseBusy === line.id || line.status !== "active"}
+                          onClick={() => void releaseLine(line.id)}
+                        >
+                          {releaseBusy === line.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                          ) : (
+                            "Release"
+                          )}
+                        </Button>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-slate-400">Admin override for this line</Label>
+                        <Input
+                          value={lineOverrideDrafts[line.id] ?? ""}
+                          onChange={(e) =>
+                            setLineOverrideDrafts((prev) => ({ ...prev, [line.id]: e.target.value }))
+                          }
+                          placeholder="Empty = normal routing"
+                          className="border-slate-700 bg-slate-950 font-mono text-xs text-slate-100"
+                        />
+                      </div>
+                    </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
             {/* Wallet: add or subtract prepaid phone credit. */}
             <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
               <div className="flex items-center gap-2">
@@ -514,72 +580,6 @@ export function AdminUserManageDrawer({
               >
                 + Add Tech to this Business
               </Button>
-
-              <div className="space-y-2 border-t border-slate-800 pt-3">
-                <Label className="text-slate-300">Direct forwarding override (per line)</Label>
-                <p className="text-xs text-slate-500">
-                  Set a PSTN number for each business line. Overrides apply only to that line&apos;s workspace —
-                  other businesses on this account keep standard routing.
-                </p>
-              </div>
-            </div>
-
-            {/* Active provisioned lines */}
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-emerald-300" aria-hidden />
-                <Label className="text-slate-200">Active phone lines</Label>
-              </div>
-              {controlsLoading && !controls ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
-                </div>
-              ) : !controls || controls.phone_lines.length === 0 ? (
-                <p className="text-xs text-slate-500">No provisioned lines on this account.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {controls.phone_lines.map((line) => (
-                    <li
-                      key={line.id}
-                      className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-mono text-sm text-slate-200">{line.number}</p>
-                          <p className="truncate text-[11px] text-slate-500">
-                            {line.label} · <span className="capitalize">{line.status}</span> · {line.type}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 border-red-900/60 bg-red-950/30 text-red-200 hover:bg-red-900/40"
-                          disabled={releaseBusy === line.id || line.status !== "active"}
-                          onClick={() => void releaseLine(line.id)}
-                        >
-                          {releaseBusy === line.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                          ) : (
-                            "Release"
-                          )}
-                        </Button>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-slate-400">Admin override for this line</Label>
-                        <Input
-                          value={lineOverrideDrafts[line.id] ?? ""}
-                          onChange={(e) =>
-                            setLineOverrideDrafts((prev) => ({ ...prev, [line.id]: e.target.value }))
-                          }
-                          placeholder="+15551234567"
-                          className="border-slate-700 bg-slate-950 font-mono text-xs text-slate-100"
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
 
             {/* Workspace & team infrastructure */}
