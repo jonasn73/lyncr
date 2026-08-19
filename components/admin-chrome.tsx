@@ -71,7 +71,8 @@ const NAV = [
   },
 ] as const
 
-const PRIMARY_HREFS = new Set(["/admin", "/admin/businesses", "/admin/support"])
+// Home + Support on the bar. Businesses lives under More (open it from Home → See all).
+const PRIMARY_HREFS = new Set(["/admin", "/admin/support"])
 const PRIMARY_NAV = NAV.filter((item) => PRIMARY_HREFS.has(item.href))
 const MORE_LINKS = NAV.filter((item) => !PRIMARY_HREFS.has(item.href))
 
@@ -188,7 +189,7 @@ function MobileBottomTabs({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Admin primary navigation"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-4 gap-0.5 px-1 py-1.5">
+      <div className="mx-auto grid max-w-lg grid-cols-3 gap-0.5 px-1 py-1.5">
         {MOBILE_TABS.map((item) => {
           const Icon = item.icon
           const active = item.match(pathname)
