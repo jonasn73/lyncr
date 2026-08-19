@@ -121,6 +121,20 @@ export async function runSmsPipeline(params: {
   const body = renderTemplate(template, vars)
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 
+  // Booking confirm uses the same Follow-up template as intake / leftover cover — skip a second copy.
+  if (params.phase === "booking") {
+    const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+    if (
+      await wouldDuplicateRecentCustomerSms({
+        ownerUserId: ctx.owner_user_id,
+        customerPhone: toE164,
+        candidateText: body,
+      })
+    ) {
+      return { ok: true, sent: false, scheduled: false }
+    }
+  }
+
   // Review request drops later; everything else goes now (and is logged for delivery tracking).
   if (params.phase === "review") {
     const sendAfter = new Date(Date.now() + REVIEW_DELAY_MIN * 60_000)

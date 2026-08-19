@@ -133,6 +133,18 @@ export async function sendIntakeBookingCustomerSms(params: {
       ? params.organizationId
       : null
 
+  // Same Follow-up text twice = skip (form we-got-it + Book job, or leftover cover).
+  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+  if (
+    await wouldDuplicateRecentCustomerSms({
+      ownerUserId: params.ownerUserId,
+      customerPhone: toE164,
+      candidateText: text,
+    })
+  ) {
+    return { sent: true, error: null }
+  }
+
   // Log into sms_messages so the confirmation appears in Messages inbox.
   const sent = await sendAndLogWorkspaceCustomerSms({
     ownerUserId: params.ownerUserId,

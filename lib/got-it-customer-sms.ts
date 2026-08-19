@@ -71,6 +71,18 @@ export async function sendGotItHoldingCustomerSms(params: {
     return { sent: false, error: "Customer SMS cannot send from the Amber number." }
   }
 
+  // Don't send the same booked / we-got-it note twice in 45 minutes.
+  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+  if (
+    await wouldDuplicateRecentCustomerSms({
+      ownerUserId: params.ownerUserId,
+      customerPhone: params.customerPhone,
+      candidateText: text,
+    })
+  ) {
+    return { sent: true, error: null }
+  }
+
   const sent = await sendAndLogWorkspaceCustomerSms({
     ownerUserId: params.ownerUserId,
     organizationId: params.organizationId ?? null,

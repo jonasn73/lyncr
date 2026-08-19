@@ -137,6 +137,10 @@ export async function sendInboundBookingSmsAndTag(opts: {
   businessLabel?: string | null
   tone?: BookingLinkSmsTone
 }): Promise<void> {
+  // Claim this call first so two hangup events cannot send two booking links.
+  if (opts.callSid) {
+    await markIvrActionCompleted(opts.callSid)
+  }
   await sendInboundBookingSms({
     fromE164: opts.fromE164,
     ownerUserId: opts.ownerUserId,
@@ -151,6 +155,5 @@ export async function sendInboundBookingSmsAndTag(opts: {
       call_type: opts.callType ?? "missed",
       status: "completed",
     }).catch((e) => console.warn("[inbound-booking-sms] status tag failed:", e))
-    void markIvrActionCompleted(opts.callSid)
   }
 }

@@ -21,6 +21,7 @@ import {
   isCaptureMissedLinkStatus,
   isHoldAutomationStatus,
 } from "@/lib/inbound-time-capture"
+import { smsBodiesLookDuplicate } from "@/lib/sms-dedupe"
 
 /** Pick SMS tone from invite/source tags — missed recovery vs plain booking link. */
 export function bookingLinkSmsToneFromSource(source?: string | null): BookingLinkSmsTone {
@@ -96,6 +97,54 @@ export async function hasOutboundSmsToCustomerRecently(params: {
   }
 }
 
+/** Last few shop texts to this phone (used to skip a second booked / follow-up SMS). */
+export async function recentOutboundSmsBodies(params: {
+  ownerUserId: string
+  customerPhone: string
+  /** Default 45 minutes — same window as missed-call rescue. */
+  withinHours?: number
+}): Promise<string[]> {
+  const phone = normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
+  if (!phone) return []
+  const digits = phone.replace(/\D/g, "").slice(-10)
+  const hours = params.withinHours ?? 0.75
+  const minutes = Math.max(1, Math.round(hours * 60))
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT body FROM sms_messages
+      WHERE owner_user_id = ${params.ownerUserId}
+        AND direction = 'outbound'
+        AND created_at > now() - (${minutes}::text || ' minutes')::interval
+        AND (
+          to_number = ${phone}
+          OR customer_phone = ${phone}
+          OR RIGHT(regexp_replace(COALESCE(to_number, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+          OR RIGHT(regexp_replace(COALESCE(customer_phone, ''), '[^0-9]', '', 'g'), 10) = ${digits}
+        )
+      ORDER BY created_at DESC
+      LIMIT 10
+    `
+    return (rows as { body?: string }[])
+      .map((r) => String(r.body || "").trim())
+      .filter(Boolean)
+  } catch (e) {
+    console.warn("[missed-call-rescue] SMS body lookback failed:", e)
+    return []
+  }
+}
+
+/** True when we would send the same kind of follow-up they already got. */
+export async function wouldDuplicateRecentCustomerSms(params: {
+  ownerUserId: string
+  customerPhone: string
+  candidateText: string
+  withinHours?: number
+}): Promise<boolean> {
+  const bodies = await recentOutboundSmsBodies(params)
+  return bodies.some((prior) => smsBodiesLookDuplicate(prior, params.candidateText))
+}
+
 export async function markIvrActionCompleted(callSid: string): Promise<void> {
   if (!callSid.trim()) return
   const sql = sqlClient()
@@ -126,6 +175,25 @@ async function wasIvrActionCompleted(callSid: string): Promise<boolean> {
     return (rows[0] as { ivr_action_completed?: boolean } | undefined)?.ivr_action_completed === true
   } catch {
     return false
+  }
+}
+
+/** First webhook wins — second status event cannot send another follow-up SMS. */
+async function claimIvrActionForRescue(callSid: string): Promise<boolean> {
+  if (!callSid.trim()) return false
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      UPDATE call_logs
+      SET ivr_action_completed = true
+      WHERE (provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid})
+        AND COALESCE(ivr_action_completed, false) = false
+      RETURNING id
+    `
+    return (rows as unknown[]).length > 0
+  } catch {
+    // If the column is missing, still allow one send (old DBs).
+    return !(await wasIvrActionCompleted(callSid))
   }
 }
 
@@ -191,6 +259,11 @@ export async function maybeSendMissedCallRescueSms(params: {
     return { sent: false, reason: "sms_within_cooldown" }
   }
 
+  // First webhook wins so a second hangup/status cannot send another follow-up.
+  if (!(await claimIvrActionForRescue(params.callSid))) {
+    return { sent: false, reason: "ivr_action_completed" }
+  }
+
   const result = await sendMissedCallRescueBookingLink({
     ownerUserId: owner.id,
     customerPhone: from,
@@ -218,6 +291,19 @@ export async function sendMissedCallRescueBookingLink(params: {
 
   const source = params.source || "missed_call_rescue_resend"
   const tone = bookingLinkSmsToneFromSource(source)
+  // Auto paths (missed call, return call, press-1) skip a second follow-up in 45 min.
+  // Manual “Re-send SMS Link” still goes through.
+  if (source !== "missed_call_rescue_resend") {
+    if (
+      await hasOutboundSmsToCustomerRecently({
+        ownerUserId: params.ownerUserId,
+        customerPhone: customer,
+        withinHours: 0.75,
+      })
+    ) {
+      return { ok: false, error: "sms_within_cooldown" }
+    }
+  }
 
   // Prefer the DID from the call; otherwise use the owner's first active business line.
   const lineRaw = params.businessLine?.trim() || ""

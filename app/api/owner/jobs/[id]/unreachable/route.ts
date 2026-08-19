@@ -59,7 +59,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
       )
     }
 
-    // Soft cooldown — avoid double-tapping the same unreachable text.
     const recently = await hasOutboundSmsToCustomerRecently({
       ownerUserId: userId,
       customerPhone: phone,

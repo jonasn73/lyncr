@@ -4,6 +4,7 @@
 
 import { getOwnerSmsSettings, getUser } from "@/lib/db"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
+import { hasOutboundSmsToCustomerRecently } from "@/lib/missed-call-rescue"
 import {
   AMBER_SILENT_LEFTOVER_MS,
   buildAmberDraftPreviewText,
@@ -266,12 +267,19 @@ export async function processSilentAmberLeftovers(): Promise<{ autoHeld: number;
   let skipped = 0
   for (const thread of stale) {
     const first = amberCustomerFirstName(thread.customer_name)
-    // If the shop already texted after this leftover ping, don't send a second note.
-    const already = await customerAlreadyGotOutboundSms({
+    // Skip if they already got a shop text after the ping — or any shop text in the last 45 min
+    // (Jade got “booked” at 9:37, leftover ping at 9:42, then a second booked text at 9:57).
+    const alreadySincePing = await customerAlreadyGotOutboundSms({
       userId: thread.user_id,
       customerPhone: thread.customer_phone,
       sinceIso: thread.pinged_at,
     })
+    const alreadyRecent = await hasOutboundSmsToCustomerRecently({
+      ownerUserId: thread.user_id,
+      customerPhone: thread.customer_phone,
+      withinHours: 0.75,
+    })
+    const already = alreadySincePing || alreadyRecent
     let sentOk = already
     if (!already) {
       const hold = await sendGotItHoldingCustomerSms({
