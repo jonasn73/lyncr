@@ -349,16 +349,9 @@ function RoleBadge({ row }: { row: LyncrAdminDirectoryRow }) {
   }
   if (row.role === "OWNER") {
     return (
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
-          Business Owner
-        </Badge>
-        {row.business_name ? (
-          <span className="truncate text-xs text-slate-400" title={row.business_name}>
-            {row.business_name}
-          </span>
-        ) : null}
-      </div>
+      <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
+        Owner
+      </Badge>
     )
   }
   return (
@@ -707,7 +700,7 @@ export function LyncrAdminDashboard({
   const [tierFilter, setTierFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   // Role tab: "all" | "owner" | "receptionist".
-  const [roleTab, setRoleTab] = useState("all")
+  const [roleTab, setRoleTab] = useState("OWNER")
   // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
   const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
   const [moneySheet, setMoneySheet] = useState<MoneySheetKey>(null)
@@ -726,15 +719,22 @@ export function LyncrAdminDashboard({
 
   const filteredUsers = useMemo(() => {
     const q = filter.trim().toLowerCase()
-    return users.filter((u) => {
+    const rows = users.filter((u) => {
       const matchesText =
         !q ||
+        u.business_name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        (u.phone_number != null && u.phone_number.toLowerCase().includes(q))
+        (u.phone_number != null && u.phone_number.toLowerCase().includes(q)) ||
+        u.user_id.toLowerCase().includes(q)
       const matchesTier = tierFilter === "all" || u.subscription_tier === tierFilter
       const matchesStatus = statusFilter === "all" || u.account_status === statusFilter
       const matchesRole = roleTab === "all" || u.role === roleTab
       return matchesText && matchesTier && matchesStatus && matchesRole
+    })
+    return [...rows].sort((a, b) => {
+      const an = (a.business_name || a.email || "").toLowerCase()
+      const bn = (b.business_name || b.email || "").toLowerCase()
+      return an.localeCompare(bn)
     })
   }, [users, filter, tierFilter, statusFilter, roleTab])
 
@@ -1149,7 +1149,7 @@ export function LyncrAdminDashboard({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
               <Input
                 type="search"
-                placeholder="Search by email or phone…"
+                placeholder="Search shop name, email, or phone…"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
@@ -1218,17 +1218,19 @@ export function LyncrAdminDashboard({
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">User ID</TableHead>
-                  <TableHead className="text-slate-400">Email</TableHead>
+                  <TableHead className="sticky left-0 z-10 min-w-[11rem] bg-slate-900 text-slate-400">
+                    Business
+                  </TableHead>
+                  <TableHead className="text-slate-400">Status</TableHead>
                   <TableHead className="text-slate-400">Role</TableHead>
                   <TableHead className="text-slate-400">Subscription</TableHead>
                   <TableHead className="text-slate-400">Tier</TableHead>
                   <TableHead className="text-slate-400">Total calls</TableHead>
                   <TableHead className="text-slate-400">Minutes used</TableHead>
-                  <TableHead className="text-slate-400">Account status</TableHead>
                   <TableHead className="text-slate-400">Phone</TableHead>
                   <TableHead className="text-slate-400">Carrier credit</TableHead>
                   <TableHead className="min-w-[180px] text-slate-400">Specialty skills</TableHead>
+                  <TableHead className="text-slate-400">User ID</TableHead>
                   <TableHead className="w-[4.5rem] text-slate-400">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1257,10 +1259,17 @@ export function LyncrAdminDashboard({
                       }
                       title={isOwner ? "Open tenant management" : undefined}
                     >
-                      <TableCell>
-                        <UserIdCell userId={row.user_id} />
+                      <TableCell className="sticky left-0 z-10 min-w-[11rem] bg-slate-900/95">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-50" title={row.business_name || row.email}>
+                            {row.business_name.trim() || "—"}
+                          </p>
+                          <p className="truncate text-[11px] text-slate-500">{row.email}</p>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-slate-200">{row.email}</TableCell>
+                      <TableCell>
+                        <AccountStatusBadge status={row.account_status} />
+                      </TableCell>
                       <TableCell>
                         <RoleBadge row={row} />
                       </TableCell>
@@ -1273,9 +1282,6 @@ export function LyncrAdminDashboard({
                       <TableCell className="text-slate-200">{row.total_calls_routed}</TableCell>
                       <TableCell className="text-slate-200">{formatMinutes(row.total_minutes_used)}</TableCell>
                       <TableCell>
-                        <AccountStatusBadge status={row.account_status} />
-                      </TableCell>
-                      <TableCell>
                         <EditablePhoneCell
                           userId={row.user_id}
                           value={phoneOverrides[row.user_id] ?? row.phone_number}
@@ -1285,6 +1291,9 @@ export function LyncrAdminDashboard({
                       <TableCell className="font-medium text-slate-100">{formatUsd(row.carrier_credit)}</TableCell>
                       <TableCell>
                         <SpecialtySkillsBadges skills={row.receptionist_skills} accountRole={row.account_role} />
+                      </TableCell>
+                      <TableCell>
+                        <UserIdCell userId={row.user_id} />
                       </TableCell>
                       <TableCell className="text-right">
                         <UserRowActions
