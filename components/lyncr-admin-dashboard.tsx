@@ -29,7 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
@@ -566,14 +565,6 @@ export function LyncrAdminDashboard({
       .slice(0, 8)
   }, [users, homeShopQuery])
 
-  if (loading && !metrics) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Spinner className="h-10 w-10 text-violet-400" />
-      </div>
-    )
-  }
-
   const pageTitle = view === "home" ? "Home" : "Businesses"
   const pageSubtitle =
     view === "home"
@@ -661,7 +652,9 @@ export function LyncrAdminDashboard({
                 className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
               />
             </div>
-            {homeShopMatches.length === 0 ? (
+            {loading && users.length === 0 ? (
+              <div className="h-48 rounded-xl border border-slate-800 bg-slate-950/40" aria-hidden />
+            ) : homeShopMatches.length === 0 ? (
               <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
                 No shops match.
               </p>
@@ -855,18 +848,21 @@ export function LyncrAdminDashboard({
             </SheetContent>
           </Sheet>
 
+          {metrics ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
             <span className="font-medium text-slate-300">System</span>
             <span className="inline-flex items-center gap-1.5">
               <Database className="h-3.5 w-3.5" aria-hidden /> Neon
-              <HealthDot status={metrics?.health.neon ?? "error"} />
+              <HealthDot status={metrics.health.neon} />
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
-              <HealthDot status={metrics?.health.telnyx ?? "error"} />
+              <HealthDot status={metrics.health.telnyx} />
             </span>
           </div>
+          ) : null}
 
+          {pendingOwners.length > 0 ? (
           <section className="space-y-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-100">Pending shops</h2>
@@ -874,11 +870,6 @@ export function LyncrAdminDashboard({
                 New signups waiting for Approve or Deny.
               </p>
             </div>
-            {pendingOwners.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
-                No shops waiting.
-              </p>
-            ) : (
               <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
                 {pendingOwners.map((row) => (
                   <li key={row.user_id}>
@@ -898,8 +889,8 @@ export function LyncrAdminDashboard({
                   </li>
                 ))}
               </ul>
-            )}
           </section>
+          ) : null}
         </>
       ) : null}
 

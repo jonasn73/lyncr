@@ -43,10 +43,7 @@ export function AdminRoutingOverrideNotice({
           )}
         >
           <p className="flex items-start gap-2.5">
-            <span className="relative mt-1.5 flex h-2.5 w-2.5 shrink-0" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-60" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_2px_rgba(192,132,252,0.85)]" />
-            </span>
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-purple-400" aria-hidden />
             <span>
               <span className="font-semibold text-purple-50">System Notice:</span> Platform Admin has
               configured direct routing override to{" "}

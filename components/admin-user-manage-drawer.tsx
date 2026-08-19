@@ -398,11 +398,9 @@ export function AdminUserManageDrawer({
               </p>
               {controlsLoading && !controls ? (
                 <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading lines…
                 </div>
-              ) : !controls || controls.phone_lines.length === 0 ? (
-                <p className="text-xs text-slate-500">No provisioned lines on this account.</p>
-              ) : (
+              ) : controls && controls.phone_lines.length > 0 ? (
                 <ul className="space-y-2">
                   {controls.phone_lines.map((line) => {
                     const shopName =
@@ -450,6 +448,8 @@ export function AdminUserManageDrawer({
                     )
                   })}
                 </ul>
+              ) : (
+                <p className="text-xs text-slate-500">No provisioned lines on this account.</p>
               )}
             </div>
 
