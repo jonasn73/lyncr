@@ -195,8 +195,9 @@ export function OrganizationSwitcher({
   )
 
   useEffect(() => {
-    if (skipInitialFetch) return
-    load()
+    // Always reconcile with the server. A paint-seed of one shop (Fresh Auto) used to
+    // skip this fetch, so Key Squad never appeared in Switch business.
+    load({ silent: true })
     loadServiceContext()
     const onChanged = () => {
       const id = readActiveOrganizationId()
@@ -205,12 +206,7 @@ export function OrganizationSwitcher({
     }
     window.addEventListener("lyncr-organization-changed", onChanged)
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
-  }, [load, loadServiceContext, skipInitialFetch])
-
-  useEffect(() => {
-    if (!skipInitialFetch) return
-    loadServiceContext()
-  }, [loadServiceContext, skipInitialFetch])
+  }, [load, loadServiceContext])
 
   const active = organizations.find((o) => o.id === activeId) ?? organizations[0]
   const realWorkspaceCount = organizations.filter(isEditableWorkspace).length

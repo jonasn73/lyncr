@@ -162,7 +162,7 @@ export function DashboardWorkspaceProvider({
           id: label.organizationId || "__paint-seed__",
           owner_user_id: "",
           name: label.name.trim(),
-          is_default: true,
+          is_default: false,
           created_at: new Date(0).toISOString(),
         },
       ]

@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, use, useCallback, useLayoutEffect, useRef, useState } from "react"
+import { Suspense, use, useCallback, useLayoutEffect } from "react"
 import { OrganizationSwitcher, OrganizationSwitcherPlaceholder } from "@/components/organization-switcher"
 import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
@@ -9,16 +9,6 @@ import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { Organization } from "@/lib/types"
 import { organizationLabelFromBootstrap } from "@/lib/dashboard-bootstrap-seed"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-
-function headerSeedOrganization(name: string): Organization {
-  return {
-    id: "__header-seed__",
-    owner_user_id: "",
-    name,
-    is_default: true,
-    created_at: new Date(0).toISOString(),
-  }
-}
 
 /** Org switcher from a known org list — no Suspense, no fetch on first paint. */
 function HeaderOrganizationsFromData({
@@ -34,7 +24,6 @@ function HeaderOrganizationsFromData({
     setActiveOrganizationId,
     activeOrganizationId,
   } = useDashboardWorkspace()
-  const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
     (id: string | null) => {
@@ -44,11 +33,10 @@ function HeaderOrganizationsFromData({
   )
 
   useLayoutEffect(() => {
-    if (seededRef.current) return
-    seededRef.current = true
+    // Replace a one-row paint seed when the real workspace list arrives.
     if (
       workspaceOrgs.length === organizations.length &&
-      organizations.every((org, i) => org.id === workspaceOrgs[i]?.id)
+      organizations.every((org, i) => org.id === workspaceOrgs[i]?.id && org.name === workspaceOrgs[i]?.name)
     ) {
       return
     }
@@ -84,7 +72,6 @@ function HeaderOrganizationsFromMainBootstrap({
 }) {
   const bootstrap = use(bootstrapPromise)
   const { setOrganizations, setActiveOrganizationId, activeOrganizationId } = useDashboardWorkspace()
-  const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
     (id: string | null) => {
@@ -94,8 +81,6 @@ function HeaderOrganizationsFromMainBootstrap({
   )
 
   useLayoutEffect(() => {
-    if (seededRef.current) return
-    seededRef.current = true
     setOrganizations(bootstrap.organizations)
   }, [bootstrap.organizations, setOrganizations])
 
@@ -128,7 +113,6 @@ function HeaderOrganizationsFromStream({
 }) {
   const organizations = use(organizationsPromise)
   const { setOrganizations, setActiveOrganizationId, activeOrganizationId } = useDashboardWorkspace()
-  const seededRef = useRef(false)
 
   const handleOrganizationChange = useCallback(
     (id: string | null) => {
@@ -138,8 +122,6 @@ function HeaderOrganizationsFromStream({
   )
 
   useLayoutEffect(() => {
-    if (seededRef.current) return
-    seededRef.current = true
     setOrganizations(organizations)
   }, [organizations, setOrganizations])
 
