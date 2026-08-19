@@ -85,8 +85,9 @@ function LiveChatQueue() {
   const fileRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const loadThreads = useCallback(async () => {
-    setLoading(true)
+  const loadThreads = useCallback(async (opts?: { silent?: boolean }) => {
+    // Silent polls must not flip the big spinner — that looked like a reload loop.
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch("/api/admin/support-chat?limit=100", { credentials: "include" })
       const json = (await res.json().catch(() => ({}))) as {
@@ -96,7 +97,7 @@ function LiveChatQueue() {
       if (!res.ok) throw new Error(json.error ?? "Could not load conversations")
       setThreads(json.data?.items ?? [])
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Load failed")
+      if (!opts?.silent) toast.error(e instanceof Error ? e.message : "Load failed")
     } finally {
       setLoading(false)
     }
@@ -104,12 +105,12 @@ function LiveChatQueue() {
 
   useEffect(() => {
     void loadThreads()
-    const t = setInterval(() => void loadThreads(), 8000)
+    const t = setInterval(() => void loadThreads({ silent: true }), 8000)
     return () => clearInterval(t)
   }, [loadThreads])
 
-  const loadThread = useCallback(async (id: string) => {
-    setDetailLoading(true)
+  const loadThread = useCallback(async (id: string, silent = false) => {
+    if (!silent) setDetailLoading(true)
     setActiveId(id)
     try {
       const res = await fetch(`/api/admin/support-chat/${encodeURIComponent(id)}`, {
@@ -135,17 +136,19 @@ function LiveChatQueue() {
         prev.map((row) => (row.id === id ? { ...row, admin_unread_count: 0 } : row))
       )
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Open failed")
-      setActiveId(null)
+      if (!silent) {
+        toast.error(e instanceof Error ? e.message : "Open failed")
+        setActiveId(null)
+      }
     } finally {
-      setDetailLoading(false)
+      if (!silent) setDetailLoading(false)
     }
   }, [])
 
   // Poll open thread for new tenant messages.
   useEffect(() => {
     if (!activeId) return
-    const t = setInterval(() => void loadThread(activeId), 4000)
+    const t = setInterval(() => void loadThread(activeId, true), 4000)
     return () => clearInterval(t)
   }, [activeId, loadThread])
 
@@ -247,7 +250,7 @@ function LiveChatQueue() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {loading ? (
+          {loading && threads.length === 0 ? (
             <div className="flex justify-center py-10">
               <Spinner className="h-8 w-8 text-violet-400" />
             </div>
