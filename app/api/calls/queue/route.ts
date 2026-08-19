@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getHoldQueueDayStats, listWaitingCallQueue } from "@/lib/call-queue-db"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
@@ -16,7 +17,9 @@ export async function GET(req: NextRequest) {
 
     // Sweep first, then read list + stats — avoids a race where stats still count ghosts.
     const waiting = await listWaitingCallQueue(userId)
-    const stats = await getHoldQueueDayStats(userId).catch(() => null)
+    // Browser timezone so “Today” matches Kentucky evening, not UTC midnight.
+    const timezone = sanitizeIanaTimezone(req.nextUrl.searchParams.get("timezone"))
+    const stats = await getHoldQueueDayStats(userId, timezone).catch(() => null)
     return NextResponse.json({
       data: {
         count: waiting.length,

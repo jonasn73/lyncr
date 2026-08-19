@@ -12,6 +12,15 @@ import { useDashboardSessionOptional } from "@/components/dashboard-session-cont
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { SendBookLinkButton } from "@/components/activity/send-book-link-sheet"
 import { busyMenuAnswerUnlockMs, isHoldQueueAnswerable } from "@/lib/hold-queue-answer"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import {
+  holdQueueStatsHaveTodayActivity,
+  readHoldQueueStatsPaintSeed,
+  writeHoldQueueStatsCache,
+  type HoldQueueDayStats,
+} from "@/lib/hold-queue-stats-cache"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 
 type QueueCaller = {
   id: string
@@ -23,14 +32,8 @@ type QueueCaller = {
   queueName: string
 }
 
-/** Light hold-queue rollup for Lines (today). */
-type QueueStats = {
-  waiting: number
-  answered: number
-  press1: number
-  abandoned: number
-  avgWaitSecs: number | null
-}
+/** Light hold-queue rollup for Lines (today) — same as paint-seed type. */
+type QueueStats = HoldQueueDayStats
 
 function formatCallerPreview(e164: string | null | undefined): string {
   // Strip everything except digits so we can format US-style.
@@ -78,15 +81,27 @@ export function HoldQueueWaitingCard({
   const session = useDashboardSessionOptional()
   const inbound = useInboundCallPanelOptional()
   const ownerUserId = session?.companyUserId?.trim() || ""
+  // Cookie/SSR seed so the Today bar is in the first HTML (no refresh vanish).
+  const paintSeeds = useDashboardPaintSeeds()
+  const seededStats = useSessionSeed(
+    () => readHoldQueueStatsPaintSeed(paintSeeds.holdQueue),
+    null,
+    "hold-queue-day-stats"
+  )
   const [callers, setCallers] = useState<QueueCaller[]>([])
-  const [stats, setStats] = useState<QueueStats | null>(null)
+  // Live fetch overwrites seed; never start at null when last-known counts exist.
+  const [liveStats, setLiveStats] = useState<QueueStats | null>(null)
+  const stats = liveStats ?? seededStats
   const [answeringId, setAnsweringId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  // True after a successful queue fetch, or when a paint seed already exists.
+  const [queueSettled, setQueueSettled] = useState(() => seededStats != null)
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/calls/queue", { credentials: "include" })
+      const tz = encodeURIComponent(resolveBrowserTimezone())
+      const res = await fetch(`/api/calls/queue?timezone=${tz}`, { credentials: "include" })
       const json = (await res.json()) as {
         data?: { callers?: QueueCaller[]; stats?: QueueStats }
         error?: string
@@ -96,7 +111,17 @@ export function HoldQueueWaitingCard({
         return
       }
       setCallers(Array.isArray(json.data?.callers) ? json.data!.callers! : [])
-      setStats(json.data?.stats ?? null)
+      // Keep last-known counts if this payload omitted stats (do not unmount the bar).
+      const nextStats = json.data?.stats ?? null
+      if (nextStats) {
+        setLiveStats(nextStats)
+        // Stamp the browser zone so the next hard refresh still matches “today”.
+        writeHoldQueueStatsCache({
+          ...nextStats,
+          timeZone: resolveBrowserTimezone(),
+        })
+      }
+      setQueueSettled(true)
       setError(null)
     } catch {
       setError("Could not load hold queue")
@@ -173,10 +198,11 @@ export function HoldQueueWaitingCard({
     }
   }
 
-  // Quiet when empty — optional Busy hint only (no amber flash).
-  if (callers.length === 0 && !error) {
+  // Quiet when empty — keep the Today bar if we already know today’s counts
+  // (including during a fetch error, so Who rings / Alerts do not jump).
+  if (callers.length === 0) {
     if (!showEmptyHint) {
-      if (stats && (stats.answered > 0 || stats.press1 > 0 || stats.abandoned > 0)) {
+      if (holdQueueStatsHaveTodayActivity(stats) && stats) {
         return (
           <section
             className={cn(
@@ -193,7 +219,20 @@ export function HoldQueueWaitingCard({
           </section>
         )
       }
-      return null
+      if (error) {
+        return (
+          <p className="px-1 text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )
+      }
+      // Confirmed empty today → no bar. Still fetching with no seed → keep height so Lines does not jump.
+      if (queueSettled || seededStats != null) return null
+      return (
+        <section className={cn("px-3 py-2 sm:px-4", className)} aria-hidden>
+          <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>
+        </section>
+      )
     }
     return (
       <section
@@ -346,7 +385,7 @@ export function HoldQueueWaitingCard({
         })}
       </ul>
 
-      {stats && (stats.answered > 0 || stats.press1 > 0 || stats.abandoned > 0) ? (
+      {holdQueueStatsHaveTodayActivity(stats) ? (
         <p className="mt-2.5 hidden text-[10px] text-muted-foreground md:block">
           Today · Answer {stats.answered} · Press 1 {stats.press1} · Left {stats.abandoned}
           {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}

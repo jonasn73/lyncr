@@ -9,6 +9,7 @@ import { busyMenuAnswerUnlockMs } from "@/lib/hold-queue-answer"
 import { holdMaxWaitSecs, lyncrHoldQueueName } from "@/lib/hold-queue"
 import { lyncrLog } from "@/lib/lyncr-env"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
+import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
 export type CallQueueStatus =
   | "waiting"
@@ -581,7 +582,10 @@ export async function setAccountHoldSettings(
 
 
 /** Light today rollup for Lines — wait / Answer / press-1 / abandon. */
-export async function getHoldQueueDayStats(userId: string): Promise<{
+export async function getHoldQueueDayStats(
+  userId: string,
+  timezone?: string | null
+): Promise<{
   waiting: number
   answered: number
   press1: number
@@ -601,20 +605,25 @@ export async function getHoldQueueDayStats(userId: string): Promise<{
     const sql = getSql()
     // Cap per-row wait so one abandoned ghost (e.g. 885s) cannot dominate the average.
     const maxWaitCap = holdMaxWaitSecs(null)
+    // Owner-local calendar day (Louisville 8pm is still “today”, not UTC tomorrow).
+    const tz = sanitizeIanaTimezone(timezone)
     const rows = await sql`
       SELECT
         COUNT(*) FILTER (WHERE status IN ('waiting', 'holding', 'bridging'))::int AS waiting,
         COUNT(*) FILTER (
           WHERE status = 'answered'
-            AND enqueued_at::date = (timezone('utc', now()))::date
+            AND date_trunc('day', timezone(${tz}, enqueued_at))
+              = date_trunc('day', timezone(${tz}, now()))
         )::int AS answered,
         COUNT(*) FILTER (
           WHERE status = 'sms_left'
-            AND enqueued_at::date = (timezone('utc', now()))::date
+            AND date_trunc('day', timezone(${tz}, enqueued_at))
+              = date_trunc('day', timezone(${tz}, now()))
         )::int AS press1,
         COUNT(*) FILTER (
           WHERE status IN ('left', 'timed_out')
-            AND enqueued_at::date = (timezone('utc', now()))::date
+            AND date_trunc('day', timezone(${tz}, enqueued_at))
+              = date_trunc('day', timezone(${tz}, now()))
         )::int AS abandoned,
         ROUND(
           AVG(
@@ -628,7 +637,8 @@ export async function getHoldQueueDayStats(userId: string): Promise<{
             )
           ) FILTER (
             WHERE status IN ('answered', 'sms_left', 'left', 'timed_out')
-              AND enqueued_at::date = (timezone('utc', now()))::date
+              AND date_trunc('day', timezone(${tz}, enqueued_at))
+                = date_trunc('day', timezone(${tz}, now()))
               AND COALESCE(answered_at, left_at, updated_at) IS NOT NULL
               AND COALESCE(answered_at, left_at, updated_at) >= enqueued_at
           )

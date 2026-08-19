@@ -43,6 +43,10 @@ import {
   operationsPaintMatchesOrg,
   readOperationsPaintFromCookieRaw,
 } from "@/lib/operations-paint-cache"
+import {
+  HOLD_QUEUE_STATS_COOKIE,
+  readHoldQueueStatsFromCookieRaw,
+} from "@/lib/hold-queue-stats-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
@@ -109,6 +113,8 @@ export function readDashboardPaintSeedsFromCookies(
 
   const operationsRaw = getCookie(OPERATIONS_PAINT_COOKIE)
   const operationsParsed = readOperationsPaintFromCookieRaw(operationsRaw)
+  const holdQueueRaw = getCookie(HOLD_QUEUE_STATS_COOKIE)
+  const holdQueue = readHoldQueueStatsFromCookieRaw(holdQueueRaw)
   // Prefer active-shop cookie, then Lines / workspace paint labels.
   const activeOrgId =
     getCookie(ACTIVE_ORGANIZATION_COOKIE)?.trim() ||
@@ -130,7 +136,8 @@ export function readDashboardPaintSeedsFromCookies(
     !workspace &&
     !lines &&
     !missedLeads &&
-    !operations
+    !operations &&
+    !holdQueue
   ) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
@@ -147,5 +154,6 @@ export function readDashboardPaintSeedsFromCookies(
     lines,
     missedLeads,
     operations,
+    holdQueue,
   }
 }

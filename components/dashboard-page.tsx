@@ -80,8 +80,9 @@ export function DashboardPage() {
     return []
   })
   // False until API/bootstrap roster arrives — Busy must not treat empty paint as "no teammate → IVR LIVE".
+  // Painted “who answers” is enough to skip the “…” flash on hard refresh.
   const [teamRosterReady, setTeamRosterReady] = useState(
-    () => Boolean(bootstrap?.routing.receptionists)
+    () => Boolean(bootstrap?.routing.receptionists) || Boolean(linesPaint?.whoAnswers?.trim())
   )
   const [selectedReceptionistId, setSelectedReceptionistId] = useState<string | null>(() => {
     if (bootstrap) {
