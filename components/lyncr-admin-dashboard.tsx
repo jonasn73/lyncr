@@ -623,6 +623,60 @@ export function LyncrAdminDashboard({
             </div>
           </section>
 
+          {/* Shop list sits first so you don’t have to hunt under Pending or More. */}
+          <section className="space-y-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-100">Find a shop</h2>
+                <p className="hidden text-xs text-slate-500 md:block">Tap a name to open Manage.</p>
+              </div>
+              <Link
+                href="/admin/businesses"
+                className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+              >
+                All businesses
+              </Link>
+            </div>
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+              <Input
+                type="search"
+                placeholder="Shop name or email…"
+                value={homeShopQuery}
+                onChange={(e) => setHomeShopQuery(e.target.value)}
+                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+              />
+            </div>
+            {homeShopMatches.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
+                No shops match.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+                {homeShopMatches.map((row) => (
+                  <li key={row.user_id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
+                      onClick={() => onManageUser(row)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-50">
+                          {row.business_name.trim() || row.email}
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <AccountStatusBadge status={row.account_status} />
+                        <TierBadge tier={row.subscription_tier} />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <Sheet open={moneySheet != null} onOpenChange={(open) => !open && setMoneySheet(null)}>
             <SheetContent
               side="right"
@@ -831,58 +885,6 @@ export function LyncrAdminDashboard({
                 ))}
               </ul>
             )}
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-100">Find a shop</h2>
-                <p className="hidden text-xs text-slate-500 md:block">Tap a name to open Manage.</p>
-              </div>
-              <div className="relative w-full sm:max-w-xs">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
-                <Input
-                  type="search"
-                  placeholder="Shop name or email…"
-                  value={homeShopQuery}
-                  onChange={(e) => setHomeShopQuery(e.target.value)}
-                  className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
-                />
-              </div>
-            </div>
-            {homeShopMatches.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
-                No shops match.
-              </p>
-            ) : (
-              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
-                {homeShopMatches.map((row) => (
-                  <li key={row.user_id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
-                      onClick={() => onManageUser(row)}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium text-slate-50">
-                          {row.business_name.trim() || row.email}
-                        </span>
-                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        <AccountStatusBadge status={row.account_status} />
-                        <TierBadge tier={row.subscription_tier} />
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="text-center text-[11px] text-slate-500">
-              <Link href="/admin/businesses" className="underline-offset-2 hover:text-slate-300 hover:underline">
-                See all businesses
-              </Link>
-            </p>
           </section>
         </>
       ) : null}

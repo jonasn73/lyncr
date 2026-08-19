@@ -296,7 +296,12 @@ function MoreSheet({
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                {item.label}
+                <span className="flex min-w-0 flex-col">
+                  <span>{item.label}</span>
+                  {item.href === "/admin/businesses" ? (
+                    <span className="text-[11px] font-normal text-slate-500">Full shop list</span>
+                  ) : null}
+                </span>
                 {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
               </Link>
             )
