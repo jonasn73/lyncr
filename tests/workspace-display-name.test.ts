@@ -1,10 +1,52 @@
 import { describe, expect, it } from "vitest"
-import { normalizeWorkspaceDisplayName } from "@/lib/workspace-organizations"
+import {
+  normalizeWorkspaceDisplayName,
+  resolveActiveOrganizationId,
+} from "@/lib/workspace-organizations"
 
 describe("normalizeWorkspaceDisplayName", () => {
   it("fixes Key Squad 5o2 letter-o typo to digit zero", () => {
     expect(normalizeWorkspaceDisplayName("Key Squad 5o2")).toBe("Key Squad 502")
     expect(normalizeWorkspaceDisplayName("Key Squad 5O2")).toBe("Key Squad 502")
     expect(normalizeWorkspaceDisplayName("  Key Squad 502  ")).toBe("Key Squad 502")
+  })
+})
+
+describe("resolveActiveOrganizationId", () => {
+  const keySquad = { id: "ks", name: "Key Squad 502", is_default: true }
+  const freshAuto = { id: "fa", name: "Fresh Auto Detail", is_default: false }
+  const rows = [keySquad, freshAuto]
+
+  it("keeps the shop already on screen even when the cookie is the default shop", () => {
+    expect(
+      resolveActiveOrganizationId({
+        rows,
+        currentId: "fa",
+        currentName: "Fresh Auto Detail",
+        storedId: "ks",
+      })
+    ).toBe("fa")
+  })
+
+  it("matches a paint-seed fake id by shop name instead of jumping to default", () => {
+    expect(
+      resolveActiveOrganizationId({
+        rows,
+        currentId: "__paint-seed__",
+        currentName: "Fresh Auto Detail",
+        storedId: "ks",
+      })
+    ).toBe("fa")
+  })
+
+  it("uses the stored cookie when nothing is on screen yet", () => {
+    expect(
+      resolveActiveOrganizationId({
+        rows,
+        currentId: null,
+        currentName: null,
+        storedId: "fa",
+      })
+    ).toBe("fa")
   })
 })

@@ -271,16 +271,17 @@ export function DashboardWorkspaceProvider({
   // Live & Connected / line picker do not flash pulse bars ("....") then real status.
   useLayoutEffect(() => {
     if (workspaceSeed) return
-    const orgId = readActiveOrganizationId()
+    const paintedOrg = activeOrganizationIdRef.current
+    const paintedIsReal = Boolean(paintedOrg && !paintedOrg.startsWith("__"))
+    const orgId = paintedIsReal ? paintedOrg : readActiveOrganizationId()
     const boot = readDashboardBootstrapCache()
     if (boot) {
       const seed = workspaceSeedFromBootstrap(boot, orgId)
       hydrateWorkspaceFromBootstrap(seed)
       return
     }
-    // Lines chrome session (not used during render) — upgrade after hydrate.
     const chrome = readLinesChromeCache()
-    if (chrome?.lines.length) {
+    if (chrome?.lines.length && (!chrome.organizationId || chrome.organizationId === orgId)) {
       setBusinessNumbers(linesChromeToBusinessNumbers(chrome))
       setBusinessNumbersLoading(false)
       if (chrome.activeLine) setActiveLine(chrome.activeLine)
@@ -296,11 +297,13 @@ export function DashboardWorkspaceProvider({
 
   useEffect(() => {
     if (workspaceSeed) return
-    setActiveOrganizationIdState(readActiveOrganizationId())
-    const onChanged = () => setActiveOrganizationIdState(readActiveOrganizationId())
+    const onChanged = () => {
+      const id = readActiveOrganizationId()
+      setActiveOrganizationId(id)
+    }
     window.addEventListener("lyncr-organization-changed", onChanged)
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
-  }, [workspaceSeed])
+  }, [workspaceSeed, setActiveOrganizationId])
 
   // Bail out when digits match — E.164 vs raw "555…" must not flip-flop (#185).
   const setActiveLineStable = useCallback((line: string | null) => {

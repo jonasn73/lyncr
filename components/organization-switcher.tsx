@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import type { Organization } from "@/lib/types"
 import {
   readActiveOrganizationId,
+  resolveActiveOrganizationId,
   writeActiveOrganizationId,
 } from "@/lib/workspace-organizations"
 import {
@@ -103,14 +104,12 @@ function pickActiveOrganizationId(
   rows: Organization[],
   preferredActiveId?: string | null
 ): string | null {
-  // Prefer cookie/SSR id only during first paint — localStorage is invisible to SSR (#418).
-  const stored = preferredActiveId?.trim() || null
-  return (
-    (stored && rows.some((o) => o.id === stored) ? stored : null) ??
-    rows.find((o) => o.is_default)?.id ??
-    rows[0]?.id ??
-    null
-  )
+  return resolveActiveOrganizationId({
+    rows,
+    currentId: preferredActiveId ?? null,
+    currentName: null,
+    storedId: preferredActiveId ?? null,
+  })
 }
 
 export function OrganizationSwitcher({
@@ -146,23 +145,27 @@ export function OrganizationSwitcher({
   const onOrganizationsLoadedRef = useRef(onOrganizationsLoaded)
   onOrganizationChangeRef.current = onOrganizationChange
   onOrganizationsLoadedRef.current = onOrganizationsLoaded
+  const organizationsRef = useRef(organizations)
+  organizationsRef.current = organizations
+  const activeIdRef = useRef(activeId)
+  activeIdRef.current = activeId
 
   const applyOrganizations = useCallback((rows: Organization[], preferredActiveId?: string | null) => {
     setOrganizations(rows)
     onOrganizationsLoadedRef.current?.(rows)
-    const stored = preferredActiveId ?? readActiveOrganizationId()
-    const pick =
-      (stored && rows.some((o) => o.id === stored) ? stored : null) ??
-      rows.find((o) => o.is_default)?.id ??
-      rows[0]?.id ??
-      null
-    setActiveId((prev) => {
-      if (pick !== prev) {
-        onOrganizationChangeRef.current?.(pick)
-        return pick
-      }
-      return prev
+    const prev = activeIdRef.current
+    const prevName = organizationsRef.current.find((o) => o.id === prev)?.name ?? null
+    const pick = resolveActiveOrganizationId({
+      rows,
+      currentId: prev,
+      currentName: prevName,
+      storedId: preferredActiveId ?? readActiveOrganizationId(),
     })
+    setActiveId(pick)
+    activeIdRef.current = pick
+    if (pick !== prev) {
+      onOrganizationChangeRef.current?.(pick)
+    }
     if (pick) writeActiveOrganizationId(pick)
   }, [])
 
@@ -346,7 +349,7 @@ export function OrganizationSwitcher({
     }
   }
 
-  if (loading) {
+  if (loading && organizations.length === 0) {
     return (
       <OrganizationSwitcherPlaceholder
         label={sessionBusinessName?.trim() || "Business"}

@@ -1458,12 +1458,12 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
 
   return (
     // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
-    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
+    <WorkspacePanel className="min-h-0 bg-background shadow-none ring-0">
       <div className="md:hidden">
         <ActivityCallsMobileList rows={rows} lineLabelMap={lineLabelMap} />
       </div>
       <div className="hidden md:block">
-      <WorkspaceTableWrap className="min-h-[340px]" bleed>
+        <WorkspaceTableWrap className="min-h-0" bleed>
         <colgroup>
           <col className="w-[11%]" />
           <col className="w-[12%]" />
@@ -1698,7 +1698,8 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   filter,
   onFilterChange,
 }: ActivityBodyProps) {
-  const { activeLine, businessNumbers } = useDashboardWorkspace()
+  const { activeLine, businessNumbers, businessNumbersLoading } = useDashboardWorkspace()
+  const waitingForLines = businessNumbersLoading && businessNumbers.length === 0 && !activeLine
 
   // Scope by EVERY line in the active workspace — not only the selected DID.
   // Filtering by activeLine alone hid sister-line calls (e.g. main DID vs cell DID).
@@ -1708,9 +1709,12 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         businessNumbers.some((n) => businessNumbersMatch(c.targetLineE164, n.number))
       )
     }
-    if (!activeLine) return calls
-    return calls.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
-  }, [calls, businessNumbers, activeLine])
+    if (activeLine) {
+      return calls.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
+    }
+    if (businessNumbersLoading) return []
+    return calls
+  }, [calls, businessNumbers, businessNumbersLoading, activeLine])
 
   const missedCount = useMemo(
     () => scopedCalls.filter((c) => isMissedActivityCallToday(c)).length,
@@ -1787,7 +1791,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         press1Count={press1Count}
         onChange={onFilterChange}
       />
-      {filter === "missed" && rows.length === 0 && !loading ? (
+      {filter === "missed" && rows.length === 0 && !loading && !waitingForLines ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
           <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
           <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
@@ -1796,7 +1800,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {shouldShowOperationsSkeleton(loading, calls.length) ? (
+      {shouldShowOperationsSkeleton(loading || waitingForLines, waitingForLines ? 0 : calls.length) ? (
         <ActivityTableSkeleton />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>

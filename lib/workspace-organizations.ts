@@ -120,3 +120,41 @@ export function organizationQueryString(organizationId: string | null | undefine
   if (!id || id.startsWith("legacy-")) return ""
   return `?organization_id=${encodeURIComponent(id)}`
 }
+
+/** One shop row we need when deciding which workspace stays selected. */
+export type OrganizationPickRow = {
+  id: string
+  name: string
+  is_default: boolean
+}
+
+/**
+ * Pick the shop the owner is already looking at.
+ * Cookie/default must not yank Fresh Auto back to Key Squad after a silent org list fetch.
+ */
+export function resolveActiveOrganizationId(opts: {
+  rows: OrganizationPickRow[]
+  currentId: string | null
+  currentName: string | null
+  storedId: string | null
+}): string | null {
+  // Full shop list from the server.
+  const rows = opts.rows
+  // Shop already showing in the header chip (may be a fake paint-seed id).
+  const currentId = opts.currentId?.trim() || null
+  // Chip label — used when the paint-seed id is not a real database id.
+  const currentName = opts.currentName?.trim() || null
+  // Cookie / localStorage — often the default shop, so it must not win over the chip.
+  const storedId = opts.storedId?.trim() || null
+  // Stay on the open shop if that id is still in the list.
+  if (currentId && rows.some((o) => o.id === currentId)) return currentId
+  // Paint-seed used "__paint-seed__" — match Fresh Auto by name, not Key Squad by default.
+  if (currentName) {
+    const byName = rows.find((o) => o.name === currentName)
+    if (byName) return byName.id
+  }
+  // First visit / no chip yet — honor the saved shop.
+  if (storedId && rows.some((o) => o.id === storedId)) return storedId
+  // Last resort: default shop, else the first row.
+  return rows.find((o) => o.is_default)?.id ?? rows[0]?.id ?? null
+}

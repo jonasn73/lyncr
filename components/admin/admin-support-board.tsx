@@ -237,7 +237,7 @@ function LiveChatQueue() {
           variant="outline"
           size="sm"
           className="border-slate-700 text-slate-200"
-          onClick={() => void loadThreads()}
+          onClick={() => void loadThreads({ silent: true })}
         >
           Refresh
         </Button>
@@ -496,8 +496,8 @@ function FeedbackQueue() {
   const [loading, setLoading] = useState(true)
   const [sheet, setSheet] = useState<FeedbackSubmission | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch("/api/admin/feedback?limit=100", { credentials: "include" })
       const json = (await res.json().catch(() => ({}))) as {
@@ -542,7 +542,7 @@ function FeedbackQueue() {
           variant="outline"
           size="sm"
           className="border-slate-700 text-slate-200"
-          onClick={() => void load()}
+          onClick={() => void load({ silent: true })}
         >
           Refresh
         </Button>
@@ -555,7 +555,7 @@ function FeedbackQueue() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {loading ? (
+          {loading && feedback.length === 0 ? (
             <div className="flex justify-center py-10">
               <Spinner className="h-8 w-8 text-violet-400" />
             </div>
@@ -637,8 +637,8 @@ function EmailInbox() {
   const [detail, setDetail] = useState<AdminSupportEmail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true)
     try {
       const res = await fetch("/api/admin/support-emails?limit=50", { credentials: "include" })
       const json = (await res.json().catch(() => ({}))) as {
@@ -705,7 +705,7 @@ function EmailInbox() {
           variant="outline"
           size="sm"
           className="border-slate-700 text-slate-200"
-          onClick={() => void load()}
+          onClick={() => void load({ silent: true })}
         >
           Refresh
         </Button>
@@ -718,7 +718,7 @@ function EmailInbox() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {loading ? (
+          {loading && emails.length === 0 ? (
             <div className="flex justify-center py-10">
               <Spinner className="h-8 w-8 text-violet-400" />
             </div>
