@@ -2,19 +2,15 @@
 
 // Lyncr platform operator dashboard — KPIs, user directory, credit + subscription overrides.
 
+import Link from "next/link"
 import { useMemo, useState, useTransition } from "react"
 import {
-  Check,
-  Copy,
   Database,
   Loader2,
   MoreVertical,
-  Pencil,
   Phone,
   RefreshCw,
   Search,
-  Users,
-  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
@@ -65,12 +61,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { accountStatusLabel } from "@/lib/account-status"
-import { formatRoutingPoolSkillLabel } from "@/lib/routing-pool-skills"
-import {
-  BusinessMoneyBreakdown,
-  BusinessMoneyChip,
-  BusinessMoneyPeriodChips,
-} from "@/components/admin/business-money"
 import type { AdminBusinessEconomics } from "@/lib/types"
 import type { AdminMoneyPeriodUi } from "@/hooks/use-lyncr-admin-dashboard"
 
@@ -78,181 +68,8 @@ type MoneySheetKey = "telnyx" | "saas" | "card_fees" | "credits" | "stripe" | "w
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
-function SpecialtySkillsBadges({ skills, accountRole }: { skills: string[]; accountRole: LyncrAdminDirectoryRow["account_role"] }) {
-  if (accountRole !== "receptionist") {
-    return <span className="text-slate-600">—</span>
-  }
-  if (!skills.length) {
-    return <span className="text-xs text-slate-500">No skills assigned</span>
-  }
-  return (
-    <div className="flex max-w-[220px] flex-wrap gap-1">
-      {skills.map((skill) => (
-        <Badge
-          key={skill}
-          variant="outline"
-          className="border-violet-500/35 bg-violet-500/10 text-[11px] font-medium text-violet-200"
-        >
-          {formatRoutingPoolSkillLabel(skill)}
-        </Badge>
-      ))}
-    </div>
-  )
-}
-
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
-}
-
-/** Shorten UUIDs for dense table cells — e.g. 18cf...c5af */
-function truncateUuid(id: string): string {
-  const s = id.trim()
-  if (s.length <= 12) return s
-  return `${s.slice(0, 4)}...${s.slice(-4)}`
-}
-
-function UserIdCell({ userId }: { userId: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(userId)
-      setCopied(true)
-      toast.success("User ID copied")
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      toast.error("Could not copy to clipboard")
-    }
-  }
-
-  return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <code
-        className="truncate font-mono text-xs text-slate-400"
-        title={userId}
-      >
-        {truncateUuid(userId)}
-      </code>
-      <button
-        type="button"
-        onClick={() => void handleCopy()}
-        className={cn(
-          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/80 bg-slate-950/60 text-slate-400 transition-colors",
-          "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
-          copied && "border-emerald-500/40 text-emerald-300"
-        )}
-        aria-label={`Copy user ID ${userId}`}
-        title="Copy full user ID"
-      >
-        <Copy className="h-3.5 w-3.5" aria-hidden />
-      </button>
-    </div>
-  )
-}
-
-/**
- * Inline-editable "Phone" cell. Renders a clickable value (or a clickable "—" placeholder when
- * empty) that morphs into a compact input with save (✓) / cancel (✕) controls. On save it PATCHes
- * /api/admin/users/update-phone and calls onSaved so the table updates instantly — no page refresh.
- */
-function EditablePhoneCell({
-  userId,
-  value,
-  onSaved,
-}: {
-  userId: string
-  value: string | null
-  onSaved: (userId: string, phone: string) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState("")
-  const [saving, setSaving] = useState(false)
-
-  function startEdit() {
-    setDraft(value ?? "")
-    setEditing(true)
-  }
-
-  function cancelEdit() {
-    setEditing(false)
-    setDraft("")
-  }
-
-  async function save() {
-    setSaving(true)
-    try {
-      const res = await fetch("/api/admin/users/update-phone", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, newPhone: draft }),
-      })
-      const json = (await res.json().catch(() => ({}))) as { data?: { phone?: string }; error?: string }
-      if (!res.ok || !json.data?.phone) {
-        toast.error(json.error ?? "Couldn't update phone")
-        return
-      }
-      onSaved(userId, json.data.phone)
-      toast.success("Phone updated")
-      setEditing(false)
-      setDraft("")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error — please try again")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          autoFocus
-          type="tel"
-          inputMode="tel"
-          value={draft}
-          disabled={saving}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !saving) void save()
-            if (e.key === "Escape") cancelEdit()
-          }}
-          placeholder="(555) 123-4567"
-          className="w-36 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 font-mono text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 disabled:opacity-60"
-        />
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          aria-label="Save phone"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-600 text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Check className="h-3.5 w-3.5" aria-hidden />}
-        </button>
-        <button
-          type="button"
-          onClick={cancelEdit}
-          disabled={saving}
-          aria-label="Cancel"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-600 text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-60"
-        >
-          <X className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={startEdit}
-      aria-label={`Edit phone for user ${userId}`}
-      className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-mono text-sm transition-colors hover:bg-slate-800"
-    >
-      <span className={value ? "text-slate-300" : "text-slate-500"}>{value ?? "—"}</span>
-      <Pencil className="h-3 w-3 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
-    </button>
-  )
 }
 
 function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd: number; balanceLabel: string }) {
@@ -331,33 +148,6 @@ function MoneyDetailRow({ label, value, note }: { label: string; value: string; 
       </div>
       <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-50">{value}</p>
     </div>
-  )
-}
-
-function formatMinutes(minutes: number): string {
-  return Number(minutes).toFixed(2)
-}
-
-/** Role classification badge: violet for receptionists, green (+ business name) for owners, slate for admins. */
-function RoleBadge({ row }: { row: LyncrAdminDirectoryRow }) {
-  if (row.role === "RECEPTIONIST") {
-    return (
-      <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-violet-200">
-        Receptionist
-      </Badge>
-    )
-  }
-  if (row.role === "OWNER") {
-    return (
-      <Badge variant="outline" className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-300">
-        Owner
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="border-slate-500/40 bg-slate-500/15 text-slate-300">
-      Admin
-    </Badge>
   )
 }
 
@@ -675,9 +465,9 @@ function UserRowActions({
 export function LyncrAdminDashboard({
   metrics,
   users,
-  businessEconomics = [],
-  moneyPeriod = "all_time",
-  setMoneyPeriod,
+  businessEconomics: _businessEconomics = [],
+  moneyPeriod: _moneyPeriod = "all_time",
+  setMoneyPeriod: _setMoneyPeriod,
   loading,
   refreshing,
   fetchLatestAdminStats,
@@ -701,21 +491,8 @@ export function LyncrAdminDashboard({
   const [statusFilter, setStatusFilter] = useState("all")
   // Role tab: "all" | "owner" | "receptionist".
   const [roleTab, setRoleTab] = useState("OWNER")
-  // Optimistic phone edits keyed by user_id so saves render instantly without a refetch.
-  const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({})
+  const [homeShopQuery, setHomeShopQuery] = useState("")
   const [moneySheet, setMoneySheet] = useState<MoneySheetKey>(null)
-  const [bizMoneyQuery, setBizMoneyQuery] = useState("")
-  const [selectedBizMoney, setSelectedBizMoney] = useState<AdminBusinessEconomics | null>(null)
-
-  // Keep the open sheet in sync when period chips reload Business money rows.
-  const selectedBizMoneyLive =
-    selectedBizMoney == null
-      ? null
-      : businessEconomics.find((b) => b.user_id === selectedBizMoney.user_id) ?? selectedBizMoney
-
-  function handlePhoneSaved(userId: string, phone: string) {
-    setPhoneOverrides((prev) => ({ ...prev, [userId]: phone }))
-  }
 
   const filteredUsers = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -752,25 +529,28 @@ export function LyncrAdminDashboard({
   const routingPoolAvailableUsd = metrics?.telnyx_routing_pool?.available_credit_usd ?? NaN
   const routingPoolAvailableLabel = metrics?.telnyx_routing_pool?.available_credit_label ?? ""
 
-  // Prefer shops with money activity this month; keep names searchable (e.g. Key Squad 502).
-  const filteredBizMoney = useMemo(() => {
-    const q = bizMoneyQuery.trim().toLowerCase()
-    const rows = businessEconomics.filter((b) => {
-      if (!q) return true
-      return (
-        b.business_name.toLowerCase().includes(q) ||
-        b.email.toLowerCase().includes(q)
-      )
-    })
-    return [...rows].sort((a, b) => {
-      const aScore =
-        Math.abs(a.net_cents) + a.card_fee_mtd_cents + a.est_phone_cost_mtd_cents + a.plan_revenue_cents
-      const bScore =
-        Math.abs(b.net_cents) + b.card_fee_mtd_cents + b.est_phone_cost_mtd_cents + b.plan_revenue_cents
-      if (bScore !== aScore) return bScore - aScore
-      return a.business_name.localeCompare(b.business_name)
-    })
-  }, [businessEconomics, bizMoneyQuery])
+  // Shops waiting for you to Approve or Deny.
+  const pendingOwners = useMemo(
+    () => users.filter((u) => u.role === "OWNER" && u.account_status === "pending"),
+    [users]
+  )
+
+  // Short “find a shop” list on Home (owners only).
+  const homeShopMatches = useMemo(() => {
+    const q = homeShopQuery.trim().toLowerCase()
+    const owners = users.filter((u) => u.role === "OWNER")
+    const matched = !q
+      ? owners
+      : owners.filter(
+          (u) =>
+            u.business_name.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q) ||
+            (u.phone_number != null && u.phone_number.toLowerCase().includes(q))
+        )
+    return [...matched]
+      .sort((a, b) => (a.business_name || a.email).localeCompare(b.business_name || b.email))
+      .slice(0, 8)
+  }, [users, homeShopQuery])
 
   if (loading && !metrics) {
     return (
@@ -780,11 +560,11 @@ export function LyncrAdminDashboard({
     )
   }
 
-  const pageTitle = view === "home" ? "Ops home" : "Manage businesses"
+  const pageTitle = view === "home" ? "Home" : "Businesses"
   const pageSubtitle =
     view === "home"
-      ? "Platform money + per-business profit / loss"
-      : "Find a business, then tap Manage"
+      ? "Phone balance, Stripe cash, paying shops — then pending signups"
+      : "Name, status, plan. Tap a row to manage."
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-5 sm:p-6">
@@ -814,71 +594,32 @@ export function LyncrAdminDashboard({
           {/* Compact money strip — tap a cell for the full explanation sheet */}
           <section className="space-y-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">Platform money</h2>
+              <h2 className="text-sm font-semibold text-slate-100">At a glance</h2>
               <p className="hidden text-xs text-slate-500 md:block">
-                Tap a total for the breakdown. Telnyx = phone spend · Stripe = Lyncr fees + SaaS.
+                Tap a number for the breakdown.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2">
               <MoneyStripCell
                 emphasize
-                label="Telnyx balance"
+                label="Telnyx ready"
                 value={routingPoolAvailableLabel || "—"}
-                hint="Phone API ready"
+                hint="Phone spend left"
                 onClick={() => setMoneySheet("telnyx")}
               />
               <MoneyStripCell
-                label="SaaS / mo"
-                value={metrics?.finance?.estimated_mrr_label ?? formatUsd(0)}
-                hint="Est. paid plans"
-                onClick={() => setMoneySheet("saas")}
-              />
-              <MoneyStripCell
-                label="Card fees MTD"
-                value={metrics?.finance?.card_fee_revenue_mtd_label ?? "—"}
-                hint={
-                  metrics?.finance?.card_fee_revenue_mtd_cents === 0
-                    ? metrics?.finance?.card_fee_month_label
-                      ? `None in ${metrics.finance.card_fee_month_label.replace(" (US Eastern)", "")}`
-                      : "None yet"
-                    : metrics?.finance?.card_fee_count_mtd
-                      ? `${metrics.finance.card_fee_count_mtd} charges`
-                      : "Connect take"
-                }
-                onClick={() => setMoneySheet("card_fees")}
-              />
-              <MoneyStripCell
-                label="Stripe (Lyncr)"
+                label="Stripe available"
                 value={metrics?.finance?.stripe_platform_available_label ?? "—"}
-                hint="Available now"
+                hint="Lyncr cash now"
                 onClick={() => setMoneySheet("stripe")}
               />
-            </div>
-            <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-              <button
-                type="button"
-                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
-                onClick={() => setMoneySheet("credits")}
-              >
-                Credit packs {metrics?.finance?.credit_pack_revenue_mtd_label ?? formatUsd(0)}
-              </button>
-              <span aria-hidden>·</span>
-              <button
-                type="button"
-                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
-                onClick={() => setMoneySheet("wallets")}
-              >
-                Prepaid wallets {formatUsd(metrics?.total_carrier_credit ?? 0)}
-              </button>
-              <span aria-hidden>·</span>
-              <button
-                type="button"
-                className="rounded-md px-1.5 py-0.5 underline-offset-2 hover:text-slate-300 hover:underline"
+              <MoneyStripCell
+                label="Paying shops"
+                value={String(metrics?.active_subscriptions ?? 0)}
+                hint="Active plans"
                 onClick={() => setMoneySheet("paying")}
-              >
-                Paying businesses {metrics?.active_subscriptions ?? 0}
-              </button>
+              />
             </div>
           </section>
 
@@ -1059,85 +800,90 @@ export function LyncrAdminDashboard({
           </div>
 
           <section className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-100">Pending shops</h2>
+              <p className="hidden text-xs text-slate-500 md:block">
+                New signups waiting for Approve or Deny.
+              </p>
+            </div>
+            {pendingOwners.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
+                No shops waiting.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+                {pendingOwners.map((row) => (
+                  <li key={row.user_id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
+                      onClick={() => onManageUser(row)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-50">
+                          {row.business_name.trim() || row.email}
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                      </span>
+                      <AccountStatusBadge status={row.account_status} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-slate-100">Business money</h2>
-                <p className="hidden text-xs text-slate-500 md:block">
-                  Tap a shop for actual Stripe plan cash + card fees, phone cost, and how much Lyncr is ahead or behind.
-                </p>
+                <h2 className="text-sm font-semibold text-slate-100">Find a shop</h2>
+                <p className="hidden text-xs text-slate-500 md:block">Tap a name to open Manage.</p>
               </div>
               <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
                 <Input
                   type="search"
-                  placeholder="Search Key Squad, email…"
-                  value={bizMoneyQuery}
-                  onChange={(e) => setBizMoneyQuery(e.target.value)}
+                  placeholder="Shop name or email…"
+                  value={homeShopQuery}
+                  onChange={(e) => setHomeShopQuery(e.target.value)}
                   className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
                 />
               </div>
             </div>
-
-            {setMoneyPeriod ? (
-              <BusinessMoneyPeriodChips
-                period={moneyPeriod}
-                onChange={setMoneyPeriod}
-                disabled={refreshing}
-              />
-            ) : null}
-
-            {filteredBizMoney.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-slate-500">
-                No businesses match. Try “Key Squad” or clear the search.
+            {homeShopMatches.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
+                No shops match.
               </p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {filteredBizMoney.slice(0, 24).map((row) => (
-                  <BusinessMoneyChip
-                    key={row.user_id}
-                    row={row}
-                    onClick={() => setSelectedBizMoney(row)}
-                  />
+              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+                {homeShopMatches.map((row) => (
+                  <li key={row.user_id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
+                      onClick={() => onManageUser(row)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-50">
+                          {row.business_name.trim() || row.email}
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <AccountStatusBadge status={row.account_status} />
+                        <TierBadge tier={row.subscription_tier} />
+                      </span>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-            {filteredBizMoney.length > 24 ? (
-              <p className="text-center text-[11px] text-slate-500">
-                Showing top 24 of {filteredBizMoney.length} — refine search to find others.
-              </p>
-            ) : null}
+            <p className="text-center text-[11px] text-slate-500">
+              <Link href="/admin/businesses" className="underline-offset-2 hover:text-slate-300 hover:underline">
+                See all businesses
+              </Link>
+            </p>
           </section>
-
-          <Sheet
-            open={selectedBizMoney != null}
-            onOpenChange={(open) => !open && setSelectedBizMoney(null)}
-          >
-            <SheetContent
-              side="right"
-              className="w-full border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md"
-            >
-              <SheetHeader>
-                <SheetTitle className="text-slate-50">
-                  {selectedBizMoneyLive?.business_name ?? "Business money"}
-                </SheetTitle>
-                <SheetDescription className="text-slate-400">
-                  {selectedBizMoneyLive?.email ?? "What this shop pays Lyncr vs what it costs."}
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-4 space-y-3 px-1">
-                {setMoneyPeriod ? (
-                  <BusinessMoneyPeriodChips
-                    period={moneyPeriod}
-                    onChange={setMoneyPeriod}
-                    disabled={refreshing}
-                  />
-                ) : null}
-                {selectedBizMoneyLive ? (
-                  <BusinessMoneyBreakdown row={selectedBizMoneyLive} />
-                ) : null}
-              </div>
-            </SheetContent>
-          </Sheet>
         </>
       ) : null}
 
@@ -1222,22 +968,14 @@ export function LyncrAdminDashboard({
                     Business
                   </TableHead>
                   <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Role</TableHead>
-                  <TableHead className="text-slate-400">Subscription</TableHead>
-                  <TableHead className="text-slate-400">Tier</TableHead>
-                  <TableHead className="text-slate-400">Total calls</TableHead>
-                  <TableHead className="text-slate-400">Minutes used</TableHead>
-                  <TableHead className="text-slate-400">Phone</TableHead>
-                  <TableHead className="text-slate-400">Carrier credit</TableHead>
-                  <TableHead className="min-w-[180px] text-slate-400">Specialty skills</TableHead>
-                  <TableHead className="text-slate-400">User ID</TableHead>
+                  <TableHead className="text-slate-400">Plan</TableHead>
                   <TableHead className="w-[4.5rem] text-slate-400">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow className="border-slate-800">
-                    <TableCell colSpan={12} className="py-10 text-center text-slate-500">
+                    <TableCell colSpan={4} className="py-10 text-center text-slate-500">
                       No users match your filter.
                     </TableCell>
                   </TableRow>
@@ -1271,29 +1009,10 @@ export function LyncrAdminDashboard({
                         <AccountStatusBadge status={row.account_status} />
                       </TableCell>
                       <TableCell>
-                        <RoleBadge row={row} />
-                      </TableCell>
-                      <TableCell>
-                        <SubscriptionStatusBadge active={row.has_active_subscription} />
-                      </TableCell>
-                      <TableCell>
-                        <TierBadge tier={row.subscription_tier} />
-                      </TableCell>
-                      <TableCell className="text-slate-200">{row.total_calls_routed}</TableCell>
-                      <TableCell className="text-slate-200">{formatMinutes(row.total_minutes_used)}</TableCell>
-                      <TableCell>
-                        <EditablePhoneCell
-                          userId={row.user_id}
-                          value={phoneOverrides[row.user_id] ?? row.phone_number}
-                          onSaved={handlePhoneSaved}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium text-slate-100">{formatUsd(row.carrier_credit)}</TableCell>
-                      <TableCell>
-                        <SpecialtySkillsBadges skills={row.receptionist_skills} accountRole={row.account_role} />
-                      </TableCell>
-                      <TableCell>
-                        <UserIdCell userId={row.user_id} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <SubscriptionStatusBadge active={row.has_active_subscription} />
+                          <TierBadge tier={row.subscription_tier} />
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <UserRowActions

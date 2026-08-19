@@ -34,6 +34,12 @@ const NAV = [
     match: (p: string) => p.startsWith("/admin/businesses"),
   },
   {
+    href: "/admin/support",
+    label: "Support",
+    icon: MessageSquareWarning,
+    match: (p: string) => p.startsWith("/admin/support"),
+  },
+  {
     href: "/admin/people",
     label: "People",
     icon: Users,
@@ -52,12 +58,6 @@ const NAV = [
     match: (p: string) => p.startsWith("/admin/payouts") || p.startsWith("/admin/dashboard/operators"),
   },
   {
-    href: "/admin/support",
-    label: "Support",
-    icon: MessageSquareWarning,
-    match: (p: string) => p.startsWith("/admin/support"),
-  },
-  {
     href: "/admin/tools",
     label: "Tools",
     icon: FlaskConical,
@@ -71,21 +71,12 @@ const NAV = [
   },
 ] as const
 
-/** Primary mobile bottom tabs — Settings/Network/Support live under More. */
-const MOBILE_TAB_HREFS = new Set([
-  "/admin",
-  "/admin/businesses",
-  "/admin/people",
-  "/admin/payouts",
-  "/admin/tools",
-])
+const PRIMARY_HREFS = new Set(["/admin", "/admin/businesses", "/admin/support"])
+const PRIMARY_NAV = NAV.filter((item) => PRIMARY_HREFS.has(item.href))
+const MORE_LINKS = NAV.filter((item) => !PRIMARY_HREFS.has(item.href))
 
-const MOBILE_TABS = NAV.filter((item) => MOBILE_TAB_HREFS.has(item.href))
-
-/** Only extras not on the bottom bar — short overflow list, not a full nav clone. */
-const MORE_LINKS = NAV.filter((item) =>
-  item.href === "/admin/network" || item.href === "/admin/support" || item.href === "/admin/settings"
-)
+/** Primary mobile bottom tabs — extra pages live under More. */
+const MOBILE_TABS = PRIMARY_NAV
 
 function moreIsActive(pathname: string) {
   return MORE_LINKS.some((item) => item.match(pathname))
@@ -133,7 +124,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
   const pathname = usePathname() ?? ""
   return (
     <nav className="flex flex-col gap-0.5 p-2">
-      {NAV.map((item) => {
+      {PRIMARY_NAV.map((item) => {
         const Icon = item.icon
         const active = item.match(pathname)
         return (
@@ -151,6 +142,27 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
             {item.label}
             {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
+          </Link>
+        )
+      })}
+      <p className="mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">More</p>
+      {MORE_LINKS.map((item) => {
+        const Icon = item.icon
+        const active = item.match(pathname)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+              active
+                ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
+                : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            {item.label}
           </Link>
         )
       })}
@@ -176,7 +188,7 @@ function MobileBottomTabs({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Admin primary navigation"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5 px-1 py-1.5">
+      <div className="mx-auto grid max-w-lg grid-cols-4 gap-0.5 px-1 py-1.5">
         {MOBILE_TABS.map((item) => {
           const Icon = item.icon
           const active = item.match(pathname)
@@ -185,13 +197,18 @@ function MobileBottomTabs({
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
+                "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
                 active
                   ? "bg-violet-600/25 text-violet-100"
                   : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="relative">
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {item.href === "/admin/support" ? (
+                  <SupportCountBadge count={supportCount} className="absolute -right-3 -top-1" />
+                ) : null}
+              </span>
               <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">
                 {item.label}
               </span>
@@ -210,12 +227,7 @@ function MobileBottomTabs({
               : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
           )}
         >
-          <span className="relative">
-            <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
-            {supportCount > 0 ? (
-              <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-violet-500" aria-hidden />
-            ) : null}
-          </span>
+          <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
           <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">More</span>
         </button>
       </div>
@@ -288,7 +300,7 @@ function MoreSheet({
               </Link>
             )
           })}
-          {/* Logout sits last in More — same row style as Network / Support / Settings */}
+      {/* Logout sits last in More */}
           <button
             type="button"
             disabled={logoutBusy}

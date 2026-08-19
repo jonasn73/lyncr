@@ -2,10 +2,11 @@
 
 // Advanced operator drawer — status, notes, manual DID, hard reset.
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare, HardHat } from "lucide-react"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
+import { startImpersonation } from "@/app/actions/admin-impersonation"
 import type {
   AdminBusinessEconomics,
   AdminTenantControls,
@@ -121,6 +122,8 @@ export function AdminUserManageDrawer({
   const [releaseBusy, setReleaseBusy] = useState<string | null>(null)
   const [provisionTechOpen, setProvisionTechOpen] = useState(false)
   const [lineOverrideDrafts, setLineOverrideDrafts] = useState<Record<string, string>>({})
+  const [impersonatePending, startImpersonateTransition] = useTransition()
+  const [statusBusy, setStatusBusy] = useState(false)
 
   const loadControls = useCallback(async (userId: string) => {
     setControlsLoading(true)
@@ -151,6 +154,28 @@ export function AdminUserManageDrawer({
     setControls(null)
     if (open) void loadControls(row.user_id)
   }, [row, open, loadControls])
+
+  async function setAccountStatusQuick(nextStatus: string) {
+    if (!row) return
+    setStatusBusy(true)
+    try {
+      const res = await fetch("/api/admin/user-override", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: row.user_id, targetStatus: nextStatus }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Status update failed")
+      setTargetStatus(nextStatus)
+      toast.success(nextStatus === "active" ? "Shop approved" : "Shop denied")
+      await fetchLatestAdminStats(true)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Status update failed")
+    } finally {
+      setStatusBusy(false)
+    }
+  }
 
   async function applyWalletAdjustment() {
     if (!row) return
@@ -283,9 +308,12 @@ export function AdminUserManageDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full border-slate-800 bg-[#0b1120] text-slate-100 sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle className="text-slate-50">Advanced user management</SheetTitle>
+          {/* Shop name is the title so you know whose account you opened. */}
+          <SheetTitle className="text-slate-50">
+            {row?.business_name.trim() || row?.email || "Manage shop"}
+          </SheetTitle>
           <SheetDescription className="text-slate-400">
-            {row ? `${row.email} · ${row.user_id}` : "Select a user"}
+            {row ? row.email : "Select a shop"}
           </SheetDescription>
         </SheetHeader>
 
@@ -295,6 +323,49 @@ export function AdminUserManageDrawer({
             className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-2"
             onSubmit={(e) => void handleSaveSubmit(e)}
           >
+            {targetStatus === "pending" ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-500"
+                  disabled={statusBusy}
+                  onClick={() => void setAccountStatusQuick("active")}
+                >
+                  Approve shop
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={statusBusy}
+                  onClick={() => void setAccountStatusQuick("denied")}
+                >
+                  Deny shop
+                </Button>
+              </div>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-slate-600 text-slate-100"
+              disabled={impersonatePending}
+              onClick={() => {
+                startImpersonateTransition(async () => {
+                  const result = await startImpersonation(row.user_id)
+                  if (result?.ok === false) toast.error(result.error)
+                })
+              }}
+            >
+              {impersonatePending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Opening as them…
+                </>
+              ) : (
+                "Open as them"
+              )}
+            </Button>
+
             {businessEconomics ? (
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -304,6 +375,56 @@ export function AdminUserManageDrawer({
               </div>
             ) : null}
 
+            {/* Routing: assign the shop’s main Telnyx number. */}
+            <div className="space-y-2">
+              <Label className="text-slate-300">Direct phone assignment (Telnyx DID)</Label>
+              <Input
+                value={manualPhone}
+                onChange={(e) => setManualPhone(e.target.value)}
+                placeholder="+15551234567"
+                className="border-slate-700 bg-slate-950 font-mono text-slate-100"
+              />
+              <p className="text-xs text-slate-500">Bypasses self-service purchase — assigns or updates the primary active line.</p>
+            </div>
+
+            {/* Wallet: add or subtract prepaid phone credit. */}
+            <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-violet-300" aria-hidden />
+                <Label className="text-slate-200">Adjust wallet balance</Label>
+              </div>
+              <p className="text-xs text-slate-500">
+                Current carrier credit:{" "}
+                <span className="font-semibold tabular-nums text-slate-200">{formatUsd(creditBalance)}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={walletAmount}
+                  onChange={(e) => setWalletAmount(e.target.value)}
+                  placeholder="± USD (e.g. 25 or -10)"
+                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  disabled={walletBusy}
+                />
+                <Button
+                  type="button"
+                  className="shrink-0 bg-violet-600 hover:bg-violet-500"
+                  disabled={walletBusy}
+                  onClick={() => void applyWalletAdjustment()}
+                >
+                  {walletBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Apply"}
+                </Button>
+              </div>
+            </div>
+
+            <Accordion type="single" collapsible className="rounded-lg border border-slate-800">
+              <AccordionItem value="advanced" className="border-0 px-3">
+                <AccordionTrigger className="text-sm font-semibold text-slate-200 hover:no-underline">
+                  Advanced
+                </AccordionTrigger>
+                <AccordionContent className="space-y-5 pb-4">
             <div className="space-y-2">
               <Label className="text-slate-300">Account status</Label>
               <div className="flex flex-wrap gap-2" role="group" aria-label="Account status">
@@ -345,49 +466,6 @@ export function AdminUserManageDrawer({
                 placeholder="e.g. VIP client — manual billing clear"
                 className="min-h-[100px] border-slate-700 bg-slate-950 text-slate-100"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-slate-300">Direct phone assignment (Telnyx DID)</Label>
-              <Input
-                value={manualPhone}
-                onChange={(e) => setManualPhone(e.target.value)}
-                placeholder="+15551234567"
-                className="border-slate-700 bg-slate-950 font-mono text-slate-100"
-              />
-              <p className="text-xs text-slate-500">Bypasses self-service purchase — assigns or updates the primary active line.</p>
-            </div>
-
-            {/* Wallet balance override */}
-            <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-violet-300" aria-hidden />
-                <Label className="text-slate-200">Adjust wallet balance</Label>
-              </div>
-              <p className="text-xs text-slate-500">
-                Current carrier credit:{" "}
-                <span className="font-semibold tabular-nums text-slate-200">{formatUsd(creditBalance)}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={walletAmount}
-                  onChange={(e) => setWalletAmount(e.target.value)}
-                  placeholder="± USD (e.g. 25 or -10)"
-                  className="border-slate-700 bg-slate-950 text-slate-100"
-                  disabled={walletBusy}
-                />
-                <Button
-                  type="button"
-                  className="shrink-0 bg-violet-600 hover:bg-violet-500"
-                  disabled={walletBusy}
-                  onClick={() => void applyWalletAdjustment()}
-                >
-                  {walletBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Apply"}
-                </Button>
-              </div>
             </div>
 
             {/* Feature controls */}
@@ -676,6 +754,9 @@ export function AdminUserManageDrawer({
                 </AlertDialogContent>
               </AlertDialog>
             </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </form>
         ) : null}
 
