@@ -1,17 +1,21 @@
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import type { Organization } from "@/lib/types"
-import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import { readActiveOrganizationId, resolveActiveOrganizationId } from "@/lib/workspace-organizations"
 import { filterPhoneLinesForOrganization, primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 
 /** Pick the org the user last selected, or the default workspace. */
 export function pickActiveOrganizationIdFromBootstrap(
   organizations: Organization[],
-  preferredOrganizationId?: string | null
+  preferredOrganizationId?: string | null,
+  currentName?: string | null
 ): string | null {
-  const stored = (preferredOrganizationId?.trim() || null) ?? readActiveOrganizationId()
-  const def = organizations.find((o) => o.is_default) ?? organizations[0]
-  return (stored && organizations.some((o) => o.id === stored) ? stored : null) ?? def?.id ?? null
+  return resolveActiveOrganizationId({
+    rows: organizations,
+    currentId: preferredOrganizationId ?? null,
+    currentName: currentName ?? null,
+    storedId: preferredOrganizationId ?? readActiveOrganizationId(),
+  })
 }
 
 /** Stable header label from bootstrap + preferred org (cookie / localStorage). */
@@ -20,7 +24,11 @@ export function organizationLabelFromBootstrap(
   preferredOrganizationId?: string | null,
   fallbackName?: string | null
 ): string {
-  const id = pickActiveOrganizationIdFromBootstrap(organizations, preferredOrganizationId)
+  const id = pickActiveOrganizationIdFromBootstrap(
+    organizations,
+    preferredOrganizationId,
+    fallbackName
+  )
   const name = organizations.find((o) => o.id === id)?.name?.trim()
   return name || fallbackName?.trim() || "Business"
 }
@@ -28,7 +36,8 @@ export function organizationLabelFromBootstrap(
 /** Workspace fields derived from bootstrap — used for SSR + session-cache first paint. */
 export function workspaceSeedFromBootstrap(
   bootstrap: DashboardMainBootstrap,
-  preferredOrganizationId?: string | null
+  preferredOrganizationId?: string | null,
+  currentName?: string | null
 ): {
   organizations: Organization[]
   phoneLines: DashboardBusinessNumber[]
@@ -37,7 +46,8 @@ export function workspaceSeedFromBootstrap(
 } {
   const activeOrganizationId = pickActiveOrganizationIdFromBootstrap(
     bootstrap.organizations,
-    preferredOrganizationId
+    preferredOrganizationId,
+    currentName
   )
   const phoneLines = filterPhoneLinesForOrganization(bootstrap.phoneLines, activeOrganizationId)
   return {

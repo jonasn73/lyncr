@@ -118,8 +118,12 @@ export function DashboardWorkspaceProvider({
   paintSeeds?: DashboardPaintSeeds | null
 }) {
   const bootstrapSeed = resolveWorkspaceBootstrapSeed(initialBootstrap)
+  const paintOrgId = paintSeeds?.workspace?.organizationId?.trim() || null
+  const paintOrgIsReal = Boolean(paintOrgId && !paintOrgId.startsWith("__"))
+  const paintShopName = paintSeeds?.workspace?.name?.trim() || null
+  const preferredOrgId = paintOrgIsReal ? paintOrgId : initialActiveOrganizationId
   const workspaceSeed = bootstrapSeed
-    ? workspaceSeedFromBootstrap(bootstrapSeed, initialActiveOrganizationId)
+    ? workspaceSeedFromBootstrap(bootstrapSeed, preferredOrgId, paintShopName)
     : null
   // Cookie chrome only for render/SSR — session upgrades in useLayoutEffect below (#418).
   const linesPaint = paintSeeds?.lines ?? null
@@ -300,7 +304,7 @@ export function DashboardWorkspaceProvider({
     const orgId = paintedIsReal ? paintedOrg : readActiveOrganizationId()
     const boot = readDashboardBootstrapCache()
     if (boot) {
-      const seed = workspaceSeedFromBootstrap(boot, orgId)
+      const seed = workspaceSeedFromBootstrap(boot, orgId, paintSeeds?.workspace?.name ?? null)
       hydrateWorkspaceFromBootstrap(seed)
       return
     }
@@ -317,7 +321,7 @@ export function DashboardWorkspaceProvider({
     setBusinessNumbers(cached.numbers)
     setBusinessNumbersLoading(false)
     if (orgId) setActiveOrganizationIdState(orgId)
-  }, [workspaceSeed, hydrateWorkspaceFromBootstrap])
+  }, [workspaceSeed, hydrateWorkspaceFromBootstrap, paintSeeds?.workspace?.name])
 
   useEffect(() => {
     if (workspaceSeed) return

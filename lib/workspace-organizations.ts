@@ -153,13 +153,14 @@ export function resolveActiveOrganizationId(opts: {
   const currentName = opts.currentName?.trim() || null
   // Cookie / localStorage — often the default shop, so it must not win over the chip.
   const storedId = opts.storedId?.trim() || null
-  // Stay on the open shop if that id is still in the list.
-  if (currentId && rows.some((o) => o.id === currentId)) return currentId
-  // Paint-seed used "__paint-seed__" — match Fresh Auto by name, not Key Squad by default.
+  const currentRow = currentId ? rows.find((o) => o.id === currentId) : undefined
+  // Cookie can still hold Key Squad while the chip already says Fresh Auto — stay on the chip.
   if (currentName) {
     const byName = rows.find((o) => o.name === currentName)
-    if (byName) return byName.id
+    if (byName && (!currentRow || currentRow.name !== currentName)) return byName.id
   }
+  // Stay on the open shop if that id is still in the list and the chip agrees (or has no name).
+  if (currentRow) return currentRow.id
   // First visit / no chip yet — honor the saved shop.
   if (storedId && rows.some((o) => o.id === storedId)) return storedId
   // Last resort: default shop, else the first row.
