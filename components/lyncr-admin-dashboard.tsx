@@ -576,7 +576,7 @@ export function LyncrAdminDashboard({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{pageSubtitle}</p>
+          <p className="mt-0.5 hidden text-sm text-slate-500 md:block">{pageSubtitle}</p>
         </div>
         <Button
           type="button"

@@ -334,7 +334,6 @@ export function AdminChrome({
   const [moreOpen, setMoreOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
-  const pageLabel = NAV.find((n) => n.match(pathname))?.label ?? "Admin"
   const supportCount = useAdminSupportPulse()
 
   // Close overflow sheet when the route changes (e.g. user tapped another bottom tab).
@@ -386,7 +385,8 @@ export function AdminChrome({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Headphones className="hidden h-4 w-4 text-violet-300 sm:block" aria-hidden />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-100">{pageLabel}</p>
+              {/* Page name lives in the big heading below — don’t repeat “Home” here. */}
+              <p className="truncate text-sm font-semibold text-slate-100">Lyncr Admin</p>
               <p className="truncate text-[11px] text-slate-500 sm:hidden">{userName}</p>
             </div>
           </div>
