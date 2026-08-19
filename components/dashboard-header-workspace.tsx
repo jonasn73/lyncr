@@ -55,6 +55,7 @@ function HeaderOrganizationsFromData({
     <OrganizationSwitcher
       seedOrganizations={organizations}
       preferredActiveId={activeOrganizationId}
+      sessionBusinessName={sessionBusinessName}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -96,6 +97,7 @@ function HeaderOrganizationsFromMainBootstrap({
     <OrganizationSwitcher
       seedOrganizations={bootstrap.organizations}
       preferredActiveId={activeOrganizationId}
+      sessionBusinessName={sessionBusinessName}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -137,6 +139,7 @@ function HeaderOrganizationsFromStream({
     <OrganizationSwitcher
       seedOrganizations={organizations}
       preferredActiveId={activeOrganizationId}
+      sessionBusinessName={sessionBusinessName}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}
@@ -170,6 +173,7 @@ function HeaderOrganizationsFromWorkspace({ sessionBusinessName }: { sessionBusi
     <OrganizationSwitcher
       seedOrganizations={organizations}
       preferredActiveId={activeOrganizationId}
+      sessionBusinessName={sessionBusinessName}
       skipInitialFetch
       onOrganizationsLoaded={setOrganizations}
       onOrganizationChange={handleOrganizationChange}

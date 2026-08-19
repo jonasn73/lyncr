@@ -1,5 +1,6 @@
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import {
   pickPreferredCustomerLine,
   sortBusinessLinesForDisplay,
@@ -12,7 +13,8 @@ export function filterPhoneLinesForOrganization(
   organizationId: string | null | undefined
 ): DashboardBusinessNumber[] {
   const orgId = organizationId?.trim()
-  if (!orgId || orgId.startsWith("legacy-")) return lines
+  // Paint-seed / legacy stubs are not real workspace ids — keep painted lines on screen.
+  if (!orgId || isWorkspaceOrgStubId(orgId)) return lines
   return lines.filter((line) => line.organization_id === orgId)
 }
 

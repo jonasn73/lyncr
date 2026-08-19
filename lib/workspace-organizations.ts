@@ -117,7 +117,8 @@ export function notifyWorkspaceDataChanged(detail?: {
 /** Append ?organization_id= when a workspace is selected (for dashboard API fetches). */
 export function organizationQueryString(organizationId: string | null | undefined): string {
   const id = organizationId?.trim()
-  if (!id || id.startsWith("legacy-")) return ""
+  // Paint-seed / legacy stubs are not Neon ids — asking the API for them returned no lines.
+  if (!id || isWorkspaceOrgStubId(id)) return ""
   return `?organization_id=${encodeURIComponent(id)}`
 }
 

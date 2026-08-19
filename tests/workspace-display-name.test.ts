@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest"
 import {
   isWorkspaceOrgStubId,
   normalizeWorkspaceDisplayName,
+  organizationQueryString,
   resolveActiveOrganizationId,
 } from "@/lib/workspace-organizations"
+import { filterPhoneLinesForOrganization } from "@/lib/workspace-phone-lines"
 
 describe("normalizeWorkspaceDisplayName", () => {
   it("fixes Key Squad 5o2 letter-o typo to digit zero", () => {
@@ -69,5 +71,29 @@ describe("isWorkspaceOrgStubId", () => {
     expect(isWorkspaceOrgStubId("legacy-user-1")).toBe(true)
     expect(isWorkspaceOrgStubId(null)).toBe(false)
     expect(isWorkspaceOrgStubId("a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(false)
+  })
+})
+
+describe("organizationQueryString", () => {
+  it("omits paint-seed and legacy stubs so /api/numbers/mine is not asked for a fake id", () => {
+    expect(organizationQueryString("__paint-seed__")).toBe("")
+    expect(organizationQueryString("legacy-user-1")).toBe("")
+    expect(organizationQueryString("a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(
+      "?organization_id=a3841ad1-2fb8-4482-a8d7-db7094cd95ee"
+    )
+  })
+})
+
+describe("filterPhoneLinesForOrganization", () => {
+  const keySquadLine = {
+    number: "+15023471148",
+    status: "active",
+    organization_id: "ks",
+  }
+
+  it("keeps painted lines when the active org id is still a paint-seed stub", () => {
+    expect(filterPhoneLinesForOrganization([keySquadLine], "__paint-seed__")).toEqual([
+      keySquadLine,
+    ])
   })
 })

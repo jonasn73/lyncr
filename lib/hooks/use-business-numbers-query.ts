@@ -8,7 +8,7 @@ import {
 } from "@/lib/dashboard-routing-utils"
 import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
 import type { PhoneNumberRoutingSummary } from "@/lib/types"
-import { organizationQueryString } from "@/lib/workspace-organizations"
+import { isWorkspaceOrgStubId, organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -61,8 +61,11 @@ export function useBusinessNumbersQuery(
   activeOrganizationId: string | null,
   options?: { skipInitialFetch?: boolean }
 ) {
+  const cacheOrgId = isWorkspaceOrgStubId(activeOrganizationId)
+    ? "default"
+    : (activeOrganizationId ?? "default")
   const url = businessNumbersMineUrl(activeOrganizationId)
-  const cacheKey = persistedCacheKey("business-numbers", activeOrganizationId ?? "default")
+  const cacheKey = persistedCacheKey("business-numbers", cacheOrgId)
 
   const fallbackData = useMemo(
     () => readPersistedCache<BusinessNumbersQueryResult>(cacheKey),
@@ -106,8 +109,11 @@ export function useBusinessNumbersQuery(
 
 /** Suspense-friendly variant — throws the SWR promise until phone lines resolve. */
 export function useBusinessNumbersSuspenseQuery(activeOrganizationId: string | null) {
+  const cacheOrgId = isWorkspaceOrgStubId(activeOrganizationId)
+    ? "default"
+    : (activeOrganizationId ?? "default")
   const url = businessNumbersMineUrl(activeOrganizationId)
-  const cacheKey = persistedCacheKey("business-numbers", activeOrganizationId ?? "default")
+  const cacheKey = persistedCacheKey("business-numbers", cacheOrgId)
 
   const fallbackData = useMemo(
     () => readPersistedCache<BusinessNumbersQueryResult>(cacheKey),

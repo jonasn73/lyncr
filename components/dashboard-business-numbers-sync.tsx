@@ -9,6 +9,7 @@ import {
   useBusinessNumbersQuery,
 } from "@/lib/hooks/use-business-numbers-query"
 import { businessNumbersMatch, type DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
 function numbersUnchanged(a: DashboardBusinessNumber[], b: DashboardBusinessNumber[]): boolean {
   if (a === b) return true
@@ -39,10 +40,17 @@ export function DashboardBusinessNumbersSync() {
     if (hasBootstrap) return
     // Keep painted lines while a refetch is in flight — [] would blank Live & Connected.
     if (isLoading && numbers.length === 0) return
+    if (
+      numbers.length === 0 &&
+      prevNumbersRef.current.length > 0 &&
+      isWorkspaceOrgStubId(activeOrganizationId)
+    ) {
+      return
+    }
     if (numbersUnchanged(prevNumbersRef.current, numbers)) return
     prevNumbersRef.current = numbers
     setBusinessNumbers(numbers)
-  }, [hasBootstrap, isLoading, numbers, setBusinessNumbers])
+  }, [hasBootstrap, isLoading, numbers, activeOrganizationId, setBusinessNumbers])
 
   useEffect(() => {
     if (hasBootstrap) {

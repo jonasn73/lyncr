@@ -49,7 +49,7 @@ export function DashboardPage() {
 
   const receptionistsUrl = useCallback(() => {
     const base = "/api/receptionists"
-    if (activeOrganizationId && !activeOrganizationId.startsWith("legacy-")) {
+    if (activeOrganizationId && !isWorkspaceOrgStubId(activeOrganizationId)) {
       return `${base}?organization_id=${encodeURIComponent(activeOrganizationId)}`
     }
     return base
