@@ -299,6 +299,38 @@ describe("buildLatestCustomerActions", () => {
     expect(latest[0]?.bookFormAddressLine1).toBe("5010 Roy William Pl")
   })
 
+  it("keeps book_form when the same phone also texted (so Messages can show filled)", () => {
+    const latest = buildLatestCustomerActions({
+      nowMs: NOW,
+      messages: [
+        sms({
+          id: "i-isaac",
+          direction: "inbound",
+          body: "when could you come",
+          created_at: "2026-07-27T19:40:00.000Z",
+          customer_phone: "+15028762058",
+          from_number: "+15028762058",
+        }),
+      ],
+      bookForms: [
+        {
+          id: "lead-isaac",
+          customerPhone: "+15028762058",
+          customerName: "Isaac Kontcho",
+          at: "2026-07-27T12:00:00.000Z",
+          urgency: "asap",
+          availabilityLabel: "ASAP / emergency",
+          preview: "Keys lost · 2011 BMW 128i",
+        },
+      ],
+      limit: 6,
+    })
+    expect(latest.some((row) => row.event === "replied")).toBe(true)
+    expect(latest.some((row) => row.event === "book_form" && row.bookFormLeadId === "lead-isaac")).toBe(
+      true
+    )
+  })
+
   it("surfaces customer_paid from recent wallet settles", () => {
     const latest = buildLatestCustomerActions({
       nowMs: NOW,

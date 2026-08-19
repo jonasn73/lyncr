@@ -413,8 +413,7 @@ export function buildLatestCustomerActions(params: {
     if (atMs && atMs < bookFormCutoff) continue
     const phone = (form.customerPhone || "").trim()
     const key = phoneKey(phone)
-    // Prefer unreplied SMS for the same phone.
-    if (key && phonesWithReply.has(key)) continue
+    // Keep the form even if they also texted — Messages needs “filled vs not”.
     if (key && phonesWithBookForm.has(key)) continue
     if (key) phonesWithBookForm.add(key)
 
@@ -509,7 +508,17 @@ export function buildLatestCustomerActions(params: {
     return (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0)
   })
 
-  return out.slice(0, limit)
+  const ranked = out.slice()
+  const capped = ranked.slice(0, limit)
+  const kept = new Set(capped.map((row) => row.id))
+  // Don’t drop a filled form just because six other texts filled the cap.
+  for (const row of ranked) {
+    if (row.event === "book_form" && !kept.has(row.id)) {
+      capped.push(row)
+      kept.add(row.id)
+    }
+  }
+  return capped
 }
 
 /** Drop stale session-cache rows that used the old outbound “sent” shape. */

@@ -63,7 +63,7 @@ import {
 } from "@/lib/owner-collected"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
-import { pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
+import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
@@ -2375,6 +2375,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       </>
     ) : null
 
+  // Messages CRM chip with no saved row — don’t say the whole shop is empty.
+  const searchingPhone = looksLikePhoneQuery(debounced || q)
+
   return (
     // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
@@ -2443,18 +2446,28 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             ) : rows.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
                 <p className="text-sm font-medium text-zinc-300">
-                  {filter === "book_forms" ? "No open book-form leads" : "No customers yet"}
+                  {filter === "book_forms"
+                    ? "No open book-form leads"
+                    : searchingPhone
+                      ? "This number isn’t saved yet"
+                      : "No customers yet"}
                 </p>
                 <p className="max-w-xs text-xs text-zinc-500">
                   {filter === "book_forms"
                     ? "When a customer submits your /book link, they show up here."
-                    : "Save a caller from Activity or intake — they’ll show up here."}
+                    : searchingPhone
+                      ? "They show up here after a book form, intake, or Activity save."
+                      : "Save a caller from Activity or intake — they’ll show up here."}
                 </p>
                 <Link
-                  href="/dashboard/activity"
+                  href={
+                    searchingPhone && (debounced || q).trim()
+                      ? `/dashboard/messages?phone=${encodeURIComponent((debounced || q).trim())}`
+                      : "/dashboard/activity"
+                  }
                   className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
                 >
-                  Open Activity
+                  {searchingPhone ? "Back to texts" : "Open Activity"}
                 </Link>
               </div>
             ) : (

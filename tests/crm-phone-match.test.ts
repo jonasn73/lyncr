@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
+import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
 
 describe("pickCrmCustomerIdForPhone", () => {
   it("opens the matching customer, not a hunt through the list", () => {
@@ -18,5 +18,12 @@ describe("pickCrmCustomerIdForPhone", () => {
     expect(
       pickCrmCustomerIdForPhone([{ id: "a", phone_e164: "+15025550112" }], "+15028762058")
     ).toBeNull()
+  })
+})
+
+describe("looksLikePhoneQuery", () => {
+  it("treats a Messages deep-link phone as a phone search", () => {
+    expect(looksLikePhoneQuery("+15026018134")).toBe(true)
+    expect(looksLikePhoneQuery("Isaac")).toBe(false)
   })
 })

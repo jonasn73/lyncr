@@ -39,4 +39,16 @@ describe("findLatestBookFormForPhone", () => {
   it("returns null when this phone has no leftover booking", () => {
     expect(findLatestBookFormForPhone([bookRow("+15025550112", "2026-08-18T18:00:00.000Z")], "+15028762058")).toBeNull()
   })
+
+  it("still finds the form when the same phone also has an unreplied text", () => {
+    const replied: LatestCustomerAction = {
+      ...bookRow("+15028762058", "2026-08-18T18:00:00.000Z"),
+      id: "replied-isaac",
+      event: "replied",
+      kind: "other",
+      headline: "Isaac replied",
+    }
+    const form = bookRow("+15028762058", "2026-08-18T12:00:00.000Z")
+    expect(findLatestBookFormForPhone([replied, form], "+15028762058")?.id).toBe(form.id)
+  })
 })

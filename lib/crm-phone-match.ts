@@ -8,6 +8,11 @@ export function crmPhoneMatchKey(phone: string): string {
   return String(phone || "").replace(/\D/g, "").slice(-10)
 }
 
+/** True when CRM search is a phone (Messages deep-link), not a name. */
+export function looksLikePhoneQuery(q: string): boolean {
+  return crmPhoneMatchKey(q).length >= 10
+}
+
 /** Open this customer’s card (not a search list) when ?phone= matches a row. */
 export function pickCrmCustomerIdForPhone(
   rows: ReadonlyArray<{ id: string; phone_e164?: string | null }>,

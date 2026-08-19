@@ -26,7 +26,7 @@ import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
-import { markLatestReplySeen, excludeReadRepliesFromLatest } from "@/lib/latest-seen"
+import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { MessagesThreadListSkeleton } from "@/components/workspace-content-skeletons"
@@ -174,10 +174,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   // Leftover book form for this thread (banner + chips — no Lines tap required).
   const threadBookForm = useMemo(
-    () =>
-      selectedPhone
-        ? findLatestBookFormForPhone(excludeReadRepliesFromLatest(latestItems), selectedPhone)
-        : null,
+    () => (selectedPhone ? findLatestBookFormForPhone(latestItems, selectedPhone) : null),
     [latestItems, selectedPhone]
   )
   const [draft, setDraft] = useState("")
@@ -189,6 +186,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [aiDrafts, setAiDrafts] = useState<string[]>([])
   // Optional CRM display name for friendlier chip copy (loaded when a thread opens).
   const [customerName, setCustomerName] = useState<string | null>(null)
+  // True when CRM already has a row for this phone (even with no display name).
+  const [customerSaved, setCustomerSaved] = useState(false)
+  // True after /api/customers returns so we don’t flash “no form” on a saved person.
+  const [customerLookupDone, setCustomerLookupDone] = useState(false)
   // Saved shortcuts + status copy from Settings → SMS templates (fill composer, never auto-send).
   const [customSnippets, setCustomSnippets] = useState<OwnerSmsSnippet[]>([])
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
@@ -525,6 +526,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     setAiDrafts([])
     setSuggestLoading(false)
     setCustomerName(null)
+    setCustomerSaved(false)
+    setCustomerLookupDone(false)
   }, [selectedPhone])
 
   // Best-effort CRM name for chip greetings (non-blocking).
@@ -536,10 +539,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       .then((r) => (r.ok ? r.json() : null))
       .then((json: { customers?: Array<{ display_name?: string | null }> } | null) => {
         if (cancelled) return
-        const name = String(json?.customers?.[0]?.display_name ?? "").trim()
+        const rows = Array.isArray(json?.customers) ? json!.customers! : []
+        setCustomerSaved(rows.length > 0)
+        const name = String(rows[0]?.display_name ?? "").trim()
         setCustomerName(name || null)
+        setCustomerLookupDone(true)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setCustomerLookupDone(true)
+      })
     return () => {
       cancelled = true
     }
@@ -629,6 +637,16 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     : ""
 
   const showBookingDetailsBanner = Boolean(isActive && selectedPhone && threadBookForm)
+  // Texts-only thread — don’t send the owner to empty CRM.
+  const showNoFormYetCue = Boolean(
+    isActive &&
+      selectedPhone &&
+      !threadBookForm &&
+      customerLookupDone &&
+      !customerSaved &&
+      !customerName
+  )
+  const showCrmChip = Boolean(threadBookForm || customerSaved || customerName)
 
   /** Slide the existing Booking request sheet over this thread. */
   const openBookingDetailsFromBanner = useCallback(() => {
@@ -904,6 +922,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 </div>
                 {/* Journey shortcuts — CRM always; Collect when an open job matches this phone. */}
                 <div className="flex shrink-0 items-center gap-1.5">
+                {showCrmChip ? (
                   <Link
                     href={crmHrefForThread}
                     className="inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
@@ -912,6 +931,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <UserRound className="h-3.5 w-3.5" aria-hidden />
                     CRM
                   </Link>
+                ) : null}
                   {threadHasUnpaidJob ? (
                     <button
                       type="button"
@@ -945,6 +965,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <ClipboardList className="h-3.5 w-3.5" />
                     View booking details
                   </button>
+                </div>
+              ) : showNoFormYetCue ? (
+                <div className="shrink-0 border-b border-border/60 bg-muted/20 px-3 py-2.5 md:px-4">
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    No booking form yet. Reply here — or they can use the book link you sent.
+                  </p>
                 </div>
               ) : null}
 
