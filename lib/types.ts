@@ -642,8 +642,8 @@ export interface AdminUserDetail {
 export interface LyncrAdminDirectoryRow {
   user_id: string
   email: string
-  /** owner | receptionist — from users.account_role (040). */
-  account_role: "owner" | "receptionist"
+  /** owner | receptionist | field_tech — from users.account_role. */
+  account_role: "owner" | "receptionist" | "field_tech"
   /**
    * Computed classification for the directory tabs/badges:
    *   RECEPTIONIST — linked to a receptionists row (portal_user_id)

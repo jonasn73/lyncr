@@ -14218,9 +14218,12 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
   const mapRow = (row: Record<string, unknown>) => ({
     user_id: String(row.user_id),
     email: String(row.email ?? ""),
-    account_role: (String(row.account_role ?? "owner") === "receptionist" ? "receptionist" : "owner") as
-      | "owner"
-      | "receptionist",
+    account_role: ((): "owner" | "receptionist" | "field_tech" => {
+      const raw = String(row.account_role ?? "owner")
+      if (raw === "receptionist") return "receptionist"
+      if (raw === "field_tech") return "field_tech"
+      return "owner"
+    })(),
     role: ((): "OWNER" | "RECEPTIONIST" | "ADMIN" => {
       const r = String(row.role ?? "").toUpperCase()
       return r === "RECEPTIONIST" || r === "OWNER" ? r : "ADMIN"
@@ -14244,6 +14247,7 @@ export async function listLyncrAdminDirectory(): Promise<LyncrAdminDirectoryRow[
         coalesce(u.account_role, 'owner') AS account_role,
         coalesce(u.business_name, '') AS business_name,
         CASE
+          WHEN coalesce(u.account_role, '') = 'field_tech' THEN 'ADMIN'
           WHEN coalesce(u.account_role, '') = 'receptionist'
                OR EXISTS (SELECT 1 FROM receptionists rr WHERE rr.portal_user_id = u.id)
             THEN 'RECEPTIONIST'

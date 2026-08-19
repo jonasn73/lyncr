@@ -72,6 +72,15 @@ function formatUsd(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
 }
 
+/** True for a real shop login — not techs, receptionists, or the Lyncr admin account. */
+function isShopOwnerRow(row: LyncrAdminDirectoryRow): boolean {
+  const email = row.email.trim().toLowerCase()
+  if (row.account_role === "field_tech" || row.account_role === "receptionist") return false
+  if (email.endsWith("@tech.lyncr.app")) return false
+  if (email === "admin@lyncr.app") return false
+  return row.role === "OWNER"
+}
+
 function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd: number; balanceLabel: string }) {
   if (!Number.isFinite(balanceUsd) || balanceUsd >= ROUTING_POOL_LOW_BALANCE_USD) return null
   const display = balanceLabel || formatUsd(balanceUsd)
@@ -505,7 +514,12 @@ export function LyncrAdminDashboard({
         u.user_id.toLowerCase().includes(q)
       const matchesTier = tierFilter === "all" || u.subscription_tier === tierFilter
       const matchesStatus = statusFilter === "all" || u.account_status === statusFilter
-      const matchesRole = roleTab === "all" || u.role === roleTab
+      const matchesRole =
+        roleTab === "all"
+          ? true
+          : roleTab === "OWNER"
+            ? isShopOwnerRow(u)
+            : u.role === roleTab
       return matchesText && matchesTier && matchesStatus && matchesRole
     })
     return [...rows].sort((a, b) => {
@@ -521,7 +535,7 @@ export function LyncrAdminDashboard({
     let receptionists = 0
     for (const u of users) {
       if (u.role === "RECEPTIONIST") receptionists += 1
-      else if (u.role === "OWNER") owners += 1
+      else if (isShopOwnerRow(u)) owners += 1
     }
     return { all: users.length, owner: owners, receptionist: receptionists }
   }, [users])
@@ -531,14 +545,14 @@ export function LyncrAdminDashboard({
 
   // Shops waiting for you to Approve or Deny.
   const pendingOwners = useMemo(
-    () => users.filter((u) => u.role === "OWNER" && u.account_status === "pending"),
+    () => users.filter((u) => isShopOwnerRow(u) && u.account_status === "pending"),
     [users]
   )
 
-  // Short “find a shop” list on Home (owners only).
+  // Short “find a shop” list on Home (real owner shops only).
   const homeShopMatches = useMemo(() => {
     const q = homeShopQuery.trim().toLowerCase()
-    const owners = users.filter((u) => u.role === "OWNER")
+    const owners = users.filter((u) => isShopOwnerRow(u))
     const matched = !q
       ? owners
       : owners.filter(
