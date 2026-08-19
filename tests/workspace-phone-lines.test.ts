@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest"
+import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
+import {
+  preferPhoneLinesForWorkspace,
+  scopeCallsToShopLines,
+} from "@/lib/workspace-phone-lines"
+
+describe("preferPhoneLinesForWorkspace", () => {
+  it("uses bootstrap when it has more DIDs than the painted chrome subset", () => {
+    const live = [{ number: "+15023471148", status: "active" }]
+    const boot = [
+      { number: "+15023471148", status: "active" },
+      { number: "+15025571219", status: "active" },
+    ]
+    expect(preferPhoneLinesForWorkspace(live, boot)).toEqual(boot)
+  })
+})
+
+describe("scopeCallsToShopLines", () => {
+  const amber = { number: "+15023471148" }
+  const main = { number: "+15025571219" }
+  const calls = [
+    { id: "1", targetLineE164: "+15025571219" },
+    { id: "2", targetLineE164: "+15025758166" },
+  ]
+
+  it("keeps sister-line history when every shop DID is known", () => {
+    const scoped = scopeCallsToShopLines(calls, [amber, main])
+    expect(scoped.map((c) => c.id)).toEqual(["1"])
+  })
+
+  it("does not hide history when only the painted Main Line is known and it matches nothing", () => {
+    const scoped = scopeCallsToShopLines(calls, [amber])
+    expect(scoped).toEqual(calls)
+  })
+})
+
+describe("operationsPaintMatchesOrg", () => {
+  const seed = { organizationId: "__paint-seed__", calls: [], fetchedAt: 1 }
+
+  it("does not treat a paint-seed stub vs a real shop id as a different shop", () => {
+    expect(operationsPaintMatchesOrg(seed, "a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(true)
+  })
+})

@@ -10,6 +10,7 @@ import {
   readPaintSeedCookieValue,
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 
 export const OPERATIONS_PAINT_SCOPE = "operations-calls"
@@ -87,6 +88,8 @@ export function operationsPaintMatchesOrg(
   const activeOrg = organizationId ?? null
   // Missing either side → allow paint only when both are null (legacy / single-shop).
   if (seedOrg == null && activeOrg == null) return true
+  // Paint-seed stub vs real uuid is the same shop — do not wipe Activity.
+  if (isWorkspaceOrgStubId(seedOrg) || isWorkspaceOrgStubId(activeOrg)) return true
   return seedOrg === activeOrg
 }
 

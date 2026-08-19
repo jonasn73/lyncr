@@ -37,7 +37,8 @@ import {
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import type { CallActivityContext } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
-import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
+import { useWorkspacePhoneLines } from "@/lib/hooks/use-workspace-phone-lines"
+import { scopeCallsToShopLines } from "@/lib/workspace-phone-lines"
 import {
   DrawerStepHeader,
   DrawerScrollBody,
@@ -1698,23 +1699,19 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   filter,
   onFilterChange,
 }: ActivityBodyProps) {
-  const { activeLine, businessNumbers, businessNumbersLoading } = useDashboardWorkspace()
-  const waitingForLines = businessNumbersLoading && businessNumbers.length === 0 && !activeLine
+  const { activeLine, businessNumbersLoading } = useDashboardWorkspace()
+  const shopLines = useWorkspacePhoneLines()
+  const waitingForLines = businessNumbersLoading && shopLines.length === 0 && !activeLine
 
-  // Scope by EVERY line in the active workspace — not only the selected DID.
-  // Filtering by activeLine alone hid sister-line calls (e.g. main DID vs cell DID).
-  const scopedCalls = useMemo(() => {
-    if (businessNumbers.length > 0) {
-      return calls.filter((c) =>
-        businessNumbers.some((n) => businessNumbersMatch(c.targetLineE164, n.number))
-      )
-    }
-    if (activeLine) {
-      return calls.filter((c) => businessNumbersMatch(c.targetLineE164, activeLine))
-    }
-    if (businessNumbersLoading) return []
-    return calls
-  }, [calls, businessNumbers, businessNumbersLoading, activeLine])
+  // Every DID on this shop — not only the painted Main Line (Amber hid Key Squad history).
+  const scopedCalls = useMemo(
+    () =>
+      scopeCallsToShopLines(calls, shopLines, {
+        activeLine,
+        linesLoading: businessNumbersLoading,
+      }),
+    [calls, shopLines, activeLine, businessNumbersLoading]
+  )
 
   const missedCount = useMemo(
     () => scopedCalls.filter((c) => isMissedActivityCallToday(c)).length,
@@ -1812,16 +1809,16 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
 })
 
 function useLineLabelMap(): Map<string, string> {
-  const { businessNumbers } = useDashboardWorkspace()
+  const shopLines = useWorkspacePhoneLines()
 
   return useMemo(() => {
-    if (businessNumbers.length === 0) return new Map<string, string>()
-    const entries: LineLabelEntry[] = businessNumbers.map((n) => ({
+    if (shopLines.length === 0) return new Map<string, string>()
+    const entries: LineLabelEntry[] = shopLines.map((n) => ({
       number: n.number,
       label: n.label ?? "Business Line",
     }))
     return buildBusinessLineLabelMap(entries)
-  }, [businessNumbers])
+  }, [shopLines])
 }
 
 const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
