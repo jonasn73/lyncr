@@ -25,6 +25,7 @@ import {
   writeLinesChromeCache,
 } from "@/lib/lines-chrome-cache"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -152,7 +153,17 @@ export function DashboardPage() {
   const prevOrganizationForRoutingRef = useRef<string | null>(activeOrganizationId)
 
   useEffect(() => {
-    if (prevOrganizationForRoutingRef.current === activeOrganizationId) return
+    const prev = prevOrganizationForRoutingRef.current
+    if (prev === activeOrganizationId) return
+    // Paint-seed stub → real shop id is not a shop switch. Keep Who rings / roster.
+    if (
+      isWorkspaceOrgStubId(prev) &&
+      activeOrganizationId &&
+      !isWorkspaceOrgStubId(activeOrganizationId)
+    ) {
+      prevOrganizationForRoutingRef.current = activeOrganizationId
+      return
+    }
     prevOrganizationForRoutingRef.current = activeOrganizationId
 
     const nextLine = primaryPhoneLineForOrganization(routedNumbers, activeOrganizationId, activeLine)

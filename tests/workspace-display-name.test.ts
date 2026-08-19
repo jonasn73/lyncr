@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  isWorkspaceOrgStubId,
   normalizeWorkspaceDisplayName,
   resolveActiveOrganizationId,
 } from "@/lib/workspace-organizations"
@@ -48,5 +49,23 @@ describe("resolveActiveOrganizationId", () => {
         storedId: "fa",
       })
     ).toBe("fa")
+  })
+})
+
+describe("isWorkspaceOrgStubId", () => {
+  it("treats paint-seed and legacy ids as stubs, not empty or real uuids", () => {
+    expect(isWorkspaceOrgStubId("__paint-seed__")).toBe(true)
+    expect(isWorkspaceOrgStubId("legacy-user-1")).toBe(true)
+    expect(isWorkspaceOrgStubId(null)).toBe(false)
+    expect(isWorkspaceOrgStubId("a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(false)
+  })
+})
+
+describe("isWorkspaceOrgStubId", () => {
+  it("treats paint-seed and legacy ids as stubs, not empty or real uuids", () => {
+    expect(isWorkspaceOrgStubId("__paint-seed__")).toBe(true)
+    expect(isWorkspaceOrgStubId("legacy-user-1")).toBe(true)
+    expect(isWorkspaceOrgStubId(null)).toBe(false)
+    expect(isWorkspaceOrgStubId("a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(false)
   })
 })

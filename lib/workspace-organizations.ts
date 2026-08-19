@@ -121,6 +121,13 @@ export function organizationQueryString(organizationId: string | null | undefine
   return `?organization_id=${encodeURIComponent(id)}`
 }
 
+/** True when the id is a paint-seed stub, not a real Neon workspace id. */
+export function isWorkspaceOrgStubId(id: string | null | undefined): boolean {
+  const value = id?.trim() || ""
+  if (!value) return false
+  return value.startsWith("__") || value.startsWith("legacy-")
+}
+
 /** One shop row we need when deciding which workspace stays selected. */
 export type OrganizationPickRow = {
   id: string

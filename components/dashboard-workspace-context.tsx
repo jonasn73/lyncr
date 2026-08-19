@@ -29,6 +29,7 @@ import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
 import type { Organization } from "@/lib/types"
 import {
   ensureActiveOrganizationCookie,
+  isWorkspaceOrgStubId,
   readActiveOrganizationId,
   writeActiveOrganizationId,
 } from "@/lib/workspace-organizations"
@@ -173,12 +174,35 @@ export function DashboardWorkspaceProvider({
   activeOrganizationIdRef.current = activeOrganizationId
 
   const setActiveOrganizationId = useCallback((id: string | null) => {
-    if (activeOrganizationIdRef.current === id) return
+    const prev = activeOrganizationIdRef.current
+    if (prev === id) return
+    // Update the ref now so a second call in this same tick (cookie event) is a no-op.
+    activeOrganizationIdRef.current = id
     writeActiveOrganizationId(id)
     const cached = readCachedBusinessNumbers(id)
-    setBusinessNumbers(cached?.numbers ?? [])
-    setActiveLine(null)
-    setBusinessNumbersLoading(cached === undefined)
+    // Paint-seed "__paint-seed__" → real shop id is the same shop. Keep lines on screen.
+    if (isWorkspaceOrgStubId(prev) && id) {
+      if (cached?.numbers?.length) {
+        setBusinessNumbers(cached.numbers)
+        setBusinessNumbersLoading(false)
+      }
+      setActiveOrganizationIdState(id)
+      return
+    }
+    if (cached?.numbers?.length) {
+      setBusinessNumbers(cached.numbers)
+      setBusinessNumbersLoading(false)
+      setActiveLine((prevLine) => {
+        if (prevLine && cached.numbers.some((n) => businessNumbersMatch(prevLine, n.number))) {
+          return prevLine
+        }
+        return cached.numbers[0]?.number ?? null
+      })
+    } else {
+      setBusinessNumbers([])
+      setActiveLine(null)
+      setBusinessNumbersLoading(true)
+    }
     setActiveOrganizationIdState(id)
   }, [])
 

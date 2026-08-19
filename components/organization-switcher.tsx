@@ -102,13 +102,14 @@ function isEditableWorkspace(org: Organization): boolean {
 
 function pickActiveOrganizationId(
   rows: Organization[],
-  preferredActiveId?: string | null
+  preferredActiveId?: string | null,
+  currentName?: string | null
 ): string | null {
   return resolveActiveOrganizationId({
     rows,
     currentId: preferredActiveId ?? null,
-    currentName: null,
-    storedId: preferredActiveId ?? null,
+    currentName: currentName ?? null,
+    storedId: preferredActiveId ?? readActiveOrganizationId(),
   })
 }
 
@@ -124,7 +125,7 @@ export function OrganizationSwitcher({
   const [organizations, setOrganizations] = useState<Organization[]>(() => seedOrganizations ?? [])
   const [activeId, setActiveId] = useState<string | null>(() =>
     seedOrganizations?.length
-      ? pickActiveOrganizationId(seedOrganizations, preferredActiveId)
+      ? pickActiveOrganizationId(seedOrganizations, preferredActiveId, sessionBusinessName)
       : null
   )
   const [loading, setLoading] = useState(() => !skipInitialFetch && (seedOrganizations?.length ?? 0) === 0)
@@ -149,12 +150,17 @@ export function OrganizationSwitcher({
   organizationsRef.current = organizations
   const activeIdRef = useRef(activeId)
   activeIdRef.current = activeId
+  const sessionBusinessNameRef = useRef(sessionBusinessName)
+  sessionBusinessNameRef.current = sessionBusinessName
 
   const applyOrganizations = useCallback((rows: Organization[], preferredActiveId?: string | null) => {
     setOrganizations(rows)
     onOrganizationsLoadedRef.current?.(rows)
     const prev = activeIdRef.current
-    const prevName = organizationsRef.current.find((o) => o.id === prev)?.name ?? null
+    const prevName =
+      organizationsRef.current.find((o) => o.id === prev)?.name ??
+      sessionBusinessNameRef.current ??
+      null
     const pick = resolveActiveOrganizationId({
       rows,
       currentId: prev,
@@ -198,18 +204,26 @@ export function OrganizationSwitcher({
   )
 
   useEffect(() => {
-    // Always reconcile with the server. A paint-seed of one shop (Fresh Auto) used to
-    // skip this fetch, so Key Squad never appeared in Switch business.
-    load({ silent: true })
+    // Paint-seed of one shop still needs this fetch so Switch business lists every shop.
+    // A full bootstrap list already has every shop — fetching again was wiping Lines for a frame.
+    const seedCount = seedOrganizations?.length ?? 0
+    if (!(skipInitialFetch && seedCount > 1)) {
+      load({ silent: true })
+    }
     loadServiceContext()
     const onChanged = () => {
       const id = readActiveOrganizationId()
+      if (id === activeIdRef.current) {
+        setActiveId(id)
+        return
+      }
       setActiveId(id)
+      activeIdRef.current = id
       onOrganizationChangeRef.current?.(id)
     }
     window.addEventListener("lyncr-organization-changed", onChanged)
     return () => window.removeEventListener("lyncr-organization-changed", onChanged)
-  }, [load, loadServiceContext])
+  }, [load, loadServiceContext, skipInitialFetch, seedOrganizations?.length])
 
   const active = organizations.find((o) => o.id === activeId) ?? organizations[0]
   const realWorkspaceCount = organizations.filter(isEditableWorkspace).length

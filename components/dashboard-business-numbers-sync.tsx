@@ -37,10 +37,12 @@ export function DashboardBusinessNumbersSync() {
 
   useEffect(() => {
     if (hasBootstrap) return
+    // Keep painted lines while a refetch is in flight — [] would blank Live & Connected.
+    if (isLoading && numbers.length === 0) return
     if (numbersUnchanged(prevNumbersRef.current, numbers)) return
     prevNumbersRef.current = numbers
     setBusinessNumbers(numbers)
-  }, [hasBootstrap, numbers, setBusinessNumbers])
+  }, [hasBootstrap, isLoading, numbers, setBusinessNumbers])
 
   useEffect(() => {
     if (hasBootstrap) {
