@@ -29,11 +29,31 @@ export function isAccountRoutingBlocked(status: string | null | undefined): bool
   return parsed === "suspended" || parsed === "pending" || parsed === "denied"
 }
 
-/** True when the owner may use Lines / onboarding / shop APIs. Flagged shops stay usable. */
+/** True when the owner may use Lines / onboarding / shop APIs. Flagged and suspended still log in; pending/denied wait. */
 export function isShopAccountUsable(status: string | null | undefined): boolean {
   const parsed = parseAccountStatus(status)
   if (!parsed) return true
-  return parsed === "active" || parsed === "flagged"
+  return parsed !== "pending" && parsed !== "denied"
+}
+
+/** JSON body when a pending/denied shop hits a shop API. */
+export function shopQueueLockPayload(status: string): {
+  error: string
+  account_status: string
+  code: "account_pending" | "account_denied"
+} {
+  if (status === "pending") {
+    return {
+      error: "This shop is waiting for approval.",
+      account_status: status,
+      code: "account_pending",
+    }
+  }
+  return {
+    error: "This shop was not approved.",
+    account_status: status,
+    code: "account_denied",
+  }
 }
 
 export function accountStatusLabel(status: string): string {

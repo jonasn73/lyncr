@@ -8,6 +8,7 @@ import {
 import { getSessionUser } from "@/lib/server-session-user"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { resolvePostAuthPath } from "@/lib/post-auth-redirect"
+import { getUserAccountStatus } from "@/lib/db"
 import { HomeClient } from "@/components/home-client"
 
 export const dynamic = "force-dynamic"
@@ -26,7 +27,13 @@ export default async function Home() {
   }
   const user = await getSessionUser()
   if (user) {
-    redirect(resolvePostAuthPath({ user, operator_access: isPlatformAdminUser(user) }))
+    redirect(
+      resolvePostAuthPath({
+        user,
+        operator_access: isPlatformAdminUser(user),
+        account_status: await getUserAccountStatus(user.id),
+      })
+    )
   }
   return <HomeClient />
 }

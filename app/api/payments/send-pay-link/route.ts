@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { rejectIfShopNotUsable } from "@/lib/admin-api-guard"
 import { getUser } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
@@ -34,6 +35,8 @@ type Body = {
 export async function POST(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const locked = await rejectIfShopNotUsable(userId)
+  if (locked) return locked
 
   const user = await getUser(userId)
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })

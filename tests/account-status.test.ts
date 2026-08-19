@@ -26,6 +26,7 @@ describe("signup approval status", () => {
     expect(isShopAccountUsable("denied")).toBe(false)
     expect(isShopAccountUsable("flagged")).toBe(true)
     expect(isShopAccountUsable("active")).toBe(true)
+    expect(isShopAccountUsable("suspended")).toBe(true)
   })
 
   it("sends pending and denied logins to the wait pages", () => {

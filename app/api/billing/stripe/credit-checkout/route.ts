@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { rejectIfShopNotUsable } from "@/lib/admin-api-guard"
 import { createLyncrCreditPackCheckout } from "@/lib/stripe-checkout"
 import { CREDIT_PACK_CENTS_USD } from "@/lib/billing-pricing"
 import { isStripeConfigured } from "@/lib/stripe-config"
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
+  const locked = await rejectIfShopNotUsable(userId)
+  if (locked) return locked
 
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 })
