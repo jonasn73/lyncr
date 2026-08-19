@@ -26,6 +26,7 @@ export default function LoginPage() {
           resolvePostAuthPath(
             {
               operator_access: ctx?.operator_access,
+              account_status: ctx?.account_status,
               user: {
                 email: "",
                 account_role: (ctx?.account_role as "owner" | "receptionist") ?? "owner",

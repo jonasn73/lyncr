@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     if (body.targetStatus !== undefined && !parseAccountStatus(String(body.targetStatus))) {
       return NextResponse.json(
-        { error: "targetStatus must be active, suspended, or flagged" },
+        { error: "targetStatus must be pending, active, flagged, suspended, or denied" },
         { status: 400 }
       )
     }

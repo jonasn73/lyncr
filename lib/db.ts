@@ -2028,6 +2028,8 @@ export async function createUser(params: {
   industry?: string
   password_hash: string
   account_role?: "owner" | "receptionist" | "field_tech"
+  /** Owner signup: pending until a platform admin Approves (TEST shops pass active). */
+  account_status?: string
 }): Promise<User> {
   const sql = getSql()
   const id = crypto.randomUUID()
@@ -2080,13 +2082,24 @@ export async function createUser(params: {
       VALUES (${crypto.randomUUID()}, ${id}, NULL, 'owner', '', 30, now())
     `
     try {
+      const initialStatus = parseAccountStatus(params.account_status) ?? "active"
       await sql`
-        INSERT INTO onboarding_profiles (user_id, updated_at)
-        VALUES (${id}, now())
+        INSERT INTO onboarding_profiles (user_id, account_status, updated_at)
+        VALUES (${id}, ${initialStatus}, now())
         ON CONFLICT (user_id) DO NOTHING
       `
     } catch (e) {
-      if (!isMissingOnboardingProfilesTableError(e) && !isWrongLegacyProfilesTableError(e)) throw e
+      if (!isMissingOnboardingProfilesTableError(e) && !isWrongLegacyProfilesTableError(e)) {
+        if (isMissingOnboardingProfileColumnError(e)) {
+          await sql`
+            INSERT INTO onboarding_profiles (user_id, updated_at)
+            VALUES (${id}, now())
+            ON CONFLICT (user_id) DO NOTHING
+          `
+        } else {
+          throw e
+        }
+      }
     }
   }
   return {
@@ -14823,7 +14836,7 @@ export async function adminApplyUserOverride(params: {
       let nextStatus = profileBefore?.account_status ?? "active"
       if (shouldWriteStatus) {
         const parsed = parseAccountStatus(params.targetStatus)
-        if (!parsed) throw new Error("targetStatus must be active, suspended, or flagged")
+        if (!parsed) throw new Error("targetStatus must be pending, active, flagged, suspended, or denied")
         nextStatus = parsed
       }
 

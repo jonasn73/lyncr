@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { rejectIfShopNotUsable } from "@/lib/admin-api-guard"
 import { updateOnboardingProfile } from "@/lib/db"
 import { evaluateNumberReservationGate } from "@/lib/number-allocation"
 import { isOnboardingTelnyxSimulationMode } from "@/lib/onboarding-telnyx-provision-mode"
@@ -24,6 +25,8 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
+  const locked = await rejectIfShopNotUsable(userId)
+  if (locked) return locked
 
   try {
     const body = await req.json().catch(() => ({}))

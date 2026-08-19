@@ -376,9 +376,16 @@ function AccountStatusBadge({ status }: { status: string }) {
       className={cn(
         "border-0 capitalize",
         normalized === "active" && "bg-emerald-500/15 text-emerald-300",
+        normalized === "pending" && "bg-amber-500/20 text-amber-200",
+        normalized === "denied" && "bg-zinc-500/20 text-zinc-300",
         normalized === "suspended" && "bg-red-500/15 text-red-300",
         normalized === "flagged" && "bg-amber-500/15 text-amber-300",
-        normalized !== "active" && normalized !== "suspended" && normalized !== "flagged" && "bg-slate-700/50 text-slate-400"
+        normalized !== "active" &&
+          normalized !== "suspended" &&
+          normalized !== "flagged" &&
+          normalized !== "pending" &&
+          normalized !== "denied" &&
+          "bg-slate-700/50 text-slate-400"
       )}
     >
       {accountStatusLabel(status)}
@@ -469,6 +476,27 @@ function UserRowActions({
     })
   }
 
+  async function handleStatusChange(targetStatus: string) {
+    setToggleBusy(true)
+    try {
+      const res = await fetch("/api/admin/user-override", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: row.user_id, targetStatus }),
+      })
+      const json = (await res.json()) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Status update failed")
+      toast.success(targetStatus === "active" ? "Shop approved" : "Shop denied")
+      setMenuOpen(false)
+      await fetchLatestAdminStats(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Status update failed")
+    } finally {
+      setToggleBusy(false)
+    }
+  }
+
   async function handleSubscriptionToggle(shouldActivate: boolean) {
     setToggleBusy(true)
     try {
@@ -551,6 +579,31 @@ function UserRowActions({
           >
             Manage user
           </DropdownMenuItem>
+          {row.account_status === "pending" ? (
+            <>
+              <DropdownMenuItem
+                className="focus:bg-emerald-950/40 focus:text-emerald-200"
+                disabled={toggleBusy}
+                onSelect={(e) => {
+                  e.preventDefault()
+                  void handleStatusChange("active")
+                }}
+              >
+                Approve shop
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={toggleBusy}
+                className="focus:bg-red-950/40 focus:text-red-300"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  void handleStatusChange("denied")
+                }}
+              >
+                Deny shop
+              </DropdownMenuItem>
+            </>
+          ) : null}
           <DropdownMenuSeparator className="bg-slate-700" />
           <DropdownMenuItem
             variant="destructive"
@@ -1120,9 +1173,11 @@ export function LyncrAdminDashboard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="flagged">Flagged</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="denied">Denied</SelectItem>
               </SelectContent>
             </Select>
           </div>

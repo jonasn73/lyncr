@@ -412,7 +412,7 @@ export interface OnboardingProfile {
   total_calls_routed: number
   /** Lifetime talk time in minutes (scripts/034). */
   total_minutes_used: number
-  /** active | suspended | flagged — suspended blocks Telnyx routing (scripts/034). */
+  /** active | pending | flagged | suspended | denied — pending/denied wait for platform admin (scripts/034 + 139). */
   account_status: string
   /** Internal operator notes (scripts/034). */
   custom_routing_note: string | null

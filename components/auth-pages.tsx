@@ -13,7 +13,12 @@ interface AuthPageProps {
   mode: "login" | "signup"
   onNavigate: (page: string) => void
   /** Called after successful login or signup. */
-  onAuth: (ctx?: { operator_access: boolean; account_role?: string; redirect?: string }) => void
+  onAuth: (ctx?: {
+    operator_access: boolean
+    account_role?: string
+    redirect?: string
+    account_status?: string | null
+  }) => void
   /** When set, signup redeems a receptionist invite token. */
   invite?: TeamInvitePreview | null
   inviteToken?: string | null
@@ -72,6 +77,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
           operator_access: Boolean(data?.data?.operator_access),
           account_role: data?.data?.account_role ?? data?.data?.user?.account_role,
           redirect: data?.data?.redirect,
+          account_status: data?.data?.account_status ?? null,
         })
       } else {
         const res = await fetch("/api/auth/login", {
@@ -89,6 +95,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
           operator_access: Boolean(data?.data?.operator_access),
           account_role: data?.data?.user?.account_role,
           redirect: data?.data?.redirect,
+          account_status: data?.data?.account_status ?? null,
         })
       }
     } catch {

@@ -319,6 +319,8 @@ export function AdminUserManageDrawer({
                       className={cn(
                         "border-slate-700",
                         selected && s === "active" && "border-emerald-600 bg-emerald-600/20 text-emerald-200",
+                        selected && s === "pending" && "border-amber-500 bg-amber-600/20 text-amber-100",
+                        selected && s === "denied" && "border-zinc-500 bg-zinc-600/20 text-zinc-100",
                         selected && s === "suspended" && "border-red-600 bg-red-600/20 text-red-200",
                         selected && s === "flagged" && "border-amber-600 bg-amber-600/20 text-amber-200",
                         !selected && "bg-slate-950 text-slate-300 hover:bg-slate-900"

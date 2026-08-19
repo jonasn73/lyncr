@@ -8,6 +8,8 @@ import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
 import { getCachedSessionUser } from "@/lib/server/cached-session"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
+import { getUserAccountStatus } from "@/lib/db"
+import { accountWaitPath } from "@/lib/account-status"
 import { resolveAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import { userMayAccessDashboard } from "@/lib/server-onboarding-guard"
 import {
@@ -76,6 +78,9 @@ export default async function DashboardLayout({
     redirect("/receptionist/training/automotive_core")
   }
   if (isPlatformAdminUser(user)) redirect("/admin")
+
+  const wait = accountWaitPath(await getUserAccountStatus(user.id))
+  if (wait) redirect(wait)
 
   // Do not await bootstrap here — it blocked TTFB on every /dashboard load.
   // Client paints from session seed; these promises stream into the shell.

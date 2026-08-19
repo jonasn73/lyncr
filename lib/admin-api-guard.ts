@@ -4,9 +4,11 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser } from "@/lib/db"
+import { isShopAccountUsable } from "@/lib/account-status"
+import { getUser, getUserAccountStatus } from "@/lib/db"
 import type { User } from "@/lib/types"
 import { isLyncrAdminUser } from "@/lib/lyncr-admin"
+import { isPlatformAdminUser } from "@/lib/platform-admin"
 
 export type SessionUserContext = { userId: string; user: User }
 
@@ -38,7 +40,38 @@ export async function requireSessionUser(req: NextRequest): Promise<SessionUserC
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 401 })
   }
+  if (!isLyncrAdminUser(user) && !isPlatformAdminUser(user)) {
+    const accountStatus = await getUserAccountStatus(userId)
+    if (!isShopAccountUsable(accountStatus)) {
+      const pending = accountStatus === "pending"
+      return NextResponse.json(
+        {
+          error: pending
+            ? "This shop is waiting for approval."
+            : "This shop was not approved.",
+          account_status: accountStatus,
+          code: pending ? "account_pending" : "account_denied",
+        },
+        { status: 403 }
+      )
+    }
+  }
   return { userId, user }
+}
+
+/** Block pending/denied shops from buying numbers and finishing onboarding. */
+export async function rejectIfShopNotUsable(userId: string): Promise<NextResponse | null> {
+  const accountStatus = await getUserAccountStatus(userId)
+  if (isShopAccountUsable(accountStatus)) return null
+  const pending = accountStatus === "pending"
+  return NextResponse.json(
+    {
+      error: pending ? "This shop is waiting for approval." : "This shop was not approved.",
+      account_status: accountStatus,
+      code: pending ? "account_pending" : "account_denied",
+    },
+    { status: 403 }
+  )
 }
 
 /** Session user must be admin@lyncr.app. */

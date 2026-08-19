@@ -6,14 +6,14 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { acceptTeamInviteSignup, createUser } from "@/lib/db"
+import { acceptTeamInviteSignup, createUser, getUserAccountStatus } from "@/lib/db"
 import { defaultProfileFromUserIndustry } from "@/lib/business-industries"
+import { signupAccountStatusForBusinessName } from "@/lib/account-status"
 import {
   createSessionCookie,
   getSessionCookieName,
   getSessionCookieOptions,
 } from "@/lib/auth"
-import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
 
 export async function POST(req: NextRequest) {
@@ -66,11 +66,13 @@ export async function POST(req: NextRequest) {
         industry,
         password_hash,
         account_role: "owner",
+        account_status: signupAccountStatusForBusinessName(business_name || "My Business"),
       })
     }
 
+    const accountStatus = await getUserAccountStatus(user.id)
     const cookieValue = createSessionCookie(user.id)
-    const authMeta = postAuthPayload(user)
+    const authMeta = postAuthPayload(user, accountStatus)
     const res = NextResponse.json({
       data: { user, ...authMeta },
     })

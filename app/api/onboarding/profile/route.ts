@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { rejectIfShopNotUsable } from "@/lib/admin-api-guard"
 import {
   getOnboardingProfile,
   getPhoneNumbers,
@@ -111,6 +112,8 @@ export async function PATCH(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
+  const locked = await rejectIfShopNotUsable(userId)
+  if (locked) return locked
 
   try {
     const body = await req.json().catch(() => ({}))

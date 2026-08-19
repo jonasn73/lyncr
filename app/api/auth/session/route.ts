@@ -13,7 +13,7 @@ import {
   getLegacySessionCookieName,
   getSessionCookieOptions,
 } from "@/lib/auth"
-import { getUser, userFacingDatabaseError } from "@/lib/db"
+import { getUser, getUserAccountStatus, userFacingDatabaseError } from "@/lib/db"
 import { globalPlatformSessionFields } from "@/lib/platform-admin"
 import { resolveAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
 import {
@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
     const returnRaw = cookieStore.get(IMPERSONATION_RETURN_COOKIE)?.value
 
     const globalFields = globalPlatformSessionFields(user)
+    const accountStatus = await getUserAccountStatus(user.id)
     const {
       master_toggle_mode: _legacyToggle,
       admin_notification_preferences: _legacyPrefs,
@@ -96,11 +97,13 @@ export async function GET(req: NextRequest) {
           is_platform_admin: true,
           admin_notification_preferences: resolveAdminNotificationPreferences(user),
           operator_access: globalFields.isPlatformAdmin,
+          account_status: accountStatus,
           ...globalFields,
         }
       : {
           ...userPublic,
           operator_access: globalFields.isPlatformAdmin,
+          account_status: accountStatus,
           ...globalFields,
         }
     const res = NextResponse.json({

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { getAuthUserByEmail, userFacingDatabaseError } from "@/lib/db"
+import { getAuthUserByEmail, getUserAccountStatus, userFacingDatabaseError } from "@/lib/db"
 import {
   createSessionCookie,
   getSessionCookieName,
@@ -71,8 +71,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { password_hash: _, ...user } = authUser
+    const accountStatus = await getUserAccountStatus(user.id)
     const cookieValue = createSessionCookie(user.id)
-    const authMeta = postAuthPayload(user)
+    const authMeta = postAuthPayload(user, accountStatus)
     const res = NextResponse.json({
       data: { user, ...authMeta },
     })

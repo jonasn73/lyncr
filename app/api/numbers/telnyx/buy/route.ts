@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { rejectIfShopNotUsable } from "@/lib/admin-api-guard"
 import { purchasePhoneNumberForUser } from "@/lib/number-allocation"
 import { getTelnyxApiKey } from "@/lib/telnyx-config"
 
@@ -15,6 +16,8 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
+  const locked = await rejectIfShopNotUsable(userId)
+  if (locked) return locked
 
   getTelnyxApiKey()
 
