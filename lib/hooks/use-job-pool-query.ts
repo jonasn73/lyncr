@@ -7,6 +7,12 @@ import { organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  mapPoolPaintToJobs,
+  readMapPoolPaintSeed,
+  writeMapPoolPaintSeed,
+} from "@/lib/map-pool-paint-cache"
 
 type PoolResponse<T> = { data?: { jobs?: T[] } }
 
@@ -89,11 +95,15 @@ export function useJobPoolQuery(
   // Null key pauses this subscriber without wiping the shared hopper cache.
   const url = enabled ? jobPoolHopperUrl(activeOrganizationId) : null
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
+  const paintJobs = useDashboardPaintSeeds().mapPool
+  const paintSeed = readMapPoolPaintSeed(paintJobs, activeOrganizationId)
 
-  const fallbackData = useMemo(
-    () => readPersistedCache<UnassignedPoolJob[]>(cacheKey),
-    [cacheKey]
-  )
+  const fallbackData = useMemo(() => {
+    const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
+    if (fromSession && fromSession.length > 0) return fromSession
+    if (paintSeed?.jobs.length) return mapPoolPaintToJobs(paintSeed)
+    return fromSession
+  }, [cacheKey, paintSeed])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -101,6 +111,7 @@ export function useJobPoolQuery(
       swrJsonFetcher<PoolResponse<UnassignedPoolJob>>(key).then((json) => {
         const jobs = Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
         writePersistedCache(cacheKey, jobs)
+        writeMapPoolPaintSeed(jobs, activeOrganizationId)
         return jobs
       }),
     { ...defaultSwrConfig, fallbackData, revalidateOnFocus: false }

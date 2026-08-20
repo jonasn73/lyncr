@@ -47,6 +47,14 @@ import {
   HOLD_QUEUE_STATS_COOKIE,
   readHoldQueueStatsFromCookieRaw,
 } from "@/lib/hold-queue-stats-cache"
+import {
+  CRM_LIST_PAINT_COOKIE,
+  readCrmListPaintFromCookieRaw,
+} from "@/lib/crm-list-paint-cache"
+import {
+  MAP_POOL_PAINT_COOKIE,
+  readMapPoolPaintFromCookieRaw,
+} from "@/lib/map-pool-paint-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
@@ -127,6 +135,28 @@ export function readDashboardPaintSeedsFromCookies(
       ? operationsParsed
       : null
 
+  const crmRaw = getCookie(CRM_LIST_PAINT_COOKIE)
+  const crmParsed = readCrmListPaintFromCookieRaw(crmRaw)
+  const crm =
+    crmParsed &&
+    operationsPaintMatchesOrg(
+      { organizationId: crmParsed.organizationId, calls: [], fetchedAt: 0 },
+      activeOrgId
+    )
+      ? crmParsed
+      : null
+
+  const mapPoolRaw = getCookie(MAP_POOL_PAINT_COOKIE)
+  const mapPoolParsed = readMapPoolPaintFromCookieRaw(mapPoolRaw)
+  const mapPool =
+    mapPoolParsed &&
+    operationsPaintMatchesOrg(
+      { organizationId: mapPoolParsed.organizationId, calls: [], fetchedAt: 0 },
+      activeOrgId
+    )
+      ? mapPoolParsed
+      : null
+
   if (
     !moneyOk &&
     !telemetry &&
@@ -137,7 +167,9 @@ export function readDashboardPaintSeedsFromCookies(
     !lines &&
     !missedLeads &&
     !operations &&
-    !holdQueue
+    !holdQueue &&
+    !crm &&
+    !mapPool
   ) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
@@ -155,5 +187,7 @@ export function readDashboardPaintSeedsFromCookies(
     missedLeads,
     operations,
     holdQueue,
+    crm,
+    mapPool,
   }
 }

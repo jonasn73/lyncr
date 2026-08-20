@@ -38,16 +38,17 @@ function parseEnvelope<T>(raw: string | null | undefined, maxAgeMs = MAX_AGE_SEC
   }
 }
 
-/** Write a paint-seed cookie (client only). No-ops when oversized or private mode. */
-export function writePaintSeedCookie(scope: string, data: unknown): void {
-  if (typeof document === "undefined") return
+/** Write a paint-seed cookie (client only). Returns false when oversized or private mode. */
+export function writePaintSeedCookie(scope: string, data: unknown): boolean {
+  if (typeof document === "undefined") return false
   try {
     const envelope: PaintEnvelope<unknown> = { v: CACHE_VERSION, t: Date.now(), d: data }
     const payload = JSON.stringify(envelope)
-    if (payload.length > MAX_COOKIE_CHARS) return
+    if (payload.length > MAX_COOKIE_CHARS) return false
     document.cookie = `${paintSeedCookieName(scope)}=${encodeURIComponent(payload)}; Path=/; Max-Age=${MAX_AGE_SEC}; SameSite=Lax`
+    return true
   } catch {
-    /* ignore */
+    return false
   }
 }
 

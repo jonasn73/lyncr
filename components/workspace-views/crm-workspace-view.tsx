@@ -75,6 +75,13 @@ import {
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import {
+  crmPaintToListItems,
+  readCrmListPaintSeed,
+  writeCrmListPaintSeed,
+} from "@/lib/crm-list-paint-cache"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -293,8 +300,19 @@ function crmListCacheKey(filter: CrmFilter, q: string): string {
   return persistedCacheKey("crm-customers", `${filter}:${q.trim().toLowerCase() || "all"}`)
 }
 
-function readCrmListCache(filter: CrmFilter, q: string): CrmCustomerListItem[] {
+function readCrmListCache(
+  filter: CrmFilter,
+  q: string,
+  paint?: ReturnType<typeof readCrmListPaintSeed>
+): CrmCustomerListItem[] {
   const cached = readPersistedCache<{ customers: CrmCustomerListItem[] }>(crmListCacheKey(filter, q))
+  if (cached && Array.isArray(cached.customers) && cached.customers.length > 0) {
+    return cached.customers
+  }
+  // Default All list — cookie seed so hard refresh is not skeleton → names.
+  if (filter === "all" && !q.trim() && paint?.customers.length) {
+    return crmPaintToListItems(paint)
+  }
   if (!cached || !Array.isArray(cached.customers)) return EMPTY_CRM_ROWS
   return cached.customers.length > 0 ? cached.customers : EMPTY_CRM_ROWS
 }
@@ -310,6 +328,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const isMobile = useIsMobile()
   const router = useRouter()
   const inboundCallPanel = useInboundCallPanelOptional()
+  const { activeOrganizationId } = useDashboardWorkspace()
+  const paintSeeds = useDashboardPaintSeeds()
+  const crmPaint = readCrmListPaintSeed(paintSeeds.crm, activeOrganizationId)
   // Parse ?tab= / ?customer= / ?phone= without useSearchParams() remounting CRM on tab click.
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   // Pause CRM list fetches when the pane or browser tab is hidden.
@@ -335,9 +356,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     if (phoneParam) setQ(phoneParam)
   }, [searchParams])
   const cachedRows = useSessionSeed(
-    () => readCrmListCache(filter, debounced),
+    () => readCrmListCache(filter, debounced, crmPaint),
     EMPTY_CRM_ROWS,
-    `${filter}:${debounced}`
+    `${filter}:${debounced}:${activeOrganizationId ?? ""}`
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
   const rows = liveRows ?? cachedRows
@@ -468,6 +489,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         writePersistedCache(crmListCacheKey(filter, debounced), {
           customers: list,
         })
+        if (filter === "all" && !debounced.trim()) {
+          writeCrmListPaintSeed(list, activeOrganizationId)
+        }
         setError(null)
         setSelectedId((prev) => {
           if (prev && list.some((r) => r.id === prev)) return prev
@@ -485,13 +509,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false))
-  }, [debounced, filter, pollEnabled, searchParams])
+  }, [debounced, filter, pollEnabled, searchParams, activeOrganizationId])
 
   // Filter/search change — drop live override so the matching seed can show.
   useEffect(() => {
     setLiveRows(null)
     // Show spinner only when this filter/q has no seed yet.
-    if (readCrmListCache(filter, debounced).length === 0) setLoading(true)
+    if (readCrmListCache(filter, debounced, crmPaint).length === 0) setLoading(true)
   }, [filter, debounced])
 
   useEffect(() => {

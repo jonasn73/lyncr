@@ -46,28 +46,33 @@ export type OperationsPaintSeed = {
   fetchedAt: number
 }
 
-/** Cookie budget — a few recent rows only. */
-const MAX_PAINT_CALLS = 12
+/** Cookie budget — tiny rows so the paint cookie actually writes (4KB cap). */
+const MAX_PAINT_CALLS = 6
+
+function clip(s: string, n: number): string {
+  const t = String(s || "")
+  return t.length > n ? t.slice(0, n) : t
+}
 
 function trimCall(c: UiCallRecord): OperationsPaintCall {
   // Drop activity blob — not needed for the table skeleton-avoidance paint.
   return {
-    id: c.id,
+    id: clip(c.id, 40),
     type: c.type,
-    callerName: c.callerName,
-    callerNumber: c.callerNumber,
-    targetLineE164: c.targetLineE164,
-    routedTo: c.routedTo,
-    routedToReceptionistId: c.routedToReceptionistId,
-    routedInitials: c.routedInitials,
-    routedColor: c.routedColor,
-    date: c.date,
-    time: c.time,
-    createdAt: c.createdAt,
-    rawCallType: c.rawCallType,
-    callStatus: c.callStatus,
-    answeredAt: c.answeredAt,
-    endedAt: c.endedAt,
+    callerName: clip(c.callerName, 28),
+    callerNumber: clip(c.callerNumber, 20),
+    targetLineE164: clip(c.targetLineE164, 16),
+    routedTo: clip(c.routedTo, 24),
+    routedToReceptionistId: c.routedToReceptionistId ? clip(c.routedToReceptionistId, 36) : null,
+    routedInitials: clip(c.routedInitials, 3),
+    routedColor: "bg-primary",
+    date: clip(c.date, 12),
+    time: clip(c.time, 12),
+    createdAt: clip(c.createdAt, 24),
+    rawCallType: clip(c.rawCallType, 16),
+    callStatus: clip(c.callStatus, 24),
+    answeredAt: null,
+    endedAt: null,
     durationSeconds: c.durationSeconds,
     hasRecording: c.hasRecording,
     recordingUrl: null,
@@ -112,13 +117,17 @@ export function writeOperationsPaintSeed(
   fetchedAt: number,
   organizationId: string | null = null
 ): void {
-  // Empty successful load still counts as “painted” — avoids gray bars on reload.
-  const payload: OperationsPaintSeed = {
-    organizationId,
-    calls: calls.slice(0, MAX_PAINT_CALLS).map(trimCall),
-    fetchedAt,
+  // Shrink until the cookie fits — silent skip used to leave Activity empty on refresh.
+  let n = Math.min(MAX_PAINT_CALLS, Math.max(0, calls.length))
+  while (n >= 0) {
+    const payload: OperationsPaintSeed = {
+      organizationId,
+      calls: calls.slice(0, n).map(trimCall),
+      fetchedAt,
+    }
+    if (writePaintSeedCookie(OPERATIONS_PAINT_SCOPE, payload)) return
+    n -= 1
   }
-  writePaintSeedCookie(OPERATIONS_PAINT_SCOPE, payload)
 }
 
 /** Drop Activity paint cookie (logout / wrong-shop). */

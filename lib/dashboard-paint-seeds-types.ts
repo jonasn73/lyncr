@@ -12,6 +12,8 @@ import type { LinesChromeCache } from "@/lib/lines-chrome-cache"
 import type { MissedLeadsPaintSeed } from "@/lib/missed-lead-insights-cache"
 import type { OperationsPaintSeed } from "@/lib/operations-paint-cache"
 import type { HoldQueueDayStats } from "@/lib/hold-queue-stats-cache"
+import type { CrmListPaintSeed } from "@/lib/crm-list-paint-cache"
+import type { MapPoolPaintSeed } from "@/lib/map-pool-paint-cache"
 
 /** Last-known dashboard values from paint cookies (SSR) or empty. */
 export type DashboardPaintSeeds = {
@@ -35,6 +37,10 @@ export type DashboardPaintSeeds = {
   operations: OperationsPaintSeed | null
   /** Lines “Today · Answer · Press 1 · Left” hold-queue rollup. */
   holdQueue: HoldQueueDayStats | null
+  /** Compact CRM customer names for hard-refresh first paint. */
+  crm: CrmListPaintSeed | null
+  /** Compact Map job-pool rows for hard-refresh first paint. */
+  mapPool: MapPoolPaintSeed | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -51,4 +57,6 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   missedLeads: null,
   operations: null,
   holdQueue: null,
+  crm: null,
+  mapPool: null,
 }

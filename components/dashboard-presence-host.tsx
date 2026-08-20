@@ -17,9 +17,6 @@ import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import {
-  ActivityPaneFallback,
-  CrmPaneFallback,
-  MapPaneFallback,
   MessagesPaneFallback,
   PayPaneFallback,
   SchedulerPaneFallback,
@@ -64,7 +61,7 @@ const CrmWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
       default: m.CrmWorkspaceView,
     })),
-  { ssr: false, loading: () => <CrmPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const MapWorkspaceViewLazy = dynamic(
@@ -72,7 +69,7 @@ const MapWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
       default: m.MapWorkspaceView,
     })),
-  { ssr: false, loading: () => <MapPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const PayWorkspaceViewLazy = dynamic(
@@ -181,6 +178,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
     // Warm Map + Activity chunks ASAP so the first tab click is not a dynamic() blank.
     void import("@/components/workspace-views/map-workspace-view")
     void import("@/components/workspace-views/activity-workspace-view")
+    void import("@/components/workspace-views/crm-workspace-view")
     // Preload remaining heavy panes on idle.
     const warmChunks = () => {
       void import("@/components/workspace-views/crm-workspace-view")
@@ -250,7 +248,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
           // Keep Dispatch Map chrome while the chunk loads — never a blank frame.
-          <Suspense fallback={<MapPaneFallback />}>
+          <Suspense fallback={null}>
             <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
           </Suspense>
         )}
