@@ -223,7 +223,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<MessagesPaneFallback />}>
             <MessagesWorkspaceViewLazy isActive={activePage === "messages"} />
           </Suspense>
         )}
@@ -232,7 +232,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<SchedulerPaneFallback />}>
             <SchedulerWorkspaceViewLazy isActive={activePage === "scheduler"} />
           </Suspense>
         )}
@@ -260,7 +260,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<PayPaneFallback />}>
             <PayWorkspaceViewLazy isActive={activePage === "pay"} />
           </Suspense>
         )}
@@ -269,7 +269,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<SettingsPaneFallback />}>
             <SettingsWorkspaceViewLazy isActive={activePage === "settings"} />
           </Suspense>
         )}
