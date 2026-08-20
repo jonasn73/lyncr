@@ -3,6 +3,8 @@ import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics as VercelWebAnalytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner"
+import Script from "next/script"
+import { VIEWPORT_BOOTSTRAP_SCRIPT } from "@/lib/viewport-hint"
 import {
   SITE_CANONICAL_URL,
   SITE_DESCRIPTION,
@@ -86,6 +88,9 @@ export default function RootLayout({
         style={{ backgroundColor: "#12101f" }}
       >
         {children}
+        <Script id="lyncr-vw" strategy="beforeInteractive">
+          {VIEWPORT_BOOTSTRAP_SCRIPT}
+        </Script>
         <SentryUserContext />
         <Toaster />
         <SonnerToaster richColors position="top-center" closeButton />

@@ -45,6 +45,8 @@ import {
   type DashboardPaintSeeds,
 } from "@/lib/dashboard-paint-seeds"
 import { SessionCacheHydrationGate } from "@/components/session-cache-hydration-gate"
+import { ViewportHintProvider } from "@/components/viewport-hint-provider"
+import type { ViewportMobileHint } from "@/lib/viewport-hint"
 
 /**
  * Realtime hosts: LyncEngine, live stats, operator heartbeat, photo banner,
@@ -100,6 +102,7 @@ export function DashboardShell({
   initialBootstrap,
   initialActiveOrganizationId = null,
   paintSeeds = null,
+  initialIsMobile = null,
 }: {
   children: React.ReactNode
   /** Onboarding redirect check — must not sit inside the active tab slot (would break SSR pane). */
@@ -113,6 +116,8 @@ export function DashboardShell({
   initialActiveOrganizationId?: string | null
   /** Cookie paint seeds so wallet/telemetry/Latest SSR matches warm session. */
   paintSeeds?: DashboardPaintSeeds | null
+  /** Phone vs computer from cookie / client hints — keeps CRM/sheets from jumping on refresh. */
+  initialIsMobile?: ViewportMobileHint
   /** Server session snapshot — avoids header width jump while /api/auth/session loads. */
   sessionAccount?: {
     name: string
@@ -249,6 +254,7 @@ export function DashboardShell({
 
   return (
     <ErrorBoundary>
+      <ViewportHintProvider initialIsMobile={initialIsMobile}>
       <DashboardPaintSeedsProvider seeds={paintSeeds}>
       <SessionCacheHydrationGate>
       <DashboardSessionProvider session={dashboardSession}>
@@ -337,6 +343,7 @@ export function DashboardShell({
       </DashboardSessionProvider>
       </SessionCacheHydrationGate>
       </DashboardPaintSeedsProvider>
+      </ViewportHintProvider>
     </ErrorBoundary>
   )
 }

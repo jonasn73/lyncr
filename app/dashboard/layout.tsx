@@ -3,6 +3,11 @@ import { Suspense } from "react"
 import { cookies, headers } from "next/headers"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import { readDashboardPaintSeedsFromCookies } from "@/lib/dashboard-paint-seeds-server"
+import {
+  VIEWPORT_COOKIE,
+  VIEWPORT_MOBILE_HEADER,
+  parseViewportIsMobile,
+} from "@/lib/viewport-hint"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
@@ -47,6 +52,16 @@ export default async function DashboardLayout({
 
   // Cookie paint seeds — SSR HTML can match last-known wallet / telemetry / Latest / Pay.
   const paintSeeds = readDashboardPaintSeedsFromCookies((name) => cookieStore.get(name)?.value)
+  const initialIsMobile = parseViewportIsMobile(
+    cookieStore.get(VIEWPORT_COOKIE)?.value,
+    h.get("sec-ch-ua-mobile") ??
+      (h.get(VIEWPORT_MOBILE_HEADER) === "1"
+        ? "?1"
+        : h.get(VIEWPORT_MOBILE_HEADER) === "0"
+          ? "?0"
+          : null),
+    h.get("sec-ch-viewport-width")
+  )
 
   const isSecondaryDashboardRoute =
     pathnameFromRequest === "/dashboard/help" ||
@@ -114,6 +129,7 @@ export default async function DashboardLayout({
         initialBootstrap={null}
         initialActiveOrganizationId={initialActiveOrganizationId}
         paintSeeds={paintSeeds}
+        initialIsMobile={initialIsMobile}
         // Keep the guard out of `children` so the active tab slot is only the page view.
         onboardingGuard={
           <Suspense fallback={null}>

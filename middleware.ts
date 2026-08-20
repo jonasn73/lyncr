@@ -5,6 +5,12 @@
 // Real signature + expiry validation stays in /api/auth/session (Node).
 // This avoids a full-screen loading spinner and reduces “wrong page then correct page” flashes.
 
+import {
+  VIEWPORT_COOKIE,
+  VIEWPORT_MOBILE_HEADER,
+  parseViewportIsMobile,
+  viewportCookieValue,
+} from "@/lib/viewport-hint"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import {
@@ -39,6 +45,16 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-sigo-pathname", pathname)
 
+  const isMobileHint = parseViewportIsMobile(
+    request.cookies.get(VIEWPORT_COOKIE)?.value,
+    request.headers.get("sec-ch-ua-mobile"),
+    request.headers.get("sec-ch-viewport-width")
+  )
+  if (isMobileHint === true) requestHeaders.set(VIEWPORT_MOBILE_HEADER, "1")
+  if (isMobileHint === false) requestHeaders.set(VIEWPORT_MOBILE_HEADER, "0")
+
+  const passHeaders = { request: { headers: requestHeaders } }
+
   // Receptionist invite links land on /onboarding?token=… — public (no session) so an invitee can
   // activate before they have an account. The page redirects token visits to the activation form.
   const hasInviteToken = Boolean(request.nextUrl.searchParams.get("token"))
@@ -54,9 +70,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/receptionist") ||
     techNeedsSession
   if (!needsSession) {
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    })
+    return withViewportHeaders(NextResponse.next(passHeaders), isMobileHint)
   }
   const raw =
     request.cookies.get(LYNCR_SESSION)?.value ||
@@ -64,11 +78,22 @@ export function middleware(request: NextRequest) {
   if (!raw || !raw.includes(".")) {
     const login = new URL("/login", request.url)
     login.searchParams.set("next", pathname)
-    return NextResponse.redirect(login)
+    return withViewportHeaders(NextResponse.redirect(login), isMobileHint)
   }
-  return NextResponse.next({
-    request: { headers: requestHeaders },
-  })
+  return withViewportHeaders(NextResponse.next(passHeaders), isMobileHint)
+}
+
+function withViewportHeaders(response: NextResponse, isMobileHint: boolean | null): NextResponse {
+  response.headers.set("Accept-CH", "Sec-CH-UA-Mobile, Sec-CH-Viewport-Width")
+  response.headers.append("Vary", "Sec-CH-UA-Mobile")
+  if (isMobileHint === true || isMobileHint === false) {
+    response.cookies.set(VIEWPORT_COOKIE, viewportCookieValue(isMobileHint), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    })
+  }
+  return response
 }
 
 export const config = {

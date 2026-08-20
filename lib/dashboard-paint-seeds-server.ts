@@ -111,10 +111,10 @@ export function readDashboardPaintSeedsFromCookies(
   const presence = readPresencePaintFromCookieRaw(presenceRaw)
 
   const workspaceRaw = getCookie(WORKSPACE_LABEL_COOKIE)
-  const workspace = readWorkspaceLabelFromCookieRaw(workspaceRaw)
+  const workspaceParsed = readWorkspaceLabelFromCookieRaw(workspaceRaw)
 
   const linesRaw = getCookie(LINES_CHROME_COOKIE)
-  const lines = readLinesChromeFromCookieRaw(linesRaw)
+  const linesParsed = readLinesChromeFromCookieRaw(linesRaw)
 
   const missedLeadsRaw = getCookie(MISSED_LEADS_COOKIE)
   const missedLeads = readMissedLeadsFromCookieRaw(missedLeadsRaw)
@@ -126,9 +126,19 @@ export function readDashboardPaintSeedsFromCookies(
   // Prefer active-shop cookie, then Lines / workspace paint labels.
   const activeOrgId =
     getCookie(ACTIVE_ORGANIZATION_COOKIE)?.trim() ||
-    lines?.organizationId ||
-    workspace?.organizationId ||
+    linesParsed?.organizationId ||
+    workspaceParsed?.organizationId ||
     null
+  const paintOrgOk = (organizationId: string | null | undefined) =>
+    operationsPaintMatchesOrg(
+      { organizationId: organizationId ?? null, calls: [], fetchedAt: 0 },
+      activeOrgId
+    )
+  const workspace = workspaceParsed && paintOrgOk(workspaceParsed.organizationId) ? workspaceParsed : null
+  const lines = linesParsed && paintOrgOk(linesParsed.organizationId) ? linesParsed : null
+  const telemetryForShop = paintOrgOk(telemetryOrg) ? telemetry : null
+  const latestForShop =
+    latest && paintOrgOk(latestCookie?.organizationId ?? null) ? latest : null
   // Never SSR another shop’s callers into the Activity seed payload.
   const operations =
     operationsParsed && operationsPaintMatchesOrg(operationsParsed, activeOrgId)
@@ -159,8 +169,8 @@ export function readDashboardPaintSeedsFromCookies(
 
   if (
     !moneyOk &&
-    !telemetry &&
-    !latest &&
+    !telemetryForShop &&
+    !latestForShop &&
     !billingOk &&
     !presence &&
     !workspace &&
@@ -176,10 +186,10 @@ export function readDashboardPaintSeedsFromCookies(
 
   return {
     money: moneyOk,
-    telemetry,
-    telemetryOrganizationId: telemetryCookie?.organizationId ?? null,
-    latest,
-    latestOrganizationId: latestCookie?.organizationId ?? null,
+    telemetry: telemetryForShop,
+    telemetryOrganizationId: telemetryForShop ? telemetryCookie?.organizationId ?? null : null,
+    latest: latestForShop,
+    latestOrganizationId: latestForShop ? latestCookie?.organizationId ?? null : null,
     billing: billingOk,
     presence,
     workspace,
