@@ -1749,6 +1749,30 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return grouped
   }, [scopedCalls, filter])
 
+  // If scoping briefly hides rows but we already have calls, keep showing them (no empty flash).
+  const displayRows = useMemo(() => {
+    if (rows.length > 0) return rows
+    if (calls.length === 0) return rows
+    const sorted = [...calls].sort((a, b) => {
+      const aTs = a.createdAt || `${a.date} ${a.time}`
+      const bTs = b.createdAt || `${b.date} ${b.time}`
+      return bTs.localeCompare(aTs)
+    })
+    const grouped = groupCallsByPhoneAndDay(sorted, {
+      timeZone: resolveBrowserTimezone(),
+    })
+    if (filter === "missed") {
+      return filterActivityCallGroups(grouped, (c) => isMissedActivityCallToday(c))
+    }
+    if (filter === "hold") {
+      return filterActivityCallGroups(grouped, (c) => isHoldFilterCall(c))
+    }
+    if (filter === "press1") {
+      return filterActivityCallGroups(grouped, (c) => isPress1FilterCall(c))
+    }
+    return grouped
+  }, [rows, calls, filter])
+
   return (
     <WorkspacePage>
       <WorkspacePageHeader
@@ -1788,7 +1812,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         press1Count={press1Count}
         onChange={onFilterChange}
       />
-      {filter === "missed" && rows.length === 0 && !loading && !waitingForLines ? (
+      {filter === "missed" && displayRows.length === 0 && !loading && !waitingForLines ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
           <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
           <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
@@ -1805,7 +1829,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
       ) : (
-        <ActivityCallsTable rows={rows} lineLabelMap={lineLabelMap} />
+        <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
       )}
     </WorkspacePage>
   )

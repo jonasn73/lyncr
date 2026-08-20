@@ -54,4 +54,18 @@ describe("operationsPaintMatchesOrg", () => {
   it("does not treat a paint-seed stub vs a real shop id as a different shop", () => {
     expect(operationsPaintMatchesOrg(seed, "a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(true)
   })
+
+  it("accepts legacy cookies without an org tag", () => {
+    const legacy = { organizationId: null, calls: [], fetchedAt: 1 }
+    expect(operationsPaintMatchesOrg(legacy, "a3841ad1-2fb8-4482-a8d7-db7094cd95ee")).toBe(true)
+  })
+
+  it("rejects a different real shop id", () => {
+    const tagged = {
+      organizationId: "a3841ad1-2fb8-4482-a8d7-db7094cd95ee",
+      calls: [],
+      fetchedAt: 1,
+    }
+    expect(operationsPaintMatchesOrg(tagged, "f8c2a1b0-4e3d-4a9b-8c7f-1d2e3f4a5b6c")).toBe(false)
+  })
 })

@@ -5,7 +5,8 @@ import type { CallActivityContext } from "@/lib/types"
 import { LYNCR_ACTIVITY_REFRESH_EVENT } from "@/lib/lync-engine-bus"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-import { readActiveOrganizationId } from "@/lib/workspace-organizations"
+import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { readActiveOrganizationId, isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import {
   operationsPaintToUiCalls,
   readOperationsPaintSeed,
@@ -411,10 +412,12 @@ export type UseOperationsDataOptions = {
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
+  const { activeOrganizationId: workspaceOrgId } = useDashboardWorkspace()
   // Cookie paint from layout — SSR HTML can already include last Activity rows.
   const paintSeeds = useDashboardPaintSeeds()
-  // Prefer lines chrome org, else workspace label org (same shop the header shows).
+  // Workspace org wins once resolved; fall back to paint cookies during SSR.
   const activeOrgId =
+    workspaceOrgId ??
     paintSeeds.lines?.organizationId ??
     paintSeeds.workspace?.organizationId ??
     (typeof window !== "undefined" ? readActiveOrganizationId() : null)
@@ -439,7 +442,23 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
           fetchedAt: paintOps.fetchedAt,
         }
       : null
-  const seed = operationsCache ?? sessionSeed ?? peekOperationsCache() ?? seedFromPaint
+  const seed =
+    operationsCache ??
+    sessionSeed ??
+    (typeof window !== "undefined" ? peekOperationsCache() : null) ??
+    seedFromPaint ??
+    (typeof window !== "undefined"
+      ? (() => {
+          const fromCookie = readOperationsPaintSeed(activeOrgId)
+          if (!fromCookie) return null
+          return {
+            calls: operationsPaintToUiCalls(fromCookie),
+            quality: null as VoiceQualitySummary | null,
+            insights: null as VoiceOperationsInsights | null,
+            fetchedAt: fromCookie.fetchedAt,
+          }
+        })()
+      : null)
   const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
   const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
   const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
@@ -449,10 +468,18 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
   const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
+  const prevOrgRef = useRef<string | null | undefined>(undefined)
 
   // When the owner switches shops, drop memory / session / cookie so we do not keep the old list.
   useLayoutEffect(() => {
-    if (activeOrgId == null) return
+    const prev = prevOrgRef.current
+    prevOrgRef.current = activeOrgId
+    // First mount — keep SSR / session / paint rows (never wipe before first paint).
+    if (prev === undefined) return
+    if (prev === activeOrgId || activeOrgId == null) return
+    // Paint stub → real uuid is the same shop.
+    if (isWorkspaceOrgStubId(prev) && activeOrgId) return
+
     const cachedCookie = readOperationsPaintSeed()
     const cookieMismatch =
       cachedCookie != null && !operationsPaintMatchesOrg(cachedCookie, activeOrgId)

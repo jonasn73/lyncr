@@ -86,8 +86,12 @@ export function operationsPaintMatchesOrg(
   if (!seed) return false
   const seedOrg = seed.organizationId ?? null
   const activeOrg = organizationId ?? null
-  // Missing either side → allow paint only when both are null (legacy / single-shop).
+  // Both unknown — legacy single-shop paint.
   if (seedOrg == null && activeOrg == null) return true
+  // Legacy cookie without org tag — same account; do not wipe Activity on refresh.
+  if (seedOrg == null) return true
+  // Active shop not resolved yet — keep tagged seed on screen.
+  if (activeOrg == null) return true
   // Paint-seed stub vs real uuid is the same shop — do not wipe Activity.
   if (isWorkspaceOrgStubId(seedOrg) || isWorkspaceOrgStubId(activeOrg)) return true
   return seedOrg === activeOrg
