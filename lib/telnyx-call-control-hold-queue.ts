@@ -36,6 +36,7 @@ import { preferWorkingSpeakVoice } from "@/lib/elevenlabs-voices"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
 import {
+  markTelnyxCallControlTerminal,
   telnyxCallControlBridge,
   telnyxCallControlGather,
   telnyxCallControlGatherUsingAudio,
@@ -704,6 +705,8 @@ async function finishHoldWithoutSms(
 
 /** Caller hung up while waiting — cleanup Neon + Telnyx queue (no auto SMS). */
 export async function abandonHoldQueue(callControlId: string): Promise<void> {
+  // Caller already hung up; mark terminal so leave_queue is skipped or treated as 90018 race.
+  markTelnyxCallControlTerminal(callControlId)
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
   await updateCallQueueStatus({ callControlId, status: "left" })
 }

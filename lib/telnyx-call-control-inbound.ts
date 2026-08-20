@@ -2,6 +2,7 @@
 
 import { getAppUrl } from "@/lib/telnyx"
 import {
+  markTelnyxCallControlTerminal,
   telnyxCallControlAnswer,
   telnyxCallControlBridge,
   telnyxCallControlClientStateUpdate,
@@ -1791,6 +1792,9 @@ async function handleCallHangup(
       callSessionId: event.callSessionId || null,
     })
   )
+
+  // Hangup means this call_control_id is terminal — skip later leave_queue/hangup races on this instance.
+  markTelnyxCallControlTerminal(event.callControlId)
 
   if (
     state?.phase === "await_dial_end" &&

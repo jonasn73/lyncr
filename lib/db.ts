@@ -14153,7 +14153,7 @@ export async function listAdminOperatorWorkspaceOptions(): Promise<
       FROM organizations o
       JOIN users u ON u.id = o.owner_user_id
       LEFT JOIN phone_numbers pn ON pn.organization_id = o.id AND pn.status = 'active'
-      WHERE o.id NOT LIKE 'legacy-%'
+      WHERE o.id::text NOT LIKE 'legacy-%'
       ORDER BY business_name ASC, pn.created_at ASC NULLS LAST
     `) as Record<string, unknown>[]
 

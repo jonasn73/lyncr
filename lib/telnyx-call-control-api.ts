@@ -21,8 +21,58 @@ const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
 const TELNYX_API_BASE = "https://api.telnyx.com/v2"
 
 export type TelnyxCallControlActionResult =
-  | { ok: true; callControlId?: string }
+  | { ok: true; callControlId?: string; alreadyTerminal?: boolean }
   | { ok: false; status: number; error: string }
+
+/** Telnyx: call already ended — further commands return 422 / code 90018. */
+const TELNYX_CALL_NO_LONGER_ACTIVE_CODE = "90018"
+
+/** Short-lived memory of legs we know are done — skips duplicate hangup / leave_queue. */
+const knownTerminalCallControlIds = new Map<string, number>()
+const TERMINAL_CALL_TTL_MS = 15 * 60 * 1000
+
+function pruneKnownTerminalCallControls(now = Date.now()): void {
+  for (const [id, expiresAt] of knownTerminalCallControlIds) {
+    if (expiresAt <= now) knownTerminalCallControlIds.delete(id)
+  }
+}
+
+export function markTelnyxCallControlTerminal(callControlId: string): void {
+  const id = callControlId.trim()
+  if (!id) return
+  pruneKnownTerminalCallControls()
+  knownTerminalCallControlIds.set(id, Date.now() + TERMINAL_CALL_TTL_MS)
+}
+
+export function isTelnyxCallControlKnownTerminal(callControlId: string): boolean {
+  const id = callControlId.trim()
+  if (!id) return false
+  const expiresAt = knownTerminalCallControlIds.get(id)
+  if (expiresAt == null) return false
+  if (expiresAt <= Date.now()) {
+    knownTerminalCallControlIds.delete(id)
+    return false
+  }
+  return true
+}
+
+/** True when Telnyx rejected a command because the leg is already over (race / duplicate). */
+export function isTelnyxCallNoLongerActiveError(
+  status: number,
+  errBody: unknown,
+  detail: string
+): boolean {
+  if (status !== 422 && status !== 400 && status !== 409) return false
+  const errors = (errBody as { errors?: Array<{ code?: string | number; detail?: string }> } | null)
+    ?.errors
+  if (Array.isArray(errors)) {
+    for (const err of errors) {
+      if (String(err?.code ?? "") === TELNYX_CALL_NO_LONGER_ACTIVE_CODE) return true
+      if (/no longer active/i.test(String(err?.detail ?? ""))) return true
+    }
+  }
+  return /no longer active/i.test(detail) || detail.includes(TELNYX_CALL_NO_LONGER_ACTIVE_CODE)
+}
 
 async function postCallAction(
   callControlId: string,
@@ -31,6 +81,22 @@ async function postCallAction(
 ): Promise<TelnyxCallControlActionResult> {
   const id = callControlId.trim()
   if (!id) return { ok: false, status: 400, error: "missing call_control_id" }
+
+  // Hangup / leave_queue after the leg is gone — skip the Telnyx POST (idempotent).
+  if (
+    (action === "hangup" || action === "leave_queue") &&
+    isTelnyxCallControlKnownTerminal(id)
+  ) {
+    console.info(
+      lyncrLog("telnyx-cc-api-skip-terminal", {
+        action,
+        callControlId: id,
+        reason: "known_terminal",
+      })
+    )
+    return { ok: true, alreadyTerminal: true }
+  }
+
   // Surface media URLs / media_name in logs so silent hold music is diagnosable.
   const audioUrl = typeof body.audio_url === "string" ? body.audio_url : undefined
   const mediaName = typeof body.media_name === "string" ? body.media_name : undefined
@@ -61,13 +127,33 @@ async function postCallAction(
         playbackContent: hasPlaybackContent || undefined,
       })
     )
+    if (action === "hangup") markTelnyxCallControlTerminal(id)
     return { ok: true }
   }
   const errBody = await res.json().catch(() => ({}))
   const detail =
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
-  // Full Telnyx error JSON (truncated) — required to debug silent hold / 422s.
+  const terminalRace = isTelnyxCallNoLongerActiveError(res.status, errBody, detail || res.statusText)
+  if (terminalRace) {
+    markTelnyxCallControlTerminal(id)
+    // Expected race: webhook hangup / duplicate leave after the leg already ended.
+    console.warn(
+      lyncrLog("telnyx-cc-api-already-terminal", {
+        action,
+        callControlId: id,
+        status: res.status,
+        error: detail || res.statusText,
+        telnyxCode: TELNYX_CALL_NO_LONGER_ACTIVE_CODE,
+      })
+    )
+    // Hangup / leave_queue: treat as success so callers do not escalate. Other actions stay failed.
+    if (action === "hangup" || action === "leave_queue") {
+      return { ok: true, alreadyTerminal: true }
+    }
+    return { ok: false, status: res.status, error: detail || res.statusText }
+  }
+  // Full Telnyx error JSON (truncated) — required to debug silent hold / real 422s.
   console.error(
     lyncrLog("telnyx-cc-api-failed", {
       action,
@@ -435,6 +521,19 @@ export async function telnyxCallControlClientStateUpdate(
   const detail =
     (errBody as { errors?: { detail?: string }[] })?.errors?.[0]?.detail ||
     JSON.stringify(errBody).slice(0, 240)
+  if (isTelnyxCallNoLongerActiveError(res.status, errBody, detail || res.statusText)) {
+    markTelnyxCallControlTerminal(id)
+    console.warn(
+      lyncrLog("telnyx-cc-api-already-terminal", {
+        action: "client_state_update",
+        callControlId: id,
+        status: res.status,
+        error: detail || res.statusText,
+        telnyxCode: TELNYX_CALL_NO_LONGER_ACTIVE_CODE,
+      })
+    )
+    return { ok: true, alreadyTerminal: true }
+  }
   console.error(
     lyncrLog("telnyx-cc-api-failed", {
       action: "client_state_update",
