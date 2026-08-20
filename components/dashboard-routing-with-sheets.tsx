@@ -37,6 +37,8 @@ type Props = Omit<
     // Setters so the strategy dialog can push fresh values back into the dashboard canvas.
     setRoutingStrategy: (s: RoutingStrategy) => void
     setAllowLyncrNetworkFallback: (v: boolean) => void
+    /** Lines cold-load handoff — surface signals first stable sticky/call-flow paint. */
+    onLinesHandoffReady?: () => void
   }
 
 /** True only on the Routing tab URL (presence host keeps this tree mounted on other tabs). */
@@ -144,6 +146,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     setRingBackupOpen,
     setShowFallbackSettings,
     adminRoutingOverridePhone: props.adminRoutingOverridePhone,
+    onLinesHandoffReady: props.onLinesHandoffReady,
   }
 
   // One presence provider for call-flow cards + bottom Available toggle (must stay in sync).

@@ -6,7 +6,7 @@
 // indicator, no useClientSnapshot seeds, toast subscribe-once, stats EMPTY fallback.
 // Realtime hosts (intake popup) stay enabled in dashboard-shell.tsx.
 
-import { memo } from "react"
+import { memo, useLayoutEffect, useRef } from "react"
 import Link from "next/link"
 import { Check, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -66,6 +66,8 @@ export type DashboardRoutingSurfaceProps = {
   setRingBackupOpen: (open: boolean) => void
   setShowFallbackSettings: (open: boolean) => void
   adminRoutingOverridePhone?: string | null
+  /** Fires once after sticky chrome + call-flow structure commit layout (handoff, not data). */
+  onLinesHandoffReady?: () => void
 }
 
 /** Call flow + setup checklist — isolated from sheet open state so drawers do not re-render this tree. */
@@ -95,6 +97,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   setRingBackupOpen,
   setShowFallbackSettings,
   adminRoutingOverridePhone,
+  onLinesHandoffReady,
 }: DashboardRoutingSurfaceProps) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
   const activation = useDashboardActivationOptional()
@@ -134,6 +137,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       setRingBackupOpen={setRingBackupOpen}
       setShowFallbackSettings={setShowFallbackSettings}
       adminRoutingOverridePhone={adminRoutingOverridePhone}
+      onLinesHandoffReady={onLinesHandoffReady}
       activeLineRaw={activeLineRaw}
       activeLineDisplay={activeLineDisplay}
       subscriptionActive={activation?.subscriptionActive === true}
@@ -171,6 +175,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   setRingBackupOpen,
   setShowFallbackSettings,
   adminRoutingOverridePhone,
+  onLinesHandoffReady,
   activeLineRaw,
   activeLineDisplay,
   subscriptionActive,
@@ -194,6 +199,15 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const stickyHeaderMode =
     businessNumbers.length > 0 || callFlowUiReady ? "active-line-subheader" : "blank-reserved"
   const stickyMeasureRef = useFlickerBoxMeasure("LinesStickyChrome", "lines-sticky-chrome")
+  const handoffReadyFiredRef = useRef(false)
+
+  // Children layout effects run first — sticky + DashboardCallFlow are committed before this.
+  useLayoutEffect(() => {
+    if (!onLinesHandoffReady || handoffReadyFiredRef.current) return
+    handoffReadyFiredRef.current = true
+    onLinesHandoffReady()
+  }, [onLinesHandoffReady])
+
   useFlickerDebugLifecycle("DashboardRoutingSurface", {
     callFlowUiReady,
     quickSetupDecided,

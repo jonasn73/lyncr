@@ -32,10 +32,12 @@ import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 import {
+  logFlicker,
   useFlickerBoxMeasure,
   useFlickerDebugLifecycle,
   useFlickerLayoutShiftObserver,
 } from "@/lib/debug/flicker-debug"
+import { cn } from "@/lib/utils"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -675,11 +677,54 @@ export function DashboardPage() {
       routedNumbers.length === 0 &&
       (bootstrapSyncing || businessNumbersLoading))
 
-  // Phase 2C diagnosis only — no behavior change. Hooks must run before the gate early return.
+  // Overlap handoff: keep fallback painted until real sticky + call-flow have committed layout.
+  const [linesHandoffReady, setLinesHandoffReady] = useState(false)
+  const handoffLogRef = useRef({ ready: false, release: false })
+
+  useLayoutEffect(() => {
+    if (!holdLinesBootstrapGate) return
+    setLinesHandoffReady(false)
+    handoffLogRef.current = { ready: false, release: false }
+  }, [holdLinesBootstrapGate])
+
+  const mountRealSurface = !holdLinesBootstrapGate
+  const showFallbackOverlay = holdLinesBootstrapGate || !linesHandoffReady
+
+  const handleLinesHandoffReady = useCallback(() => {
+    if (handoffLogRef.current.ready) {
+      setLinesHandoffReady(true)
+      return
+    }
+    handoffLogRef.current.ready = true
+    logFlicker({
+      event: "lines-handoff-ready",
+      component: "DashboardPage:Lines",
+      mountRealSurface: true,
+      fallbackStillVisible: true,
+    })
+    setLinesHandoffReady(true)
+  }, [])
+
+  useLayoutEffect(() => {
+    if (showFallbackOverlay) return
+    if (handoffLogRef.current.release) return
+    handoffLogRef.current.release = true
+    logFlicker({
+      event: "lines-gate-release",
+      component: "DashboardPage:Lines",
+      // Fallback and real overlapped from mountReal until this release paint.
+      fallbackAndRealOverlapped: true,
+      linesHandoffReady: true,
+    })
+  }, [showFallbackOverlay])
+
   useFlickerLayoutShiftObserver("LinesPageLayoutShift")
   const gateStickyMeasureRef = useFlickerBoxMeasure("LinesGateSticky", "lines-gate-sticky")
   useFlickerDebugLifecycle("DashboardPage:Lines", {
     gateActive: holdLinesBootstrapGate,
+    linesHandoffReady,
+    showFallbackOverlay,
+    mountRealSurface,
     hasBootstrap: bootstrap != null,
     bootstrapSyncing,
     hasActiveLine: Boolean(activeLine?.trim()),
@@ -691,75 +736,90 @@ export function DashboardPage() {
     quickSetupDecided,
     teamRosterReady,
     routingLineDetailLoading: showRoutingDetailLoading,
-    fallbackVisible: holdLinesBootstrapGate,
-    realSurfaceVisible: !holdLinesBootstrapGate,
+    fallbackVisible: showFallbackOverlay,
+    realSurfaceVisible: mountRealSurface,
     stickyHeaderPresent: true,
   })
 
-  if (holdLinesBootstrapGate) {
-    return (
-      <div
-        className="flex w-full flex-col gap-3"
-        aria-busy="true"
-        aria-label="Loading Lines"
-        data-flicker-probe="lines-gate-fallback"
-      >
-        {/* Same sticky Main Line chrome height as DashboardRoutingSurface */}
-        <div
-          ref={gateStickyMeasureRef}
-          data-flicker-probe="lines-gate-sticky"
-          className="sticky top-0 z-50 w-full bg-slate-950"
-        >
-          <div className="flex min-h-[3.25rem] w-full items-center border-b border-zinc-800/90 px-3 py-2.5" />
-        </div>
-        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4" data-flicker-probe="lines-gate-skeleton">
-          <CallFlowStepsSkeleton />
-        </div>
-      </div>
-    )
-  }
-
   return (
-    // Tight stack — Alerts sit above Available/Caller ID with normal spacing (no giant gap).
-    <div className="flex w-full flex-col gap-3" data-flicker-probe="lines-real-surface">
-      <DashboardRoutingWithSheets
-        quickSetupDecided={quickSetupDecided}
-        callFlowUiReady={callFlowUiReady}
-        isSetupComplete={isSetupComplete}
-        hasBusinessNumbers={hasBusinessNumbers}
-        hasReceptionists={hasReceptionists}
-        businessNumbers={routedNumbers}
-        routingBusinessNumber={routingLine}
-        setRoutingBusinessNumber={setActiveLine}
-        routingLineDetailLoading={showRoutingDetailLoading}
-        isRoutingToOwner={isRoutingToOwner}
-        selectedReceptionist={selectedReceptionist}
-        teamRosterReady={teamRosterReady}
-        ownerPhoneDisplay={ownerPhoneDisplay}
-        ringTimeoutSec={ringTimeoutSec}
-        activeFallbackLabel={activeFallbackMeta?.label ?? "Backup"}
-        routingStrategy={routingStrategy}
-        allowLyncrNetworkFallback={allowLyncrNetworkFallback}
-        setRoutingStrategy={setRoutingStrategy}
-        setAllowLyncrNetworkFallback={setAllowLyncrNetworkFallback}
-        adminRoutingOverridePhone={adminRoutingOverridePhone}
-        receptionists={receptionists}
-        selectedReceptionistId={selectedReceptionistId}
-        clearReceptionist={clearReceptionist}
-        selectReceptionist={selectReceptionist}
-        setRingTimeoutSec={setRingTimeoutSec}
-        inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
-        setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
-        forwardOriginalCallerId={forwardOriginalCallerId}
-        setForwardOriginalCallerId={setForwardOriginalCallerId}
-        saveRouting={saveRouting}
-        fallback={fallback}
-        setFallback={setFallback}
-        aiRingOwnerFirst={aiRingOwnerFirst}
-        setAiRingOwnerFirst={setAiRingOwnerFirst}
-        hasTelnyxAiAssistant={hasTelnyxAiAssistant}
-        setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
-      />
+    <div className="relative w-full" data-flicker-probe="lines-handoff-root">
+      {mountRealSurface ? (
+        <div
+          data-flicker-probe="lines-real-surface"
+          className={cn(
+            showFallbackOverlay
+              ? "pointer-events-none absolute inset-x-0 top-0 z-0 select-none"
+              : "relative z-0"
+          )}
+          aria-hidden={showFallbackOverlay}
+          // Prevent keyboard/AT hitting real controls while the gate still covers them.
+          {...(showFallbackOverlay ? { inert: true } : {})}
+        >
+          <DashboardRoutingWithSheets
+            onLinesHandoffReady={handleLinesHandoffReady}
+            quickSetupDecided={quickSetupDecided}
+            callFlowUiReady={callFlowUiReady}
+            isSetupComplete={isSetupComplete}
+            hasBusinessNumbers={hasBusinessNumbers}
+            hasReceptionists={hasReceptionists}
+            businessNumbers={routedNumbers}
+            routingBusinessNumber={routingLine}
+            setRoutingBusinessNumber={setActiveLine}
+            routingLineDetailLoading={showRoutingDetailLoading}
+            isRoutingToOwner={isRoutingToOwner}
+            selectedReceptionist={selectedReceptionist}
+            teamRosterReady={teamRosterReady}
+            ownerPhoneDisplay={ownerPhoneDisplay}
+            ringTimeoutSec={ringTimeoutSec}
+            activeFallbackLabel={activeFallbackMeta?.label ?? "Backup"}
+            routingStrategy={routingStrategy}
+            allowLyncrNetworkFallback={allowLyncrNetworkFallback}
+            setRoutingStrategy={setRoutingStrategy}
+            setAllowLyncrNetworkFallback={setAllowLyncrNetworkFallback}
+            adminRoutingOverridePhone={adminRoutingOverridePhone}
+            receptionists={receptionists}
+            selectedReceptionistId={selectedReceptionistId}
+            clearReceptionist={clearReceptionist}
+            selectReceptionist={selectReceptionist}
+            setRingTimeoutSec={setRingTimeoutSec}
+            inboundCallerGreetingEnabled={inboundCallerGreetingEnabled}
+            setInboundCallerGreetingEnabled={setInboundCallerGreetingEnabled}
+            forwardOriginalCallerId={forwardOriginalCallerId}
+            setForwardOriginalCallerId={setForwardOriginalCallerId}
+            saveRouting={saveRouting}
+            fallback={fallback}
+            setFallback={setFallback}
+            aiRingOwnerFirst={aiRingOwnerFirst}
+            setAiRingOwnerFirst={setAiRingOwnerFirst}
+            hasTelnyxAiAssistant={hasTelnyxAiAssistant}
+            setHasTelnyxAiAssistant={setHasTelnyxAiAssistant}
+          />
+        </div>
+      ) : null}
+
+      {showFallbackOverlay ? (
+        <div
+          className="relative z-10 flex w-full flex-col bg-background"
+          aria-busy="true"
+          aria-label="Loading Lines"
+          data-flicker-probe="lines-gate-fallback"
+        >
+          {/* Match DashboardRoutingSurface sticky chrome geometry (min-h 3.25rem). */}
+          <div
+            ref={gateStickyMeasureRef}
+            data-flicker-probe="lines-gate-sticky"
+            className="sticky top-0 z-50 w-full bg-slate-950"
+          >
+            <div className="flex min-h-[3.25rem] w-full items-center border-b border-zinc-800/90 px-3 py-2.5" />
+          </div>
+          {/* Match real surface content padding + call-flow min height (no extra gap-3). */}
+          <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4" data-flicker-probe="lines-gate-skeleton">
+            <div className="min-h-[14.5rem]">
+              <CallFlowStepsSkeleton />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

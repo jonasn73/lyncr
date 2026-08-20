@@ -458,7 +458,8 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       id="dash-call-flow"
       ref={callFlowMeasureRef}
       data-flicker-probe="lines-call-flow"
-      className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24"
+      // Stable min height across skeleton / empty / live so handoff does not collapse.
+      className="scroll-mt-28 min-h-[14.5rem] overflow-x-clip md:scroll-mt-24"
     >
       {!callFlowUiReady && businessNumbers.length === 0 ? (
         <WhoRingsConsole
