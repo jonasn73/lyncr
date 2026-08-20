@@ -72,6 +72,11 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import {
+  useDashboardBootstrapEffective,
+  useDashboardBootstrapSyncing,
+} from "@/components/dashboard-bootstrap-context"
+import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import {
@@ -1875,6 +1880,8 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
 }) {
   // Pause Activity polls when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
+  const bootstrap = useDashboardBootstrapEffective()
+  const bootstrapSyncing = useDashboardBootstrapSyncing()
   const { calls, loading, loadError } = useOperationsData({
     refetchIntervalMs: 12_000,
     enabled: pollEnabled,
@@ -1923,6 +1930,12 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     // Keep repeat-caller urgency in sync without rewriting context on every identical poll.
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
+
+  // Cold Activity: hold cache/partial-scope table until first bootstrap (session or network).
+  // Safe exit: syncing false + still null → fall through to the normal page.
+  if (bootstrap == null && bootstrapSyncing) {
+    return <ActivityPaneFallback />
+  }
 
   return (
     <WorkspaceRightSheetGate<UiCallRecord>
