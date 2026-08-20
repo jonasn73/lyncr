@@ -61,6 +61,7 @@ import {
 import {
   ActivityTableSkeleton,
 } from "@/components/workspace-content-skeletons"
+import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -1773,6 +1774,24 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return grouped
   }, [rows, calls, filter])
 
+  const showingSkeleton = shouldShowOperationsSkeleton(
+    loading || (waitingForLines && calls.length === 0),
+    calls.length
+  )
+
+  useFlickerDebugLifecycle("ActivityWorkspaceBody", {
+    loading,
+    waitingForLines,
+    showingSkeleton,
+    callCount: calls.length,
+    scopedCallCount: scopedCalls.length,
+    displayRowCount: displayRows.length,
+    shopLineCount: shopLines.length,
+    hasActiveLine: Boolean(activeLine),
+    businessNumbersLoading,
+    filter,
+  })
+
   return (
     <WorkspacePage>
       <WorkspacePageHeader
@@ -1821,10 +1840,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {shouldShowOperationsSkeleton(
-        loading || (waitingForLines && calls.length === 0),
-        calls.length
-      ) ? (
+      {showingSkeleton ? (
         <ActivityTableSkeleton />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
@@ -1876,6 +1892,14 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     return "all"
   })
   useBookingAlerts(pollEnabled)
+
+  useFlickerDebugLifecycle("ActivityWorkspaceView", {
+    isActive,
+    pollEnabled,
+    loading,
+    callCount: calls.length,
+    filter,
+  })
 
   useEffect(() => {
     const param = searchParams.get("filter")

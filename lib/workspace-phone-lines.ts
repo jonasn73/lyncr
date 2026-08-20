@@ -6,6 +6,7 @@ import {
   sortBusinessLinesForDisplay,
   type PreferredLineCandidate,
 } from "@/lib/preferred-business-line"
+import { isFlickerDebugEnabled, logFlicker } from "@/lib/debug/flicker-debug"
 
 /** Prefer the fuller shop line list (bootstrap) over a one-DID paint/chrome subset. */
 export function preferPhoneLinesForWorkspace(
@@ -38,26 +39,65 @@ export function scopeCallsToShopLines<T extends { targetLineE164: string }>(
   lines: { number: string }[],
   opts?: { activeLine?: string | null; linesLoading?: boolean }
 ): T[] {
+  let result: T[]
+  let path: "matched-lines" | "single-line-passthrough" | "matched-empty" | "loading-keep" | "active-line-only" | "passthrough"
   if (lines.length > 0) {
     const matched = calls.filter((c) =>
       lines.some((n) => businessNumbersMatch(c.targetLineE164, n.number))
     )
-    if (matched.length > 0) return matched
-    if (lines.length === 1) return calls
-    return matched
-  }
-  // Lines still bootstrapping — keep painted Activity rows (do not flash empty / skeleton).
-  if (opts?.linesLoading) {
-    if (opts?.activeLine) {
-      return calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
+    if (matched.length > 0) {
+      result = matched
+      path = "matched-lines"
+    } else if (lines.length === 1) {
+      result = calls
+      path = "single-line-passthrough"
+    } else {
+      result = matched
+      path = "matched-empty"
     }
-    return calls
+  } else if (opts?.linesLoading) {
+    // Lines still bootstrapping — keep painted Activity rows (do not flash empty / skeleton).
+    if (opts?.activeLine) {
+      result = calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
+      path = "loading-keep"
+    } else {
+      result = calls
+      path = "loading-keep"
+    }
+  } else if (opts?.activeLine) {
+    result = calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
+    path = "active-line-only"
+  } else {
+    result = calls
+    path = "passthrough"
   }
-  if (opts?.activeLine) {
-    return calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
+
+  if (
+    typeof window !== "undefined" &&
+    isFlickerDebugEnabled() &&
+    (result.length !== calls.length || path === "matched-empty" || path === "loading-keep")
+  ) {
+    const sig = `${path}:${calls.length}->${result.length}:${lines.length}:${opts?.linesLoading ? 1 : 0}`
+    if (sig !== lastScopeFlickerSig) {
+      lastScopeFlickerSig = sig
+      logFlicker({
+        event: "ops-line-scope",
+        component: "scopeCallsToShopLines",
+        scopePath: path,
+        rowCountBefore: calls.length,
+        rowCountAfter: result.length,
+        shopLineCount: lines.length,
+        linesLoading: Boolean(opts?.linesLoading),
+        hasActiveLine: Boolean(opts?.activeLine),
+        lineScopeChanged: result.length !== calls.length,
+      })
+    }
   }
-  return calls
+
+  return result
 }
+
+let lastScopeFlickerSig = ""
 
 /** Customer-facing main line for the workspace (ported DID beats temp placeholder). */
 export function primaryPhoneLineForOrganization(

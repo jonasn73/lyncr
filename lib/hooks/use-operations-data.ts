@@ -15,6 +15,7 @@ import {
   clearOperationsPaintSeed,
   operationsPaintMatchesOrg,
 } from "@/lib/operations-paint-cache"
+import { logFlicker } from "@/lib/debug/flicker-debug"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
 
@@ -505,6 +506,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       sessionMismatch = false
     }
     if (!cookieMismatch && !sessionMismatch) return
+    const prevRowCount = operationsCache?.calls.length ?? 0
     operationsCache = null
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY)
@@ -512,6 +514,17 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       /* ignore */
     }
     if (cookieMismatch) clearOperationsPaintSeed()
+    logFlicker({
+      event: "ops-org-clear",
+      component: "useOperationsData",
+      reason: cookieMismatch ? "cookie-mismatch" : "session-mismatch",
+      prevHadOrg: Boolean(prev),
+      nextHadOrg: Boolean(activeOrgId),
+      prevOrgIsStub: Boolean(prev && isWorkspaceOrgStubId(prev)),
+      rowCountBefore: prevRowCount,
+      rowCountAfter: 0,
+      loadingAfter: true,
+    })
     setCalls([])
     setLoading(true)
   }, [activeOrgId])
@@ -520,10 +533,31 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
   // useLayoutEffect: apply seed before browser paint so hard refresh is not skeleton → rows.
   useLayoutEffect(() => {
     // Prefer hook seed; peek sessionStorage / cookie if this layout pass still has SSR null.
+    const source: "session" | "peek" | "paint" | null = sessionSeed
+      ? "session"
+      : peekOperationsCache()
+        ? "peek"
+        : seedFromPaint
+          ? "paint"
+          : null
     const next = sessionSeed ?? peekOperationsCache() ?? seedFromPaint
     if (!next) return
     if (!operationsCache) operationsCache = next
-    setCalls((prev) => (prev.length > 0 ? prev : next.calls))
+    setCalls((prev) => {
+      const nextCalls = prev.length > 0 ? prev : next.calls
+      if (prev.length === 0 && next.calls.length >= 0) {
+        logFlicker({
+          event: "ops-seed-apply",
+          component: "useOperationsData",
+          dataSource: source ?? "unknown",
+          seedRowCount: next.calls.length,
+          rowCountBefore: prev.length,
+          rowCountAfter: nextCalls.length,
+          loadingAfter: false,
+        })
+      }
+      return nextCalls
+    })
     setQuality((prev) => prev ?? next.quality)
     setInsights((prev) => prev ?? next.insights)
     // Seeded rows (including empty "no calls yet"): drop loading so ActivityTableSkeleton cannot mount.
@@ -540,7 +574,19 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       const cached = operationsCache ?? peekOperationsCache()
       if (!bypassCache && cached && cacheIsFresh(cached)) {
         if (!mounted) return
-        setCalls((prev) => (callsFingerprint(prev) === callsFingerprint(cached.calls) ? prev : cached.calls))
+        setCalls((prev) => {
+          const same = callsFingerprint(prev) === callsFingerprint(cached.calls)
+          if (!same) {
+            logFlicker({
+              event: "ops-list-replace",
+              component: "useOperationsData",
+              dataSource: "memory-cache",
+              rowCountBefore: prev.length,
+              rowCountAfter: cached.calls.length,
+            })
+          }
+          return same ? prev : cached.calls
+        })
         setQuality(cached.quality)
         setInsights(cached.insights)
         setLoading(false)
@@ -551,6 +597,14 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       const canShowExisting = hasCallsRef.current || Boolean(cached?.calls.length)
       if (!canShowExisting) {
         // First load only — never blank the feed for a quiet poll / live-call refresh.
+        logFlicker({
+          event: "ops-loading",
+          component: "useOperationsData",
+          loading: true,
+          reason: "first-load-no-rows",
+          rowCountBefore: hasCallsRef.current ? -1 : 0,
+          bypassCache: bypassCache,
+        })
         setLoading(true)
         setLoadError(null)
       } else {
@@ -561,9 +615,20 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         const snapshot = await fetchOperationsSnapshot(bypassCache)
         if (!mounted || !snapshot) return
         // Skip identical payloads so Activities does not re-render / jump every poll.
-        setCalls((prev) =>
-          callsFingerprint(prev) === callsFingerprint(snapshot.calls) ? prev : snapshot.calls
-        )
+        setCalls((prev) => {
+          const same = callsFingerprint(prev) === callsFingerprint(snapshot.calls)
+          if (!same) {
+            logFlicker({
+              event: "ops-list-replace",
+              component: "useOperationsData",
+              dataSource: "network",
+              rowCountBefore: prev.length,
+              rowCountAfter: snapshot.calls.length,
+              bypassCache: bypassCache,
+            })
+          }
+          return same ? prev : snapshot.calls
+        })
         setQuality((prev) =>
           JSON.stringify(prev) === JSON.stringify(snapshot.quality) ? prev : snapshot.quality
         )

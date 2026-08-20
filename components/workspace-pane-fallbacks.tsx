@@ -15,9 +15,11 @@ import {
 } from "@/components/workspace-content-skeletons"
 import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import { cn } from "@/lib/utils"
+import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 
 /** Activities chrome + table — same as the live tab, no extra padding. */
 export function ActivityPaneFallback() {
+  useFlickerDebugLifecycle("ActivityPaneFallback", { showingFallback: true })
   return (
     <WorkspacePage aria-busy="true" aria-label="Loading Activity">
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
