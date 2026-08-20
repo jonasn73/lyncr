@@ -2,10 +2,14 @@
 
 import {
   formatTalkTime,
-  telemetryLocalDayPeriodKey,
   telemetryMonthPeriodKey,
   telemetryWeekPeriodKey,
 } from "@/lib/daily-call-telemetry"
+import { localDateTimePartsInZone } from "@/lib/schedule-blockouts"
+import {
+  DEFAULT_TELEMETRY_TIMEZONE,
+  sanitizeIanaTimezone,
+} from "@/lib/telemetry-timezone"
 import {
   paintSeedCookieName,
   readPaintSeedCookie,
@@ -59,6 +63,8 @@ export type RoutingTelemetrySnapshot = {
   weekPeriodKey?: string
   monthPeriodKey?: string
   localDayPeriodKey?: string
+  /** IANA zone for localDayPeriodKey (Vercel UTC must not zero 8pm Eastern). */
+  timeZone?: string
 }
 
 /** Build the sessionStorage key for a workspace org. */
@@ -73,7 +79,9 @@ export function normalizeRoutingTelemetrySnapshot(
 ): RoutingTelemetrySnapshot {
   const weekKey = telemetryWeekPeriodKey(now)
   const monthKey = telemetryMonthPeriodKey(now)
-  const dayKey = telemetryLocalDayPeriodKey(now)
+  // Owner zone from the cookie — not the host machine clock (Vercel = UTC).
+  const tz = sanitizeIanaTimezone(raw.timeZone ?? DEFAULT_TELEMETRY_TIMEZONE)
+  const dayKey = localDateTimePartsInZone(now, tz).dateKey
   const cachedWeekKey = raw.weekPeriodKey ?? weekKey
   const cachedMonthKey = raw.monthPeriodKey ?? monthKey
   const cachedDayKey = raw.localDayPeriodKey ?? dayKey
@@ -94,6 +102,7 @@ export function normalizeRoutingTelemetrySnapshot(
     weekPeriodKey: weekKey,
     monthPeriodKey: monthKey,
     localDayPeriodKey: dayKey,
+    timeZone: tz,
   }
 }
 
@@ -125,6 +134,7 @@ function parseTelemetryRaw(
     weekPeriodKey: raw.weekPeriodKey,
     monthPeriodKey: raw.monthPeriodKey,
     localDayPeriodKey: raw.localDayPeriodKey,
+    timeZone: raw.timeZone,
   }
   return normalizeRoutingTelemetrySnapshot(parsed)
 }
@@ -172,11 +182,14 @@ export function writeRoutingTelemetryCache(
   organizationId: string | null,
   snapshot: RoutingTelemetrySnapshot
 ): void {
+  const tz = sanitizeIanaTimezone(snapshot.timeZone ?? DEFAULT_TELEMETRY_TIMEZONE)
   const stamped: RoutingTelemetrySnapshot = {
     ...snapshot,
     weekPeriodKey: snapshot.weekPeriodKey ?? telemetryWeekPeriodKey(),
     monthPeriodKey: snapshot.monthPeriodKey ?? telemetryMonthPeriodKey(),
-    localDayPeriodKey: snapshot.localDayPeriodKey ?? telemetryLocalDayPeriodKey(),
+    localDayPeriodKey:
+      snapshot.localDayPeriodKey ?? localDateTimePartsInZone(new Date(), tz).dateKey,
+    timeZone: tz,
   }
   writePersistedCache(routingTelemetryCacheKey(organizationId), stamped)
   writePaintSeedCookie(ROUTING_TELEMETRY_COOKIE_SCOPE, {

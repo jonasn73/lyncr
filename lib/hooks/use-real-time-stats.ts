@@ -27,7 +27,13 @@ import {
   talkSecondsFromCompletedPayload,
 } from "@/lib/realtime/owner-call-event-types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
-import { routingTelemetryQueryString } from "@/lib/telemetry-timezone"
+import {
+  DEFAULT_TELEMETRY_TIMEZONE,
+  resolveBrowserTimezone,
+  routingTelemetryQueryString,
+  sanitizeIanaTimezone,
+} from "@/lib/telemetry-timezone"
+import { localDateTimePartsInZone } from "@/lib/schedule-blockouts"
 import {
   isLyncEngineOwningRealtime,
   subscribeLyncEngineBus,
@@ -113,7 +119,8 @@ function applySnapshot(
   const now = options?.now ?? new Date()
   const currentWeekKey = telemetryWeekPeriodKey(now)
   const currentMonthKey = telemetryMonthPeriodKey(now)
-  const currentDayKey = telemetryLocalDayPeriodKey(now)
+  const tz = sanitizeIanaTimezone(snap.timeZone ?? DEFAULT_TELEMETRY_TIMEZONE)
+  const currentDayKey = localDateTimePartsInZone(now, tz).dateKey
   const snapWeekKey = snap.weekPeriodKey ?? currentWeekKey
   const snapMonthKey = snap.monthPeriodKey ?? currentMonthKey
   const snapDayKey = snap.localDayPeriodKey ?? currentDayKey
@@ -261,6 +268,7 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         Number(data.monthly_talk_seconds ?? 0) > 0
           ? Number(data.monthly_talk_seconds)
           : parseTalkSecondsFromDisplay(String(data.monthly_talk_time_display ?? ""))
+      const browserTz = resolveBrowserTimezone()
       const snap: RoutingTelemetrySnapshot = {
         dailyCalls: Number(data.daily_calls ?? 0),
         missedCalls: Number(data.missed_calls ?? 0),
@@ -279,7 +287,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         ownerUserId: data.owner_user_id ? String(data.owner_user_id) : null,
         weekPeriodKey: telemetryWeekPeriodKey(),
         monthPeriodKey: telemetryMonthPeriodKey(),
-        localDayPeriodKey: telemetryLocalDayPeriodKey(),
+        localDayPeriodKey: localDateTimePartsInZone(new Date(), browserTz).dateKey,
+        timeZone: browserTz,
       }
       applySnapshot(
         {

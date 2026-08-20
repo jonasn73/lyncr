@@ -3,6 +3,7 @@ import {
   normalizeRoutingTelemetrySnapshot,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
+import { localDateTimePartsInZone } from "@/lib/schedule-blockouts"
 
 describe("normalizeRoutingTelemetrySnapshot", () => {
   it("zeros weekly talk when the cached snapshot is from a prior week", () => {
@@ -61,5 +62,32 @@ describe("normalizeRoutingTelemetrySnapshot", () => {
     expect(normalized.avgDispatchSpeedMinutes).toBeNull()
     expect(normalized.rescueRevenueCents).toBe(0)
     expect(normalized.weeklyTalkSeconds).toBe(1200)
+  })
+
+  it("keeps Eastern rescue and booked jobs after UTC midnight (8pm Louisville)", () => {
+    const tz = "America/New_York"
+    const stale: RoutingTelemetrySnapshot = {
+      dailyCalls: 5,
+      missedCalls: 0,
+      dailyTalkSeconds: 0,
+      weeklyTalkSeconds: 0,
+      monthlyTalkSeconds: 0,
+      bookingRatePercent: 17,
+      bookedJobsCount: 1,
+      uniqueCallersCount: 6,
+      avgDispatchSpeedMinutes: null,
+      rescueRevenueCents: 17500,
+      ownerUserId: "user-1",
+      localDayPeriodKey: "2026-08-19",
+      timeZone: tz,
+    }
+    const utcTomorrow = new Date("2026-08-20T02:00:00.000Z")
+    const normalized = normalizeRoutingTelemetrySnapshot(stale, utcTomorrow)
+    expect(normalized.rescueRevenueCents).toBe(17500)
+    expect(normalized.bookedJobsCount).toBe(1)
+    expect(normalized.bookingRatePercent).toBe(17)
+    expect(normalized.localDayPeriodKey).toBe(
+      localDateTimePartsInZone(utcTomorrow, tz).dateKey
+    )
   })
 })
