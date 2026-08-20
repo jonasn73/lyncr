@@ -661,9 +661,16 @@ export function DashboardPage() {
     })
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
-  // Cold Lines home: hold incomplete workspace (no active line / loading) until first bootstrap.
-  // Safe exit: if syncing ends and bootstrap is still null, fall through to the normal page.
-  if (bootstrap == null && bootstrapSyncing) {
+  // Cold Lines home: hold until first bootstrap, and until line chrome can settle after hydrate.
+  // Safe exit: syncing false + still no lines → fall through to real Lines (empty/setup).
+  const holdLinesBootstrapGate =
+    (bootstrap == null && bootstrapSyncing) ||
+    (bootstrap != null &&
+      !activeLine &&
+      routedNumbers.length === 0 &&
+      (bootstrapSyncing || businessNumbersLoading))
+
+  if (holdLinesBootstrapGate) {
     return (
       <div className="flex w-full flex-col gap-3" aria-busy="true" aria-label="Loading Lines">
         {/* Same sticky Main Line chrome height as DashboardRoutingSurface */}
