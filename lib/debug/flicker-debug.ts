@@ -7,9 +7,12 @@
 "use client"
 
 import {
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   type ReactNode,
+  type RefCallback,
   createElement,
 } from "react"
 
@@ -321,4 +324,149 @@ export function FlickerSuspenseFallback({
   children: ReactNode
 }): ReactNode {
   return createElement(FlickerSuspenseFallbackInner, { name, children })
+}
+
+/** Tag / id / first classes / data-flicker-probe — never text content or attrs with values. */
+export function flickerSafeDomHint(node: Node | null | undefined): string {
+  if (!node || !(node instanceof Element)) return "unknown"
+  const probe = node.getAttribute("data-flicker-probe")
+  if (probe) return `probe:${probe}`
+  const tag = node.tagName.toLowerCase()
+  const id = node.id ? `#${node.id.replace(/[^a-zA-Z0-9_-]/g, "")}` : ""
+  const classHint =
+    typeof node.className === "string"
+      ? node.className
+          .split(/\s+/)
+          .filter((c) => c.length > 0 && c.length < 48)
+          .slice(0, 4)
+          .join(".")
+      : ""
+  return `${tag}${id}${classHint ? `.${classHint}` : ""}`.slice(0, 140)
+}
+
+/**
+ * Debug-only CLS observer. Proves whether the flash is a real layout shift and
+ * which element moved (safe hint only). No-op when flicker debug is off.
+ */
+export function useFlickerLayoutShiftObserver(component = "LayoutShift"): void {
+  const enabled = isFlickerDebugEnabled()
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined" || typeof PerformanceObserver === "undefined") {
+      return
+    }
+    let observer: PerformanceObserver | null = null
+    try {
+      observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.entryType !== "layout-shift") continue
+          const ls = entry as PerformanceEntry & {
+            value?: number
+            hadRecentInput?: boolean
+            sources?: Array<{ node?: Node | null }>
+          }
+          if (ls.hadRecentInput) continue
+          const sourceHint = flickerSafeDomHint(ls.sources?.[0]?.node ?? null)
+          logFlicker({
+            event: "layout-shift",
+            component,
+            value: typeof ls.value === "number" ? Math.round(ls.value * 10000) / 10000 : null,
+            sourceHint,
+            entryStartTime:
+              typeof entry.startTime === "number"
+                ? Math.round(entry.startTime * 100) / 100
+                : null,
+          })
+        }
+      })
+      observer.observe({ type: "layout-shift", buffered: true })
+      logFlicker({ event: "layout-shift-observer-on", component })
+    } catch {
+      logFlicker({ event: "layout-shift-observer-fail", component })
+    }
+    return () => {
+      observer?.disconnect()
+    }
+  }, [enabled, component])
+}
+
+/**
+ * Attach to a Lines chrome/container. Logs height/width changes (CLS-adjacent proof).
+ * No visual change — ref only.
+ */
+export function useFlickerBoxMeasure(
+  component: string,
+  probe: string
+): RefCallback<HTMLElement | null> {
+  const enabled = isFlickerDebugEnabled()
+  const lastRef = useRef({ w: -1, h: -1 })
+  const roRef = useRef<ResizeObserver | null>(null)
+  const metaRef = useRef({ component, probe })
+  metaRef.current = { component, probe }
+
+  return useCallback(
+    (el: HTMLElement | null) => {
+      if (!enabled) return
+      if (roRef.current) {
+        roRef.current.disconnect()
+        roRef.current = null
+      }
+      if (!el || typeof ResizeObserver === "undefined") return
+
+      const emit = (reason: string) => {
+        const rect = el.getBoundingClientRect()
+        const w = Math.round(rect.width)
+        const h = Math.round(rect.height)
+        if (w === lastRef.current.w && h === lastRef.current.h && reason !== "attach") return
+        const prevH = lastRef.current.h
+        const prevW = lastRef.current.w
+        lastRef.current = { w, h }
+        logFlicker({
+          event: reason === "attach" ? "box-attach" : "box-resize",
+          component: metaRef.current.component,
+          probe: metaRef.current.probe,
+          width: w,
+          height: h,
+          prevWidth: prevW < 0 ? null : prevW,
+          prevHeight: prevH < 0 ? null : prevH,
+          heightDelta: prevH < 0 ? null : h - prevH,
+        })
+      }
+
+      emit("attach")
+      const ro = new ResizeObserver(() => emit("resize"))
+      ro.observe(el)
+      roRef.current = ro
+    },
+    [enabled]
+  )
+}
+
+/** ScrollTop deltas on a scroll container — proves jump vs user scroll. */
+export function useFlickerScrollWatch(
+  component: string,
+  elementRef: { current: HTMLElement | null },
+  pathname: string
+): void {
+  const enabled = isFlickerDebugEnabled()
+  useLayoutEffect(() => {
+    if (!enabled) return
+    const element = elementRef.current
+    if (!element) return
+    let last = element.scrollTop
+    const onScroll = () => {
+      const next = element.scrollTop
+      if (next === last) return
+      logFlicker({
+        event: "scroll-change",
+        component,
+        pathname: flickerPathnameOnly(pathname),
+        scrollTop: Math.round(next),
+        prevScrollTop: Math.round(last),
+        delta: Math.round(next - last),
+      })
+      last = next
+    }
+    element.addEventListener("scroll", onScroll, { passive: true })
+    return () => element.removeEventListener("scroll", onScroll)
+  }, [enabled, elementRef, component, pathname])
 }

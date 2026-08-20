@@ -28,7 +28,7 @@ import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
-import { useFlickerDebugLifecycle, logFlicker } from "@/lib/debug/flicker-debug"
+import { useFlickerDebugLifecycle, logFlicker, useFlickerScrollWatch } from "@/lib/debug/flicker-debug"
 
 export type { PageId }
 
@@ -243,6 +243,9 @@ function AppShellInner({
     accountHeaderKind: accountHeader?.kind ?? "none",
     useLinks,
   })
+
+  // Re-bind scroll watch when pathname changes (main node is stable).
+  useFlickerScrollWatch("AppShell", mainRef, pathname ?? "")
 
   useLayoutEffect(() => {
     if (!pathname) return

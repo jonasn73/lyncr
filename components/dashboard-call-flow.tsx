@@ -29,6 +29,10 @@ import {
 import { deriveRingsNowStrip } from "@/lib/inbound-dial-plan-core"
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 import { useRealTimeStatsContextOptional } from "@/components/dashboard/real-time-stats-provider"
+import {
+  useFlickerBoxMeasure,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 
 export const ROUTING_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
@@ -419,8 +423,43 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
             ? "If your team misses, the Lyncr network can pick up."
             : null
 
+  const whoAnswersVariant =
+    !callFlowUiReady && businessNumbers.length === 0
+      ? "skeleton"
+      : businessNumbers.length === 0
+        ? "empty"
+        : "live"
+  // Card-ish blocks under the call-flow section (shape only — no copy).
+  const cardCount =
+    whoAnswersVariant === "live"
+      ? 1 + (adminOverrideActive ? 1 : 0) /* WhoRings + optional override; HoldQueue may be 0 */
+      : 1
+  const callFlowMeasureRef = useFlickerBoxMeasure("DashboardCallFlow", "lines-call-flow")
+  useFlickerDebugLifecycle("DashboardCallFlow", {
+    callFlowUiReady,
+    quickSetupDecided,
+    businessNumberCount: businessNumbers.length,
+    hasRoutingLine: Boolean(routingBusinessNumber?.trim()),
+    whoAnswersVariant,
+    cardCount,
+    activeRoutingMode,
+    teamRosterReady,
+    presenceReady,
+    presenceBypass,
+    routingLineDetailLoading,
+    ringsNowLen: ringsNowStrip.ringsNow.length,
+    ifNoAnswerLen: ringsNowStrip.ifNoAnswer.length,
+    statusLabelLen: ringsNowStrip.statusLabel.length,
+    hasDetailHint: Boolean(detailHint),
+  })
+
   return (
-    <section id="dash-call-flow" className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24">
+    <section
+      id="dash-call-flow"
+      ref={callFlowMeasureRef}
+      data-flicker-probe="lines-call-flow"
+      className="scroll-mt-28 min-h-0 overflow-x-clip md:scroll-mt-24"
+    >
       {!callFlowUiReady && businessNumbers.length === 0 ? (
         <WhoRingsConsole
           ringsNow="…"
@@ -502,6 +541,14 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
   // Amber is Settings-only — never list it in the sticky shop-line picker.
   const shopLines = customerFacingPhoneLines(businessNumbers)
+
+  useFlickerDebugLifecycle("ActiveLineSubHeader", {
+    shopLineCount: shopLines.length,
+    hasActiveLine: Boolean(activeLine?.trim()),
+    loading,
+    bare,
+    emptyShopLines: shopLines.length === 0,
+  })
 
   // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
   const rowClass = bare

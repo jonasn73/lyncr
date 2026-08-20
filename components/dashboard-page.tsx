@@ -31,6 +31,11 @@ import { customerFacingPhoneLines } from "@/lib/amber-control-line"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
+import {
+  useFlickerBoxMeasure,
+  useFlickerDebugLifecycle,
+  useFlickerLayoutShiftObserver,
+} from "@/lib/debug/flicker-debug"
 
 export function DashboardPage() {
   const { toast } = useToast()
@@ -670,14 +675,44 @@ export function DashboardPage() {
       routedNumbers.length === 0 &&
       (bootstrapSyncing || businessNumbersLoading))
 
+  // Phase 2C diagnosis only — no behavior change. Hooks must run before the gate early return.
+  useFlickerLayoutShiftObserver("LinesPageLayoutShift")
+  const gateStickyMeasureRef = useFlickerBoxMeasure("LinesGateSticky", "lines-gate-sticky")
+  useFlickerDebugLifecycle("DashboardPage:Lines", {
+    gateActive: holdLinesBootstrapGate,
+    hasBootstrap: bootstrap != null,
+    bootstrapSyncing,
+    hasActiveLine: Boolean(activeLine?.trim()),
+    hasRoutingLine: Boolean(routingLine?.trim()),
+    routedNumberCount: routedNumbers.length,
+    businessNumberCount: businessNumbers.length,
+    businessNumbersLoading,
+    callFlowUiReady,
+    quickSetupDecided,
+    teamRosterReady,
+    routingLineDetailLoading: showRoutingDetailLoading,
+    fallbackVisible: holdLinesBootstrapGate,
+    realSurfaceVisible: !holdLinesBootstrapGate,
+    stickyHeaderPresent: true,
+  })
+
   if (holdLinesBootstrapGate) {
     return (
-      <div className="flex w-full flex-col gap-3" aria-busy="true" aria-label="Loading Lines">
+      <div
+        className="flex w-full flex-col gap-3"
+        aria-busy="true"
+        aria-label="Loading Lines"
+        data-flicker-probe="lines-gate-fallback"
+      >
         {/* Same sticky Main Line chrome height as DashboardRoutingSurface */}
-        <div className="sticky top-0 z-50 w-full bg-slate-950">
+        <div
+          ref={gateStickyMeasureRef}
+          data-flicker-probe="lines-gate-sticky"
+          className="sticky top-0 z-50 w-full bg-slate-950"
+        >
           <div className="flex min-h-[3.25rem] w-full items-center border-b border-zinc-800/90 px-3 py-2.5" />
         </div>
-        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
+        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4" data-flicker-probe="lines-gate-skeleton">
           <CallFlowStepsSkeleton />
         </div>
       </div>
@@ -686,7 +721,7 @@ export function DashboardPage() {
 
   return (
     // Tight stack — Alerts sit above Available/Caller ID with normal spacing (no giant gap).
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex w-full flex-col gap-3" data-flicker-probe="lines-real-surface">
       <DashboardRoutingWithSheets
         quickSetupDecided={quickSetupDecided}
         callFlowUiReady={callFlowUiReady}

@@ -29,6 +29,10 @@ import {
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
+import {
+  useFlickerBoxMeasure,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 
 export type DashboardRoutingSurfaceProps = {
   quickSetupDecided: boolean
@@ -187,10 +191,31 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const linesActive = useDashboardActivePage() === "dashboard"
   const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
 
+  const stickyHeaderMode =
+    businessNumbers.length > 0 || callFlowUiReady ? "active-line-subheader" : "blank-reserved"
+  const stickyMeasureRef = useFlickerBoxMeasure("LinesStickyChrome", "lines-sticky-chrome")
+  useFlickerDebugLifecycle("DashboardRoutingSurface", {
+    callFlowUiReady,
+    quickSetupDecided,
+    hasBusinessNumbers,
+    businessNumberCount: businessNumbers.length,
+    hasActiveLine: Boolean(activeLineRaw?.trim()),
+    routingLineDetailLoading,
+    stickyHeaderMode,
+    stickyHeaderPresent: true,
+    realSurfaceVisible: true,
+    fallbackVisible: false,
+    setupChecklistVisible: Boolean(quickSetupDecided && !isSetupComplete),
+  })
+
   // Sticky Main Line status only — Available/Busy lives at the bottom with Caller ID.
   // Prefer real ActiveLineSubHeader whenever we have seeded/live numbers — never opacity-0 blank chrome.
   const stickyChrome = (
-    <div className="sticky top-0 z-50 w-full bg-slate-950">
+    <div
+      ref={stickyMeasureRef}
+      data-flicker-probe="lines-sticky-chrome"
+      className="sticky top-0 z-50 w-full bg-slate-950"
+    >
       <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
         {businessNumbers.length > 0 || callFlowUiReady ? (
           <ActiveLineSubHeader
@@ -210,6 +235,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             className="flex w-full min-w-0 items-center justify-between gap-3"
             aria-busy="true"
             aria-label="Loading line status"
+            data-flicker-probe="lines-sticky-blank"
           >
             <div className="min-w-0 flex-1 space-y-1.5 opacity-0" aria-hidden>
               <div className="h-2.5 w-24" />
@@ -223,7 +249,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   )
 
   return (
-    <div className="flex w-full flex-col">
+    <div className="flex w-full flex-col" data-flicker-probe="lines-routing-surface">
       {stickyChrome}
 
       {/* No pb-24 spacer — Available/Caller ID follow Alerts with normal gap (Messages left Lines). */}
