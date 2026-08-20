@@ -1774,7 +1774,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   }, [rows, calls, filter])
 
   return (
-    <WorkspacePage>
+    <WorkspacePage className="lyncr-pane-settle">
       <WorkspacePageHeader
         eyebrow="Call history"
         title={

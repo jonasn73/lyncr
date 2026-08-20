@@ -2404,7 +2404,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   return (
     // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
+    <div className="lyncr-pane-settle mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
         <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
           CRM

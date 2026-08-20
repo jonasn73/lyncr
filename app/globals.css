@@ -292,6 +292,15 @@
   }
 }
 
+@keyframes lyncr-pane-settle {
+  from {
+    opacity: 0.88;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes sigo-skeleton-breathe {
   0%,
   100% {
@@ -346,6 +355,10 @@
   }
   .sigo-bloom-in-stagger > *:nth-child(6) {
     animation-delay: 250ms;
+  }
+
+  .lyncr-pane-settle {
+    animation: lyncr-pane-settle 280ms ease-out both;
   }
 
   .animate-sigo-page-enter {
@@ -453,6 +466,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .lyncr-pane-settle,
     .sigo-bloom-in,
     .sigo-bloom-in-stagger > *,
     .sigo-dashboard-enter,

@@ -17,6 +17,9 @@ import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
 import {
+  ActivityPaneFallback,
+  CrmPaneFallback,
+  MapPaneFallback,
   MessagesPaneFallback,
   PayPaneFallback,
   SchedulerPaneFallback,
@@ -36,8 +39,8 @@ const ActivityWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
       default: m.ActivityWorkspaceView,
     })),
-  // No skeleton while the chunk loads — painted rows paint instantly once mounted.
-  { ssr: false, loading: () => null }
+  // Keep the Activities chrome while the chunk loads, then the real list settles in.
+  { ssr: false, loading: () => <ActivityPaneFallback /> }
 )
 
 const MessagesWorkspaceViewLazy = dynamic(
@@ -61,7 +64,7 @@ const CrmWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
       default: m.CrmWorkspaceView,
     })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <CrmPaneFallback /> }
 )
 
 const MapWorkspaceViewLazy = dynamic(
@@ -69,7 +72,7 @@ const MapWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
       default: m.MapWorkspaceView,
     })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <MapPaneFallback /> }
 )
 
 const PayWorkspaceViewLazy = dynamic(
@@ -210,8 +213,8 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           // Hard refresh of /dashboard/activity — real ActivityWorkspaceView from page.tsx (SSR).
           renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
         ) : (
-          // Visited later — code-split chunk; null Suspense so useSearchParams cannot wipe chrome.
-          <Suspense fallback={null}>
+          // Visited later — keep Activities chrome while the chunk loads.
+          <Suspense fallback={<ActivityPaneFallback />}>
             <ActivityWorkspaceViewLazy isActive={activePage === "activity"} />
           </Suspense>
         )}
@@ -238,7 +241,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
         ) : (
-          <Suspense fallback={null}>
+          <Suspense fallback={<CrmPaneFallback />}>
             <CrmWorkspaceViewLazy isActive={activePage === "customers"} />
           </Suspense>
         )}
@@ -248,7 +251,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
           // Keep Dispatch Map chrome while the chunk loads — never a blank frame.
-          <Suspense fallback={null}>
+          <Suspense fallback={<MapPaneFallback />}>
             <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
           </Suspense>
         )}

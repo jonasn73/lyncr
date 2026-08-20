@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 /** Activities chrome + table — same as the live tab, no extra padding. */
 export function ActivityPaneFallback() {
   return (
-    <WorkspacePage aria-busy="true" aria-label="Loading Activity">
+    <WorkspacePage aria-busy="true" aria-label="Loading Activity" className="lyncr-pane-settle">
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       <ActivityTableSkeleton />
     </WorkspacePage>
@@ -30,7 +30,7 @@ export function ActivityPaneFallback() {
 export function CrmPaneFallback() {
   return (
     <div
-      className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
+      className="lyncr-pane-settle mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
       aria-busy="true"
       aria-label="Loading CRM"
     >
@@ -108,7 +108,13 @@ export function MapPaneFallback() {
         </div>
       </header>
       <div className="relative min-h-0 flex-1 bg-background">
+        {/* Same well as the live map so the chunk swap does not flash a blank hole. */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]" />
+        {/* Desktop Job Pool starts open in CSS — keep that width here so the map does not jump. */}
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-80 max-w-[40%] border-l border-zinc-800 bg-slate-950/95 md:block"
+          aria-hidden
+        />
       </div>
     </div>
   )

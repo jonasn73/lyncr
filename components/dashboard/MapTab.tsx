@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
-  Loader2,
   MapPin,
   UsersRound,
 } from "lucide-react"
@@ -76,8 +75,9 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
   // Layer toggles (Jobs / Techs / Leads / You).
   const [layers, setLayers] = useState<DispatchMapLayers>(INITIAL_LAYERS)
 
-  // Start closed — phones must see the map first. Desktop opens via effect below.
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  // CSS defaults: phones closed, desktop open — never snap with a mount effect.
+  const [mobilePoolOpen, setMobilePoolOpen] = useState(false)
+  const [desktopPoolCollapsed, setDesktopPoolCollapsed] = useState(false)
 
   // Job Pool vs Live Roster.
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("pool")
@@ -106,23 +106,23 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
   )
 
   // Unassigned / hopper jobs for the Job Pool list — paused off-tab.
-  const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(
+  const { jobs: poolJobs } = useJobPoolQuery(
     activeOrganizationId,
     pollEnabled
   )
 
-  // Desktop: open side panel. Phone: keep the map clear (bottom sheet stays closed).
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)")
-    const sync = () => setDrawerOpen(mq.matches)
-    sync()
-    mq.addEventListener("change", sync)
-    return () => mq.removeEventListener("change", sync)
-  }, [])
-
   // Flip one layer on/off without touching the others.
   const toggleLayer = useCallback((key: keyof DispatchMapLayers) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
+  }, [])
+
+  // Phones vs desktop use different panels — never one boolean that starts closed on desktop.
+  const togglePool = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+      setDesktopPoolCollapsed((c) => !c)
+    } else {
+      setMobilePoolOpen((o) => !o)
+    }
   }, [])
 
   // Clear focus after the map consumes it (avoids re-panning every render).
@@ -181,12 +181,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
             <p className="mb-2 hidden px-1 text-[11px] text-slate-500 md:block">
               Tap a job to center its pin on the map.
             </p>
-            {poolLoading && sortedPool.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Loading job pool…
-              </div>
-            ) : sortedPool.length === 0 ? (
+            {sortedPool.length === 0 ? (
               <p className="px-2 py-6 text-center text-sm text-slate-500">
                 No unassigned jobs in the pool right now.
               </p>
@@ -218,7 +213,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                             typeof window !== "undefined" &&
                             window.matchMedia("(max-width: 767px)").matches
                           ) {
-                            setDrawerOpen(false)
+                            setMobilePoolOpen(false)
                           }
                         }}
                         className={cn(
@@ -282,29 +277,44 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           </div>
           <button
             type="button"
-            onClick={() => setDrawerOpen((o) => !o)}
+            onClick={togglePool}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
-            aria-expanded={drawerOpen}
+            aria-expanded={mobilePoolOpen || !desktopPoolCollapsed}
             aria-controls="dispatch-map-drawer dispatch-map-sheet"
           >
-            {drawerOpen ? (
-              <>
-                <ChevronDown className="h-3.5 w-3.5 md:hidden" aria-hidden />
-                <span className="md:hidden">Close</span>
-                <span className="hidden md:inline">Hide panel</span>
-              </>
-            ) : (
-              <>
-                <ChevronUp className="h-3.5 w-3.5 md:hidden" aria-hidden />
-                <span className="md:hidden">Pool</span>
-                <span className="hidden md:inline">Job Pool & Roster</span>
-                {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
-                    {sortedPool.length}
-                  </span>
-                ) : null}
-              </>
-            )}
+            {/* Phone copy follows the bottom sheet; desktop copy follows the side panel. */}
+            <span className="inline-flex items-center gap-1.5 md:hidden">
+              {mobilePoolOpen ? (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  Close
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                  Pool
+                  {sortedPool.length > 0 ? (
+                    <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                      {sortedPool.length}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </span>
+            <span className="hidden items-center gap-1.5 md:inline-flex">
+              {desktopPoolCollapsed ? (
+                <>
+                  Job Pool &amp; Roster
+                  {sortedPool.length > 0 ? (
+                    <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                      {sortedPool.length}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                "Hide panel"
+              )}
+            </span>
           </button>
         </div>
         {/* Jobs / Techs / Leads / You — in chrome, not over the map (Leaflet z-index was hiding them). */}
@@ -371,16 +381,16 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               "pointer-events-auto flex w-full flex-col overflow-hidden rounded-t-2xl border border-zinc-800 border-b-0 bg-slate-950/98 shadow-2xl backdrop-blur transition-transform duration-200 ease-out",
               // Cap height so most of the map stays visible.
               "max-h-[min(46dvh,22rem)]",
-              drawerOpen ? "translate-y-0" : "pointer-events-none translate-y-full"
+              mobilePoolOpen ? "translate-y-0" : "pointer-events-none translate-y-full"
             )}
-            aria-hidden={!drawerOpen}
-            inert={!drawerOpen ? true : undefined}
+            aria-hidden={!mobilePoolOpen}
+            inert={!mobilePoolOpen ? true : undefined}
           >
             <div className="relative flex shrink-0 items-center justify-center border-b border-zinc-800 px-3 py-2">
               <div className="h-1 w-10 rounded-full bg-zinc-700" aria-hidden />
               <button
                 type="button"
-                onClick={() => setDrawerOpen(false)}
+                onClick={() => setMobilePoolOpen(false)}
                 className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-400 hover:bg-zinc-900 hover:text-slate-200"
                 aria-label="Close job pool panel"
               >
@@ -397,10 +407,13 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           id="dispatch-map-drawer"
           className={cn(
             "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out md:flex",
-            drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+            // Open on desktop from CSS — no useEffect snap from full-bleed to sidebar.
+            desktopPoolCollapsed
+              ? "pointer-events-none translate-x-full"
+              : "translate-x-0"
           )}
-          aria-hidden={!drawerOpen}
-          inert={!drawerOpen ? true : undefined}
+          aria-hidden={desktopPoolCollapsed}
+          inert={desktopPoolCollapsed ? true : undefined}
         >
           {panelBody}
         </aside>

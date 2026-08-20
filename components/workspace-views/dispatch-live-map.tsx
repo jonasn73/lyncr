@@ -600,6 +600,7 @@ export function DispatchLiveMap({
     let created: LeafletMap | null = null
     let media: MediaQueryList | null = null
     let resizeObserver: ResizeObserver | null = null
+    let readyTimer: number | undefined
     const onViewportChange = () => {
       const map = mapRef.current
       const L = leafletRef.current
@@ -651,6 +652,17 @@ export function DispatchLiveMap({
         containerRef.current.style.touchAction = "pan-y"
       }
       attachBaseMapTiles(L, created)
+      // Fade the canvas in once Leaflet has a size; tiles draw on the well behind it.
+      const markReady = () => {
+        if (!cancelled) setReady(true)
+      }
+      created.whenReady(markReady)
+      created.on("load", markReady)
+      if (cancelled) {
+        created.remove()
+        return
+      }
+      readyTimer = window.setTimeout(markReady, 650)
       // Keep Map tab + Activities embed on the same center/zoom after pan.
       const persistView = () => {
         const center = created!.getCenter()
@@ -659,7 +671,7 @@ export function DispatchLiveMap({
       created.on("moveend", persistView)
       created.on("zoomend", persistView)
       mapRef.current = created
-      setReady(true)
+      // Tiles often land after whenReady — keep the well visible until then.
       // Container often gains its real size one frame after mount — force Leaflet to paint tiles.
       requestAnimationFrame(() => {
         if (!cancelled) created?.invalidateSize()
@@ -676,11 +688,13 @@ export function DispatchLiveMap({
     })()
     return () => {
       cancelled = true
+      if (readyTimer) window.clearTimeout(readyTimer)
       media?.removeEventListener("change", onViewportChange)
       resizeObserver?.disconnect()
       if (created) {
         created.off("moveend")
         created.off("zoomend")
+        created.off("load")
         created.remove()
       }
       mapRef.current = null
@@ -973,12 +987,17 @@ export function DispatchLiveMap({
 
   const mapCanvas = (
     <div className={cn("relative", fillParent && "h-full min-h-0 flex-1")}>
+      {/* Keep the well painted while Leaflet/tiles load — no gray pop. */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]"
+        aria-hidden
+      />
       <div
         ref={containerRef}
         className={cn(
-          "w-full overflow-hidden border border-zinc-800 bg-zinc-900",
-          // One-finger vertical swipes scroll the page; pinch still zooms the map.
-          "touch-pan-y",
+          "relative z-[1] w-full overflow-hidden border border-zinc-800 bg-transparent",
+          "touch-pan-y transition-opacity duration-500 ease-out",
+          ready ? "opacity-100" : "opacity-0",
           fillParent
             ? "h-full min-h-[20rem] rounded-none border-0"
             : fullViewport
