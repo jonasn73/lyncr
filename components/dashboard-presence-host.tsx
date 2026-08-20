@@ -31,6 +31,10 @@ import {
   shouldMountPresencePane,
   shouldUseSsrActiveSlot,
 } from "@/lib/dashboard-presence-ssr"
+import {
+  FlickerSuspenseFallback,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 
 // Inactive tabs only — code-split + skip SSR so Lines/Activity first paint stays small.
 // The *active* hard-refresh URL is statically imported in that route's page.tsx.
@@ -130,6 +134,14 @@ const PresencePane = memo(function PresencePane({
     setVisited(true)
   }
 
+  useFlickerDebugLifecycle(`PresencePane:${label}`, {
+    active,
+    visited,
+    shouldMount,
+    deferUntilVisit,
+    emptyUnmounted: !shouldMount,
+  })
+
   useLayoutEffect(() => {
     if (active) setVisited(true)
   }, [active])
@@ -169,6 +181,11 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   const [ssrPage] = useState(activePage)
   // Freeze the page element descriptor so navigation does not replace Activity with CRM children.
   const ssrSlotRef = useRef(ssrActiveSlot)
+
+  useFlickerDebugLifecycle("DashboardPresenceHost", {
+    activePage,
+    ssrPage,
+  })
 
   useEffect(() => {
     if (activePage === "scheduler") return
@@ -214,7 +231,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
         ) : (
           // Visited later — keep Activities chrome while the chunk loads.
-          <Suspense fallback={<ActivityPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="activity">
+                <ActivityPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <ActivityWorkspaceViewLazy isActive={activePage === "activity"} />
           </Suspense>
         )}
@@ -223,7 +246,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
         ) : (
-          <Suspense fallback={<MessagesPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="messages">
+                <MessagesPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <MessagesWorkspaceViewLazy isActive={activePage === "messages"} />
           </Suspense>
         )}
@@ -232,7 +261,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
         ) : (
-          <Suspense fallback={<SchedulerPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="scheduler">
+                <SchedulerPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <SchedulerWorkspaceViewLazy isActive={activePage === "scheduler"} />
           </Suspense>
         )}
@@ -241,7 +276,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
         ) : (
-          <Suspense fallback={<CrmPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="customers">
+                <CrmPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <CrmWorkspaceViewLazy isActive={activePage === "customers"} />
           </Suspense>
         )}
@@ -251,7 +292,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
           // Keep Dispatch Map chrome while the chunk loads — never a blank frame.
-          <Suspense fallback={<MapPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="contacts">
+                <MapPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
           </Suspense>
         )}
@@ -260,7 +307,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
         ) : (
-          <Suspense fallback={<PayPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="pay">
+                <PayPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <PayWorkspaceViewLazy isActive={activePage === "pay"} />
           </Suspense>
         )}
@@ -269,7 +322,13 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
         ) : (
-          <Suspense fallback={<SettingsPaneFallback />}>
+          <Suspense
+            fallback={
+              <FlickerSuspenseFallback name="settings">
+                <SettingsPaneFallback />
+              </FlickerSuspenseFallback>
+            }
+          >
             <SettingsWorkspaceViewLazy isActive={activePage === "settings"} />
           </Suspense>
         )}

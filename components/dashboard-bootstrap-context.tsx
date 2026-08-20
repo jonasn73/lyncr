@@ -20,6 +20,7 @@ import { dashboardBootstrapEquivalent } from "@/lib/dashboard-bootstrap-equivale
 import {
   workspaceSeedFromBootstrap,
 } from "@/lib/dashboard-bootstrap-seed"
+import { useFlickerDebugLifecycle, logFlicker } from "@/lib/debug/flicker-debug"
 
 const DashboardBootstrapContext = createContext<DashboardMainBootstrap | null>(null)
 /** True while a silent background refresh is replacing stale session cache. */
@@ -89,6 +90,12 @@ function DashboardBootstrapSeededProvider({
   const [bootstrap, setBootstrap] = useState(seed)
   const [isSyncing, setIsSyncing] = useState(() => Boolean(refreshPromise))
 
+  useFlickerDebugLifecycle("DashboardBootstrapSeededProvider", {
+    bootstrapSource: "server-seed",
+    hasBootstrap: true,
+    isSyncing,
+  })
+
   useEffect(() => {
     writeDashboardBootstrapCache(seed)
     // seed is fixed at mount — avoid re-running when parent re-parses sessionStorage
@@ -102,11 +109,26 @@ function DashboardBootstrapSeededProvider({
     }
     let cancelled = false
     setIsSyncing(true)
+    logFlicker({
+      event: "bootstrap-sync-start",
+      component: "DashboardBootstrapSeededProvider",
+      bootstrapSource: "network",
+      isSyncing: true,
+    })
     void Promise.resolve(refreshPromise)
       .then((data) => {
         if (cancelled) return
         writeDashboardBootstrapCache(data)
-        setBootstrap((prev) => (dashboardBootstrapEquivalent(prev, data) ? prev : data))
+        setBootstrap((prev) => {
+          const same = dashboardBootstrapEquivalent(prev, data)
+          logFlicker({
+            event: "bootstrap-network-apply",
+            component: "DashboardBootstrapSeededProvider",
+            bootstrapSource: "network",
+            replaced: !same,
+          })
+          return same ? prev : data
+        })
       })
       .finally(() => {
         if (!cancelled) setIsSyncing(false)
@@ -143,13 +165,29 @@ export function DashboardBootstrapAsyncGate({
     () => parentBootstrap ?? null
   )
   const [isSyncing, setIsSyncing] = useState(() => !parentBootstrap)
+  const [source, setSource] = useState<"parent" | "session-cache" | "network" | "none">(() =>
+    parentBootstrap ? "parent" : "none"
+  )
+
+  useFlickerDebugLifecycle("DashboardBootstrapAsyncGate", {
+    bootstrapSource: source,
+    hasBootstrap: Boolean(bootstrap || parentBootstrap),
+    isSyncing,
+    emptyBootstrap: !bootstrap && !parentBootstrap,
+  })
 
   // After hydrate: apply session bootstrap before paint so Lines does not flash empty.
   useLayoutEffect(() => {
     if (parentBootstrap || bootstrap) return
     const cached = readDashboardBootstrapCache()
     if (!cached) return
+    setSource("session-cache")
     setBootstrap(cached)
+    logFlicker({
+      event: "bootstrap-session-apply",
+      component: "DashboardBootstrapAsyncGate",
+      bootstrapSource: "session-cache",
+    })
   }, [parentBootstrap, bootstrap])
 
   useEffect(() => {
@@ -159,11 +197,27 @@ export function DashboardBootstrapAsyncGate({
     }
     let cancelled = false
     setIsSyncing(true)
+    logFlicker({
+      event: "bootstrap-sync-start",
+      component: "DashboardBootstrapAsyncGate",
+      bootstrapSource: "network",
+      isSyncing: true,
+    })
     void Promise.resolve(promise)
       .then((data) => {
         if (cancelled) return
         writeDashboardBootstrapCache(data)
-        setBootstrap((prev) => (prev && dashboardBootstrapEquivalent(prev, data) ? prev : data))
+        setSource("network")
+        setBootstrap((prev) => {
+          const same = Boolean(prev && dashboardBootstrapEquivalent(prev, data))
+          logFlicker({
+            event: "bootstrap-network-apply",
+            component: "DashboardBootstrapAsyncGate",
+            bootstrapSource: "network",
+            replaced: !same,
+          })
+          return prev && same ? prev : data
+        })
       })
       .finally(() => {
         if (!cancelled) setIsSyncing(false)
@@ -200,6 +254,20 @@ export function DashboardBootstrapShellGate({
   // Server-visible seed only. Session cache upgrades inside AsyncGate useLayoutEffect
   // (do not flip SeededProvider ↔ AsyncGate after hydrate — that remounts the tree).
   const [seed] = useState<DashboardMainBootstrap | null>(() => initialBootstrap ?? null)
+
+  const mode = existing
+    ? "passthrough-existing"
+    : seed
+      ? "seeded"
+      : dashboardMainBootstrapPromise
+        ? "async"
+        : "passthrough-empty"
+
+  useFlickerDebugLifecycle("DashboardBootstrapShellGate", {
+    mode,
+    hasInitialBootstrap: Boolean(seed),
+    hasPromise: Boolean(dashboardMainBootstrapPromise),
+  })
 
   if (existing) {
     return <>{children}</>

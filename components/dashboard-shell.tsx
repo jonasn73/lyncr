@@ -47,6 +47,11 @@ import {
 import { SessionCacheHydrationGate } from "@/components/session-cache-hydration-gate"
 import { ViewportHintProvider } from "@/components/viewport-hint-provider"
 import type { ViewportMobileHint } from "@/lib/viewport-hint"
+import {
+  flickerSafeSearchParamNames,
+  logFlickerNav,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 
 /**
  * Realtime hosts: LyncEngine, live stats, operator heartbeat, photo banner,
@@ -144,14 +149,11 @@ export function DashboardShell({
       : { kind: "loading" }
   )
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   const refreshSession = useCallback(() => {
     fetch("/api/auth/session", { credentials: "include" })
       .then(async (res) => {
         if (res.status === 401 || !res.ok) {
+          logFlickerNav("replace", "/login", "DashboardShell")
           router.replace("/login")
           return
         }
@@ -165,11 +167,19 @@ export function DashboardShell({
             answeredCallCustomerPopupEnabled: u.answered_call_customer_popup_enabled !== false,
           })
         } else {
+          logFlickerNav("replace", "/login", "DashboardShell")
           router.replace("/login")
         }
       })
-      .catch(() => router.replace("/login"))
+      .catch(() => {
+        logFlickerNav("replace", "/login", "DashboardShell")
+        router.replace("/login")
+      })
   }, [router])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (sessionAccount) return
@@ -198,6 +208,20 @@ export function DashboardShell({
   }, [mounted, pathnameFromRequest, clientPathname])
 
   const activePage = getActivePage(pathname)
+
+  useFlickerDebugLifecycle("DashboardShell", {
+    pathname,
+    activePage,
+    mounted,
+    accountHeaderKind: accountHeader.kind,
+    hasInitialBootstrap: Boolean(initialBootstrap),
+    hasPaintSeeds: Boolean(paintSeeds),
+    initialIsMobile:
+      initialIsMobile === true ? "true" : initialIsMobile === false ? "false" : "null",
+    searchParamNames: flickerSafeSearchParamNames(
+      typeof window !== "undefined" ? window.location.search : ""
+    ).join(","),
+  })
 
   const popupEnabled = useMemo(
     // Always listen for inbound rings so New Intake can open live — preference only

@@ -23,6 +23,12 @@ import {
   X,
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
+import {
+  flickerSafeSearchParamNames,
+  logFlicker,
+  logFlickerNav,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { buildSchedulerFocusUrl } from "@/lib/scheduler-focus-url"
 import {
@@ -369,6 +375,18 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const phoneDeepLinkAppliedRef = useRef<string | null>(null)
   // CRM pane stays mounted — false until we see it active so Messages → CRM can reopen.
   const crmWasActiveRef = useRef(false)
+
+  useFlickerDebugLifecycle("CrmWorkspaceView", {
+    isActive,
+    loading,
+    rowCount: rows.length,
+    liveRowsNull: liveRows == null,
+    cachedRowCount: cachedRows.length,
+    showingEmpty: !loading && rows.length === 0,
+    filter,
+    searchParamNames: flickerSafeSearchParamNames(urlQuery).join(","),
+  })
+
   const [profileLoading, setProfileLoading] = useState(false)
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([])
   const [history, setHistory] = useState<CrmServiceHistoryItem[]>([])
@@ -485,6 +503,12 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       .then((json) => {
         const list = json.data?.customers ?? []
+        logFlicker({
+          event: "list-replace",
+          component: "CrmWorkspaceView",
+          rowCount: list.length,
+          liveRowsNull: false,
+        })
         setLiveRows(list)
         writePersistedCache(crmListCacheKey(filter, debounced), {
           customers: list,
@@ -513,9 +537,23 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   // Filter/search change — drop live override so the matching seed can show.
   useEffect(() => {
+    logFlicker({
+      event: "list-clear",
+      component: "CrmWorkspaceView",
+      reason: "filter-or-search",
+      liveRowsNull: true,
+    })
     setLiveRows(null)
     // Show spinner only when this filter/q has no seed yet.
-    if (readCrmListCache(filter, debounced, crmPaint).length === 0) setLoading(true)
+    if (readCrmListCache(filter, debounced, crmPaint).length === 0) {
+      logFlicker({
+        event: "loading-true",
+        component: "CrmWorkspaceView",
+        reason: "filter-or-search-no-seed",
+        fullPaneLoading: true,
+      })
+      setLoading(true)
+    }
   }, [filter, debounced])
 
   useEffect(() => {
@@ -754,6 +792,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     setSmsPreviewOpen(false)
     setSelectedId(null)
     setSelected(null)
+    logFlickerNav("push", href, "CrmWorkspaceView")
     router.push(href)
   }
 
@@ -978,16 +1017,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       setSelectedId(null)
       setSelected(null)
       if (target?.id) {
-        router.push(
-          buildSchedulerFocusUrl(target.id, {
-            fromCrm: true,
-            customerId,
-            // Open schedule picker when booking a submitted / open lead.
-            schedule: action === "Book job" || action === "Recover",
-          })
-        )
+        const href = buildSchedulerFocusUrl(target.id, {
+          fromCrm: true,
+          customerId,
+          // Open schedule picker when booking a submitted / open lead.
+          schedule: action === "Book job" || action === "Recover",
+        })
+        logFlickerNav("push", href, "CrmWorkspaceView")
+        router.push(href)
         return
       }
+      logFlickerNav("push", "/dashboard/scheduler", "CrmWorkspaceView")
       router.push("/dashboard/scheduler")
     },
     [selected, headerJobTarget, router, inboundCallPanel, vehicles, editName]

@@ -7,6 +7,7 @@ import {
   DashboardPresenceHost,
   isDashboardPresencePage,
 } from "@/components/dashboard-presence-host"
+import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 
 /**
  * Main column: presence host for primary tabs (no mount/unmount on navigation).
@@ -22,6 +23,14 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   // Only animate after the user changes tabs — never on hard refresh (opacity 0 → 1 blink).
   const prevPageRef = useRef(activePage)
   const [enterAnim, setEnterAnim] = useState(false)
+  const isPresence = isDashboardPresencePage(activePage)
+
+  useFlickerDebugLifecycle("DashboardMainContent", {
+    activePage,
+    isPresence,
+    enterAnim,
+    remountKey: isPresence ? "none" : activePage,
+  })
 
   useEffect(() => {
     if (prevPageRef.current === activePage) return
@@ -29,7 +38,7 @@ export const DashboardMainContent = memo(function DashboardMainContent({
     setEnterAnim(true)
   }, [activePage])
 
-  if (isDashboardPresencePage(activePage)) {
+  if (isPresence) {
     return (
       // No enter animation on primary tabs — that opacity-0 → 1 read as a refresh flash.
       <DashboardPageView>

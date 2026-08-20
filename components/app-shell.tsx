@@ -28,6 +28,7 @@ import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
 import { SHELL_ACRYLIC_SURFACE } from "@/lib/shell-chrome-styles"
+import { useFlickerDebugLifecycle, logFlicker } from "@/lib/debug/flicker-debug"
 
 export type { PageId }
 
@@ -237,10 +238,23 @@ function AppShellInner({
   const [commandOpen, setCommandOpen] = useState(false)
   const handleCommandOpenChange = useCallback((open: boolean) => setCommandOpen(open), [])
 
+  useFlickerDebugLifecycle("AppShell", {
+    pathname: pathname ?? "",
+    accountHeaderKind: accountHeader?.kind ?? "none",
+    useLinks,
+  })
+
   useLayoutEffect(() => {
     if (!pathname) return
     const el = mainRef.current
-    if (el) el.scrollTop = 0
+    if (el) {
+      el.scrollTop = 0
+      logFlicker({
+        event: "scroll-reset",
+        component: "AppShell",
+        pathname,
+      })
+    }
   }, [pathname])
 
   useGlobalKeyPress({

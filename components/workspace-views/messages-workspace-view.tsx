@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import {
+  flickerSafeSearchParamNames,
+  logFlicker,
+  logFlickerNav,
+  useFlickerDebugLifecycle,
+} from "@/lib/debug/flicker-debug"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
@@ -172,6 +178,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
+
+  useFlickerDebugLifecycle("MessagesWorkspaceView", {
+    isActive,
+    loading,
+    messageCount: messages.length,
+    liveMessagesNull: liveMessages == null,
+    cachedMessageCount: cachedMessages.length,
+    showingEmpty: !loading && messages.length === 0,
+    threadOpen: Boolean(selectedPhone),
+    searchParamNames: flickerSafeSearchParamNames(urlQuery).join(","),
+  })
+
   // Leftover book form for this thread (banner + chips — no Lines tap required).
   const threadBookForm = useMemo(
     () => (selectedPhone ? findLatestBookFormForPhone(latestItems, selectedPhone) : null),
@@ -208,6 +226,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     const hasPhone = searchParams.get("phone")
     const hasDraft = searchParams.get("draft")
     if (!hasPhone && !hasDraft) return
+    logFlickerNav("replace", "/dashboard/messages", "MessagesWorkspaceView")
     router.replace("/dashboard/messages", { scroll: false })
   }, [router, searchParams])
 
@@ -224,7 +243,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? hasPaintedMessagesRef.current
-      if (!silent) setLoading(true)
+      if (!silent) {
+        logFlicker({
+          event: "loading-true",
+          component: "MessagesWorkspaceView",
+          reason: "load-messages-not-silent",
+          fullPaneLoading: true,
+        })
+        setLoading(true)
+      }
       setError(null)
       try {
         const qs = orgId
@@ -240,6 +267,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         }
         if (!res.ok) throw new Error(json.error || "Could not load messages")
         const next = Array.isArray(json.data?.messages) ? json.data!.messages! : []
+        logFlicker({
+          event: "list-replace",
+          component: "MessagesWorkspaceView",
+          messageCount: next.length,
+          liveMessagesNull: false,
+        })
         setLiveMessages(next)
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         hasPaintedMessagesRef.current = true
@@ -254,9 +287,23 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   // Org switch — drop live override so the matching seed can show.
   useEffect(() => {
+    logFlicker({
+      event: "list-clear",
+      component: "MessagesWorkspaceView",
+      reason: "org-switch",
+      liveMessagesNull: true,
+    })
     setLiveMessages(null)
     const seeded = readMessagesCache(orgId).length > 0
     hasPaintedMessagesRef.current = seeded
+    if (!seeded) {
+      logFlicker({
+        event: "loading-true",
+        component: "MessagesWorkspaceView",
+        reason: "org-switch-no-seed",
+        fullPaneLoading: true,
+      })
+    }
     setLoading(!seeded)
   }, [orgId])
 

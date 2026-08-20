@@ -3,11 +3,18 @@ import * as React from "react"
 import { MOBILE_BREAKPOINT_PX } from "@/lib/mobile-shell"
 import { VIEWPORT_COOKIE, viewportCookieValue } from "@/lib/viewport-hint"
 import { useViewportHint } from "@/components/viewport-hint-provider"
+import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 
 export function useIsMobile() {
   // Cookie/header from the server — must match first HTML (do not read window here).
   const hinted = useViewportHint()
   const [isMobile, setIsMobile] = React.useState(() => hinted === true)
+
+  useFlickerDebugLifecycle("useIsMobile", {
+    hintedMobile: hinted === true,
+    hintedUnknown: hinted == null,
+    isMobile,
+  })
 
   React.useLayoutEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`)
