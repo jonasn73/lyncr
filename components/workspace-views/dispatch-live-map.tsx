@@ -996,8 +996,7 @@ export function DispatchLiveMap({
         ref={containerRef}
         className={cn(
           "relative z-[1] w-full overflow-hidden border border-zinc-800 bg-transparent",
-          "touch-pan-y transition-opacity duration-500 ease-out",
-          ready ? "opacity-100" : "opacity-0",
+          "touch-pan-y",
           fillParent
             ? "h-full min-h-[20rem] rounded-none border-0"
             : fullViewport

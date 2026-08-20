@@ -10,14 +10,42 @@ type PersistedEnvelope<T> = {
   data: T
 }
 
+// First HTML cannot see sessionStorage. Reading it during hydrate made the client
+// tree differ from the server tree, so React threw away the page and it flashed.
+// Stay off until SessionCacheHydrationGate turns this on (before the first paint).
+let browserSessionReadsAllowed =
+  typeof process !== "undefined" &&
+  (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))
+
+/** Turn on sessionStorage reads after hydrate matches the server HTML. */
+export function allowBrowserSessionCacheReads(): void {
+  browserSessionReadsAllowed = true
+}
+
+/** True when sessionStorage may be used during render. */
+export function browserSessionCacheReadsAllowed(): boolean {
+  return browserSessionReadsAllowed
+}
+
+function getSessionStorage(): Storage | null {
+  try {
+    if (typeof sessionStorage === "undefined") return null
+    return sessionStorage
+  } catch {
+    return null
+  }
+}
+
 export function persistedCacheKey(scope: string, id: string): string {
   return `lyncr:swr:v${CACHE_VERSION}:${scope}:${id}`
 }
 
 export function readPersistedCache<T>(key: string, opts?: { maxAgeMs?: number }): T | undefined {
-  if (typeof window === "undefined") return undefined
+  if (!browserSessionReadsAllowed) return undefined
+  const storage = getSessionStorage()
+  if (!storage) return undefined
   try {
-    const raw = sessionStorage.getItem(key)
+    const raw = storage.getItem(key)
     if (!raw) return undefined
     const parsed = JSON.parse(raw) as PersistedEnvelope<T>
     // Allow falsy payloads (false, 0, "") — only reject missing envelope fields.
@@ -32,7 +60,7 @@ export function readPersistedCache<T>(key: string, opts?: { maxAgeMs?: number })
     }
     const maxAgeMs = opts?.maxAgeMs ?? MAX_AGE_MS
     if (Date.now() - parsed.t > maxAgeMs) {
-      sessionStorage.removeItem(key)
+      storage.removeItem(key)
       return undefined
     }
     return parsed.data
@@ -42,10 +70,11 @@ export function readPersistedCache<T>(key: string, opts?: { maxAgeMs?: number })
 }
 
 export function writePersistedCache<T>(key: string, data: T): void {
-  if (typeof window === "undefined") return
+  const storage = getSessionStorage()
+  if (!storage) return
   try {
     const envelope: PersistedEnvelope<T> = { v: CACHE_VERSION, t: Date.now(), data }
-    sessionStorage.setItem(key, JSON.stringify(envelope))
+    storage.setItem(key, JSON.stringify(envelope))
   } catch {
     /* quota or private mode — ignore */
   }

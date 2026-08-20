@@ -78,6 +78,7 @@ export function OrganizationSwitcherPlaceholder({
       aria-label="Loading business workspace"
       className={cn(
         "h-9 w-full min-w-0 max-w-full gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+        "disabled:opacity-100",
         className
       )}
     >

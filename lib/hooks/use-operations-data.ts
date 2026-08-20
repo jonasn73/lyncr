@@ -7,6 +7,7 @@ import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { readActiveOrganizationId, isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { browserSessionCacheReadsAllowed } from "@/lib/swr/persisted-cache"
 import {
   operationsPaintToUiCalls,
   readOperationsPaintSeed,
@@ -142,6 +143,8 @@ function readSessionOperationsCache(
   organizationId?: string | null
 ): OperationsCache | null {
   if (typeof window === "undefined") return null
+  // Same hydrate gate as SWR session cache — cookies paint first.
+  if (!browserSessionCacheReadsAllowed()) return null
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
     if (!raw) return null

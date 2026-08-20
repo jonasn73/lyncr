@@ -36,6 +36,7 @@ import {
   normalizeCallEventPhoneDigits,
 } from "@/lib/realtime/owner-call-event-types"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
+import { browserSessionCacheReadsAllowed } from "@/lib/swr/persisted-cache"
 import type { SchedulerPhoneLookupResult } from "@/lib/types"
 
 const LyncEngineContext = createContext<LyncEnginePublicState | null>(null)
@@ -44,6 +45,7 @@ const ACTIVITY_BADGE_KEY = "lyncr-activity-badge-count"
 
 function readBadgeCount(): number {
   if (typeof window === "undefined") return 0
+  if (!browserSessionCacheReadsAllowed()) return 0
   try {
     const n = Number(sessionStorage.getItem(ACTIVITY_BADGE_KEY) ?? "0")
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0

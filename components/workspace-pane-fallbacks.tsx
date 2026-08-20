@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 /** Activities chrome + table — same as the live tab, no extra padding. */
 export function ActivityPaneFallback() {
   return (
-    <WorkspacePage aria-busy="true" aria-label="Loading Activity" className="lyncr-pane-settle">
+    <WorkspacePage aria-busy="true" aria-label="Loading Activity">
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       <ActivityTableSkeleton />
     </WorkspacePage>
@@ -30,7 +30,7 @@ export function ActivityPaneFallback() {
 export function CrmPaneFallback() {
   return (
     <div
-      className="lyncr-pane-settle mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
+      className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
       aria-busy="true"
       aria-label="Loading CRM"
     >

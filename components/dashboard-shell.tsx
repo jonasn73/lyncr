@@ -44,6 +44,7 @@ import {
   DashboardPaintSeedsProvider,
   type DashboardPaintSeeds,
 } from "@/lib/dashboard-paint-seeds"
+import { SessionCacheHydrationGate } from "@/components/session-cache-hydration-gate"
 
 /**
  * Realtime hosts: LyncEngine, live stats, operator heartbeat, photo banner,
@@ -249,6 +250,7 @@ export function DashboardShell({
   return (
     <ErrorBoundary>
       <DashboardPaintSeedsProvider seeds={paintSeeds}>
+      <SessionCacheHydrationGate>
       <DashboardSessionProvider session={dashboardSession}>
       <DashboardActivationProvider activationSeed={activationSeed}>
         <DashboardChromeProvider activePage={activePage}>
@@ -333,6 +335,7 @@ export function DashboardShell({
         </DashboardChromeProvider>
       </DashboardActivationProvider>
       </DashboardSessionProvider>
+      </SessionCacheHydrationGate>
       </DashboardPaintSeedsProvider>
     </ErrorBoundary>
   )

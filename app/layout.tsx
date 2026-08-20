@@ -76,8 +76,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
+    <html
+      lang="en"
+      className="bg-background"
+      style={{ backgroundColor: "#12101f", colorScheme: "dark" }}
+    >
+      <body
+        className={`${inter.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
+        style={{ backgroundColor: "#12101f" }}
+      >
         {children}
         <SentryUserContext />
         <Toaster />
