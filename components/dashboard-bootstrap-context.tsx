@@ -20,7 +20,7 @@ import { dashboardBootstrapEquivalent } from "@/lib/dashboard-bootstrap-equivale
 import {
   workspaceSeedFromBootstrap,
 } from "@/lib/dashboard-bootstrap-seed"
-import { useFlickerDebugLifecycle, logFlicker } from "@/lib/debug/flicker-debug"
+import { useFlickerDebugLifecycle, logFlicker, summarizeBootstrapNetworkApply, flickerActiveDashboardPage } from "@/lib/debug/flicker-debug"
 
 const DashboardBootstrapContext = createContext<DashboardMainBootstrap | null>(null)
 /** True while a silent background refresh is replacing stale session cache. */
@@ -28,14 +28,48 @@ const DashboardBootstrapSyncingContext = createContext(false)
 
 /** Applies bootstrap to workspace once per snapshot — workspace may already be seeded from layout. */
 function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMainBootstrap }) {
-  const { hydrateWorkspaceFromBootstrap } = useDashboardWorkspace()
+  const {
+    hydrateWorkspaceFromBootstrap,
+    businessNumbers,
+    businessNumbersLoading,
+    organizations,
+    activeLine,
+  } = useDashboardWorkspace()
   const syncedBootstrapRef = useRef<DashboardMainBootstrap | null>(null)
 
   useLayoutEffect(() => {
     if (syncedBootstrapRef.current === bootstrap) return
+    const prev = syncedBootstrapRef.current
+    const before = {
+      orgCount: organizations.length,
+      phoneLineCount: businessNumbers.length,
+      businessNumbersLoading,
+      hasActiveLine: Boolean(activeLine),
+      activePage: flickerActiveDashboardPage(),
+    }
+    const diff = summarizeBootstrapNetworkApply(prev, bootstrap)
     syncedBootstrapRef.current = bootstrap
     const seed = workspaceSeedFromBootstrap(bootstrap)
     hydrateWorkspaceFromBootstrap(seed)
+    logFlicker({
+      event: "bootstrap-workspace-hydrate",
+      component: "DashboardBootstrapWorkspaceSync",
+      activePageBefore: before.activePage,
+      activePageAfter: flickerActiveDashboardPage(),
+      loadingBefore: before.businessNumbersLoading,
+      loadingAfterExpected: false,
+      listLenOrgsBefore: before.orgCount,
+      listLenOrgsSeed: seed.organizations.length,
+      listLenLinesBefore: before.phoneLineCount,
+      listLenLinesSeed: seed.phoneLines.length,
+      hasActiveLineBefore: before.hasActiveLine,
+      hasActiveLineSeed: Boolean(seed.activeLine),
+      ...diff,
+      layoutDrivingForDashboardHome:
+        before.activePage === "dashboard" && Boolean(diff.layoutDrivingChanged),
+    })
+    // Only when bootstrap identity changes — do not depend on workspace lists (hydrate writes them).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrap, hydrateWorkspaceFromBootstrap])
 
   return null
@@ -168,6 +202,8 @@ export function DashboardBootstrapAsyncGate({
   const [source, setSource] = useState<"parent" | "session-cache" | "network" | "none">(() =>
     parentBootstrap ? "parent" : "none"
   )
+  const sourceRef = useRef(source)
+  sourceRef.current = source
 
   useFlickerDebugLifecycle("DashboardBootstrapAsyncGate", {
     bootstrapSource: source,
@@ -186,7 +222,10 @@ export function DashboardBootstrapAsyncGate({
     logFlicker({
       event: "bootstrap-session-apply",
       component: "DashboardBootstrapAsyncGate",
-      bootstrapSource: "session-cache",
+      prevBootstrapSource: sourceRef.current,
+      nextBootstrapSource: "session-cache",
+      activePage: flickerActiveDashboardPage(),
+      ...summarizeBootstrapNetworkApply(null, cached),
     })
   }, [parentBootstrap, bootstrap])
 
@@ -202,19 +241,28 @@ export function DashboardBootstrapAsyncGate({
       component: "DashboardBootstrapAsyncGate",
       bootstrapSource: "network",
       isSyncing: true,
+      prevBootstrapSource: sourceRef.current,
+      activePage: flickerActiveDashboardPage(),
     })
     void Promise.resolve(promise)
       .then((data) => {
         if (cancelled) return
         writeDashboardBootstrapCache(data)
+        const prevSource = sourceRef.current
         setSource("network")
         setBootstrap((prev) => {
           const same = Boolean(prev && dashboardBootstrapEquivalent(prev, data))
+          const diff = summarizeBootstrapNetworkApply(prev, data)
           logFlicker({
             event: "bootstrap-network-apply",
             component: "DashboardBootstrapAsyncGate",
-            bootstrapSource: "network",
+            prevBootstrapSource: prevSource,
+            nextBootstrapSource: "network",
             replaced: !same,
+            activePage: flickerActiveDashboardPage(),
+            isSyncingBefore: true,
+            isSyncingAfterExpected: false,
+            ...diff,
           })
           return prev && same ? prev : data
         })
