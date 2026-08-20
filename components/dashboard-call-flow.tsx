@@ -20,6 +20,7 @@ import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
 import { HoldQueueWaitingCard } from "@/components/dashboard/hold-queue-waiting-card"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
+import { customerFacingPhoneLines } from "@/lib/amber-control-line"
 import {
   LYNCR_ROUTING_MODE_CHANGED,
   normalizeActiveRoutingMode,
@@ -499,13 +500,15 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   bare?: boolean
 }) {
   const { openBuyModal, openManageModal } = useDashboardNumbersModal()
+  // Amber is Settings-only — never list it in the sticky shop-line picker.
+  const shopLines = customerFacingPhoneLines(businessNumbers)
 
   // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
   const rowClass = bare
     ? "flex w-full min-w-0 items-center gap-2 sm:gap-3"
     : "flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-2.5 sm:gap-3"
 
-  if (businessNumbers.length === 0) {
+  if (shopLines.length === 0) {
     return (
       <div
         className={
@@ -533,7 +536,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
     <div className={rowClass}>
       <div className="min-w-0 flex-1">
         <ActiveLinePicker
-          businessNumbers={businessNumbers}
+          businessNumbers={shopLines}
           activeLine={activeLine}
           onSelect={onSelect}
           subscriptionActive={subscriptionActive}

@@ -24,6 +24,7 @@ import {
   isOwnerWhoAnswersLabel,
   writeLinesChromeCache,
 } from "@/lib/lines-chrome-cache"
+import { customerFacingPhoneLines } from "@/lib/amber-control-line"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
@@ -447,15 +448,20 @@ export function DashboardPage() {
     }
   }, [numbersRoutingFetchDone, activeLine, activeOrganizationId, bootstrap])
 
-  // If the selected line disappears (released number), snap back to the first remaining line.
+  // If the selected line disappears (released) or is Amber, snap to the shop primary.
   useEffect(() => {
     if (routedNumbers.length === 0) return
-    if (!activeLine || !routedNumbers.some((b) => businessNumbersMatch(b.number, activeLine))) {
-      const next = routedNumbers[0].number
-      // Only write when digits differ — avoid E.164 vs raw flip-flops (React #185).
-      if (!businessNumbersMatch(activeLine, next)) setActiveLine(next)
-    }
-  }, [routedNumbers, activeLine, setActiveLine])
+    const stillValid =
+      activeLine &&
+      routedNumbers.some((b) => businessNumbersMatch(b.number, activeLine))
+    if (stillValid) return
+    const next = primaryPhoneLineForOrganization(
+      routedNumbers,
+      activeOrganizationId,
+      activeLine
+    )
+    if (next && !businessNumbersMatch(activeLine, next)) setActiveLine(next)
+  }, [routedNumbers, activeLine, activeOrganizationId, setActiveLine])
 
   // Seeded E.164 or live main line — formatPhoneDisplay returns "" until digits are ready (no `()`).
   const ownerPhoneDisplay = formatPhoneDisplay(mainLinePhone)
@@ -498,7 +504,9 @@ export function DashboardPage() {
   // account default row and left the tapped line’s `routing_config` unchanged (calls still rang the wrong person).
   const saveRouting = useCallback(
     (updates: Record<string, unknown>, opts?: { quiet?: boolean }): Promise<void> => {
-    const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+    const active = customerFacingPhoneLines(
+      businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+    )
     const lineE164 =
       (activeLine && activeLine.trim()) ||
       (active.length === 1 ? active[0]?.number?.trim() || null : null)
@@ -609,7 +617,9 @@ export function DashboardPage() {
 
   const selectReceptionist = useCallback(
     (id: string) => {
-      const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+      const active = customerFacingPhoneLines(
+      businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+    )
       if (active.length >= 2 && !activeLine?.trim()) {
         toast({
           title: "Tap a business number first",
@@ -628,7 +638,9 @@ export function DashboardPage() {
   )
 
   const clearReceptionist = useCallback(() => {
-    const active = businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+    const active = customerFacingPhoneLines(
+      businessNumbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+    )
     if (active.length >= 2 && !activeLine?.trim()) {
       toast({
         title: "Tap a business number first",

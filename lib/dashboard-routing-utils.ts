@@ -30,6 +30,8 @@ export interface DashboardBusinessNumber {
   admin_routing_override_phone?: string | null
   /** True when Telnyx owns the DID and voice routing is active. */
   carrier_live?: boolean
+  /** Amber · Lyncr bot helper DID — not a customer-facing shop line. */
+  is_amber_control?: boolean
 }
 
 export type FallbackOption = "owner" | "ai" | "voicemail" | "hold"

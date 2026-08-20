@@ -4,7 +4,9 @@
  */
 
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
+import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
+import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/amber-control-line"
 import {
   paintSeedCookieName,
   readPaintSeedCookie,
@@ -24,6 +26,8 @@ export type LinesChromeLine = {
   label?: string
   organization_id?: string | null
   carrier_live?: boolean
+  /** Amber helper DID — filtered out of Lines UI even when still in the cookie. */
+  is_amber_control?: boolean
 }
 
 export type LinesChromeCache = {
@@ -66,6 +70,7 @@ function trimChrome(next: LinesChromeCache): LinesChromeCache {
       ...(line.label ? { label: line.label } : {}),
       ...(line.organization_id != null ? { organization_id: line.organization_id } : {}),
       ...(line.carrier_live != null ? { carrier_live: line.carrier_live } : {}),
+      ...(line.is_amber_control === true ? { is_amber_control: true } : {}),
     })),
     ...(next.routingStrategy ? { routingStrategy: next.routingStrategy } : {}),
     ...(typeof next.lineCarrierLive === "boolean" ? { lineCarrierLive: next.lineCarrierLive } : {}),
@@ -109,13 +114,24 @@ export function readLinesChromeFromCookieRaw(
 
 /** Persist after phone lines / active line resolve (session + cookie). */
 export function writeLinesChromeCache(next: LinesChromeCache): void {
-  if (!next.lines.length) return
-  // Merge with prior chrome so partial writers (numbers-only) keep whoAnswers / Live flags.
+  // Never paint Amber as a shop line — keep Lines refresh on Business Line.
+  const shopLines = customerFacingPhoneLines(next.lines)
+  if (!shopLines.length) return
   const prev = readLinesChromeCache()
+  let activeLine = next.activeLine ?? prev?.activeLine ?? null
+  const activeIsAmber = isAmberControlLine(
+    next.lines.find((l) => businessNumbersMatch(l.number, activeLine)) ??
+      prev?.lines.find((l) => businessNumbersMatch(l.number, activeLine))
+  )
+  const activeStillShop = shopLines.some((l) => businessNumbersMatch(l.number, activeLine))
+  if (!activeLine || activeIsAmber || !activeStillShop) {
+    // Prefer the first shop line when Amber (or a missing DID) was selected.
+    activeLine = shopLines[0]?.number ?? null
+  }
   const merged: LinesChromeCache = {
     organizationId: next.organizationId ?? prev?.organizationId ?? null,
-    activeLine: next.activeLine ?? prev?.activeLine ?? null,
-    lines: next.lines,
+    activeLine,
+    lines: shopLines,
     routingStrategy: next.routingStrategy ?? prev?.routingStrategy,
     lineCarrierLive:
       typeof next.lineCarrierLive === "boolean" ? next.lineCarrierLive : prev?.lineCarrierLive,
@@ -134,11 +150,12 @@ export function writeLinesChromeCache(next: LinesChromeCache): void {
 
 /** Map chrome rows into DashboardBusinessNumber for workspace seed. */
 export function linesChromeToBusinessNumbers(chrome: LinesChromeCache): DashboardBusinessNumber[] {
-  return chrome.lines.map((line) => ({
+  return customerFacingPhoneLines(chrome.lines).map((line) => ({
     number: line.number,
     status: line.status,
     label: line.label,
     organization_id: line.organization_id ?? null,
     carrier_live: line.carrier_live,
+    is_amber_control: line.is_amber_control === true,
   }))
 }

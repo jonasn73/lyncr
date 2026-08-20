@@ -1,5 +1,6 @@
 // Pick the customer-facing business DID — ported main lines beat temporary placeholder DIDs.
 
+import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/amber-control-line"
 import {
   businessNumbersMatch,
   isDashboardVisibleLineStatus,
@@ -13,7 +14,7 @@ export type PreferredLineCandidate = Pick<
   PhoneNumber | DashboardBusinessNumber,
   "number" | "status" | "label"
 > &
-  Partial<Pick<PhoneNumber, "provider_number_sid" | "twilio_sid">>
+  Partial<Pick<PhoneNumber, "provider_number_sid" | "twilio_sid" | "is_amber_control">>
 
 export type PickPreferredCustomerLineInput = {
   lines: PreferredLineCandidate[]
@@ -44,7 +45,10 @@ function findVisible(
  * Rank business lines so the ported customer number wins over a temp DID bought during onboarding.
  */
 export function pickPreferredCustomerLine(input: PickPreferredCustomerLineInput): string | null {
-  const visible = input.lines.filter((line) => isDashboardVisibleLineStatus(line.status))
+  // Amber is a bot helper — never rank it as the shop’s main / selected line.
+  const visible = customerFacingPhoneLines(
+    input.lines.filter((line) => isDashboardVisibleLineStatus(line.status))
+  )
   if (visible.length === 0) return null
 
   // Completed port targets that are active on the carrier are the intended public number.
@@ -68,8 +72,12 @@ export function pickPreferredCustomerLine(input: PickPreferredCustomerLineInput)
     if (row?.status === "active") return row.number
   }
 
+  // Keep prior shop selection only when it is still a real customer-facing line.
   if (
     input.previousSelection &&
+    !isAmberControlLine(
+      input.lines.find((line) => businessNumbersMatch(line.number, input.previousSelection))
+    ) &&
     visible.some((line) => businessNumbersMatch(line.number, input.previousSelection))
   ) {
     return input.previousSelection

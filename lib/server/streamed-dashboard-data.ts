@@ -103,6 +103,7 @@ function mapBusinessNumbersFromRows(
       source_provider: row.source_provider === "external" ? ("external" as const) : ("telnyx" as const),
       routing_summary,
       admin_routing_override_phone: effectiveAdminRoutingOverrideForPhoneLine(row),
+      is_amber_control: row.is_amber_control === true,
     } satisfies DashboardBusinessNumber
   })
 

@@ -11,6 +11,7 @@ import {
   phoneDigits10,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
+import { isAmberControlLine } from "@/lib/amber-control-line"
 import type { PortingOrder, RoutingStrategy } from "@/lib/types"
 
 export type PhoneLinesListContentProps = {
@@ -40,7 +41,9 @@ export function PhoneLinesListContent({
   onOpenCarrierDesk,
   onSelectLine,
 }: PhoneLinesListContentProps) {
-  const visibleLines = numbers.filter((b) => isDashboardVisibleLineStatus(b.status))
+  const visibleLines = numbers.filter(
+    (b) => isDashboardVisibleLineStatus(b.status) && !isAmberControlLine(b)
+  )
   const hasLines = visibleLines.length > 0 || Boolean(activeLineDisplay)
 
   if (visibleLines.length > 0) {

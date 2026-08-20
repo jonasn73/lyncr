@@ -44,6 +44,7 @@ function mapNumbersResponse(data: NumbersMineResponse): BusinessNumbersQueryResu
         admin_routing_override_phone:
           row.admin_routing_override_phone != null ? String(row.admin_routing_override_phone) : null,
         carrier_live: row.carrier_live === true,
+        is_amber_control: row.is_amber_control === true,
       }
     })
   return {
