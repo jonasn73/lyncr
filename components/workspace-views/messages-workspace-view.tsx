@@ -17,6 +17,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
+  useDashboardBootstrapEffective,
+  useDashboardBootstrapSyncing,
+} from "@/components/dashboard-bootstrap-context"
+import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
+import {
   WorkspacePage,
   WorkspacePanel,
   MOBILE_PANEL_VIEWPORT_MIN_H,
@@ -754,6 +759,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     } finally {
       setSending(false)
     }
+  }
+
+  // Cold Messages: hold seeded/partial org inbox until first bootstrap (session or network).
+  // Safe exit: syncing false + still null → fall through to the normal pane.
+  if (bootstrap == null && bootstrapSyncing) {
+    return <MessagesPaneFallback />
   }
 
   return (
