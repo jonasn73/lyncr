@@ -5,7 +5,10 @@ import { useToast } from "@/hooks/use-toast"
 import type { RoutingStrategy } from "@/lib/types"
 import { DashboardRoutingWithSheets } from "@/components/dashboard-routing-with-sheets"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
+import {
+  useDashboardBootstrapEffective,
+  useDashboardBootstrapSyncing,
+} from "@/components/dashboard-bootstrap-context"
 import { useDashboardStream } from "@/components/dashboard-stream-context"
 import { fallbackOptions } from "@/components/dashboard-routing-fallback-options"
 import {
@@ -27,10 +30,12 @@ import {
 import { customerFacingPhoneLines } from "@/lib/amber-control-line"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 
 export function DashboardPage() {
   const { toast } = useToast()
   const bootstrap = useDashboardBootstrapEffective()
+  const bootstrapSyncing = useDashboardBootstrapSyncing()
   const paintSeeds = useDashboardPaintSeeds()
   // Cookie paint only — sessionStorage during render caused React #418 vs SSR HTML.
   const linesPaint = paintSeeds.lines
@@ -655,6 +660,22 @@ export function DashboardPage() {
       if (e instanceof Error && e.message === "SIGO_NO_ROUTING_LINE") setSelectedReceptionistId(prev)
     })
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
+
+  // Cold Lines home: hold incomplete workspace (no active line / loading) until first bootstrap.
+  // Safe exit: if syncing ends and bootstrap is still null, fall through to the normal page.
+  if (bootstrap == null && bootstrapSyncing) {
+    return (
+      <div className="flex w-full flex-col gap-3" aria-busy="true" aria-label="Loading Lines">
+        {/* Same sticky Main Line chrome height as DashboardRoutingSurface */}
+        <div className="sticky top-0 z-50 w-full bg-slate-950">
+          <div className="flex min-h-[3.25rem] w-full items-center border-b border-zinc-800/90 px-3 py-2.5" />
+        </div>
+        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
+          <CallFlowStepsSkeleton />
+        </div>
+      </div>
+    )
+  }
 
   return (
     // Tight stack — Alerts sit above Available/Caller ID with normal spacing (no giant gap).
