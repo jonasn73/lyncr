@@ -1797,7 +1797,10 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {shouldShowOperationsSkeleton(loading || waitingForLines, waitingForLines ? 0 : calls.length) ? (
+      {shouldShowOperationsSkeleton(
+        loading || (waitingForLines && calls.length === 0),
+        calls.length
+      ) ? (
         <ActivityTableSkeleton />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>

@@ -39,7 +39,8 @@ const ActivityWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
       default: m.ActivityWorkspaceView,
     })),
-  { ssr: false, loading: () => <ActivityPaneFallback /> }
+  // No skeleton while the chunk loads — painted rows paint instantly once mounted.
+  { ssr: false, loading: () => null }
 )
 
 const MessagesWorkspaceViewLazy = dynamic(

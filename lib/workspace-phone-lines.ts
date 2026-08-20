@@ -46,7 +46,13 @@ export function scopeCallsToShopLines<T extends { targetLineE164: string }>(
     if (lines.length === 1) return calls
     return matched
   }
-  if (opts?.linesLoading) return []
+  // Lines still bootstrapping — keep painted Activity rows (do not flash empty / skeleton).
+  if (opts?.linesLoading) {
+    if (opts?.activeLine) {
+      return calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
+    }
+    return calls
+  }
   if (opts?.activeLine) {
     return calls.filter((c) => businessNumbersMatch(c.targetLineE164, opts.activeLine))
   }

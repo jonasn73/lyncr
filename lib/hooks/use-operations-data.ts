@@ -149,9 +149,17 @@ function readSessionOperationsCache(
     const seedOrg = parsed.organizationId ?? null
     const wantOrg =
       organizationId !== undefined ? organizationId : resolveOperationsOrgId(null)
-    // Known shop + different seed shop → treat as missing (no cross-shop flash).
-    if (wantOrg != null && seedOrg != null && seedOrg !== wantOrg) return null
-    if (wantOrg != null && seedOrg == null) return null
+    // Different shop — ignore (paint-seed stub vs real uuid is the same shop).
+    if (
+      seedOrg != null &&
+      wantOrg != null &&
+      !operationsPaintMatchesOrg(
+        { organizationId: seedOrg, calls: [], fetchedAt: 0 },
+        wantOrg
+      )
+    ) {
+      return null
+    }
     return {
       calls: parsed.calls.map(normalizeUiCallRecord),
       quality: parsed.quality ?? null,
@@ -455,7 +463,13 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       if (raw) {
         const parsed = JSON.parse(raw) as SessionOperationsPayload
         const seedOrg = parsed?.organizationId ?? null
-        sessionMismatch = seedOrg !== activeOrgId
+        sessionMismatch =
+          seedOrg != null &&
+          activeOrgId != null &&
+          !operationsPaintMatchesOrg(
+            { organizationId: seedOrg, calls: [], fetchedAt: 0 },
+            activeOrgId
+          )
       }
     } catch {
       sessionMismatch = false

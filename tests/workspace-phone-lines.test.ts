@@ -33,6 +33,19 @@ describe("scopeCallsToShopLines", () => {
     const scoped = scopeCallsToShopLines(calls, [amber])
     expect(scoped).toEqual(calls)
   })
+
+  it("keeps painted rows while shop lines are still loading", () => {
+    const scoped = scopeCallsToShopLines(calls, [], { linesLoading: true })
+    expect(scoped).toEqual(calls)
+  })
+
+  it("filters to active line while lines load when only one DID is painted", () => {
+    const scoped = scopeCallsToShopLines(calls, [], {
+      linesLoading: true,
+      activeLine: "+15025571219",
+    })
+    expect(scoped.map((c) => c.id)).toEqual(["1"])
+  })
 })
 
 describe("operationsPaintMatchesOrg", () => {
