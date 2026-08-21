@@ -25,6 +25,7 @@ import {
   SchedulerPaneFallback,
   SettingsPaneFallback,
 } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
 import {
   initialPresencePaneMounted,
@@ -38,19 +39,31 @@ import {
 
 // Inactive tabs only — code-split + skip SSR so Lines/Activity first paint stays small.
 // The *active* hard-refresh URL is statically imported in that route's page.tsx.
+// Chunk handoff: keep matching fallback covering until the real pane commits layout.
 const ActivityWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
-      default: m.ActivityWorkspaceView,
+      default: function ActivityChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<ActivityPaneFallback />} probe="activity-chunk-handoff">
+            <m.ActivityWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
-  // Keep the Activities chrome while the chunk loads, then the real list settles in.
   { ssr: false, loading: () => <ActivityPaneFallback /> }
 )
 
 const MessagesWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/messages-workspace-view").then((m) => ({
-      default: m.MessagesWorkspaceView,
+      default: function MessagesChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<MessagesPaneFallback />} probe="messages-chunk-handoff">
+            <m.MessagesWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <MessagesPaneFallback /> }
 )
@@ -58,7 +71,13 @@ const MessagesWorkspaceViewLazy = dynamic(
 const SchedulerWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/scheduler-workspace-view").then((m) => ({
-      default: m.SchedulerWorkspaceView,
+      default: function SchedulerChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<SchedulerPaneFallback />} probe="scheduler-chunk-handoff">
+            <m.SchedulerWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <SchedulerPaneFallback /> }
 )
@@ -66,7 +85,13 @@ const SchedulerWorkspaceViewLazy = dynamic(
 const CrmWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
-      default: m.CrmWorkspaceView,
+      default: function CrmChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<CrmPaneFallback />} probe="crm-chunk-handoff">
+            <m.CrmWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <CrmPaneFallback /> }
 )
@@ -74,7 +99,13 @@ const CrmWorkspaceViewLazy = dynamic(
 const MapWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
-      default: m.MapWorkspaceView,
+      default: function MapChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<MapPaneFallback />} probe="map-chunk-handoff">
+            <m.MapWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <MapPaneFallback /> }
 )
@@ -82,7 +113,13 @@ const MapWorkspaceViewLazy = dynamic(
 const PayWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/pay-workspace-view").then((m) => ({
-      default: m.PayWorkspaceView,
+      default: function PayChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<PayPaneFallback />} probe="pay-chunk-handoff">
+            <m.PayWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <PayPaneFallback /> }
 )
@@ -90,7 +127,13 @@ const PayWorkspaceViewLazy = dynamic(
 const SettingsWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/settings-workspace-view").then((m) => ({
-      default: m.SettingsWorkspaceView,
+      default: function SettingsChunkHandoff(props: { isActive?: boolean }) {
+        return (
+          <WorkspacePaneHandoff fallback={<SettingsPaneFallback />} probe="settings-chunk-handoff">
+            <m.SettingsWorkspaceView {...props} />
+          </WorkspacePaneHandoff>
+        )
+      },
     })),
   { ssr: false, loading: () => <SettingsPaneFallback /> }
 )
@@ -228,7 +271,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "activity") ? (
           // Hard refresh of /dashboard/activity — real ActivityWorkspaceView from page.tsx (SSR).
-          renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
+          <WorkspacePaneHandoff fallback={<ActivityPaneFallback />} probe="activity-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "activity")}
+          </WorkspacePaneHandoff>
         ) : (
           // Visited later — keep Activities chrome while the chunk loads.
           <Suspense
@@ -244,7 +289,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
+          <WorkspacePaneHandoff fallback={<MessagesPaneFallback />} probe="messages-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "messages")}
+          </WorkspacePaneHandoff>
         ) : (
           <Suspense
             fallback={
@@ -259,7 +306,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
+          <WorkspacePaneHandoff fallback={<SchedulerPaneFallback />} probe="scheduler-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")}
+          </WorkspacePaneHandoff>
         ) : (
           <Suspense
             fallback={
@@ -274,7 +323,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
+          <WorkspacePaneHandoff fallback={<CrmPaneFallback />} probe="crm-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "customers")}
+          </WorkspacePaneHandoff>
         ) : (
           <Suspense
             fallback={
@@ -289,7 +340,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "contacts") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
+          <WorkspacePaneHandoff fallback={<MapPaneFallback />} probe="map-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")}
+          </WorkspacePaneHandoff>
         ) : (
           // Keep Dispatch Map chrome while the chunk loads — never a blank frame.
           <Suspense
@@ -305,7 +358,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
+          <WorkspacePaneHandoff fallback={<PayPaneFallback />} probe="pay-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "pay")}
+          </WorkspacePaneHandoff>
         ) : (
           <Suspense
             fallback={
@@ -320,7 +375,9 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
-          renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
+          <WorkspacePaneHandoff fallback={<SettingsPaneFallback />} probe="settings-ssr-handoff">
+            {renderSsrActivePane(ssrSlotRef.current, activePage === "settings")}
+          </WorkspacePaneHandoff>
         ) : (
           <Suspense
             fallback={

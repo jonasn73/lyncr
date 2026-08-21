@@ -191,10 +191,10 @@ export function SchedulerPaneFallback() {
   )
 }
 
-/** Pay chrome — PageView already pads; do not add extra inset. */
+/** Pay chrome — match live Pay WorkspacePage min height so chunk swap does not collapse. */
 export function PayPaneFallback() {
   return (
-    <div className="min-h-[40vh] w-full" aria-busy="true" aria-label="Loading Pay">
+    <div className="min-h-[32rem] w-full" aria-busy="true" aria-label="Loading Pay">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
       <p className="mt-1 text-lg font-semibold text-foreground">Pay</p>
       <div className="mt-6 grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
@@ -211,6 +211,7 @@ export function PayPaneFallback() {
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
         </div>
       </div>
+      <div className="mt-6 min-h-[300px] rounded-2xl border border-border/50 bg-card/30" aria-hidden />
     </div>
   )
 }

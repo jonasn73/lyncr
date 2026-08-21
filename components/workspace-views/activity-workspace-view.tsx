@@ -77,6 +77,7 @@ import {
   useDashboardBootstrapSyncing,
 } from "@/components/dashboard-bootstrap-context"
 import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import {
@@ -1931,33 +1932,36 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Cold Activity: hold cache/partial-scope table until first bootstrap (session or network).
-  // Safe exit: syncing false + still null → fall through to the normal page.
-  if (bootstrap == null && bootstrapSyncing) {
-    return <ActivityPaneFallback />
-  }
+  // Cold Activity: keep fallback covering until first bootstrap, then in-flow handoff (no blank swap).
+  const holdActivityBootstrapGate = bootstrap == null && bootstrapSyncing
 
   return (
-    <WorkspaceRightSheetGate<UiCallRecord>
-      render={(call, close) => (
-        <CallLogSheet
-          call={call}
-          onClose={() => {
-            close()
-            closeActivityLog()
-          }}
-        />
-      )}
+    <WorkspacePaneHandoff
+      holdGate={holdActivityBootstrapGate}
+      fallback={<ActivityPaneFallback />}
+      probe="activity-handoff"
     >
-      <ActivityWorkspaceBody
-        calls={calls}
-        loading={loading}
-        loadError={loadError}
-        lineLabelMap={lineLabelMap}
-        filter={filter}
-        onFilterChange={handleFilterChange}
-      />
-    </WorkspaceRightSheetGate>
+      <WorkspaceRightSheetGate<UiCallRecord>
+        render={(call, close) => (
+          <CallLogSheet
+            call={call}
+            onClose={() => {
+              close()
+              closeActivityLog()
+            }}
+          />
+        )}
+      >
+        <ActivityWorkspaceBody
+          calls={calls}
+          loading={loading}
+          loadError={loadError}
+          lineLabelMap={lineLabelMap}
+          filter={filter}
+          onFilterChange={handleFilterChange}
+        />
+      </WorkspaceRightSheetGate>
+    </WorkspacePaneHandoff>
   )
 })
 

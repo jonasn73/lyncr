@@ -21,6 +21,7 @@ import {
   useDashboardBootstrapSyncing,
 } from "@/components/dashboard-bootstrap-context"
 import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   WorkspacePage,
   WorkspacePanel,
@@ -155,6 +156,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   urlQuery: string
 }) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
+  const bootstrap = useDashboardBootstrapEffective()
+  const bootstrapSyncing = useDashboardBootstrapSyncing()
   // Parse ?phone= / ?draft= without useSearchParams() remounting Messages on tab click.
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const router = useRouter()
@@ -761,13 +764,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: hold seeded/partial org inbox until first bootstrap (session or network).
-  // Safe exit: syncing false + still null → fall through to the normal pane.
-  if (bootstrap == null && bootstrapSyncing) {
-    return <MessagesPaneFallback />
-  }
+  // Cold Messages: keep fallback covering until first bootstrap, then in-flow handoff (no blank swap).
+  const holdMessagesBootstrapGate = bootstrap == null && bootstrapSyncing
 
   return (
+    <WorkspacePaneHandoff
+      holdGate={holdMessagesBootstrapGate}
+      fallback={<MessagesPaneFallback />}
+      probe="messages-handoff"
+    >
     <WorkspacePage
       className={cn(
         // Tighter page chrome on phones; clear the dock + home indicator on list + thread.
@@ -1165,6 +1170,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         </div>
       </WorkspacePanel>
     </WorkspacePage>
+    </WorkspacePaneHandoff>
   )
 })
 
