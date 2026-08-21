@@ -34,6 +34,7 @@ import {
   writeActiveOrganizationId,
 } from "@/lib/workspace-organizations"
 import type { DashboardPaintSeeds } from "@/lib/dashboard-paint-seeds-types"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 import {
   linesChromeToBusinessNumbers,
   readLinesChromeCache,
@@ -127,6 +128,7 @@ export function DashboardWorkspaceProvider({
     : null
   // Cookie chrome only for render/SSR — session upgrades in useLayoutEffect below (#418).
   const linesPaint = paintSeeds?.lines ?? null
+  const sessionReady = useSessionCacheReady()
 
   const router = useRouter()
   const activeTab = useDashboardActivePage()
@@ -269,6 +271,10 @@ export function DashboardWorkspaceProvider({
           organizationId: payload.activeOrganizationId,
           activeLine: payload.activeLine,
           lines: payload.phoneLines,
+          lineCarrierLive: payload.phoneLines.some(
+            (n) => n.status === "active" || n.carrier_live === true
+          ),
+          subscriptionActive: payload.phoneLines.some((n) => n.status === "active"),
         })
       }
     },
@@ -294,13 +300,19 @@ export function DashboardWorkspaceProvider({
       organizationId: activeOrganizationId,
       activeLine,
       lines: businessNumbers,
+      lineCarrierLive: businessNumbers.some(
+        (n) => n.status === "active" || n.carrier_live === true
+      ),
+      subscriptionActive: businessNumbers.some((n) => n.status === "active"),
     })
   }, [businessNumbers, activeLine, activeOrganizationId])
 
   // SSR cannot read sessionStorage — re-apply bootstrap/numbers cache before paint so
   // Live & Connected / line picker do not flash pulse bars ("....") then real status.
+  // Re-run when session unlocks: the first layout pass often still sees a gated cache.
   useLayoutEffect(() => {
     if (workspaceSeed) return
+    if (!sessionReady) return
     const paintedOrg = activeOrganizationIdRef.current
     const paintedIsReal = Boolean(paintedOrg && !paintedOrg.startsWith("__"))
     const orgId = paintedIsReal ? paintedOrg : readActiveOrganizationId()
@@ -334,7 +346,13 @@ export function DashboardWorkspaceProvider({
     setBusinessNumbers(cached.numbers)
     setBusinessNumbersLoading(false)
     if (orgId) setActiveOrganizationIdState(orgId)
-  }, [workspaceSeed, hydrateWorkspaceFromBootstrap, paintSeeds?.workspace?.name, paintSeeds?.lines])
+  }, [
+    workspaceSeed,
+    hydrateWorkspaceFromBootstrap,
+    paintSeeds?.workspace?.name,
+    paintSeeds?.lines,
+    sessionReady,
+  ])
 
   useEffect(() => {
     if (workspaceSeed) return

@@ -898,7 +898,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       setSendError(null)
                     }}
                     className={cn(
-                      "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left transition-colors",
+                      "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left",
+                      "transition-[background-color,transform] duration-150 ease-out motion-safe:active:scale-[0.99]",
                       active
                         ? "bg-emerald-500/10"
                         : "hover:bg-muted/40",

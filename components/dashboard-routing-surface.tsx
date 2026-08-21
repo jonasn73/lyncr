@@ -248,18 +248,20 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             loading={routingLineDetailLoading}
           />
         ) : (
-          // Height reserved only — no pulse bars (look like "...." then swap to Live & Connected).
+          // Opaque chrome reserve — same geometry as Live & Connected, no opacity-0 pop-in.
           <div
             className="flex w-full min-w-0 items-center justify-between gap-3"
             aria-busy="true"
             aria-label="Loading line status"
             data-flicker-probe="lines-sticky-blank"
           >
-            <div className="min-w-0 flex-1 space-y-1.5 opacity-0" aria-hidden>
-              <div className="h-2.5 w-24" />
-              <div className="h-4 w-36" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                Main line
+              </p>
+              <p className="truncate text-sm font-semibold text-muted-foreground/80">—</p>
             </div>
-            <div className="h-3 w-28 shrink-0 opacity-0" aria-hidden />
+            <p className="shrink-0 text-xs font-medium text-muted-foreground/70">Live &amp; Connected</p>
           </div>
         )}
       </div>

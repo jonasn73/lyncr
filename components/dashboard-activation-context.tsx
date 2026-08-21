@@ -40,7 +40,9 @@ import {
   resolveInitialLineCarrierLive,
   writeActivationLineCache,
 } from "@/lib/activation-line-cache"
+import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-cache"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 
 export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
 
@@ -302,13 +304,15 @@ export function DashboardActivationProvider({
   const billingCycleEnd = profile?.billing_cycle_end?.trim() || null
 
   const hasActivationSeed = Boolean(activationSeed) || carrierLive
+  const sessionReady = useSessionCacheReady()
 
-  // After hydrate: apply session activation cache (invisible to SSR) before paint.
+  // After hydrate + session unlock: apply session activation cache before paint.
   useLayoutEffect(() => {
     if (carrierLive) {
       setLoading(false)
       return
     }
+    if (!sessionReady) return
     const cached = readActivationLineCache()
     if (cached?.lineCarrierLive) {
       setCarrierLive(true)
@@ -319,7 +323,7 @@ export function DashboardActivationProvider({
       setCarrierLive(true)
       setLoading(false)
     }
-  }, [carrierLive])
+  }, [carrierLive, sessionReady])
 
   // Persist last-known Live & Connected so hard refresh does not flash Activating… / Inactive.
   useEffect(() => {
@@ -328,7 +332,16 @@ export function DashboardActivationProvider({
       subscriptionActive,
       lineCarrierLive,
     })
-  }, [loading, subscriptionActive, lineCarrierLive, carrierLive])
+    // Keep lines paint cookie’s Live flag in sync when we already have chrome rows.
+    const chrome = readLinesChromeCache(paintSeeds.lines)
+    if (chrome?.lines.length) {
+      writeLinesChromeCache({
+        ...chrome,
+        lineCarrierLive,
+        subscriptionActive,
+      })
+    }
+  }, [loading, subscriptionActive, lineCarrierLive, carrierLive, paintSeeds.lines])
 
   useEffect(() => {
     void refreshProfile({ silent: hasActivationSeed })

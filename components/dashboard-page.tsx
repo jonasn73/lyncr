@@ -265,6 +265,10 @@ export function DashboardPage() {
         whoAnswers: who,
         ownerPhone: bootstrap.routing.ownerPhone,
         fallbackType: bootstrap.routing.routing.fallback_type,
+        lineCarrierLive: businessNumbers.some(
+          (n) => n.status === "active" || n.carrier_live === true
+        ),
+        subscriptionActive: businessNumbers.some((n) => n.status === "active"),
       })
     }
   }, [bootstrap, activeLine, routedNumbers, setActiveLine, businessNumbers, activeOrganizationId])
@@ -498,6 +502,10 @@ export function DashboardPage() {
       whoAnswers: who,
       ownerPhone: mainLinePhone,
       fallbackType: fallback,
+      lineCarrierLive: businessNumbers.some(
+        (n) => n.status === "active" || n.carrier_live === true
+      ),
+      subscriptionActive: businessNumbers.some((n) => n.status === "active"),
     })
   }, [
     businessNumbers,
@@ -668,8 +676,12 @@ export function DashboardPage() {
     })
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
-  // Cold Lines: hold until bootstrap/chrome can settle — skip entirely when cookie paint already has lines.
-  const hasLinesPaint = Boolean(linesPaint?.lines?.length)
+  // Cold Lines: hold until bootstrap/chrome can settle — skip when any paint chrome exists.
+  const hasLinesPaint = Boolean(
+    linesPaint?.lines?.length ||
+      linesPaint?.whoAnswers?.trim() ||
+      linesPaint?.lineCarrierLive === true
+  )
   const holdLinesBootstrapGate =
     !hasLinesPaint &&
     ((bootstrap == null && bootstrapSyncing) ||

@@ -42,9 +42,7 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
-import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
-  schedulerPaintCoversMonth,
   writeSchedulerPaintSeed,
 } from "@/lib/scheduler-paint-cache"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
@@ -119,7 +117,6 @@ function SchedulerWorkspaceViewInner({
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
-  const paintSeeds = useDashboardPaintSeeds()
   const orgIdForSeed =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
@@ -143,11 +140,12 @@ function SchedulerWorkspaceViewInner({
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
     return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.lineIndustryTags ?? []
   })
-  // Skip loading shell when session OR paint cookie already knows this month.
+  // Skip loading shell only when session already has a real board for this month.
+  // Count-only paint cookies are not enough — they set loading=false with empty events
+  // and flash “Board is quiet” → real jobs.
   const [loading, setLoading] = useState(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
     if (readSchedulerBootstrapCache(monthKey, orgIdForSeed)) return false
-    if (schedulerPaintCoversMonth(paintSeeds.scheduler, monthKey, orgIdForSeed)) return false
     return true
   })
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */

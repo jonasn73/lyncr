@@ -298,8 +298,8 @@
 
 @keyframes lyncr-pane-settle {
   from {
-    opacity: 0.88;
-    transform: translate3d(0, 4px, 0);
+    opacity: 0.97;
+    transform: translate3d(0, 1px, 0);
   }
   to {
     opacity: 1;
@@ -307,11 +307,11 @@
   }
 }
 
-/* Filter / title / list swap — starts nearly opaque so it never reads as a blank flash. */
+/* Filter / title / list swap — nearly opaque so it never reads as a blank flash. */
 @keyframes lyncr-content-swap {
   from {
-    opacity: 0.94;
-    transform: translate3d(0, 3px, 0);
+    opacity: 0.98;
+    transform: translate3d(0, 1px, 0);
   }
   to {
     opacity: 1;

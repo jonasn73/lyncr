@@ -21,6 +21,7 @@ import {
   workspaceSeedFromBootstrap,
 } from "@/lib/dashboard-bootstrap-seed"
 import { useFlickerDebugLifecycle, logFlicker, summarizeBootstrapNetworkApply, flickerActiveDashboardPage } from "@/lib/debug/flicker-debug"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 
 const DashboardBootstrapContext = createContext<DashboardMainBootstrap | null>(null)
 /** True while a silent background refresh is replacing stale session cache. */
@@ -212,9 +213,13 @@ export function DashboardBootstrapAsyncGate({
     emptyBootstrap: !bootstrap && !parentBootstrap,
   })
 
-  // After hydrate: apply session bootstrap before paint so Lines does not flash empty.
+  const sessionReady = useSessionCacheReady()
+
+  // After hydrate + session unlock: apply session bootstrap before paint so Lines
+  // does not flash empty (first layout effect often runs while session is still gated).
   useLayoutEffect(() => {
     if (parentBootstrap || bootstrap) return
+    if (!sessionReady) return
     const cached = readDashboardBootstrapCache()
     if (!cached) return
     setSource("session-cache")
@@ -227,7 +232,7 @@ export function DashboardBootstrapAsyncGate({
       activePage: flickerActiveDashboardPage(),
       ...summarizeBootstrapNetworkApply(null, cached),
     })
-  }, [parentBootstrap, bootstrap])
+  }, [parentBootstrap, bootstrap, sessionReady])
 
   useEffect(() => {
     if (parentBootstrap) {

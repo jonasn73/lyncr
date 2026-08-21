@@ -12,8 +12,8 @@ const COOKIE_PREFIX = "lyncr_paint_"
 const CACHE_VERSION = 1
 /** Keep under typical 4KB cookie limits. */
 const MAX_COOKIE_CHARS = 3200
-/** Match session cache TTL (~30 min). */
-const MAX_AGE_SEC = 30 * 60
+/** Match session cache TTL (~24h) so hard refresh still gets chrome paint. */
+const MAX_AGE_SEC = 24 * 60 * 60
 
 type PaintEnvelope<T> = {
   v: number

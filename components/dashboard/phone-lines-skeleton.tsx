@@ -1,4 +1,4 @@
-/** Placeholder line cards — same rounded border/height as live PhoneLinesList. */
+/** Quiet line-card chrome while numbers load — no pulse bars that flash into real lines. */
 export function PhoneLinesSkeleton() {
   return (
     <div
@@ -11,8 +11,8 @@ export function PhoneLinesSkeleton() {
           key={i}
           className="relative w-full overflow-hidden rounded-xl border border-white/8 bg-neutral-950/30 px-3 py-3"
         >
-          <div className="h-2.5 w-20 rounded bg-muted/40" />
-          <div className="mt-1.5 h-4 w-36 rounded bg-muted/50" />
+          <p className="text-[11px] font-medium text-muted-foreground/70">Line</p>
+          <p className="mt-1 text-sm font-semibold text-muted-foreground/80">—</p>
         </div>
       ))}
     </div>

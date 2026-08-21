@@ -203,13 +203,20 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
     day: telemetryLocalDayPeriodKey(),
   })
 
-  const liveLineCount = useMemo(
-    () =>
-      businessNumbers.filter(
-        (line) => isDashboardVisibleLineStatus(line.status) && line.status === "active"
-      ).length,
-    [businessNumbers]
-  )
+  const liveLineCount = useMemo(() => {
+    const fromWorkspace = businessNumbers.filter(
+      (line) => isDashboardVisibleLineStatus(line.status) && line.status === "active"
+    ).length
+    if (fromWorkspace > 0) return fromWorkspace
+    // Cookie paint may know Live count before workspace numbers hydrate.
+    const painted = paintSeeds.lines?.lines
+    if (!painted?.length) return 0
+    return painted.filter(
+      (line) =>
+        (line.status === "active" || line.carrier_live === true) &&
+        isDashboardVisibleLineStatus(line.status ?? "active")
+    ).length
+  }, [businessNumbers, paintSeeds.lines])
 
   const workspaceLineKey = useMemo(
     () =>
