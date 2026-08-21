@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { memo } from "react"
+import { motion, useReducedMotion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import {
   DASHBOARD_PAGE_HREF,
@@ -37,6 +38,9 @@ const DockNavItems = memo(function DockNavItems({
   badgeCounts?: Partial<Record<PageId, number>>
 }) {
   const isVertical = orientation === "vertical"
+  // Desktop + mobile docks stay mounted — separate layoutIds so pills don’t cross-animate.
+  const activePillId = isVertical ? "lyncr-dock-active-v" : "lyncr-dock-active-h"
+  const reduceMotion = useReducedMotion()
 
   return (
     <>
@@ -46,52 +50,66 @@ const DockNavItems = memo(function DockNavItems({
         const badge = badgeCounts?.[item.id] ?? 0
         const className = cn(
           "group relative flex shrink-0 items-center justify-center rounded-xl",
-          "transition-[background-color,color,transform,box-shadow] duration-200 ease-out",
+          "transition-[color,transform] duration-200 ease-out",
           "motion-safe:active:scale-[0.96]",
           isVertical
             ? "h-11 w-11 flex-col"
             : // Four mobile tabs — flex-1 so icons stay even on narrow phones
               "min-h-11 min-w-0 flex-1 flex-col gap-0.5 px-1 py-1.5",
           isActive
-            ? "bg-primary/12 text-primary"
+            ? "text-primary"
             : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
         )
         const inner = (
           <>
-            <span className="relative inline-flex">
-              <Icon
-                className={cn(
-                  "shrink-0 transition-transform duration-200",
-                  isVertical ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5",
-                  isActive && "scale-105"
-                )}
-                aria-hidden
-              />
-              {badge > 0 ? (
+            {isActive ? (
+              reduceMotion ? (
+                <span className="absolute inset-0 rounded-xl bg-primary/12" aria-hidden />
+              ) : (
+                <motion.span
+                  layoutId={activePillId}
+                  className="absolute inset-0 rounded-xl bg-primary/12"
+                  transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.55 }}
+                  aria-hidden
+                />
+              )
+            ) : null}
+            <span className="relative z-10 inline-flex flex-col items-center gap-0.5">
+              <span className="relative inline-flex">
+                <Icon
+                  className={cn(
+                    "shrink-0 transition-transform duration-200",
+                    isVertical ? "h-[1.35rem] w-[1.35rem]" : "h-5 w-5",
+                    isActive && "scale-105"
+                  )}
+                  aria-hidden
+                />
+                {badge > 0 ? (
+                  <span
+                    className={cn(
+                      "absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full",
+                      "bg-amber-400 px-1 text-[9px] font-bold leading-none text-amber-950",
+                      "shadow-[0_0_8px_rgba(251,191,36,0.7)]"
+                    )}
+                    aria-label={`${badge} new missed calls`}
+                  >
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                ) : null}
+              </span>
+              {isVertical ? (
+                <span className="sr-only">{item.label}</span>
+              ) : (
                 <span
                   className={cn(
-                    "absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full",
-                    "bg-amber-400 px-1 text-[9px] font-bold leading-none text-amber-950",
-                    "shadow-[0_0_8px_rgba(251,191,36,0.7)]"
+                    "max-w-full truncate text-[10px] font-medium leading-none",
+                    isActive ? "text-primary" : "text-muted-foreground"
                   )}
-                  aria-label={`${badge} new missed calls`}
                 >
-                  {badge > 9 ? "9+" : badge}
+                  {item.label}
                 </span>
-              ) : null}
+              )}
             </span>
-            {isVertical ? (
-              <span className="sr-only">{item.label}</span>
-            ) : (
-              <span
-                className={cn(
-                  "max-w-full truncate text-[10px] font-medium leading-none",
-                  isActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                {item.label}
-              </span>
-            )}
             {isVertical ? (
               <span
                 className={cn(
