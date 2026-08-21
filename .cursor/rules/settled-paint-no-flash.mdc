@@ -1,0 +1,39 @@
+---
+description: App-wide settled paint — no zero/empty/partial flashes on hard refresh or tab switch
+alwaysApply: true
+---
+
+# Settled paint (no flash)
+
+Never show a confident empty, zero, or partial label, then correct it. Use shared helpers in `lib/settled-paint.ts`, `lib/hooks/use-held-list.ts`, and `components/settled-text.tsx`.
+
+## Hard rules (every dashboard surface)
+
+1. **Settled gate** — Counts, empty copy (“Board is quiet”, “No texts yet”, “0 jobs”), and KPI zeros stay blank (`\u00a0` / reserved height) until that surface is settled (`!loading && !validating` after a real fetch, or non-empty seed that matches final shape).
+2. **Empty `[]` ≠ loaded** — Cached/SWR `[]` means unknown until the first successful network response for that key. Do not show “Pool is empty” / “0 active” from an empty cache miss.
+3. **Hold last good data** — While revalidating, keep the previous non-empty list (`useHeldList` from `lib/hooks/use-held-list.ts`). Never flash rows → empty → rows.
+4. **Always mount shells** — Reserve min-height. Do not `{condition ? <Board/> : <Quiet/>}` tree swaps or absolute “quiet” overlays that appear then vanish.
+5. **Paint matches final shape** — Cookie/session seeds use the same fields the live card shows (street address not city-only, enough list rows, full service labels, ISO times). Prefer `location` over `neighborhood` for place paint (`resolveStablePlaceLine`).
+6. **One upgrade path** — Prefer paint → network. Avoid paint → session unlock → network triple jumps when paint already exists (`holdPaintUntilFetch` pattern).
+7. **Owner timezone** — Format list dates/times with paint-seed / `lyncr_tz` (`formatOwnerListTime`), never bare server `Intl` alone (UTC vs phone flips row dates).
+8. **Stable keys** — List rows keyed by stable ids (phone, job id). Quiet-expand when new rows are a superset of painted heads.
+
+## Use these APIs
+
+```ts
+import { useHeldList } from "@/lib/hooks/use-held-list"
+import { isSurfaceSettled, settledCountText, formatOwnerListTime, resolveStablePlaceLine } from "@/lib/settled-paint"
+import { SettledText, SettledCount } from "@/components/settled-text"
+import { useFlickerCountWatch } from "@/lib/debug/flicker-debug"
+```
+
+## Anti-patterns (reject in review)
+
+- Showing `"0 …"` or empty-state marketing copy while `isLoading` / `isValidating` / `!bootstrapSettled`
+- Mounting pipeline/board only when `length > 0`
+- Truncating paint fields so live fetch visibly rewrites the same card
+- Clearing live list on paint-cookie object identity churn (org switch only)
+
+## Detection
+
+In dev or `?debugFlicker=1`, `useFlickerCountWatch` logs when a count goes `0 → N` (or blank → 0 → N) within a short window. **Never `throw` in production** for flicker races.

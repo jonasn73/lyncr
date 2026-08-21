@@ -60,10 +60,9 @@ import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/li
 import type { SmsMessage } from "@/lib/types"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
-  calendarDayKeyInZone,
-  formatListTimeLabel,
   resolveOwnerTimezone,
 } from "@/lib/browser-timezone-cookie"
+import { formatOwnerListTime } from "@/lib/settled-paint"
 import {
   messagesFingerprint,
   messagesPaintToSms,
@@ -101,21 +100,6 @@ type SmsThread = {
 
 function formatOutboundDeliveryLabel(msg: SmsMessage): string | null {
   return formatSmsDeliveryLabel(msg)
-}
-
-/** Thread-list stamp — same IANA zone on SSR and phone (avoids 3rd/4th-row date flips). */
-function formatMessageTime(iso: string, timeZone: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ""
-  const tz = timeZone
-  if (calendarDayKeyInZone(d, tz) === calendarDayKeyInZone(new Date(), tz)) {
-    return formatListTimeLabel(d, tz)
-  }
-  return d.toLocaleDateString("en-US", {
-    timeZone: tz,
-    month: "short",
-    day: "numeric",
-  })
 }
 
 function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {
@@ -218,7 +202,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     const key = phoneMatchKey(phone) || phone
     const prev = threadTimeLabelRef.current.get(key)
     if (prev && prev.id === msgId) return prev.label
-    const label = formatMessageTime(iso, messageTimeZone)
+    const label = formatOwnerListTime(iso, messageTimeZone)
     threadTimeLabelRef.current.set(key, { id: msgId, label })
     return label
   }
@@ -1130,7 +1114,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
                         >
-                          {formatMessageTime(msg.created_at, messageTimeZone)}
+                          {formatOwnerListTime(msg.created_at, messageTimeZone)}
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (

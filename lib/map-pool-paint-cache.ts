@@ -12,6 +12,7 @@ import {
   clearPaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
+import { resolveStablePlaceLine } from "@/lib/settled-paint"
 
 export const MAP_POOL_PAINT_SCOPE = "map-pool"
 export const MAP_POOL_PAINT_COOKIE = paintSeedCookieName(MAP_POOL_PAINT_SCOPE)
@@ -51,10 +52,12 @@ function clip(s: string, n: number): string {
 function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
   const title =
     (job.customer_name ?? "").trim() || (job.summary ?? "").trim() || "Open job"
-  // Prefer full street address — neighborhood-first painted “Louisville” then flipped.
-  const street = (job.location ?? "").trim()
-  const area = (job.neighborhood ?? "").trim()
-  const place = street || area || ""
+  const place =
+    resolveStablePlaceLine({
+      location: job.location,
+      neighborhood: job.neighborhood,
+      region: job.region,
+    }) || ""
   const vehicle = [job.vehicle_year, job.vehicle_make, job.vehicle_model]
     .filter(Boolean)
     .join(" ")

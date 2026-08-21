@@ -470,3 +470,62 @@ export function useFlickerScrollWatch(
     return () => element.removeEventListener("scroll", onScroll)
   }, [enabled, elementRef, component, pathname])
 }
+
+const COUNT_FLASH_WINDOW_MS = 400
+
+/**
+ * Dev / ?debugFlicker=1 tripwire — logs when a count label goes 0→N (or blank→0→N)
+ * within a short window. Never throws in production.
+ */
+export function useFlickerCountWatch(
+  component: string,
+  opts: {
+    label: string
+    count: number
+    pending: boolean
+  }
+): void {
+  const enabled = isFlickerDebugEnabled()
+  const prevRef = useRef<{ count: number; pending: boolean; at: number } | null>(null)
+
+  useEffect(() => {
+    if (!enabled) return
+    const now =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now()
+    const prev = prevRef.current
+    prevRef.current = { count: opts.count, pending: opts.pending, at: now }
+    if (!prev) return
+
+    const dt = now - prev.at
+    if (dt > COUNT_FLASH_WINDOW_MS) return
+
+    // Classic flash: pending cleared with 0, then count jumps up — or 0 → N quickly.
+    const zeroThenLive =
+      (!prev.pending && prev.count === 0 && !opts.pending && opts.count > 0) ||
+      (prev.pending && !opts.pending && opts.count === 0)
+    const zeroToN = !opts.pending && prev.count === 0 && opts.count > 0 && dt <= COUNT_FLASH_WINDOW_MS
+
+    if (zeroThenLive || zeroToN) {
+      // console.error is louder in DevTools than logFlicker — still no throw.
+      console.error(LYNCR_FLICKER_PREFIX, "settled-count-flash", {
+        component,
+        label: opts.label,
+        prevCount: prev.count,
+        nextCount: opts.count,
+        prevPending: prev.pending,
+        nextPending: opts.pending,
+        dtMs: Math.round(dt),
+      })
+      logFlicker({
+        event: "settled-count-flash",
+        component,
+        label: opts.label,
+        prevCount: prev.count,
+        nextCount: opts.count,
+        dtMs: Math.round(dt),
+      })
+    }
+  }, [enabled, component, opts.label, opts.count, opts.pending])
+}

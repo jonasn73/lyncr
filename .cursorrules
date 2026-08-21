@@ -112,6 +112,7 @@ GOOGLE_GEOCODING_API_KEY=               # If unset, falls back to free OpenStree
 - Phone numbers stored in E.164 format (+15551234567) internally
 - UI uses semantic Tailwind tokens (bg-card, text-foreground, etc.)
 - Components use cn() from lib/utils for conditional classes
+- **Settled paint (all dashboard UI):** never flash zeros / empty copy / partial lists — see `.cursor/rules/settled-paint-no-flash.mdc`. Use `lib/settled-paint.ts`, `lib/hooks/use-held-list.ts`, `components/settled-text.tsx`. Dev tripwire: `useFlickerCountWatch` / `?debugFlicker=1`.
 
 ## Mobile (React Native / Expo)
 If porting to mobile:

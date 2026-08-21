@@ -64,6 +64,9 @@ import { useRegisterDispatchCommands } from "@/lib/dispatch-command-bridge"
 import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
 import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
+import { useHeldList } from "@/lib/hooks/use-held-list"
+import { SettledCount } from "@/components/settled-text"
+import { useFlickerCountWatch } from "@/lib/debug/flicker-debug"
 import type {
   ActivePipelineJob,
   FieldTechnician,
@@ -315,41 +318,33 @@ function SchedulerWorkspaceViewInner({
     [poolJobs, excludeDeletedJobs]
   )
 
-  // Hold last non-empty pipeline while validating — empty→jobs was flashing “0 active”.
-  const pipelineHoldRef = useRef<{ dayKey: string; jobs: ActivePipelineJob[] }>({
-    dayKey: pipelineDayKey,
-    jobs: [],
+  const pipelineFiltered = useMemo(
+    () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
+    [activePipelineJobs, excludeDeletedJobs]
+  )
+  // App-wide hold helper — keeps last non-empty pipeline while validating.
+  const displayPipelineJobs = useHeldList(pipelineFiltered, {
+    scopeKey: pipelineDayKey,
+    loading: pipelineLoading || loading || !bootstrapSettled,
+    validating: pipelineValidating,
   })
-  const displayPipelineJobs = useMemo(() => {
-    const next = excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob)
-    if (pipelineHoldRef.current.dayKey !== pipelineDayKey) {
-      pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: next }
-      return next
-    }
-    if (next.length > 0) {
-      pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: next }
-      return next
-    }
-    if (pipelineLoading || pipelineValidating || loading || !bootstrapSettled) {
-      return pipelineHoldRef.current.jobs
-    }
-    pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: [] }
-    return next
-  }, [
-    activePipelineJobs,
-    excludeDeletedJobs,
-    pipelineDayKey,
-    pipelineLoading,
-    pipelineValidating,
-    loading,
-    bootstrapSettled,
-  ])
 
   const boardCountsPending =
     !bootstrapSettled || loading || pipelineLoading || (pipelineValidating && displayPipelineJobs.length === 0)
   const techCountsPending = !bootstrapSettled || loading
   const metricsPending =
     !bootstrapSettled || loading || (poolLoading && displayPoolJobs.length === 0) || pipelineLoading
+
+  useFlickerCountWatch("SchedulerWorkspaceView", {
+    label: "active-pipeline",
+    count: displayPipelineJobs.length,
+    pending: boardCountsPending,
+  })
+  useFlickerCountWatch("SchedulerWorkspaceView", {
+    label: "assignable-techs",
+    count: assignableTechs.length,
+    pending: techCountsPending,
+  })
 
   const displayEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
 
@@ -1294,13 +1289,14 @@ function SchedulerWorkspaceViewInner({
             <WorkspacePanel className="flex w-full flex-col overflow-hidden">
               <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                 <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                <p className="min-h-[1rem] truncate text-xs text-zinc-500">
-                  {boardCountsPending
-                    ? "\u00a0"
-                    : `${displayPipelineJobs.length} active job${
-                        displayPipelineJobs.length === 1 ? "" : "s"
-                      } ${pipelineDayLabel}`}
-                </p>
+                <SettledCount
+                  pending={boardCountsPending}
+                  count={displayPipelineJobs.length}
+                  format={(n) =>
+                    `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
+                  }
+                  className="min-h-[1rem] truncate text-xs text-zinc-500"
+                />
               </div>
               <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
                 {/* Always mount — empty/null swap was the flash under pipeline data. */}
@@ -1361,15 +1357,16 @@ function SchedulerWorkspaceViewInner({
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
-                      <p className="min-h-[1rem] truncate text-xs text-zinc-500">
-                        {techCountsPending && assignableTechs.length === 0
-                          ? "\u00a0"
-                          : `${assignableTechs.length} technician${
-                              assignableTechs.length === 1 ? "" : "s"
-                            } · ${assignedDayJobCount} job${
-                              assignedDayJobCount === 1 ? "" : "s"
-                            } on lanes`}
-                      </p>
+                      <SettledCount
+                        pending={techCountsPending && assignableTechs.length === 0}
+                        count={assignableTechs.length}
+                        format={(n) =>
+                          `${n} technician${n === 1 ? "" : "s"} · ${assignedDayJobCount} job${
+                            assignedDayJobCount === 1 ? "" : "s"
+                          } on lanes`
+                        }
+                        className="min-h-[1rem] truncate text-xs text-zinc-500"
+                      />
                     </div>
                     <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
                       <button

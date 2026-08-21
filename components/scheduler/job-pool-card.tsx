@@ -23,6 +23,7 @@ import {
   resolvePoolJobPostalCode,
   resolvePoolJobServiceLabel,
 } from "@/lib/job-pool-display"
+import { resolveStablePlaceLine } from "@/lib/settled-paint"
 import {
   SCHEDULER_BADGE_STYLE,
   SCHEDULER_LIST_CARD_SHELL,
@@ -68,6 +69,12 @@ export function JobPoolCard({
     nearestTech != null ? formatFieldDistanceLabel(nearestTech.miles) : null
   const sidebar = variant === "sidebar"
   const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
+  // Prefer street address — shared helper used across Map / Scheduler / paint.
+  const placeLine = resolveStablePlaceLine({
+    location: job.location,
+    neighborhood: job.neighborhood,
+    region: job.region,
+  })
   const postalCode = resolvePoolJobPostalCode(job)
   const priority = resolvePoolJobBookingPriority(job, now)
   const priorityBadge = POOL_JOB_PRIORITY_BADGE_LABEL[priority]
@@ -90,25 +97,6 @@ export function JobPoolCard({
     priceLabel,
   ].filter(Boolean)
   const metaLine = metaParts.join(" • ")
-
-  // Prefer street address — neighborhood alone was “Louisville” on refresh.
-  const neigh = (job.neighborhood ?? "").trim()
-  const loc = (job.location ?? "").trim()
-  let placePrimary = ""
-  if (loc && neigh) {
-    if (loc === neigh || loc.includes(neigh) || neigh.includes(loc)) {
-      placePrimary = loc.length >= neigh.length ? loc : neigh
-    } else {
-      // Street first; city/neighborhood only when it adds something new.
-      placePrimary = loc
-    }
-  } else {
-    placePrimary = loc || neigh
-  }
-  const region = job.region?.trim() || null
-  const placeLine = [placePrimary, region && placePrimary !== region && !placePrimary.includes(region) ? region : null]
-    .filter(Boolean)
-    .join(", ")
 
   return (
     <button
