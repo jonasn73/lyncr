@@ -40,9 +40,10 @@ describe("operations activity paint", () => {
   })
 
   it("hides the tiny paint-cookie stub behind skeleton until the full list upgrades", () => {
-    // Short cookie list must not flash as the real Activity feed.
-    expect(shouldShowOperationsSkeleton(true, 4, true)).toBe(true)
-    expect(shouldShowOperationsSkeleton(false, 4, true)).toBe(true)
+    // paintOnly no longer forces skeleton — only empty+loading does (Lines pattern).
+    expect(shouldShowOperationsSkeleton(true, 4, true)).toBe(false)
+    expect(shouldShowOperationsSkeleton(false, 4, true)).toBe(false)
+    expect(shouldShowOperationsSkeleton(true, 0, true)).toBe(true)
     expect(shouldShowOperationsSkeleton(false, 40, false)).toBe(false)
   })
 

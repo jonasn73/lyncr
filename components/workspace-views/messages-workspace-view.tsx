@@ -16,8 +16,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   WorkspacePage,
   WorkspacePanel,
@@ -758,19 +756,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: cover only when we have nothing to show yet.
-  const holdMessagesBootstrapGate =
-    messages.length === 0 &&
-    !hasPaintedMessagesRef.current &&
-    loading &&
-    threads.length === 0
-
+  // Lines pattern: paint chrome + list immediately; inline skeleton only when empty+loading.
   return (
-    <WorkspacePaneHandoff
-      holdGate={holdMessagesBootstrapGate}
-      fallback={<MessagesPaneFallback />}
-      probe="messages-handoff"
-    >
     <WorkspacePage
       className={cn(
         // Tighter page chrome on phones; clear the dock + home indicator on list + thread.
@@ -1170,7 +1157,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         </div>
       </WorkspacePanel>
     </WorkspacePage>
-    </WorkspacePaneHandoff>
   )
 })
 

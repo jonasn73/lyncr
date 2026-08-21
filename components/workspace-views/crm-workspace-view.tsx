@@ -73,8 +73,6 @@ import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
-import { CrmPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -2444,17 +2442,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // Messages CRM chip with no saved row — don’t say the whole shop is empty.
   const searchingPhone = looksLikePhoneQuery(debounced || q)
 
-  // Lines-style: skip cover when cookie/session already painted the list.
-  const hasCrmPaint = rows.length > 0
-  const holdCrmGate = !hasCrmPaint && loading
-
+  // Lines pattern: list paints from cookie/session; inline skeleton only when empty+loading.
+  // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
   return (
-    <WorkspacePaneHandoff
-      holdGate={holdCrmGate}
-      fallback={<CrmPaneFallback />}
-      probe="crm-handoff"
-    >
-    {/* pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls. */}
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
         <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
@@ -3088,7 +3078,6 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         </SheetContent>
       </Sheet>
     </div>
-    </WorkspacePaneHandoff>
   )
 })
 

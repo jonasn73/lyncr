@@ -16,35 +16,25 @@ import {
 import { clearMainScrollLock } from "@/lib/mobile-scroll-lock"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPage } from "@/components/dashboard-page"
-import {
-  ActivityPaneFallback,
-  CrmPaneFallback,
-  MapPaneFallback,
-  MessagesPaneFallback,
-  PayPaneFallback,
-  SchedulerPaneFallback,
-  SettingsPaneFallback,
-} from "@/components/workspace-pane-fallbacks"
 import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
 import {
   initialPresencePaneMounted,
   shouldMountPresencePane,
   shouldUseSsrActiveSlot,
 } from "@/lib/dashboard-presence-ssr"
-import {
-  FlickerSuspenseFallback,
-  useFlickerDebugLifecycle,
-} from "@/lib/debug/flicker-debug"
+import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 
-// Inactive tabs only — code-split + skip SSR so Lines/Activity first paint stays small.
-// ONE loading shell only (dynamic loading / Suspense). Do NOT wrap again in WorkspacePaneHandoff
-// — Activity/Messages already hand off inside the view; nested handoffs caused double flashes.
+/**
+ * Code-split inactive tabs — but NEVER show PaneFallback skeletons while the chunk loads.
+ * Those shells were the multi-second flash on every tab except Lines (which is static).
+ * Cache/session paint lives inside each view; a blank moment is better than fake tables.
+ */
 const ActivityWorkspaceViewLazy = dynamic(
   () =>
     import("@/components/workspace-views/activity-workspace-view").then((m) => ({
       default: m.ActivityWorkspaceView,
     })),
-  { ssr: false, loading: () => <ActivityPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const MessagesWorkspaceViewLazy = dynamic(
@@ -52,7 +42,7 @@ const MessagesWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/messages-workspace-view").then((m) => ({
       default: m.MessagesWorkspaceView,
     })),
-  { ssr: false, loading: () => <MessagesPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const SchedulerWorkspaceViewLazy = dynamic(
@@ -60,7 +50,7 @@ const SchedulerWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/scheduler-workspace-view").then((m) => ({
       default: m.SchedulerWorkspaceView,
     })),
-  { ssr: false, loading: () => <SchedulerPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const CrmWorkspaceViewLazy = dynamic(
@@ -68,7 +58,7 @@ const CrmWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/crm-workspace-view").then((m) => ({
       default: m.CrmWorkspaceView,
     })),
-  { ssr: false, loading: () => <CrmPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const MapWorkspaceViewLazy = dynamic(
@@ -76,7 +66,7 @@ const MapWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/map-workspace-view").then((m) => ({
       default: m.MapWorkspaceView,
     })),
-  { ssr: false, loading: () => <MapPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const PayWorkspaceViewLazy = dynamic(
@@ -84,7 +74,7 @@ const PayWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/pay-workspace-view").then((m) => ({
       default: m.PayWorkspaceView,
     })),
-  { ssr: false, loading: () => <PayPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 const SettingsWorkspaceViewLazy = dynamic(
@@ -92,7 +82,7 @@ const SettingsWorkspaceViewLazy = dynamic(
     import("@/components/workspace-views/settings-workspace-view").then((m) => ({
       default: m.SettingsWorkspaceView,
     })),
-  { ssr: false, loading: () => <SettingsPaneFallback /> }
+  { ssr: false, loading: () => null }
 )
 
 /** Primary command-dock segments kept mounted for instant tab swaps (no route branch flash). */
@@ -195,23 +185,27 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   useEffect(() => {
     // Warm Activity call rows while the owner is still on Lines (or any tab).
     prefetchOperationsData()
-    // Warm Map + Activity + Scheduler chunks ASAP so the first tab click is not a dynamic() blank.
+    // Warm every deferred chunk ASAP so the first tab click is not a blank wait.
     void import("@/components/workspace-views/map-workspace-view")
     void import("@/components/workspace-views/activity-workspace-view")
     void import("@/components/workspace-views/crm-workspace-view")
     void import("@/components/workspace-views/scheduler-workspace-view")
-    // Preload remaining heavy panes on idle.
+    void import("@/components/workspace-views/messages-workspace-view")
+    void import("@/components/workspace-views/pay-workspace-view")
+    void import("@/components/workspace-views/settings-workspace-view")
     const warmChunks = () => {
       void import("@/components/workspace-views/crm-workspace-view")
       void import("@/components/workspace-views/messages-workspace-view")
       void import("@/components/workspace-views/map-workspace-view")
       void import("@/components/workspace-views/activity-workspace-view")
       void import("@/components/workspace-views/scheduler-workspace-view")
+      void import("@/components/workspace-views/pay-workspace-view")
+      void import("@/components/workspace-views/settings-workspace-view")
     }
     const idleId =
       typeof window.requestIdleCallback === "function"
-        ? window.requestIdleCallback(warmChunks, { timeout: 1800 })
-        : window.setTimeout(warmChunks, 1200)
+        ? window.requestIdleCallback(warmChunks, { timeout: 1200 })
+        : window.setTimeout(warmChunks, 400)
     return () => {
       if (typeof window.cancelIdleCallback === "function" && typeof idleId === "number") {
         window.cancelIdleCallback(idleId)
@@ -231,13 +225,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "activity") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="activity">
-                <ActivityPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <ActivityWorkspaceViewLazy isActive={activePage === "activity"} />
           </Suspense>
         )}
@@ -246,13 +234,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="messages">
-                <MessagesPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <MessagesWorkspaceViewLazy isActive={activePage === "messages"} />
           </Suspense>
         )}
@@ -261,13 +243,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="scheduler">
-                <SchedulerPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <SchedulerWorkspaceViewLazy isActive={activePage === "scheduler"} />
           </Suspense>
         )}
@@ -276,13 +252,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="customers">
-                <CrmPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <CrmWorkspaceViewLazy isActive={activePage === "customers"} />
           </Suspense>
         )}
@@ -291,13 +261,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "contacts") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="contacts">
-                <MapPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <MapWorkspaceViewLazy isActive={activePage === "contacts"} />
           </Suspense>
         )}
@@ -306,13 +270,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="pay">
-                <PayPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <PayWorkspaceViewLazy isActive={activePage === "pay"} />
           </Suspense>
         )}
@@ -321,13 +279,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
         ) : (
-          <Suspense
-            fallback={
-              <FlickerSuspenseFallback name="settings">
-                <SettingsPaneFallback />
-              </FlickerSuspenseFallback>
-            }
-          >
+          <Suspense fallback={null}>
             <SettingsWorkspaceViewLazy isActive={activePage === "settings"} />
           </Suspense>
         )}

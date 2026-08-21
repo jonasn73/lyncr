@@ -30,8 +30,6 @@ import {
   WorkspacePage,
   WorkspacePageHeader,
 } from "@/components/dashboard-workspace-ui"
-import { SettingsPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import { SettingsMenuRow, SettingsGroupedList } from "@/components/dashboard/settings-menu-row"
 import { useSettingsModalActions } from "@/components/dashboard/settings-modals-host"
 import { SalesTaxSettingsSheet } from "@/components/dashboard/sales-tax-settings-sheet"
@@ -398,27 +396,21 @@ export const SettingsWorkspaceView = memo(function SettingsWorkspaceView({
   }
 
   return (
-    <WorkspacePaneHandoff
-      holdGate={!embedded && profileLoading && !sessionSeed}
-      fallback={<SettingsPaneFallback />}
-      probe="settings-handoff"
-    >
-      <SettingsWorkspaceBody
-        embedded={embedded}
-        profileLoading={profileLoading}
-        profile={profile}
-        whisperEnabled={whisperEnabled}
-        whisperSaving={whisperSaving}
-        onSaveWhisper={(v) => void saveWhisper(v)}
-        signingOut={signingOut}
-        carrierRegistrationPending={carrierRegistrationPending}
-        isPlatformAdmin={sessionSeed?.isPlatformAdmin === true}
-        onSignOut={() => {
-          setSigningOut(true)
-          void signOutAndGoToLogin().finally(() => setSigningOut(false))
-        }}
-      />
-    </WorkspacePaneHandoff>
+    <SettingsWorkspaceBody
+      embedded={embedded}
+      profileLoading={profileLoading}
+      profile={profile}
+      whisperEnabled={whisperEnabled}
+      whisperSaving={whisperSaving}
+      onSaveWhisper={(v) => void saveWhisper(v)}
+      signingOut={signingOut}
+      carrierRegistrationPending={carrierRegistrationPending}
+      isPlatformAdmin={sessionSeed?.isPlatformAdmin === true}
+      onSignOut={() => {
+        setSigningOut(true)
+        void signOutAndGoToLogin().finally(() => setSigningOut(false))
+      }}
+    />
   )
 })
 

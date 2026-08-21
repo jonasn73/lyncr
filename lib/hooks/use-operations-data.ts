@@ -203,14 +203,14 @@ export function softInvalidateOperationsDataCache() {
   operationsCache = { ...operationsCache, fetchedAt: 0 }
 }
 
-/** True only when we are loading AND have zero *displayable* rows — never wipe a painted table. */
+/** True only when loading with nothing to show — never cover a real list (Lines pattern). */
 export function shouldShowOperationsSkeleton(
   loading: boolean,
   callCount: number,
-  /** Tiny hard-refresh cookie — hide until network/session upgrades (avoids short wrong-list flash). */
-  paintOnly = false
+  /** @deprecated Ignored — paint stubs stay off-screen; session/network rows always display. */
+  _paintOnly = false
 ): boolean {
-  if (paintOnly) return true
+  void _paintOnly
   return loading && callCount === 0
 }
 

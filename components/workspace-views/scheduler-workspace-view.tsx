@@ -52,8 +52,6 @@ import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
 import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
-import { SchedulerPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   TechnicianSwimlaneBoard,
   type MobileSchedulerAssignRequest,
@@ -1098,18 +1096,8 @@ function SchedulerWorkspaceViewInner({
     poolLoading,
   ])
 
-  // Hold until bootstrap settle — peel only when we have events, paint cookie, or loading finished.
-  const holdSchedulerGate =
-    loading &&
-    events.length === 0 &&
-    !schedulerPaintCoversMonth(paintSeeds.scheduler, monthKey, orgId)
-
+  // Lines pattern: board chrome paints from session; no full-page skeleton cover.
   return (
-    <WorkspacePaneHandoff
-      holdGate={holdSchedulerGate}
-      fallback={<SchedulerPaneFallback />}
-      probe="scheduler-handoff"
-    >
     <>
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
@@ -1384,7 +1372,6 @@ function SchedulerWorkspaceViewInner({
         }}
       />
     </>
-    </WorkspacePaneHandoff>
   )
 }
 
