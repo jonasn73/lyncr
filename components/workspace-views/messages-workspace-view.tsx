@@ -764,10 +764,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: cover until bootstrap ready AND first list settle (no skeleton→empty jump).
+  // Cold Messages: skip gate when inbox cache/seed already has threads (Lines-style).
+  const hasMessagesPaint = messages.length > 0 || hasPaintedMessagesRef.current
   const holdMessagesBootstrapGate =
-    (bootstrap == null && bootstrapSyncing) ||
-    (loading && threads.length === 0 && !hasPaintedMessagesRef.current)
+    !hasMessagesPaint &&
+    ((bootstrap == null && bootstrapSyncing) || (loading && threads.length === 0))
 
   return (
     <WorkspacePaneHandoff

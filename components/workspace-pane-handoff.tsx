@@ -1,9 +1,11 @@
 "use client"
 
 /**
- * Stable cold-load handoff for dashboard panes.
- * Real content stays in normal flow; fallback covers until first layout commit.
- * Never uses absolute/top-0 on the real tree (that pinned content to the viewport top).
+ * Stable cold-load handoff for dashboard panes (same idea as Lines).
+ * - While holdGate: show fallback only.
+ * - When holdGate clears: keep fallback covering in-flow real until first layout, then peel.
+ * - If holdGate starts false (seeded paint): never show the cover — that was flashing skeletons
+ *   over already-correct chrome on Activity/Messages/CRM.
  */
 
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -29,13 +31,24 @@ export function WorkspacePaneHandoff({
   children: ReactNode
   probe?: string
 }) {
-  const [layoutReady, setLayoutReady] = useState(false)
-  const logRef = useRef({ ready: false, release: false })
+  // Seeded panes start ready — do not flash fallback over live content on mount.
+  const [layoutReady, setLayoutReady] = useState(() => !holdGate)
+  const logRef = useRef({ ready: !holdGate, release: !holdGate })
+  const prevHoldRef = useRef(holdGate)
 
   useLayoutEffect(() => {
-    if (!holdGate) return
-    setLayoutReady(false)
-    logRef.current = { ready: false, release: false }
+    const wasHolding = prevHoldRef.current
+    prevHoldRef.current = holdGate
+    if (holdGate) {
+      setLayoutReady(false)
+      logRef.current = { ready: false, release: false }
+      return
+    }
+    // holdGate just cleared — wait for real layout before peeling cover.
+    if (wasHolding) {
+      setLayoutReady(false)
+      logRef.current = { ready: false, release: false }
+    }
   }, [holdGate])
 
   const mountReal = !holdGate

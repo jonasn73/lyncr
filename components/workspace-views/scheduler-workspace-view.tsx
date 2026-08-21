@@ -47,6 +47,8 @@ import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
 import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
+import { SchedulerPaneFallback } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   TechnicianSwimlaneBoard,
   type MobileSchedulerAssignRequest,
@@ -1088,6 +1090,11 @@ function SchedulerWorkspaceViewInner({
   ])
 
   return (
+    <WorkspacePaneHandoff
+      holdGate={loading && events.length === 0}
+      fallback={<SchedulerPaneFallback />}
+      probe="scheduler-handoff"
+    >
     <>
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
@@ -1362,6 +1369,7 @@ function SchedulerWorkspaceViewInner({
         }}
       />
     </>
+    </WorkspacePaneHandoff>
   )
 }
 

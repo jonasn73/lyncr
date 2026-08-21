@@ -73,6 +73,8 @@ import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
+import { CrmPaneFallback } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -2442,8 +2444,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // Messages CRM chip with no saved row — don’t say the whole shop is empty.
   const searchingPhone = looksLikePhoneQuery(debounced || q)
 
+  // Lines-style: skip cover when cookie/session already painted the list.
+  const hasCrmPaint = rows.length > 0
+  const holdCrmGate = !hasCrmPaint && loading
+
   return (
-    // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
+    <WorkspacePaneHandoff
+      holdGate={holdCrmGate}
+      fallback={<CrmPaneFallback />}
+      probe="crm-handoff"
+    >
+    {/* pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls. */}
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
         <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
@@ -2502,13 +2513,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             </div>
           </div>
 
-          <div className="p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+          <div className="min-h-[18rem] p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
             {loading && rows.length === 0 ? (
               <CrmListRowSkeleton count={6} />
             ) : error ? (
               <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
             ) : rows.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
+              <div className="flex min-h-[18rem] flex-col items-center gap-3 px-3 py-10 text-center">
                 <p className="text-sm font-medium text-zinc-300">
                   {filter === "book_forms"
                     ? "No open book-form leads"
@@ -3077,6 +3088,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         </SheetContent>
       </Sheet>
     </div>
+    </WorkspacePaneHandoff>
   )
 })
 

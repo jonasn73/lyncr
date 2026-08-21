@@ -27,6 +27,8 @@ import {
   WorkspaceTd,
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
+import { PayPaneFallback } from "@/components/workspace-pane-fallbacks"
+import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 
 type BillingSummary = BillingSummaryCache
 
@@ -267,6 +269,11 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
   }
 
   return (
+    <WorkspacePaneHandoff
+      holdGate={!billing && !billingSeed}
+      fallback={<PayPaneFallback />}
+      probe="pay-handoff"
+    >
     <WorkspacePage className="min-h-[32rem]">
       {/* Isolated Suspense: checkout query must not unmount painted Pay chrome. */}
       <Suspense fallback={null}>
@@ -465,5 +472,6 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </WorkspacePanel>
       </div>
     </WorkspacePage>
+    </WorkspacePaneHandoff>
   )
 })

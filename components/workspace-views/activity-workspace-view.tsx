@@ -1932,9 +1932,11 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Cold Activity: cover until bootstrap ready AND first table settle (no 380px collapse).
+  // Cold Activity: same idea as Lines — skip gate when ops cache already has rows.
+  const hasCallsPaint = calls.length > 0
   const holdActivityBootstrapGate =
-    (bootstrap == null && bootstrapSyncing) || (loading && calls.length === 0)
+    !hasCallsPaint &&
+    ((bootstrap == null && bootstrapSyncing) || (loading && calls.length === 0))
 
   return (
     <WorkspacePaneHandoff
