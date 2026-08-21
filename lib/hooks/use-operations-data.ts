@@ -15,6 +15,7 @@ import {
   clearOperationsPaintSeed,
   operationsPaintMatchesOrg,
 } from "@/lib/operations-paint-cache"
+import { clearSchedulerPaintSeed } from "@/lib/scheduler-paint-cache"
 import { logFlicker } from "@/lib/debug/flicker-debug"
 
 export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
@@ -188,6 +189,7 @@ export function clearOperationsDataCache() {
   }
   // Drop hard-refresh cookie so the next login cannot SSR another shop’s callers.
   clearOperationsPaintSeed()
+  clearSchedulerPaintSeed()
 }
 
 /**
