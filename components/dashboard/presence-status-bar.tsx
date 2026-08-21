@@ -41,7 +41,9 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        "rounded-2xl border px-4 py-3 sm:px-6 sm:py-4",
+        "w-full rounded-2xl border px-4 py-3.5 sm:px-5 sm:py-4",
+        // Fixed min height covers Available + Busy subtitle + one desktop note line.
+        "min-h-[5.75rem] md:min-h-[6.75rem]",
         isBusy
           ? "border-amber-400/80 bg-amber-500/10"
           : "border-border/60 bg-muted/15",

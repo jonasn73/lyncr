@@ -46,7 +46,9 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
   return (
     <div
       className={cn(
-        "sticky top-0 z-[45] w-full border-b px-3 py-2 backdrop-blur-md",
+        // Fixed under shell header — does not push main content (avoids cross-tab CLS).
+        "pointer-events-auto fixed left-0 right-0 z-[45] border-b px-3 py-2 backdrop-blur-md md:left-[4.25rem]",
+        "top-[var(--shell-header-h)]",
         ringing
           ? "border-amber-500/30 bg-amber-950/80"
           : "border-cyan-500/30 bg-cyan-950/70"

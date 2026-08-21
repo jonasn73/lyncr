@@ -764,8 +764,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: keep fallback covering until first bootstrap, then in-flow handoff (no blank swap).
-  const holdMessagesBootstrapGate = bootstrap == null && bootstrapSyncing
+  // Cold Messages: cover until bootstrap ready AND first list settle (no skeleton→empty jump).
+  const holdMessagesBootstrapGate =
+    (bootstrap == null && bootstrapSyncing) ||
+    (loading && threads.length === 0 && !hasPaintedMessagesRef.current)
 
   return (
     <WorkspacePaneHandoff
@@ -854,9 +856,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading && threads.length === 0 ? (
-              <MessagesThreadListSkeleton count={6} />
+              <div className="min-h-[50vh] p-2 md:min-h-[18rem]">
+                <MessagesThreadListSkeleton count={6} />
+              </div>
             ) : threads.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+              <div className="flex min-h-[50vh] flex-col items-center gap-3 px-6 py-16 text-center md:min-h-[18rem]">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />
                 <p className="text-sm font-medium text-foreground">No texts yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">

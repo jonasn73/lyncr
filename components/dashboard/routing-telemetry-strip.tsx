@@ -122,17 +122,17 @@ function TelemetryTickerItem({
       >
         {label}
       </span>
-      {/* Overlay when present so empty cells don’t reserve a third line of height. */}
-      {sublabel ? (
-        <span
-          className={cn(
-            "max-w-full truncate text-center text-[8px] font-medium leading-none text-amber-400/90",
-            sublabelClassName
-          )}
-        >
-          {sublabel}
-        </span>
-      ) : null}
+      {/* Always reserve third line so Missed/Booked sublabels do not grow cells after settle. */}
+      <span
+        className={cn(
+          "max-w-full truncate text-center text-[8px] font-medium leading-none",
+          sublabel ? "text-amber-400/90" : "invisible text-transparent",
+          sublabelClassName
+        )}
+        aria-hidden={!sublabel}
+      >
+        {sublabel || "—"}
+      </span>
     </>
   )
   // ~44px min height keeps tappable cells usable without the old 60px+ rows.

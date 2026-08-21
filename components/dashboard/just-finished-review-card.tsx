@@ -560,18 +560,19 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     }
   }, [])
 
-  // Empty → hide Alerts (no empty chrome). While first load is still unknown, reserve
-  // one-card height so Available / Caller ID do not jump when rows arrive.
+  // Empty → keep a fixed one-card slot (never null) so Available / Caller ID do not jump.
   if (items.length === 0 && !selected) {
-    if (loading) {
-      return (
-        <div className="mt-3 w-full text-left" aria-hidden>
-          <div className="mb-2 h-5 w-14 rounded bg-muted/25" />
-          <div className="h-[4.75rem] rounded-xl border border-border/50 bg-muted/10" />
-        </div>
-      )
-    }
-    return null
+    return (
+      <div
+        className="mt-3 w-full text-left"
+        aria-hidden={!loading}
+        aria-busy={loading || undefined}
+        data-flicker-probe="lines-alerts-slot"
+      >
+        <div className="mb-2 h-5 w-14 rounded bg-muted/25" />
+        <div className="h-[4.75rem] rounded-xl border border-border/50 bg-muted/10" />
+      </div>
+    )
   }
 
   return (

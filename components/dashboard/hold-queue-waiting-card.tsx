@@ -226,8 +226,18 @@ export function HoldQueueWaitingCard({
           </p>
         )
       }
-      // Confirmed empty today → no bar. Still fetching with no seed → keep height so Lines does not jump.
-      if (queueSettled || seededStats != null) return null
+      // Confirmed empty today → keep quiet height (never null) so Who rings does not jump up.
+      if (queueSettled || seededStats != null) {
+        return (
+          <section
+            className={cn("px-3 py-2 sm:px-4", className)}
+            aria-hidden
+            data-flicker-probe="lines-hold-queue-slot"
+          >
+            <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>
+          </section>
+        )
+      }
       return (
         <section className={cn("px-3 py-2 sm:px-4", className)} aria-hidden>
           <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>

@@ -821,11 +821,11 @@ export function DashboardPage() {
             <div className="flex flex-col gap-3 sm:gap-4">
               {/* Telemetry slot — reserves RoutingTelemetryStrip height so Who rings Y matches. */}
               <div
-                className="min-h-[3.25rem] md:min-h-[5.5rem]"
+                className="min-h-[4.5rem] md:min-h-[7.25rem]"
                 aria-hidden
                 data-flicker-probe="lines-gate-telemetry-slot"
               >
-                <div className="grid h-full min-h-[3.25rem] grid-cols-3 gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-1 md:min-h-[4.75rem] md:gap-2 md:rounded-2xl md:border-white/5 md:bg-neutral-950/40 md:p-3">
+                <div className="grid h-full min-h-[4.25rem] grid-cols-3 gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-1 md:min-h-[5.5rem] md:gap-2 md:rounded-2xl md:border-white/5 md:bg-neutral-950/40 md:p-3">
                   <div className="rounded-md bg-zinc-800/40" />
                   <div className="rounded-md bg-zinc-800/40" />
                   <div className="rounded-md bg-zinc-800/40" />

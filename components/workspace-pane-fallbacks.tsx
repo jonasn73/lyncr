@@ -23,6 +23,26 @@ export function ActivityPaneFallback() {
   return (
     <WorkspacePage aria-busy="true" aria-label="Loading Activity">
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
+      {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
+      <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>
+        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-300/50">
+          Dispatch Map
+        </span>
+        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
+          Job scheduler
+        </span>
+      </div>
+      {/* Match ActivityCallFilterBar height. */}
+      <div className="flex flex-wrap gap-2" aria-hidden>
+        {["All activity", "Missed today", "Hold", "Press 1"].map((label) => (
+          <span
+            key={label}
+            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-[11px] font-semibold text-zinc-500"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
       <ActivityTableSkeleton />
     </WorkspacePage>
   )

@@ -1466,7 +1466,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
 
   return (
     // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
-    <WorkspacePanel className="min-h-0 bg-background shadow-none ring-0">
+    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
       <div className="md:hidden">
         <ActivityCallsMobileList rows={rows} lineLabelMap={lineLabelMap} />
       </div>
@@ -1932,8 +1932,9 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Cold Activity: keep fallback covering until first bootstrap, then in-flow handoff (no blank swap).
-  const holdActivityBootstrapGate = bootstrap == null && bootstrapSyncing
+  // Cold Activity: cover until bootstrap ready AND first table settle (no 380px collapse).
+  const holdActivityBootstrapGate =
+    (bootstrap == null && bootstrapSyncing) || (loading && calls.length === 0)
 
   return (
     <WorkspacePaneHandoff
