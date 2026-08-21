@@ -39,10 +39,21 @@ describe("operations activity paint", () => {
     expect(shouldShowOperationsSkeleton(false, 0)).toBe(false)
   })
 
+  it("hides the tiny paint-cookie stub behind skeleton until the full list upgrades", () => {
+    // Short cookie list must not flash as the real Activity feed.
+    expect(shouldShowOperationsSkeleton(true, 4, true)).toBe(true)
+    expect(shouldShowOperationsSkeleton(false, 4, true)).toBe(true)
+    expect(shouldShowOperationsSkeleton(false, 40, false)).toBe(false)
+  })
+
   it("does not start loading when a seed object exists (including empty calls)", () => {
     // Empty successful cache still counts as painted — no gray bars wipe.
     expect(initialOperationsLoading({ calls: [] })).toBe(false)
     expect(initialOperationsLoading({ calls: [{ id: "1" }] })).toBe(false)
+  })
+
+  it("keeps loading true for paint-only cookie stubs", () => {
+    expect(initialOperationsLoading({ calls: [{ id: "1" }], paintOnly: true })).toBe(true)
   })
 
   it("starts loading only when memory + session seed are both missing", () => {

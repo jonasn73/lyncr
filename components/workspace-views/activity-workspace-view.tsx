@@ -1686,6 +1686,8 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
 type ActivityBodyProps = {
   calls: UiCallRecord[]
   loading: boolean
+  /** Tiny cookie stub — keep skeleton until full list arrives (no short wrong-list flash). */
+  paintOnly?: boolean
   loadError: string | null
   lineLabelMap: Map<string, string>
   filter: ActivityCallFilter
@@ -1695,6 +1697,7 @@ type ActivityBodyProps = {
 const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
   calls,
   loading,
+  paintOnly = false,
   loadError,
   lineLabelMap,
   filter,
@@ -1774,7 +1777,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return grouped
   }, [rows, calls, filter])
 
-  const showingSkeleton = shouldShowOperationsSkeleton(loading, calls.length)
+  const showingSkeleton = shouldShowOperationsSkeleton(loading, calls.length, paintOnly)
 
   useFlickerDebugLifecycle("ActivityWorkspaceBody", {
     loading,
@@ -1872,7 +1875,7 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
 }) {
   // Pause Activity polls when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
-  const { calls, loading, loadError } = useOperationsData({
+  const { calls, loading, loadError, paintOnly } = useOperationsData({
     refetchIntervalMs: 12_000,
     enabled: pollEnabled,
   })
@@ -1921,8 +1924,7 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Show painted/stub rows while the full list loads — never cover them with a skeleton gate.
-  // (holdGate on loading+empty left owners stuck on stubs or skeletons.)
+  // Cookie stub stays hidden (skeleton) until session/network delivers the full list.
   return (
     <WorkspaceRightSheetGate<UiCallRecord>
       render={(call, close) => (
@@ -1938,6 +1940,7 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
       <ActivityWorkspaceBody
         calls={calls}
         loading={loading}
+        paintOnly={paintOnly}
         loadError={loadError}
         lineLabelMap={lineLabelMap}
         filter={filter}

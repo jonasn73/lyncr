@@ -203,9 +203,14 @@ export function softInvalidateOperationsDataCache() {
   operationsCache = { ...operationsCache, fetchedAt: 0 }
 }
 
-/** True only when we are loading AND have zero rows — never wipe a painted table. */
-export function shouldShowOperationsSkeleton(loading: boolean, callCount: number): boolean {
-  // Tab click / refetch must keep existing call rows on screen.
+/** True only when we are loading AND have zero *displayable* rows — never wipe a painted table. */
+export function shouldShowOperationsSkeleton(
+  loading: boolean,
+  callCount: number,
+  /** Tiny hard-refresh cookie — hide until network/session upgrades (avoids short wrong-list flash). */
+  paintOnly = false
+): boolean {
+  if (paintOnly) return true
   return loading && callCount === 0
 }
 
@@ -474,14 +479,23 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
           }
         })()
       : null)
-  const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
-  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
-  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() => seed?.insights ?? null)
+  // Paint stubs are not shown — empty list + skeleton until session/network upgrades.
+  const seedIsPaintOnly = Boolean(seed?.paintOnly)
+  const [calls, setCalls] = useState<UiCallRecord[]>(() =>
+    seedIsPaintOnly ? [] : seed?.calls ?? []
+  )
+  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() =>
+    seedIsPaintOnly ? null : seed?.quality ?? null
+  )
+  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() =>
+    seedIsPaintOnly ? null : seed?.insights ?? null
+  )
+  const [paintOnly, setPaintOnly] = useState(() => seedIsPaintOnly)
   // Full-table skeleton only when we have never loaded successfully in this tab.
-  const [loading, setLoading] = useState(() => initialOperationsLoading(seed))
+  const [loading, setLoading] = useState(() => initialOperationsLoading(seed) || seedIsPaintOnly)
   const [loadError, setLoadError] = useState<string | null>(null)
   // Keep showing the last list while a background fetch runs (never bounce to skeleton).
-  const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
+  const hasCallsRef = useRef(!seedIsPaintOnly && (seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
   const prevOrgRef = useRef<string | null | undefined>(undefined)
 
@@ -537,6 +551,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       loadingAfter: true,
     })
     setCalls([])
+    setPaintOnly(false)
     setLoading(true)
   }, [activeOrgId])
 
@@ -562,30 +577,32 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
             }
           : null)
     if (!next) return
-    // Never install a paint stub as the authoritative in-memory cache.
-    if (!operationsCache) {
-      operationsCache = next.paintOnly ? { ...next, fetchedAt: 0, paintOnly: true } : next
-    } else if (
-      operationsCache.paintOnly &&
-      !next.paintOnly &&
-      next.calls.length >= operationsCache.calls.length
-    ) {
+    // Paint stub: warm module cache for fetch, but do NOT put stub rows on screen (short-list flash).
+    if (next.paintOnly) {
+      if (!operationsCache) {
+        operationsCache = { ...next, fetchedAt: 0, paintOnly: true }
+      }
+      setPaintOnly(true)
+      setLoading(true)
+      logFlicker({
+        event: "ops-seed-apply",
+        component: "useOperationsData",
+        dataSource: source ?? "paint",
+        seedRowCount: next.calls.length,
+        rowCountBefore: 0,
+        rowCountAfter: 0,
+        loadingAfter: true,
+        reason: "paint-stub-hidden",
+      })
+      return
+    }
+    if (!operationsCache || operationsCache.paintOnly) {
       operationsCache = next
     }
+    setPaintOnly(false)
     setCalls((prev) => {
-      // Upgrade paint stub (4 rows) → full session/network list. Never keep the stub.
-      let nextCalls = prev
-      if (next.calls.length > prev.length) {
-        nextCalls = next.calls
-      } else if (prev.length === 0) {
-        nextCalls = next.calls
-      } else if (
-        operationsCache?.paintOnly &&
-        !next.paintOnly &&
-        next.calls.length > 0
-      ) {
-        nextCalls = next.calls
-      }
+      const nextCalls =
+        next.calls.length > prev.length ? next.calls : prev.length === 0 ? next.calls : prev
       if (nextCalls !== prev) {
         logFlicker({
           event: "ops-seed-apply",
@@ -594,21 +611,14 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
           seedRowCount: next.calls.length,
           rowCountBefore: prev.length,
           rowCountAfter: nextCalls.length,
-          loadingAfter: Boolean(next.paintOnly),
+          loadingAfter: false,
         })
       }
       return nextCalls
     })
     setQuality((prev) => prev ?? next.quality)
     setInsights((prev) => prev ?? next.insights)
-    // Paint stub: keep loading true so holdGate stays until network upgrades the list.
-    // Full session/network seed: drop loading so we never flash skeleton over real rows.
-    if (next.paintOnly && next.calls.length > 0) {
-      // Show the stub immediately, but still treat as loading so fetch is not skipped.
-      setLoading(true)
-    } else {
-      setLoading(false)
-    }
+    setLoading(false)
     // seedFromPaint is request-stable from cookies; omit identity churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionSeed, activeOrgId])
@@ -627,6 +637,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         !bypassCache
       if (cacheUsable) {
         if (!mounted) return
+        setPaintOnly(false)
         setCalls((prev) => {
           const same = callsFingerprint(prev) === callsFingerprint(cached.calls)
           if (!same) {
@@ -647,30 +658,26 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         return
       }
 
-      const canShowExisting = hasCallsRef.current || Boolean(cached?.calls.length)
+      const canShowExisting =
+        hasCallsRef.current || Boolean(cached?.calls.length && !cached.paintOnly)
       if (!canShowExisting) {
-        // First load only — never blank the feed for a quiet poll / live-call refresh.
         logFlicker({
           event: "ops-loading",
           component: "useOperationsData",
           loading: true,
-          reason: "first-load-no-rows",
+          reason: cached?.paintOnly ? "paint-stub-await-network" : "first-load-no-rows",
           rowCountBefore: hasCallsRef.current ? -1 : 0,
           bypassCache: bypassCache,
         })
         setLoading(true)
         setLoadError(null)
-      } else if (cached?.paintOnly) {
-        // Stub rows on screen — keep loading so UI knows a full refresh is in flight.
-        setLoading(true)
       } else {
-        // Rows already on screen: keep loading false so ActivityTableSkeleton cannot mount.
         setLoading(false)
       }
       try {
         const snapshot = await fetchOperationsSnapshot(bypassCache || Boolean(cached?.paintOnly))
         if (!mounted || !snapshot) return
-        // Skip identical payloads so Activities does not re-render / jump every poll.
+        setPaintOnly(false)
         setCalls((prev) => {
           const same = callsFingerprint(prev) === callsFingerprint(snapshot.calls)
           if (!same) {
@@ -711,7 +718,6 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       }, refetchIntervalMs)
     }
 
-    // Live call events — soft-invalidate so the visible list never blanks mid-refresh.
     const onActivityRefresh = () => {
       softInvalidateOperationsDataCache()
       void loadData(true)
@@ -725,5 +731,5 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     }
   }, [refetchIntervalMs, enabled])
 
-  return { calls, quality, insights, loading, loadError }
+  return { calls, quality, insights, loading, loadError, paintOnly }
 }
