@@ -5,6 +5,14 @@
 import type { CallActivityContext } from "@/lib/types"
 import { getCallLogs } from "@/lib/db"
 import type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
+import {
+  DEFAULT_TELEMETRY_TIMEZONE,
+  sanitizeIanaTimezone,
+} from "@/lib/telemetry-timezone"
+import {
+  formatListDateLabel,
+  formatListTimeLabel,
+} from "@/lib/browser-timezone-cookie"
 
 function formatPhoneDisplay(phone: string | undefined | null): string {
   const v = String(phone || "")
@@ -13,16 +21,6 @@ function formatPhoneDisplay(phone: string | undefined | null): string {
   const d = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits
   if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
   return v
-}
-
-function getDateLabel(d: Date): string {
-  const now = new Date()
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startThatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  const diffDays = Math.floor((startToday - startThatDay) / 86_400_000)
-  if (diffDays === 0) return "Today"
-  if (diffDays === 1) return "Yesterday"
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 function initialsFromName(name: string): string {
@@ -49,8 +47,12 @@ function emptyActivity(): CallActivityContext {
   }
 }
 
-/** Full Activity table seed for hard refresh — accurate statuses, not a tiny cookie stub. */
-export async function getActivitySsrCalls(userId: string): Promise<UiCallRecord[]> {
+/** Full Activity table seed for hard refresh — accurate statuses + owner-local times. */
+export async function getActivitySsrCalls(
+  userId: string,
+  timeZone?: string | null
+): Promise<UiCallRecord[]> {
+  const tz = sanitizeIanaTimezone(timeZone) || DEFAULT_TELEMETRY_TIMEZONE
   // Pull recent history on the server so the first HTML already has the real table.
   const calls = await getCallLogs(userId, { limit: 80, offset: 0 })
   return calls.map((c) => {
@@ -75,8 +77,8 @@ export async function getActivitySsrCalls(userId: string): Promise<UiCallRecord[
         : null,
       routedInitials: initialsFromName(routedTo),
       routedColor: "bg-primary",
-      date: getDateLabel(createdAt),
-      time: createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+      date: formatListDateLabel(createdAt, tz),
+      time: formatListTimeLabel(createdAt, tz),
       createdAt: createdAt.toISOString(),
       rawCallType: String(c.call_type || "incoming"),
       callStatus: String(c.status || ""),

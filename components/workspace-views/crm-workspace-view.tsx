@@ -84,9 +84,11 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   crmPaintToListItems,
+  crmListFingerprint,
   readCrmListPaintSeed,
   writeCrmListPaintSeed,
 } from "@/lib/crm-list-paint-cache"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -367,6 +369,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
   const rows = liveRows ?? cachedRows
+  // Compare fingerprints against what is on screen (avoid stale closure / deps churn).
+  const rowsForCompareRef = useRef(rows)
+  rowsForCompareRef.current = rows
   const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
@@ -492,6 +497,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     const params = new URLSearchParams()
     if (debounced) params.set("q", debounced)
     params.set("filter", filter)
+    // Same zone as Activity — “Booked · …” and paint cookies stay stable.
+    params.set("timezone", resolveBrowserTimezone())
     fetch(`/api/crm/customers?${params.toString()}`, { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) {
@@ -502,13 +509,23 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       .then((json) => {
         const list = json.data?.customers ?? []
-        logFlicker({
-          event: "list-replace",
-          component: "CrmWorkspaceView",
-          rowCount: list.length,
-          liveRowsNull: false,
+        // Skip replace when labels already match — stops Price quoted / Booked time flicker.
+        setLiveRows((prev) => {
+          const baseline = prev ?? rowsForCompareRef.current
+          if (
+            baseline.length > 0 &&
+            crmListFingerprint(baseline) === crmListFingerprint(list)
+          ) {
+            return prev ?? baseline
+          }
+          logFlicker({
+            event: "list-replace",
+            component: "CrmWorkspaceView",
+            rowCount: list.length,
+            liveRowsNull: false,
+          })
+          return list
         })
-        setLiveRows(list)
         writePersistedCache(crmListCacheKey(filter, debounced), {
           customers: list,
         })

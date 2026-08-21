@@ -6,6 +6,10 @@ import {
   UNASSIGNED_CALLBACK_STATUS,
   UNASSIGNED_POOL_STATUS,
 } from "@/lib/job-pool"
+import {
+  DEFAULT_TELEMETRY_TIMEZONE,
+  sanitizeIanaTimezone,
+} from "@/lib/telemetry-timezone"
 
 /** Cooldown for the same unreachable template (minutes). */
 export const UNREACHABLE_SMS_COOLDOWN_MINUTES = 45
@@ -71,10 +75,16 @@ export function crmCallbackOutcomeLabel(outcome: LeadCallbackOutcome): string {
 }
 
 /** Short appointment label for CRM badges — “Booked · Aug 9, 7:30 PM”. */
-export function formatCrmBookedStatusLabel(scheduledAtIso: string): string {
+export function formatCrmBookedStatusLabel(
+  scheduledAtIso: string,
+  timeZone?: string | null
+): string {
   const d = new Date(scheduledAtIso)
   if (Number.isNaN(d.getTime())) return "Booked"
-  const when = d.toLocaleString(undefined, {
+  // Explicit zone so Vercel UTC does not paint the wrong hour for the shop owner.
+  const tz = sanitizeIanaTimezone(timeZone) || DEFAULT_TELEMETRY_TIMEZONE
+  const when = d.toLocaleString("en-US", {
+    timeZone: tz,
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -94,6 +104,8 @@ export function resolveCrmJobStatusPresentation(params: {
   callbackOutcome?: LeadCallbackOutcome | null
   /** Open lead with a stored quote — show “Price quoted” instead of plain Needs call. */
   hasQuotedPrice?: boolean
+  /** IANA zone for “Booked · …” times (owner’s phone, not Vercel UTC). */
+  timeZone?: string | null
 }): {
   status_label: string
   status_tone: CrmStatusTone
@@ -171,7 +183,9 @@ export function resolveCrmJobStatusPresentation(params: {
     status_tone = "amber"
   } else if (ds === "dispatched" || Boolean(scheduledAt)) {
     // Prefer “Booked · {time}” when we have an appointment window.
-    status_label = scheduledAt ? formatCrmBookedStatusLabel(scheduledAt) : "Booked"
+    status_label = scheduledAt
+      ? formatCrmBookedStatusLabel(scheduledAt, params.timeZone)
+      : "Booked"
     status_tone = "sky"
   } else if (
     (ds === CRM_LEAD_STATUS || ds === UNASSIGNED_CALLBACK_STATUS) &&

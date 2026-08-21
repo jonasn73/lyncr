@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner"
 import Script from "next/script"
 import { VIEWPORT_BOOTSTRAP_SCRIPT } from "@/lib/viewport-hint"
+import { TIMEZONE_BOOTSTRAP_SCRIPT } from "@/lib/browser-timezone-cookie"
 import {
   SITE_CANONICAL_URL,
   SITE_DESCRIPTION,
@@ -90,6 +91,9 @@ export default function RootLayout({
         {children}
         <Script id="lyncr-vw" strategy="beforeInteractive">
           {VIEWPORT_BOOTSTRAP_SCRIPT}
+        </Script>
+        <Script id="lyncr-tz" strategy="beforeInteractive">
+          {TIMEZONE_BOOTSTRAP_SCRIPT}
         </Script>
         <SentryUserContext />
         <Toaster />

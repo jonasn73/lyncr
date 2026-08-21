@@ -5380,9 +5380,12 @@ export async function listCrmCustomersForUser(
     limit?: number
     /** all | leads | clients | book_forms (open customer-filled book links). */
     filter?: "all" | "leads" | "clients" | "book_forms"
+    /** Owner phone timezone for “Booked · …” labels (not Vercel UTC). */
+    timeZone?: string | null
   }
 ): Promise<CrmCustomerListItem[]> {
   const filter = options?.filter ?? "all"
+  const timeZone = options?.timeZone ?? null
   const sql = getSql()
 
   // Book forms filter: pull phones that still have an open customer-filled lead first
@@ -5544,6 +5547,7 @@ export async function listCrmCustomersForUser(
         scheduledAt,
         callbackOutcome: leadCallbackOutcomeFromCollected(collected),
         hasQuotedPrice,
+        timeZone,
       })
       const isCompleted =
         isCrmTerminalJobStatus(js) ||

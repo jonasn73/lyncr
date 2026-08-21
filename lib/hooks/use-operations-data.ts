@@ -18,6 +18,11 @@ import {
 import { clearSchedulerPaintSeed } from "@/lib/scheduler-paint-cache"
 import { logFlicker } from "@/lib/debug/flicker-debug"
 import type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
+import {
+  formatListDateLabel,
+  formatListTimeLabel,
+} from "@/lib/browser-timezone-cookie"
 
 export type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
 
@@ -236,6 +241,7 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
   }
   if (!callsRes.ok) throw new Error("Failed to load calls")
   const callsData = await callsRes.json()
+  const tz = resolveBrowserTimezone()
   const normalizedCalls: UiCallRecord[] = Array.isArray(callsData.calls)
     ? callsData.calls.map((c: Record<string, unknown>) => {
       const createdAtRaw = String(c.created_at || "")
@@ -265,8 +271,8 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
         routedToReceptionistId: receptionistId,
         routedInitials: initialsFromName(routedTo),
         routedColor: "bg-primary",
-        date: getDateLabel(createdAt),
-        time: createdAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        date: formatListDateLabel(createdAt, tz),
+        time: formatListTimeLabel(createdAt, tz),
         createdAt: createdAt.toISOString(),
         rawCallType: String(c.call_type || "incoming"),
         callStatus: String(c.status || ""),
@@ -334,16 +340,6 @@ function formatPhoneDisplay(phone: string | undefined | null): string {
   return v
 }
 
-function getDateLabel(d: Date): string {
-  const now = new Date()
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startThatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  const diffDays = Math.floor((startToday - startThatDay) / 86_400_000)
-  if (diffDays === 0) return "Today"
-  if (diffDays === 1) return "Yesterday"
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
@@ -373,7 +369,7 @@ function callsFingerprint(calls: UiCallRecord[]): string {
   return calls
     .map(
       (c) =>
-        `${c.id}|${c.callStatus}|${c.durationSeconds}|${c.answeredAt ?? ""}|${c.endedAt ?? ""}|${c.activity?.intakeAction ?? ""}|${c.activity?.leadId ?? ""}|${c.recordingUrl ?? ""}`
+        `${c.id}|${c.callStatus}|${c.durationSeconds}|${c.answeredAt ?? ""}|${c.endedAt ?? ""}|${c.date}|${c.time}|${c.activity?.intakeAction ?? ""}|${c.activity?.leadId ?? ""}|${c.recordingUrl ?? ""}`
     )
     .join(";")
 }
