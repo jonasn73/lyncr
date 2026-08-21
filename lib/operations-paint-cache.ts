@@ -45,8 +45,8 @@ export type OperationsPaintSeed = {
   fetchedAt: number
 }
 
-/** Prefer few rows that actually fit the cookie over many that silently fail. */
-const MAX_PAINT_CALLS = 4
+/** Prefer more rows that still fit the cookie — empty SSR skeleton is worse than a short list. */
+const MAX_PAINT_CALLS = 8
 
 function clip(s: string, n: number): string {
   const t = String(s || "")

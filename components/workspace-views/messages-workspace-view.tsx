@@ -35,7 +35,6 @@ import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
 import { useSessionSeed } from "@/lib/hooks/use-client-seed"
-import { MessagesThreadListSkeleton } from "@/components/workspace-content-skeletons"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -839,9 +838,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading && threads.length === 0 ? (
-              <div className="min-h-[50vh] p-2 md:min-h-[18rem]">
-                <MessagesThreadListSkeleton count={6} />
-              </div>
+              // Quiet well — grey skeleton pills were the Messages flash (Lines never does this).
+              <div className="min-h-[50vh] md:min-h-[18rem]" aria-busy="true" aria-label="Loading messages" />
             ) : threads.length === 0 ? (
               <div className="flex min-h-[50vh] flex-col items-center gap-3 px-6 py-16 text-center md:min-h-[18rem]">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />

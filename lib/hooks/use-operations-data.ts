@@ -214,12 +214,12 @@ export function shouldShowOperationsSkeleton(
   return loading && callCount === 0
 }
 
-/** First-paint loading: skeleton only with zero rows; paint stubs still load in background. */
+/** First-paint loading flag — paint cookie still counts as seeded (rows show; refresh in background). */
 export function initialOperationsLoading(
   seed: { calls?: unknown[]; paintOnly?: boolean; quality?: unknown } | null | undefined
 ): boolean {
   if (seed == null) return true
-  // Tiny cookie stub — show rows but keep loading so network upgrades the list.
+  // Paint rows are visible — keep a soft loading flag for network upgrade only.
   if (seed.paintOnly) return true
   return false
 }
@@ -450,7 +450,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     null,
     activeOrgId ?? "operations-v2"
   )
-  // Memory → session → cookie peek → SSR paint cookie (never invent rows).
+  // Memory → session → cookie peek → SSR paint cookie (Lines pattern: cookie rows ARE first HTML).
   const seedFromPaint =
     paintOps != null
       ? {
@@ -479,23 +479,18 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
           }
         })()
       : null)
-  // Paint stubs are not shown — empty list + skeleton until session/network upgrades.
   const seedIsPaintOnly = Boolean(seed?.paintOnly)
-  const [calls, setCalls] = useState<UiCallRecord[]>(() =>
-    seedIsPaintOnly ? [] : seed?.calls ?? []
-  )
-  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() =>
-    seedIsPaintOnly ? null : seed?.quality ?? null
-  )
-  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() =>
-    seedIsPaintOnly ? null : seed?.insights ?? null
+  // Always paint seed rows on first HTML (including cookie) — never SSR an empty skeleton.
+  const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
+  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
+  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(
+    () => seed?.insights ?? null
   )
   const [paintOnly, setPaintOnly] = useState(() => seedIsPaintOnly)
-  // Full-table skeleton only when we have never loaded successfully in this tab.
-  const [loading, setLoading] = useState(() => initialOperationsLoading(seed) || seedIsPaintOnly)
+  // Background refresh when paint-only or missing; skeleton only if calls stay empty.
+  const [loading, setLoading] = useState(() => seed == null || seedIsPaintOnly)
   const [loadError, setLoadError] = useState<string | null>(null)
-  // Keep showing the last list while a background fetch runs (never bounce to skeleton).
-  const hasCallsRef = useRef(!seedIsPaintOnly && (seed?.calls.length ?? 0) > 0)
+  const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
   const prevOrgRef = useRef<string | null | undefined>(undefined)
 
@@ -577,22 +572,26 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
             }
           : null)
     if (!next) return
-    // Paint stub: warm module cache for fetch, but do NOT put stub rows on screen (short-list flash).
+    // Paint cookie: put rows on screen immediately (Lines pattern) and still fetch full list.
     if (next.paintOnly) {
       if (!operationsCache) {
         operationsCache = { ...next, fetchedAt: 0, paintOnly: true }
       }
       setPaintOnly(true)
+      setCalls((prev) => {
+        if (prev.length === 0 && next.calls.length > 0) return next.calls
+        if (next.calls.length > prev.length) return next.calls
+        return prev
+      })
       setLoading(true)
       logFlicker({
         event: "ops-seed-apply",
         component: "useOperationsData",
         dataSource: source ?? "paint",
         seedRowCount: next.calls.length,
-        rowCountBefore: 0,
-        rowCountAfter: 0,
+        rowCountAfter: next.calls.length,
         loadingAfter: true,
-        reason: "paint-stub-hidden",
+        reason: "paint-rows-visible",
       })
       return
     }

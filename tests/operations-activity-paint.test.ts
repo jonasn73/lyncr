@@ -39,8 +39,7 @@ describe("operations activity paint", () => {
     expect(shouldShowOperationsSkeleton(false, 0)).toBe(false)
   })
 
-  it("hides the tiny paint-cookie stub behind skeleton until the full list upgrades", () => {
-    // paintOnly no longer forces skeleton — only empty+loading does (Lines pattern).
+  it("paint cookie keeps rows visible — skeleton only when empty", () => {
     expect(shouldShowOperationsSkeleton(true, 4, true)).toBe(false)
     expect(shouldShowOperationsSkeleton(false, 4, true)).toBe(false)
     expect(shouldShowOperationsSkeleton(true, 0, true)).toBe(true)

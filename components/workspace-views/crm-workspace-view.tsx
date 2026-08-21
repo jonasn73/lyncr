@@ -72,7 +72,6 @@ import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
-import { CrmListRowSkeleton } from "@/components/workspace-content-skeletons"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -2505,7 +2504,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
           <div className="min-h-[18rem] p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
             {loading && rows.length === 0 ? (
-              <CrmListRowSkeleton count={6} />
+              // Quiet well — grey row skeletons flashed on hard refresh when CRM paint was empty.
+              <div className="min-h-[18rem]" aria-busy="true" aria-label="Loading customers" />
             ) : error ? (
               <p className="px-2 py-6 text-center text-sm text-rose-300">{error}</p>
             ) : rows.length === 0 ? (
