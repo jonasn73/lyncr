@@ -18,10 +18,11 @@ import {
 import { clearSchedulerPaintSeed } from "@/lib/scheduler-paint-cache"
 import { logFlicker } from "@/lib/debug/flicker-debug"
 import type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
-import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import {
   formatListDateLabel,
   formatListTimeLabel,
+  relabelCallListTimes,
+  resolveOwnerTimezone,
 } from "@/lib/browser-timezone-cookie"
 
 export type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
@@ -147,7 +148,9 @@ function readSessionOperationsCache(
       return null
     }
     return {
-      calls: parsed.calls.map(normalizeUiCallRecord),
+      calls: parsed.calls.map((row) =>
+        relabelCallListTimes(normalizeUiCallRecord(row), resolveOwnerTimezone())
+      ),
       quality: parsed.quality ?? null,
       insights: parsed.insights ?? null,
       fetchedAt: typeof parsed.fetchedAt === "number" ? parsed.fetchedAt : 0,
@@ -241,7 +244,7 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
   }
   if (!callsRes.ok) throw new Error("Failed to load calls")
   const callsData = await callsRes.json()
-  const tz = resolveBrowserTimezone()
+  const tz = resolveOwnerTimezone()
   const normalizedCalls: UiCallRecord[] = Array.isArray(callsData.calls)
     ? callsData.calls.map((c: Record<string, unknown>) => {
       const createdAtRaw = String(c.created_at || "")

@@ -76,6 +76,12 @@ import {
   type UiCallRecord,
 } from "@/lib/hooks/use-operations-data"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
+import {
+  formatListDateLabel,
+  formatListTimeLabel,
+  resolveOwnerTimezone,
+} from "@/lib/browser-timezone-cookie"
 import {
   filterActivityCallGroups,
   formatGroupedCallCountLabel,
@@ -84,7 +90,6 @@ import {
   pickGroupJobActivityCall,
   type GroupedActivityCall,
 } from "@/lib/activity-call-groups"
-import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import {
   buildBusinessLineLabelMap,
   resolveBusinessLineLabel,
@@ -201,23 +206,19 @@ function useBookingAlerts(enabled: boolean) {
 
 /** Split call time into a scannable day label + clock time. */
 function formatCallTimestampParts(call: UiCallRecord): { day: string; time: string; full: string } | null {
+  // Prefer stored labels from SSR / fetch — recomputing from createdAt used the
+  // server clock (UTC) on first HTML, then the phone clock after hydrate (time flip).
+  if (call.date && call.time) {
+    return { day: call.date, time: call.time, full: `${call.date}, ${call.time}` }
+  }
   if (call.createdAt) {
     const d = new Date(call.createdAt)
     if (!Number.isNaN(d.getTime())) {
-      const now = new Date()
-      const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-      const startThatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-      const diffDays = Math.floor((startToday - startThatDay) / 86_400_000)
-      const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-      let day: string
-      if (diffDays === 0) day = "Today"
-      else if (diffDays === 1) day = "Yesterday"
-      else day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      const tz = resolveOwnerTimezone()
+      const time = formatListTimeLabel(d, tz)
+      const day = formatListDateLabel(d, tz)
       return { day, time, full: `${day}, ${time}` }
     }
-  }
-  if (call.date && call.time) {
-    return { day: call.date, time: call.time, full: `${call.date}, ${call.time}` }
   }
   return null
 }
