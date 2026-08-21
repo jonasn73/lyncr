@@ -758,9 +758,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: skip cover when inbox already painted; otherwise hold until fetch settles.
-  const hasMessagesPaint = messages.length > 0 || hasPaintedMessagesRef.current
-  const holdMessagesBootstrapGate = !hasMessagesPaint && loading && threads.length === 0
+  // Cold Messages: cover only when we have nothing to show yet.
+  const holdMessagesBootstrapGate =
+    messages.length === 0 &&
+    !hasPaintedMessagesRef.current &&
+    loading &&
+    threads.length === 0
 
   return (
     <WorkspacePaneHandoff

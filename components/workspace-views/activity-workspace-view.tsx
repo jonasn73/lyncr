@@ -72,8 +72,6 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import {
@@ -1923,37 +1921,29 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Seeded calls: paint immediately (no cover). Unseeded: keep one cover until fetch settles —
-  // never peel to an empty body while loading is still true (that flashed empty → rows).
-  const holdActivityUntilSettled = calls.length === 0 && loading
-
+  // Show painted/stub rows while the full list loads — never cover them with a skeleton gate.
+  // (holdGate on loading+empty left owners stuck on stubs or skeletons.)
   return (
-    <WorkspacePaneHandoff
-      holdGate={holdActivityUntilSettled}
-      fallback={<ActivityPaneFallback />}
-      probe="activity-handoff"
-    >
-      <WorkspaceRightSheetGate<UiCallRecord>
-        render={(call, close) => (
-          <CallLogSheet
-            call={call}
-            onClose={() => {
-              close()
-              closeActivityLog()
-            }}
-          />
-        )}
-      >
-        <ActivityWorkspaceBody
-          calls={calls}
-          loading={loading}
-          loadError={loadError}
-          lineLabelMap={lineLabelMap}
-          filter={filter}
-          onFilterChange={handleFilterChange}
+    <WorkspaceRightSheetGate<UiCallRecord>
+      render={(call, close) => (
+        <CallLogSheet
+          call={call}
+          onClose={() => {
+            close()
+            closeActivityLog()
+          }}
         />
-      </WorkspaceRightSheetGate>
-    </WorkspacePaneHandoff>
+      )}
+    >
+      <ActivityWorkspaceBody
+        calls={calls}
+        loading={loading}
+        loadError={loadError}
+        lineLabelMap={lineLabelMap}
+        filter={filter}
+        onFilterChange={handleFilterChange}
+      />
+    </WorkspaceRightSheetGate>
   )
 })
 

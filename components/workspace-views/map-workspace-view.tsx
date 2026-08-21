@@ -4,8 +4,6 @@
 
 import { memo } from "react"
 import { MapTab } from "@/components/dashboard/MapTab"
-import { MapPaneFallback } from "@/components/workspace-pane-fallbacks"
-import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 
 export const MapWorkspaceView = memo(function MapWorkspaceView({
   // Presence host keeps Map mounted after first visit — pause polls while hidden.
@@ -13,11 +11,5 @@ export const MapWorkspaceView = memo(function MapWorkspaceView({
 }: {
   isActive?: boolean
 }) {
-  // holdGate false + seeded handoff start: no skeleton flash over MapTab.
-  // First visit from another tab still uses Suspense MapPaneFallback once (matched chrome).
-  return (
-    <WorkspacePaneHandoff holdGate={false} fallback={<MapPaneFallback />} probe="map-handoff">
-      <MapTab isActive={isActive} />
-    </WorkspacePaneHandoff>
-  )
+  return <MapTab isActive={isActive} />
 })
