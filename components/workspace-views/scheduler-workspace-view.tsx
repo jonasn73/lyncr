@@ -279,6 +279,7 @@ function SchedulerWorkspaceViewInner({
   const {
     jobs: activePipelineJobs,
     isLoading: pipelineLoading,
+    isValidating: pipelineValidating,
     mutate: mutateActivePipeline,
   } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled)
 
@@ -314,10 +315,41 @@ function SchedulerWorkspaceViewInner({
     [poolJobs, excludeDeletedJobs]
   )
 
-  const displayPipelineJobs = useMemo(
-    () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
-    [activePipelineJobs, excludeDeletedJobs]
-  )
+  // Hold last non-empty pipeline while validating — empty→jobs was flashing “0 active”.
+  const pipelineHoldRef = useRef<{ dayKey: string; jobs: ActivePipelineJob[] }>({
+    dayKey: pipelineDayKey,
+    jobs: [],
+  })
+  const displayPipelineJobs = useMemo(() => {
+    const next = excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob)
+    if (pipelineHoldRef.current.dayKey !== pipelineDayKey) {
+      pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: next }
+      return next
+    }
+    if (next.length > 0) {
+      pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: next }
+      return next
+    }
+    if (pipelineLoading || pipelineValidating || loading || !bootstrapSettled) {
+      return pipelineHoldRef.current.jobs
+    }
+    pipelineHoldRef.current = { dayKey: pipelineDayKey, jobs: [] }
+    return next
+  }, [
+    activePipelineJobs,
+    excludeDeletedJobs,
+    pipelineDayKey,
+    pipelineLoading,
+    pipelineValidating,
+    loading,
+    bootstrapSettled,
+  ])
+
+  const boardCountsPending =
+    !bootstrapSettled || loading || pipelineLoading || (pipelineValidating && displayPipelineJobs.length === 0)
+  const techCountsPending = !bootstrapSettled || loading
+  const metricsPending =
+    !bootstrapSettled || loading || (poolLoading && displayPoolJobs.length === 0) || pipelineLoading
 
   const displayEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
 
@@ -1202,6 +1234,7 @@ function SchedulerWorkspaceViewInner({
                   onSelectJob={focusJobById}
                   onMarkComplete={handleMarkJobComplete}
                   completingJobId={completingId}
+                  metricsPending={metricsPending}
                 />
               </div>
             </div>
@@ -1262,7 +1295,7 @@ function SchedulerWorkspaceViewInner({
               <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                 <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
                 <p className="min-h-[1rem] truncate text-xs text-zinc-500">
-                  {displayPipelineJobs.length === 0 && (pipelineLoading || loading || !bootstrapSettled)
+                  {boardCountsPending
                     ? "\u00a0"
                     : `${displayPipelineJobs.length} active job${
                         displayPipelineJobs.length === 1 ? "" : "s"
@@ -1329,7 +1362,7 @@ function SchedulerWorkspaceViewInner({
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
                       <p className="min-h-[1rem] truncate text-xs text-zinc-500">
-                        {!bootstrapSettled && assignableTechs.length === 0
+                        {techCountsPending && assignableTechs.length === 0
                           ? "\u00a0"
                           : `${assignableTechs.length} technician${
                               assignableTechs.length === 1 ? "" : "s"

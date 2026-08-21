@@ -29,7 +29,7 @@ export type MessagesPaintSeed = {
   messages: MessagesPaintRow[]
 }
 
-const MAX_PAINT_THREADS = 10
+const MAX_PAINT_THREADS = 24
 
 function clip(s: string, n: number): string {
   const t = String(s || "")
@@ -67,7 +67,8 @@ function trimRow(msg: SmsMessage): MessagesPaintRow {
   return {
     id: clip(msg.id, 40),
     ph: clip(phone, 18),
-    b: clip(msg.body || "", 48),
+    // Longer preview — short clips made row 3+ body text expand on fetch.
+    b: clip(msg.body || "", 72),
     d: msg.direction === "outbound" ? "o" : "i",
     // Always full toISOString (24 chars) — clip(28) used to truncate offsets into invalid times.
     t: clip(iso, 24),
@@ -171,4 +172,31 @@ export function messagesThreadListFingerprint(messages: SmsMessage[]): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([phone, row]) => `${phone}:${row.id}:${row.t}`)
     .join("|")
+}
+
+/** True when `next` keeps every baseline thread’s latest message id (safe quiet expand). */
+export function messagesThreadListIsQuietExpansion(
+  baseline: SmsMessage[],
+  next: SmsMessage[]
+): boolean {
+  if (baseline.length === 0) return false
+  const latestByPhone = (messages: SmsMessage[]) => {
+    const map = new Map<string, { id: string; t: number }>()
+    for (const msg of messages) {
+      const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
+      if (!raw) continue
+      const key = phoneKey(raw) || raw
+      const t = new Date(msg.created_at).getTime() || 0
+      const prev = map.get(key)
+      if (!prev || t >= prev.t) map.set(key, { id: msg.id, t })
+    }
+    return map
+  }
+  const baseByPhone = latestByPhone(baseline)
+  const nextByPhone = latestByPhone(next)
+  for (const [phone, row] of baseByPhone) {
+    const live = nextByPhone.get(phone)
+    if (!live || live.id !== row.id) return false
+  }
+  return true
 }

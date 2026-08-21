@@ -51,8 +51,10 @@ function clip(s: string, n: number): string {
 function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
   const title =
     (job.customer_name ?? "").trim() || (job.summary ?? "").trim() || "Open job"
-  const place =
-    (job.neighborhood ?? "").trim() || (job.location ?? "").trim() || ""
+  // Prefer full street address — neighborhood-first painted “Louisville” then flipped.
+  const street = (job.location ?? "").trim()
+  const area = (job.neighborhood ?? "").trim()
+  const place = street || area || ""
   const vehicle = [job.vehicle_year, job.vehicle_make, job.vehicle_model]
     .filter(Boolean)
     .join(" ")
@@ -73,9 +75,9 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
       : undefined
   return {
     id: clip(job.id, 40),
-    // Longer clips — “Key replacement — Duplication” was cut at 20 chars on paint.
     n: clip(title, 48),
-    pl: clip(place, 40),
+    // Street lines need room — 40 chars still truncated many Louisville addresses.
+    pl: clip(place, 72),
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
     ...(phone ? { ph: clip(phone, 16) } : {}),

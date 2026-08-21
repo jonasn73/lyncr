@@ -18,6 +18,8 @@ type MetricCellProps = {
   valueClassName?: string
   className?: string
   compact?: boolean
+  /** Reserve digit space without painting a misleading 0. */
+  pending?: boolean
 }
 
 function MetricCell({
@@ -26,9 +28,11 @@ function MetricCell({
   valueClassName,
   className,
   compact = false,
+  pending = false,
 }: MetricCellProps) {
   // Zero counts stay muted so non-zero KPIs pop as the signal.
-  const isZero = value === 0
+  const isZero = !pending && value === 0
+  const display = pending ? "\u00a0" : String(value)
 
   // Compact map toolbar — horizontal pill chip.
   if (compact) {
@@ -42,11 +46,11 @@ function MetricCell({
         <span className="text-[10px] font-medium text-zinc-500">{label}</span>
         <span
           className={cn(
-            "text-xs font-bold tabular-nums",
-            isZero ? "text-zinc-600" : valueClassName
+            "min-w-[0.75rem] text-xs font-bold tabular-nums",
+            isZero || pending ? "text-zinc-600" : valueClassName
           )}
         >
-          {value}
+          {display}
         </span>
       </div>
     )
@@ -62,11 +66,11 @@ function MetricCell({
     >
       <span
         className={cn(
-          "text-lg font-bold leading-none tracking-tight tabular-nums",
-          isZero ? "text-zinc-600" : valueClassName
+          "min-h-[1.25rem] text-lg font-bold leading-none tracking-tight tabular-nums",
+          isZero || pending ? "text-zinc-600" : valueClassName
         )}
       >
-        {value}
+        {display}
       </span>
       <span className="truncate text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
         {label}
@@ -91,6 +95,8 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   rawCalendarJobs,
   todayKey,
   completedTodayLedger,
+  /** Quiet KPI tiles while board data is still settling. */
+  metricsPending = false,
 }: {
   poolJobs: UnassignedPoolJob[]
   activePipelineJobs: ActivePipelineJob[]
@@ -103,6 +109,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
   rawCalendarJobs?: readonly SchedulerEvent[]
   todayKey?: string
   completedTodayLedger?: ReadonlyMap<string, string>
+  metricsPending?: boolean
 }) {
   const isMobile = useIsMobile()
   const showPillRow = compact
@@ -134,24 +141,28 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       >
         <MetricCell
           compact={showPillRow}
+          pending={metricsPending}
           label={useShortLabels ? "Active" : "Active Dispatches"}
           value={metrics.activeDispatches}
           valueClassName="text-sky-300"
         />
         <MetricCell
           compact={showPillRow}
+          pending={metricsPending}
           label={useShortLabels ? "Pool" : "Unassigned Pool"}
           value={metrics.unassignedPool}
           valueClassName="text-amber-300"
         />
         <MetricCell
           compact={showPillRow}
+          pending={metricsPending}
           label={useShortLabels ? "On-site" : "On-Site"}
           value={metrics.onSite}
           valueClassName="text-emerald-300"
         />
         <MetricCell
           compact={showPillRow}
+          pending={metricsPending}
           label={useShortLabels ? "Done" : "Completed Today"}
           value={metrics.completedToday}
           valueClassName="text-zinc-200"

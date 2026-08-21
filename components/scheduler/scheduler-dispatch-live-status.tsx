@@ -181,6 +181,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   completedTodayLedger,
   /** Only the upcoming jobs row (mobile bottom sheet). */
   upcomingOnly = false,
+  /** Hide KPI zeros until hopper/pipeline/bootstrap are ready (middle-section flash). */
+  metricsPending = false,
 }: {
   selectedDay: Date
   poolJobs: UnassignedPoolJob[]
@@ -198,6 +200,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   todayKey?: string
   completedTodayLedger?: ReadonlyMap<string, string>
   upcomingOnly?: boolean
+  metricsPending?: boolean
 }) {
   const now = useLiveClock()
   const isMobile = useIsMobile()
@@ -291,6 +294,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               poolJobs={poolJobs}
               activePipelineJobs={activePipelineJobs}
               dayEvents={dayEvents}
+              metricsPending={metricsPending}
             />
           </div>
         </div>

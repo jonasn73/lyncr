@@ -68,6 +68,7 @@ import {
   messagesFingerprint,
   messagesPaintToSms,
   messagesThreadListFingerprint,
+  messagesThreadListIsQuietExpansion,
   writeMessagesPaintSeed,
   type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
@@ -183,6 +184,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const messagesPaint = paintSeeds.messages
   // Prefer SSR seed zone so first HTML matches hydrate (Node Intl is often UTC).
   const messageTimeZone = paintSeeds.timeZone || resolveOwnerTimezone()
+  // Stick to cookie paint until first fetch — session unlock was flashing rows 11+ mid-hydrate.
+  const [holdPaintList, setHoldPaintList] = useState(
+    () => Boolean(messagesPaint?.messages?.length)
+  )
+  const paintListMessages = useMemo(
+    () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
+    [messagesPaint]
+  )
   // Shared Latest cache — leftover book forms for the orange thread banner.
   const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
@@ -199,9 +208,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}:r${inboxSeedRevision}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
-  const messages = liveMessages ?? cachedMessages
+  const messages =
+    liveMessages ?? (holdPaintList && paintListMessages.length > 0 ? paintListMessages : cachedMessages)
   const messagesForCompareRef = useRef(messages)
   messagesForCompareRef.current = messages
+  // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
+  const threadTimeLabelRef = useRef(new Map<string, { id: string; label: string }>())
+  const threadTimeLabel = (phone: string, msgId: string, iso: string) => {
+    const key = phoneMatchKey(phone) || phone
+    const prev = threadTimeLabelRef.current.get(key)
+    if (prev && prev.id === msgId) return prev.label
+    const label = formatMessageTime(iso, messageTimeZone)
+    threadTimeLabelRef.current.set(key, { id: msgId, label })
+    return label
+  }
   // Spinner only on cold cache — cookie/session paint skips the empty well flash.
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
@@ -311,10 +331,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           ) {
             return prev ?? baseline
           }
-          // Same conversation rows, fuller bodies — update quietly (no flicker log spam).
+          // Same conversation heads — fuller bodies, or more threads below the paint cutoff.
           if (
             baseline.length > 0 &&
-            messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next)
+            (messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next) ||
+              messagesThreadListIsQuietExpansion(baseline, next))
           ) {
             return next
           }
@@ -328,6 +349,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         })
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
+        setHoldPaintList(false)
         setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
         setInboxSettled(true)
@@ -356,8 +378,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     })
     setLiveMessages(null)
     threadScrollHydratedRef.current = null
+    threadTimeLabelRef.current.clear()
     const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
+    setHoldPaintList(Boolean(messagesPaint?.messages?.length))
     setInboxSettled(seeded)
     if (!seeded) {
       logFlicker({
@@ -937,7 +961,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         {formatPhoneDisplay(thread.customerPhone)}
                       </span>
                       <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                        {formatMessageTime(thread.lastMessage.created_at, messageTimeZone)}
+                        {threadTimeLabel(
+                          thread.customerPhone,
+                          thread.lastMessage.id,
+                          thread.lastMessage.created_at
+                        )}
                       </span>
                     </div>
                     <p

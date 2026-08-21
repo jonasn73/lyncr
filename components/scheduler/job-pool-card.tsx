@@ -91,21 +91,22 @@ export function JobPoolCard({
   ].filter(Boolean)
   const metaLine = metaParts.join(" • ")
 
-  // Prefer one place string — paint sets neighborhood === location (same clip) which looked duplicated.
+  // Prefer street address — neighborhood alone was “Louisville” on refresh.
   const neigh = (job.neighborhood ?? "").trim()
   const loc = (job.location ?? "").trim()
   let placePrimary = ""
-  if (neigh && loc) {
+  if (loc && neigh) {
     if (loc === neigh || loc.includes(neigh) || neigh.includes(loc)) {
       placePrimary = loc.length >= neigh.length ? loc : neigh
     } else {
-      placePrimary = `${neigh}, ${loc}`
+      // Street first; city/neighborhood only when it adds something new.
+      placePrimary = loc
     }
   } else {
-    placePrimary = neigh || loc
+    placePrimary = loc || neigh
   }
   const region = job.region?.trim() || null
-  const placeLine = [placePrimary, region && placePrimary !== region ? region : null]
+  const placeLine = [placePrimary, region && placePrimary !== region && !placePrimary.includes(region) ? region : null]
     .filter(Boolean)
     .join(", ")
 
