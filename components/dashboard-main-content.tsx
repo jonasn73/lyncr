@@ -38,9 +38,9 @@ export const DashboardMainContent = memo(function DashboardMainContent({
     )
   }
 
-  // Never opacity-enter on dashboard — even secondary routes (looked like a refresh flash).
+  // Soft settle on secondary routes only — never opacity-0 enter (looked like a refresh flash).
   return (
-    <DashboardPageView key={activePage}>
+    <DashboardPageView key={activePage} softEnter>
       {routedChildren}
     </DashboardPageView>
   )

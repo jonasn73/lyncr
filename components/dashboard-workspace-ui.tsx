@@ -1,6 +1,6 @@
 "use client"
 
-import { type HTMLAttributes, type ReactNode } from "react"
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react"
 import { Phone, PhoneMissed, Voicemail } from "lucide-react"
 import { cn } from "@/lib/utils"
 export { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
@@ -38,13 +38,26 @@ export function WorkspacePageHeader({
   title: string
   action?: ReactNode
 }) {
+  // Soft title settle after first paint — never opacity-0 on hard refresh.
+  const [canAnimate, setCanAnimate] = useState(false)
+  useEffect(() => {
+    setCanAnimate(true)
+  }, [])
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{eyebrow}</p>
         ) : null}
-        <h1 className={cn("text-2xl font-semibold tracking-tight text-foreground sm:text-3xl", eyebrow && "mt-1")}>
+        <h1
+          key={title}
+          className={cn(
+            "text-2xl font-semibold tracking-tight text-foreground sm:text-3xl",
+            eyebrow && "mt-1",
+            canAnimate && "lyncr-content-swap"
+          )}
+        >
           {title}
         </h1>
       </div>

@@ -72,6 +72,7 @@ import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-match"
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
+import { WorkspaceFilterPills } from "@/components/workspace-filter-pills"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -2489,37 +2490,25 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 aria-label="Search customers"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="CRM filters">
-              {(
-                [
-                  ["all", "All"],
-                  ["leads", "Leads"],
-                  ["book_forms", "Book forms"],
-                  ["clients", "Clients"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === id}
-                  onClick={() => setFilter(id)}
-                  className={cn(
-                    "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
-                    filter === id
-                      ? id === "book_forms"
-                        ? "bg-orange-500/20 text-orange-100 ring-1 ring-orange-500/40"
-                        : "bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/40"
-                      : "bg-zinc-900 text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <WorkspaceFilterPills
+              layoutId="lyncr-crm-filter-pill"
+              aria-label="CRM filters"
+              size="sm"
+              value={filter}
+              onChange={(id) => setFilter(id as CrmFilter)}
+              items={[
+                { id: "all", label: "All", tone: "sky" },
+                { id: "leads", label: "Leads", tone: "sky" },
+                { id: "book_forms", label: "Book forms", tone: "orange" },
+                { id: "clients", label: "Clients", tone: "sky" },
+              ]}
+            />
           </div>
 
-          <div className="min-h-[18rem] p-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
+          <div
+            key={`${filter}:${debounced}`}
+            className="min-h-[18rem] p-2 lyncr-content-swap md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain"
+          >
             {loading && rows.length === 0 ? (
               // Quiet well — grey row skeletons flashed on hard refresh when CRM paint was empty.
               <div className="min-h-[18rem]" aria-busy="true" aria-label="Loading customers" />
