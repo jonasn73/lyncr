@@ -140,3 +140,24 @@ export function messagesFingerprint(messages: SmsMessage[]): string {
     )
     .join(";")
 }
+
+/**
+ * Thread-list signature (phones + latest message id/time) — ignores full body text.
+ * Lets paint stubs upgrade to the full inbox without a list remount flash when
+ * the conversation rows are already the same.
+ */
+export function messagesThreadListFingerprint(messages: SmsMessage[]): string {
+  const byPhone = new Map<string, { id: string; t: number }>()
+  for (const msg of messages) {
+    const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
+    if (!raw) continue
+    const key = phoneKey(raw) || raw
+    const t = new Date(msg.created_at).getTime() || 0
+    const prev = byPhone.get(key)
+    if (!prev || t >= prev.t) byPhone.set(key, { id: msg.id, t })
+  }
+  return [...byPhone.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([phone, row]) => `${phone}:${row.id}:${row.t}`)
+    .join("|")
+}

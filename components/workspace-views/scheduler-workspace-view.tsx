@@ -51,7 +51,6 @@ import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
-import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import {
   TechnicianSwimlaneBoard,
   type MobileSchedulerAssignRequest,
@@ -106,6 +105,17 @@ function readSchedulerBootstrapCache(
   return cached
 }
 
+/** True when cache has techs or jobs — empty envelopes must not clear loading (quiet flash). */
+function schedulerBootstrapHasContent(
+  cached: SchedulerBootstrapCache | null | undefined
+): boolean {
+  if (!cached) return false
+  return (
+    (Array.isArray(cached.technicians) && cached.technicians.length > 0) ||
+    (Array.isArray(cached.events) && cached.events.length > 0)
+  )
+}
+
 function SchedulerWorkspaceViewInner({
   isActive = true,
   urlQuery,
@@ -142,13 +152,16 @@ function SchedulerWorkspaceViewInner({
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
     return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.lineIndustryTags ?? []
   })
-  // Skip loading shell only when session already has a real board for this month.
-  // Count-only paint cookies are not enough — they set loading=false with empty events
-  // and flash “Board is quiet” → real jobs.
+  // Skip loading shell only when session already has a real board (techs or events).
+  // Empty envelopes must not set loading=false — that flashes “Board is quiet” → jobs.
   const [loading, setLoading] = useState(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    if (readSchedulerBootstrapCache(monthKey, orgIdForSeed)) return false
-    return true
+    return !schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgIdForSeed))
+  })
+  // Network bootstrap finished for this month/org — gates the true empty “Board is quiet”.
+  const [bootstrapSettled, setBootstrapSettled] = useState(() => {
+    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+    return schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgIdForSeed))
   })
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
   const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
@@ -192,8 +205,11 @@ function SchedulerWorkspaceViewInner({
     setTechnicians((prev) => (prev.length > 0 ? prev : cached.technicians))
     setLineIndustryTags((prev) => (prev.length > 0 ? prev : cached.lineIndustryTags))
     if (cached.ownerUserId) setOwnerUserId((prev) => prev ?? cached.ownerUserId)
-    // Seeded calendar: drop loading so stats are not a skeleton bar on hard refresh.
-    setLoading(false)
+    // Only leave loading when the seed actually has a board to paint.
+    if (schedulerBootstrapHasContent(cached)) {
+      setLoading(false)
+      setBootstrapSettled(true)
+    }
   }, [orgIdForSeed, visibleMonth, sessionReady])
 
   const {
@@ -231,7 +247,12 @@ function SchedulerWorkspaceViewInner({
   // Paint last month bootstrap once per month/org — do not re-apply after live refresh writes cache.
   useLayoutEffect(() => {
     if (!bootstrapSeed) return
-    if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) return
+    const hasContent = schedulerBootstrapHasContent(bootstrapSeed)
+    if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) {
+      // Locked after a non-empty apply — ignore empty re-reads for this month/org.
+      return
+    }
+    if (!hasContent) return
     appliedBootstrapSeedRef.current = bootstrapCacheIdentity
     setEvents(bootstrapSeed.events)
     setBlockouts(bootstrapSeed.blockouts)
@@ -239,6 +260,7 @@ function SchedulerWorkspaceViewInner({
     setLineIndustryTags(bootstrapSeed.lineIndustryTags)
     if (bootstrapSeed.ownerUserId) setOwnerUserId(bootstrapSeed.ownerUserId)
     setLoading(false)
+    setBootstrapSettled(true)
   }, [bootstrapCacheIdentity, bootstrapSeed])
 
   // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
@@ -256,6 +278,7 @@ function SchedulerWorkspaceViewInner({
 
   const {
     jobs: activePipelineJobs,
+    isLoading: pipelineLoading,
     mutate: mutateActivePipeline,
   } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled)
 
@@ -440,9 +463,11 @@ function SchedulerWorkspaceViewInner({
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
-    const seeded = Boolean(readSchedulerBootstrapCache(monthKey, orgId))
+    const seeded = schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
     // Keep calendar painted from session cache while silently refreshing.
     if (!seeded && !initialBootstrapDoneRef.current) setLoading(true)
+    // Month/org change — do not show “Board is quiet” until this fetch finishes.
+    if (!seeded) setBootstrapSettled(false)
     const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
 
     const bootstrapFetch = fetch(bootstrapUrl, { credentials: "include", cache: "no-store" })
@@ -479,6 +504,9 @@ function SchedulerWorkspaceViewInner({
             ownerUserId: nextOwner,
           } satisfies SchedulerBootstrapCache)
           writeSchedulerPaintSeed(monthKey, nextEvents.length, nextTechs.length, orgId)
+          if (nextTechs.length > 0 || nextEvents.length > 0) {
+            appliedBootstrapSeedRef.current = `${orgId ?? "default"}:${monthKey}`
+          }
         }
       )
       .catch(() => {
@@ -493,6 +521,7 @@ function SchedulerWorkspaceViewInner({
 
     return bootstrapFetch.finally(() => {
       initialBootstrapDoneRef.current = true
+      setBootstrapSettled(true)
       setLoading(false)
     })
   }, [monthKey, orgQuery, orgId])
@@ -1216,8 +1245,12 @@ function SchedulerWorkspaceViewInner({
               </p>
             ) : null}
 
-            {/* Empty board only after load settles — never flash “quiet” over a pending seed. */}
-            {!loading && displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
+            {/* Empty board only after network settle — never flash “quiet” over a pending seed. */}
+            {bootstrapSettled &&
+            !loading &&
+            !pipelineLoading &&
+            displayPipelineJobs.length === 0 &&
+            assignableTechs.length === 0 ? (
               <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-6 text-center">
                 <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
                 <p className="mt-1 text-xs text-zinc-500">
@@ -1226,13 +1259,16 @@ function SchedulerWorkspaceViewInner({
               </div>
             ) : (
               <>
-                {(loading && displayPipelineJobs.length === 0) || displayPipelineJobs.length > 0 ? (
+                {displayPipelineJobs.length > 0 ||
+                pipelineLoading ||
+                loading ||
+                !bootstrapSettled ? (
                 <WorkspacePanel className="flex w-full flex-col overflow-hidden">
                   <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                     <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
                     <p className="text-xs text-zinc-500">
-                      {loading && displayPipelineJobs.length === 0
-                        ? "Loading jobs…"
+                      {displayPipelineJobs.length === 0 && (pipelineLoading || loading || !bootstrapSettled)
+                        ? "\u00a0"
                         : `${displayPipelineJobs.length} active job${
                             displayPipelineJobs.length === 1 ? "" : "s"
                           } today`}
@@ -1279,8 +1315,8 @@ function SchedulerWorkspaceViewInner({
                         }}
                         className="mx-auto"
                       />
-                      {loading && events.length === 0 ? (
-                        <SchedulerCalendarStatsSkeleton />
+                      {!bootstrapSettled && events.length === 0 ? (
+                        <p className="mt-1 min-h-[1rem] text-center text-xs text-zinc-500">&nbsp;</p>
                       ) : (
                         <p className="mt-1 text-center text-xs text-zinc-500">
                           {displayEvents.length} scheduled this month
@@ -1294,9 +1330,11 @@ function SchedulerWorkspaceViewInner({
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
                       <p className="text-xs text-zinc-500">
-                        {assignableTechs.length} technician
-                        {assignableTechs.length === 1 ? "" : "s"} · {dayEvents.length} job
-                        {dayEvents.length === 1 ? "" : "s"} scheduled
+                        {!bootstrapSettled && assignableTechs.length === 0
+                          ? "\u00a0"
+                          : `${assignableTechs.length} technician${
+                              assignableTechs.length === 1 ? "" : "s"
+                            } · ${dayEvents.length} job${dayEvents.length === 1 ? "" : "s"} scheduled`}
                       </p>
                     </div>
                     <div className="hidden shrink-0 items-center gap-0.5 lg:flex">

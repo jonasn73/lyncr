@@ -102,9 +102,10 @@ export function useJobPoolQuery(
 
   const fallbackData = useMemo(() => {
     const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
+    // Empty [] is unknown until first fetch — treating it as data flashes “Pool is empty”.
     if (fromSession && fromSession.length > 0) return fromSession
     if (paintSeed?.jobs.length) return mapPoolPaintToJobs(paintSeed)
-    return fromSession
+    return undefined
     // sessionReady: re-read after unlock (first memo pass is often still gated).
   }, [cacheKey, paintSeed, sessionReady])
 
@@ -120,11 +121,12 @@ export function useJobPoolQuery(
     { ...defaultSwrConfig, fallbackData, revalidateOnFocus: false }
   )
 
-  const hasCachedData = fallbackData !== undefined || data !== undefined
+  const hasCachedData =
+    data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
     if (data !== undefined) return data
-    return readPersistedCache<UnassignedPoolJob[]>(cacheKey) ?? fallbackData ?? EMPTY_POOL_JOBS
-  }, [data, cacheKey, fallbackData])
+    return fallbackData ?? EMPTY_POOL_JOBS
+  }, [data, fallbackData])
 
   return {
     jobs,
@@ -167,10 +169,11 @@ export function useActivePipelineQuery(
   )
   const sessionReady = useSessionCacheReady()
 
-  const fallbackData = useMemo(
-    () => readPersistedCache<ActivePipelineJob[]>(cacheKey),
-    [cacheKey, sessionReady]
-  )
+  const fallbackData = useMemo(() => {
+    const fromSession = readPersistedCache<ActivePipelineJob[]>(cacheKey)
+    if (fromSession && fromSession.length > 0) return fromSession
+    return undefined
+  }, [cacheKey, sessionReady])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -183,11 +186,12 @@ export function useActivePipelineQuery(
     { ...defaultSwrConfig, fallbackData, revalidateOnFocus: false }
   )
 
-  const hasCachedData = fallbackData !== undefined || data !== undefined
+  const hasCachedData =
+    data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
     if (data !== undefined) return data
-    return readPersistedCache<ActivePipelineJob[]>(cacheKey) ?? fallbackData ?? EMPTY_PIPELINE_JOBS
-  }, [data, cacheKey, fallbackData])
+    return fallbackData ?? EMPTY_PIPELINE_JOBS
+  }, [data, fallbackData])
 
   return {
     jobs,

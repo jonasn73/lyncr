@@ -63,8 +63,9 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   messagesFingerprint,
   messagesPaintToSms,
-  readMessagesPaintSeed,
+  messagesThreadListFingerprint,
   writeMessagesPaintSeed,
+  type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
 
 const EMPTY_MESSAGES: SmsMessage[] = []
@@ -75,7 +76,7 @@ function messagesCacheKey(orgId: string | null): string {
 
 function readMessagesCache(
   orgId: string | null,
-  paint?: ReturnType<typeof readMessagesPaintSeed>
+  paint?: MessagesPaintSeed | null
 ): SmsMessage[] {
   const cached = readPersistedCache<{ messages: SmsMessage[] }>(messagesCacheKey(orgId))
   if (cached && Array.isArray(cached.messages) && cached.messages.length > 0) {
@@ -173,7 +174,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       ? activeOrganizationId
       : null
   const paintSeeds = useDashboardPaintSeeds()
-  const messagesPaint = readMessagesPaintSeed(paintSeeds.messages, orgId)
+  // Layout cookie only — never re-parse document.cookie every render (unstable object → org-clear loop).
+  const messagesPaint = paintSeeds.messages
   // Shared Latest cache — leftover book forms for the orange thread banner.
   const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
@@ -182,10 +184,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     organizations[0]?.name?.trim() ||
     ""
 
+  // Bumps after a successful full fetch so useSessionSeed re-reads session (not stale paint stubs).
+  const [inboxSeedRevision, setInboxSeedRevision] = useState(0)
   const cachedMessages = useSessionSeed(
     () => readMessagesCache(orgId, messagesPaint),
     EMPTY_MESSAGES,
-    `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}`
+    `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}:r${inboxSeedRevision}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages
@@ -193,8 +197,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   messagesForCompareRef.current = messages
   // Spinner only on cold cache — cookie/session paint skips the empty well flash.
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
+  // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
+  const [inboxSettled, setInboxSettled] = useState(() => cachedMessages.length > 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
+  const prevOrgForInboxRef = useRef<string | null | undefined>(undefined)
+  const threadScrollHydratedRef = useRef<string | null>(null)
 
   useFlickerDebugLifecycle("MessagesWorkspaceView", {
     isActive,
@@ -254,13 +262,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     if (cachedMessages.length > 0) {
       hasPaintedMessagesRef.current = true
       setLoading(false)
+      setInboxSettled(true)
     }
   }, [cachedMessages.length])
 
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? hasPaintedMessagesRef.current
-      if (!silent) {
+      // Never flip the full pane to loading when rows are already on screen.
+      if (!silent && !hasPaintedMessagesRef.current) {
         logFlicker({
           event: "loading-true",
           component: "MessagesWorkspaceView",
@@ -288,9 +298,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           const baseline = prev ?? messagesForCompareRef.current
           if (
             baseline.length > 0 &&
-            messagesFingerprint(baseline) === messagesFingerprint(next)
+            (messagesFingerprint(baseline) === messagesFingerprint(next) ||
+              (messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next) &&
+                baseline.length >= next.length))
           ) {
             return prev ?? baseline
+          }
+          // Same conversation rows, fuller bodies — update quietly (no flicker log spam).
+          if (
+            baseline.length > 0 &&
+            messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next)
+          ) {
+            return next
           }
           logFlicker({
             event: "list-replace",
@@ -302,7 +321,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         })
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
+        setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
+        setInboxSettled(true)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load messages")
       } finally {
@@ -312,8 +333,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     [orgId]
   )
 
-  // Org switch — drop live override so the matching seed can show.
+  // Org switch only — never clear live when paint cookie object identity churns.
   useEffect(() => {
+    const prev = prevOrgForInboxRef.current
+    prevOrgForInboxRef.current = orgId
+    // First mount — keep painted seed / live; do not wipe.
+    if (prev === undefined) return
+    if (prev === orgId) return
+
     logFlicker({
       event: "list-clear",
       component: "MessagesWorkspaceView",
@@ -321,8 +348,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       liveMessagesNull: true,
     })
     setLiveMessages(null)
+    threadScrollHydratedRef.current = null
     const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
+    setInboxSettled(seeded)
     if (!seeded) {
       logFlicker({
         event: "loading-true",
@@ -739,7 +768,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     if (!isActive || !selectedPhone) return
     const scroller = messagesScrollRef.current
     if (!scroller) return
-    scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" })
+    const firstFill = threadScrollHydratedRef.current !== selectedPhone
+    threadScrollHydratedRef.current = selectedPhone
+    // First hydrate: jump instantly (stub → full must not animate). Later appends can ease.
+    scroller.scrollTo({
+      top: scroller.scrollHeight,
+      behavior: firstFill ? "auto" : "smooth",
+    })
   }, [isActive, selectedPhone, activeThread?.messages.length])
 
   async function sendReply() {
@@ -865,8 +900,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
             </p>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {loading && threads.length === 0 ? (
-              // Quiet well — grey skeleton pills were the Messages flash (Lines never does this).
+            {!inboxSettled || (loading && threads.length === 0) ? (
+              // Quiet well — never show MessageSquare / “No texts yet” mid-load.
               <div className="min-h-[50vh] md:min-h-[18rem]" aria-busy="true" aria-label="Loading messages" />
             ) : threads.length === 0 ? (
               <div className="flex min-h-[50vh] flex-col items-center gap-3 px-6 py-16 text-center md:min-h-[18rem]">
@@ -940,12 +975,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           )}
         >
           {!activeThread ? (
-            loading || threads.length === 0 ? (
+            !inboxSettled || loading || threads.length === 0 ? (
               // Quiet reserve while inbox loads — MessageSquare mid-page was the flash.
               <div
                 className="min-h-[50vh] flex-1 md:min-h-0"
-                aria-busy={loading}
-                aria-label={loading ? "Loading conversations" : undefined}
+                aria-busy={!inboxSettled || loading}
+                aria-label={!inboxSettled || loading ? "Loading conversations" : undefined}
               />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
