@@ -198,6 +198,8 @@ export function useActivePipelineQuery(
     error,
     isLoading: isLoading && !hasCachedData,
     isValidating,
+    /** True after SWR resolved (including empty) — gates “0 active” until then. */
+    hasResolved: data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0),
     mutate,
   }
 }

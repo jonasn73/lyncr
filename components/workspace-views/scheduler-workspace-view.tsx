@@ -283,6 +283,7 @@ function SchedulerWorkspaceViewInner({
     jobs: activePipelineJobs,
     isLoading: pipelineLoading,
     isValidating: pipelineValidating,
+    hasResolved: pipelineHasResolved,
     mutate: mutateActivePipeline,
   } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled)
 
@@ -330,10 +331,18 @@ function SchedulerWorkspaceViewInner({
   })
 
   const boardCountsPending =
-    !bootstrapSettled || loading || pipelineLoading || (pipelineValidating && displayPipelineJobs.length === 0)
+    !bootstrapSettled ||
+    loading ||
+    pipelineLoading ||
+    !pipelineHasResolved ||
+    (pipelineValidating && displayPipelineJobs.length === 0)
   const techCountsPending = !bootstrapSettled || loading
   const metricsPending =
-    !bootstrapSettled || loading || (poolLoading && displayPoolJobs.length === 0) || pipelineLoading
+    !bootstrapSettled ||
+    loading ||
+    (poolLoading && displayPoolJobs.length === 0) ||
+    pipelineLoading ||
+    !pipelineHasResolved
 
   useFlickerCountWatch("SchedulerWorkspaceView", {
     label: "active-pipeline",

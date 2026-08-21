@@ -79,8 +79,9 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
   return {
     id: clip(job.id, 40),
     n: clip(title, 48),
-    // Street lines need room — 40 chars still truncated many Louisville addresses.
-    pl: clip(place, 72),
+    // Never store a clipped street — short “Louisville…” then full address was the flash.
+    // Empty pl reserves the row; session/network fill the full address once.
+    pl: place.length > 0 && place.length <= 96 ? place : "",
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
     ...(phone ? { ph: clip(phone, 16) } : {}),

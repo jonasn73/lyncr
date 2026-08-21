@@ -65,9 +65,9 @@ import {
 import { formatOwnerListTime } from "@/lib/settled-paint"
 import {
   messagesFingerprint,
-  messagesPaintToSms,
   messagesThreadListFingerprint,
   messagesThreadListIsQuietExpansion,
+  readBestMessagesPaint,
   writeMessagesPaintSeed,
   type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
@@ -86,7 +86,9 @@ function readMessagesCache(
   if (cached && Array.isArray(cached.messages) && cached.messages.length > 0) {
     return cached.messages
   }
-  if (paint?.messages.length) return messagesPaintToSms(paint)
+  // Session thread index (up to 80) or slim cookie — prefer the larger head.
+  const painted = readBestMessagesPaint(orgId, paint)
+  if (painted.length > 0) return painted
   if (!cached || !Array.isArray(cached.messages)) return EMPTY_MESSAGES
   return cached.messages.length > 0 ? cached.messages : EMPTY_MESSAGES
 }
@@ -168,14 +170,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const messagesPaint = paintSeeds.messages
   // Prefer SSR seed zone so first HTML matches hydrate (Node Intl is often UTC).
   const messageTimeZone = paintSeeds.timeZone || resolveOwnerTimezone()
-  // Stick to cookie paint until first fetch — session unlock was flashing rows 11+ mid-hydrate.
-  const [holdPaintList, setHoldPaintList] = useState(
-    () => Boolean(messagesPaint?.messages?.length)
-  )
-  const paintListMessages = useMemo(
-    () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
-    [messagesPaint]
-  )
   // Shared Latest cache — leftover book forms for the orange thread banner.
   const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
@@ -192,8 +186,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}:r${inboxSeedRevision}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
-  const messages =
-    liveMessages ?? (holdPaintList && paintListMessages.length > 0 ? paintListMessages : cachedMessages)
+  const messages = liveMessages ?? cachedMessages
   const messagesForCompareRef = useRef(messages)
   messagesForCompareRef.current = messages
   // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
@@ -315,7 +308,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           ) {
             return prev ?? baseline
           }
-          // Same conversation heads — fuller bodies, or more threads below the paint cutoff.
+          // Same conversation heads — fuller bodies, or more threads already indexed.
           if (
             baseline.length > 0 &&
             (messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next) ||
@@ -333,7 +326,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         })
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
-        setHoldPaintList(false)
         setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
         setInboxSettled(true)
@@ -365,7 +357,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     threadTimeLabelRef.current.clear()
     const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
-    setHoldPaintList(Boolean(messagesPaint?.messages?.length))
     setInboxSettled(seeded)
     if (!seeded) {
       logFlicker({

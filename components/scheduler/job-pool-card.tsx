@@ -233,7 +233,13 @@ export function JobPoolCard({
                   ) : null}
                 </span>
               </p>
-            ) : null}
+            ) : (
+              // Reserve address row while paint omitted a truncated place (fills once from live).
+              <p className="flex min-h-[1rem] w-full items-start gap-1.5" aria-hidden>
+                <span className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="invisible text-xs">&nbsp;</span>
+              </p>
+            )}
             <p className="flex min-h-[1rem] items-center gap-1 text-xs text-slate-400">
               {fieldDistanceLabel ? (
                 <>

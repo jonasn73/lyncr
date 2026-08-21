@@ -7,6 +7,8 @@ alwaysApply: true
 
 Never show a confident empty, zero, or partial label, then correct it. Use shared helpers in `lib/settled-paint.ts`, `lib/hooks/use-held-list.ts`, and `components/settled-text.tsx`.
 
+**Important:** This rule alone does not change production UI — agents must wire the helpers into each surface. Cookie paint is size-capped (~3KB); use session thread indexes / omit truncated fields rather than clipping visible copy.
+
 ## Hard rules (every dashboard surface)
 
 1. **Settled gate** — Counts, empty copy (“Board is quiet”, “No texts yet”, “0 jobs”), and KPI zeros stay blank (`\u00a0` / reserved height) until that surface is settled (`!loading && !validating` after a real fetch, or non-empty seed that matches final shape).

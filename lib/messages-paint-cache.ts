@@ -1,6 +1,7 @@
 /**
  * Compact Messages thread seed for hard-refresh SSR.
- * Full inbox JSON is too big — keep last message per thread only.
+ * Cookie is ~3KB — prefer MANY slim rows over few fat ones so row 11+
+ * already exists in first HTML (bodies fill in quietly from network).
  */
 
 import type { SmsMessage } from "@/lib/types"
@@ -11,6 +12,7 @@ import {
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 export const MESSAGES_PAINT_SCOPE = "messages-inbox"
 export const MESSAGES_PAINT_COOKIE = paintSeedCookieName(MESSAGES_PAINT_SCOPE)
@@ -19,7 +21,8 @@ export const MESSAGES_PAINT_COOKIE = paintSeedCookieName(MESSAGES_PAINT_SCOPE)
 export type MessagesPaintRow = {
   id: string
   ph: string
-  b: string
+  /** Optional — only first few rows keep a preview so the cookie fits more phones. */
+  b?: string
   d: "i" | "o"
   t: string
 }
@@ -29,7 +32,12 @@ export type MessagesPaintSeed = {
   messages: MessagesPaintRow[]
 }
 
-const MAX_PAINT_THREADS = 24
+/** Cookie target — slim rows pack far more than the old 10×fat layout. */
+const MAX_PAINT_THREADS = 40
+/** Session index can hold more — fills after hydrate without waiting on network. */
+const MAX_SESSION_THREADS = 80
+/** Only the top threads keep a body snippet in the cookie. */
+const MAX_COOKIE_BODIES = 8
 
 function clip(s: string, n: number): string {
   const t = String(s || "")
@@ -41,8 +49,12 @@ function phoneKey(phone: string): string {
   return d.length >= 10 ? d.slice(-10) : d
 }
 
-/** Keep newest message per customer phone for the cookie. */
-function latestPerThread(messages: SmsMessage[]): SmsMessage[] {
+function messagesThreadIndexKey(organizationId: string | null): string {
+  return persistedCacheKey("messages-thread-index", organizationId ?? "default")
+}
+
+/** Keep newest message per customer phone for the cookie / session index. */
+function latestPerThread(messages: SmsMessage[], limit: number): SmsMessage[] {
   const byPhone = new Map<string, SmsMessage>()
   for (const msg of messages) {
     const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
@@ -55,24 +67,25 @@ function latestPerThread(messages: SmsMessage[]): SmsMessage[] {
   }
   return [...byPhone.values()]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, MAX_PAINT_THREADS)
+    .slice(0, limit)
 }
 
-function trimRow(msg: SmsMessage): MessagesPaintRow {
+function trimRow(msg: SmsMessage, includeBody: boolean): MessagesPaintRow {
   const phone = (msg.customer_phone?.trim() || msg.from_number || "").trim()
   const created = new Date(msg.created_at || Date.now())
   const iso = Number.isNaN(created.getTime())
     ? new Date().toISOString()
     : created.toISOString()
-  return {
-    id: clip(msg.id, 40),
-    ph: clip(phone, 18),
-    // Longer preview — short clips made row 3+ body text expand on fetch.
-    b: clip(msg.body || "", 72),
+  const row: MessagesPaintRow = {
+    id: clip(msg.id, 36),
+    ph: clip(phone, 16),
     d: msg.direction === "outbound" ? "o" : "i",
-    // Always full toISOString (24 chars) — clip(28) used to truncate offsets into invalid times.
     t: clip(iso, 24),
   }
+  if (includeBody) {
+    row.b = clip(msg.body || "", 36)
+  }
+  return row
 }
 
 /** Expand paint rows into SmsMessage stubs for the thread list. */
@@ -90,7 +103,7 @@ export function messagesPaintToSms(seed: MessagesPaintSeed): SmsMessage[] {
       direction: row.d === "o" ? "outbound" : "inbound",
       from_number: row.d === "i" ? row.ph : "",
       to_number: row.d === "o" ? row.ph : "",
-      body: row.b,
+      body: row.b ?? "",
       customer_phone: row.ph,
       telnyx_message_id: null,
       status: "received",
@@ -99,16 +112,52 @@ export function messagesPaintToSms(seed: MessagesPaintSeed): SmsMessage[] {
   })
 }
 
+/**
+ * Session thread index — survives hard refresh, larger than the cookie.
+ * Used after hydrate so rows 11+ exist before the network returns.
+ */
+export function writeMessagesThreadIndex(
+  messages: SmsMessage[],
+  organizationId: string | null = null
+): void {
+  const latest = latestPerThread(messages, MAX_SESSION_THREADS)
+  const payload: MessagesPaintSeed = {
+    organizationId,
+    messages: latest.map((msg, i) => trimRow(msg, i < MAX_COOKIE_BODIES)),
+  }
+  writePersistedCache(messagesThreadIndexKey(organizationId), payload)
+}
+
+export function readMessagesThreadIndex(
+  organizationId: string | null = null
+): MessagesPaintSeed | null {
+  const parsed = readPersistedCache<MessagesPaintSeed>(messagesThreadIndexKey(organizationId))
+  if (!parsed || !Array.isArray(parsed.messages) || parsed.messages.length === 0) return null
+  if (
+    !operationsPaintMatchesOrg(
+      { organizationId: parsed.organizationId, calls: [], fetchedAt: 0 },
+      organizationId
+    )
+  ) {
+    return null
+  }
+  return parsed
+}
+
 export function writeMessagesPaintSeed(
   messages: SmsMessage[],
   organizationId: string | null = null
 ): void {
-  const latest = latestPerThread(messages)
+  // Always refresh the larger session index (not size-capped like cookies).
+  writeMessagesThreadIndex(messages, organizationId)
+
+  const latest = latestPerThread(messages, MAX_PAINT_THREADS)
   let n = Math.min(MAX_PAINT_THREADS, Math.max(0, latest.length))
   while (n >= 0) {
     const payload: MessagesPaintSeed = {
       organizationId,
-      messages: latest.slice(0, n).map(trimRow),
+      // Slim: bodies only on the first few so more phones fit in ~3KB.
+      messages: latest.slice(0, n).map((msg, i) => trimRow(msg, i < MAX_COOKIE_BODIES)),
     }
     if (writePaintSeedCookie(MESSAGES_PAINT_SCOPE, payload)) return
     n -= 1
@@ -141,6 +190,23 @@ export function readMessagesPaintSeed(
     return null
   }
   return parsed
+}
+
+/**
+ * Best first-paint list: full session inbox → session thread index → cookie paint.
+ * Prefer the largest thread head so row 11+ does not pop in after fetch.
+ */
+export function readBestMessagesPaint(
+  organizationId: string | null,
+  cookiePaint?: MessagesPaintSeed | null
+): SmsMessage[] {
+  const index = readMessagesThreadIndex(organizationId)
+  const cookie = readMessagesPaintSeed(cookiePaint, organizationId)
+  const indexSms = index?.messages.length ? messagesPaintToSms(index) : []
+  const cookieSms = cookie?.messages.length ? messagesPaintToSms(cookie) : []
+  if (indexSms.length >= cookieSms.length && indexSms.length > 0) return indexSms
+  if (cookieSms.length > 0) return cookieSms
+  return indexSms
 }
 
 /** Compact signature — skip setState when the live inbox matches the screen. */
@@ -199,4 +265,15 @@ export function messagesThreadListIsQuietExpansion(
     if (!live || live.id !== row.id) return false
   }
   return true
+}
+
+/** Count of distinct customer threads (for list-length guards). */
+export function messagesThreadCount(messages: SmsMessage[]): number {
+  const keys = new Set<string>()
+  for (const msg of messages) {
+    const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
+    if (!raw) continue
+    keys.add(phoneKey(raw) || raw)
+  }
+  return keys.size
 }
