@@ -176,6 +176,8 @@ export function DashboardWorkspaceProvider({
   })
   const activeOrganizationIdRef = useRef(activeOrganizationId)
   activeOrganizationIdRef.current = activeOrganizationId
+  const businessNumbersRef = useRef(businessNumbers)
+  businessNumbersRef.current = businessNumbers
 
   const setActiveOrganizationId = useCallback((id: string | null) => {
     const prev = activeOrganizationIdRef.current
@@ -302,26 +304,37 @@ export function DashboardWorkspaceProvider({
     const paintedOrg = activeOrganizationIdRef.current
     const paintedIsReal = Boolean(paintedOrg && !paintedOrg.startsWith("__"))
     const orgId = paintedIsReal ? paintedOrg : readActiveOrganizationId()
+    const paintedLen = businessNumbersRef.current?.length ?? 0
     const boot = readDashboardBootstrapCache()
     if (boot) {
       const seed = workspaceSeedFromBootstrap(boot, orgId, paintSeeds?.workspace?.name ?? null)
-      hydrateWorkspaceFromBootstrap(seed)
+      // Never shrink a fuller SSR paint list with a thinner bootstrap snapshot mid-hydrate.
+      if (
+        seed.phoneLines.length >= paintedLen ||
+        paintedLen === 0
+      ) {
+        hydrateWorkspaceFromBootstrap(seed)
+      }
       return
     }
-    const chrome = readLinesChromeCache()
+    // Prefer SSR cookie paint over a thinner session chrome blob.
+    const chrome = readLinesChromeCache(paintSeeds?.lines)
     if (chrome?.lines.length && (!chrome.organizationId || chrome.organizationId === orgId)) {
-      setBusinessNumbers(linesChromeToBusinessNumbers(chrome))
-      setBusinessNumbersLoading(false)
-      if (chrome.activeLine) setActiveLine(chrome.activeLine)
-      if (chrome.organizationId) setActiveOrganizationIdState(chrome.organizationId)
+      if (chrome.lines.length >= paintedLen || paintedLen === 0) {
+        setBusinessNumbers(linesChromeToBusinessNumbers(chrome))
+        setBusinessNumbersLoading(false)
+        if (chrome.activeLine) setActiveLine(chrome.activeLine)
+        if (chrome.organizationId) setActiveOrganizationIdState(chrome.organizationId)
+      }
       return
     }
     const cached = readCachedBusinessNumbers(orgId)
     if (!cached?.numbers?.length) return
+    if (cached.numbers.length < paintedLen) return
     setBusinessNumbers(cached.numbers)
     setBusinessNumbersLoading(false)
     if (orgId) setActiveOrganizationIdState(orgId)
-  }, [workspaceSeed, hydrateWorkspaceFromBootstrap, paintSeeds?.workspace?.name])
+  }, [workspaceSeed, hydrateWorkspaceFromBootstrap, paintSeeds?.workspace?.name, paintSeeds?.lines])
 
   useEffect(() => {
     if (workspaceSeed) return

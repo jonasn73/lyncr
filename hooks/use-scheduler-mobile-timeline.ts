@@ -11,7 +11,8 @@ export function useSchedulerMobileTimeline(): boolean {
 /** True on touch/coarse pointers — drag-and-drop is disabled to avoid scroll conflicts. */
 export function useSchedulerTouchInteraction(): boolean {
   const mobileTimeline = useSchedulerMobileTimeline()
-  const [coarsePointer, setCoarsePointer] = useState(false)
+  // Seed from mobile viewport cookie so first HTML matches (no grip → no-grip card flip).
+  const [coarsePointer, setCoarsePointer] = useState(mobileTimeline)
 
   useEffect(() => {
     const mql = window.matchMedia("(pointer: coarse)")

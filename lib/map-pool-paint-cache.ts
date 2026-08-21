@@ -1,6 +1,6 @@
 /**
  * Compact Map Job Pool seed for hard-refresh SSR.
- * Full hopper JSON is too big — keep id / name / place / pin only.
+ * Keep enough fields that JobPoolCard / Map list don’t grow layout on live fetch.
  */
 
 import type { UnassignedPoolJob } from "@/lib/types"
@@ -9,6 +9,7 @@ import {
   readPaintSeedCookie,
   readPaintSeedCookieValue,
   writePaintSeedCookie,
+  clearPaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 
@@ -21,6 +22,14 @@ export type MapPoolPaintRow = {
   pl: string
   lat: number | null
   lng: number | null
+  /** Customer phone — keeps the phone row from popping in after fetch. */
+  ph?: string
+  /** Job type / service label. */
+  sv?: string
+  /** Vehicle short label. */
+  vh?: string
+  /** Quoted price cents (optional). */
+  pc?: number
 }
 
 export type MapPoolPaintSeed = {
@@ -40,36 +49,62 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
     (job.customer_name ?? "").trim() || (job.summary ?? "").trim() || "Open job"
   const place =
     (job.neighborhood ?? "").trim() || (job.location ?? "").trim() || ""
+  const vehicle = [job.vehicle_year, job.vehicle_make, job.vehicle_model]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+  const phone = (job.customer_phone ?? "").trim()
+  const service = (job.job_type ?? "").trim()
+  const price =
+    typeof job.quoted_price_cents === "number" && job.quoted_price_cents > 0
+      ? job.quoted_price_cents
+      : undefined
   return {
     id: clip(job.id, 40),
     n: clip(title, 28),
     pl: clip(place, 32),
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
+    ...(phone ? { ph: clip(phone, 16) } : {}),
+    ...(service ? { sv: clip(service, 20) } : {}),
+    ...(vehicle ? { vh: clip(vehicle, 24) } : {}),
+    ...(price != null ? { pc: price } : {}),
   }
 }
 
 /** Expand paint rows into hopper jobs (other fields empty until live fetch). */
 export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] {
-  return seed.jobs.map((row) => ({
-    id: row.id,
-    customer_name: row.n,
-    customer_phone: null,
-    location: row.pl || null,
-    neighborhood: row.pl || null,
-    summary: row.n,
-    job_type: null,
-    vehicle_year: null,
-    vehicle_make: null,
-    vehicle_model: null,
-    job_notes: null,
-    scheduled_at: null,
-    duration_minutes: 60,
-    dispatch_status: "UNASSIGNED",
-    created_at: "",
-    latitude: row.lat,
-    longitude: row.lng,
-  }))
+  return seed.jobs.map((row) => {
+    const vehicleParts = String(row.vh || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+    const year = vehicleParts[0] && /^\d{4}$/.test(vehicleParts[0]) ? vehicleParts[0] : null
+    const make = year ? vehicleParts[1] ?? null : vehicleParts[0] ?? null
+    const model = year
+      ? vehicleParts.slice(2).join(" ") || null
+      : vehicleParts.slice(1).join(" ") || null
+    return {
+      id: row.id,
+      customer_name: row.n,
+      customer_phone: row.ph ?? null,
+      location: row.pl || null,
+      neighborhood: row.pl || null,
+      summary: row.n,
+      job_type: row.sv ?? null,
+      vehicle_year: year,
+      vehicle_make: make,
+      vehicle_model: model,
+      job_notes: null,
+      scheduled_at: null,
+      duration_minutes: 60,
+      dispatch_status: "UNASSIGNED",
+      created_at: "",
+      latitude: row.lat,
+      longitude: row.lng,
+      quoted_price_cents: row.pc ?? null,
+    }
+  })
 }
 
 export function writeMapPoolPaintSeed(
@@ -85,6 +120,10 @@ export function writeMapPoolPaintSeed(
     if (writePaintSeedCookie(MAP_POOL_PAINT_SCOPE, payload)) return
     n -= 1
   }
+}
+
+export function clearMapPoolPaintSeed(): void {
+  clearPaintSeedCookie(MAP_POOL_PAINT_SCOPE)
 }
 
 export function readMapPoolPaintFromCookieRaw(

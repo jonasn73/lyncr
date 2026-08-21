@@ -132,7 +132,8 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
   const [checkoutTier, setCheckoutTier] = useState<CheckoutSubscriptionTier | null>(null)
   const [liveCalls, setLiveCalls] = useState<TalkTimeCall[] | null>(null)
   const calls = liveCalls ?? callsSeed
-  const [callsLoaded, setCallsLoaded] = useState(false)
+  // Seeded ledger paints immediately — never flash “Loading talk-time…” on revisit / hard refresh.
+  const [callsLoaded, setCallsLoaded] = useState(() => callsSeed.length > 0)
 
   useEffect(() => {
     if (callsSeed.length > 0) setCallsLoaded(true)
@@ -169,7 +170,19 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       .then((j: { calls?: TalkTimeCall[] }) => {
         if (cancelled) return
         const next = Array.isArray(j.calls) ? j.calls : []
-        setLiveCalls(next)
+        setLiveCalls((prev) => {
+          const baseline = prev ?? callsSeed
+          const same =
+            baseline.length === next.length &&
+            baseline.every(
+              (row, i) =>
+                row.id === next[i]?.id &&
+                row.duration_seconds === next[i]?.duration_seconds &&
+                row.routed_to_name === next[i]?.routed_to_name &&
+                row.created_at === next[i]?.created_at
+            )
+          return same ? prev ?? baseline : next
+        })
         writePersistedCache(CALLS_LEDGER_CACHE_KEY, { calls: next })
       })
       .catch(() => {})
@@ -179,7 +192,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     return () => {
       cancelled = true
     }
-  }, [isActive])
+  }, [isActive, callsSeed])
 
   const balanceLabel = billing?.credit_balance_label ?? "—"
   const subscriptionActive = billing?.subscription_active === true
@@ -314,9 +327,11 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
             label="Talk-time used (recent)"
             value={`${minutesFromSeconds(consumedSeconds).toLocaleString()} min`}
             hint={
-              callsLoaded
-                ? `${formatUsdFromCents(consumedCostCents)} across ${ledger.length} answered call${ledger.length === 1 ? "" : "s"}`
-                : "Loading usage…"
+              !callsLoaded
+                ? "Loading usage…"
+                : meteredRate > 0
+                  ? `${formatUsdFromCents(consumedCostCents)} across ${ledger.length} answered call${ledger.length === 1 ? "" : "s"}`
+                  : `${ledger.length} answered call${ledger.length === 1 ? "" : "s"}`
             }
             accent="success"
           />
@@ -443,7 +458,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
                     <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
                     <WorkspaceTd className="tabular-nums text-zinc-300">{row.minutes} min</WorkspaceTd>
                     <WorkspaceTd className="font-medium tabular-nums text-foreground">
-                      {formatUsdFromCents(row.costCents)}
+                      {meteredRate > 0 ? formatUsdFromCents(row.costCents) : "—"}
                     </WorkspaceTd>
                   </tr>
                 ))}

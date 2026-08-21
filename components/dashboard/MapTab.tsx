@@ -106,7 +106,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
   )
 
   // Unassigned / hopper jobs for the Job Pool list — paused off-tab.
-  const { jobs: poolJobs } = useJobPoolQuery(
+  const { jobs: poolJobs, isLoading: poolLoading } = useJobPoolQuery(
     activeOrganizationId,
     pollEnabled
   )
@@ -182,9 +182,13 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               Tap a job to center its pin on the map.
             </p>
             {sortedPool.length === 0 ? (
-              <p className="px-2 py-6 text-center text-sm text-slate-500">
-                No unassigned jobs in the pool right now.
-              </p>
+              poolLoading ? (
+                <div className="min-h-[6rem] rounded-lg" aria-busy="true" aria-label="Loading jobs" />
+              ) : (
+                <p className="px-2 py-6 text-center text-sm text-slate-500">
+                  No unassigned jobs in the pool right now.
+                </p>
+              )
             ) : (
               <ul className="space-y-1.5">
                 {sortedPool.map((job) => {

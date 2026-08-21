@@ -15,6 +15,7 @@ import type { HoldQueueDayStats } from "@/lib/hold-queue-stats-cache"
 import type { CrmListPaintSeed } from "@/lib/crm-list-paint-cache"
 import type { MapPoolPaintSeed } from "@/lib/map-pool-paint-cache"
 import type { SchedulerPaintSeed } from "@/lib/scheduler-paint-cache"
+import type { MessagesPaintSeed } from "@/lib/messages-paint-cache"
 
 /** Last-known dashboard values from paint cookies (SSR) or empty. */
 export type DashboardPaintSeeds = {
@@ -44,6 +45,8 @@ export type DashboardPaintSeeds = {
   mapPool: MapPoolPaintSeed | null
   /** Tiny Scheduler month flag — skip blank-board flash on hard refresh. */
   scheduler: SchedulerPaintSeed | null
+  /** Compact Messages thread previews for hard-refresh first paint. */
+  messages: MessagesPaintSeed | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -63,4 +66,5 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   crm: null,
   mapPool: null,
   scheduler: null,
+  messages: null,
 }

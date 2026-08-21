@@ -59,6 +59,13 @@ import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-
 import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import type { SmsMessage } from "@/lib/types"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  messagesFingerprint,
+  messagesPaintToSms,
+  readMessagesPaintSeed,
+  writeMessagesPaintSeed,
+} from "@/lib/messages-paint-cache"
 
 const EMPTY_MESSAGES: SmsMessage[] = []
 
@@ -66,10 +73,17 @@ function messagesCacheKey(orgId: string | null): string {
   return persistedCacheKey("messages-inbox", orgId ?? "default")
 }
 
-function readMessagesCache(orgId: string | null): SmsMessage[] {
+function readMessagesCache(
+  orgId: string | null,
+  paint?: ReturnType<typeof readMessagesPaintSeed>
+): SmsMessage[] {
   const cached = readPersistedCache<{ messages: SmsMessage[] }>(messagesCacheKey(orgId))
+  if (cached && Array.isArray(cached.messages) && cached.messages.length > 0) {
+    return cached.messages
+  }
+  if (paint?.messages.length) return messagesPaintToSms(paint)
   if (!cached || !Array.isArray(cached.messages)) return EMPTY_MESSAGES
-  return cached.messages
+  return cached.messages.length > 0 ? cached.messages : EMPTY_MESSAGES
 }
 
 type SmsThread = {
@@ -158,6 +172,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
       ? activeOrganizationId
       : null
+  const paintSeeds = useDashboardPaintSeeds()
+  const messagesPaint = readMessagesPaintSeed(paintSeeds.messages, orgId)
   // Shared Latest cache — leftover book forms for the orange thread banner.
   const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
@@ -167,13 +183,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     ""
 
   const cachedMessages = useSessionSeed(
-    () => readMessagesCache(orgId),
+    () => readMessagesCache(orgId, messagesPaint),
     EMPTY_MESSAGES,
-    orgId ?? "default"
+    `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   const messages = liveMessages ?? cachedMessages
-  // Spinner only on cold cache — seeded inbox paints immediately on revisit.
+  const messagesForCompareRef = useRef(messages)
+  messagesForCompareRef.current = messages
+  // Spinner only on cold cache — cookie/session paint skips the empty well flash.
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
@@ -266,14 +284,24 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         }
         if (!res.ok) throw new Error(json.error || "Could not load messages")
         const next = Array.isArray(json.data?.messages) ? json.data!.messages! : []
-        logFlicker({
-          event: "list-replace",
-          component: "MessagesWorkspaceView",
-          messageCount: next.length,
-          liveMessagesNull: false,
+        setLiveMessages((prev) => {
+          const baseline = prev ?? messagesForCompareRef.current
+          if (
+            baseline.length > 0 &&
+            messagesFingerprint(baseline) === messagesFingerprint(next)
+          ) {
+            return prev ?? baseline
+          }
+          logFlicker({
+            event: "list-replace",
+            component: "MessagesWorkspaceView",
+            messageCount: next.length,
+            liveMessagesNull: false,
+          })
+          return next
         })
-        setLiveMessages(next)
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
+        writeMessagesPaintSeed(next, orgId)
         hasPaintedMessagesRef.current = true
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load messages")
@@ -293,7 +321,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       liveMessagesNull: true,
     })
     setLiveMessages(null)
-    const seeded = readMessagesCache(orgId).length > 0
+    const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
     if (!seeded) {
       logFlicker({
@@ -304,7 +332,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       })
     }
     setLoading(!seeded)
-  }, [orgId])
+  }, [orgId, messagesPaint])
 
   useEffect(() => {
     if (!pollEnabled) return
