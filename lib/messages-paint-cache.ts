@@ -60,31 +60,42 @@ function latestPerThread(messages: SmsMessage[]): SmsMessage[] {
 
 function trimRow(msg: SmsMessage): MessagesPaintRow {
   const phone = (msg.customer_phone?.trim() || msg.from_number || "").trim()
+  const created = new Date(msg.created_at || Date.now())
+  const iso = Number.isNaN(created.getTime())
+    ? new Date().toISOString()
+    : created.toISOString()
   return {
     id: clip(msg.id, 40),
     ph: clip(phone, 18),
     b: clip(msg.body || "", 48),
     d: msg.direction === "outbound" ? "o" : "i",
-    t: clip(msg.created_at || "", 28),
+    // Always full toISOString (24 chars) — clip(28) used to truncate offsets into invalid times.
+    t: clip(iso, 24),
   }
 }
 
 /** Expand paint rows into SmsMessage stubs for the thread list. */
 export function messagesPaintToSms(seed: MessagesPaintSeed): SmsMessage[] {
-  return seed.messages.map((row) => ({
-    id: row.id,
-    organization_id: seed.organizationId,
-    owner_user_id: "",
-    phone_number_id: null,
-    direction: row.d === "o" ? "outbound" : "inbound",
-    from_number: row.d === "i" ? row.ph : "",
-    to_number: row.d === "o" ? row.ph : "",
-    body: row.b,
-    customer_phone: row.ph,
-    telnyx_message_id: null,
-    status: "received",
-    created_at: row.t || new Date().toISOString(),
-  }))
+  return seed.messages.map((row) => {
+    const parsed = new Date(row.t)
+    const createdAt = Number.isNaN(parsed.getTime())
+      ? new Date().toISOString()
+      : parsed.toISOString()
+    return {
+      id: row.id,
+      organization_id: seed.organizationId,
+      owner_user_id: "",
+      phone_number_id: null,
+      direction: row.d === "o" ? "outbound" : "inbound",
+      from_number: row.d === "i" ? row.ph : "",
+      to_number: row.d === "o" ? row.ph : "",
+      body: row.b,
+      customer_phone: row.ph,
+      telnyx_message_id: null,
+      status: "received",
+      created_at: createdAt,
+    }
+  })
 }
 
 export function writeMessagesPaintSeed(

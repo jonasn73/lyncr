@@ -345,6 +345,18 @@ function SchedulerWorkspaceViewInner({
   const selectedKey = dayKeyLocal(selectedDay)
   const todayKey = dayKeyLocal(new Date())
   const dayEvents = useMemo(() => eventsByDay.get(selectedKey) ?? [], [eventsByDay, selectedKey])
+  // Swimlane subtitle — only jobs that actually land on a tech column (matches lane headers).
+  const assignedDayJobCount = useMemo(() => {
+    const techIds = new Set(
+      assignableTechs.map((t) => t.portal_user_id).filter((id): id is string => Boolean(id))
+    )
+    return dayEvents.filter((ev) => {
+      const id = ev.assigned_tech_id?.trim()
+      return Boolean(id && techIds.has(id))
+    }).length
+  }, [dayEvents, assignableTechs])
+  const selectedDayIsToday = selectedKey === todayKey
+  const pipelineDayLabel = selectedDayIsToday ? "today" : selectedKey
 
   /** Clear intake deep-link params so URL focus logic does not override manual job clicks. */
   const clearSchedulerFocusUrl = useCallback(() => {
@@ -1254,7 +1266,7 @@ function SchedulerWorkspaceViewInner({
                     ? "\u00a0"
                     : `${displayPipelineJobs.length} active job${
                         displayPipelineJobs.length === 1 ? "" : "s"
-                      } today`}
+                      } ${pipelineDayLabel}`}
                 </p>
               </div>
               <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
@@ -1331,7 +1343,9 @@ function SchedulerWorkspaceViewInner({
                           ? "\u00a0"
                           : `${assignableTechs.length} technician${
                               assignableTechs.length === 1 ? "" : "s"
-                            } · ${dayEvents.length} job${dayEvents.length === 1 ? "" : "s"} scheduled`}
+                            } · ${assignedDayJobCount} job${
+                              assignedDayJobCount === 1 ? "" : "s"
+                            } on lanes`}
                       </p>
                     </div>
                     <div className="hidden shrink-0 items-center gap-0.5 lg:flex">

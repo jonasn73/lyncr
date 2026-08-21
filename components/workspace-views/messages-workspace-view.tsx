@@ -60,6 +60,11 @@ import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/li
 import type { SmsMessage } from "@/lib/types"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
+  calendarDayKeyInZone,
+  formatListTimeLabel,
+  resolveOwnerTimezone,
+} from "@/lib/browser-timezone-cookie"
+import {
   messagesFingerprint,
   messagesPaintToSms,
   messagesThreadListFingerprint,
@@ -100,15 +105,15 @@ function formatOutboundDeliveryLabel(msg: SmsMessage): string | null {
 function formatMessageTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  const now = new Date()
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  if (sameDay) {
-    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  const tz = resolveOwnerTimezone()
+  if (calendarDayKeyInZone(d, tz) === calendarDayKeyInZone(new Date(), tz)) {
+    return formatListTimeLabel(d, tz)
   }
-  return d.toLocaleDateString([], { month: "short", day: "numeric" })
+  return d.toLocaleDateString("en-US", {
+    timeZone: tz,
+    month: "short",
+    day: "numeric",
+  })
 }
 
 function groupIntoThreads(messages: SmsMessage[]): SmsThread[] {

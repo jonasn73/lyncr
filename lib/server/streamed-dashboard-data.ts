@@ -10,6 +10,8 @@ import { isDashboardVisibleLineStatus, type DashboardBusinessNumber } from "@/li
 import type { DashboardMainBootstrap, DashboardRoutingBootstrap } from "@/lib/dashboard-stream-types"
 import { filterInboundBusinessLines } from "@/lib/owner-cell-line-filter"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
+import { TIMEZONE_COOKIE, calendarDayKeyInZone, parseTimezoneCookie } from "@/lib/browser-timezone-cookie"
+import { cookies } from "next/headers"
 import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
 import { orderPhoneLinesForOrganization } from "@/lib/workspace-phone-lines"
 import { requireSessionUser } from "@/lib/server/require-session-user"
@@ -274,12 +276,23 @@ export function jobPoolPromise(user?: User): Promise<UnassignedPoolJob[]> {
 
 /** Non-blocking promise for today's active pipeline. */
 export function activePipelinePromise(user?: User, dayKey?: string): Promise<ActivePipelineJob[]> {
-  const key = dayKey ?? dayKeyLocal(new Date())
-  const load = async (owner: User) =>
-    listOwnerActivePipelineJobsForDay({
+  const load = async (owner: User) => {
+    let timeZone: string | null = null
+    try {
+      const jar = await cookies()
+      timeZone = parseTimezoneCookie(jar.get(TIMEZONE_COOKIE)?.value)
+    } catch {
+      timeZone = null
+    }
+    const key =
+      dayKey ??
+      (timeZone ? calendarDayKeyInZone(new Date(), timeZone) : dayKeyLocal(new Date()))
+    return listOwnerActivePipelineJobsForDay({
       ownerUserId: owner.id,
       dayKey: key,
       organizationId: null,
+      timeZone,
     })
+  }
   return user ? load(user) : requireSessionUser().then(load)
 }

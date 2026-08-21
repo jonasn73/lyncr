@@ -39,12 +39,65 @@ export function dayKeyLocal(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** Local midnight → next midnight as ISO bounds for a calendar day key. */
-export function localDayRangeIso(dayKey: string): { fromIso: string; toIso: string } {
+/** Add one calendar day to a YYYY-MM-DD key (UTC arithmetic on the date parts). */
+function addCalendarDayKey(dayKey: string): string {
   const [y, m, d] = dayKey.split("-").map(Number)
-  const from = new Date(y, m - 1, d, 0, 0, 0, 0)
-  const to = new Date(y, m - 1, d + 1, 0, 0, 0, 0)
-  return { fromIso: from.toISOString(), toIso: to.toISOString() }
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    next.getUTCDate()
+  ).padStart(2, "0")}`
+}
+
+/**
+ * UTC millis for `YYYY-MM-DD` + `HH:mm:ss` as wall clock in an IANA zone.
+ * Used so Vercel (UTC) pipelines match the shop owner's calendar day.
+ */
+function zonedWallTimeToUtcMs(
+  dayKey: string,
+  wallTime: string,
+  timeZone: string
+): number {
+  const [y, mo, d] = dayKey.split("-").map(Number)
+  const [hh, mm, ss] = wallTime.split(":").map(Number)
+  // Rough UTC guess (noon of that calendar day), then refine with the zone offset.
+  let utc = Date.UTC(y, mo - 1, d, hh, mm, ss || 0)
+  for (let i = 0; i < 3; i++) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(utc))
+    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0)
+    const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"))
+    const desired = Date.UTC(y, mo - 1, d, hh, mm, ss || 0)
+    utc += desired - asUtc
+  }
+  return utc
+}
+
+/**
+ * Midnight → next midnight as ISO bounds for a calendar day key.
+ * Pass IANA `timeZone` (from lyncr_tz cookie) so production UTC servers match the shop phone.
+ */
+export function localDayRangeIso(
+  dayKey: string,
+  timeZone?: string | null
+): { fromIso: string; toIso: string } {
+  const tz = timeZone?.trim() || null
+  if (!tz) {
+    const [y, m, d] = dayKey.split("-").map(Number)
+    const from = new Date(y, m - 1, d, 0, 0, 0, 0)
+    const to = new Date(y, m - 1, d + 1, 0, 0, 0, 0)
+    return { fromIso: from.toISOString(), toIso: to.toISOString() }
+  }
+  const fromMs = zonedWallTimeToUtcMs(dayKey, "00:00:00", tz)
+  const toMs = zonedWallTimeToUtcMs(addCalendarDayKey(dayKey), "00:00:00", tz)
+  return { fromIso: new Date(fromMs).toISOString(), toIso: new Date(toMs).toISOString() }
 }
 
 /** Hourly grid defaults for the owner scheduler day view. */

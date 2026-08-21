@@ -30,6 +30,10 @@ export type MapPoolPaintRow = {
   vh?: string
   /** Quoted price cents (optional). */
   pc?: number
+  /** created_at ISO (24) — keeps ASAP/age priority shell stable on paint. */
+  ca?: string
+  /** scheduled_at ISO (24) — keeps schedule window priority stable on paint. */
+  sa?: string
 }
 
 export type MapPoolPaintSeed = {
@@ -59,6 +63,14 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
     typeof job.quoted_price_cents === "number" && job.quoted_price_cents > 0
       ? job.quoted_price_cents
       : undefined
+  const created = job.created_at ? new Date(job.created_at) : null
+  const scheduled = job.scheduled_at ? new Date(job.scheduled_at) : null
+  const ca =
+    created && !Number.isNaN(created.getTime()) ? clip(created.toISOString(), 24) : undefined
+  const sa =
+    scheduled && !Number.isNaN(scheduled.getTime())
+      ? clip(scheduled.toISOString(), 24)
+      : undefined
   return {
     id: clip(job.id, 40),
     n: clip(title, 28),
@@ -69,6 +81,8 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
     ...(service ? { sv: clip(service, 20) } : {}),
     ...(vehicle ? { vh: clip(vehicle, 24) } : {}),
     ...(price != null ? { pc: price } : {}),
+    ...(ca ? { ca } : {}),
+    ...(sa ? { sa } : {}),
   }
 }
 
@@ -96,10 +110,10 @@ export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] 
       vehicle_make: make,
       vehicle_model: model,
       job_notes: null,
-      scheduled_at: null,
+      scheduled_at: row.sa || null,
       duration_minutes: 60,
       dispatch_status: "UNASSIGNED",
-      created_at: "",
+      created_at: row.ca || "",
       latitude: row.lat,
       longitude: row.lng,
       quoted_price_cents: row.pc ?? null,

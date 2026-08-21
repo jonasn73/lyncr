@@ -71,6 +71,11 @@ import {
   type SmsReplyIntent,
 } from "@/lib/sms-reply-suggestions"
 import { formatTimeAgo } from "@/lib/today-board"
+import {
+  calendarDayKeyInZone,
+  formatListTimeLabel,
+  resolveOwnerTimezone,
+} from "@/lib/browser-timezone-cookie"
 import type { SmsMessage } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -104,15 +109,15 @@ function phoneMatchKey(phone: string): string {
 function formatMessageTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  const now = new Date()
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  if (sameDay) {
-    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  const tz = resolveOwnerTimezone()
+  if (calendarDayKeyInZone(d, tz) === calendarDayKeyInZone(new Date(), tz)) {
+    return formatListTimeLabel(d, tz)
   }
-  return d.toLocaleDateString([], { month: "short", day: "numeric" })
+  return d.toLocaleDateString("en-US", {
+    timeZone: tz,
+    month: "short",
+    day: "numeric",
+  })
 }
 
 /** Keep only SMS for this customer phone (E.164 or display formats). */

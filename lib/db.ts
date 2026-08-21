@@ -10943,11 +10943,13 @@ export async function listOwnerActivePipelineJobsForDay(params: {
   dayKey: string
   organizationId?: string | null
   limit?: number
+  /** Owner IANA timezone — keeps day bounds aligned with the shop phone on Vercel UTC. */
+  timeZone?: string | null
 }): Promise<import("@/lib/types").ActivePipelineJob[]> {
   const sql = getSql()
   const lim = Math.min(Math.max(params.limit ?? 150, 1), 300)
   const orgId = params.organizationId?.trim() || null
-  const { fromIso, toIso } = localDayRangeIso(params.dayKey)
+  const { fromIso, toIso } = localDayRangeIso(params.dayKey, params.timeZone)
 
   try {
     const rows = orgId

@@ -106,7 +106,7 @@ export function computeDispatchOperationsMetrics(params: {
 
   for (const job of merged) {
     const phase = phaseFor(job)
-    if (phase === "scheduled" || phase === "en_route" || phase === "on_site") {
+    if (phase === "scheduled" || phase === "en_route" || phase === "on_site" || phase === "paused") {
       activeDispatches += 1
     }
     if (phase === "on_site") onSite += 1

@@ -222,12 +222,18 @@ export function JobPoolCard({
                 </span>
               </p>
             ) : null}
-            {fieldDistanceLabel ? (
-              <p className="text-slate-400 text-xs flex items-center gap-1">
-                <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-                <span>{fieldDistanceLabel}</span>
-              </p>
-            ) : null}
+            <p className="flex min-h-[1rem] items-center gap-1 text-xs text-slate-400">
+              {fieldDistanceLabel ? (
+                <>
+                  <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                  <span>{fieldDistanceLabel}</span>
+                </>
+              ) : (
+                <span className="invisible" aria-hidden>
+                  &nbsp;
+                </span>
+              )}
+            </p>
           </div>
         </div>
       </div>
@@ -245,7 +251,7 @@ export function JobPoolCard({
               "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
             )}
           >
-            {touchInteraction && onMobileAssign ? "Tap to assign →" : "Assign →"}
+            Assign →
           </span>
         ) : (
           <span />

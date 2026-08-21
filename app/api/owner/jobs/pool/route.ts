@@ -14,6 +14,7 @@ import {
   poolJobNeedsGeocode,
 } from "@/lib/map-pin-spread"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
+import { TIMEZONE_COOKIE, parseTimezoneCookie } from "@/lib/browser-timezone-cookie"
 
 export const dynamic = "force-dynamic"
 
@@ -69,10 +70,12 @@ export async function GET(req: NextRequest) {
   try {
     let jobs: PoolJobRow[]
     if (scope === "active" && dayKey && /^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+      const timeZone = parseTimezoneCookie(req.cookies.get(TIMEZONE_COOKIE)?.value)
       jobs = await listOwnerActivePipelineJobsForDay({
         ownerUserId: userId,
         dayKey,
         organizationId: orgId,
+        timeZone,
       })
     } else {
       jobs = await listOwnerUnassignedPoolJobs({
