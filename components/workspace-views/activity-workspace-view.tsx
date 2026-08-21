@@ -1462,7 +1462,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
 
   return (
     // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
-    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
+    <WorkspacePanel className="bg-background shadow-none ring-0">
       <div className="md:hidden">
         <ActivityCallsMobileList rows={rows} lineLabelMap={lineLabelMap} />
       </div>
@@ -1839,16 +1839,13 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {/* Stable well: skeleton and live rows share the same reserved height (less CLS). */}
-      <div className="min-h-[min(70dvh,28rem)]">
-        {showingSkeleton ? (
-          <ActivityTableSkeleton />
-        ) : loadError && calls.length === 0 ? (
-          <p className="text-sm text-destructive">{loadError}</p>
-        ) : (
-          <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
-        )}
-      </div>
+      {showingSkeleton ? (
+        <ActivityTableSkeleton />
+      ) : loadError && calls.length === 0 ? (
+        <p className="min-h-[12rem] text-sm text-destructive">{loadError}</p>
+      ) : (
+        <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
+      )}
     </WorkspacePage>
   )
 })

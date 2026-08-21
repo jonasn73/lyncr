@@ -20,11 +20,7 @@ import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 export function ActivityPaneFallback() {
   useFlickerDebugLifecycle("ActivityPaneFallback", { showingFallback: true })
   return (
-    <WorkspacePage
-      className="min-h-[min(70dvh,28rem)]"
-      aria-busy="true"
-      aria-label="Loading Activity"
-    >
+    <WorkspacePage aria-busy="true" aria-label="Loading Activity">
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>

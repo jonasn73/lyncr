@@ -1,23 +1,14 @@
 "use client"
 
 /**
- * Stable cold-load handoff for dashboard panes (same idea as Lines).
- * - While holdGate: show fallback only.
- * - When holdGate clears: keep fallback covering in-flow real until first layout, then peel.
- * - If holdGate starts false (seeded paint): never show the cover — that was flashing skeletons
- *   over already-correct chrome on Activity/Messages/CRM.
+ * Cold-load handoff for dashboard panes.
+ * While holdGate: fallback only.
+ * When holdGate clears: show real content immediately (do NOT re-arm the cover —
+ * that left Activity/Messages stuck on skeletons forever).
  */
 
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { cn } from "@/lib/utils"
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { logFlicker } from "@/lib/debug/flicker-debug"
-
-function PaneHandoffReady({ onReady }: { onReady: () => void }) {
-  useLayoutEffect(() => {
-    onReady()
-  }, [onReady])
-  return null
-}
 
 export function WorkspacePaneHandoff({
   holdGate = false,
@@ -31,79 +22,40 @@ export function WorkspacePaneHandoff({
   children: ReactNode
   probe?: string
 }) {
-  // Seeded panes start ready — do not flash fallback over live content on mount.
-  const [layoutReady, setLayoutReady] = useState(() => !holdGate)
-  const logRef = useRef({ ready: !holdGate, release: !holdGate })
   const prevHoldRef = useRef(holdGate)
+  // Track releases for flicker probes only (no second cover layer).
+  const releasedRef = useRef(!holdGate)
 
   useLayoutEffect(() => {
     const wasHolding = prevHoldRef.current
     prevHoldRef.current = holdGate
     if (holdGate) {
-      setLayoutReady(false)
-      logRef.current = { ready: false, release: false }
+      releasedRef.current = false
       return
     }
-    // holdGate just cleared — wait for real layout before peeling cover.
-    if (wasHolding) {
-      setLayoutReady(false)
-      logRef.current = { ready: false, release: false }
+    if (wasHolding && !releasedRef.current) {
+      releasedRef.current = true
+      logFlicker({
+        event: "pane-handoff-release",
+        component: probe,
+        fallbackAndRealOverlapped: false,
+      })
     }
-  }, [holdGate])
+  }, [holdGate, probe])
 
-  const mountReal = !holdGate
-  const showFallback = holdGate || !layoutReady
-
-  const markReady = useCallback(() => {
-    if (logRef.current.ready) {
-      setLayoutReady(true)
-      return
-    }
-    logRef.current.ready = true
-    logFlicker({
-      event: "pane-handoff-ready",
-      component: probe,
-      fallbackStillVisible: true,
-      realSurfaceInFlow: true,
-    })
-    setLayoutReady(true)
-  }, [probe])
-
-  useLayoutEffect(() => {
-    if (showFallback) return
-    if (logRef.current.release) return
-    logRef.current.release = true
-    logFlicker({
-      event: "pane-handoff-release",
-      component: probe,
-      fallbackAndRealOverlapped: true,
-    })
-  }, [showFallback, probe])
+  if (holdGate) {
+    return (
+      <div className="relative w-full" data-flicker-probe={probe}>
+        <div className="relative z-10 bg-background" aria-busy="true">
+          {fallback}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative w-full" data-flicker-probe={probe}>
-      {mountReal ? (
-        <div
-          className="relative z-0"
-          aria-hidden={showFallback}
-          {...(showFallback ? { inert: true } : {})}
-        >
-          <PaneHandoffReady onReady={markReady} />
-          {children}
-        </div>
-      ) : null}
-
-      {showFallback ? (
-        <div
-          className={cn(
-            "z-10 bg-background",
-            mountReal ? "absolute inset-0 overflow-y-auto" : "relative"
-          )}
-          aria-busy="true"
-        >
-          {fallback}
-        </div>
-      ) : null}
+      {children}
     </div>
   )
 }

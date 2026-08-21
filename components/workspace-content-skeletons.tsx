@@ -127,11 +127,11 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
 
 export function ActivityTableSkeleton() {
   return (
-    // Tall reserved well so skeleton → real rows does not collapse the page.
-    <WorkspacePanel className="min-h-[min(70dvh,28rem)] bg-background shadow-none ring-0">
+    // Match live list height roughly — avoid a huge empty well under short lists.
+    <WorkspacePanel className="min-h-[16rem] bg-background shadow-none ring-0">
       {/* Mobile: card list — matches ActivityCallsMobileList (not the desktop table). */}
       <ul className="divide-y divide-zinc-800/70 md:hidden" aria-hidden>
-        {Array.from({ length: 8 }, (_, i) => (
+        {Array.from({ length: 6 }, (_, i) => (
           <li key={i} className="px-3 py-2.5">
             <div className="flex items-start gap-2">
               <div className="mt-0.5 h-5 w-16 shrink-0 rounded-full bg-zinc-800/80" />
@@ -158,7 +158,7 @@ export function ActivityTableSkeleton() {
             { width: "w-[13%]", label: "Line" },
             { width: "w-[10%]", label: " " },
           ]}
-          rows={8}
+          rows={6}
         />
       </div>
     </WorkspacePanel>
