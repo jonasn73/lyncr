@@ -11,7 +11,7 @@ import {
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
-import type { UiCallRecord } from "@/lib/hooks/use-operations-data"
+import type { UiCallRecord } from "@/lib/operations-ui-types"
 
 export const OPERATIONS_PAINT_SCOPE = "operations-calls"
 export const OPERATIONS_PAINT_COOKIE = paintSeedCookieName(OPERATIONS_PAINT_SCOPE)

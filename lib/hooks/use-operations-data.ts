@@ -17,36 +17,9 @@ import {
 } from "@/lib/operations-paint-cache"
 import { clearSchedulerPaintSeed } from "@/lib/scheduler-paint-cache"
 import { logFlicker } from "@/lib/debug/flicker-debug"
+import type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
 
-export type UiCallType = "incoming" | "outgoing" | "missed" | "voicemail"
-
-export interface UiCallRecord {
-  id: string
-  type: UiCallType
-  callerName: string
-  callerNumber: string
-  /** Business line dialed (E.164). */
-  targetLineE164: string
-  routedTo: string
-  routedToReceptionistId: string | null
-  routedInitials: string
-  routedColor: string
-  date: string
-  time: string
-  /** ISO timestamp from call_logs.created_at for sorting and display. */
-  createdAt: string
-  /** Raw call_logs.call_type before UI normalization (e.g. manual_intake). */
-  rawCallType: string
-  /** Raw call_logs.status for missed-call detection. */
-  callStatus: string
-  answeredAt: string | null
-  endedAt: string | null
-  durationSeconds: number
-  hasRecording: boolean
-  recordingUrl: string | null
-  /** Intake panel action + scheduling summary from /api/calls. */
-  activity: CallActivityContext | null
-}
+export type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
 
 export interface VoiceQualitySummary {
   total_calls: number
@@ -425,11 +398,14 @@ export type UseOperationsDataOptions = {
   refetchIntervalMs?: number
   /** When false, pause fetch/poll (hidden presence tabs). Default true. */
   enabled?: boolean
+  /** SSR hard-refresh rows — first HTML matches the real table (Lines pattern). */
+  initialCalls?: UiCallRecord[] | null
 }
 
 export function useOperationsData(options?: UseOperationsDataOptions) {
   const refetchIntervalMs = options?.refetchIntervalMs
   const enabled = options?.enabled !== false
+  const initialCalls = options?.initialCalls
   const { activeOrganizationId: workspaceOrgId } = useDashboardWorkspace()
   // Cookie paint from layout — SSR HTML can already include last Activity rows.
   const paintSeeds = useDashboardPaintSeeds()
@@ -450,7 +426,17 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     null,
     activeOrgId ?? "operations-v2"
   )
-  // Memory → session → cookie peek → SSR paint cookie (Lines pattern: cookie rows ARE first HTML).
+  // Server-rendered full list beats cookie stub and empty skeleton.
+  const seedFromSsr =
+    initialCalls && initialCalls.length > 0
+      ? {
+          calls: initialCalls,
+          quality: null as VoiceQualitySummary | null,
+          insights: null as VoiceOperationsInsights | null,
+          fetchedAt: Date.now(),
+          paintOnly: false as const,
+        }
+      : null
   const seedFromPaint =
     paintOps != null
       ? {
@@ -463,6 +449,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
       : null
   const seed =
     operationsCache ??
+    seedFromSsr ??
     sessionSeed ??
     (typeof window !== "undefined" ? peekOperationsCache() : null) ??
     seedFromPaint ??
@@ -480,8 +467,7 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         })()
       : null)
   const seedIsPaintOnly = Boolean(seed?.paintOnly)
-  // Never put the tiny cookie stub on screen — that was the short wrong-list → full-list flash.
-  // SSR/first HTML: quiet empty well; session unlock (before paint) or network fills the real list.
+  // SSR / session / memory rows show immediately. Cookie stub stays off-screen.
   const [calls, setCalls] = useState<UiCallRecord[]>(() =>
     seedIsPaintOnly ? [] : seed?.calls ?? []
   )
@@ -492,11 +478,20 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     seedIsPaintOnly ? null : seed?.insights ?? null
   )
   const [paintOnly, setPaintOnly] = useState(() => seedIsPaintOnly)
+  // SSR rows: not loading. Cookie-only / empty: refresh in background.
   const [loading, setLoading] = useState(() => seed == null || seedIsPaintOnly)
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasCallsRef = useRef(!seedIsPaintOnly && (seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
   const prevOrgRef = useRef<string | null | undefined>(undefined)
+
+  // Lift SSR seed into module cache so tab remounts / polls do not blank the table.
+  useLayoutEffect(() => {
+    if (!seedFromSsr || operationsCache) return
+    operationsCache = seedFromSsr
+    writeSessionOperationsCache(seedFromSsr, activeOrgId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount with SSR props
+  }, [])
 
   // When the owner switches shops, drop memory / session / cookie so we do not keep the old list.
   useLayoutEffect(() => {

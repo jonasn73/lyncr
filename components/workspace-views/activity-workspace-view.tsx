@@ -1870,16 +1870,20 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   // Presence host keeps this pane mounted — only poll while the tab is visible.
   isActive = true,
   urlQuery,
+  initialCalls = null,
 }: {
   isActive?: boolean
   // Live URL query from ClientSearchParamsBridge (does not suspend this pane).
   urlQuery: string
+  /** Hard-refresh SSR rows — first HTML is the real table. */
+  initialCalls?: UiCallRecord[] | null
 }) {
   // Pause Activity polls when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
   const { calls, loading, loadError, paintOnly } = useOperationsData({
     refetchIntervalMs: 12_000,
     enabled: pollEnabled,
+    initialCalls,
   })
   const { setActivityLogs, closeActivityLog } = useDashboardWorkspace()
   const lineLabelMap = useLineLabelMap()
@@ -1955,8 +1959,11 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
 /** Outer wrapper: URL bridge is isolated — Inner stays mounted across tab clicks. */
 export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
   isActive = true,
+  initialCalls = null,
 }: {
   isActive?: boolean
+  /** Hard-refresh SSR rows from `app/dashboard/activity/page.tsx`. */
+  initialCalls?: UiCallRecord[] | null
 }) {
   // Seed from window so the first client paint has ?filter= before the bridge hydrates.
   const [urlQuery, setUrlQuery] = useState(readWindowSearchQuery)
@@ -1964,7 +1971,11 @@ export const ActivityWorkspaceView = memo(function ActivityWorkspaceView({
   return (
     <>
       <ClientSearchParamsBridge onQuery={onQuery} />
-      <ActivityWorkspaceViewInner isActive={isActive} urlQuery={urlQuery} />
+      <ActivityWorkspaceViewInner
+        isActive={isActive}
+        urlQuery={urlQuery}
+        initialCalls={initialCalls}
+      />
     </>
   )
 })
