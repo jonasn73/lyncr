@@ -534,13 +534,23 @@ export function TechnicianSwimlaneBoard({
   )
 
   if (assignableTechs.length === 0) {
+    // Keep the same outer height as a real grid so techs arriving later don’t shift the page.
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-        <User className="h-8 w-8 text-zinc-600" aria-hidden />
-        <p className="text-sm text-zinc-400">Add active technicians in Team to use the swimlane board.</p>
-        <p className="max-w-sm text-xs text-zinc-500">
-          Drag jobs from the pool above onto a technician column to assign and schedule in one step.
-        </p>
+      <div
+        className="relative w-full"
+        style={{ height: 64 + gridHeightPx }}
+        aria-busy={loading}
+      >
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
+          <User className="h-8 w-8 text-zinc-600" aria-hidden />
+          <p className="text-sm text-zinc-400">
+            Add active technicians in Team to use the swimlane board.
+          </p>
+          <p className="max-w-sm text-xs text-zinc-500">
+            Drag jobs from the pool above onto a technician column to assign and schedule in one
+            step.
+          </p>
+        </div>
       </div>
     )
   }

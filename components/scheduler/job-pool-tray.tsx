@@ -51,7 +51,6 @@ export function JobPoolTray({
   )
   const visibleJobs = viewFilter === "rescue" ? sortedRescueJobs : sortedJobs
   const poolIsEmpty = !loading && jobs.length === 0
-  const showFilterTabs = jobs.length > 0 || rescueJobs.length > 0 || viewFilter === "rescue"
 
   return (
     <section
@@ -61,7 +60,7 @@ export function JobPoolTray({
         !embedded && (sidebar ? "px-3 py-2.5" : "px-4 py-3")
       )}
     >
-      <div className={cn("flex items-center justify-between gap-2", showFilterTabs ? "mb-2" : "mb-0")}>
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={cn(
@@ -85,79 +84,89 @@ export function JobPoolTray({
             </p>
           </div>
         </div>
-        {loading ? (
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" aria-hidden />
-        ) : (
-          <span
-            className={cn(
-              "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              poolIsEmpty
+        <span
+          className={cn(
+            "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-[10px] font-semibold uppercase tracking-wide",
+            loading
+              ? "text-zinc-500"
+              : poolIsEmpty
                 ? "border border-zinc-800 bg-zinc-950/50 text-zinc-500"
                 : "bg-amber-500/15 text-amber-200"
-            )}
-          >
-            {poolIsEmpty ? "Clear" : `${jobs.length} waiting`}
-          </span>
-        )}
+          )}
+        >
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : poolIsEmpty ? (
+            "Clear"
+          ) : (
+            `${jobs.length} waiting`
+          )}
+        </span>
       </div>
 
-      {showFilterTabs ? (
-        <div className="mb-2 flex gap-1 rounded-lg border border-slate-800/80 bg-slate-900/40 p-0.5">
-          <button
-            type="button"
-            onClick={() => setViewFilter("all")}
-            className={cn(
-              "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
-              viewFilter === "all"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            All pool ({jobs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewFilter("rescue")}
-            className={cn(
-              "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
-              viewFilter === "rescue"
-                ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
-                : "text-rose-300/80 hover:text-rose-100"
-            )}
-          >
-            <LifeBuoy className="h-3 w-3" aria-hidden />
-            Rescue ({rescueJobs.length})
-          </button>
-        </div>
-      ) : null}
-
-      {!poolIsEmpty && visibleJobs[0] && (onMobileAssignJob || onSelectJob) ? (
+      {/* Always mount filter tabs — hide when empty so height never pops in with first job. */}
+      <div
+        className={cn(
+          "mb-2 flex gap-1 rounded-lg border border-slate-800/80 bg-slate-900/40 p-0.5",
+          poolIsEmpty && viewFilter === "all" && "invisible pointer-events-none"
+        )}
+        aria-hidden={poolIsEmpty && viewFilter === "all"}
+      >
         <button
           type="button"
-          onClick={() => {
-            const next = visibleJobs[0]
-            if (!next) return
-            if (onMobileAssignJob) onMobileAssignJob(next)
-            else onSelectJob?.(next)
-          }}
-          className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+          onClick={() => setViewFilter("all")}
+          className={cn(
+            "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            viewFilter === "all"
+              ? "bg-slate-800 text-slate-100"
+              : "text-slate-500 hover:text-slate-300"
+          )}
         >
-          Assign next waiting job
-          <span className="truncate text-xs font-normal text-emerald-200/80">
-            {(visibleJobs[0].customer_name || visibleJobs[0].job_type || "Job").trim()}
-          </span>
+          All pool ({jobs.length})
         </button>
-      ) : null}
+        <button
+          type="button"
+          onClick={() => setViewFilter("rescue")}
+          className={cn(
+            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            viewFilter === "rescue"
+              ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
+              : "text-rose-300/80 hover:text-rose-100"
+          )}
+        >
+          <LifeBuoy className="h-3 w-3" aria-hidden />
+          Rescue ({rescueJobs.length})
+        </button>
+      </div>
+
+      {/* Always reserve Assign-next CTA height. */}
+      <div className="mb-2 min-h-[2.75rem]">
+        {!poolIsEmpty && visibleJobs[0] && (onMobileAssignJob || onSelectJob) ? (
+          <button
+            type="button"
+            onClick={() => {
+              const next = visibleJobs[0]
+              if (!next) return
+              if (onMobileAssignJob) onMobileAssignJob(next)
+              else onSelectJob?.(next)
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+          >
+            Assign next waiting job
+            <span className="truncate text-xs font-normal text-emerald-200/80">
+              {(visibleJobs[0].customer_name || visibleJobs[0].job_type || "Job").trim()}
+            </span>
+          </button>
+        ) : null}
+      </div>
 
       <div
         className={cn(
-          poolIsEmpty && viewFilter === "all"
-            ? "pt-2"
-            : sidebar || embedded
-              ? "flex w-full max-h-[min(280px,32vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
-              : mobileTimeline
-                ? "flex max-h-[min(420px,50vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
-                : "flex gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          sidebar || embedded
+            ? "flex min-h-[7.5rem] w-full max-h-[min(280px,32vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
+            : mobileTimeline
+              ? "flex min-h-[7.5rem] max-h-[min(420px,50vh)] flex-col gap-2 overflow-y-auto overscroll-y-contain"
+              : "flex min-h-[5rem] gap-2 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         )}
       >
         {!loading && visibleJobs.length === 0 ? (

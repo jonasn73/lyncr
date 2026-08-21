@@ -1150,20 +1150,20 @@ function SchedulerWorkspaceViewInner({
           {/* Left rail — primary path only: intake → pool → live status */}
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
-              {inboundCallPanel ? (
-                <div className="border-b border-zinc-800/80 p-2.5">
-                  <button
-                    type="button"
-                    onClick={openNewIntake}
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-cyan-400"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden />
-                    New Intake
-                  </button>
-                </div>
-              ) : null}
+              {/* Always reserve New Intake height — panel hydrate must not push the board. */}
+              <div className="min-h-[3.25rem] border-b border-zinc-800/80 p-2.5">
+                <button
+                  type="button"
+                  onClick={openNewIntake}
+                  disabled={!inboundCallPanel}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  New Intake
+                </button>
+              </div>
 
-              <div className="border-b border-zinc-800/80 px-2.5 py-2.5">
+              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-2.5 py-2.5 lg:max-h-none lg:overflow-visible">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
                   loading={poolLoading && displayPoolJobs.length === 0}
@@ -1245,54 +1245,50 @@ function SchedulerWorkspaceViewInner({
               </p>
             ) : null}
 
-            {/* Empty board only after network settle — never flash “quiet” over a pending seed. */}
-            {bootstrapSettled &&
-            !loading &&
-            !pipelineLoading &&
-            displayPipelineJobs.length === 0 &&
-            assignableTechs.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-6 text-center">
-                <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Add technicians in Team, then use New Intake to book the first job.
+            {/* Always mount pipeline + swimlanes — never swap “quiet” for the board (CLS). */}
+            <WorkspacePanel className="flex w-full flex-col overflow-hidden">
+              <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+                <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
+                <p className="min-h-[1rem] truncate text-xs text-zinc-500">
+                  {displayPipelineJobs.length === 0 && (pipelineLoading || loading || !bootstrapSettled)
+                    ? "\u00a0"
+                    : `${displayPipelineJobs.length} active job${
+                        displayPipelineJobs.length === 1 ? "" : "s"
+                      } today`}
                 </p>
               </div>
-            ) : (
-              <>
-                {displayPipelineJobs.length > 0 ||
-                pipelineLoading ||
-                loading ||
-                !bootstrapSettled ? (
-                <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-                  <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
-                    <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                    <p className="text-xs text-zinc-500">
-                      {displayPipelineJobs.length === 0 && (pipelineLoading || loading || !bootstrapSettled)
-                        ? "\u00a0"
-                        : `${displayPipelineJobs.length} active job${
-                            displayPipelineJobs.length === 1 ? "" : "s"
-                          } today`}
+              <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
+                {displayPipelineJobs.length > 0 ? (
+                  <ActivePipelinePanelStream
+                    jobs={displayPipelineJobs}
+                    dayKey={pipelineDayKey}
+                    useStreamedInitialDay={useStreamedPipeline}
+                    highlightId={highlightId}
+                    onFocusJob={highlightPipelineJob}
+                    onEditJob={editPipelineJob}
+                    onMarkComplete={handleMarkJobComplete}
+                    completingJobId={completingId}
+                  />
+                ) : null}
+              </div>
+            </WorkspacePanel>
+
+            <WorkspacePanel className="relative flex w-full min-w-0 flex-col overflow-hidden">
+              {bootstrapSettled &&
+              !loading &&
+              !pipelineLoading &&
+              displayPipelineJobs.length === 0 &&
+              assignableTechs.length === 0 ? (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/40 px-4 text-center">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Add technicians in Team, then use New Intake to book the first job.
                     </p>
                   </div>
-                  <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                    {displayPipelineJobs.length > 0 ? (
-                      <ActivePipelinePanelStream
-                        jobs={displayPipelineJobs}
-                        dayKey={pipelineDayKey}
-                        useStreamedInitialDay={useStreamedPipeline}
-                        highlightId={highlightId}
-                        onFocusJob={highlightPipelineJob}
-                        onEditJob={editPipelineJob}
-                        onMarkComplete={handleMarkJobComplete}
-                        completingJobId={completingId}
-                      />
-                    ) : null}
-                  </div>
-                </WorkspacePanel>
-                ) : null}
-
-                <WorkspacePanel className="flex w-full min-w-0 flex-col overflow-hidden">
-                  <details className="group border-b border-border/60 lg:hidden">
+                </div>
+              ) : null}
+              <details className="group border-b border-border/60 lg:hidden">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                       {/* Label only — live date/time already sits in the status card above. */}
                       <span>Calendar</span>
@@ -1315,21 +1311,22 @@ function SchedulerWorkspaceViewInner({
                         }}
                         className="mx-auto"
                       />
-                      {!bootstrapSettled && events.length === 0 ? (
-                        <p className="mt-1 min-h-[1rem] text-center text-xs text-zinc-500">&nbsp;</p>
-                      ) : (
-                        <p className="mt-1 text-center text-xs text-zinc-500">
-                          {displayEvents.length} scheduled this month
-                          {displayPoolJobs.length > 0 ? ` · ${displayPoolJobs.length} in hopper` : ""}
-                        </p>
-                      )}
+                      <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-zinc-500">
+                        {!bootstrapSettled && events.length === 0
+                          ? "\u00a0"
+                          : `${displayEvents.length} scheduled this month${
+                              displayPoolJobs.length > 0
+                                ? ` · ${displayPoolJobs.length} in hopper`
+                                : ""
+                            }`}
+                      </p>
                     </div>
                   </details>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
-                      <p className="text-xs text-zinc-500">
+                      <p className="min-h-[1rem] truncate text-xs text-zinc-500">
                         {!bootstrapSettled && assignableTechs.length === 0
                           ? "\u00a0"
                           : `${assignableTechs.length} technician${
@@ -1380,8 +1377,6 @@ function SchedulerWorkspaceViewInner({
                     onMobileAssignRequestClear={() => setMobileAssignRequest(null)}
                   />
                 </WorkspacePanel>
-              </>
-            )}
           </div>
         </div>
       </WorkspacePage>

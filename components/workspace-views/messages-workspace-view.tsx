@@ -19,7 +19,6 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import {
   WorkspacePage,
   WorkspacePanel,
-  MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import {
@@ -818,37 +817,21 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Lines pattern: paint chrome + list immediately; inline skeleton only when empty+loading.
+  // Stable page chrome — never change gap/padding when a thread opens (that was the CLS).
   return (
-    <WorkspacePage
-      className={cn(
-        // Tighter page chrome on phones; clear the dock + home indicator on list + thread.
-        threadOpen
-          ? "gap-2 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:gap-6 md:pb-8"
-          : "gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:gap-6 md:pb-8"
-      )}
-    >
-      {/* Title row — compact + single-line on mobile when a conversation is open */}
-      <div
-        className={cn(
-          "flex min-w-0 items-center justify-between gap-2",
-          !threadOpen && "items-start gap-3 sm:flex-row sm:flex-wrap sm:justify-between"
-        )}
-      >
+    <WorkspacePage className="gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:gap-6 md:pb-8">
+      {/* Title row — fixed geometry whether a conversation is open or not */}
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          {!threadOpen ? (
-            <p className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block">
-              SMS
-            </p>
-          ) : null}
-          <h1
+          <p
             className={cn(
-              "font-semibold tracking-tight text-foreground",
-              threadOpen
-                ? "text-lg md:text-2xl"
-                : "text-xl sm:text-2xl md:mt-1 md:text-3xl"
+              "hidden min-h-[1rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block",
+              threadOpen && "invisible"
             )}
           >
+            SMS
+          </p>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:mt-1 md:text-3xl">
             Messages
           </h1>
         </div>
@@ -856,21 +839,24 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           type="button"
           variant="outline"
           size="sm"
-          className={cn("shrink-0", threadOpen && "h-8 px-2.5 text-xs")}
+          className="h-8 w-[5.5rem] shrink-0 px-2.5 text-xs"
           disabled={loading}
           onClick={() => void loadMessages()}
         >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
+          {loading ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" /> : "Refresh"}
         </Button>
       </div>
 
-      {/* Non-actionable blurb: desktop inbox only — never when a thread is open */}
-      {!threadOpen ? (
-        <p className="hidden max-w-2xl text-sm text-muted-foreground md:block">
-          Texts to and from your business line — including Missed Call Rescue textbacks and customer
-          replies. Select a conversation to reply.
-        </p>
-      ) : null}
+      {/* Reserve blurb height on desktop so opening a thread does not pull the panel up */}
+      <p
+        className={cn(
+          "hidden min-h-[2.5rem] max-w-2xl text-sm text-muted-foreground md:block",
+          threadOpen && "invisible"
+        )}
+      >
+        Texts to and from your business line — including Missed Call Rescue textbacks and customer
+        replies. Select a conversation to reply.
+      </p>
 
       {error ? (
         <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -880,18 +866,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
       <WorkspacePanel
         className={cn(
-          "overflow-hidden bg-background shadow-none ring-0 md:grid md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1",
-          // Thread open: fill remaining shell (header + dock + compact title) so only bubbles scroll.
-          threadOpen
-            ? "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-3.75rem)] flex-col md:h-[calc(100dvh-var(--shell-header-h)-10rem)]"
-            : cn("grid", MOBILE_PANEL_VIEWPORT_MIN_H)
+          "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-8.5rem)] flex-col overflow-hidden bg-background shadow-none ring-0",
+          "md:grid md:h-[calc(100dvh-var(--shell-header-h)-12rem)] md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1"
         )}
       >
-        {/* Thread list — hidden on mobile when a conversation is open */}
+        {/* Thread list — stay in layout on desktop; hide on mobile when a conversation is open */}
         <div
           className={cn(
             "flex min-h-0 flex-col border-border/60 md:border-r",
-            selectedPhone ? "hidden md:flex" : "flex min-h-[50vh] md:min-h-0"
+            selectedPhone ? "hidden md:flex" : "flex"
           )}
         >
           <div className="border-b border-border/60 px-4 py-3">
@@ -899,12 +882,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               Conversations
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {!inboxSettled || (loading && threads.length === 0) ? (
               // Quiet well — never show MessageSquare / “No texts yet” mid-load.
-              <div className="min-h-[50vh] md:min-h-[18rem]" aria-busy="true" aria-label="Loading messages" />
+              <div className="h-full min-h-[12rem]" aria-busy="true" aria-label="Loading messages" />
             ) : threads.length === 0 ? (
-              <div className="flex min-h-[50vh] flex-col items-center gap-3 px-6 py-16 text-center md:min-h-[18rem]">
+              <div className="flex h-full min-h-[12rem] flex-col items-center gap-3 px-6 py-16 text-center">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />
                 <p className="text-sm font-medium text-foreground">No texts yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">
@@ -971,14 +954,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         <div
           className={cn(
             "flex min-h-0 flex-col",
-            selectedPhone ? "flex flex-1" : "hidden min-h-[50vh] md:flex md:min-h-0"
+            selectedPhone ? "flex flex-1" : "hidden md:flex"
           )}
         >
           {!activeThread ? (
             !inboxSettled || loading || threads.length === 0 ? (
               // Quiet reserve while inbox loads — MessageSquare mid-page was the flash.
               <div
-                className="min-h-[50vh] flex-1 md:min-h-0"
+                className="min-h-0 flex-1"
                 aria-busy={!inboxSettled || loading}
                 aria-label={!inboxSettled || loading ? "Loading conversations" : undefined}
               />
@@ -990,7 +973,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
             )
           ) : (
             <>
-              <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 md:px-4 md:py-3">
+              <div className="flex min-h-[4.25rem] shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 md:px-4 md:py-3">
                 <button
                   type="button"
                   className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground md:hidden"
@@ -1003,56 +986,40 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
+                {/* Always two lines — CRM name must not grow the header after lookup. */}
                 <div className="min-w-0 flex-1">
-                  {customerName ? (
-                    <>
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {customerName}
-                      </p>
-                      {threadTelHref ? (
-                        <a
-                          href={threadTelHref}
-                          className="inline-flex min-h-9 max-w-full items-center truncate text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-                          aria-label={`Call ${threadPhoneLabel}`}
-                        >
-                          {threadPhoneLabel}
-                        </a>
-                      ) : (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {threadPhoneLabel}
-                        </p>
-                      )}
-                    </>
-                  ) : threadTelHref ? (
-                    <a
-                      href={threadTelHref}
-                      className="inline-flex min-h-11 max-w-full items-center truncate text-sm font-semibold text-foreground underline-offset-2 hover:underline"
-                      aria-label={`Call ${threadPhoneLabel}`}
-                    >
-                      {threadPhoneLabel}
-                    </a>
-                  ) : (
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {threadPhoneLabel}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {customerName?.trim() || threadPhoneLabel || "\u00a0"}
+                  </p>
+                  <p className="min-h-5 truncate text-[11px] text-muted-foreground">
+                    {customerName?.trim() && threadTelHref ? (
+                      <a
+                        href={threadTelHref}
+                        className="underline-offset-2 hover:underline"
+                        aria-label={`Call ${threadPhoneLabel}`}
+                      >
+                        {threadPhoneLabel}
+                      </a>
+                    ) : customerName?.trim() ? (
+                      threadPhoneLabel
+                    ) : null}
+                    {customerName?.trim() ? " · " : null}
                     {activeThread.messages.length} message
                     {activeThread.messages.length === 1 ? "" : "s"}
                   </p>
                 </div>
-                {/* Journey shortcuts — CRM always; Collect when an open job matches this phone. */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                {showCrmChip ? (
-                  <Link
-                    href={crmHrefForThread}
-                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
-                    aria-label="Open customer in CRM"
-                  >
-                    <UserRound className="h-3.5 w-3.5" aria-hidden />
-                    CRM
-                  </Link>
-                ) : null}
+                {/* Fixed chip strip — CRM / Collect appear without growing the row. */}
+                <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
+                  {showCrmChip ? (
+                    <Link
+                      href={crmHrefForThread}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
+                      aria-label="Open customer in CRM"
+                    >
+                      <UserRound className="h-3.5 w-3.5" aria-hidden />
+                      CRM
+                    </Link>
+                  ) : null}
                   {threadHasUnpaidJob ? (
                     <button
                       type="button"
@@ -1067,33 +1034,35 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 </div>
               </div>
 
-              {showBookingDetailsBanner ? (
-                // Escape hatch: SMS only has the pick-a-time link — form data lives on Lines.
-                <div className="shrink-0 border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
-                  <p className="text-[11px] font-medium text-orange-100/90">
-                    {threadBookForm?.customerName
-                      ? `${threadBookForm.customerName} submitted a booking`
-                      : "Customer submitted a booking"}
-                    {threadBookForm?.preview
-                      ? ` · ${threadBookForm.preview}`
-                      : ""}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={openBookingDetailsFromBanner}
-                    className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" />
-                    View booking details
-                  </button>
-                </div>
-              ) : showNoFormYetCue ? (
-                <div className="shrink-0 border-b border-border/60 bg-muted/20 px-3 py-2.5 md:px-4">
-                  <p className="text-[11px] font-medium text-muted-foreground">
-                    No booking form yet. Reply here — or they can use the book link you sent.
-                  </p>
-                </div>
-              ) : null}
+              {/* Banner strip always reserved — booking / no-form copy swaps inside. */}
+              <div className="min-h-[4.5rem] shrink-0 border-b border-border/60">
+                {showBookingDetailsBanner ? (
+                  <div className="border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
+                    <p className="truncate text-[11px] font-medium text-orange-100/90">
+                      {threadBookForm?.customerName
+                        ? `${threadBookForm.customerName} submitted a booking`
+                        : "Customer submitted a booking"}
+                      {threadBookForm?.preview
+                        ? ` · ${threadBookForm.preview}`
+                        : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={openBookingDetailsFromBanner}
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      View booking details
+                    </button>
+                  </div>
+                ) : showNoFormYetCue ? (
+                  <div className="bg-muted/20 px-3 py-2.5 md:px-4">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      No booking form yet. Reply here — or they can use the book link you sent.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
 
               <div
                 ref={messagesScrollRef}

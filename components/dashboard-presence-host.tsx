@@ -118,9 +118,6 @@ const PresencePane = memo(function PresencePane({
 }) {
   // Active tab starts mounted so hard refresh SSR HTML is not `null` then a flash.
   const [visited, setVisited] = useState(() => initialPresencePaneMounted(deferUntilVisit, active))
-  // Soft settle only on later tab returns — never on first show / hard refresh.
-  const [settle, setSettle] = useState(false)
-  const hasBeenActiveRef = useRef(false)
   // First click: `active` is true while `visited` is still false — mount this frame (no blank).
   const shouldMount = shouldMountPresencePane(deferUntilVisit, visited, active)
   if (shouldMount && !visited) {
@@ -133,20 +130,12 @@ const PresencePane = memo(function PresencePane({
     visited,
     shouldMount,
     deferUntilVisit,
-    settle,
     emptyUnmounted: !shouldMount,
   })
 
   useLayoutEffect(() => {
     if (!active) return
     setVisited(true)
-    if (!hasBeenActiveRef.current) {
-      hasBeenActiveRef.current = true
-      return
-    }
-    setSettle(true)
-    const timer = window.setTimeout(() => setSettle(false), 300)
-    return () => window.clearTimeout(timer)
   }, [active])
 
   if (!shouldMount) return null
@@ -157,7 +146,7 @@ const PresencePane = memo(function PresencePane({
       aria-label={label}
       aria-hidden={!active}
       hidden={!active}
-      className={cn("w-full", settle && "lyncr-pane-settle")}
+      className="w-full"
     >
       {children}
     </section>
