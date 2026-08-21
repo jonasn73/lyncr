@@ -38,12 +38,8 @@ const DispatchLiveMap = dynamic(
     })),
   {
     ssr: false,
-    // Same well as MapTab — tiles fade in; never a flat zinc-950 rectangle.
-    loading: () => (
-      <div className="relative h-full min-h-[18rem] w-full bg-background">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]" />
-      </div>
-    ),
+    // Parent MapTab already paints the well — null avoids a second flash layer.
+    loading: () => null,
   }
 )
 
@@ -366,7 +362,11 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
       </header>
 
       {/* Map fills remaining space; isolate so Leaflet panes stay under our overlays */}
-      <div className="relative z-0 min-h-0 flex-1 isolate">
+      <div className="relative z-0 min-h-0 flex-1 isolate bg-background">
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]"
+          aria-hidden
+        />
         <DispatchLiveMap
           fillParent
           hideChrome

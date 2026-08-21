@@ -940,10 +940,19 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           )}
         >
           {!activeThread ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
-              <MessageSquare className="h-8 w-8 opacity-40" aria-hidden />
-              <p className="text-sm">Select a conversation to read and reply</p>
-            </div>
+            loading || threads.length === 0 ? (
+              // Quiet reserve while inbox loads — MessageSquare mid-page was the flash.
+              <div
+                className="min-h-[50vh] flex-1 md:min-h-0"
+                aria-busy={loading}
+                aria-label={loading ? "Loading conversations" : undefined}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+                <MessageSquare className="h-8 w-8 opacity-40" aria-hidden />
+                <p className="text-sm">Select a conversation to read and reply</p>
+              </div>
+            )
           ) : (
             <>
               <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 md:px-4 md:py-3">

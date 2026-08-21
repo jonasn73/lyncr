@@ -20,6 +20,8 @@ import {
   searchQueryToParams,
 } from "@/components/client-search-params-bridge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
+import { useSessionSeed } from "@/lib/hooks/use-client-seed"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import {
   SCHEDULER_GRID_END_HOUR,
@@ -177,8 +179,11 @@ function SchedulerWorkspaceViewInner({
   /** Intake View job — close drawer should expand PiP / restore the sheet. */
   const intakeReturnRef = useRef(false)
 
+  const sessionReady = useSessionCacheReady()
   // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
+  // Re-run when session unlocks (first layout pass is often still gated).
   useLayoutEffect(() => {
+    if (!sessionReady) return
     const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
     const cached = readSchedulerBootstrapCache(monthKey, orgIdForSeed)
     if (!cached) return
@@ -189,7 +194,7 @@ function SchedulerWorkspaceViewInner({
     if (cached.ownerUserId) setOwnerUserId((prev) => prev ?? cached.ownerUserId)
     // Seeded calendar: drop loading so stats are not a skeleton bar on hard refresh.
     setLoading(false)
-  }, [orgIdForSeed, visibleMonth])
+  }, [orgIdForSeed, visibleMonth, sessionReady])
 
   const {
     focusLeadId,
@@ -214,23 +219,27 @@ function SchedulerWorkspaceViewInner({
   const orgId =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
-  const bootstrapSeed = null as ReturnType<typeof readSchedulerBootstrapCache>
+  // Re-reads after session unlock so hard refresh is not empty → jobs.
+  const bootstrapSeed = useSessionSeed(
+    () => readSchedulerBootstrapCache(monthKey, orgId),
+    null,
+    `${orgId ?? "default"}:${monthKey}`
+  )
   const bootstrapCacheIdentity = `${orgId ?? "default"}:${monthKey}`
   const appliedBootstrapSeedRef = useRef<string | null>(null)
 
   // Paint last month bootstrap once per month/org — do not re-apply after live refresh writes cache.
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!bootstrapSeed) return
     if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) return
-    const seed = bootstrapSeed ?? readSchedulerBootstrapCache(monthKey, orgId)
-    if (!seed) return
     appliedBootstrapSeedRef.current = bootstrapCacheIdentity
-    setEvents(seed.events)
-    setBlockouts(seed.blockouts)
-    setTechnicians(seed.technicians)
-    setLineIndustryTags(seed.lineIndustryTags)
-    if (seed.ownerUserId) setOwnerUserId(seed.ownerUserId)
+    setEvents(bootstrapSeed.events)
+    setBlockouts(bootstrapSeed.blockouts)
+    setTechnicians(bootstrapSeed.technicians)
+    setLineIndustryTags(bootstrapSeed.lineIndustryTags)
+    if (bootstrapSeed.ownerUserId) setOwnerUserId(bootstrapSeed.ownerUserId)
     setLoading(false)
-  }, [bootstrapCacheIdentity, bootstrapSeed, monthKey, orgId])
+  }, [bootstrapCacheIdentity, bootstrapSeed])
 
   // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
@@ -1128,6 +1137,7 @@ function SchedulerWorkspaceViewInner({
               <div className="border-b border-zinc-800/80 px-2.5 py-2.5">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
+                  loading={poolLoading && displayPoolJobs.length === 0}
                   highlightId={highlightId}
                   onSelectJob={openPoolJobDrawer}
                   onMobileAssignJob={queueMobilePoolAssign}
@@ -1206,8 +1216,8 @@ function SchedulerWorkspaceViewInner({
               </p>
             ) : null}
 
-            {/* Empty board: one flat placeholder instead of nested empty panels. */}
-            {displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
+            {/* Empty board only after load settles — never flash “quiet” over a pending seed. */}
+            {!loading && displayPipelineJobs.length === 0 && assignableTechs.length === 0 ? (
               <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-6 text-center">
                 <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
                 <p className="mt-1 text-xs text-zinc-500">
@@ -1216,26 +1226,31 @@ function SchedulerWorkspaceViewInner({
               </div>
             ) : (
               <>
-                {displayPipelineJobs.length > 0 ? (
+                {(loading && displayPipelineJobs.length === 0) || displayPipelineJobs.length > 0 ? (
                 <WorkspacePanel className="flex w-full flex-col overflow-hidden">
                   <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
                     <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
                     <p className="text-xs text-zinc-500">
-                      {displayPipelineJobs.length} active job
-                      {displayPipelineJobs.length === 1 ? "" : "s"} today
+                      {loading && displayPipelineJobs.length === 0
+                        ? "Loading jobs…"
+                        : `${displayPipelineJobs.length} active job${
+                            displayPipelineJobs.length === 1 ? "" : "s"
+                          } today`}
                     </p>
                   </div>
-                  <div className="max-h-[min(420px,50vh)] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                    <ActivePipelinePanelStream
-                      jobs={displayPipelineJobs}
-                      dayKey={pipelineDayKey}
-                      useStreamedInitialDay={useStreamedPipeline}
-                      highlightId={highlightId}
-                      onFocusJob={highlightPipelineJob}
-                      onEditJob={editPipelineJob}
-                      onMarkComplete={handleMarkJobComplete}
-                      completingJobId={completingId}
-                    />
+                  <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
+                    {displayPipelineJobs.length > 0 ? (
+                      <ActivePipelinePanelStream
+                        jobs={displayPipelineJobs}
+                        dayKey={pipelineDayKey}
+                        useStreamedInitialDay={useStreamedPipeline}
+                        highlightId={highlightId}
+                        onFocusJob={highlightPipelineJob}
+                        onEditJob={editPipelineJob}
+                        onMarkComplete={handleMarkJobComplete}
+                        completingJobId={completingId}
+                      />
+                    ) : null}
                   </div>
                 </WorkspacePanel>
                 ) : null}

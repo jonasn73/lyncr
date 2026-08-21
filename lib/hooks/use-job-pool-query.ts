@@ -8,6 +8,7 @@ import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 import {
   mapPoolPaintToJobs,
   readMapPoolPaintSeed,
@@ -97,13 +98,15 @@ export function useJobPoolQuery(
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
   const paintJobs = useDashboardPaintSeeds().mapPool
   const paintSeed = readMapPoolPaintSeed(paintJobs, activeOrganizationId)
+  const sessionReady = useSessionCacheReady()
 
   const fallbackData = useMemo(() => {
     const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
     if (fromSession && fromSession.length > 0) return fromSession
     if (paintSeed?.jobs.length) return mapPoolPaintToJobs(paintSeed)
     return fromSession
-  }, [cacheKey, paintSeed])
+    // sessionReady: re-read after unlock (first memo pass is often still gated).
+  }, [cacheKey, paintSeed, sessionReady])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -162,10 +165,11 @@ export function useActivePipelineQuery(
     "job-pool-active",
     `${activeOrganizationId ?? "default"}:${dayKey}`
   )
+  const sessionReady = useSessionCacheReady()
 
   const fallbackData = useMemo(
     () => readPersistedCache<ActivePipelineJob[]>(cacheKey),
-    [cacheKey]
+    [cacheKey, sessionReady]
   )
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(

@@ -2,9 +2,17 @@
 
 // Shared SWR feed for the unified Dispatch Map tab.
 
+import { useMemo } from "react"
 import useSWR from "swr"
 import type { DispatchJob, FieldTechnician, TechLiveLocation, UnassignedPoolJob } from "@/lib/types"
-import { mergeDispatchMapJobs } from "@/lib/dispatch-map-jobs"
+import { mergeDispatchMapJobs, poolJobToDispatchJob } from "@/lib/dispatch-map-jobs"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  mapPoolPaintToJobs,
+  readMapPoolPaintSeed,
+} from "@/lib/map-pool-paint-cache"
 
 export type DispatchMapData = {
   jobs: DispatchJob[]
@@ -22,11 +30,28 @@ export type UseDispatchMapDataOptions = {
   includeLeads?: boolean
 }
 
+const EMPTY_MAP_DATA: DispatchMapData = {
+  jobs: [],
+  leadJobs: [],
+  techs: [],
+  technicians: [],
+  ownerUserId: null,
+}
+
 function orgQuery(organizationId: string | null | undefined): string {
   if (organizationId && !organizationId.startsWith("legacy-")) {
     return `?organization_id=${encodeURIComponent(organizationId)}&scope=hopper`
   }
   return "?scope=hopper"
+}
+
+function mapDataCacheKey(
+  organizationId: string | null | undefined,
+  includeLeads: boolean
+): string {
+  const org =
+    organizationId && !organizationId.startsWith("legacy-") ? organizationId : "all"
+  return persistedCacheKey("dispatch-map-data", `${org}:leads-${includeLeads ? 1 : 0}`)
 }
 
 /** Stable SWR key for the single Dispatch Map page. */
@@ -78,29 +103,32 @@ async function fetchDispatchMapData(
     { data?: { jobs?: DispatchJob[] } } | undefined,
   ]
 
-  const booked = Array.isArray(bookedJson.data?.jobs)
-    ? (bookedJson.data.jobs as DispatchJob[])
-    : []
-  const pool = Array.isArray(poolJson.data?.jobs)
-    ? (poolJson.data.jobs as UnassignedPoolJob[])
-    : []
-  const leadJobs =
-    includeLeads && Array.isArray(leadsJson?.data?.jobs)
-      ? (leadsJson!.data!.jobs as DispatchJob[])
-      : []
+  const bookedJobs = Array.isArray(bookedJson.data?.jobs) ? bookedJson.data!.jobs! : []
+  const poolJobs = Array.isArray(poolJson.data?.jobs) ? poolJson.data!.jobs! : []
+  const leadJobs = includeLeads && Array.isArray(leadsJson?.data?.jobs) ? leadsJson!.data!.jobs! : []
 
-  return {
-    jobs: mergeDispatchMapJobs(booked, pool),
+  const next: DispatchMapData = {
+    jobs: mergeDispatchMapJobs(bookedJobs, poolJobs),
     leadJobs,
-    techs: Array.isArray(bookedJson.data?.techLocations)
-      ? (bookedJson.data.techLocations as TechLiveLocation[])
-      : [],
-    technicians: Array.isArray(bookedJson.data?.technicians)
-      ? (bookedJson.data.technicians as FieldTechnician[])
-      : [],
+    techs: Array.isArray(bookedJson.data?.techLocations) ? bookedJson.data!.techLocations! : [],
+    technicians: Array.isArray(bookedJson.data?.technicians) ? bookedJson.data!.technicians! : [],
     ownerUserId:
       typeof bookedJson.data?.ownerUserId === "string" ? bookedJson.data.ownerUserId : null,
   }
+  writePersistedCache(mapDataCacheKey(organizationId, includeLeads), next)
+  return next
+}
+
+/** Slim paint → map jobs when session map cache is still empty. */
+function mapJobsFromPoolPaint(
+  organizationId: string | null | undefined,
+  paintRaw: ReturnType<typeof useDashboardPaintSeeds>["mapPool"]
+): DispatchJob[] {
+  const seed = readMapPoolPaintSeed(paintRaw, organizationId ?? null)
+  if (!seed?.jobs.length) return []
+  return mapPoolPaintToJobs(seed)
+    .map((job) => poolJobToDispatchJob(job))
+    .filter((job): job is DispatchJob => job != null)
 }
 
 /** One shared poll for the Dispatch Map page — paused when the pane/tab is hidden. */
@@ -112,6 +140,25 @@ export function useDispatchMapData(
   const includeLeads = Boolean(options?.includeLeads)
   // Null key pauses the subscription without clearing other tabs' caches.
   const key = enabled ? dispatchMapDataKey(organizationId, includeLeads) : null
+  const cacheKey = mapDataCacheKey(organizationId, includeLeads)
+  const sessionReady = useSessionCacheReady()
+  const paintJobs = useDashboardPaintSeeds().mapPool
+
+  const fallbackData = useMemo(() => {
+    const fromSession = readPersistedCache<DispatchMapData>(cacheKey)
+    if (fromSession && (fromSession.jobs?.length || fromSession.techs?.length)) {
+      return fromSession
+    }
+    const paintedJobs = mapJobsFromPoolPaint(organizationId, paintJobs)
+    if (paintedJobs.length > 0) {
+      return {
+        ...EMPTY_MAP_DATA,
+        ...(fromSession ?? {}),
+        jobs: paintedJobs,
+      }
+    }
+    return fromSession
+  }, [cacheKey, organizationId, paintJobs, sessionReady])
 
   return useSWR(
     key,
@@ -121,6 +168,7 @@ export function useDispatchMapData(
       refreshInterval: enabled ? 25_000 : 0,
       revalidateOnFocus: false,
       keepPreviousData: true,
+      fallbackData,
     }
   )
 }

@@ -194,7 +194,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     }
   }, [isActive, callsSeed])
 
-  const balanceLabel = billing?.credit_balance_label ?? "—"
+  const balanceLabel = billing?.credit_balance_label ?? "\u00a0"
   const subscriptionActive = billing?.subscription_active === true
   const needsCarrierCredit = billing?.needs_carrier_credit === true
   const lowCarrierCreditWarning = billing?.low_carrier_credit_warning === true
@@ -237,6 +237,11 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     [ledger]
   )
   const rateLabel = formatUsdFromCents(meteredRate)
+  // Never paint “0 min” while still loading — that flickers into the real total.
+  const talkTimeUsedLabel =
+    !callsLoaded && calls.length === 0
+      ? "\u00a0"
+      : `${minutesFromSeconds(consumedSeconds).toLocaleString()} min`
 
   async function handleSubscribe(tier: CheckoutSubscriptionTier) {
     if (checkoutTier != null) return
@@ -325,9 +330,9 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
           />
           <WorkspaceStatCard
             label="Talk-time used (recent)"
-            value={`${minutesFromSeconds(consumedSeconds).toLocaleString()} min`}
+            value={talkTimeUsedLabel}
             hint={
-              !callsLoaded
+              !callsLoaded && calls.length === 0
                 ? "Loading usage…"
                 : meteredRate > 0
                   ? `${formatUsdFromCents(consumedCostCents)} across ${ledger.length} answered call${ledger.length === 1 ? "" : "s"}`
@@ -450,7 +455,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
                 <WorkspaceTh>Total Deducted</WorkspaceTh>
               </tr>
             </thead>
-            {callsLoaded && ledger.length > 0 ? (
+            {ledger.length > 0 ? (
               <tbody>
                 {ledger.map((row) => (
                   <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
@@ -458,14 +463,14 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
                     <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
                     <WorkspaceTd className="tabular-nums text-zinc-300">{row.minutes} min</WorkspaceTd>
                     <WorkspaceTd className="font-medium tabular-nums text-foreground">
-                      {meteredRate > 0 ? formatUsdFromCents(row.costCents) : "—"}
+                      {meteredRate > 0 ? formatUsdFromCents(row.costCents) : "\u00a0"}
                     </WorkspaceTd>
                   </tr>
                 ))}
               </tbody>
             ) : null}
           </WorkspaceTableWrap>
-          {!callsLoaded || ledger.length === 0 ? (
+          {ledger.length === 0 ? (
             <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-5 py-12 text-center text-sm text-zinc-500">
               {!callsLoaded ? (
                 <span className="inline-flex items-center gap-2">

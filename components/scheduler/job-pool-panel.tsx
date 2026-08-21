@@ -9,6 +9,7 @@ import type { UnassignedPoolJob } from "@/lib/types"
 type JobPoolPanelProps = {
   /** Live hopper jobs from SWR — parent must pass so deletes/edits reflect immediately. */
   jobs?: UnassignedPoolJob[]
+  loading?: boolean
   highlightId?: string | null
   onSelectJob?: (job: UnassignedPoolJob) => void
   onMobileAssignJob?: (job: UnassignedPoolJob) => void
@@ -20,6 +21,7 @@ type JobPoolPanelProps = {
 /** Hopper tray — uses live SWR jobs from the parent when provided. */
 export function JobPoolPanel({
   jobs,
+  loading,
   highlightId,
   onSelectJob,
   onMobileAssignJob,
@@ -30,6 +32,7 @@ export function JobPoolPanel({
     return (
       <JobPoolTray
         jobs={jobs}
+        loading={loading}
         highlightId={highlightId}
         onSelectJob={onSelectJob}
         onMobileAssignJob={onMobileAssignJob}
