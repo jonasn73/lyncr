@@ -3,6 +3,7 @@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { motion, useReducedMotion } from "framer-motion"
 import {
   CalendarDays,
   ChevronDown,
@@ -525,6 +526,7 @@ function ActivityCallFilterBar({
     { id: "hold", label: "Hold", badge: holdCount },
     { id: "press1", label: "Press 1", badge: press1Count },
   ]
+  const reduceMotion = useReducedMotion()
 
   return (
     <div
@@ -534,6 +536,10 @@ function ActivityCallFilterBar({
     >
       {chips.map((chip) => {
         const active = filter === chip.id
+        const activeTone =
+          chip.id === "missed" || chip.id === "hold" || chip.id === "press1"
+            ? "amber"
+            : "primary"
         return (
           <button
             key={chip.id}
@@ -542,28 +548,50 @@ function ActivityCallFilterBar({
             aria-selected={active}
             onClick={() => onChange(chip.id)}
             className={cn(
-              "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-[color,background-color,border-color,transform] duration-150 touch-manipulation",
+              // No color transition — the previous chip “fading out” read as a flicker.
+              "relative inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold touch-manipulation",
               active
-                ? chip.id === "missed"
-                  ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
-                  : chip.id === "hold" || chip.id === "press1"
-                    ? "border-amber-500/35 bg-amber-500/12 text-amber-100"
-                    : "border-primary/40 bg-primary/15 text-primary"
+                ? activeTone === "amber"
+                  ? "border-amber-500/40 text-amber-100"
+                  : "border-primary/40 text-primary"
                 : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-zinc-600 hover:bg-slate-800 hover:text-zinc-100"
             )}
           >
-            {chip.id === "missed" ? <PhoneMissed className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-            {chip.label}
-            {chip.badge != null && chip.badge > 0 ? (
-              <span
-                className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                  active ? "bg-amber-500/25 text-amber-50" : "bg-amber-500/15 text-amber-300"
-                )}
-              >
-                {chip.badge}
-              </span>
+            {active ? (
+              reduceMotion ? (
+                <span
+                  className={cn(
+                    "absolute inset-0 rounded-full",
+                    activeTone === "amber" ? "bg-amber-500/15" : "bg-primary/15"
+                  )}
+                  aria-hidden
+                />
+              ) : (
+                <motion.span
+                  layoutId="lyncr-activity-filter-pill"
+                  className={cn(
+                    "absolute inset-0 rounded-full",
+                    activeTone === "amber" ? "bg-amber-500/15" : "bg-primary/15"
+                  )}
+                  transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.55 }}
+                  aria-hidden
+                />
+              )
             ) : null}
+            <span className="relative z-10 inline-flex items-center gap-2">
+              {chip.id === "missed" ? <PhoneMissed className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+              {chip.label}
+              {chip.badge != null && chip.badge > 0 ? (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    active ? "bg-amber-500/25 text-amber-50" : "bg-amber-500/15 text-amber-300"
+                  )}
+                >
+                  {chip.badge}
+                </span>
+              ) : null}
+            </span>
           </button>
         )
       })}
@@ -1776,6 +1804,14 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
 
   // Quiet empty well while waiting — never grey skeleton pills, never short cookie stub.
   const showingQuietLoad = loading && calls.length === 0
+  const showMissedEmpty =
+    filter === "missed" && displayRows.length === 0 && !loading && !waitingForLines
+  const showHoldEmpty =
+    filter === "hold" && displayRows.length === 0 && !loading && !waitingForLines
+  const showPress1Empty =
+    filter === "press1" && displayRows.length === 0 && !loading && !waitingForLines
+  // Filter-specific empty replaces the generic “No calls yet” table empty (was a double flash).
+  const showFilterEmpty = showMissedEmpty || showHoldEmpty || showPress1Empty
 
   useFlickerDebugLifecycle("ActivityWorkspaceBody", {
     loading,
@@ -1830,12 +1866,28 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         press1Count={press1Count}
         onChange={onFilterChange}
       />
-      {filter === "missed" && displayRows.length === 0 && !loading && !waitingForLines ? (
+      {showMissedEmpty ? (
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
           <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
           <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
           <p className="mt-1 text-xs text-zinc-500">
             This list resets at midnight. Yesterday’s missed calls stay in All calls.
+          </p>
+        </div>
+      ) : null}
+      {showHoldEmpty ? (
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
+          <p className="text-sm font-medium text-zinc-200">No hold-queue calls</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Callers who waited on hold show up here.
+          </p>
+        </div>
+      ) : null}
+      {showPress1Empty ? (
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
+          <p className="text-sm font-medium text-zinc-200">No Press 1 bookings yet</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            When a caller presses 1 for a booking text, it shows up here.
           </p>
         </div>
       ) : null}
@@ -1847,7 +1899,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[12rem] text-sm text-destructive">{loadError}</p>
-      ) : (
+      ) : showFilterEmpty ? null : (
         <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
       )}
     </WorkspacePage>
