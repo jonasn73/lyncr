@@ -480,17 +480,21 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
         })()
       : null)
   const seedIsPaintOnly = Boolean(seed?.paintOnly)
-  // Always paint seed rows on first HTML (including cookie) — never SSR an empty skeleton.
-  const [calls, setCalls] = useState<UiCallRecord[]>(() => seed?.calls ?? [])
-  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() => seed?.quality ?? null)
-  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(
-    () => seed?.insights ?? null
+  // Never put the tiny cookie stub on screen — that was the short wrong-list → full-list flash.
+  // SSR/first HTML: quiet empty well; session unlock (before paint) or network fills the real list.
+  const [calls, setCalls] = useState<UiCallRecord[]>(() =>
+    seedIsPaintOnly ? [] : seed?.calls ?? []
+  )
+  const [quality, setQuality] = useState<VoiceQualitySummary | null>(() =>
+    seedIsPaintOnly ? null : seed?.quality ?? null
+  )
+  const [insights, setInsights] = useState<VoiceOperationsInsights | null>(() =>
+    seedIsPaintOnly ? null : seed?.insights ?? null
   )
   const [paintOnly, setPaintOnly] = useState(() => seedIsPaintOnly)
-  // Background refresh when paint-only or missing; skeleton only if calls stay empty.
   const [loading, setLoading] = useState(() => seed == null || seedIsPaintOnly)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const hasCallsRef = useRef((seed?.calls.length ?? 0) > 0)
+  const hasCallsRef = useRef(!seedIsPaintOnly && (seed?.calls.length ?? 0) > 0)
   hasCallsRef.current = calls.length > 0
   const prevOrgRef = useRef<string | null | undefined>(undefined)
 
@@ -572,29 +576,25 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
             }
           : null)
     if (!next) return
-    // Paint cookie: put rows on screen immediately (Lines pattern) and still fetch full list.
+    // Tiny cookie stub: warm fetch only — never display (short wrong list → full list flash).
     if (next.paintOnly) {
       if (!operationsCache) {
         operationsCache = { ...next, fetchedAt: 0, paintOnly: true }
       }
       setPaintOnly(true)
-      setCalls((prev) => {
-        if (prev.length === 0 && next.calls.length > 0) return next.calls
-        if (next.calls.length > prev.length) return next.calls
-        return prev
-      })
       setLoading(true)
       logFlicker({
         event: "ops-seed-apply",
         component: "useOperationsData",
         dataSource: source ?? "paint",
         seedRowCount: next.calls.length,
-        rowCountAfter: next.calls.length,
+        rowCountAfter: 0,
         loadingAfter: true,
-        reason: "paint-rows-visible",
+        reason: "paint-stub-not-displayed",
       })
       return
     }
+    // Full session / memory: show immediately (before browser paint when possible).
     if (!operationsCache || operationsCache.paintOnly) {
       operationsCache = next
     }

@@ -58,9 +58,6 @@ import {
   WORKSPACE_TABLE_ROW_CLASS,
   type ActivityCallStatus,
 } from "@/components/dashboard-workspace-ui"
-import {
-  ActivityTableSkeleton,
-} from "@/components/workspace-content-skeletons"
 import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 import {
   ClientSearchParamsBridge,
@@ -75,7 +72,6 @@ import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { shouldPlayOperatorDispositionAlert } from "@/lib/admin-notification-client"
 import {
-  shouldShowOperationsSkeleton,
   useOperationsData,
   type UiCallRecord,
 } from "@/lib/hooks/use-operations-data"
@@ -1777,12 +1773,14 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return grouped
   }, [rows, calls, filter])
 
-  const showingSkeleton = shouldShowOperationsSkeleton(loading, calls.length, paintOnly)
+  // Quiet empty well while waiting — never grey skeleton pills, never short cookie stub.
+  const showingQuietLoad = loading && calls.length === 0
 
   useFlickerDebugLifecycle("ActivityWorkspaceBody", {
     loading,
     waitingForLines,
-    showingSkeleton,
+    showingQuietLoad,
+    paintOnly,
     callCount: calls.length,
     scopedCallCount: scopedCalls.length,
     displayRowCount: displayRows.length,
@@ -1840,8 +1838,12 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {showingSkeleton ? (
-        <ActivityTableSkeleton />
+      {showingQuietLoad ? (
+        <div
+          className="min-h-[16rem] rounded-2xl border border-zinc-800/60 bg-background"
+          aria-busy="true"
+          aria-label="Loading activity"
+        />
       ) : loadError && calls.length === 0 ? (
         <p className="min-h-[12rem] text-sm text-destructive">{loadError}</p>
       ) : (
