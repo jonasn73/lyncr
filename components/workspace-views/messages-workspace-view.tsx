@@ -199,6 +199,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     threadTimeLabelRef.current.set(key, { id: msgId, label })
     return label
   }
+  // Freeze list preview body per thread — paint stub → full body must not rewrite shorter→longer flashily.
+  const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
+  const threadPreviewBody = (phone: string, msgId: string, body: string) => {
+    const key = phoneMatchKey(phone) || phone
+    const next = body || ""
+    const prev = threadPreviewBodyRef.current.get(key)
+    if (prev && prev.id === msgId) {
+      if (next.length <= prev.body.length) return prev.body
+      threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
+      return next
+    }
+    threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
+    return next
+  }
   // Spinner only on cold cache — cookie/session paint skips the empty well flash.
   const [loading, setLoading] = useState(() => cachedMessages.length === 0)
   // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
@@ -355,6 +369,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     setLiveMessages(null)
     threadScrollHydratedRef.current = null
     threadTimeLabelRef.current.clear()
+    threadPreviewBodyRef.current.clear()
     const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
     setInboxSettled(seeded)
@@ -952,7 +967,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       )}
                     >
                       {thread.lastMessage.direction === "outbound" ? "You: " : ""}
-                      {thread.lastMessage.body}
+                      {threadPreviewBody(
+                        thread.customerPhone,
+                        thread.lastMessage.id,
+                        thread.lastMessage.body
+                      )}
                     </p>
                   </button>
                 )

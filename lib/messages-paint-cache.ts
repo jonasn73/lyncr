@@ -14,7 +14,7 @@ import {
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const MESSAGES_PAINT_SCOPE = "messages-inbox"
+export const MESSAGES_PAINT_SCOPE = "messages-inbox-v2"
 export const MESSAGES_PAINT_COOKIE = paintSeedCookieName(MESSAGES_PAINT_SCOPE)
 
 /** One thread preview — enough for the conversation list. */
@@ -32,12 +32,12 @@ export type MessagesPaintSeed = {
   messages: MessagesPaintRow[]
 }
 
-/** Cookie target — slim rows pack far more than the old 10×fat layout. */
+/** Cookie target — id/phone/dir/time only so ~40 threads fit in ~3KB SSR HTML. */
 const MAX_PAINT_THREADS = 40
 /** Session index can hold more — fills after hydrate without waiting on network. */
 const MAX_SESSION_THREADS = 80
-/** Only the top threads keep a body snippet in the cookie. */
-const MAX_COOKIE_BODIES = 8
+/** Tiny body on every cookie row so previews don’t pop in empty→text (still slim). */
+const COOKIE_BODY_CHARS = 18
 
 function clip(s: string, n: number): string {
   const t = String(s || "")
@@ -70,7 +70,7 @@ function latestPerThread(messages: SmsMessage[], limit: number): SmsMessage[] {
     .slice(0, limit)
 }
 
-function trimRow(msg: SmsMessage, includeBody: boolean): MessagesPaintRow {
+function trimRow(msg: SmsMessage, bodyChars: number): MessagesPaintRow {
   const phone = (msg.customer_phone?.trim() || msg.from_number || "").trim()
   const created = new Date(msg.created_at || Date.now())
   const iso = Number.isNaN(created.getTime())
@@ -82,8 +82,8 @@ function trimRow(msg: SmsMessage, includeBody: boolean): MessagesPaintRow {
     d: msg.direction === "outbound" ? "o" : "i",
     t: clip(iso, 24),
   }
-  if (includeBody) {
-    row.b = clip(msg.body || "", 36)
+  if (bodyChars > 0) {
+    row.b = clip(msg.body || "", bodyChars)
   }
   return row
 }
@@ -123,7 +123,7 @@ export function writeMessagesThreadIndex(
   const latest = latestPerThread(messages, MAX_SESSION_THREADS)
   const payload: MessagesPaintSeed = {
     organizationId,
-    messages: latest.map((msg, i) => trimRow(msg, i < MAX_COOKIE_BODIES)),
+    messages: latest.map((msg) => trimRow(msg, COOKIE_BODY_CHARS)),
   }
   writePersistedCache(messagesThreadIndexKey(organizationId), payload)
 }
@@ -157,7 +157,7 @@ export function writeMessagesPaintSeed(
     const payload: MessagesPaintSeed = {
       organizationId,
       // Slim: bodies only on the first few so more phones fit in ~3KB.
-      messages: latest.slice(0, n).map((msg, i) => trimRow(msg, i < MAX_COOKIE_BODIES)),
+      messages: latest.slice(0, n).map((msg) => trimRow(msg, COOKIE_BODY_CHARS)),
     }
     if (writePaintSeedCookie(MESSAGES_PAINT_SCOPE, payload)) return
     n -= 1

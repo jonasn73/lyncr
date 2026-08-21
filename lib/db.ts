@@ -9648,7 +9648,25 @@ function schedulerEventFromRow(row: Record<string, unknown>): import("@/lib/type
       pick(["callback_number", "caller_number", "phone", "callback"]) ||
       (row.caller_e164 != null ? String(row.caller_e164) : null),
     customer_email: pick(["customer_email", "email"]),
-    location: pick(["job_address", "location", "service_address", "address", "address_line1"]),
+    // Prefer the longest real street line — first-hit pick() often returned a short city/locality.
+    location: (() => {
+      const candidates = [
+        "job_address_full",
+        "job_address",
+        "service_address",
+        "location",
+        "address",
+        "address_line1",
+        "formatted_address",
+      ]
+        .map((k) => {
+          const v = collected[k]
+          return typeof v === "string" && v.trim() ? v.trim() : ""
+        })
+        .filter(Boolean)
+      if (candidates.length === 0) return null
+      return candidates.reduce((best, cur) => (cur.length > best.length ? cur : best))
+    })(),
     summary: row.summary != null ? String(row.summary) : null,
     disposition,
     scheduled_at: scheduledAt,

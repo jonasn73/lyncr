@@ -14,7 +14,7 @@ import {
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { resolveStablePlaceLine } from "@/lib/settled-paint"
 
-export const MAP_POOL_PAINT_SCOPE = "map-pool"
+export const MAP_POOL_PAINT_SCOPE = "map-pool-v2"
 export const MAP_POOL_PAINT_COOKIE = paintSeedCookieName(MAP_POOL_PAINT_SCOPE)
 
 export type MapPoolPaintRow = {
@@ -79,9 +79,9 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
   return {
     id: clip(job.id, 40),
     n: clip(title, 48),
-    // Never store a clipped street — short “Louisville…” then full address was the flash.
-    // Empty pl reserves the row; session/network fill the full address once.
-    pl: place.length > 0 && place.length <= 96 ? place : "",
+    // Never cookie-paint addresses — even a 96-char clip looked “cut short” then jumped.
+    // Card reserves space; session/network fill the full street once.
+    pl: "",
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
     ...(phone ? { ph: clip(phone, 16) } : {}),
@@ -109,8 +109,9 @@ export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] 
       id: row.id,
       customer_name: row.n,
       customer_phone: row.ph ?? null,
-      // Only one place field — both equal caused “Louisville, Louisville” on the card.
-      location: row.pl || null,
+      // Ignore cookie `pl` entirely — older seeds stored clipped streets (“Louisville…”).
+      // Address fills once from session/network with the full line.
+      location: null,
       neighborhood: null,
       summary: row.n,
       job_type: row.sv ?? null,

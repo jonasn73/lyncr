@@ -314,10 +314,14 @@ function SchedulerWorkspaceViewInner({
     [deletedJobIds]
   )
 
-  const displayPoolJobs = useMemo(
+  const poolFiltered = useMemo(
     () => excludeDeletedJobs(poolJobs),
     [poolJobs, excludeDeletedJobs]
   )
+  const displayPoolJobs = useHeldList(poolFiltered, {
+    scopeKey: activeOrganizationId ?? "default",
+    loading: poolLoading || loading || !bootstrapSettled,
+  })
 
   const pipelineFiltered = useMemo(
     () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
