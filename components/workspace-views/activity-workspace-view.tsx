@@ -72,10 +72,6 @@ import {
   useWorkspaceRightSheet,
 } from "@/components/workspace-right-sheet-gate"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import {
-  useDashboardBootstrapEffective,
-  useDashboardBootstrapSyncing,
-} from "@/components/dashboard-bootstrap-context"
 import { ActivityPaneFallback } from "@/components/workspace-pane-fallbacks"
 import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
@@ -1780,10 +1776,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
     return grouped
   }, [rows, calls, filter])
 
-  const showingSkeleton = shouldShowOperationsSkeleton(
-    loading || (waitingForLines && calls.length === 0),
-    calls.length
-  )
+  const showingSkeleton = shouldShowOperationsSkeleton(loading, calls.length)
 
   useFlickerDebugLifecycle("ActivityWorkspaceBody", {
     loading,
@@ -1846,13 +1839,16 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           </p>
         </div>
       ) : null}
-      {showingSkeleton ? (
-        <ActivityTableSkeleton />
-      ) : loadError && calls.length === 0 ? (
-        <p className="min-h-[380px] text-sm text-destructive">{loadError}</p>
-      ) : (
-        <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
-      )}
+      {/* Stable well: skeleton and live rows share the same reserved height (less CLS). */}
+      <div className="min-h-[min(70dvh,28rem)]">
+        {showingSkeleton ? (
+          <ActivityTableSkeleton />
+        ) : loadError && calls.length === 0 ? (
+          <p className="text-sm text-destructive">{loadError}</p>
+        ) : (
+          <ActivityCallsTable rows={displayRows} lineLabelMap={lineLabelMap} />
+        )}
+      </div>
     </WorkspacePage>
   )
 })
@@ -1881,8 +1877,6 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
 }) {
   // Pause Activity polls when the pane or browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
-  const bootstrap = useDashboardBootstrapEffective()
-  const bootstrapSyncing = useDashboardBootstrapSyncing()
   const { calls, loading, loadError } = useOperationsData({
     refetchIntervalMs: 12_000,
     enabled: pollEnabled,
@@ -1932,15 +1926,13 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
     setActivityLogs(calls)
   }, [calls, setActivityLogs])
 
-  // Cold Activity: same idea as Lines — skip gate when ops cache already has rows.
-  const hasCallsPaint = calls.length > 0
-  const holdActivityBootstrapGate =
-    !hasCallsPaint &&
-    ((bootstrap == null && bootstrapSyncing) || (loading && calls.length === 0))
+  // Seeded calls: paint immediately (no cover). Unseeded: keep one cover until fetch settles —
+  // never peel to an empty body while loading is still true (that flashed empty → rows).
+  const holdActivityUntilSettled = calls.length === 0 && loading
 
   return (
     <WorkspacePaneHandoff
-      holdGate={holdActivityBootstrapGate}
+      holdGate={holdActivityUntilSettled}
       fallback={<ActivityPaneFallback />}
       probe="activity-handoff"
     >

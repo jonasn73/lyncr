@@ -128,8 +128,8 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
 export function ActivityTableSkeleton() {
   return (
     // Match page bg-background — bg-card/90 looked like a darker overlay on tab click.
-    // Same 8 columns + min-h as live ActivityCallsTable so skeleton→rows does not collapse.
-    <WorkspacePanel className="min-h-[380px] bg-background shadow-none ring-0">
+    // Tall reserved well so skeleton → real rows does not collapse the page.
+    <WorkspacePanel className="min-h-[min(70dvh,28rem)] bg-background shadow-none ring-0">
       <TableSkeletonBody
         columns={[
           { width: "w-[11%]", label: "Status" },
@@ -141,7 +141,7 @@ export function ActivityTableSkeleton() {
           { width: "w-[13%]", label: "Line" },
           { width: "w-[10%]", label: " " },
         ]}
-        rows={6}
+        rows={8}
       />
     </WorkspacePanel>
   )

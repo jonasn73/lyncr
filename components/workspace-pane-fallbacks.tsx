@@ -13,7 +13,6 @@ import {
   CrmListRowSkeleton,
   MessagesThreadListSkeleton,
 } from "@/components/workspace-content-skeletons"
-import { SchedulerCalendarStatsSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
 import { cn } from "@/lib/utils"
 import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 
@@ -21,7 +20,11 @@ import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 export function ActivityPaneFallback() {
   useFlickerDebugLifecycle("ActivityPaneFallback", { showingFallback: true })
   return (
-    <WorkspacePage aria-busy="true" aria-label="Loading Activity">
+    <WorkspacePage
+      className="min-h-[min(70dvh,28rem)]"
+      aria-busy="true"
+      aria-label="Loading Activity"
+    >
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>
@@ -201,12 +204,63 @@ export function SettingsPaneFallback() {
   )
 }
 
-/** Scheduler chrome + calendar stats only (not call-flow cards). */
+/** Scheduler board chrome — same grid as live so hard refresh is not a blank page + thin bar. */
 export function SchedulerPaneFallback() {
   return (
-    <WorkspacePage aria-busy="true" aria-label="Loading Scheduler">
+    <WorkspacePage
+      className="min-h-[min(70dvh,36rem)]"
+      aria-busy="true"
+      aria-label="Loading Scheduler"
+    >
       <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
-      <SchedulerCalendarStatsSkeleton />
+      <div className="grid w-full grid-cols-1 items-start gap-3 pb-28 lg:grid-cols-4 lg:gap-4 lg:pb-0">
+        {/* Left rail placeholders — intake / pool / live status */}
+        <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:gap-3">
+          <div className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/40">
+            <div className="border-b border-zinc-800/80 p-2.5">
+              <div className="h-10 w-full rounded-lg bg-zinc-800/50" />
+            </div>
+            <div className="space-y-2 border-b border-zinc-800/80 px-2.5 py-2.5">
+              <div className="h-3 w-24 rounded bg-zinc-800/50" />
+              <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
+              <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
+            </div>
+            <div className="space-y-2 px-2.5 py-2.5">
+              <div className="h-3 w-28 rounded bg-zinc-800/50" />
+              <div className="h-12 w-full rounded-lg bg-zinc-800/40" />
+              <div className="h-12 w-full rounded-lg bg-zinc-800/40" />
+            </div>
+          </div>
+          <div className="h-11 rounded-xl border border-zinc-800/80 bg-zinc-950/40" />
+        </div>
+        {/* Main board — pipeline + swimlanes well */}
+        <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-3 lg:gap-3">
+          <div className="min-h-[8rem] rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-3">
+            <div className="mb-2 h-4 w-32 rounded bg-zinc-800/50" />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="h-20 rounded-lg bg-zinc-800/40" />
+              <div className="h-20 rounded-lg bg-zinc-800/40" />
+            </div>
+          </div>
+          <div className="min-h-[18rem] rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="h-4 w-36 rounded bg-zinc-800/50" />
+              <div className="h-8 w-28 rounded-lg bg-zinc-800/40" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="min-h-[14rem] rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-2">
+                  <div className="mb-2 h-3 w-16 rounded bg-zinc-800/50" />
+                  <div className="space-y-2">
+                    <div className="h-10 w-full rounded bg-zinc-800/40" />
+                    <div className="h-10 w-full rounded bg-zinc-800/40" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </WorkspacePage>
   )
 }

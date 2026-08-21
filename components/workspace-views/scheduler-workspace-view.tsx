@@ -1089,9 +1089,13 @@ function SchedulerWorkspaceViewInner({
     poolLoading,
   ])
 
+  // Hold until bootstrap settle — peel only when we have events or loading finished
+  // (empty board is OK; mid-load blank board caused the thin-bar screenshot).
+  const holdSchedulerGate = loading && events.length === 0
+
   return (
     <WorkspacePaneHandoff
-      holdGate={loading && events.length === 0}
+      holdGate={holdSchedulerGate}
       fallback={<SchedulerPaneFallback />}
       probe="scheduler-handoff"
     >

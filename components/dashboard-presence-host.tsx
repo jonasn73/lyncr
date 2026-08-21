@@ -195,16 +195,18 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   useEffect(() => {
     // Warm Activity call rows while the owner is still on Lines (or any tab).
     prefetchOperationsData()
-    // Warm Map + Activity chunks ASAP so the first tab click is not a dynamic() blank.
+    // Warm Map + Activity + Scheduler chunks ASAP so the first tab click is not a dynamic() blank.
     void import("@/components/workspace-views/map-workspace-view")
     void import("@/components/workspace-views/activity-workspace-view")
     void import("@/components/workspace-views/crm-workspace-view")
+    void import("@/components/workspace-views/scheduler-workspace-view")
     // Preload remaining heavy panes on idle.
     const warmChunks = () => {
       void import("@/components/workspace-views/crm-workspace-view")
       void import("@/components/workspace-views/messages-workspace-view")
       void import("@/components/workspace-views/map-workspace-view")
       void import("@/components/workspace-views/activity-workspace-view")
+      void import("@/components/workspace-views/scheduler-workspace-view")
     }
     const idleId =
       typeof window.requestIdleCallback === "function"

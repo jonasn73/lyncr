@@ -16,10 +16,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
-import {
-  useDashboardBootstrapEffective,
-  useDashboardBootstrapSyncing,
-} from "@/components/dashboard-bootstrap-context"
 import { MessagesPaneFallback } from "@/components/workspace-pane-fallbacks"
 import { WorkspacePaneHandoff } from "@/components/workspace-pane-handoff"
 import {
@@ -156,8 +152,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   urlQuery: string
 }) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
-  const bootstrap = useDashboardBootstrapEffective()
-  const bootstrapSyncing = useDashboardBootstrapSyncing()
   // Parse ?phone= / ?draft= without useSearchParams() remounting Messages on tab click.
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const router = useRouter()
@@ -764,11 +758,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     }
   }
 
-  // Cold Messages: skip gate when inbox cache/seed already has threads (Lines-style).
+  // Cold Messages: skip cover when inbox already painted; otherwise hold until fetch settles.
   const hasMessagesPaint = messages.length > 0 || hasPaintedMessagesRef.current
-  const holdMessagesBootstrapGate =
-    !hasMessagesPaint &&
-    ((bootstrap == null && bootstrapSyncing) || (loading && threads.length === 0))
+  const holdMessagesBootstrapGate = !hasMessagesPaint && loading && threads.length === 0
 
   return (
     <WorkspacePaneHandoff
