@@ -226,18 +226,8 @@ export function HoldQueueWaitingCard({
           </p>
         )
       }
-      // Confirmed empty today → keep quiet height (never null) so Who rings does not jump up.
-      if (queueSettled || seededStats != null) {
-        return (
-          <section
-            className={cn("px-3 py-2 sm:px-4", className)}
-            aria-hidden
-            data-flicker-probe="lines-hold-queue-slot"
-          >
-            <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>
-          </section>
-        )
-      }
+      // Confirmed empty with no today stats → hide (CallFlow min-h keeps Who rings stable).
+      if (queueSettled || seededStats != null) return null
       return (
         <section className={cn("px-3 py-2 sm:px-4", className)} aria-hidden>
           <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>

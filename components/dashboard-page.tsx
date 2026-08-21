@@ -668,17 +668,19 @@ export function DashboardPage() {
     })
   }, [businessNumbers, activeLine, toast, saveRouting, selectedReceptionistId])
 
-  // Cold Lines home: hold until first bootstrap, and until line chrome can settle after hydrate.
-  // Safe exit: syncing false + still no lines → fall through to real Lines (empty/setup).
+  // Cold Lines: hold until bootstrap/chrome can settle — skip entirely when cookie paint already has lines.
+  const hasLinesPaint = Boolean(linesPaint?.lines?.length)
   const holdLinesBootstrapGate =
-    (bootstrap == null && bootstrapSyncing) ||
-    (bootstrap != null &&
-      !activeLine &&
-      routedNumbers.length === 0 &&
-      (bootstrapSyncing || businessNumbersLoading))
+    !hasLinesPaint &&
+    ((bootstrap == null && bootstrapSyncing) ||
+      (bootstrap != null &&
+        !activeLine &&
+        routedNumbers.length === 0 &&
+        (bootstrapSyncing || businessNumbersLoading)))
 
   // Overlap handoff: keep fallback painted until real sticky + call-flow have committed layout.
-  const [linesHandoffReady, setLinesHandoffReady] = useState(false)
+  // Paint-seeded Lines never show the overlay (avoids skeleton flash over real chrome).
+  const [linesHandoffReady, setLinesHandoffReady] = useState(() => hasLinesPaint)
   const handoffLogRef = useRef({ ready: false, release: false })
 
   useLayoutEffect(() => {
@@ -688,7 +690,8 @@ export function DashboardPage() {
   }, [holdLinesBootstrapGate])
 
   const mountRealSurface = !holdLinesBootstrapGate
-  const showFallbackOverlay = holdLinesBootstrapGate || !linesHandoffReady
+  const showFallbackOverlay =
+    !hasLinesPaint && (holdLinesBootstrapGate || !linesHandoffReady)
 
   const handleLinesHandoffReady = useCallback(() => {
     if (handoffLogRef.current.ready) {

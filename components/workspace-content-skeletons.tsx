@@ -9,7 +9,7 @@ import {
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
 
-const SKELETON_BLOCK = "rounded-xl bg-zinc-900 sigo-skeleton-breathe"
+const SKELETON_BLOCK = "rounded-xl bg-zinc-900/80"
 
 /** Wrapper for lists/cards after data is ready — no opacity fade (that looked like a dark overlay). */
 export function WorkspaceBloom({ children, className }: { children: ReactNode; className?: string }) {

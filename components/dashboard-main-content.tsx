@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useEffect, useRef, useState, type ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import type { PageId } from "@/components/app-shell"
 import { DashboardPageView } from "@/components/dashboard-page-view"
 import {
@@ -20,23 +20,13 @@ export const DashboardMainContent = memo(function DashboardMainContent({
   activePage: PageId
   routedChildren: ReactNode
 }) {
-  // Only animate after the user changes tabs — never on hard refresh (opacity 0 → 1 blink).
-  const prevPageRef = useRef(activePage)
-  const [enterAnim, setEnterAnim] = useState(false)
   const isPresence = isDashboardPresencePage(activePage)
 
   useFlickerDebugLifecycle("DashboardMainContent", {
     activePage,
     isPresence,
-    enterAnim,
     remountKey: isPresence ? "none" : activePage,
   })
-
-  useEffect(() => {
-    if (prevPageRef.current === activePage) return
-    prevPageRef.current = activePage
-    setEnterAnim(true)
-  }, [activePage])
 
   if (isPresence) {
     return (
@@ -48,8 +38,9 @@ export const DashboardMainContent = memo(function DashboardMainContent({
     )
   }
 
+  // Never opacity-enter on dashboard — even secondary routes (looked like a refresh flash).
   return (
-    <DashboardPageView animateEnter={enterAnim} key={activePage}>
+    <DashboardPageView key={activePage}>
       {routedChildren}
     </DashboardPageView>
   )

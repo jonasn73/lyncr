@@ -104,8 +104,8 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               </span>
             )
           ) : (
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-              …
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Available
             </span>
           )}
           <Switch

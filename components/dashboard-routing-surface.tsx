@@ -197,7 +197,11 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   const missedLeadInsights = useMissedLeadInsights(businessNumbers, linesActive)
 
   const stickyHeaderMode =
-    businessNumbers.length > 0 || callFlowUiReady ? "active-line-subheader" : "blank-reserved"
+    businessNumbers.length > 0
+      ? "active-line-subheader"
+      : quickSetupDecided
+        ? "active-line-subheader"
+        : "blank-reserved"
   const stickyMeasureRef = useFlickerBoxMeasure("LinesStickyChrome", "lines-sticky-chrome")
   const handoffReadyFiredRef = useRef(false)
 
@@ -223,7 +227,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   })
 
   // Sticky Main Line status only — Available/Busy lives at the bottom with Caller ID.
-  // Prefer real ActiveLineSubHeader whenever we have seeded/live numbers — never opacity-0 blank chrome.
+  // Prefer real ActiveLineSubHeader once numbers exist OR setup decided (never opacity-0 blank when ready).
   const stickyChrome = (
     <div
       ref={stickyMeasureRef}
@@ -231,7 +235,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
       className="sticky top-0 z-50 w-full bg-slate-950"
     >
       <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
-        {businessNumbers.length > 0 || callFlowUiReady ? (
+        {businessNumbers.length > 0 || quickSetupDecided ? (
           <ActiveLineSubHeader
             bare
             businessNumbers={businessNumbers}

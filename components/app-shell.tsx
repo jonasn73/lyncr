@@ -249,15 +249,25 @@ function AppShellInner({
 
   useLayoutEffect(() => {
     if (!pathname) return
+    // Soft tab switches inside the presence host keep scroll — only reset on hard path changes
+    // that leave/enter the dashboard shell area (avoids jump on Routing ↔ Activity).
     const el = mainRef.current
-    if (el) {
-      el.scrollTop = 0
-      logFlicker({
-        event: "scroll-reset",
-        component: "AppShell",
-        pathname,
-      })
+    if (!el) return
+    const path = pathname.split("?")[0] || pathname
+    const isDash =
+      path === "/dashboard" ||
+      path === "/dashboard/" ||
+      path.startsWith("/dashboard/")
+    if (isDash) {
+      // Presence tabs share one scroll container; resetting to 0 on every tab felt like a flash.
+      return
     }
+    el.scrollTop = 0
+    logFlicker({
+      event: "scroll-reset",
+      component: "AppShell",
+      pathname,
+    })
   }, [pathname])
 
   useGlobalKeyPress({
