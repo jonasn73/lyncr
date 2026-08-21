@@ -10,9 +10,9 @@ type PersistedEnvelope<T> = {
   data: T
 }
 
-// First HTML cannot see sessionStorage. Reading it during hydrate made the client
-// tree differ from the server tree, so React threw away the page and it flashed.
-// Stay off until SessionCacheHydrationGate turns this on (before the first paint).
+// First HTML cannot see sessionStorage — reading it during hydrate mismatched SSR
+// and React threw away the page. SessionCacheHydrationGate unlocks in useLayoutEffect
+// and bumps useSessionCacheReady so every useSessionSeed re-reads before paint.
 let browserSessionReadsAllowed =
   typeof process !== "undefined" &&
   (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))

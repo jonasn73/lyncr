@@ -10,9 +10,13 @@
  * values on the first render. For SSR-hydrated trees, React reuses the
  * server state (initializer does not re-run) — useLayoutEffect re-reads
  * once per revisionKey before browser paint.
+ *
+ * Also re-reads when SessionCacheHydrationGate flips ready (session unlock)
+ * so hard refresh is not stuck on skeleton waiting for the network.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 
 /**
  * @deprecated Prefer useSessionSeed. Kept as a no-op so old call sites compile;
@@ -33,6 +37,7 @@ export function useClientSnapshot<T>(
  *
  * - Lazy useState: reads storage synchronously when the initializer runs (client mounts)
  * - useLayoutEffect: re-reads once per revisionKey (fixes SSR hydration + org switches)
+ * - Re-reads when session cache unlocks (hard refresh → instant list, not network wait)
  * - No external-store subscription → no #185 loops from JSON re-reads
  *
  * @param read - Must return a stable empty sentinel on cache miss (same reference).
@@ -44,9 +49,9 @@ export function useSessionSeed<T>(
   serverFallback: T,
   revisionKey: string | number | null | undefined = ""
 ): T {
-  // Always call read() — including on SSR — so cookie-backed paint seeds can
-  // land in the first HTML. (Old code returned serverFallback on the server,
-  // which forced $0 / empty until hydrate and caused the refresh jump.)
+  const sessionReady = useSessionCacheReady()
+  const effectiveKey = `${revisionKey ?? ""}::s${sessionReady ? 1 : 0}`
+
   const [value, setValue] = useState<T>(() => {
     try {
       return read()
@@ -62,11 +67,10 @@ export function useSessionSeed<T>(
     } catch {
       return
     }
-    // Always apply — callers use stable EMPTY_* refs on miss, so Object.is often skips churn.
     setValue((prev) => (Object.is(prev, next) ? prev : next))
-    // Intentionally omit `read` — it is usually an inline closure; revisionKey gates re-runs.
+    // Intentionally omit `read` — it is usually an inline closure; effectiveKey gates re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- #185: never depend on read identity
-  }, [revisionKey])
+  }, [effectiveKey])
 
   return value
 }
