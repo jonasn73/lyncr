@@ -68,8 +68,6 @@ export function JobPoolCard({
     nearestTech != null ? formatFieldDistanceLabel(nearestTech.miles) : null
   const sidebar = variant === "sidebar"
   const vehicle = vehicleLabelFromParts(job.vehicle_year, job.vehicle_make, job.vehicle_model)
-  const area = job.neighborhood || job.location
-  const region = job.region?.trim() || null
   const postalCode = resolvePoolJobPostalCode(job)
   const priority = resolvePoolJobBookingPriority(job, now)
   const priorityBadge = POOL_JOB_PRIORITY_BADGE_LABEL[priority]
@@ -85,8 +83,31 @@ export function JobPoolCard({
     ? "w-full text-sm block break-words text-muted-foreground"
     : "truncate"
 
-  // One quiet meta line: vehicle • service • $price (no icon stacking / no $$)
-  const metaLine = [vehicle, serviceLabel, priceLabel].filter(Boolean).join(" • ")
+  // One quiet meta line: vehicle • service • $price — skip service when it already is the title.
+  const metaParts = [
+    vehicle,
+    serviceLabel && serviceLabel !== displayName ? serviceLabel : null,
+    priceLabel,
+  ].filter(Boolean)
+  const metaLine = metaParts.join(" • ")
+
+  // Prefer one place string — paint sets neighborhood === location (same clip) which looked duplicated.
+  const neigh = (job.neighborhood ?? "").trim()
+  const loc = (job.location ?? "").trim()
+  let placePrimary = ""
+  if (neigh && loc) {
+    if (loc === neigh || loc.includes(neigh) || neigh.includes(loc)) {
+      placePrimary = loc.length >= neigh.length ? loc : neigh
+    } else {
+      placePrimary = `${neigh}, ${loc}`
+    }
+  } else {
+    placePrimary = neigh || loc
+  }
+  const region = job.region?.trim() || null
+  const placeLine = [placePrimary, region && placePrimary !== region ? region : null]
+    .filter(Boolean)
+    .join(", ")
 
   return (
     <button
@@ -132,7 +153,8 @@ export function JobPoolCard({
           <p
             className={cn(
               "w-full text-sm font-medium text-slate-100",
-              wrapText ? "break-words" : "truncate"
+              // Wrap long titles — truncate cut “Duplication” mid-word on paint→live growth.
+              "break-words"
             )}
           >
             {displayName}
@@ -185,7 +207,8 @@ export function JobPoolCard({
             <p
               className={cn(
                 "mt-1 text-xs text-slate-400",
-                wrapText ? "break-words" : "truncate"
+                // Always wrap long service labels (e.g. “… Duplication”) — truncate was cutting words.
+                "break-words"
               )}
             >
               {metaLine}
@@ -211,11 +234,11 @@ export function JobPoolCard({
                 </span>
               </p>
             ) : null}
-            {area || region || postalCode ? (
+            {placeLine || postalCode ? (
               <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-slate-500")}>
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
-                <span className={cn(detailTextClass, !wrapText && "text-xs text-slate-500")}>
-                  {[area, region && area !== region ? region : null].filter(Boolean).join(", ")}
+                <span className={cn(detailTextClass, "break-words", !wrapText && "text-xs text-slate-500")}>
+                  {placeLine}
                   {postalCode ? (
                     <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>
                   ) : null}

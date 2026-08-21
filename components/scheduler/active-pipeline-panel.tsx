@@ -104,17 +104,13 @@ export function ActivePipelinePanel({
   }, [jobs, includeAllPhases])
 
   if (loading) {
-    return (
-      <p className="p-6 text-center text-sm text-zinc-500">Loading active pipeline…</p>
-    )
+    // Opaque height reserve — text “Loading…” was flashing under the pipeline header.
+    return <div className="min-h-[4.5rem]" aria-busy aria-label="Loading active pipeline" />
   }
 
   if (grouped.length === 0) {
-    return (
-      <p className="p-6 text-center text-sm text-zinc-500">
-        No active jobs for this day — completed stops are hidden from the dispatch board.
-      </p>
-    )
+    // Stay quiet — parent already reserves min-height; copy here flashed before jobs arrived.
+    return <div className="min-h-[4.5rem]" />
   }
 
   return (

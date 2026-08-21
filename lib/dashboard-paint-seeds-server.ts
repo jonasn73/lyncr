@@ -65,6 +65,7 @@ import {
 } from "@/lib/messages-paint-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
+import { TIMEZONE_COOKIE, parseTimezoneCookie } from "@/lib/browser-timezone-cookie"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
 type TelemetryPaintCookie = {
@@ -87,6 +88,9 @@ export type PaintCookieGetter = (name: string) => string | undefined
 export function readDashboardPaintSeedsFromCookies(
   getCookie: PaintCookieGetter
 ): DashboardPaintSeeds {
+  // Same zone the phone wrote — keeps SSR Message list dates from flipping on hydrate.
+  const timeZone = parseTimezoneCookie(getCookie(TIMEZONE_COOKIE))
+
   const moneyRaw = getCookie(HEADER_MONEY_COOKIE)
   const money = readPaintSeedCookieValue<HeaderMoneyCache>(moneyRaw)
   const moneyOk = money && typeof money.availableCents === "number" ? money : null
@@ -213,7 +217,8 @@ export function readDashboardPaintSeedsFromCookies(
     !scheduler &&
     !messages
   ) {
-    return EMPTY_DASHBOARD_PAINT_SEEDS
+    // Still ship timezone alone so Messages can SSR with the owner zone.
+    return { ...EMPTY_DASHBOARD_PAINT_SEEDS, timeZone }
   }
 
   return {
@@ -233,5 +238,6 @@ export function readDashboardPaintSeedsFromCookies(
     mapPool,
     scheduler,
     messages,
+    timeZone,
   }
 }

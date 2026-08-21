@@ -17,6 +17,8 @@ type ActivePipelinePanelStreamProps = {
   onMarkComplete?: (jobId: string) => void
   completingJobId?: string | null
   layout?: "default" | "mobileSheet"
+  /** Quiet reserve while first paint loads — no “Loading…” / “No active jobs” flash. */
+  loading?: boolean
 }
 
 /** Map left rail — uses live SWR jobs from the parent when provided. */
@@ -29,11 +31,13 @@ export function ActivePipelinePanelStream({
   onMarkComplete,
   completingJobId,
   layout = "default",
+  loading = false,
 }: ActivePipelinePanelStreamProps) {
   if (jobs !== undefined) {
     return (
       <ActivePipelinePanel
         jobs={jobs}
+        loading={loading}
         highlightId={highlightId}
         onFocusJob={onFocusJob}
         onEditJob={onEditJob}

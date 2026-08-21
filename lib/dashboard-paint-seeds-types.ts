@@ -47,6 +47,11 @@ export type DashboardPaintSeeds = {
   scheduler: SchedulerPaintSeed | null
   /** Compact Messages thread previews for hard-refresh first paint. */
   messages: MessagesPaintSeed | null
+  /**
+   * Owner IANA timezone from `lyncr_tz` — SSR Message/Activity times must match
+   * the phone (Node Intl alone is often UTC and flips row dates on hydrate).
+   */
+  timeZone: string | null
 }
 
 /** Stable empty sentinel — same reference on every miss. */
@@ -67,4 +72,5 @@ export const EMPTY_DASHBOARD_PAINT_SEEDS: DashboardPaintSeeds = {
   mapPool: null,
   scheduler: null,
   messages: null,
+  timeZone: null,
 }

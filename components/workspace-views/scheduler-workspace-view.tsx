@@ -1270,36 +1270,26 @@ function SchedulerWorkspaceViewInner({
                 </p>
               </div>
               <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                {displayPipelineJobs.length > 0 ? (
-                  <ActivePipelinePanelStream
-                    jobs={displayPipelineJobs}
-                    dayKey={pipelineDayKey}
-                    useStreamedInitialDay={useStreamedPipeline}
-                    highlightId={highlightId}
-                    onFocusJob={highlightPipelineJob}
-                    onEditJob={editPipelineJob}
-                    onMarkComplete={handleMarkJobComplete}
-                    completingJobId={completingId}
-                  />
-                ) : null}
+                {/* Always mount — empty/null swap was the flash under pipeline data. */}
+                <ActivePipelinePanelStream
+                  jobs={displayPipelineJobs}
+                  dayKey={pipelineDayKey}
+                  useStreamedInitialDay={useStreamedPipeline}
+                  highlightId={highlightId}
+                  onFocusJob={highlightPipelineJob}
+                  onEditJob={editPipelineJob}
+                  onMarkComplete={handleMarkJobComplete}
+                  completingJobId={completingId}
+                  loading={
+                    (pipelineLoading || loading || !bootstrapSettled) &&
+                    displayPipelineJobs.length === 0
+                  }
+                />
               </div>
             </WorkspacePanel>
 
             <WorkspacePanel className="relative flex w-full min-w-0 flex-col overflow-hidden">
-              {bootstrapSettled &&
-              !loading &&
-              !pipelineLoading &&
-              displayPipelineJobs.length === 0 &&
-              assignableTechs.length === 0 ? (
-                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/40 px-4 text-center">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-300">Board is quiet</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Add technicians in Team, then use New Intake to book the first job.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
+              {/* No “Board is quiet” overlay — it flashed over swimlanes while techs loaded. */}
               <details className="group border-b border-border/60 lg:hidden">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                       {/* Label only — live date/time already sits in the status card above. */}
@@ -1382,7 +1372,7 @@ function SchedulerWorkspaceViewInner({
                   <TechnicianSwimlaneBoard
                     technicians={technicians}
                     dayEvents={dayEvents}
-                    loading={loading || gridScheduleSaving}
+                    loading={loading || gridScheduleSaving || !bootstrapSettled}
                     highlightId={highlightId}
                     onSelectEvent={openScheduledJobDrawer}
                     onDropPoolJob={schedulePoolOnTechLane}

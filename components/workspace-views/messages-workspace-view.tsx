@@ -102,10 +102,11 @@ function formatOutboundDeliveryLabel(msg: SmsMessage): string | null {
   return formatSmsDeliveryLabel(msg)
 }
 
-function formatMessageTime(iso: string): string {
+/** Thread-list stamp — same IANA zone on SSR and phone (avoids 3rd/4th-row date flips). */
+function formatMessageTime(iso: string, timeZone: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  const tz = resolveOwnerTimezone()
+  const tz = timeZone
   if (calendarDayKeyInZone(d, tz) === calendarDayKeyInZone(new Date(), tz)) {
     return formatListTimeLabel(d, tz)
   }
@@ -180,6 +181,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const paintSeeds = useDashboardPaintSeeds()
   // Layout cookie only — never re-parse document.cookie every render (unstable object → org-clear loop).
   const messagesPaint = paintSeeds.messages
+  // Prefer SSR seed zone so first HTML matches hydrate (Node Intl is often UTC).
+  const messageTimeZone = paintSeeds.timeZone || resolveOwnerTimezone()
   // Shared Latest cache — leftover book forms for the orange thread banner.
   const { items: latestItems } = useOwnerLatest(activeOrganizationId)
   // Workspace / org name for chip sign-offs (falls back to outbound “Name — …” prefix).
@@ -934,7 +937,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         {formatPhoneDisplay(thread.customerPhone)}
                       </span>
                       <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                        {formatMessageTime(thread.lastMessage.created_at)}
+                        {formatMessageTime(thread.lastMessage.created_at, messageTimeZone)}
                       </span>
                     </div>
                     <p
@@ -1099,7 +1102,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
                         >
-                          {formatMessageTime(msg.created_at)}
+                          {formatMessageTime(msg.created_at, messageTimeZone)}
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (

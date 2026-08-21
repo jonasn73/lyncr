@@ -73,13 +73,14 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
       : undefined
   return {
     id: clip(job.id, 40),
-    n: clip(title, 28),
-    pl: clip(place, 32),
+    // Longer clips — “Key replacement — Duplication” was cut at 20 chars on paint.
+    n: clip(title, 48),
+    pl: clip(place, 40),
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
     ...(phone ? { ph: clip(phone, 16) } : {}),
-    ...(service ? { sv: clip(service, 20) } : {}),
-    ...(vehicle ? { vh: clip(vehicle, 24) } : {}),
+    ...(service ? { sv: clip(service, 44) } : {}),
+    ...(vehicle ? { vh: clip(vehicle, 32) } : {}),
     ...(price != null ? { pc: price } : {}),
     ...(ca ? { ca } : {}),
     ...(sa ? { sa } : {}),
@@ -102,8 +103,9 @@ export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] 
       id: row.id,
       customer_name: row.n,
       customer_phone: row.ph ?? null,
+      // Only one place field — both equal caused “Louisville, Louisville” on the card.
       location: row.pl || null,
-      neighborhood: row.pl || null,
+      neighborhood: null,
       summary: row.n,
       job_type: row.sv ?? null,
       vehicle_year: year,
