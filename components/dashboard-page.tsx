@@ -701,6 +701,7 @@ export function DashboardPage() {
       component: "DashboardPage:Lines",
       mountRealSurface: true,
       fallbackStillVisible: true,
+      realSurfaceInFlow: true,
     })
     setLinesHandoffReady(true)
   }, [])
@@ -746,13 +747,9 @@ export function DashboardPage() {
       {mountRealSurface ? (
         <div
           data-flicker-probe="lines-real-surface"
-          className={cn(
-            showFallbackOverlay
-              ? "pointer-events-none absolute inset-x-0 top-0 z-0 select-none"
-              : "relative z-0"
-          )}
+          // Always in normal flow — never absolute/top-0 (that pinned Who rings to the top).
+          className="relative z-0"
           aria-hidden={showFallbackOverlay}
-          // Prevent keyboard/AT hitting real controls while the gate still covers them.
           {...(showFallbackOverlay ? { inert: true } : {})}
         >
           <DashboardRoutingWithSheets
@@ -799,7 +796,11 @@ export function DashboardPage() {
 
       {showFallbackOverlay ? (
         <div
-          className="relative z-10 flex w-full flex-col bg-background"
+          className={cn(
+            "z-10 flex w-full flex-col bg-background",
+            // Cover in-flow real surface without taking it out of flow.
+            mountRealSurface ? "absolute inset-0 overflow-hidden" : "relative"
+          )}
           aria-busy="true"
           aria-label="Loading Lines"
           data-flicker-probe="lines-gate-fallback"
@@ -812,10 +813,27 @@ export function DashboardPage() {
           >
             <div className="flex min-h-[3.25rem] w-full items-center border-b border-zinc-800/90 px-3 py-2.5" />
           </div>
-          {/* Match real surface content padding + call-flow min height (no extra gap-3). */}
-          <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4" data-flicker-probe="lines-gate-skeleton">
-            <div className="min-h-[14.5rem]">
-              <CallFlowStepsSkeleton />
+          {/* Same padding + column gaps as live routing surface main column. */}
+          <div
+            className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4"
+            data-flicker-probe="lines-gate-skeleton"
+          >
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {/* Telemetry slot — reserves RoutingTelemetryStrip height so Who rings Y matches. */}
+              <div
+                className="min-h-[3.25rem] md:min-h-[5.5rem]"
+                aria-hidden
+                data-flicker-probe="lines-gate-telemetry-slot"
+              >
+                <div className="grid h-full min-h-[3.25rem] grid-cols-3 gap-1 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-1 md:min-h-[4.75rem] md:gap-2 md:rounded-2xl md:border-white/5 md:bg-neutral-950/40 md:p-3">
+                  <div className="rounded-md bg-zinc-800/40" />
+                  <div className="rounded-md bg-zinc-800/40" />
+                  <div className="rounded-md bg-zinc-800/40" />
+                </div>
+              </div>
+              <div className="min-h-[14.5rem]">
+                <CallFlowStepsSkeleton />
+              </div>
             </div>
           </div>
         </div>
