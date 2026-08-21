@@ -44,8 +44,10 @@ export function writePaintSeedCookie(scope: string, data: unknown): boolean {
   try {
     const envelope: PaintEnvelope<unknown> = { v: CACHE_VERSION, t: Date.now(), d: data }
     const payload = JSON.stringify(envelope)
-    if (payload.length > MAX_COOKIE_CHARS) return false
-    document.cookie = `${paintSeedCookieName(scope)}=${encodeURIComponent(payload)}; Path=/; Max-Age=${MAX_AGE_SEC}; SameSite=Lax`
+    // Browsers cap ~4KB on the whole Set-Cookie line — measure the encoded value.
+    const encoded = encodeURIComponent(payload)
+    if (encoded.length > MAX_COOKIE_CHARS) return false
+    document.cookie = `${paintSeedCookieName(scope)}=${encoded}; Path=/; Max-Age=${MAX_AGE_SEC}; SameSite=Lax`
     return true
   } catch {
     return false

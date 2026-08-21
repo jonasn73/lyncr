@@ -127,22 +127,40 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
 
 export function ActivityTableSkeleton() {
   return (
-    // Match page bg-background — bg-card/90 looked like a darker overlay on tab click.
     // Tall reserved well so skeleton → real rows does not collapse the page.
     <WorkspacePanel className="min-h-[min(70dvh,28rem)] bg-background shadow-none ring-0">
-      <TableSkeletonBody
-        columns={[
-          { width: "w-[11%]", label: "Status" },
-          { width: "w-[12%]", label: "Called" },
-          { width: "w-[18%]", label: "Caller" },
-          { width: "w-[16%]", label: "Intake" },
-          { width: "w-[8%]", label: "Duration" },
-          { width: "w-[12%]", label: "Agent" },
-          { width: "w-[13%]", label: "Line" },
-          { width: "w-[10%]", label: " " },
-        ]}
-        rows={8}
-      />
+      {/* Mobile: card list — matches ActivityCallsMobileList (not the desktop table). */}
+      <ul className="divide-y divide-zinc-800/70 md:hidden" aria-hidden>
+        {Array.from({ length: 8 }, (_, i) => (
+          <li key={i} className="px-3 py-2.5">
+            <div className="flex items-start gap-2">
+              <div className="mt-0.5 h-5 w-16 shrink-0 rounded-full bg-zinc-800/80" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="h-4 w-[55%] max-w-[12rem] rounded bg-zinc-800/80" />
+                <div className="h-3 w-[40%] max-w-[9rem] rounded bg-zinc-800/60" />
+                <div className="h-3 w-[48%] max-w-[10rem] rounded bg-zinc-800/50" />
+              </div>
+              <div className="mt-1 h-4 w-4 shrink-0 rounded bg-zinc-800/60" />
+            </div>
+          </li>
+        ))}
+      </ul>
+      {/* Desktop table skeleton */}
+      <div className="hidden md:block">
+        <TableSkeletonBody
+          columns={[
+            { width: "w-[11%]", label: "Status" },
+            { width: "w-[12%]", label: "Called" },
+            { width: "w-[18%]", label: "Caller" },
+            { width: "w-[16%]", label: "Intake" },
+            { width: "w-[8%]", label: "Duration" },
+            { width: "w-[12%]", label: "Agent" },
+            { width: "w-[13%]", label: "Line" },
+            { width: "w-[10%]", label: " " },
+          ]}
+          rows={8}
+        />
+      </div>
     </WorkspacePanel>
   )
 }

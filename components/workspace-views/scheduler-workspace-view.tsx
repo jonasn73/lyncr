@@ -42,6 +42,11 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
+import {
+  schedulerPaintCoversMonth,
+  writeSchedulerPaintSeed,
+} from "@/lib/scheduler-paint-cache"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
@@ -116,6 +121,7 @@ function SchedulerWorkspaceViewInner({
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
+  const paintSeeds = useDashboardPaintSeeds()
   const orgIdForSeed =
     activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
@@ -139,10 +145,12 @@ function SchedulerWorkspaceViewInner({
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
     return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.lineIndustryTags ?? []
   })
-  // Skeleton only when this month/org has never been cached.
+  // Skip loading shell when session OR paint cookie already knows this month.
   const [loading, setLoading] = useState(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return !readSchedulerBootstrapCache(monthKey, orgIdForSeed)
+    if (readSchedulerBootstrapCache(monthKey, orgIdForSeed)) return false
+    if (schedulerPaintCoversMonth(paintSeeds.scheduler, monthKey, orgIdForSeed)) return false
+    return true
   })
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
   const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
@@ -465,6 +473,7 @@ function SchedulerWorkspaceViewInner({
             lineIndustryTags: nextTags,
             ownerUserId: nextOwner,
           } satisfies SchedulerBootstrapCache)
+          writeSchedulerPaintSeed(monthKey, nextEvents.length, nextTechs.length, orgId)
         }
       )
       .catch(() => {
@@ -1089,9 +1098,11 @@ function SchedulerWorkspaceViewInner({
     poolLoading,
   ])
 
-  // Hold until bootstrap settle — peel only when we have events or loading finished
-  // (empty board is OK; mid-load blank board caused the thin-bar screenshot).
-  const holdSchedulerGate = loading && events.length === 0
+  // Hold until bootstrap settle — peel only when we have events, paint cookie, or loading finished.
+  const holdSchedulerGate =
+    loading &&
+    events.length === 0 &&
+    !schedulerPaintCoversMonth(paintSeeds.scheduler, monthKey, orgId)
 
   return (
     <WorkspacePaneHandoff

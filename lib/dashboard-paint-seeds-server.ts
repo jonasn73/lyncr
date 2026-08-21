@@ -55,6 +55,10 @@ import {
   MAP_POOL_PAINT_COOKIE,
   readMapPoolPaintFromCookieRaw,
 } from "@/lib/map-pool-paint-cache"
+import {
+  SCHEDULER_PAINT_COOKIE,
+  readSchedulerPaintFromCookieRaw,
+} from "@/lib/scheduler-paint-cache"
 import { readPaintSeedCookieValue } from "@/lib/paint-seed-cookie"
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/workspace-organizations"
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
@@ -167,6 +171,17 @@ export function readDashboardPaintSeedsFromCookies(
       ? mapPoolParsed
       : null
 
+  const schedulerRaw = getCookie(SCHEDULER_PAINT_COOKIE)
+  const schedulerParsed = readSchedulerPaintFromCookieRaw(schedulerRaw)
+  const scheduler =
+    schedulerParsed &&
+    operationsPaintMatchesOrg(
+      { organizationId: schedulerParsed.organizationId, calls: [], fetchedAt: 0 },
+      activeOrgId
+    )
+      ? schedulerParsed
+      : null
+
   if (
     !moneyOk &&
     !telemetryForShop &&
@@ -179,7 +194,8 @@ export function readDashboardPaintSeedsFromCookies(
     !operations &&
     !holdQueue &&
     !crm &&
-    !mapPool
+    !mapPool &&
+    !scheduler
   ) {
     return EMPTY_DASHBOARD_PAINT_SEEDS
   }
@@ -199,5 +215,6 @@ export function readDashboardPaintSeedsFromCookies(
     holdQueue,
     crm,
     mapPool,
+    scheduler,
   }
 }
