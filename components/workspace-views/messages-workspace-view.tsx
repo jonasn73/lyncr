@@ -65,8 +65,10 @@ import {
 import { formatOwnerListTime } from "@/lib/settled-paint"
 import {
   messagesFingerprint,
+  messagesPaintToSms,
   messagesThreadListFingerprint,
   messagesThreadListIsQuietExpansion,
+  readMessagesThreadIndex,
   writeMessagesPaintSeed,
   type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
@@ -86,12 +88,14 @@ function readMessagesCache(
   orgId: string | null,
   _paint?: MessagesPaintSeed | null
 ): SmsMessage[] {
-  // Session / persisted inbox only — cookie stubs are never displayed (Activity pattern:
-  // short wrong list → full list flash). Cookie still warms writeMessagesPaintSeed for SSR layout.
+  // Full session inbox only — cookie paint comes from SSR context (same on server + client).
   const cached = readPersistedCache<{ messages: SmsMessage[] }>(messagesCacheKey(orgId))
   if (cached && Array.isArray(cached.messages) && cached.messages.length > 0) {
     return cached.messages
   }
+  // Session thread index (up to 80 heads) after hydrate unlock — not cookie (that is paintListSms).
+  const index = readMessagesThreadIndex(orgId)
+  if (index?.messages.length) return messagesPaintToSms(index)
   return EMPTY_MESSAGES
 }
 
@@ -184,7 +188,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   // Bumps after a successful full fetch so useSessionSeed re-reads session.
   const [inboxSeedRevision, setInboxSeedRevision] = useState(0)
-  // Cookie stubs are never displayed (Activity pattern). Session unlock or network paints the list.
+  // SSR paint — identical on server + first client paint (no empty-well hydration flash).
+  const paintListSms = useMemo(
+    () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
+    [messagesPaint]
+  )
   const cachedMessages = useSessionSeed(
     () => readMessagesCache(orgId, messagesPaint),
     EMPTY_MESSAGES,
@@ -193,8 +201,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
   // Full inbox for the open conversation (may differ from list heads while merging).
   const [conversationInbox, setConversationInbox] = useState<SmsMessage[] | null>(null)
-  // Display session or live only — quiet well until one of those exists.
-  const messages = liveMessages ?? cachedMessages
+  // live → session (merged with paint) → SSR paint.
+  const sessionDisplay = useMemo(() => {
+    if (cachedMessages.length === 0) return paintListSms
+    if (
+      paintListSms.length > 0 &&
+      messagesThreadListIsQuietExpansion(paintListSms, cachedMessages)
+    ) {
+      return mergePaintedThreadHeads(paintListSms, cachedMessages)
+    }
+    return cachedMessages
+  }, [cachedMessages, paintListSms])
+  const messages = liveMessages ?? sessionDisplay
   const messagesForCompareRef = useRef(messages)
   messagesForCompareRef.current = messages
   // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
@@ -207,13 +225,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     threadTimeLabelRef.current.set(key, { id: msgId, label })
     return label
   }
-  // Spinner until session or network — cookie stubs are not shown (quiet well only).
+  // Quiet only when no paint and no session — paint rows count as settled first paint.
+  const hasPaintRows = paintListSms.length > 0
   const [loading, setLoading] = useState(
-    () => messages.length === 0
+    () => !hasPaintRows && messages.length === 0
   )
-  // True after first successful fetch (or non-empty session) — gates “No texts yet”.
-  // Cookie warm alone must NOT settle — that flashed empty marketing then rows.
-  const [inboxSettled, setInboxSettled] = useState(() => messages.length > 0)
+  const [inboxSettled, setInboxSettled] = useState(
+    () => hasPaintRows || messages.length > 0
+  )
   // Freeze list preview by phone until inbox settles — head id changes still rewrite short→long.
   const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
   const threadPreviewBody = (phone: string, msgId: string, body: string) => {
