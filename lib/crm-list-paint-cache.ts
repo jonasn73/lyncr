@@ -12,6 +12,7 @@ import {
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
+import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 export const CRM_LIST_PAINT_SCOPE = "crm-list"
 export const CRM_LIST_PAINT_COOKIE = paintSeedCookieName(CRM_LIST_PAINT_SCOPE)
@@ -38,6 +39,11 @@ export type CrmListPaintSeed = {
 }
 
 const MAX_PAINT_ROWS = 16
+const MAX_SESSION_ROWS = 80
+
+function crmListIndexKey(organizationId: string | null): string {
+  return persistedCacheKey("crm-list-index", organizationId ?? "default")
+}
 
 function clip(s: string, n: number): string {
   const t = String(s || "")
@@ -88,11 +94,42 @@ export function crmPaintToListItems(seed: CrmListPaintSeed): CrmCustomerListItem
   }))
 }
 
+/** Session list index — larger than cookie; bottom rows exist before network returns. */
+export function writeCrmListIndex(
+  customers: CrmCustomerListItem[],
+  organizationId: string | null = null
+): void {
+  const payload: CrmListPaintSeed = {
+    organizationId,
+    customers: customers.slice(0, MAX_SESSION_ROWS).map(trimRow),
+  }
+  writePersistedCache(crmListIndexKey(organizationId), payload)
+}
+
+export function readCrmListIndex(
+  organizationId: string | null = null
+): CrmListPaintSeed | null {
+  const parsed = readPersistedCache<CrmListPaintSeed>(crmListIndexKey(organizationId))
+  if (!parsed || !Array.isArray(parsed.customers) || parsed.customers.length === 0) {
+    return null
+  }
+  if (
+    !operationsPaintMatchesOrg(
+      { organizationId: parsed.organizationId, calls: [], fetchedAt: 0 },
+      organizationId
+    )
+  ) {
+    return null
+  }
+  return parsed
+}
+
 /** Persist after a successful CRM list load. Shrinks until the cookie fits. */
 export function writeCrmListPaintSeed(
   customers: CrmCustomerListItem[],
   organizationId: string | null = null
 ): void {
+  writeCrmListIndex(customers, organizationId)
   let n = Math.min(MAX_PAINT_ROWS, Math.max(0, customers.length))
   while (n >= 0) {
     const payload: CrmListPaintSeed = {

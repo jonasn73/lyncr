@@ -32,3 +32,21 @@ export function mergePaintedCrmHeads(
   }
   return merged
 }
+
+/** Keep every row already on screen — stops bottom-half status/name rewrites on fetch. */
+export function mergeVisibleCrmRows(
+  visible: CrmCustomerListItem[],
+  live: CrmCustomerListItem[]
+): CrmCustomerListItem[] {
+  if (visible.length === 0) return live
+  const visibleIds = new Set(visible.map((r) => r.id))
+  const liveIds = new Set(live.map((r) => r.id))
+  const merged: CrmCustomerListItem[] = []
+  for (const row of visible) {
+    if (liveIds.has(row.id)) merged.push(row)
+  }
+  for (const row of live) {
+    if (!visibleIds.has(row.id)) merged.push(row)
+  }
+  return merged
+}

@@ -129,6 +129,15 @@ function schedulerOrgId(raw: string | null | undefined): string | null {
   return raw.trim()
 }
 
+function monthKeyFor(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function readBootstrapForOrg(orgId: string | null, month = new Date()): SchedulerBootstrapCache | null {
+  if (!orgId) return null
+  return readSchedulerBootstrapCache(monthKeyFor(month), orgId)
+}
+
 function SchedulerWorkspaceViewInner({
   isActive = true,
   urlQuery,
@@ -143,38 +152,30 @@ function SchedulerWorkspaceViewInner({
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const orgId = schedulerOrgId(activeOrganizationId)
+  // Paint-seed stub → real uuid: never paint default-cache rows from the wrong shop.
+  const orgResolving = Boolean(activeOrganizationId?.trim()) && orgId == null
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
+  const initialBootstrap = readBootstrapForOrg(orgId)
   // Lazy session read once — never call sessionStorage on every render (#185).
-  const [events, setEvents] = useState<SchedulerEvent[]>(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgId)?.events ?? []
-  })
-  const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgId)?.blockouts ?? []
-  })
+  const [events, setEvents] = useState<SchedulerEvent[]>(() => initialBootstrap?.events ?? [])
+  const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>(
+    () => initialBootstrap?.blockouts ?? []
+  )
   const [blockoutModalOpen, setBlockoutModalOpen] = useState(false)
   const [deletingBlockoutId, setDeletingBlockoutId] = useState<string | null>(null)
-  const [technicians, setTechnicians] = useState<FieldTechnician[]>(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgId)?.technicians ?? []
-  })
-  const [lineIndustryTags, setLineIndustryTags] = useState<string[]>(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgId)?.lineIndustryTags ?? []
-  })
-  // Skip loading shell only when session already has a real board (techs or events).
-  // Empty envelopes must not set loading=false — that flashes “Board is quiet” → jobs.
-  const [loading, setLoading] = useState(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return !schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
-  })
-  // Network bootstrap finished for this month/org — gates the true empty “Board is quiet”.
-  const [bootstrapSettled, setBootstrapSettled] = useState(() => {
-    const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
-  })
+  const [technicians, setTechnicians] = useState<FieldTechnician[]>(
+    () => initialBootstrap?.technicians ?? []
+  )
+  const [lineIndustryTags, setLineIndustryTags] = useState<string[]>(
+    () => initialBootstrap?.lineIndustryTags ?? []
+  )
+  const [loading, setLoading] = useState(
+    () => orgResolving || !schedulerBootstrapHasContent(initialBootstrap)
+  )
+  const [bootstrapSettled, setBootstrapSettled] = useState(
+    () => !orgResolving && schedulerBootstrapHasContent(initialBootstrap)
+  )
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
   const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
     () => new Map()
@@ -316,7 +317,7 @@ function SchedulerWorkspaceViewInner({
 
   // Paint last month bootstrap once per month/org — do not re-apply after live refresh writes cache.
   useLayoutEffect(() => {
-    if (!bootstrapSeed) return
+    if (!bootstrapSeed || !orgId) return
     const hasContent = schedulerBootstrapHasContent(bootstrapSeed)
     if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) {
       // Locked after a non-empty apply — ignore empty re-reads for this month/org.
@@ -342,7 +343,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: poolValidating,
     hasResolved: poolHasResolved,
     mutate: mutatePool,
-  } = useJobPoolQuery(activeOrganizationId, pollEnabled)
+  } = useJobPoolQuery(orgId, pollEnabled)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
@@ -354,7 +355,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: pipelineValidating,
     hasResolved: pipelineHasResolved,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled)
+  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -392,7 +393,7 @@ function SchedulerWorkspaceViewInner({
     () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
     [activePipelineJobs, excludeDeletedJobs]
   )
-  const boardBootstrapLoading = loading || !bootstrapSettled
+  const boardBootstrapLoading = orgResolving || loading || !bootstrapSettled
   const boardScopeKey = `${orgId ?? "default"}:${monthKey}`
   // Hold last good calendar + tech rows while bootstrap silently revalidates.
   const filteredEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
@@ -465,6 +466,7 @@ function SchedulerWorkspaceViewInner({
     !pipelineHasResolved
   const calendarSubtitlePending = !bootstrapSettled || loading || coldBoardPending
   const poolTrayLoading =
+    orgResolving ||
     ((poolLoading || !poolHasResolved || poolValidating) && displayPoolJobs.length === 0) ||
     (!bootstrapSettled && displayPoolJobs.length === 0)
 

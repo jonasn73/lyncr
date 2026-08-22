@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import useSWR from "swr"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
-import { organizationQueryString } from "@/lib/workspace-organizations"
+import { organizationQueryString, isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -20,6 +20,13 @@ type PoolResponse<T> = { data?: { jobs?: T[] } }
 
 const EMPTY_POOL_JOBS: UnassignedPoolJob[] = []
 const EMPTY_PIPELINE_JOBS: ActivePipelineJob[] = []
+
+/** Real Neon org id — never fetch pool/pipeline under paint-seed / legacy stubs. */
+function resolvePoolOrgId(activeOrganizationId: string | null | undefined): string | null {
+  const id = activeOrganizationId?.trim()
+  if (!id || id.startsWith("legacy-") || isWorkspaceOrgStubId(id)) return null
+  return id
+}
 
 export function jobPoolHopperUrl(activeOrganizationId: string | null): string {
   const orgQs = organizationQueryString(activeOrganizationId)
@@ -94,24 +101,26 @@ export function useJobPoolQuery(
   /** Pause hopper fetches when Scheduler/Map pane is hidden. Default true. */
   enabled = true
 ) {
-  // Null key pauses this subscriber without wiping the shared hopper cache.
-  const url = enabled ? jobPoolHopperUrl(activeOrganizationId) : null
-  const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
+  const orgId = resolvePoolOrgId(activeOrganizationId)
+  // Null key pauses fetch — never hit /pool without organization_id (wrong shop flash).
+  const url = enabled && orgId ? jobPoolHopperUrl(orgId) : null
+  const cacheKey = persistedCacheKey("job-pool-hopper", orgId ?? "default")
   const paintJobs = useDashboardPaintSeeds().mapPool
-  const paintSeed = readMapPoolPaintSeed(paintJobs, activeOrganizationId)
+  const paintSeed = readMapPoolPaintSeed(paintJobs, orgId)
   const sessionReady = useSessionCacheReady()
 
   const fallbackData = useMemo(() => {
+    if (!orgId) return undefined
     const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
     if (fromSession && fromSession.length > 0) return fromSession
     if (paintSeed?.jobs.length) {
       const places = sessionReady
-        ? readMapPoolPlaceIndex(activeOrganizationId)
+        ? readMapPoolPlaceIndex(orgId)
         : null
       return mapPoolPaintToJobs(paintSeed, places)
     }
     return undefined
-  }, [cacheKey, paintSeed, sessionReady, activeOrganizationId])
+  }, [cacheKey, paintSeed, sessionReady, orgId])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -119,7 +128,7 @@ export function useJobPoolQuery(
       swrJsonFetcher<PoolResponse<UnassignedPoolJob>>(key).then((json) => {
         const jobs = Array.isArray(json.data?.jobs) ? json.data!.jobs! : []
         writePersistedCache(cacheKey, jobs)
-        writeMapPoolPaintSeed(jobs, activeOrganizationId)
+        writeMapPoolPaintSeed(jobs, orgId)
         return jobs
       }),
     { ...defaultSwrConfig, fallbackData, revalidateOnFocus: false }
@@ -128,9 +137,10 @@ export function useJobPoolQuery(
   const hasCachedData =
     data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
+    if (!orgId) return EMPTY_POOL_JOBS
     if (data !== undefined) return data
     return fallbackData ?? EMPTY_POOL_JOBS
-  }, [data, fallbackData])
+  }, [data, fallbackData, orgId])
 
   return {
     jobs,
@@ -138,7 +148,9 @@ export function useJobPoolQuery(
     isLoading: isLoading && !hasCachedData,
     isValidating,
     /** True after SWR resolved (including empty) — gates Pool KPI zeros. */
-    hasResolved: data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0),
+    hasResolved:
+      orgId != null &&
+      (data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)),
     mutate,
   }
 }
@@ -168,18 +180,20 @@ export function useActivePipelineQuery(
   dayKey: string,
   enabled = true
 ) {
-  const url = enabled ? jobPoolActiveUrl(activeOrganizationId, dayKey) : null
+  const orgId = resolvePoolOrgId(activeOrganizationId)
+  const url = enabled && orgId ? jobPoolActiveUrl(orgId, dayKey) : null
   const cacheKey = persistedCacheKey(
     "job-pool-active",
-    `${activeOrganizationId ?? "default"}:${dayKey}`
+    `${orgId ?? "default"}:${dayKey}`
   )
   const sessionReady = useSessionCacheReady()
 
   const fallbackData = useMemo(() => {
+    if (!orgId) return undefined
     const fromSession = readPersistedCache<ActivePipelineJob[]>(cacheKey)
     if (fromSession && fromSession.length > 0) return fromSession
     return undefined
-  }, [cacheKey, sessionReady])
+  }, [cacheKey, sessionReady, orgId])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -195,9 +209,10 @@ export function useActivePipelineQuery(
   const hasCachedData =
     data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
+    if (!orgId) return EMPTY_PIPELINE_JOBS
     if (data !== undefined) return data
     return fallbackData ?? EMPTY_PIPELINE_JOBS
-  }, [data, fallbackData])
+  }, [data, fallbackData, orgId])
 
   return {
     jobs,
@@ -205,7 +220,9 @@ export function useActivePipelineQuery(
     isLoading: isLoading && !hasCachedData,
     isValidating,
     /** True after SWR resolved (including empty) — gates “0 active” until then. */
-    hasResolved: data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0),
+    hasResolved:
+      orgId != null &&
+      (data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)),
     mutate,
   }
 }

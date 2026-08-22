@@ -87,11 +87,13 @@ import {
   crmPaintToListItems,
   crmListFingerprint,
   readCrmListPaintSeed,
+  readCrmListIndex,
   writeCrmListPaintSeed,
 } from "@/lib/crm-list-paint-cache"
 import {
   crmListIsQuietExpansion,
   mergePaintedCrmHeads,
+  mergeVisibleCrmRows,
 } from "@/lib/crm-list-merge"
 import { useHeldList } from "@/lib/hooks/use-held-list"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
@@ -317,15 +319,18 @@ function crmListCacheKey(filter: CrmFilter, q: string): string {
 function readCrmListCache(
   filter: CrmFilter,
   q: string,
-  paint?: ReturnType<typeof readCrmListPaintSeed>
+  paint?: ReturnType<typeof readCrmListPaintSeed>,
+  orgId?: string | null
 ): CrmCustomerListItem[] {
   const cached = readPersistedCache<{ customers: CrmCustomerListItem[] }>(crmListCacheKey(filter, q))
   if (cached && Array.isArray(cached.customers) && cached.customers.length > 0) {
     return cached.customers
   }
-  // Default All list — cookie seed so hard refresh is not skeleton → names.
-  if (filter === "all" && !q.trim() && paint?.customers.length) {
-    return crmPaintToListItems(paint)
+  // Default All list — session index (80) then cookie paint (16).
+  if (filter === "all" && !q.trim()) {
+    const index = readCrmListIndex(orgId ?? null)
+    if (index?.customers.length) return crmPaintToListItems(index)
+    if (paint?.customers.length) return crmPaintToListItems(paint)
   }
   if (!cached || !Array.isArray(cached.customers)) return EMPTY_CRM_ROWS
   return cached.customers.length > 0 ? cached.customers : EMPTY_CRM_ROWS
@@ -376,7 +381,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     if (phoneParam) setQ(phoneParam)
   }, [searchParams])
   const cachedRows = useSessionSeed(
-    () => readCrmListCache(filter, debounced, crmPaint),
+    () => readCrmListCache(filter, debounced, crmPaint, crmOrgId),
     EMPTY_CRM_ROWS,
     `${filter}:${debounced}:${crmOrgId ?? ""}`
   )
@@ -388,6 +393,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     [crmPaint, filter, debounced]
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
+  const [listSettled, setListSettled] = useState(false)
+  const stableRowsRef = useRef<CrmCustomerListItem[]>([])
   const [loading, setLoading] = useState(
     () => paintListRows.length === 0 && cachedRows.length === 0
   )
@@ -402,10 +409,25 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     return cachedRows
   }, [cachedRows, paintListRows])
   const rawRows = liveRows ?? sessionDisplay
-  const rows = useHeldList(rawRows, {
+  const heldRows = useHeldList(rawRows, {
     scopeKey: `${crmOrgId ?? "default"}:${filter}:${debounced}`,
     loading,
   })
+  // Freeze visible row objects until first fetch — bottom rows stop rewriting status/name.
+  const rows = useMemo(() => {
+    if (listSettled) {
+      stableRowsRef.current = heldRows
+      return heldRows
+    }
+    const prev = stableRowsRef.current
+    if (prev.length === 0) {
+      stableRowsRef.current = heldRows
+      return heldRows
+    }
+    const merged = mergeVisibleCrmRows(prev, heldRows)
+    stableRowsRef.current = merged
+    return merged
+  }, [heldRows, listSettled])
   // Compare fingerprints against what is on screen (avoid stale closure / deps churn).
   const rowsForCompareRef = useRef(rows)
   rowsForCompareRef.current = rows
@@ -560,8 +582,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           ) {
             return mergePaintedCrmHeads(paintListRows, list)
           }
-          if (baseline.length > 0 && crmListIsQuietExpansion(baseline, list)) {
-            return mergePaintedCrmHeads(baseline, list)
+          if (baseline.length > 0) {
+            return mergeVisibleCrmRows(baseline, list)
           }
           logFlicker({
             event: "list-replace",
@@ -593,7 +615,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         })
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
-      .finally(() => setLoading(false))
+      .finally(() => {
+        setLoading(false)
+        setListSettled(true)
+      })
   }, [debounced, filter, pollEnabled, searchParams, crmOrgId, paintListRows])
 
   // Filter/search change — drop live override so the matching seed can show.
@@ -605,8 +630,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       liveRowsNull: true,
     })
     setLiveRows(null)
+    setListSettled(false)
+    stableRowsRef.current = []
     // Show spinner only when this filter/q has no seed yet.
-    if (readCrmListCache(filter, debounced, crmPaint).length === 0) {
+    if (readCrmListCache(filter, debounced, crmPaint, crmOrgId).length === 0) {
       logFlicker({
         event: "loading-true",
         component: "CrmWorkspaceView",
@@ -615,7 +642,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       setLoading(true)
     }
-  }, [filter, debounced])
+  }, [filter, debounced, crmPaint, crmOrgId])
 
   useEffect(() => {
     if (rows.length > 0) setLoading(false)
@@ -2598,7 +2625,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           setEditName(row.display_name || "")
                         }}
                         className={cn(
-                          "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
+                          "w-full rounded-xl border px-3 py-2.5 text-left",
                           active
                             ? "border-sky-500/40 bg-sky-500/10"
                             : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700"
