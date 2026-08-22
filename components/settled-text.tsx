@@ -36,6 +36,8 @@ type SettledCountProps = {
   count: number
   /** e.g. (n) => `${n} active job${n === 1 ? "" : "s"} today` */
   format: (n: number) => string
+  /** Cookie paint count — blocks flashing “0” until live rows catch up. */
+  paintHint?: number | null
   className?: string
   as?: "p" | "span" | "div"
 }
@@ -45,12 +47,13 @@ export function SettledCount({
   pending,
   count,
   format,
+  paintHint,
   className,
   as: Tag = "p",
 }: SettledCountProps) {
   return (
     <Tag className={cn(className)}>
-      {settledCountText(pending, count, format)}
+      {settledCountText(pending, count, format, paintHint)}
     </Tag>
   )
 }

@@ -45,6 +45,7 @@ import {
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import {
+  readSchedulerPaintSeed,
   schedulerPaintCoversMonth,
   writeSchedulerPaintSeed,
 } from "@/lib/scheduler-paint-cache"
@@ -341,21 +342,30 @@ function SchedulerWorkspaceViewInner({
 
   const paintSeeds = useDashboardPaintSeeds()
   const boardMonthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
+  const schedulerPaint = paintSeeds.scheduler
   const boardPaintCovers = schedulerPaintCoversMonth(
-    paintSeeds.scheduler,
+    schedulerPaint,
     boardMonthKey,
     orgIdForSeed
   )
+  const paintSaysBoard =
+    boardPaintCovers &&
+    ((schedulerPaint?.techCount ?? 0) > 0 || (schedulerPaint?.eventCount ?? 0) > 0)
   // Cookie says this month had a board — stay pending until bootstrap settles (cold tab).
   const coldBoardPending = boardPaintCovers && (!bootstrapSettled || loading)
 
   const boardCountsPending =
     !bootstrapSettled ||
     loading ||
+    coldBoardPending ||
     pipelineLoading ||
     !pipelineHasResolved ||
     (pipelineValidating && displayPipelineJobs.length === 0)
-  const techCountsPending = !bootstrapSettled || loading || coldBoardPending
+  const techCountsPending =
+    !bootstrapSettled ||
+    loading ||
+    coldBoardPending ||
+    (paintSaysBoard && assignableTechs.length === 0)
   const metricsPending =
     !bootstrapSettled ||
     loading ||
@@ -594,8 +604,17 @@ function SchedulerWorkspaceViewInner({
 
     return bootstrapFetch.finally(() => {
       initialBootstrapDoneRef.current = true
-      setBootstrapSettled(true)
       setLoading(false)
+      const cached = readSchedulerBootstrapCache(monthKey, orgId)
+      const hasContent = schedulerBootstrapHasContent(cached)
+      const paint = readSchedulerPaintSeed(orgId)
+      const paintSaysBoard =
+        schedulerPaintCoversMonth(paint, monthKey, orgId) &&
+        ((paint?.techCount ?? 0) > 0 || (paint?.eventCount ?? 0) > 0)
+      // Empty fetch must not settle when paint says this month already had a board (zero flash).
+      if (hasContent || !paintSaysBoard) {
+        setBootstrapSettled(true)
+      }
     })
   }, [monthKey, orgQuery, orgId])
 
@@ -1344,7 +1363,10 @@ function SchedulerWorkspaceViewInner({
                   onMarkComplete={handleMarkJobComplete}
                   completingJobId={completingId}
                   loading={
-                    (pipelineLoading || loading || !bootstrapSettled) &&
+                    (pipelineLoading ||
+                      loading ||
+                      !bootstrapSettled ||
+                      coldBoardPending) &&
                     displayPipelineJobs.length === 0
                   }
                 />
@@ -1394,6 +1416,7 @@ function SchedulerWorkspaceViewInner({
                       <SettledCount
                         pending={techCountsPending}
                         count={assignableTechs.length}
+                        paintHint={schedulerPaint?.techCount}
                         format={(n) =>
                           `${n} technician${n === 1 ? "" : "s"} · ${assignedDayJobCount} job${
                             assignedDayJobCount === 1 ? "" : "s"
@@ -1436,7 +1459,7 @@ function SchedulerWorkspaceViewInner({
                   <TechnicianSwimlaneBoard
                     technicians={technicians}
                     dayEvents={dayEvents}
-                    loading={loading || gridScheduleSaving || !bootstrapSettled}
+                    loading={techCountsPending || gridScheduleSaving}
                     highlightId={highlightId}
                     onSelectEvent={openScheduledJobDrawer}
                     onDropPoolJob={schedulePoolOnTechLane}

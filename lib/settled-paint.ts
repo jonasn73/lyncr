@@ -28,13 +28,16 @@ export function isSurfaceSettled(opts: {
 /**
  * Count / subtitle label — blank until settled so “0 active” never flashes.
  * When settled, returns the formatted string (including real zeros).
+ * Optional paintHint: if live count is 0 but cookie says we had rows, stay blank.
  */
 export function settledCountText(
   pending: boolean,
   count: number,
-  format: (n: number) => string
+  format: (n: number) => string,
+  paintHint?: number | null
 ): string {
   if (pending) return "\u00a0"
+  if (count === 0 && paintHint != null && paintHint > 0) return "\u00a0"
   return format(count)
 }
 
