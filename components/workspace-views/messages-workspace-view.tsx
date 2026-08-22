@@ -65,10 +65,8 @@ import {
 import { formatOwnerListTime } from "@/lib/settled-paint"
 import {
   messagesFingerprint,
-  messagesPaintToSms,
   messagesThreadListFingerprint,
   messagesThreadListIsQuietExpansion,
-  readBestMessagesPaint,
   writeMessagesPaintSeed,
   type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
@@ -86,17 +84,15 @@ function messagesCacheKey(orgId: string | null): string {
 
 function readMessagesCache(
   orgId: string | null,
-  paint?: MessagesPaintSeed | null
+  _paint?: MessagesPaintSeed | null
 ): SmsMessage[] {
+  // Session / persisted inbox only — cookie stubs are never displayed (Activity pattern:
+  // short wrong list → full list flash). Cookie still warms writeMessagesPaintSeed for SSR layout.
   const cached = readPersistedCache<{ messages: SmsMessage[] }>(messagesCacheKey(orgId))
   if (cached && Array.isArray(cached.messages) && cached.messages.length > 0) {
     return cached.messages
   }
-  // Session thread index (up to 80) or slim cookie — prefer the larger head.
-  const painted = readBestMessagesPaint(orgId, paint)
-  if (painted.length > 0) return painted
-  if (!cached || !Array.isArray(cached.messages)) return EMPTY_MESSAGES
-  return cached.messages.length > 0 ? cached.messages : EMPTY_MESSAGES
+  return EMPTY_MESSAGES
 }
 
 type SmsThread = {
@@ -186,30 +182,19 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     organizations[0]?.name?.trim() ||
     ""
 
-  // Bumps after a successful full fetch so useSessionSeed re-reads session (not stale paint stubs).
+  // Bumps after a successful full fetch so useSessionSeed re-reads session.
   const [inboxSeedRevision, setInboxSeedRevision] = useState(0)
-  const cookiePaintSms = useMemo(
-    () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
-    [messagesPaint]
-  )
-  // Hold SSR cookie list until fetch — session unlock was cookie→session→network triple flash.
-  const [holdCookiePaint, setHoldCookiePaint] = useState(
-    () => Boolean(messagesPaint?.messages?.length)
-  )
+  // Cookie stubs are never displayed (Activity pattern). Session unlock or network paints the list.
   const cachedMessages = useSessionSeed(
     () => readMessagesCache(orgId, messagesPaint),
     EMPTY_MESSAGES,
-    // Don't key on paint length / revision while holding cookie — avoids mid-hold re-reads.
-    holdCookiePaint
-      ? `${orgId ?? "default"}:hold-cookie`
-      : `${orgId ?? "default"}:r${inboxSeedRevision}`
+    `${orgId ?? "default"}:r${inboxSeedRevision}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
-  // Full inbox for the open conversation (may differ from list heads while holding paint).
+  // Full inbox for the open conversation (may differ from list heads while merging).
   const [conversationInbox, setConversationInbox] = useState<SmsMessage[] | null>(null)
-  const messages =
-    liveMessages ??
-    (holdCookiePaint && cookiePaintSms.length > 0 ? cookiePaintSms : cachedMessages)
+  // Display session or live only — quiet well until one of those exists.
+  const messages = liveMessages ?? cachedMessages
   const messagesForCompareRef = useRef(messages)
   messagesForCompareRef.current = messages
   // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
@@ -222,11 +207,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     threadTimeLabelRef.current.set(key, { id: msgId, label })
     return label
   }
-  // Spinner only on cold cache — cookie paint (held) skips the empty well flash.
+  // Spinner until session or network — cookie stubs are not shown (quiet well only).
   const [loading, setLoading] = useState(
     () => messages.length === 0
   )
-  // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
+  // True after first successful fetch (or non-empty session) — gates “No texts yet”.
+  // Cookie warm alone must NOT settle — that flashed empty marketing then rows.
   const [inboxSettled, setInboxSettled] = useState(() => messages.length > 0)
   // Freeze list preview by phone until inbox settles — head id changes still rewrite short→long.
   const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
@@ -364,7 +350,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         })
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
-        setHoldCookiePaint(false)
         setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
         setInboxSettled(true)
@@ -395,7 +380,6 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     })
     setLiveMessages(null)
     setConversationInbox(null)
-    setHoldCookiePaint(Boolean(messagesPaint?.messages?.length))
     threadScrollHydratedRef.current = null
     threadTimeLabelRef.current.clear()
     threadPreviewBodyRef.current.clear()
@@ -987,7 +971,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     }}
                     className={cn(
                       "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left",
-                      "transition-[background-color,transform] duration-150 ease-out motion-safe:active:scale-[0.99]",
+                      "transition-colors duration-150 ease-out",
                       active
                         ? "bg-emerald-500/10"
                         : "hover:bg-muted/40",
@@ -1067,10 +1051,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 {/* Always two lines — CRM name must not grow the header after lookup. */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
-                    {customerName?.trim() || threadPhoneLabel || "\u00a0"}
+                    {/* Phone until CRM lookup finishes — name swap was a visible header flash. */}
+                    {!customerLookupDone
+                      ? threadPhoneLabel || "\u00a0"
+                      : customerName?.trim() || threadPhoneLabel || "\u00a0"}
                   </p>
                   <p className="min-h-5 truncate text-[11px] text-muted-foreground">
-                    {customerName?.trim() && threadTelHref ? (
+                    {customerLookupDone && customerName?.trim() && threadTelHref ? (
                       <a
                         href={threadTelHref}
                         className="underline-offset-2 hover:underline"
@@ -1078,10 +1065,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       >
                         {threadPhoneLabel}
                       </a>
-                    ) : customerName?.trim() ? (
+                    ) : customerLookupDone && customerName?.trim() ? (
                       threadPhoneLabel
                     ) : null}
-                    {customerName?.trim() ? " · " : null}
+                    {customerLookupDone && customerName?.trim() ? " · " : null}
                     {transcriptPending
                       ? "\u00a0"
                       : `${activeThread.messages.length} message${
@@ -1091,16 +1078,29 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 </div>
                 {/* Fixed chip strip — CRM / Collect appear without growing the row. */}
                 <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
-                  {showCrmChip ? (
-                    <Link
-                      href={crmHrefForThread}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted/70"
-                      aria-label="Open customer in CRM"
-                    >
-                      <UserRound className="h-3.5 w-3.5" aria-hidden />
-                      CRM
-                    </Link>
-                  ) : null}
+                  <div
+                    className={cn(
+                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground",
+                      !showCrmChip && "invisible pointer-events-none"
+                    )}
+                    aria-hidden={!showCrmChip}
+                  >
+                    {showCrmChip ? (
+                      <Link
+                        href={crmHrefForThread}
+                        className="inline-flex items-center gap-1"
+                        aria-label="Open customer in CRM"
+                      >
+                        <UserRound className="h-3.5 w-3.5" aria-hidden />
+                        CRM
+                      </Link>
+                    ) : (
+                      <>
+                        <UserRound className="h-3.5 w-3.5" aria-hidden />
+                        CRM
+                      </>
+                    )}
+                  </div>
                   {threadHasUnpaidJob ? (
                     <button
                       type="button"

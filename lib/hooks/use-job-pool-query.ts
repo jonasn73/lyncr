@@ -7,14 +7,8 @@ import { organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
-import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
-import {
-  mapPoolPaintToJobs,
-  readMapPoolPaintSeed,
-  readMapPoolPlaceIndex,
-  writeMapPoolPaintSeed,
-} from "@/lib/map-pool-paint-cache"
+import { writeMapPoolPaintSeed } from "@/lib/map-pool-paint-cache"
 
 type PoolResponse<T> = { data?: { jobs?: T[] } }
 
@@ -97,33 +91,17 @@ export function useJobPoolQuery(
   // Null key pauses this subscriber without wiping the shared hopper cache.
   const url = enabled ? jobPoolHopperUrl(activeOrganizationId) : null
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
-  const paintJobs = useDashboardPaintSeeds().mapPool
-  const paintSeed = readMapPoolPaintSeed(paintJobs, activeOrganizationId)
   const sessionReady = useSessionCacheReady()
 
   const fallbackData = useMemo(() => {
     const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
     // Empty [] is unknown until first fetch — treating it as data flashes “Pool is empty”.
     if (fromSession && fromSession.length > 0) return fromSession
-    if (paintSeed?.jobs.length) {
-      // Enrich cookie rows with localStorage streets after hydrate unlock.
-      const places = sessionReady
-        ? readMapPoolPlaceIndex(activeOrganizationId)
-        : null
-      const jobs = mapPoolPaintToJobs(paintSeed, places)
-      // Blank-address cookie rows → street is a visible flash. Hold until streets exist
-      // (cookie already has them, place index unlocked, or network replaces this fallback).
-      const missingStreet = jobs.some((j) => !(j.location && /\d/.test(j.location)))
-      if (missingStreet && !sessionReady) return undefined
-      if (missingStreet && sessionReady) {
-        // Still missing after index — wait for network rather than blank→street.
-        return undefined
-      }
-      return jobs
-    }
+    // Never display cookie pool stubs (4-job / blank-street paint → full hopper flash).
+    // Cookie still written for Map warm; Scheduler waits for session or network.
     return undefined
     // sessionReady: re-read after unlock (first memo pass is often still gated).
-  }, [cacheKey, paintSeed, sessionReady, activeOrganizationId])
+  }, [cacheKey, sessionReady])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,

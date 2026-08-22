@@ -130,7 +130,7 @@ export function JobPoolCard({
         sidebar
           ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
           : touchInteraction
-            ? "min-w-0 w-full max-w-none shrink-0 cursor-pointer px-3 pt-3 pb-9 active:scale-[0.98] md:px-4 md:pt-4 md:pb-10"
+            ? "min-w-0 w-full max-w-none shrink-0 cursor-pointer px-3 pt-3 pb-9 md:px-4 md:pt-4 md:pb-10"
             : "min-w-[220px] max-w-[300px] shrink-0 cursor-grab px-3 pt-3 pb-9 active:cursor-grabbing md:px-4 md:pt-4 md:pb-10",
         !sidebar && !touchInteraction && "cursor-grab active:cursor-grabbing",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
@@ -200,14 +200,18 @@ export function JobPoolCard({
           {metaLine ? (
             <p
               className={cn(
-                "mt-1 text-xs text-slate-400",
+                "mt-1 min-h-[1rem] text-xs text-slate-400",
                 // Always wrap long service labels (e.g. “… Duplication”) — truncate was cutting words.
                 "break-words"
               )}
             >
               {metaLine}
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-1 min-h-[1rem]" aria-hidden>
+              {"\u00a0"}
+            </p>
+          )}
           {programmingMethod ? (
             <p className={cn("text-[11px] text-slate-500", wrapText ? "break-words" : "truncate")}>
               {programmingMethod}

@@ -1344,8 +1344,10 @@ function SchedulerWorkspaceViewInner({
                   onMarkComplete={handleMarkJobComplete}
                   completingJobId={completingId}
                   loading={
-                    (pipelineLoading || loading || !bootstrapSettled) &&
-                    displayPipelineJobs.length === 0
+                    pipelineLoading ||
+                    loading ||
+                    !bootstrapSettled ||
+                    !pipelineHasResolved
                   }
                 />
               </div>

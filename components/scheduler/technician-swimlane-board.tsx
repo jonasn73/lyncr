@@ -427,7 +427,9 @@ function MobileTimelineBoard({
                       />
                     )
                   })}
-                  {laneEvents.map((ev) => (
+                  {loading
+                    ? null
+                    : laneEvents.map((ev) => (
                     <TimelineAppointmentBlock
                       key={ev.id}
                       ev={ev}
@@ -661,7 +663,9 @@ export function TechnicianSwimlaneBoard({
                     )
                   })}
 
-                  {laneEvents.map((ev) => (
+                  {loading
+                    ? null
+                    : laneEvents.map((ev) => (
                     <SwimlaneAppointmentBlock
                       key={ev.id}
                       ev={ev}
