@@ -1,4 +1,5 @@
 // Send a customer-facing SMS via Telnyx and log it into sms_messages for the inbox.
+// Hard rule: never silently send from another shop’s line.
 
 import {
   getActivePhoneNumberByE164,
@@ -12,6 +13,7 @@ import {
 import type { SmsMessage } from "@/lib/types"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
 import { listAmberControlE164sForOwner } from "@/lib/amber-db"
+import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 
 export type WorkspaceCustomerSmsResult =
   | {
@@ -31,6 +33,11 @@ export type WorkspaceCustomerSmsResult =
 /**
  * Outbound customer SMS used by the Messages inbox and automations (e.g. textback).
  * Always attempts to persist an outbound row so threads stay two-sided.
+ *
+ * Shop safety:
+ * - Sends only from the job/workspace shop’s line
+ * - Multi-shop accounts must pass organizationId (no cross-shop guessing)
+ * - Explicit fromE164 from another shop is rejected with a loud error
  */
 export async function sendAndLogWorkspaceCustomerSms(params: {
   ownerUserId: string
@@ -44,23 +51,56 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
   if (!toE164) return { ok: false, error: "Recipient phone number is required" }
   if (!text) return { ok: false, error: "Message text is required" }
 
+  const sender = await resolveWorkspaceSmsSender(params.ownerUserId, params.organizationId)
+  if (!sender.ok) {
+    return { ok: false, error: sender.message || "No business line available for customer SMS." }
+  }
+
+  const amberSkip = new Set(await listAmberControlE164sForOwner(params.ownerUserId))
   const fromHint = params.fromE164?.trim()
     ? normalizePhoneNumberE164(params.fromE164)
     : ""
 
-  const sender = await resolveWorkspaceSmsSender(params.ownerUserId, params.organizationId)
-  const amberSkip = new Set(await listAmberControlE164sForOwner(params.ownerUserId))
-  let fromE164 = fromHint || (sender.ok ? sender.from_e164 : "")
+  let fromE164 = fromHint || sender.from_e164
   if (fromE164 && amberSkip.has(fromE164)) {
-    fromE164 = sender.ok && !amberSkip.has(sender.from_e164) ? sender.from_e164 : ""
+    fromE164 = !amberSkip.has(sender.from_e164) ? sender.from_e164 : ""
   }
   if (!fromE164) {
-    return {
-      ok: false,
-      error: sender.ok
-        ? "Customer SMS cannot send from the Amber number."
-        : sender.message || "No business line available for customer SMS.",
+    return { ok: false, error: "Customer SMS cannot send from the Amber number." }
+  }
+
+  // If a From number was forced, it must belong to the same shop — never another business.
+  if (fromHint && fromHint !== sender.from_e164) {
+    const hintedLine = await getActivePhoneNumberByE164(fromHint)
+    const hintedOrg =
+      hintedLine?.organization_id && !hintedLine.organization_id.startsWith("legacy-")
+        ? hintedLine.organization_id
+        : null
+    if (!hintedLine || hintedLine.user_id !== params.ownerUserId) {
+      console.error("[SMS GUARD] Blocked From number not on this account", {
+        ownerUserId: params.ownerUserId,
+        fromHint,
+        shopId: sender.organization_id,
+      })
+      return {
+        ok: false,
+        error: `SMS blocked: ${formatPhoneDisplay(fromHint)} is not an active line on this account.`,
+      }
     }
+    if (hintedOrg && hintedOrg !== sender.organization_id) {
+      console.error("[SMS GUARD] Blocked cross-shop From number", {
+        ownerUserId: params.ownerUserId,
+        fromHint,
+        hintedOrg,
+        shopId: sender.organization_id,
+      })
+      return {
+        ok: false,
+        error: `SMS blocked: refusing to send from ${formatPhoneDisplay(fromHint)} — that line belongs to a different shop. Sending only from this shop’s line.`,
+      }
+    }
+    // Same shop (or legacy null org on the row) — allow the explicit From.
+    fromE164 = fromHint
   }
 
   const sent = await sendTelnyxSms({
@@ -81,10 +121,17 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
     line?.organization_id && !line.organization_id.startsWith("legacy-")
       ? line.organization_id
       : null
-  const orgFromParam =
-    params.organizationId?.trim() && !params.organizationId.startsWith("legacy-")
-      ? params.organizationId.trim()
-      : null
+  const orgFromParam = sender.organization_id
+
+  // Final safety net: if the carrier-accepted From maps to another shop, treat as failure signal.
+  if (orgFromLine && orgFromLine !== orgFromParam) {
+    console.error("[SMS GUARD] Sent From resolved to a different shop than requested", {
+      ownerUserId: params.ownerUserId,
+      sentFrom: sent.from,
+      orgFromLine,
+      shopId: orgFromParam,
+    })
+  }
 
   const message = await insertSmsMessage({
     organization_id: orgFromLine || orgFromParam,

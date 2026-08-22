@@ -206,7 +206,7 @@ export async function sendTelnyxSms(params: {
       }
     }
 
-    // Explicit caller ID first, then workspace/account resolver — always E.164 with '+'.
+    // Explicit From: never swap to another account line (that caused cross-shop sends).
     let from = normalizePhoneNumberE164(
       params.fromE164?.trim() || (await resolveTelnyxMessagingFromE164(params.userId)) || ""
     )
@@ -220,6 +220,13 @@ export async function sendTelnyxSms(params: {
     }
 
     if (!(await isTelnyxOwnedNumber(from))) {
+      if (params.fromE164?.trim()) {
+        // Caller already chose the shop line — do not silently replace it with another DID.
+        return {
+          ok: false,
+          error: `SMS sender ${from} is not active on Telnyx for messaging — fix this shop’s line under Settings → Lines.`,
+        }
+      }
       const fallback = await resolveTelnyxMessagingFromE164(params.userId)
       if (fallback && fallback !== from) from = fallback
     }
