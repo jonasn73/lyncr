@@ -44,6 +44,7 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import {
   readSchedulerPaintSeed,
   schedulerPaintCoversMonth,
@@ -122,6 +123,12 @@ function schedulerBootstrapHasContent(
   )
 }
 
+/** Real org uuid for cache keys / API — never legacy stub or paint-seed placeholder. */
+function schedulerOrgId(raw: string | null | undefined): string | null {
+  if (!raw?.trim() || raw.startsWith("legacy-") || isWorkspaceOrgStubId(raw)) return null
+  return raw.trim()
+}
+
 function SchedulerWorkspaceViewInner({
   isActive = true,
   urlQuery,
@@ -135,39 +142,38 @@ function SchedulerWorkspaceViewInner({
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
-  const orgIdForSeed =
-    activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
+  const orgId = schedulerOrgId(activeOrganizationId)
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
   // Lazy session read once — never call sessionStorage on every render (#185).
   const [events, setEvents] = useState<SchedulerEvent[]>(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.events ?? []
+    return readSchedulerBootstrapCache(monthKey, orgId)?.events ?? []
   })
   const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.blockouts ?? []
+    return readSchedulerBootstrapCache(monthKey, orgId)?.blockouts ?? []
   })
   const [blockoutModalOpen, setBlockoutModalOpen] = useState(false)
   const [deletingBlockoutId, setDeletingBlockoutId] = useState<string | null>(null)
   const [technicians, setTechnicians] = useState<FieldTechnician[]>(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.technicians ?? []
+    return readSchedulerBootstrapCache(monthKey, orgId)?.technicians ?? []
   })
   const [lineIndustryTags, setLineIndustryTags] = useState<string[]>(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return readSchedulerBootstrapCache(monthKey, orgIdForSeed)?.lineIndustryTags ?? []
+    return readSchedulerBootstrapCache(monthKey, orgId)?.lineIndustryTags ?? []
   })
   // Skip loading shell only when session already has a real board (techs or events).
   // Empty envelopes must not set loading=false — that flashes “Board is quiet” → jobs.
   const [loading, setLoading] = useState(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return !schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgIdForSeed))
+    return !schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
   })
   // Network bootstrap finished for this month/org — gates the true empty “Board is quiet”.
   const [bootstrapSettled, setBootstrapSettled] = useState(() => {
     const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-    return schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgIdForSeed))
+    return schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
   })
   /** Optimistic completion timestamps for the Done counter (job id → ISO time). */
   const [completedTodayLedger, setCompletedTodayLedger] = useState<ReadonlyMap<string, string>>(
@@ -200,26 +206,83 @@ function SchedulerWorkspaceViewInner({
   /** True after techs or calendar rows painted — blocks reload from blanking the board. */
   const boardPaintedRef = useRef(false)
   const boardScopeRef = useRef("")
+  const prevOrgRef = useRef<string | null | undefined>(undefined)
+  const bootstrapScopeRef = useRef("")
 
   const sessionReady = useSessionCacheReady()
+  // Org switch — clear stale shop rows before bootstrap/SWR catch up (Messages pattern).
+  useLayoutEffect(() => {
+    const prev = prevOrgRef.current
+    prevOrgRef.current = orgId
+    if (prev === undefined) return
+    if (prev === orgId) return
+    if ((prev == null || isWorkspaceOrgStubId(prev)) && orgId) {
+      const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
+      const cached = readSchedulerBootstrapCache(monthKey, orgId)
+      if (cached && schedulerBootstrapHasContent(cached)) {
+        bootstrapScopeRef.current = `${orgId ?? "default"}:${monthKey}`
+        setEvents(cached.events)
+        setBlockouts(cached.blockouts)
+        setTechnicians(cached.technicians)
+        setLineIndustryTags(cached.lineIndustryTags)
+        if (cached.ownerUserId) setOwnerUserId(cached.ownerUserId)
+        setLoading(false)
+        setBootstrapSettled(true)
+      }
+      return
+    }
+
+    boardPaintedRef.current = false
+    appliedBootstrapSeedRef.current = null
+    loadSeqRef.current += 1
+    bootstrapScopeRef.current = ""
+    setEvents([])
+    setBlockouts([])
+    setTechnicians([])
+    setLineIndustryTags([])
+    setOwnerUserId(null)
+    setLoading(true)
+    setBootstrapSettled(false)
+
+    const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
+    const cached = readSchedulerBootstrapCache(monthKey, orgId)
+    if (cached && schedulerBootstrapHasContent(cached)) {
+      setEvents(cached.events)
+      setBlockouts(cached.blockouts)
+      setTechnicians(cached.technicians)
+      setLineIndustryTags(cached.lineIndustryTags)
+      if (cached.ownerUserId) setOwnerUserId(cached.ownerUserId)
+      setLoading(false)
+      setBootstrapSettled(true)
+      bootstrapScopeRef.current = `${orgId ?? "default"}:${monthKey}`
+    }
+  }, [orgId, visibleMonth])
+
   // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
-  // Re-run when session unlocks (first layout pass is often still gated).
   useLayoutEffect(() => {
     if (!sessionReady) return
     const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-    const cached = readSchedulerBootstrapCache(monthKey, orgIdForSeed)
+    const scope = `${orgId ?? "default"}:${monthKey}`
+    const cached = readSchedulerBootstrapCache(monthKey, orgId)
     if (!cached) return
-    setEvents((prev) => (prev.length > 0 ? prev : cached.events))
-    setBlockouts((prev) => (prev.length > 0 ? prev : cached.blockouts))
-    setTechnicians((prev) => (prev.length > 0 ? prev : cached.technicians))
-    setLineIndustryTags((prev) => (prev.length > 0 ? prev : cached.lineIndustryTags))
+    if (bootstrapScopeRef.current !== scope) {
+      bootstrapScopeRef.current = scope
+      setEvents(cached.events)
+      setBlockouts(cached.blockouts)
+      setTechnicians(cached.technicians)
+      setLineIndustryTags(cached.lineIndustryTags)
+    } else {
+      setEvents((prev) => (prev.length > 0 ? prev : cached.events))
+      setBlockouts((prev) => (prev.length > 0 ? prev : cached.blockouts))
+      setTechnicians((prev) => (prev.length > 0 ? prev : cached.technicians))
+      setLineIndustryTags((prev) => (prev.length > 0 ? prev : cached.lineIndustryTags))
+    }
     if (cached.ownerUserId) setOwnerUserId((prev) => prev ?? cached.ownerUserId)
-    // Only leave loading when the seed actually has a board to paint.
     if (schedulerBootstrapHasContent(cached)) {
       setLoading(false)
       setBootstrapSettled(true)
     }
-  }, [orgIdForSeed, visibleMonth, sessionReady])
+  }, [orgId, visibleMonth, sessionReady])
 
   const {
     focusLeadId,
@@ -241,8 +304,6 @@ function SchedulerWorkspaceViewInner({
   }, [fromCrm, fromIntake, focusCustomerId])
 
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-  const orgId =
-    activeOrganizationId && !activeOrganizationId.startsWith("legacy-") ? activeOrganizationId : null
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
   // Re-reads after session unlock so hard refresh is not empty → jobs.
   const bootstrapSeed = useSessionSeed(
@@ -322,7 +383,7 @@ function SchedulerWorkspaceViewInner({
     [poolJobs, excludeDeletedJobs]
   )
   const displayPoolJobs = useHeldList(poolFiltered, {
-    scopeKey: activeOrganizationId ?? "default",
+    scopeKey: `${orgId ?? "default"}:hopper`,
     loading: poolLoading || loading || !bootstrapSettled,
     validating: poolValidating,
   })
@@ -349,7 +410,7 @@ function SchedulerWorkspaceViewInner({
   )
   // App-wide hold helper — keeps last non-empty pipeline while validating.
   const displayPipelineJobs = useHeldList(pipelineFiltered, {
-    scopeKey: pipelineDayKey,
+    scopeKey: `${orgId ?? "default"}:${pipelineDayKey}`,
     loading: pipelineLoading || boardBootstrapLoading,
     validating: pipelineValidating,
   })
@@ -372,7 +433,7 @@ function SchedulerWorkspaceViewInner({
   const boardPaintCovers = schedulerPaintCoversMonth(
     schedulerPaint,
     boardMonthKey,
-    orgIdForSeed
+    orgId
   )
   const paintSaysBoard =
     boardPaintCovers &&

@@ -37,7 +37,7 @@ export type CrmListPaintSeed = {
   customers: CrmListPaintRow[]
 }
 
-const MAX_PAINT_ROWS = 8
+const MAX_PAINT_ROWS = 16
 
 function clip(s: string, n: number): string {
   const t = String(s || "")

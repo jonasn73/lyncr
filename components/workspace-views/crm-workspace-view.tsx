@@ -89,6 +89,12 @@ import {
   readCrmListPaintSeed,
   writeCrmListPaintSeed,
 } from "@/lib/crm-list-paint-cache"
+import {
+  crmListIsQuietExpansion,
+  mergePaintedCrmHeads,
+} from "@/lib/crm-list-merge"
+import { useHeldList } from "@/lib/hooks/use-held-list"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Input } from "@/components/ui/input"
@@ -337,8 +343,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const router = useRouter()
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId } = useDashboardWorkspace()
+  const crmOrgId =
+    activeOrganizationId &&
+    !activeOrganizationId.startsWith("legacy-") &&
+    !isWorkspaceOrgStubId(activeOrganizationId)
+      ? activeOrganizationId
+      : null
   const paintSeeds = useDashboardPaintSeeds()
-  const crmPaint = readCrmListPaintSeed(paintSeeds.crm, activeOrganizationId)
+  const crmPaint = readCrmListPaintSeed(paintSeeds.crm, crmOrgId)
   // Parse ?tab= / ?customer= / ?phone= without useSearchParams() remounting CRM on tab click.
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   // Pause CRM list fetches when the pane or browser tab is hidden.
@@ -366,14 +378,37 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const cachedRows = useSessionSeed(
     () => readCrmListCache(filter, debounced, crmPaint),
     EMPTY_CRM_ROWS,
-    `${filter}:${debounced}:${activeOrganizationId ?? ""}`
+    `${filter}:${debounced}:${crmOrgId ?? ""}`
+  )
+  const paintListRows = useMemo(
+    () =>
+      filter === "all" && !debounced.trim() && crmPaint?.customers.length
+        ? crmPaintToListItems(crmPaint)
+        : EMPTY_CRM_ROWS,
+    [crmPaint, filter, debounced]
   )
   const [liveRows, setLiveRows] = useState<CrmCustomerListItem[] | null>(null)
-  const rows = liveRows ?? cachedRows
+  const [loading, setLoading] = useState(
+    () => paintListRows.length === 0 && cachedRows.length === 0
+  )
+  const sessionDisplay = useMemo(() => {
+    if (cachedRows.length === 0) return paintListRows
+    if (
+      paintListRows.length > 0 &&
+      crmListIsQuietExpansion(paintListRows, cachedRows)
+    ) {
+      return mergePaintedCrmHeads(paintListRows, cachedRows)
+    }
+    return cachedRows
+  }, [cachedRows, paintListRows])
+  const rawRows = liveRows ?? sessionDisplay
+  const rows = useHeldList(rawRows, {
+    scopeKey: `${crmOrgId ?? "default"}:${filter}:${debounced}`,
+    loading,
+  })
   // Compare fingerprints against what is on screen (avoid stale closure / deps churn).
   const rowsForCompareRef = useRef(rows)
   rowsForCompareRef.current = rows
-  const [loading, setLoading] = useState(() => cachedRows.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(customerParam)
   // Apply ?phone= once so closing the card does not immediately reopen it.
@@ -519,6 +554,15 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           ) {
             return prev ?? baseline
           }
+          if (
+            paintListRows.length > 0 &&
+            crmListIsQuietExpansion(paintListRows, list)
+          ) {
+            return mergePaintedCrmHeads(paintListRows, list)
+          }
+          if (baseline.length > 0 && crmListIsQuietExpansion(baseline, list)) {
+            return mergePaintedCrmHeads(baseline, list)
+          }
           logFlicker({
             event: "list-replace",
             component: "CrmWorkspaceView",
@@ -531,7 +575,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           customers: list,
         })
         if (filter === "all" && !debounced.trim()) {
-          writeCrmListPaintSeed(list, activeOrganizationId)
+          writeCrmListPaintSeed(list, crmOrgId)
         }
         setError(null)
         setSelectedId((prev) => {
@@ -550,7 +594,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
       .finally(() => setLoading(false))
-  }, [debounced, filter, pollEnabled, searchParams, activeOrganizationId])
+  }, [debounced, filter, pollEnabled, searchParams, crmOrgId, paintListRows])
 
   // Filter/search change — drop live override so the matching seed can show.
   useEffect(() => {
@@ -2505,10 +2549,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             />
           </div>
 
-          <div
-            key={`${filter}:${debounced}`}
-            className="min-h-[18rem] p-2 lyncr-content-swap md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain"
-          >
+          <div className="min-h-[18rem] p-2 lyncr-content-swap md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain">
             {loading && rows.length === 0 ? (
               // Quiet well — grey row skeletons flashed on hard refresh when CRM paint was empty.
               <div className="min-h-[18rem]" aria-busy="true" aria-label="Loading customers" />
