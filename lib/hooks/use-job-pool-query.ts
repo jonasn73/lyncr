@@ -3,7 +3,8 @@
 import { useMemo } from "react"
 import useSWR from "swr"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
-import { organizationQueryString, isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { normalizeWorkspaceOrgId } from "@/lib/workspace-org-id"
+import { organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -23,9 +24,7 @@ const EMPTY_PIPELINE_JOBS: ActivePipelineJob[] = []
 
 /** Real Neon org id — never fetch pool/pipeline under paint-seed / legacy stubs. */
 function resolvePoolOrgId(activeOrganizationId: string | null | undefined): string | null {
-  const id = activeOrganizationId?.trim()
-  if (!id || id.startsWith("legacy-") || isWorkspaceOrgStubId(id)) return null
-  return id
+  return normalizeWorkspaceOrgId(activeOrganizationId)
 }
 
 export function jobPoolHopperUrl(activeOrganizationId: string | null): string {
