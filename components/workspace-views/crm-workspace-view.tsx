@@ -310,9 +310,29 @@ function paymentStatusLabel(status: OwnerCollectedTransaction["status"]): string
 
 const EMPTY_CRM_ROWS: CrmCustomerListItem[] = []
 
+/** Stable empties — `setX([])` every effect run allocates new arrays and can #185-loop. */
+const EMPTY_CRM_VEHICLES: CustomerVehicle[] = []
+const EMPTY_CRM_HISTORY: CrmServiceHistoryItem[] = []
+const EMPTY_CRM_PAYMENTS: OwnerCollectedTransaction[] = []
+
 /** Stable row id — avoid inline getId recreating frozen lists every render. */
 function crmCustomerRowId(row: CrmCustomerListItem): string {
   return row.id
+}
+
+/** List fields that may refresh while a profile is open — used to skip no-op syncs (#185). */
+function crmCustomerListSyncKey(row: CrmCustomerListItem): string {
+  return [
+    row.id,
+    row.display_name,
+    row.phone_e164,
+    row.lead_badge,
+    row.job_status_label ?? "",
+    row.job_status_tone ?? "",
+    row.open_lead_count,
+    row.jobs_completed,
+    row.lifetime_revenue_cents,
+  ].join("|")
 }
 
 function crmListCacheKey(filter: CrmFilter, q: string): string {
@@ -417,6 +437,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     mergeVisibleWithLive: mergeVisibleCrmRows,
     getId: crmCustomerRowId,
   })
+  // Keep reset out of effect deps — identity churn was retriggering list clears (#185).
+  const resetSurfaceRef = useRef(resetSurface)
+  resetSurfaceRef.current = resetSurface
+
 
   const [loading, setLoading] = useState(() => !hasSeedRows)
   const [error, setError] = useState<string | null>(null)
@@ -518,6 +542,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   }, [customerParam])
 
   // Messages CRM chip: open this phone’s card, including a second tap after close.
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
   useEffect(() => {
     const becameActive = isActive && !crmWasActiveRef.current
     crmWasActiveRef.current = isActive
@@ -527,11 +553,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     const key = phoneParam.replace(/\D/g, "").slice(-10)
     if (key.length < 10) return
     if (phoneDeepLinkAppliedRef.current === key) return
-    const id = pickCrmCustomerIdForPhone(rows, phoneParam)
+    const id = pickCrmCustomerIdForPhone(rowsRef.current, phoneParam)
     if (!id) return
     phoneDeepLinkAppliedRef.current = key
     setSelectedId(id)
-  }, [isActive, customerParam, rows, searchParams, selectedId])
+  }, [isActive, customerParam, searchParams, selectedId, rows.length])
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 280)
@@ -627,10 +653,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       reason: "filter-or-search",
       liveRowsNull: true,
     })
-    resetSurface()
+    resetSurfaceRef.current()
     const seeded = readCrmListCache(filter, debounced, crmPaint, crmOrgId).length > 0
-    setLoading(!seeded)
-  }, [filter, debounced, crmOrgId, resetSurface])
+    setLoading((prev) => {
+      const next = !seeded
+      return prev === next ? prev : next
+    })
+  }, [filter, debounced, crmOrgId])
 
   const prevOrgForCrmRef = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -644,10 +673,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       reason: "org-switch",
       liveRowsNull: true,
     })
-    resetSurface()
+    resetSurfaceRef.current()
     const seeded = readCrmListCache(filter, debounced, crmPaint, crmOrgId).length > 0
-    setLoading(!seeded)
-  }, [crmOrgId, filter, debounced, resetSurface])
+    setLoading((prevLoading) => {
+      const next = !seeded
+      return prevLoading === next ? prevLoading : next
+    })
+  }, [crmOrgId, filter, debounced])
 
   useEffect(() => {
     if (rows.length > 0) setLoading(false)
@@ -729,9 +761,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   useEffect(() => {
     if (!selectedId) {
       setSelected(null)
-      setVehicles([])
-      setHistory([])
-      setPayments([])
+      setVehicles(EMPTY_CRM_VEHICLES)
+      setHistory(EMPTY_CRM_HISTORY)
+      setPayments(EMPTY_CRM_PAYMENTS)
       setEditName("")
       setEditingApptId(null)
       setEditApptLocal("")
@@ -746,20 +778,34 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     void loadProfile(selectedId)
   }, [selectedId, loadProfile])
 
-  // Keep the selected row summary in sync when the list poll updates badges/counts.
+  // Keep selected summary in sync with list badges — only when list fields actually change (#185).
+  const selectedListSyncKey = useMemo(() => {
+    if (!selectedId) return ""
+    const fromList = rows.find((r) => r.id === selectedId)
+    return fromList ? crmCustomerListSyncKey(fromList) : ""
+  }, [selectedId, rows])
+
   useEffect(() => {
-    if (!selectedId) return
+    if (!selectedId || !selectedListSyncKey) return
     const fromList = rows.find((r) => r.id === selectedId) ?? null
     if (!fromList) return
     setSelected((prev) => {
       if (!prev || prev.id !== fromList.id) return fromList
+      // Same list fields already applied — return prev to avoid update-depth loops.
+      if (crmCustomerListSyncKey(prev) === selectedListSyncKey) return prev
       return {
         ...prev,
         ...fromList,
       }
     })
-    setEditName((prev) => (prev.trim() ? prev : fromList.display_name || ""))
-  }, [selectedId, rows])
+    setEditName((prev) => {
+      if (prev.trim()) return prev
+      const next = fromList.display_name || ""
+      return prev === next ? prev : next
+    })
+    // Intentionally depend on selectedListSyncKey (not rows) so array identity churn cannot loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows read only when sync key changes
+  }, [selectedId, selectedListSyncKey])
 
   const openLeadHistory = useMemo(
     () => history.filter((h) => h.is_open_lead),
