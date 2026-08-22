@@ -441,6 +441,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const resetSurfaceRef = useRef(resetSurface)
   resetSurfaceRef.current = resetSurface
 
+  // Paint rows via ref so loadList identity does not churn when paint array identity changes.
+  const paintListRowsRef = useRef(paintListRows)
+  paintListRowsRef.current = paintListRows
+  const phoneDeepLinkKey = (searchParams.get("phone")?.replace(/\D/g, "").slice(-10) || "")
+
 
   const [loading, setLoading] = useState(() => !hasSeedRows)
   const [error, setError] = useState<string | null>(null)
@@ -557,7 +562,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     if (!id) return
     phoneDeepLinkAppliedRef.current = key
     setSelectedId(id)
-  }, [isActive, customerParam, searchParams, selectedId, rows.length])
+  }, [isActive, customerParam, phoneDeepLinkKey, selectedId, rows.length])
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 280)
@@ -591,11 +596,12 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           return
         }
         let toApply = list
+        const painted = paintListRowsRef.current
         if (
-          paintListRows.length > 0 &&
-          crmListIsQuietExpansion(paintListRows, list)
+          painted.length > 0 &&
+          crmListIsQuietExpansion(painted, list)
         ) {
-          toApply = mergePaintedCrmHeads(paintListRows, list)
+          toApply = mergePaintedCrmHeads(painted, list)
         }
         if (baseline.length === 0) {
           logFlicker({
@@ -616,15 +622,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         setSelectedId((prev) => {
           if (prev && list.some((r) => r.id === prev)) return prev
           const phoneParam = searchParams.get("phone")?.trim() || ""
+          // No phone deep-link — never clear/force selection from a list poll (#185).
+          if (!phoneParam) return prev
           const key = phoneParam.replace(/\D/g, "").slice(-10)
-          // Already opened (or closed) this phone’s card — don’t yank it back open on poll.
-          if (key.length >= 10 && phoneDeepLinkAppliedRef.current === key) return null
+          // Deep link already handled (open or closed) — keep current selection as-is.
+          if (key.length >= 10 && phoneDeepLinkAppliedRef.current === key) return prev
           const fromPhone = pickCrmCustomerIdForPhone(list, phoneParam)
           if (fromPhone) {
             phoneDeepLinkAppliedRef.current = key
             return fromPhone
           }
-          return null
+          return prev
         })
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
@@ -635,18 +643,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     debounced,
     filter,
     pollEnabled,
-    searchParams,
+    phoneDeepLinkKey,
     crmOrgId,
-    paintListRows,
     orgResolving,
     orgReady,
     applyNetworkList,
     setNetworkSettled,
-    rowsForCompareRef,
   ])
 
   // Filter/search change — drop live override so the matching seed can show.
+  // Skip the first mount — org bootstrap must not look like a filter change (#185).
+  const didMountFilterResetRef = useRef(false)
   useEffect(() => {
+    if (!didMountFilterResetRef.current) {
+      didMountFilterResetRef.current = true
+      return
+    }
     logFlicker({
       event: "list-clear",
       component: "CrmWorkspaceView",
@@ -659,7 +671,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       const next = !seeded
       return prev === next ? prev : next
     })
-  }, [filter, debounced, crmOrgId])
+  }, [filter, debounced])
 
   const prevOrgForCrmRef = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -679,7 +691,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       const next = !seeded
       return prevLoading === next ? prevLoading : next
     })
-  }, [crmOrgId, filter, debounced])
+  }, [crmOrgId])
 
   useEffect(() => {
     if (rows.length > 0) setLoading(false)
@@ -730,9 +742,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         })
         setEditName(c.display_name ?? "")
       }
-      setVehicles(json.data?.vehicles ?? [])
-      setHistory(hist)
-      setPayments(pays)
+      setVehicles(json.data?.vehicles?.length ? json.data.vehicles : EMPTY_CRM_VEHICLES)
+      setHistory(hist.length ? hist : EMPTY_CRM_HISTORY)
+      setPayments(pays.length ? pays : EMPTY_CRM_PAYMENTS)
     },
     []
   )
@@ -748,9 +760,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         })
         .then((json) => applyProfilePayload(json))
         .catch(() => {
-          setVehicles([])
-          setHistory([])
-          setPayments([])
+          setVehicles(EMPTY_CRM_VEHICLES)
+          setHistory(EMPTY_CRM_HISTORY)
+          setPayments(EMPTY_CRM_PAYMENTS)
         })
         .finally(() => setProfileLoading(false))
     },
@@ -779,11 +791,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   }, [selectedId, loadProfile])
 
   // Keep selected summary in sync with list badges — only when list fields actually change (#185).
-  const selectedListSyncKey = useMemo(() => {
-    if (!selectedId) return ""
-    const fromList = rows.find((r) => r.id === selectedId)
-    return fromList ? crmCustomerListSyncKey(fromList) : ""
-  }, [selectedId, rows])
+  // Fingerprint only — do not put `rows` in effect deps (array identity churn → #185).
+  const selectedListSyncKey =
+    selectedId
+      ? (() => {
+          const fromList = rowsRef.current.find((r) => r.id === selectedId)
+          return fromList ? crmCustomerListSyncKey(fromList) : ""
+        })()
+      : ""
 
   useEffect(() => {
     if (!selectedId || !selectedListSyncKey) return

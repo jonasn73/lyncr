@@ -79,21 +79,29 @@ export function useSettledListSurface<T>(opts: SettledListSurfaceOptions<T>) {
     (next: T[]) => {
       setLiveRowsState((prev) => {
         const baseline = prev ?? rowsForCompareRef.current
-        if (baseline.length > 0) {
-          return opts.mergeVisibleWithLive(baseline, next)
+        const merged =
+          baseline.length > 0 ? opts.mergeVisibleWithLive(baseline, next) : next
+        // Same visible ids already on screen — keep prev reference (stops CRM #185 churn).
+        if (
+          prev &&
+          prev.length === merged.length &&
+          prev.every((row, i) => opts.getId(row) === opts.getId(merged[i]!))
+        ) {
+          return prev
         }
-        return next
+        return merged
       })
-      setNetworkSettled(true)
+      setNetworkSettled((was) => (was ? was : true))
     },
-    [opts.mergeVisibleWithLive]
+    [opts.mergeVisibleWithLive, opts.getId]
   )
 
   const resetSurface = useCallback(() => {
     setLiveRowsState(null)
     setNetworkSettled(false)
-    rowsForCompareRef.current = opts.empty
-  }, [opts.empty])
+    // Do not clear rowsForCompareRef here — a fast response must still see painted rows
+    // as baseline so quiet merges do not look like a full empty→full replace (#185).
+  }, [])
 
   const hasSeedRows = paintRows.length > 0 || sessionRows.length > 0
 
