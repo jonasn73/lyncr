@@ -24,11 +24,13 @@ import {
 } from "@/lib/dashboard-presence-ssr"
 import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 import { cn } from "@/lib/utils"
+import { MessagesWorkspaceView } from "@/components/workspace-views/messages-workspace-view"
+import { SchedulerWorkspaceView } from "@/components/workspace-views/scheduler-workspace-view"
 
 /**
- * Code-split inactive tabs — but NEVER show PaneFallback skeletons while the chunk loads.
- * Those shells were the multi-second flash on every tab except Lines (which is static).
- * Cache/session paint lives inside each view; a blank moment is better than fake tables.
+ * Code-split less-used tabs — but NEVER show PaneFallback skeletons while the chunk loads.
+ * Messages + Scheduler stay static (like Lines) so first dock open is not a blank pane.
+ * Cache/session paint lives inside each view.
  */
 const ActivityWorkspaceViewLazy = dynamic(
   () =>
@@ -38,21 +40,6 @@ const ActivityWorkspaceViewLazy = dynamic(
   { ssr: false, loading: () => null }
 )
 
-const MessagesWorkspaceViewLazy = dynamic(
-  () =>
-    import("@/components/workspace-views/messages-workspace-view").then((m) => ({
-      default: m.MessagesWorkspaceView,
-    })),
-  { ssr: false, loading: () => null }
-)
-
-const SchedulerWorkspaceViewLazy = dynamic(
-  () =>
-    import("@/components/workspace-views/scheduler-workspace-view").then((m) => ({
-      default: m.SchedulerWorkspaceView,
-    })),
-  { ssr: false, loading: () => null }
-)
 
 const CrmWorkspaceViewLazy = dynamic(
   () =>
@@ -242,18 +229,14 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
         ) : (
-          <Suspense fallback={null}>
-            <MessagesWorkspaceViewLazy isActive={activePage === "messages"} />
-          </Suspense>
+          <MessagesWorkspaceView isActive={activePage === "messages"} />
         )}
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
         {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
         ) : (
-          <Suspense fallback={null}>
-            <SchedulerWorkspaceViewLazy isActive={activePage === "scheduler"} />
-          </Suspense>
+          <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
         )}
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>

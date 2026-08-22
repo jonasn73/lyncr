@@ -222,25 +222,25 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     threadTimeLabelRef.current.set(key, { id: msgId, label })
     return label
   }
-  // Freeze list preview body per thread — paint stub → full body must not rewrite shorter→longer flashily.
-  const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
-  const threadPreviewBody = (phone: string, msgId: string, body: string) => {
-    const key = phoneMatchKey(phone) || phone
-    const next = body || ""
-    const prev = threadPreviewBodyRef.current.get(key)
-    if (prev && prev.id === msgId) {
-      // Same head — keep first painted preview (18→full was the list flash).
-      return prev.body || next
-    }
-    threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
-    return next
-  }
   // Spinner only on cold cache — cookie paint (held) skips the empty well flash.
   const [loading, setLoading] = useState(
     () => messages.length === 0
   )
   // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
   const [inboxSettled, setInboxSettled] = useState(() => messages.length > 0)
+  // Freeze list preview by phone until inbox settles — head id changes still rewrite short→long.
+  const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
+  const threadPreviewBody = (phone: string, msgId: string, body: string) => {
+    const key = phoneMatchKey(phone) || phone
+    const next = body || ""
+    const prev = threadPreviewBodyRef.current.get(key)
+    if (prev) {
+      // Same head, or still settling — keep first painted preview.
+      if (prev.id === msgId || !inboxSettled) return prev.body || next
+    }
+    threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
+    return next
+  }
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const prevOrgForInboxRef = useRef<string | null | undefined>(undefined)
@@ -816,6 +816,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       !customerName
   )
   const showCrmChip = Boolean(threadBookForm || customerSaved || customerName)
+  // Don’t paint stub “1 message” / single bubble before the full inbox arrives.
+  const transcriptPending =
+    Boolean(selectedPhone) && conversationInbox == null
 
   /** Slide the existing Booking request sheet over this thread. */
   const openBookingDetailsFromBanner = useCallback(() => {
@@ -1079,8 +1082,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       threadPhoneLabel
                     ) : null}
                     {customerName?.trim() ? " · " : null}
-                    {activeThread.messages.length} message
-                    {activeThread.messages.length === 1 ? "" : "s"}
+                    {transcriptPending
+                      ? "\u00a0"
+                      : `${activeThread.messages.length} message${
+                          activeThread.messages.length === 1 ? "" : "s"
+                        }`}
                   </p>
                 </div>
                 {/* Fixed chip strip — CRM / Collect appear without growing the row. */}
@@ -1143,7 +1149,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 ref={messagesScrollRef}
                 className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-3 md:px-4 md:py-4"
               >
-                {activeThread.messages.map((msg) => {
+                {transcriptPending ? (
+                  <div
+                    className="min-h-[12rem]"
+                    aria-busy="true"
+                    aria-label="Loading conversation"
+                  />
+                ) : (
+                  activeThread.messages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatOutboundDeliveryLabel(msg) : null
                   return (
@@ -1180,7 +1193,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       </div>
                     </div>
                   )
-                })}
+                })
+                )}
                 <div ref={bottomRef} />
               </div>
 

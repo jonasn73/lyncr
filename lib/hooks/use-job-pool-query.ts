@@ -110,7 +110,16 @@ export function useJobPoolQuery(
       const places = sessionReady
         ? readMapPoolPlaceIndex(activeOrganizationId)
         : null
-      return mapPoolPaintToJobs(paintSeed, places)
+      const jobs = mapPoolPaintToJobs(paintSeed, places)
+      // Blank-address cookie rows → street is a visible flash. Hold until streets exist
+      // (cookie already has them, place index unlocked, or network replaces this fallback).
+      const missingStreet = jobs.some((j) => !(j.location && /\d/.test(j.location)))
+      if (missingStreet && !sessionReady) return undefined
+      if (missingStreet && sessionReady) {
+        // Still missing after index — wait for network rather than blank→street.
+        return undefined
+      }
+      return jobs
     }
     return undefined
     // sessionReady: re-read after unlock (first memo pass is often still gated).

@@ -214,22 +214,22 @@ export function JobPoolCard({
             </p>
           ) : null}
           <div className="mt-1 flex w-full flex-col gap-0.5">
-            {job.customer_phone ? (
-              <p className={cn("flex w-full items-start gap-1.5", !wrapText && "text-xs text-slate-400")}>
-                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
-                <span
-                  className={cn(
-                    sidebar
-                      ? "min-w-0 text-[11px] tabular-nums leading-snug text-slate-400"
-                      : cn(detailTextClass, !wrapText && "text-xs text-slate-400")
-                  )}
-                >
-                  {formatPhone(job.customer_phone)}
-                </span>
-              </p>
-            ) : null}
+            {/* Always reserve phone row height — phone popping in grew the card. */}
+            <p className="flex min-h-[1.25rem] w-full items-start gap-1.5 text-xs text-slate-400">
+              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+              <span
+                className={cn(
+                  sidebar
+                    ? "min-w-0 text-[11px] tabular-nums leading-snug text-slate-400"
+                    : cn(detailTextClass, !wrapText && "text-xs text-slate-400"),
+                  !job.customer_phone && "invisible"
+                )}
+              >
+                {job.customer_phone ? formatPhone(job.customer_phone) : "(502) 555-0100"}
+              </span>
+            </p>
             {placeLine || postalCode ? (
-              <p className="flex w-full items-start gap-1.5 text-xs text-slate-500">
+              <p className="flex min-h-[2.5rem] w-full items-start gap-1.5 text-xs text-slate-500">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
                 <span className={placeTextClass}>
                   {placeLine}
@@ -239,10 +239,10 @@ export function JobPoolCard({
                 </span>
               </p>
             ) : (
-              // Reserve address row until session/network brings the full street (never paint a clipped stub).
+              // Same geometry as the real address row — never swap height when street arrives.
               <p className="flex min-h-[2.5rem] w-full items-start gap-1.5" aria-hidden>
-                <span className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span className="invisible text-xs leading-snug">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0" aria-hidden />
+                <span className={cn(placeTextClass, "invisible")}>
                   0000 Placeholder Street, Louisville, KY 40202
                 </span>
               </p>

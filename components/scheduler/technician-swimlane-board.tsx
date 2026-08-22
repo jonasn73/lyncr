@@ -3,7 +3,7 @@
 // Per-tech schedule board — desktop vertical swimlanes + mobile horizontal timeline.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Loader2, User, X } from "lucide-react"
+import { User, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
@@ -442,10 +442,11 @@ function MobileTimelineBoard({
         </div>
       </div>
       {loading ? (
-        <div className="flex items-center justify-center gap-2 border-t border-border/40 py-2 text-xs text-zinc-500">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          Loading schedule…
-        </div>
+        <div
+          className="min-h-[2.25rem] border-t border-border/40 py-2"
+          aria-busy="true"
+          aria-label="Loading schedule"
+        />
       ) : null}
     </div>
   )
@@ -681,10 +682,11 @@ export function TechnicianSwimlaneBoard({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 border-t border-border/40 py-3 text-xs text-zinc-500">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            Loading schedule…
-          </div>
+          <div
+            className="min-h-[2.75rem] border-t border-border/40 py-3"
+            aria-busy="true"
+            aria-label="Loading schedule"
+          />
         ) : null}
       </div>
     </>
