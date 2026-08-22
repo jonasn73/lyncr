@@ -441,13 +441,6 @@ function MobileTimelineBoard({
           })}
         </div>
       </div>
-      {loading ? (
-        <div
-          className="min-h-[2.25rem] border-t border-border/40 py-2"
-          aria-busy="true"
-          aria-label="Loading schedule"
-        />
-      ) : null}
     </div>
   )
 }
@@ -681,13 +674,6 @@ export function TechnicianSwimlaneBoard({
           })}
         </div>
 
-        {loading ? (
-          <div
-            className="min-h-[2.75rem] border-t border-border/40 py-3"
-            aria-busy="true"
-            aria-label="Loading schedule"
-          />
-        ) : null}
       </div>
     </>
   )

@@ -197,6 +197,9 @@ function SchedulerWorkspaceViewInner({
   const crmReturnRef = useRef<{ customerId: string | null } | null>(null)
   /** Intake View job — close drawer should expand PiP / restore the sheet. */
   const intakeReturnRef = useRef(false)
+  /** True after techs or calendar rows painted — blocks reload from blanking the board. */
+  const boardPaintedRef = useRef(false)
+  const boardScopeRef = useRef("")
 
   const sessionReady = useSessionCacheReady()
   // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
@@ -306,11 +309,6 @@ function SchedulerWorkspaceViewInner({
     [activeOrgName, lineIndustryTags]
   )
 
-  const assignableTechs = useMemo(
-    () => technicians.filter((t) => t.is_active && t.portal_user_id),
-    [technicians]
-  )
-
   const excludeDeletedJobs = useCallback(
     <T extends { id: string }>(rows: T[]) => {
       if (deletedJobIds.size === 0) return rows
@@ -333,12 +331,40 @@ function SchedulerWorkspaceViewInner({
     () => excludeDeletedJobs(activePipelineJobs).filter(isActivePipelineFeedJob),
     [activePipelineJobs, excludeDeletedJobs]
   )
+  const boardBootstrapLoading = loading || !bootstrapSettled
+  const boardScopeKey = `${orgId ?? "default"}:${monthKey}`
+  // Hold last good calendar + tech rows while bootstrap silently revalidates.
+  const filteredEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
+  const displayEvents = useHeldList(filteredEvents, {
+    scopeKey: boardScopeKey,
+    loading: boardBootstrapLoading,
+  })
+  const displayTechnicians = useHeldList(technicians, {
+    scopeKey: boardScopeKey,
+    loading: boardBootstrapLoading,
+  })
+  const assignableTechs = useMemo(
+    () => displayTechnicians.filter((t) => t.is_active && t.portal_user_id),
+    [displayTechnicians]
+  )
   // App-wide hold helper — keeps last non-empty pipeline while validating.
   const displayPipelineJobs = useHeldList(pipelineFiltered, {
     scopeKey: pipelineDayKey,
-    loading: pipelineLoading || loading || !bootstrapSettled,
+    loading: pipelineLoading || boardBootstrapLoading,
     validating: pipelineValidating,
   })
+
+  if (boardScopeRef.current !== boardScopeKey) {
+    boardScopeRef.current = boardScopeKey
+    boardPaintedRef.current = false
+  }
+  if (
+    !boardPaintedRef.current &&
+    (assignableTechs.length > 0 || displayEvents.length > 0 || displayPipelineJobs.length > 0)
+  ) {
+    boardPaintedRef.current = true
+  }
+  const boardChromeLocked = boardPaintedRef.current
 
   const paintSeeds = useDashboardPaintSeeds()
   const boardMonthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
@@ -355,17 +381,19 @@ function SchedulerWorkspaceViewInner({
   const coldBoardPending = boardPaintCovers && (!bootstrapSettled || loading)
 
   const boardCountsPending =
-    !bootstrapSettled ||
-    loading ||
-    coldBoardPending ||
-    pipelineLoading ||
-    !pipelineHasResolved ||
-    (pipelineValidating && displayPipelineJobs.length === 0)
+    !boardChromeLocked &&
+    (!bootstrapSettled ||
+      loading ||
+      coldBoardPending ||
+      pipelineLoading ||
+      !pipelineHasResolved ||
+      (pipelineValidating && displayPipelineJobs.length === 0))
   const techCountsPending =
-    !bootstrapSettled ||
-    loading ||
-    coldBoardPending ||
-    (paintSaysBoard && assignableTechs.length === 0)
+    !boardChromeLocked &&
+    (!bootstrapSettled ||
+      loading ||
+      coldBoardPending ||
+      (paintSaysBoard && assignableTechs.length === 0))
   const metricsPending =
     !bootstrapSettled ||
     loading ||
@@ -389,8 +417,6 @@ function SchedulerWorkspaceViewInner({
     count: assignableTechs.length,
     pending: techCountsPending,
   })
-
-  const displayEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, SchedulerEvent[]>()
@@ -547,10 +573,10 @@ function SchedulerWorkspaceViewInner({
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
     const seeded = schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
-    // Keep calendar painted from session cache while silently refreshing.
-    if (!seeded && !initialBootstrapDoneRef.current) setLoading(true)
-    // Month/org change — do not show “Board is quiet” until this fetch finishes.
-    if (!seeded) setBootstrapSettled(false)
+    const painted = boardPaintedRef.current
+    // Silent refresh when the board is already on screen — never blank to loading.
+    if (!seeded && !painted && !initialBootstrapDoneRef.current) setLoading(true)
+    if (!seeded && !painted) setBootstrapSettled(false)
     const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
 
     const bootstrapFetch = fetch(bootstrapUrl, { credentials: "include", cache: "no-store" })
@@ -605,6 +631,10 @@ function SchedulerWorkspaceViewInner({
     return bootstrapFetch.finally(() => {
       initialBootstrapDoneRef.current = true
       setLoading(false)
+      if (boardPaintedRef.current) {
+        setBootstrapSettled(true)
+        return
+      }
       const cached = readSchedulerBootstrapCache(monthKey, orgId)
       const hasContent = schedulerBootstrapHasContent(cached)
       const paint = readSchedulerPaintSeed(orgId)
@@ -1363,11 +1393,13 @@ function SchedulerWorkspaceViewInner({
                   onMarkComplete={handleMarkJobComplete}
                   completingJobId={completingId}
                   loading={
+                    !boardChromeLocked &&
+                    displayPipelineJobs.length === 0 &&
                     (pipelineLoading ||
+                      pipelineValidating ||
                       loading ||
                       !bootstrapSettled ||
-                      coldBoardPending) &&
-                    displayPipelineJobs.length === 0
+                      coldBoardPending)
                   }
                 />
               </div>
@@ -1457,9 +1489,13 @@ function SchedulerWorkspaceViewInner({
                     </div>
                   ) : null}
                   <TechnicianSwimlaneBoard
-                    technicians={technicians}
+                    technicians={displayTechnicians}
                     dayEvents={dayEvents}
-                    loading={techCountsPending || gridScheduleSaving}
+                    loading={
+                      !boardChromeLocked &&
+                      assignableTechs.length === 0 &&
+                      (techCountsPending || gridScheduleSaving)
+                    }
                     highlightId={highlightId}
                     onSelectEvent={openScheduledJobDrawer}
                     onDropPoolJob={schedulePoolOnTechLane}
