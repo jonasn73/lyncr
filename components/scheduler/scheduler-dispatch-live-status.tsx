@@ -124,6 +124,7 @@ function UpcomingJobsList({
   onSelectJob,
   onMarkComplete,
   completingJobId,
+  pending = false,
 }: {
   upcoming: UpcomingSchedulerJob[]
   now: Date
@@ -131,7 +132,12 @@ function UpcomingJobsList({
   onSelectJob?: (jobId: string) => void
   onMarkComplete?: (jobId: string) => void
   completingJobId?: string | null
+  /** Quiet reserve until bootstrap / pool / pipeline settle. */
+  pending?: boolean
 }) {
+  if (pending) {
+    return <p className="min-h-[1.25rem] text-[11px] text-zinc-600">{"\u00a0"}</p>
+  }
   if (upcoming.length === 0) {
     return <p className="text-[11px] text-zinc-600">Nothing scheduled yet</p>
   }
@@ -232,6 +238,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           onSelectJob={onSelectJob}
           onMarkComplete={onMarkComplete}
           completingJobId={completingJobId}
+          pending={metricsPending}
         />
       </div>
     )
@@ -315,6 +322,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               onSelectJob={onSelectJob}
               onMarkComplete={onMarkComplete}
               completingJobId={completingJobId}
+              pending={metricsPending}
             />
           </div>
         ) : null}

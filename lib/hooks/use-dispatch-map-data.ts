@@ -12,6 +12,7 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   mapPoolPaintToJobs,
   readMapPoolPaintSeed,
+  readMapPoolPlaceIndex,
 } from "@/lib/map-pool-paint-cache"
 
 export type DispatchMapData = {
@@ -126,7 +127,8 @@ function mapJobsFromPoolPaint(
 ): DispatchJob[] {
   const seed = readMapPoolPaintSeed(paintRaw, organizationId ?? null)
   if (!seed?.jobs.length) return []
-  return mapPoolPaintToJobs(seed)
+  const places = readMapPoolPlaceIndex(organizationId ?? null)
+  return mapPoolPaintToJobs(seed, places)
     .map((job) => poolJobToDispatchJob(job))
     .filter((job): job is DispatchJob => job != null)
 }

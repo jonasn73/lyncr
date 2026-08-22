@@ -45,8 +45,10 @@ import {
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import {
+  schedulerPaintCoversMonth,
   writeSchedulerPaintSeed,
 } from "@/lib/scheduler-paint-cache"
+import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
@@ -272,6 +274,8 @@ function SchedulerWorkspaceViewInner({
   const {
     jobs: poolJobs,
     isLoading: poolLoading,
+    isValidating: poolValidating,
+    hasResolved: poolHasResolved,
     mutate: mutatePool,
   } = useJobPoolQuery(activeOrganizationId, pollEnabled)
 
@@ -321,6 +325,7 @@ function SchedulerWorkspaceViewInner({
   const displayPoolJobs = useHeldList(poolFiltered, {
     scopeKey: activeOrganizationId ?? "default",
     loading: poolLoading || loading || !bootstrapSettled,
+    validating: poolValidating,
   })
 
   const pipelineFiltered = useMemo(
@@ -334,19 +339,35 @@ function SchedulerWorkspaceViewInner({
     validating: pipelineValidating,
   })
 
+  const paintSeeds = useDashboardPaintSeeds()
+  const boardMonthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
+  const boardPaintCovers = schedulerPaintCoversMonth(
+    paintSeeds.scheduler,
+    boardMonthKey,
+    orgIdForSeed
+  )
+  // Cookie says this month had a board — stay pending until bootstrap settles (cold tab).
+  const coldBoardPending = boardPaintCovers && (!bootstrapSettled || loading)
+
   const boardCountsPending =
     !bootstrapSettled ||
     loading ||
     pipelineLoading ||
     !pipelineHasResolved ||
     (pipelineValidating && displayPipelineJobs.length === 0)
-  const techCountsPending = !bootstrapSettled || loading
+  const techCountsPending = !bootstrapSettled || loading || coldBoardPending
   const metricsPending =
     !bootstrapSettled ||
     loading ||
-    (poolLoading && displayPoolJobs.length === 0) ||
+    coldBoardPending ||
+    !poolHasResolved ||
+    (poolValidating && displayPoolJobs.length === 0) ||
     pipelineLoading ||
     !pipelineHasResolved
+  const calendarSubtitlePending = !bootstrapSettled || loading || coldBoardPending
+  const poolTrayLoading =
+    ((poolLoading || !poolHasResolved || poolValidating) && displayPoolJobs.length === 0) ||
+    (!bootstrapSettled && displayPoolJobs.length === 0)
 
   useFlickerCountWatch("SchedulerWorkspaceView", {
     label: "active-pipeline",
@@ -1218,7 +1239,7 @@ function SchedulerWorkspaceViewInner({
               <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-2.5 py-2.5 lg:max-h-none lg:overflow-visible">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
-                  loading={poolLoading && displayPoolJobs.length === 0}
+                  loading={poolTrayLoading}
                   highlightId={highlightId}
                   onSelectJob={openPoolJobDrawer}
                   onMobileAssignJob={queueMobilePoolAssign}
@@ -1356,7 +1377,7 @@ function SchedulerWorkspaceViewInner({
                         className="mx-auto"
                       />
                       <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-zinc-500">
-                        {!bootstrapSettled && events.length === 0
+                        {calendarSubtitlePending
                           ? "\u00a0"
                           : `${displayEvents.length} scheduled this month${
                               displayPoolJobs.length > 0
@@ -1371,7 +1392,7 @@ function SchedulerWorkspaceViewInner({
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
                       <SettledCount
-                        pending={techCountsPending && assignableTechs.length === 0}
+                        pending={techCountsPending}
                         count={assignableTechs.length}
                         format={(n) =>
                           `${n} technician${n === 1 ? "" : "s"} · ${assignedDayJobCount} job${

@@ -12,6 +12,7 @@ import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 import {
   mapPoolPaintToJobs,
   readMapPoolPaintSeed,
+  readMapPoolPlaceIndex,
   writeMapPoolPaintSeed,
 } from "@/lib/map-pool-paint-cache"
 
@@ -104,10 +105,16 @@ export function useJobPoolQuery(
     const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
     // Empty [] is unknown until first fetch — treating it as data flashes “Pool is empty”.
     if (fromSession && fromSession.length > 0) return fromSession
-    if (paintSeed?.jobs.length) return mapPoolPaintToJobs(paintSeed)
+    if (paintSeed?.jobs.length) {
+      // Enrich cookie rows with localStorage streets after hydrate unlock.
+      const places = sessionReady
+        ? readMapPoolPlaceIndex(activeOrganizationId)
+        : null
+      return mapPoolPaintToJobs(paintSeed, places)
+    }
     return undefined
     // sessionReady: re-read after unlock (first memo pass is often still gated).
-  }, [cacheKey, paintSeed, sessionReady])
+  }, [cacheKey, paintSeed, sessionReady, activeOrganizationId])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -133,6 +140,8 @@ export function useJobPoolQuery(
     error,
     isLoading: isLoading && !hasCachedData,
     isValidating,
+    /** True after SWR resolved (including empty) — gates Pool KPI zeros. */
+    hasResolved: data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0),
     mutate,
   }
 }

@@ -37,7 +37,7 @@ const MAX_PAINT_THREADS = 40
 /** Session index can hold more — fills after hydrate without waiting on network. */
 const MAX_SESSION_THREADS = 80
 /** Tiny body on every cookie row so previews don’t pop in empty→text (still slim). */
-const COOKIE_BODY_CHARS = 18
+const COOKIE_BODY_CHARS = 56
 
 function clip(s: string, n: number): string {
   const t = String(s || "")

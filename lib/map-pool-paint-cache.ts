@@ -14,7 +14,7 @@ import {
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { resolveStablePlaceLine } from "@/lib/settled-paint"
 
-export const MAP_POOL_PAINT_SCOPE = "map-pool-v2"
+export const MAP_POOL_PAINT_SCOPE = "map-pool-v3"
 export const MAP_POOL_PAINT_COOKIE = paintSeedCookieName(MAP_POOL_PAINT_SCOPE)
 
 export type MapPoolPaintRow = {
@@ -42,22 +42,89 @@ export type MapPoolPaintSeed = {
   jobs: MapPoolPaintRow[]
 }
 
-const MAX_PAINT_JOBS = 6
+/** Fewer jobs so uncut streets fit the paint cookie. */
+const MAX_PAINT_JOBS = 4
+/** Full street lines (must include a digit) — no city-only stubs. */
+const PLACE_CHARS = 120
 
 function clip(s: string, n: number): string {
   const t = String(s || "")
   return t.length > n ? t.slice(0, n) : t
 }
 
-function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
-  const title =
-    (job.customer_name ?? "").trim() || (job.summary ?? "").trim() || "Open job"
+/** Street-like place only — city-only labels caused Louisville → full address flashes. */
+function streetPlaceLine(job: UnassignedPoolJob): string {
   const place =
     resolveStablePlaceLine({
       location: job.location,
       neighborhood: job.neighborhood,
       region: job.region,
     }) || ""
+  if (!place || !/\d/.test(place)) return ""
+  return clip(place, PLACE_CHARS)
+}
+
+function placeIndexKey(organizationId: string | null | undefined): string {
+  return `lyncr:map-pool-places:v1:${organizationId ?? "default"}`
+}
+
+function getLocalStorage(): Storage | null {
+  try {
+    if (typeof localStorage === "undefined") return null
+    return localStorage
+  } catch {
+    return null
+  }
+}
+
+/** Persist full streets by job id (survives session TTL; fills cookie gaps). */
+export function writeMapPoolPlaceIndex(
+  jobs: UnassignedPoolJob[],
+  organizationId: string | null = null
+): void {
+  const storage = getLocalStorage()
+  if (!storage) return
+  try {
+    const prev = readMapPoolPlaceIndex(organizationId)
+    const next: Record<string, string> = { ...prev }
+    for (const job of jobs) {
+      const place = streetPlaceLine(job)
+      if (place) next[job.id] = place
+    }
+    // Cap index size — keep newest painted ids.
+    const ids = Object.keys(next)
+    if (ids.length > 80) {
+      const keep = new Set(jobs.map((j) => j.id))
+      for (const id of ids) {
+        if (!keep.has(id) && Object.keys(next).length > 80) delete next[id]
+      }
+    }
+    storage.setItem(placeIndexKey(organizationId), JSON.stringify(next))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function readMapPoolPlaceIndex(
+  organizationId?: string | null
+): Record<string, string> {
+  const storage = getLocalStorage()
+  if (!storage) return {}
+  try {
+    const raw = storage.getItem(placeIndexKey(organizationId))
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, string>
+    if (!parsed || typeof parsed !== "object") return {}
+    return parsed
+  } catch {
+    return {}
+  }
+}
+
+function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
+  const title =
+    (job.customer_name ?? "").trim() || (job.summary ?? "").trim() || "Open job"
+  const place = streetPlaceLine(job)
   const vehicle = [job.vehicle_year, job.vehicle_make, job.vehicle_model]
     .filter(Boolean)
     .join(" ")
@@ -79,9 +146,8 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
   return {
     id: clip(job.id, 40),
     n: clip(title, 48),
-    // Never cookie-paint addresses — even a 96-char clip looked “cut short” then jumped.
-    // Card reserves space; session/network fill the full street once.
-    pl: "",
+    // Uncut street when we have one — blank only when unknown (card reserves space).
+    pl: place,
     lat: typeof job.latitude === "number" ? job.latitude : null,
     lng: typeof job.longitude === "number" ? job.longitude : null,
     ...(phone ? { ph: clip(phone, 16) } : {}),
@@ -94,7 +160,11 @@ function trimJob(job: UnassignedPoolJob): MapPoolPaintRow {
 }
 
 /** Expand paint rows into hopper jobs (other fields empty until live fetch). */
-export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] {
+export function mapPoolPaintToJobs(
+  seed: MapPoolPaintSeed,
+  placeIndex?: Record<string, string> | null
+): UnassignedPoolJob[] {
+  const places = placeIndex ?? {}
   return seed.jobs.map((row) => {
     const vehicleParts = String(row.vh || "")
       .trim()
@@ -105,13 +175,21 @@ export function mapPoolPaintToJobs(seed: MapPoolPaintSeed): UnassignedPoolJob[] 
     const model = year
       ? vehicleParts.slice(2).join(" ") || null
       : vehicleParts.slice(1).join(" ") || null
+    const cookiePlace = String(row.pl || "").trim()
+    // Only trust digit streets from cookie (old v2 seeds had clipped cities / blanks).
+    const fromCookie = cookiePlace && /\d/.test(cookiePlace) ? cookiePlace : ""
+    const fromIndex = String(places[row.id] || "").trim()
+    const location =
+      (fromCookie && fromIndex
+        ? fromCookie.length >= fromIndex.length
+          ? fromCookie
+          : fromIndex
+        : fromCookie || fromIndex) || null
     return {
       id: row.id,
       customer_name: row.n,
       customer_phone: row.ph ?? null,
-      // Ignore cookie `pl` entirely — older seeds stored clipped streets (“Louisville…”).
-      // Address fills once from session/network with the full line.
-      location: null,
+      location,
       neighborhood: null,
       summary: row.n,
       job_type: row.sv ?? null,
@@ -134,6 +212,7 @@ export function writeMapPoolPaintSeed(
   jobs: UnassignedPoolJob[],
   organizationId: string | null = null
 ): void {
+  writeMapPoolPlaceIndex(jobs, organizationId)
   let n = Math.min(MAX_PAINT_JOBS, Math.max(0, jobs.length))
   while (n >= 0) {
     const payload: MapPoolPaintSeed = {

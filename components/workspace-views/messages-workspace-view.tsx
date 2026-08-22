@@ -2,7 +2,7 @@
 
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
@@ -65,12 +65,18 @@ import {
 import { formatOwnerListTime } from "@/lib/settled-paint"
 import {
   messagesFingerprint,
+  messagesPaintToSms,
   messagesThreadListFingerprint,
   messagesThreadListIsQuietExpansion,
   readBestMessagesPaint,
   writeMessagesPaintSeed,
   type MessagesPaintSeed,
 } from "@/lib/messages-paint-cache"
+import {
+  mergePaintedThreadHeads,
+  messagesForPhone,
+} from "@/lib/messages-thread-merge"
+import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
 const EMPTY_MESSAGES: SmsMessage[] = []
 
@@ -162,7 +168,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   // Pause when Messages pane OR browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
   const orgId =
-    activeOrganizationId && !activeOrganizationId.startsWith("legacy-")
+    activeOrganizationId &&
+    !activeOrganizationId.startsWith("legacy-") &&
+    !isWorkspaceOrgStubId(activeOrganizationId)
       ? activeOrganizationId
       : null
   const paintSeeds = useDashboardPaintSeeds()
@@ -180,13 +188,28 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
   // Bumps after a successful full fetch so useSessionSeed re-reads session (not stale paint stubs).
   const [inboxSeedRevision, setInboxSeedRevision] = useState(0)
+  const cookiePaintSms = useMemo(
+    () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
+    [messagesPaint]
+  )
+  // Hold SSR cookie list until fetch — session unlock was cookie→session→network triple flash.
+  const [holdCookiePaint, setHoldCookiePaint] = useState(
+    () => Boolean(messagesPaint?.messages?.length)
+  )
   const cachedMessages = useSessionSeed(
     () => readMessagesCache(orgId, messagesPaint),
     EMPTY_MESSAGES,
-    `${orgId ?? "default"}:${messagesPaint?.messages.length ?? 0}:r${inboxSeedRevision}`
+    // Don't key on paint length / revision while holding cookie — avoids mid-hold re-reads.
+    holdCookiePaint
+      ? `${orgId ?? "default"}:hold-cookie`
+      : `${orgId ?? "default"}:r${inboxSeedRevision}`
   )
   const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
-  const messages = liveMessages ?? cachedMessages
+  // Full inbox for the open conversation (may differ from list heads while holding paint).
+  const [conversationInbox, setConversationInbox] = useState<SmsMessage[] | null>(null)
+  const messages =
+    liveMessages ??
+    (holdCookiePaint && cookiePaintSms.length > 0 ? cookiePaintSms : cachedMessages)
   const messagesForCompareRef = useRef(messages)
   messagesForCompareRef.current = messages
   // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
@@ -206,17 +229,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     const next = body || ""
     const prev = threadPreviewBodyRef.current.get(key)
     if (prev && prev.id === msgId) {
-      if (next.length <= prev.body.length) return prev.body
-      threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
-      return next
+      // Same head — keep first painted preview (18→full was the list flash).
+      return prev.body || next
     }
     threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
     return next
   }
-  // Spinner only on cold cache — cookie/session paint skips the empty well flash.
-  const [loading, setLoading] = useState(() => cachedMessages.length === 0)
+  // Spinner only on cold cache — cookie paint (held) skips the empty well flash.
+  const [loading, setLoading] = useState(
+    () => messages.length === 0
+  )
   // True after first successful fetch (or non-empty seed) — gates “No texts yet”.
-  const [inboxSettled, setInboxSettled] = useState(() => cachedMessages.length > 0)
+  const [inboxSettled, setInboxSettled] = useState(() => messages.length > 0)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const prevOrgForInboxRef = useRef<string | null | undefined>(undefined)
@@ -276,13 +300,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const hasPaintedMessagesRef = useRef(false)
   if (messages.length > 0) hasPaintedMessagesRef.current = true
 
-  useEffect(() => {
-    if (cachedMessages.length > 0) {
+  // Settle before paint when rows exist — useEffect left a one-frame empty well.
+  useLayoutEffect(() => {
+    if (messages.length > 0) {
       hasPaintedMessagesRef.current = true
       setLoading(false)
       setInboxSettled(true)
     }
-  }, [cachedMessages.length])
+  }, [messages.length])
 
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -312,23 +337,22 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         }
         if (!res.ok) throw new Error(json.error || "Could not load messages")
         const next = Array.isArray(json.data?.messages) ? json.data!.messages! : []
+        setConversationInbox(next)
         setLiveMessages((prev) => {
           const baseline = prev ?? messagesForCompareRef.current
           if (
             baseline.length > 0 &&
             (messagesFingerprint(baseline) === messagesFingerprint(next) ||
-              (messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next) &&
-                baseline.length >= next.length))
+              messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next))
           ) {
             return prev ?? baseline
           }
-          // Same conversation heads — fuller bodies, or more threads already indexed.
+          // Same conversation heads — keep painted list rows; full inbox is in conversationInbox.
           if (
             baseline.length > 0 &&
-            (messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next) ||
-              messagesThreadListIsQuietExpansion(baseline, next))
+            messagesThreadListIsQuietExpansion(baseline, next)
           ) {
-            return next
+            return mergePaintedThreadHeads(baseline, next)
           }
           logFlicker({
             event: "list-replace",
@@ -340,6 +364,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         })
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
+        setHoldCookiePaint(false)
         setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
         setInboxSettled(true)
@@ -359,6 +384,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     // First mount — keep painted seed / live; do not wipe.
     if (prev === undefined) return
     if (prev === orgId) return
+    // Stub/null → real org is bootstrap, not a shop switch (Activity already skips this).
+    if ((prev == null || isWorkspaceOrgStubId(prev)) && orgId) return
 
     logFlicker({
       event: "list-clear",
@@ -367,6 +394,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       liveMessagesNull: true,
     })
     setLiveMessages(null)
+    setConversationInbox(null)
+    setHoldCookiePaint(Boolean(messagesPaint?.messages?.length))
     threadScrollHydratedRef.current = null
     threadTimeLabelRef.current.clear()
     threadPreviewBodyRef.current.clear()
@@ -483,7 +512,23 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       (key.length >= 10
         ? threads.find((t) => phoneMatchKey(t.customerPhone) === key)
         : undefined)
-    if (found) return found
+    if (found) {
+      // List may hold painted heads only — open pane uses full inbox when available.
+      const inbox = conversationInbox
+      if (inbox && inbox.length > 0) {
+        const full = messagesForPhone(inbox, found.customerPhone)
+        if (full.length > 0) {
+          const lastMessage = full[full.length - 1]!
+          return {
+            ...found,
+            messages: full,
+            lastMessage,
+            needsReply: lastMessage.direction === "inbound",
+          }
+        }
+      }
+      return found
+    }
     // Deep-link / new follow-up before any sms_messages row exists.
     const now = new Date().toISOString()
     return {
@@ -505,7 +550,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       },
       needsReply: false,
     }
-  }, [threads, selectedPhone])
+  }, [threads, selectedPhone, conversationInbox])
 
   // Last inbound / outbound bodies for reply chips (empty thread → no suggestions).
   const lastInboundBody = useMemo(() => {
@@ -905,8 +950,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {!inboxSettled || (loading && threads.length === 0) ? (
-              // Quiet well — never show MessageSquare / “No texts yet” mid-load.
+            {threads.length === 0 && (!inboxSettled || loading) ? (
+              // Quiet well — never hide a non-empty list behind !inboxSettled.
               <div className="h-full min-h-[12rem]" aria-busy="true" aria-label="Loading messages" />
             ) : threads.length === 0 ? (
               <div className="flex h-full min-h-[12rem] flex-col items-center gap-3 px-6 py-16 text-center">
@@ -928,7 +973,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 const active = thread.customerPhone === selectedPhone
                 return (
                   <button
-                    key={thread.customerPhone}
+                    key={phoneMatchKey(thread.customerPhone) || thread.customerPhone}
                     type="button"
                     onClick={() => {
                       // Manual pick wins — clear any lingering ?phone= so poll cannot override.
