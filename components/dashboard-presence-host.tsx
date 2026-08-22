@@ -24,6 +24,7 @@ import {
 } from "@/lib/dashboard-presence-ssr"
 import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 import { cn } from "@/lib/utils"
+import { CrmWorkspaceView } from "@/components/workspace-views/crm-workspace-view"
 import { MessagesWorkspaceView } from "@/components/workspace-views/messages-workspace-view"
 import { SchedulerWorkspaceView } from "@/components/workspace-views/scheduler-workspace-view"
 
@@ -40,14 +41,6 @@ const ActivityWorkspaceViewLazy = dynamic(
   { ssr: false, loading: () => null }
 )
 
-
-const CrmWorkspaceViewLazy = dynamic(
-  () =>
-    import("@/components/workspace-views/crm-workspace-view").then((m) => ({
-      default: m.CrmWorkspaceView,
-    })),
-  { ssr: false, loading: () => null }
-)
 
 const MapWorkspaceViewLazy = dynamic(
   () =>
@@ -244,7 +237,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
           renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
         ) : (
           <Suspense fallback={null}>
-            <CrmWorkspaceViewLazy isActive={activePage === "customers"} />
+            <CrmWorkspaceView isActive={activePage === "customers"} />
           </Suspense>
         )}
       </PresencePane>

@@ -21,6 +21,13 @@ type PaintEnvelope<T> = {
   d: T
 }
 
+/**
+ * Same cookie string → same object reference.
+ * Without this, every render parses a new object and effects that depend on
+ * paint seeds can loop (React #185 maximum update depth).
+ */
+const paintCookieCache = new Map<string, { raw: string; value: unknown }>()
+
 /** Cookie name for a paint scope — used by server layout + client writers. */
 export function paintSeedCookieName(scope: string): string {
   return `${COOKIE_PREFIX}${scope}`
@@ -48,6 +55,8 @@ export function writePaintSeedCookie(scope: string, data: unknown): boolean {
     const encoded = encodeURIComponent(payload)
     if (encoded.length > MAX_COOKIE_CHARS) return false
     document.cookie = `${paintSeedCookieName(scope)}=${encoded}; Path=/; Max-Age=${MAX_AGE_SEC}; SameSite=Lax`
+    // Drop cache so the next read picks up the new cookie value.
+    paintCookieCache.delete(scope)
     return true
   } catch {
     return false
@@ -62,7 +71,12 @@ export function readPaintSeedCookie<T>(scope: string): T | undefined {
       new RegExp(`(?:^|; )${paintSeedCookieName(scope).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
     )
     if (!match?.[1]) return undefined
-    return parseEnvelope<T>(decodeURIComponent(match[1]))
+    const raw = match[1]
+    const hit = paintCookieCache.get(scope)
+    if (hit && hit.raw === raw) return hit.value as T
+    const value = parseEnvelope<T>(decodeURIComponent(raw))
+    paintCookieCache.set(scope, { raw, value })
+    return value
   } catch {
     return undefined
   }
@@ -87,6 +101,7 @@ export function clearPaintSeedCookie(scope: string): void {
   if (typeof document === "undefined") return
   try {
     document.cookie = `${paintSeedCookieName(scope)}=; Path=/; Max-Age=0; SameSite=Lax`
+    paintCookieCache.delete(scope)
   } catch {
     /* ignore */
   }

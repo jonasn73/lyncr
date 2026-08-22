@@ -77,6 +77,24 @@ export function mergePaintedThreadHeads(
   )
 }
 
+/** Keep every message object already on screen — stops thread preview/time flicker on fetch. */
+export function mergeVisibleSmsMessages(
+  visible: SmsMessage[],
+  live: SmsMessage[]
+): SmsMessage[] {
+  if (visible.length === 0) return live
+  const visibleIds = new Set(visible.map((m) => m.id))
+  const liveIds = new Set(live.map((m) => m.id))
+  const merged: SmsMessage[] = []
+  for (const msg of visible) {
+    if (liveIds.has(msg.id)) merged.push(msg)
+  }
+  for (const msg of live) {
+    if (!visibleIds.has(msg.id)) merged.push(msg)
+  }
+  return merged
+}
+
 /** Messages for one customer phone from a full inbox (open conversation). */
 export function messagesForPhone(
   inbox: SmsMessage[],

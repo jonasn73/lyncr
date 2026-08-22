@@ -44,6 +44,8 @@ type TechnicianSwimlaneBoardProps = {
   technicians: FieldTechnician[]
   dayEvents: SchedulerEvent[]
   loading?: boolean
+  /** False while bootstrap/org pending — suppresses “Add technicians” layout swap. */
+  showEmptyState?: boolean
   highlightId?: string | null
   onSelectEvent?: (event: SchedulerEvent) => void
   onDropPoolJob?: (jobId: string, techUserId: string, hour24: number) => void
@@ -449,6 +451,7 @@ export function TechnicianSwimlaneBoard({
   technicians,
   dayEvents,
   loading,
+  showEmptyState = true,
   highlightId,
   onSelectEvent,
   onDropPoolJob,
@@ -528,15 +531,14 @@ export function TechnicianSwimlaneBoard({
   )
 
   if (assignableTechs.length === 0) {
-    // Keep the same outer height as a real grid so techs arriving later don’t shift the page.
+    const emptyMessage = showEmptyState && !loading
     return (
       <div
         className="relative w-full"
         style={{ height: 64 + gridHeightPx }}
         aria-busy={loading}
       >
-        {/* While loading, blank reserve only — “Add technicians” + Board-is-quiet flashed together. */}
-        {!loading ? (
+        {emptyMessage ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
             <User className="h-8 w-8 text-zinc-600" aria-hidden />
             <p className="text-sm text-zinc-400">
@@ -547,7 +549,25 @@ export function TechnicianSwimlaneBoard({
               step.
             </p>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <div className="hidden w-full md:flex" style={{ height: 64 + gridHeightPx }}>
+              <div className="w-14 shrink-0 border-r border-border/40 bg-card">
+                <div className="h-16 border-b border-border/40" aria-hidden />
+                {hourSlots.map((hour) => (
+                  <div
+                    key={hour}
+                    className="border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-transparent"
+                    style={{ height: SCHEDULER_HOUR_ROW_PX }}
+                  >
+                    {formatHourLabel(hour)}
+                  </div>
+                ))}
+              </div>
+              <div className="min-w-[220px] flex-1 bg-muted/5" aria-hidden />
+            </div>
+          </>
+        )}
       </div>
     )
   }

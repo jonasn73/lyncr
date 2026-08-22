@@ -45,6 +45,7 @@ import {
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { normalizeWorkspaceOrgId, resolveWorkspaceCacheOrgId } from "@/lib/workspace-org-id"
 import {
   readSchedulerPaintSeed,
   schedulerPaintCoversMonth,
@@ -125,8 +126,7 @@ function schedulerBootstrapHasContent(
 
 /** Real org uuid for cache keys / API — never legacy stub or paint-seed placeholder. */
 function schedulerOrgId(raw: string | null | undefined): string | null {
-  if (!raw?.trim() || raw.startsWith("legacy-") || isWorkspaceOrgStubId(raw)) return null
-  return raw.trim()
+  return normalizeWorkspaceOrgId(raw)
 }
 
 function monthKeyFor(date: Date): string {
@@ -152,11 +152,13 @@ function SchedulerWorkspaceViewInner({
   const inboundCallPanel = useInboundCallPanelOptional()
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
   const orgId = schedulerOrgId(activeOrganizationId)
+  /** Cookie/localStorage uuid for bootstrap cache while context still holds paint stub. */
+  const cacheOrgId = useMemo(() => resolveWorkspaceCacheOrgId(orgId), [orgId])
   // Paint-seed stub → real uuid: never paint default-cache rows from the wrong shop.
   const orgResolving = Boolean(activeOrganizationId?.trim()) && orgId == null
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
-  const initialBootstrap = readBootstrapForOrg(orgId)
+  const initialBootstrap = readBootstrapForOrg(cacheOrgId)
   // Lazy session read once — never call sessionStorage on every render (#185).
   const [events, setEvents] = useState<SchedulerEvent[]>(() => initialBootstrap?.events ?? [])
   const [blockouts, setBlockouts] = useState<ScheduleBlockout[]>(
@@ -219,9 +221,9 @@ function SchedulerWorkspaceViewInner({
     if (prev === orgId) return
     if ((prev == null || isWorkspaceOrgStubId(prev)) && orgId) {
       const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-      const cached = readSchedulerBootstrapCache(monthKey, orgId)
+      const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId)
       if (cached && schedulerBootstrapHasContent(cached)) {
-        bootstrapScopeRef.current = `${orgId ?? "default"}:${monthKey}`
+        bootstrapScopeRef.current = `${cacheOrgId ?? "default"}:${monthKey}`
         setEvents(cached.events)
         setBlockouts(cached.blockouts)
         setTechnicians(cached.technicians)
@@ -246,7 +248,7 @@ function SchedulerWorkspaceViewInner({
     setBootstrapSettled(false)
 
     const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-    const cached = readSchedulerBootstrapCache(monthKey, orgId)
+    const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId)
     if (cached && schedulerBootstrapHasContent(cached)) {
       setEvents(cached.events)
       setBlockouts(cached.blockouts)
@@ -255,16 +257,16 @@ function SchedulerWorkspaceViewInner({
       if (cached.ownerUserId) setOwnerUserId(cached.ownerUserId)
       setLoading(false)
       setBootstrapSettled(true)
-      bootstrapScopeRef.current = `${orgId ?? "default"}:${monthKey}`
+      bootstrapScopeRef.current = `${cacheOrgId ?? "default"}:${monthKey}`
     }
-  }, [orgId, visibleMonth])
+  }, [cacheOrgId, visibleMonth])
 
   // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
   useLayoutEffect(() => {
     if (!sessionReady) return
     const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-    const scope = `${orgId ?? "default"}:${monthKey}`
-    const cached = readSchedulerBootstrapCache(monthKey, orgId)
+    const scope = `${cacheOrgId ?? "default"}:${monthKey}`
+    const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId)
     if (!cached) return
     if (bootstrapScopeRef.current !== scope) {
       bootstrapScopeRef.current = scope
@@ -283,7 +285,7 @@ function SchedulerWorkspaceViewInner({
       setLoading(false)
       setBootstrapSettled(true)
     }
-  }, [orgId, visibleMonth, sessionReady])
+  }, [cacheOrgId, visibleMonth, sessionReady])
 
   const {
     focusLeadId,
@@ -308,16 +310,16 @@ function SchedulerWorkspaceViewInner({
   const orgQuery = orgId ? `&organization_id=${encodeURIComponent(orgId)}` : ""
   // Re-reads after session unlock so hard refresh is not empty → jobs.
   const bootstrapSeed = useSessionSeed(
-    () => readSchedulerBootstrapCache(monthKey, orgId),
+    () => readSchedulerBootstrapCache(monthKey, cacheOrgId),
     null,
-    `${orgId ?? "default"}:${monthKey}`
+    `${cacheOrgId ?? "default"}:${monthKey}`
   )
-  const bootstrapCacheIdentity = `${orgId ?? "default"}:${monthKey}`
+  const bootstrapCacheIdentity = `${cacheOrgId ?? "default"}:${monthKey}`
   const appliedBootstrapSeedRef = useRef<string | null>(null)
 
   // Paint last month bootstrap once per month/org — do not re-apply after live refresh writes cache.
   useLayoutEffect(() => {
-    if (!bootstrapSeed || !orgId) return
+    if (!bootstrapSeed || !cacheOrgId) return
     const hasContent = schedulerBootstrapHasContent(bootstrapSeed)
     if (appliedBootstrapSeedRef.current === bootstrapCacheIdentity) {
       // Locked after a non-empty apply — ignore empty re-reads for this month/org.
@@ -394,7 +396,7 @@ function SchedulerWorkspaceViewInner({
     [activePipelineJobs, excludeDeletedJobs]
   )
   const boardBootstrapLoading = orgResolving || loading || !bootstrapSettled
-  const boardScopeKey = `${orgId ?? "default"}:${monthKey}`
+  const boardScopeKey = `${cacheOrgId ?? orgId ?? "default"}:${monthKey}`
   // Hold last good calendar + tech rows while bootstrap silently revalidates.
   const filteredEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
   const displayEvents = useHeldList(filteredEvents, {
@@ -426,7 +428,8 @@ function SchedulerWorkspaceViewInner({
   ) {
     boardPaintedRef.current = true
   }
-  const boardChromeLocked = boardPaintedRef.current
+  const schedulerSurfaceReady =
+    sessionReady && orgId != null && bootstrapSettled && !orgResolving
 
   const paintSeeds = useDashboardPaintSeeds()
   const boardMonthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
@@ -434,7 +437,7 @@ function SchedulerWorkspaceViewInner({
   const boardPaintCovers = schedulerPaintCoversMonth(
     schedulerPaint,
     boardMonthKey,
-    orgId
+    cacheOrgId ?? orgId
   )
   const paintSaysBoard =
     boardPaintCovers &&
@@ -442,20 +445,22 @@ function SchedulerWorkspaceViewInner({
   // Cookie says this month had a board — stay pending until bootstrap settles (cold tab).
   const coldBoardPending = boardPaintCovers && (!bootstrapSettled || loading)
 
+  // Never drop pending just because one surface got partial data — that caused literal "0" flash.
   const boardCountsPending =
-    !boardChromeLocked &&
-    (!bootstrapSettled ||
-      loading ||
-      coldBoardPending ||
-      pipelineLoading ||
-      !pipelineHasResolved ||
-      (pipelineValidating && displayPipelineJobs.length === 0))
+    !bootstrapSettled ||
+    loading ||
+    orgResolving ||
+    coldBoardPending ||
+    pipelineLoading ||
+    !pipelineHasResolved ||
+    (paintSaysBoard && displayPipelineJobs.length === 0) ||
+    (pipelineValidating && displayPipelineJobs.length === 0)
   const techCountsPending =
-    !boardChromeLocked &&
-    (!bootstrapSettled ||
-      loading ||
-      coldBoardPending ||
-      (paintSaysBoard && assignableTechs.length === 0))
+    !bootstrapSettled ||
+    loading ||
+    orgResolving ||
+    coldBoardPending ||
+    (paintSaysBoard && assignableTechs.length === 0)
   const metricsPending =
     !bootstrapSettled ||
     loading ||
@@ -466,6 +471,7 @@ function SchedulerWorkspaceViewInner({
     !pipelineHasResolved
   const calendarSubtitlePending = !bootstrapSettled || loading || coldBoardPending
   const poolTrayLoading =
+    !schedulerSurfaceReady ||
     orgResolving ||
     ((poolLoading || !poolHasResolved || poolValidating) && displayPoolJobs.length === 0) ||
     (!bootstrapSettled && displayPoolJobs.length === 0)
@@ -635,7 +641,9 @@ function SchedulerWorkspaceViewInner({
 
   const load = useCallback(() => {
     const seq = ++loadSeqRef.current
-    const seeded = schedulerBootstrapHasContent(readSchedulerBootstrapCache(monthKey, orgId))
+    const seeded = schedulerBootstrapHasContent(
+      readSchedulerBootstrapCache(monthKey, cacheOrgId ?? orgId)
+    )
     const painted = boardPaintedRef.current
     // Silent refresh when the board is already on screen — never blank to loading.
     if (!seeded && !painted && !initialBootstrapDoneRef.current) setLoading(true)
@@ -698,7 +706,7 @@ function SchedulerWorkspaceViewInner({
         setBootstrapSettled(true)
         return
       }
-      const cached = readSchedulerBootstrapCache(monthKey, orgId)
+      const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId ?? orgId)
       const hasContent = schedulerBootstrapHasContent(cached)
       const paint = readSchedulerPaintSeed(orgId)
       const paintSaysBoard =
@@ -713,9 +721,9 @@ function SchedulerWorkspaceViewInner({
 
   useEffect(() => {
     // Skip bootstrap network while Scheduler pane is hidden (SWR already paused via pollEnabled).
-    if (!isActive) return
+    if (!isActive || !orgId || orgResolving) return
     void load()
-  }, [load, isActive])
+  }, [load, isActive, orgId, orgResolving])
 
   const refreshSchedulerData = useCallback(() => {
     load()
@@ -1438,6 +1446,7 @@ function SchedulerWorkspaceViewInner({
                 <SettledCount
                   pending={boardCountsPending}
                   count={displayPipelineJobs.length}
+                  paintHint={schedulerPaint?.eventCount}
                   format={(n) =>
                     `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
                   }
@@ -1456,13 +1465,14 @@ function SchedulerWorkspaceViewInner({
                   onMarkComplete={handleMarkJobComplete}
                   completingJobId={completingId}
                   loading={
-                    !boardChromeLocked &&
+                    !schedulerSurfaceReady &&
                     displayPipelineJobs.length === 0 &&
                     (pipelineLoading ||
                       pipelineValidating ||
                       loading ||
                       !bootstrapSettled ||
-                      coldBoardPending)
+                      coldBoardPending ||
+                      (paintSaysBoard && !pipelineHasResolved))
                   }
                 />
               </div>
@@ -1554,10 +1564,12 @@ function SchedulerWorkspaceViewInner({
                   <TechnicianSwimlaneBoard
                     technicians={displayTechnicians}
                     dayEvents={dayEvents}
-                    loading={
-                      !boardChromeLocked &&
+                    loading={!schedulerSurfaceReady || gridScheduleSaving}
+                    showEmptyState={
+                      schedulerSurfaceReady &&
                       assignableTechs.length === 0 &&
-                      (techCountsPending || gridScheduleSaving)
+                      !techCountsPending &&
+                      !paintSaysBoard
                     }
                     highlightId={highlightId}
                     onSelectEvent={openScheduledJobDrawer}

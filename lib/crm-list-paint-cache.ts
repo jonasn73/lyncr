@@ -56,14 +56,12 @@ function trimRow(c: CrmCustomerListItem): CrmListPaintRow {
     id: clip(c.id, 40),
     n: clip(c.display_name || "", 28),
     p: clip(c.phone_e164 || "", 16),
-    ...(c.lead_badge ? { b: c.lead_badge } : {}),
-    ...(typeof c.jobs_completed === "number" ? { j: c.jobs_completed } : {}),
+    b: c.lead_badge ?? "new_contact",
+    j: typeof c.jobs_completed === "number" ? c.jobs_completed : 0,
     ...(typeof c.lifetime_revenue_cents === "number" ? { r: c.lifetime_revenue_cents } : {}),
-    ...(status ? { s: clip(status, 36) } : {}),
-    ...(c.job_status_tone ? { t: c.job_status_tone } : {}),
-    ...(typeof c.open_lead_count === "number" && c.open_lead_count > 0
-      ? { o: c.open_lead_count }
-      : {}),
+    s: status ? clip(status, 36) : undefined,
+    t: c.job_status_tone ?? undefined,
+    o: typeof c.open_lead_count === "number" ? c.open_lead_count : 0,
   }
 }
 

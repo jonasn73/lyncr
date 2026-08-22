@@ -2,7 +2,7 @@
 
 // Owner Messages inbox — thread list + conversation + reply (polls GET /api/messaging).
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ClipboardList, CreditCard, Loader2, MessageSquare, Send, Sparkles, UserRound } from "lucide-react"
 import Link from "next/link"
@@ -28,12 +28,13 @@ import {
 import { buildTelHref } from "@/lib/phone-e164"
 import { useOwnerLatest } from "@/lib/hooks/use-owner-latest"
 import { usePollBudget } from "@/lib/hooks/use-poll-budget"
-import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
+import { useSettledListSurface } from "@/lib/hooks/use-settled-list-surface"
+import { useWorkspaceOrgId } from "@/lib/hooks/use-workspace-org-id"
 import { pickOpenCollectJobForPhone } from "@/lib/collect-job-match"
 import { openCollectPaymentModal } from "@/lib/settings-modals-events"
 import { markLatestReplySeen } from "@/lib/latest-seen"
 import { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"
-import { useSessionSeed } from "@/lib/hooks/use-client-seed"
+import { useCollectJobsQuery } from "@/lib/hooks/use-collect-jobs-query"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -74,11 +75,17 @@ import {
 } from "@/lib/messages-paint-cache"
 import {
   mergePaintedThreadHeads,
+  mergeVisibleSmsMessages,
   messagesForPhone,
 } from "@/lib/messages-thread-merge"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
 const EMPTY_MESSAGES: SmsMessage[] = []
+
+/** Stable message id — avoid inline getId recreating frozen lists every render. */
+function smsMessageRowId(msg: SmsMessage): string {
+  return msg.id
+}
 
 function messagesCacheKey(orgId: string | null): string {
   return persistedCacheKey("messages-inbox", orgId ?? "default")
@@ -162,18 +169,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   urlQuery: string
 }) {
   const { activeOrganizationId, organizations } = useDashboardWorkspace()
+  const { orgId, orgReady, orgResolving } = useWorkspaceOrgId()
+  const paintSeeds = useDashboardPaintSeeds()
   // Parse ?phone= / ?draft= without useSearchParams() remounting Messages on tab click.
   const searchParams = useMemo(() => searchQueryToParams(urlQuery), [urlQuery])
   const router = useRouter()
   // Pause when Messages pane OR browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
-  const orgId =
-    activeOrganizationId &&
-    !activeOrganizationId.startsWith("legacy-") &&
-    !isWorkspaceOrgStubId(activeOrganizationId)
-      ? activeOrganizationId
-      : null
-  const paintSeeds = useDashboardPaintSeeds()
   // Layout cookie only — never re-parse document.cookie every render (unstable object → org-clear loop).
   const messagesPaint = paintSeeds.messages
   // Prefer SSR seed zone so first HTML matches hydrate (Node Intl is often UTC).
@@ -186,66 +188,45 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     organizations[0]?.name?.trim() ||
     ""
 
-  // Bumps after a successful full fetch so useSessionSeed re-reads session.
+  // Bumps after a successful full fetch so session cache re-reads on next mount.
   const [inboxSeedRevision, setInboxSeedRevision] = useState(0)
-  // SSR paint — identical on server + first client paint (no empty-well hydration flash).
-  const paintListSms = useMemo(
+  const inboxScopeKey = `${orgId ?? "default"}`
+
+  const readMessagesSession = useCallback(
+    () => readMessagesCache(orgId, messagesPaint),
+    [orgId, messagesPaint]
+  )
+
+  const readMessagesPaintRows = useCallback(
     () => (messagesPaint?.messages.length ? messagesPaintToSms(messagesPaint) : EMPTY_MESSAGES),
     [messagesPaint]
   )
-  const cachedMessages = useSessionSeed(
-    () => readMessagesCache(orgId, messagesPaint),
-    EMPTY_MESSAGES,
-    `${orgId ?? "default"}:r${inboxSeedRevision}`
-  )
-  const [liveMessages, setLiveMessages] = useState<SmsMessage[] | null>(null)
+
+  const {
+    rows: messages,
+    paintRows: paintListSms,
+    applyNetworkList,
+    resetSurface,
+    networkSettled: inboxSettled,
+    hasSeedRows,
+    rowsForCompareRef: messagesForCompareRef,
+    setNetworkSettled,
+    setLiveRows,
+  } = useSettledListSurface<SmsMessage>({
+    scopeKey: inboxScopeKey,
+    sessionRevision: inboxSeedRevision,
+    empty: EMPTY_MESSAGES,
+    orgReady,
+    readSession: readMessagesSession,
+    readPaint: readMessagesPaintRows,
+    mergePaintWithSession: mergePaintedThreadHeads,
+    mergeVisibleWithLive: mergeVisibleSmsMessages,
+    getId: smsMessageRowId,
+  })
+
   // Full inbox for the open conversation (may differ from list heads while merging).
   const [conversationInbox, setConversationInbox] = useState<SmsMessage[] | null>(null)
-  // live → session (merged with paint) → SSR paint.
-  const sessionDisplay = useMemo(() => {
-    if (cachedMessages.length === 0) return paintListSms
-    if (
-      paintListSms.length > 0 &&
-      messagesThreadListIsQuietExpansion(paintListSms, cachedMessages)
-    ) {
-      return mergePaintedThreadHeads(paintListSms, cachedMessages)
-    }
-    return cachedMessages
-  }, [cachedMessages, paintListSms])
-  const messages = liveMessages ?? sessionDisplay
-  const messagesForCompareRef = useRef(messages)
-  messagesForCompareRef.current = messages
-  // Stable thread timestamps — freeze per phone+msg id so row 3 date doesn’t flip on hydrate.
-  const threadTimeLabelRef = useRef(new Map<string, { id: string; label: string }>())
-  const threadTimeLabel = (phone: string, msgId: string, iso: string) => {
-    const key = phoneMatchKey(phone) || phone
-    const prev = threadTimeLabelRef.current.get(key)
-    if (prev && prev.id === msgId) return prev.label
-    const label = formatOwnerListTime(iso, messageTimeZone)
-    threadTimeLabelRef.current.set(key, { id: msgId, label })
-    return label
-  }
-  // Quiet only when no paint and no session — paint rows count as settled first paint.
-  const hasPaintRows = paintListSms.length > 0
-  const [loading, setLoading] = useState(
-    () => !hasPaintRows && messages.length === 0
-  )
-  const [inboxSettled, setInboxSettled] = useState(
-    () => hasPaintRows || messages.length > 0
-  )
-  // Freeze list preview by phone until inbox settles — head id changes still rewrite short→long.
-  const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
-  const threadPreviewBody = (phone: string, msgId: string, body: string) => {
-    const key = phoneMatchKey(phone) || phone
-    const next = body || ""
-    const prev = threadPreviewBodyRef.current.get(key)
-    if (prev) {
-      // Same head, or still settling — keep first painted preview.
-      if (prev.id === msgId || !inboxSettled) return prev.body || next
-    }
-    threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
-    return next
-  }
+  const [loading, setLoading] = useState(() => !hasSeedRows)
   const [error, setError] = useState<string | null>(null)
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null)
   const prevOrgForInboxRef = useRef<string | null | undefined>(undefined)
@@ -255,9 +236,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     isActive,
     loading,
     messageCount: messages.length,
-    liveMessagesNull: liveMessages == null,
-    cachedMessageCount: cachedMessages.length,
-    showingEmpty: !loading && messages.length === 0,
+    liveMessagesNull: !inboxSettled,
+    cachedMessageCount: messages.length,
+    showingEmpty: inboxSettled && messages.length === 0,
     threadOpen: Boolean(selectedPhone),
     searchParamNames: flickerSafeSearchParamNames(urlQuery).join(","),
   })
@@ -293,6 +274,29 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const appliedDeepLinkKeyRef = useRef<string | null>(null)
   const threadOpen = Boolean(selectedPhone)
 
+  // Stable thread timestamps — freeze per phone+msg id so row date doesn't flip on hydrate.
+  const threadTimeLabelRef = useRef(new Map<string, { id: string; label: string }>())
+  const threadTimeLabel = (phone: string, msgId: string, iso: string) => {
+    const key = phoneMatchKey(phone) || phone
+    const prev = threadTimeLabelRef.current.get(key)
+    if (prev && prev.id === msgId) return prev.label
+    const label = formatOwnerListTime(iso, messageTimeZone)
+    threadTimeLabelRef.current.set(key, { id: msgId, label })
+    return label
+  }
+  // Freeze list preview by phone until inbox settles — stops bottom-row body flash.
+  const threadPreviewBodyRef = useRef(new Map<string, { id: string; body: string }>())
+  const threadPreviewBody = (phone: string, msgId: string, body: string) => {
+    const key = phoneMatchKey(phone) || phone
+    const next = body || ""
+    const prev = threadPreviewBodyRef.current.get(key)
+    if (prev) {
+      if (prev.id === msgId || !inboxSettled) return prev.body || next
+    }
+    threadPreviewBodyRef.current.set(key, { id: msgId, body: next })
+    return next
+  }
+
   /** Drop phone/draft query params so refetch cannot yank the open thread. */
   const clearMessagesDeepLinkUrl = useCallback(() => {
     const hasPhone = searchParams.get("phone")
@@ -302,20 +306,12 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
     router.replace("/dashboard/messages", { scroll: false })
   }, [router, searchParams])
 
-  const hasPaintedMessagesRef = useRef(false)
+  const hasPaintedMessagesRef = useRef(hasSeedRows)
   if (messages.length > 0) hasPaintedMessagesRef.current = true
-
-  // Settle before paint when rows exist — useEffect left a one-frame empty well.
-  useLayoutEffect(() => {
-    if (messages.length > 0) {
-      hasPaintedMessagesRef.current = true
-      setLoading(false)
-      setInboxSettled(true)
-    }
-  }, [messages.length])
 
   const loadMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
+      if (orgResolving || !orgReady) return
       const silent = opts?.silent ?? hasPaintedMessagesRef.current
       // Never flip the full pane to loading when rows are already on screen.
       if (!silent && !hasPaintedMessagesRef.current) {
@@ -343,42 +339,60 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         if (!res.ok) throw new Error(json.error || "Could not load messages")
         const next = Array.isArray(json.data?.messages) ? json.data!.messages! : []
         setConversationInbox(next)
-        setLiveMessages((prev) => {
-          const baseline = prev ?? messagesForCompareRef.current
-          if (
-            baseline.length > 0 &&
-            (messagesFingerprint(baseline) === messagesFingerprint(next) ||
-              messagesThreadListFingerprint(baseline) === messagesThreadListFingerprint(next))
-          ) {
-            return prev ?? baseline
+        const baseline = messagesForCompareRef.current
+        if (
+          baseline.length > 0 &&
+          (messagesFingerprint(baseline) === messagesFingerprint(next) ||
+            messagesThreadListFingerprint(baseline) ===
+              messagesThreadListFingerprint(next))
+        ) {
+          setNetworkSettled(true)
+          hasPaintedMessagesRef.current = true
+          return
+        }
+        let toApply = next
+        if (baseline.length > 0) {
+          if (messagesThreadListIsQuietExpansion(baseline, next)) {
+            toApply = mergePaintedThreadHeads(baseline, next)
+          } else {
+            toApply = mergePaintedThreadHeads(
+              baseline,
+              mergeVisibleSmsMessages(baseline, next)
+            )
           }
-          // Same conversation heads — keep painted list rows; full inbox is in conversationInbox.
-          if (
-            baseline.length > 0 &&
-            messagesThreadListIsQuietExpansion(baseline, next)
-          ) {
-            return mergePaintedThreadHeads(baseline, next)
-          }
+        } else if (
+          paintListSms.length > 0 &&
+          messagesThreadListIsQuietExpansion(paintListSms, next)
+        ) {
+          toApply = mergePaintedThreadHeads(paintListSms, next)
+        } else {
           logFlicker({
             event: "list-replace",
             component: "MessagesWorkspaceView",
             messageCount: next.length,
             liveMessagesNull: false,
           })
-          return next
-        })
+        }
+        applyNetworkList(toApply)
         writePersistedCache(messagesCacheKey(orgId), { messages: next })
         writeMessagesPaintSeed(next, orgId)
         setInboxSeedRevision((n) => n + 1)
         hasPaintedMessagesRef.current = true
-        setInboxSettled(true)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load messages")
       } finally {
         setLoading(false)
       }
     },
-    [orgId]
+    [
+      orgId,
+      orgReady,
+      orgResolving,
+      paintListSms,
+      applyNetworkList,
+      setNetworkSettled,
+      messagesForCompareRef,
+    ]
   )
 
   // Org switch only — never clear live when paint cookie object identity churns.
@@ -397,24 +411,23 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       reason: "org-switch",
       liveMessagesNull: true,
     })
-    setLiveMessages(null)
+    resetSurface()
     setConversationInbox(null)
     threadScrollHydratedRef.current = null
     threadTimeLabelRef.current.clear()
     threadPreviewBodyRef.current.clear()
     const seeded = readMessagesCache(orgId, messagesPaint).length > 0
     hasPaintedMessagesRef.current = seeded
-    setInboxSettled(seeded)
-    if (!seeded) {
-      logFlicker({
-        event: "loading-true",
-        component: "MessagesWorkspaceView",
-        reason: "org-switch-no-seed",
-        fullPaneLoading: true,
-      })
-    }
     setLoading(!seeded)
-  }, [orgId, messagesPaint])
+  }, [orgId, resetSurface])
+
+  useEffect(() => {
+    if (messages.length > 0) setLoading(false)
+  }, [messages.length])
+
+  useEffect(() => {
+    if (hasSeedRows) setLoading(false)
+  }, [hasSeedRows])
 
   useEffect(() => {
     if (!pollEnabled) return
@@ -874,7 +887,11 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       // Sending a reply clears this thread from Latest (same as opening it).
       markLatestReplySeen(to)
       if (json.data?.message) {
-        setLiveMessages((prev) => [json.data!.message!, ...(prev ?? cachedMessages)])
+        setLiveRows((prev) => [
+          json.data!.message!,
+          ...(prev ?? messagesForCompareRef.current),
+        ])
+        setNetworkSettled(true)
       } else {
         await loadMessages({ silent: true })
       }
