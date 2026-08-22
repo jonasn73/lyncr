@@ -50,7 +50,7 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
 
 export type PipelineResult =
   | { ok: true; sent: boolean; scheduled: boolean }
-  | { ok: false; skipped: true; reason: string }
+  | { ok: false; skipped: true; reason: string; detail?: string }
 
 const TOGGLE_BY_PHASE: Record<SmsPhase, keyof Awaited<ReturnType<typeof getOwnerSmsSettings>>> = {
   booking: "sms_booking_enabled",
@@ -153,10 +153,11 @@ export async function runSmsPipeline(params: {
     ownerUserId: ctx.owner_user_id,
     toE164,
     text: body,
+    organizationId: ctx.organization_id,
   })
   if (!res.ok) {
     console.warn(`[sms-pipeline] ${params.phase} send failed: ${res.error}`)
-    return { ok: false, skipped: true, reason: "send-failed" }
+    return { ok: false, skipped: true, reason: "send-failed", detail: res.error }
   }
   return { ok: true, sent: true, scheduled: false }
 }
@@ -246,14 +247,16 @@ export async function sendManualThanksReviewSms(params: {
   if (!body) return { ok: false, skipped: true, reason: "empty-body" }
 
   // Log into Messages so delivery receipts (Delivered / Failed) attach to this text.
+  // Always pass the job's organization so we send from Key Squad (not another shop's line).
   const res = await sendAndLogWorkspaceCustomerSms({
     ownerUserId: ctx.owner_user_id,
     toE164,
     text: body,
+    organizationId: ctx.organization_id,
   })
   if (!res.ok) {
     console.warn(`[sms-pipeline] manual review send failed: ${res.error}`)
-    return { ok: false, skipped: true, reason: "send-failed" }
+    return { ok: false, skipped: true, reason: "send-failed", detail: res.error }
   }
   // Always stamp the job so Latest shows “sent” even if the inbox row insert is missing.
   await markLeadReviewSmsSent({
@@ -284,10 +287,17 @@ export async function flushDueScheduledSms(limit = 20): Promise<{ sent: number; 
     const claimed = await claimScheduledSms(item.id)
     if (!claimed) continue
     try {
+      // Resolve the job's workspace so we don't send from another shop's line.
+      let organizationId: string | null = null
+      if (item.lead_id) {
+        const ctx = await getLeadDispatchContext(item.lead_id)
+        organizationId = ctx?.organization_id ?? null
+      }
       const res = await sendAndLogWorkspaceCustomerSms({
         ownerUserId: item.owner_user_id,
         toE164: item.to_e164,
         text: item.body,
+        organizationId,
       })
       if (res.ok) {
         await markScheduledSmsSent(item.id)

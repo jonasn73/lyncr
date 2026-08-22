@@ -31,9 +31,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
         result.reason === "no-customer-phone"
           ? "This job has no customer phone number."
           : result.reason === "send-failed"
-            ? "SMS failed to send — check your line and try again."
+            ? result.detail?.trim() ||
+              "SMS failed to send — check your line and try again."
             : "Could not send thank-you SMS."
-      return NextResponse.json({ error, reason: result.reason }, { status: 400 })
+      return NextResponse.json(
+        { error, reason: result.reason, detail: result.detail ?? null },
+        { status: 400 }
+      )
     }
     if (!result.ok) {
       return NextResponse.json({ error: "Could not send thank-you SMS." }, { status: 500 })

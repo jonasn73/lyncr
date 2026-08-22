@@ -378,6 +378,8 @@ export interface OwnerSmsSettings {
 export interface LeadDispatchContext {
   lead_id: string
   owner_user_id: string
+  /** Workspace org for this job — required so SMS sends from the right business line. */
+  organization_id: string | null
   customer_name: string | null
   customer_phone: string | null
   location: string | null

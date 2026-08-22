@@ -7735,7 +7735,11 @@ export async function listProviderLinkedActiveNumbers(limit = 25): Promise<strin
     .filter(Boolean)
 }
 
-/** First active line linked to Telnyx (has provider SID) — usable as outbound SMS "from". */
+/**
+ * First active line linked to Telnyx (has provider SID) — usable as outbound SMS "from".
+ * Skips Amber control DIDs. Prefers the owner's default workspace line, then newest business line
+ * (oldest-first used to pick a stale second-shop DID and break Thanks + review sends).
+ */
 export async function getProviderLinkedActiveNumber(userId?: string): Promise<string | null> {
   const sql = getSql()
   const pick = (rows: Record<string, unknown>[]) => {
@@ -7744,24 +7748,59 @@ export async function getProviderLinkedActiveNumber(userId?: string): Promise<st
     return number || null
   }
   if (userId) {
-    const rows = await sql`
-      SELECT number
-      FROM phone_numbers
-      WHERE user_id = ${userId}
-        AND status = 'active'
-        AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
-      ORDER BY created_at ASC
-      LIMIT 1
-    `
-    const fromAccount = pick(rows as Record<string, unknown>[])
-    if (fromAccount) return fromAccount
+    // Prefer the default organization's active business line when the owner has multiple shops.
+    try {
+      const defaultOrgRows = await sql`
+        SELECT pn.number
+        FROM phone_numbers pn
+        INNER JOIN organizations o ON o.id = pn.organization_id
+        WHERE pn.user_id = ${userId}
+          AND o.owner_user_id = ${userId}
+          AND o.is_default = true
+          AND pn.status = 'active'
+          AND coalesce(pn.is_amber_control, false) = false
+          AND nullif(trim(coalesce(pn.provider_number_sid, pn.twilio_sid, '')), '') IS NOT NULL
+        ORDER BY pn.created_at DESC
+        LIMIT 1
+      `
+      const fromDefault = pick(defaultOrgRows as Record<string, unknown>[])
+      if (fromDefault) return fromDefault
+    } catch {
+      // is_amber_control / organizations join may be missing on older DBs — fall through.
+    }
+    try {
+      const rows = await sql`
+        SELECT number
+        FROM phone_numbers
+        WHERE user_id = ${userId}
+          AND status = 'active'
+          AND coalesce(is_amber_control, false) = false
+          AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `
+      const fromAccount = pick(rows as Record<string, unknown>[])
+      if (fromAccount) return fromAccount
+    } catch {
+      const rows = await sql`
+        SELECT number
+        FROM phone_numbers
+        WHERE user_id = ${userId}
+          AND status = 'active'
+          AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `
+      const fromAccount = pick(rows as Record<string, unknown>[])
+      if (fromAccount) return fromAccount
+    }
   }
   const rows = await sql`
     SELECT number
     FROM phone_numbers
     WHERE status = 'active'
       AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
-    ORDER BY created_at ASC
+    ORDER BY created_at DESC
     LIMIT 1
   `
   return pick(rows as Record<string, unknown>[])
@@ -11838,12 +11877,41 @@ export async function getLeadDispatchContext(leadId: string): Promise<LeadDispat
   let rows: Record<string, unknown>[]
   try {
     rows = await sql`
-      SELECT id, user_id, caller_e164, collected, summary, job_status, assigned_tech_id
+      SELECT id, user_id, organization_id, caller_e164, collected, summary, job_status, assigned_tech_id
       FROM ai_leads WHERE id = ${leadId} LIMIT 1
     `
   } catch (e) {
     if (isMissingAssignedTechColumnError(e)) {
-      rows = await sql`SELECT id, user_id, caller_e164, collected, summary FROM ai_leads WHERE id = ${leadId} LIMIT 1`
+      try {
+        rows = await sql`
+          SELECT id, user_id, organization_id, caller_e164, collected, summary
+          FROM ai_leads WHERE id = ${leadId} LIMIT 1
+        `
+      } catch (e2) {
+        if (pgErrorCode(e2) === "42703") {
+          rows = await sql`SELECT id, user_id, caller_e164, collected, summary FROM ai_leads WHERE id = ${leadId} LIMIT 1`
+        } else if (isUndefinedRelationError(e2, "ai_leads")) {
+          return null
+        } else {
+          throw e2
+        }
+      }
+    } else if (pgErrorCode(e) === "42703") {
+      // Older schema without organization_id / assigned_tech_id — still send SMS.
+      try {
+        rows = await sql`
+          SELECT id, user_id, caller_e164, collected, summary, job_status, assigned_tech_id
+          FROM ai_leads WHERE id = ${leadId} LIMIT 1
+        `
+      } catch (e2) {
+        if (isMissingAssignedTechColumnError(e2) || pgErrorCode(e2) === "42703") {
+          rows = await sql`SELECT id, user_id, caller_e164, collected, summary FROM ai_leads WHERE id = ${leadId} LIMIT 1`
+        } else if (isUndefinedRelationError(e2, "ai_leads")) {
+          return null
+        } else {
+          throw e2
+        }
+      }
     } else if (isUndefinedRelationError(e, "ai_leads")) {
       return null
     } else {
@@ -11860,13 +11928,23 @@ export async function getLeadDispatchContext(leadId: string): Promise<LeadDispat
     }
     return null
   }
+  const orgRaw = row.organization_id != null ? String(row.organization_id).trim() : ""
   return {
     lead_id: String(row.id),
     owner_user_id: String(row.user_id),
+    organization_id: orgRaw && !orgRaw.startsWith("legacy-") ? orgRaw : null,
     customer_name: pick(["customer_name", "name", "caller_name", "contact_name"]),
+    // Prefer the same keys the rest of the app uses (customer_phone), then legacy aliases.
     customer_phone:
-      pick(["callback_number", "caller_number", "phone", "callback"]) ||
-      (row.caller_e164 != null ? String(row.caller_e164) : null),
+      pick([
+        "customer_phone",
+        "callback_number",
+        "caller_number",
+        "phone",
+        "callback",
+        "mobile",
+        "e164",
+      ]) || (row.caller_e164 != null ? String(row.caller_e164) : null),
     location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
     time_slot: pick(["time_slot", "appointment_time", "slot", "appointment", "scheduled_time", "when"]),
     summary: row.summary != null ? String(row.summary) : null,
@@ -12114,6 +12192,7 @@ export async function insertScheduledSms(params: {
 export interface DueScheduledSms {
   id: string
   owner_user_id: string
+  lead_id: string | null
   to_e164: string
   body: string
 }
@@ -12124,7 +12203,7 @@ export async function listDueScheduledSms(limit = 20): Promise<DueScheduledSms[]
   const lim = Math.min(Math.max(limit, 1), 50)
   try {
     const rows = await sql`
-      SELECT id, owner_user_id, to_e164, body
+      SELECT id, owner_user_id, lead_id, to_e164, body
       FROM scheduled_sms
       WHERE status = 'pending' AND send_after <= now()
       ORDER BY send_after ASC
@@ -12133,6 +12212,7 @@ export async function listDueScheduledSms(limit = 20): Promise<DueScheduledSms[]
     return rows.map((r: Record<string, unknown>) => ({
       id: String(r.id),
       owner_user_id: String(r.owner_user_id),
+      lead_id: r.lead_id != null ? String(r.lead_id) : null,
       to_e164: String(r.to_e164),
       body: String(r.body),
     }))
