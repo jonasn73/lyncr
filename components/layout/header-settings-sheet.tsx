@@ -119,7 +119,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [paymentsInitialTab, setPaymentsInitialTab] = useState<"payments" | "invoices">(
     "payments"
   )
-  const [paymentsDayFilter, setPaymentsDayFilter] = useState<"today" | "yesterday" | "all">(
+  const [paymentsDayFilter, setPaymentsDayFilter] = useState<"today" | "yesterday" | "week" | "all">(
     "all"
   )
   // Keep sheets mounted after first open so re-open is instant (chunk already loaded).
@@ -421,7 +421,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setCollectOpen(true)
   }, [])
 
-  const openPayments = useCallback((day: "today" | "yesterday" | "all" = "all") => {
+  const openPayments = useCallback((day: "today" | "yesterday" | "week" | "all" = "all") => {
     // Keep Money underneath so closing Transactions returns here.
     setPaymentsInitialTab("payments")
     setPaymentsDayFilter(day)
@@ -652,7 +652,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => openPayments(opt.id === "week" ? "all" : opt.id)}
+                  onClick={() => openPayments(opt.id)}
                   className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-zinc-900/70"
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

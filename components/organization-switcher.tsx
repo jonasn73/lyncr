@@ -140,6 +140,9 @@ export function OrganizationSwitcher({
   const [renameDraft, setRenameDraft] = useState("")
   const [renameSaving, setRenameSaving] = useState(false)
 
+  const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false)
+  const [addWorkspaceDraft, setAddWorkspaceDraft] = useState("")
+
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
@@ -328,8 +331,14 @@ export function OrganizationSwitcher({
       })
       return
     }
-    const name = window.prompt("New business name", "Key Squad 502")?.trim()
+    setAddWorkspaceDraft("")
+    setAddWorkspaceOpen(true)
+  }
+
+  function submitAddWorkspaceDraft() {
+    const name = addWorkspaceDraft.trim()
     if (!name || name.length < 2) return
+    setAddWorkspaceOpen(false)
     void submitNewWorkspace(name)
   }
 
@@ -506,6 +515,42 @@ export function OrganizationSwitcher({
             </Button>
             <Button type="button" onClick={() => void submitRename()} disabled={renameSaving}>
               {renameSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addWorkspaceOpen} onOpenChange={setAddWorkspaceOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add business location / workspace</DialogTitle>
+            <DialogDescription>
+              Give this new workspace a name. Call greetings automatically pronounce{" "}
+              <span className="whitespace-nowrap">502</span> as “five oh two” — keep the digit zero in the name.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="workspace-add">Business name</Label>
+            <Input
+              id="workspace-add"
+              value={addWorkspaceDraft}
+              onChange={(e) => setAddWorkspaceDraft(e.target.value)}
+              placeholder="e.g. Downtown Location"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitAddWorkspaceDraft()
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAddWorkspaceOpen(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={submitAddWorkspaceDraft}
+              disabled={creating || addWorkspaceDraft.trim().length < 2}
+            >
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>

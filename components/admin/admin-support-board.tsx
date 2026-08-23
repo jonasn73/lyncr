@@ -450,6 +450,7 @@ function LiveChatQueue() {
                 className="shrink-0 border-slate-700"
                 disabled={uploading || pending.length >= 5}
                 onClick={() => fileRef.current?.click()}
+                aria-label="Attach file"
               >
                 {uploading ? <Spinner className="h-4 w-4" /> : <Paperclip className="h-4 w-4" />}
               </Button>
@@ -472,6 +473,7 @@ function LiveChatQueue() {
                 className="shrink-0 bg-violet-600 hover:bg-violet-500"
                 disabled={sending || (!draft.trim() && pending.length === 0)}
                 onClick={() => void sendReply()}
+                aria-label="Send"
               >
                 {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
               </Button>

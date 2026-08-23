@@ -72,7 +72,7 @@ export function RecordInvoicesPanel({
   showSearch = true,
   /** Hide count + Refresh when the parent sheet already has that chrome. */
   showToolbar = true,
-  /** Same Today / Yesterday / All filter as Card payments (Money sheet). */
+  /** Same Today / Yesterday / Week / All filter as Card payments (Money sheet). */
   dayFilter = "all",
   /** Highlight this invoice id after a fresh send. */
   highlightId,
@@ -84,7 +84,7 @@ export function RecordInvoicesPanel({
   externalSearch?: string
   showSearch?: boolean
   showToolbar?: boolean
-  dayFilter?: "today" | "yesterday" | "all"
+  dayFilter?: "today" | "yesterday" | "week" | "all"
   highlightId?: string | null
   compact?: boolean
   onCount?: (n: number) => void
@@ -148,6 +148,13 @@ export function RecordInvoicesPanel({
           const t = new Date(inv.createdAt).getTime()
           return t >= start.getTime() && t < end.getTime()
         })
+      } else if (dayFilter === "week") {
+        // Local Monday 00:00 — matches the "week-to-date" definition used by the Money tile.
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        const dayIndex = (start.getDay() + 6) % 7 // Mon=0 .. Sun=6
+        start.setDate(start.getDate() - dayIndex)
+        list = list.filter((inv) => new Date(inv.createdAt).getTime() >= start.getTime())
       }
       setRows(list)
       onCount?.(list.length)

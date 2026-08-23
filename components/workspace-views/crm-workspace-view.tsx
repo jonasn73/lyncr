@@ -1203,7 +1203,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         migration?: string
       } | null
       if (!res.ok) {
-        alert(json?.migration ? `Run ${json.migration} in Neon` : json?.error || "Could not add vehicle")
+        toast({
+          title: "Could not add vehicle",
+          description: json?.migration ? `Run ${json.migration} in Neon` : json?.error || undefined,
+          variant: "destructive",
+        })
         return
       }
       if (json?.data?.vehicle) {
@@ -1380,7 +1384,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         data?: { vehicle?: CustomerVehicle }
       }
       if (!res.ok) {
-        alert(json?.migration ? `Run ${json.migration} in Neon` : json?.error || "Could not save")
+        toast({
+          title: "Could not save vehicle",
+          description: json?.migration ? `Run ${json.migration} in Neon` : json?.error || undefined,
+          variant: "destructive",
+        })
         return
       }
       if (json.data?.vehicle) {
@@ -1391,7 +1399,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       setEditingVehicleId(null)
       toast({ title: "Vehicle updated", description: "Year, make, model, and VIN saved." })
     } catch {
-      alert("Could not save vehicle")
+      toast({ title: "Could not save vehicle", variant: "destructive" })
     } finally {
       setEditVehicleBusy(false)
     }

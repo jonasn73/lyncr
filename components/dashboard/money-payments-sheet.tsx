@@ -80,11 +80,11 @@ export function MoneyPaymentsSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
   initialTab?: ListTab
-  initialDayFilter?: "today" | "yesterday" | "all"
+  initialDayFilter?: "today" | "yesterday" | "week" | "all"
 }) {
   const { toast } = useToast()
   const [listTab, setListTab] = useState<ListTab>(initialTab)
-  const [dayFilter, setDayFilter] = useState<"today" | "yesterday" | "all">(initialDayFilter)
+  const [dayFilter, setDayFilter] = useState<"today" | "yesterday" | "week" | "all">(initialDayFilter)
   const [view, setView] = useState<View>("list")
   const [rows, setRows] = useState<OwnerCollectedTransaction[]>([])
   const [loading, setLoading] = useState(false)
@@ -131,7 +131,7 @@ export function MoneyPaymentsSheet({
       }
       if (!res.ok) throw new Error(json.error || "Could not load payments")
       let next = Array.isArray(json.data?.transactions) ? json.data!.transactions! : []
-      // Client-side Today / Yesterday filter using the phone’s local calendar.
+      // Client-side Today / Yesterday / Week filter using the phone’s local calendar.
       if (dayFilter === "today" || dayFilter === "yesterday") {
         const start = new Date()
         start.setHours(0, 0, 0, 0)
@@ -144,6 +144,13 @@ export function MoneyPaymentsSheet({
           const t = new Date(tx.createdAt).getTime()
           return t >= start.getTime() && t < end.getTime()
         })
+      } else if (dayFilter === "week") {
+        // Local Monday 00:00 — matches the "week-to-date" definition used by the Money tile.
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        const dayIndex = (start.getDay() + 6) % 7 // Mon=0 .. Sun=6
+        start.setDate(start.getDate() - dayIndex)
+        next = next.filter((tx) => new Date(tx.createdAt).getTime() >= start.getTime())
       }
       setRows(next)
     } catch (e) {
@@ -338,11 +345,12 @@ export function MoneyPaymentsSheet({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+              <div className="grid grid-cols-4 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
                 {(
                   [
                     { id: "today" as const, label: "Today" },
                     { id: "yesterday" as const, label: "Yesterday" },
+                    { id: "week" as const, label: "Week" },
                     { id: "all" as const, label: "All" },
                   ] as const
                 ).map((opt) => (
@@ -371,14 +379,18 @@ export function MoneyPaymentsSheet({
                         ? "Today’s invoices"
                         : dayFilter === "yesterday"
                           ? "Yesterday’s invoices"
-                          : "Invoices"
+                          : dayFilter === "week"
+                            ? "This week’s invoices"
+                            : "Invoices"
                     : debouncedQ
                       ? "Matching charges"
                       : dayFilter === "today"
                         ? "Today’s charges"
                         : dayFilter === "yesterday"
                           ? "Yesterday’s charges"
-                          : "Charges"}
+                          : dayFilter === "week"
+                            ? "This week’s charges"
+                            : "Charges"}
                 </p>
                 <button
                   type="button"

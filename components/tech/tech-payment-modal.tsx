@@ -18,6 +18,16 @@ import {
   X,
 } from "lucide-react"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { loadStripeTerminal, type Terminal } from "@stripe/terminal-js"
@@ -218,6 +228,8 @@ export function TechPaymentModal(props: {
       ),
     [sentLinks]
   )
+  /** Confirm before canceling still-Waiting pay link(s) and sending a new one. */
+  const [replaceLinkConfirmOpen, setReplaceLinkConfirmOpen] = useState(false)
 
   // Latest settled pay link for this job (if any).
   const paidLink = useMemo(
@@ -1056,7 +1068,7 @@ export function TechPaymentModal(props: {
   }
 
   /** Create Stripe Checkout URL and text it to the customer (SMS only). */
-  async function sendPayLink() {
+  function sendPayLink() {
     setError(null)
     setLinkSentUrl(null)
     setLinkDelivered(false)
@@ -1071,11 +1083,13 @@ export function TechPaymentModal(props: {
     }
     // Warn when another unpaid link is still Waiting — offer replace.
     if (waitingLinks.length > 0) {
-      const ok = window.confirm(
-        `There ${waitingLinks.length === 1 ? "is already 1 unpaid pay link" : `are already ${waitingLinks.length} unpaid pay links`} for this job.\n\nOK = cancel the old Waiting link(s) and send this new amount.\nCancel = go back without sending.`
-      )
-      if (!ok) return
+      setReplaceLinkConfirmOpen(true)
+      return
     }
+    void doSendPayLink()
+  }
+
+  async function doSendPayLink() {
     setBusy(true)
     setMethod("link")
     try {
@@ -1133,6 +1147,7 @@ export function TechPaymentModal(props: {
   // Portal to <body>: Collect opens this from under the acrylic header (backdrop-filter),
   // which otherwise traps position:fixed to the header — only a sliver shows on screen.
   const modal = (
+    <>
     <div
       className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
@@ -1976,7 +1991,7 @@ export function TechPaymentModal(props: {
           <button
             type="button"
             disabled={busy || !hasUsableSmsPhone(linkPhone)}
-            onClick={() => void sendPayLink()}
+            onClick={sendPayLink}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
           >
             {busy ? (
@@ -2006,6 +2021,29 @@ export function TechPaymentModal(props: {
         </NestedPayPopup>
       ) : null}
     </div>
+    <AlertDialog open={replaceLinkConfirmOpen} onOpenChange={setReplaceLinkConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Replace waiting pay link?</AlertDialogTitle>
+          <AlertDialogDescription>
+            There {waitingLinks.length === 1 ? "is already 1 unpaid pay link" : `are already ${waitingLinks.length} unpaid pay links`} for this job. Sending this new amount cancels the old Waiting link(s).
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Go back</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              setReplaceLinkConfirmOpen(false)
+              void doSendPayLink()
+            }}
+          >
+            Cancel old link &amp; send
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 
   if (!mounted || typeof document === "undefined") return null
