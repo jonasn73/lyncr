@@ -54,6 +54,16 @@ export async function POST(req: NextRequest) {
       if (!tn.phone_number) continue
       const e164 = normalizePhoneNumberE164(tn.phone_number)
       const digitKey = e164.replace(/\D/g, "")
+      const existingRow = digitKey ? dbByDigits.get(digitKey) : undefined
+
+      // A line the owner retired is no longer ours to manage: do not backfill its carrier id
+      // and do not re-point its voice webhook. Telnyx may still list it (releasing there is a
+      // console action), and getPhoneNumbers returns every status, so without this the
+      // reconciliation kept touching numbers that had been taken out of service.
+      if (existingRow?.status === "released") {
+        results.push({ number: e164, action: "skipped (released)" })
+        continue
+      }
 
       if (digitKey && !dbDigitSet.has(digitKey)) {
         const existingInDb = await getPhoneNumberByNumberAndStatus(e164, "active")
@@ -75,10 +85,9 @@ export async function POST(req: NextRequest) {
         // never repair that — the digit-set check passes, so it is skipped on every run —
         // and without provider_number_sid the line drops out of SMS sending and
         // primary-line resolution while still looking active in the UI.
-        const existing = dbByDigits.get(digitKey)
-        if (existing && !existing.provider_number_sid?.trim()) {
-          await updatePhoneNumber(existing.id, userId, { provider_number_sid: tn.id })
-          existing.provider_number_sid = tn.id
+        if (existingRow && !existingRow.provider_number_sid?.trim()) {
+          await updatePhoneNumber(existingRow.id, userId, { provider_number_sid: tn.id })
+          existingRow.provider_number_sid = tn.id
           results.push({ number: e164, action: "carrier id backfilled" })
         }
       }
