@@ -12,7 +12,7 @@ describe("resolveSentryDsn", () => {
       resolveSentryDsn({
         NEXT_PUBLIC_SENTRY_DSN: " https://public@o1.ingest.sentry.io/1 ",
         SENTRY_DSN: "https://server@o1.ingest.sentry.io/1",
-      } as NodeJS.ProcessEnv)
+      })
     ).toBe("https://public@o1.ingest.sentry.io/1")
   })
 
@@ -20,7 +20,7 @@ describe("resolveSentryDsn", () => {
     expect(
       resolveSentryDsn({
         SENTRY_DSN: "https://server@o1.ingest.sentry.io/1",
-      } as NodeJS.ProcessEnv)
+      })
     ).toBe("https://server@o1.ingest.sentry.io/1")
   })
 

@@ -37,6 +37,7 @@ describe("local bundled key photos", () => {
           title: "3-Button Smart Key",
           image_url: null,
           key_type: "Smart Key",
+          programming_method: null,
           buttons: "3",
           battery: null,
           part_numbers: null,

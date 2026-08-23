@@ -1,7 +1,18 @@
 // Tiny Sentry helpers — safe to unit-test without loading the full SDK.
 
 /** Browser DSN first, then server-only DSN. Empty string means "do not send". */
-export function resolveSentryDsn(env: NodeJS.ProcessEnv = process.env): string {
+// Both keys optional, so callers can pass process.env or a plain literal with either one.
+// (Pick<NodeJS.ProcessEnv, …> does NOT work here: ProcessEnv only has an index signature,
+// so Pick yields REQUIRED properties and rejects a partial literal.)
+export function resolveSentryDsn(
+  env: {
+    NEXT_PUBLIC_SENTRY_DSN?: string
+    SENTRY_DSN?: string
+    // Index signature so NodeJS.ProcessEnv (which has one and no declared props) matches;
+    // without it the all-optional shape trips weak-type detection.
+    [key: string]: string | undefined
+  } = process.env
+): string {
   // Public DSN is required for Replay in the browser.
   const publicDsn = env.NEXT_PUBLIC_SENTRY_DSN?.trim() ?? ""
   // Server can use the same public DSN or a private alias.

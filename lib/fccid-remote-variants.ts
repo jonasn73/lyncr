@@ -384,7 +384,9 @@ function attachReferencePhotos(
 }
 
 /** Merge variant lists from multiple FCC profiles — prefer entries that have photos. */
-export function mergeVariantLists(lists: FccRemoteVariant[], limit = 6): FccRemoteVariant[] {
+// Takes a list OF lists — the body flattens them. The parameter was declared as a flat
+// FccRemoteVariant[], which made `.flat()` a no-op and rejected every real caller.
+export function mergeVariantLists(lists: FccRemoteVariant[][], limit = 6): FccRemoteVariant[] {
   const merged = dedupeByImage(dedupeVariants(lists.flat()))
   return [...merged].sort((a, b) => Number(Boolean(b.image_url)) - Number(Boolean(a.image_url))).slice(0, limit)
 }

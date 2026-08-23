@@ -237,7 +237,15 @@ function normalizePremiumMakes(raw: unknown): string[] {
 }
 
 /** Merge a partial profile onto platform defaults (missing keys inherit defaults). */
-export function resolveServiceRateCard(rateCard?: Partial<ServiceRateCard> | null): ServiceRateCard {
+// `services` is merged over the defaults below, so a caller may supply only the entries it
+// wants to override. Partial<ServiceRateCard> alone still required a COMPLETE services map.
+export function resolveServiceRateCard(
+  rateCard?:
+    | (Omit<Partial<ServiceRateCard>, "services"> & {
+        services?: Partial<ServiceRateCard["services"]>
+      })
+    | null
+): ServiceRateCard {
   if (!rateCard) return DEFAULT_SERVICE_RATE_CARD
   const services = { ...DEFAULT_SERVICE_RATE_CARD.services, ...(rateCard.services ?? {}) }
   return {

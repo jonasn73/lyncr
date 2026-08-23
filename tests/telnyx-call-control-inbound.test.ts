@@ -9,8 +9,14 @@ const getOrCreateCallControlAppMock = vi.hoisted(() =>
 const getActiveRoutingModeForDidMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve("your_phone"))
 )
+// Typed to the real return shapes: a bare `() => Promise.resolve(null)` pins the mock to
+// Promise<null>, and `{ kind: "day_dial" as const }` pins it to that one literal — so any
+// test wanting another value could not set it.
 const getFirstAvailableOwnerReceptionistMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve(null))
+  vi.fn(
+    async (): Promise<{ receptionistId: string; name: string | null; phoneE164: string } | null> =>
+      null
+  )
 )
 const getCustomRoutingPhoneForDidMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve(null))
@@ -19,7 +25,7 @@ const getTeamReceptionistForDidMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve(null))
 )
 const resolveInboundCapturePlanMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ kind: "day_dial" as const }))
+  vi.fn(async (): Promise<{ kind: string }> => ({ kind: "day_dial" }))
 )
 
 vi.mock("@/lib/telnyx-call-control-config", () => ({
