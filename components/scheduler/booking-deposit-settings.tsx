@@ -2,7 +2,7 @@
 
 // Scheduler setting — require Stripe deposit before /book confirms a slot.
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
@@ -14,22 +14,26 @@ export function BookingDepositSettings({ className }: { className?: string }) {
   const [saving, setSaving] = useState(false)
   const [requireDeposit, setRequireDeposit] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/routing/deposit-settings", { credentials: "include" })
-      const json = (await res.json()) as { data?: { require_deposit?: boolean } }
-      setRequireDeposit(json.data?.require_deposit === true)
-    } catch {
-      // Keep default off on transient errors.
-    } finally {
-      setLoading(false)
+  // `loading` starts true, so the load only ever has to turn it off. Nothing is
+  // written before the first await, and a cancel flag keeps an in-flight
+  // response from writing to an unmounted panel.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch("/api/routing/deposit-settings", { credentials: "include" })
+        const json = (await res.json()) as { data?: { require_deposit?: boolean } }
+        if (!cancelled) setRequireDeposit(json.data?.require_deposit === true)
+      } catch {
+        // Keep default off on transient errors.
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   async function handleToggle(next: boolean) {
     setRequireDeposit(next)
