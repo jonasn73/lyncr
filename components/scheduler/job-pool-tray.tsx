@@ -51,6 +51,9 @@ export function JobPoolTray({
   )
   const visibleJobs = viewFilter === "rescue" ? sortedRescueJobs : sortedJobs
   const poolIsEmpty = !loading && jobs.length === 0
+  // Header icon/subtitle must not claim "has jobs" while loading, then correct to
+  // "empty" once settled — treat unknown (loading) the same as empty until settled.
+  const poolLooksEmpty = loading || jobs.length === 0
 
   return (
     <section
@@ -65,7 +68,7 @@ export function JobPoolTray({
           <span
             className={cn(
               "flex shrink-0 items-center justify-center rounded-lg",
-              poolIsEmpty
+              poolLooksEmpty
                 ? "bg-zinc-800/80 text-zinc-500"
                 : "bg-amber-500/15 text-amber-200",
               sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
@@ -76,7 +79,7 @@ export function JobPoolTray({
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Job pool</h2>
             <p className="text-[11px] leading-snug text-slate-500">
-              {poolIsEmpty
+              {poolLooksEmpty
                 ? "Unassigned bookings land here"
                 : mobileTimeline || sidebar || embedded
                   ? "Tap Assign on a card to pick a tech"
