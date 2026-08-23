@@ -153,11 +153,16 @@ export function buildPortingNotificationText(body: Record<string, unknown>): str
     const commentBody = deepFindPortingCommentBody(body)
     if (commentBody) return commentBody.slice(0, 2000)
     const po = findPortingOrderId(body)
+    // The old `(typeof x === "string" && x) || …` chain typed out as {} because the operands
+    // start as unknown; narrow explicitly instead so `extra` is a real string.
+    const topMessage = body.message
+    const dataMessage = (body.data as Record<string, unknown> | undefined)?.message
     const extra =
-      (typeof body.message === "string" && body.message) ||
-      (typeof (body.data as Record<string, unknown> | undefined)?.message === "string" &&
-        (body.data as Record<string, unknown>).message) ||
-      ""
+      typeof topMessage === "string" && topMessage
+        ? topMessage
+        : typeof dataMessage === "string" && dataMessage
+          ? dataMessage
+          : ""
     const parts: string[] = []
     if (po) parts.push(`Order ${po}`)
     if (extra) parts.push(extra)

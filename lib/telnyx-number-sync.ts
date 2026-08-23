@@ -90,6 +90,11 @@ export async function syncMissingTelnyxNumbersForUser(userId: string): Promise<{
     getPhoneNumbers(userId),
   ])
 
+  // Only `.number` is ever read from this list (see userOwnsNumberDigit), and rows added
+  // during the loop below are number-only — so track it as that shape rather than pretending
+  // the pushed entries are full PhoneNumber rows.
+  const ownedNumbers: { number: string }[] = userNumbers.map((n) => ({ number: n.number }))
+
   const telnyxByE164 = new Map<string, TelnyxListedNumber>()
   for (const tn of telnyxNumbers) {
     const e164 = normalizePhoneNumberE164(tn.phone_number)
@@ -100,7 +105,7 @@ export async function syncMissingTelnyxNumbersForUser(userId: string): Promise<{
 
   for (const [e164, organizationId] of candidates) {
     if (!e164 || !isReasonablePstnDialString(e164)) continue
-    if (userOwnsNumberDigit(userNumbers, e164)) continue
+    if (userOwnsNumberDigit(ownedNumbers, e164)) continue
 
     const ownedActive = await getPhoneNumberByNumberAndStatus(e164, "active")
     const ownedPorting = await getPhoneNumberByNumberAndStatus(e164, "porting")
@@ -123,7 +128,7 @@ export async function syncMissingTelnyxNumbersForUser(userId: string): Promise<{
         assign_default_organization: organizationId == null,
       })
       added.push(e164)
-      userNumbers.push({ number: e164 })
+      ownedNumbers.push({ number: e164 })
     }
   }
 

@@ -153,7 +153,9 @@ export function DashboardRingBackupDrawer({
   const lineLabel = routingBusinessNumber ? `Line ${formatPhoneDisplay(routingBusinessNumber)}` : null
 
   const nearestPreset = useCallback((sec: number) => {
-    let best = RING_PRESETS[0].seconds
+    // Without the annotation this infers the literal 15 from RING_PRESETS[0], so
+    // assigning any other preset below fails to compile.
+    let best: (typeof RING_PRESETS)[number]["seconds"] = RING_PRESETS[0].seconds
     let bestD = Infinity
     for (const p of RING_PRESETS) {
       const d = Math.abs(p.seconds - sec)
