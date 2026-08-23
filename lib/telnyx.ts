@@ -6,18 +6,15 @@
 //   TELNYX_PUBLIC_KEY       - Optional: webhook signature verification
 //   NEXT_PUBLIC_APP_URL     - Your deployed URL (webhook + Stripe return URLs)
 
-import Telnyx from "telnyx"
 import { SITE_CANONICAL_URL } from "@/lib/brand"
 
 export { VoiceResponse } from "@/lib/texml"
 
-export function getTelnyxClient(): Telnyx {
-  const apiKey = process.env.TELNYX_API_KEY
-  if (!apiKey) {
-    throw new Error("Missing TELNYX_API_KEY")
-  }
-  return new Telnyx(apiKey)
-}
+// getTelnyxClient() lived here and was never called — every Telnyx call in this codebase
+// goes through fetch against the REST API. It also passed the API key as a bare string,
+// which the v6 SDK types reject (it wants ClientOptions), so it would not have worked had
+// anything used it. Removed along with the only `telnyx` package import in the repo; the
+// dependency itself is now unreferenced and could be dropped from package.json.
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/$/, "")

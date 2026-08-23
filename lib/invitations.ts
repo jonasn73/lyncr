@@ -87,11 +87,11 @@ export async function createInvitation(params: {
 }): Promise<Invitation> {
   await ensureInvitationsTable()
   const sql = getSql()
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO invitations (target, type, token, status, expires_at)
     VALUES (${params.target}, ${params.type}, ${params.token}, 'PENDING', ${params.expiresAt}::timestamptz)
     RETURNING *
-  `
+  `) as Record<string, unknown>[]
   return parseRow(rows[0] as Record<string, unknown>)
 }
 
@@ -99,7 +99,7 @@ export async function createInvitation(params: {
 export async function getInvitationByToken(token: string): Promise<Invitation | null> {
   await ensureInvitationsTable()
   const sql = getSql()
-  const rows = await sql`SELECT * FROM invitations WHERE token = ${token.trim()} LIMIT 1`
+  const rows = (await sql`SELECT * FROM invitations WHERE token = ${token.trim()} LIMIT 1`) as Record<string, unknown>[]
   return rows[0] ? parseRow(rows[0] as Record<string, unknown>) : null
 }
 

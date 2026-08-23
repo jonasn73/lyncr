@@ -365,9 +365,9 @@ export async function getOwnerServiceRateCard(ownerUserId: string): Promise<{
 }> {
   const sql = getSql()
   try {
-    const rows = await sql`
+    const rows = (await sql`
       SELECT service_rules FROM onboarding_profiles WHERE user_id = ${ownerUserId} LIMIT 1
-    `
+    `) as Record<string, unknown>[]
     const raw = rows[0] as { service_rules?: unknown } | undefined
     const text = raw?.service_rules != null ? String(raw.service_rules) : null
     return parseServiceRateCardFromRules(text)

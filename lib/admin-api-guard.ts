@@ -28,6 +28,8 @@ export async function requireSessionUser(req: NextRequest): Promise<SessionUserC
       phone: "+15551234567",
       business_name: "My Business",
       inbound_receptionist_whisper_enabled: true,
+      // Real rows are read as `!== false`, so the dev stub defaults to enabled too.
+      answered_call_customer_popup_enabled: true,
       industry: "generic",
       telnyx_ai_assistant_id: null,
       created_at: new Date().toISOString(),
