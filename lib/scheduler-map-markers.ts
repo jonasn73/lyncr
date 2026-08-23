@@ -111,6 +111,9 @@ export function jobStatusPinHtml(phase: SchedulerLifecyclePhase, label: string):
     scheduled: "lyncr-job-pin--scheduled",
     en_route: "lyncr-job-pin--en-route",
     on_site: "lyncr-job-pin--on-site",
+    // "paused" is part of SchedulerLifecyclePhase; without an entry a paused job rendered
+    // class="lyncr-job-pin undefined".
+    paused: "lyncr-job-pin--paused",
   }
   return `<span class="lyncr-job-pin ${phaseClass[phase]}" aria-hidden="true">${escapeMarkerHtml(label)}</span>`
 }

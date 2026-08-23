@@ -8661,7 +8661,9 @@ export async function updateNotificationPreferencesDb(params: {
  */
 export async function tryClaimLatestAttentionSmsSlot(params: {
   userId: string
-  eventType: "replied" | "job_finished"
+  /** Mirrors LatestAttentionEvent and the latest_attention_sms_sent CHECK constraint
+   *  (see 126-latest-attention-book-form.sql) — "book_form" was missing here. */
+  eventType: "replied" | "job_finished" | "book_form"
   dedupeKey: string
   /** When set (replied), allow a new send after this many ms since last send. */
   cooldownMs: number | null

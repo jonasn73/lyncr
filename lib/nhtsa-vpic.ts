@@ -135,7 +135,8 @@ export async function fetchModelsForMakeYear(make: string, year: number): Promis
   const raw = uniqueSorted(
     (data.Results ?? [])
       .map((r) => r.Model_Name?.trim())
-      .filter((m): m is string => Boolean(m) && isConsumerVehicleModel(m))
+      // `!!m` narrows m to string for the next call; Boolean(m) does not.
+      .filter((m): m is string => !!m && isConsumerVehicleModel(m))
   ).sort((a, b) => a.localeCompare(b))
 
   // Drop models our FCC/curated table knows were not sold this year.

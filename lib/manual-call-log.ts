@@ -64,7 +64,7 @@ export async function insertManualIntakeCallLog(
   const sql = getSql()
 
   try {
-    const rows = await sql`
+    const rows = (await sql`
       INSERT INTO call_logs (
         user_id, provider_call_sid, from_number, to_number, caller_name,
         call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -78,7 +78,7 @@ export async function insertManualIntakeCallLog(
         ${techUserId}
       )
       RETURNING id
-    `
+    `) as Record<string, unknown>[]
     const callLogId = String(rows[0]?.id ?? "")
     if (!callLogId) throw new Error("Manual call log insert returned no id.")
     return {
@@ -98,7 +98,7 @@ export async function insertManualIntakeCallLog(
       msg.includes("manual_intake") ||
       (code === "42703" && (msg.includes("intake_source") || msg.includes("intake_metadata")))
     ) {
-      const rows = await sql`
+      const rows = (await sql`
         INSERT INTO call_logs (
           user_id, provider_call_sid, from_number, to_number, caller_name,
           call_type, status, duration_seconds, routed_to_receptionist_id,
@@ -111,7 +111,7 @@ export async function insertManualIntakeCallLog(
           now(), now()
         )
         RETURNING id
-      `
+      `) as Record<string, unknown>[]
       const callLogId = String(rows[0]?.id ?? "")
       if (!callLogId) throw new Error("Manual call log fallback insert returned no id.")
       return {
