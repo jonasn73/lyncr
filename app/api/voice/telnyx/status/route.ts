@@ -127,12 +127,17 @@ export async function POST(req: NextRequest) {
       callType = snapshot?.call_type === "voicemail" ? "voicemail" : "missed"
     }
 
+    // The bare `callType === "missed"` below already covers every missed call, so the
+    // old trailing `(callType === "missed" && !alreadyHumanAnswered)` operand was
+    // unreachable. Dropping it is behaviour-preserving. If the intent was that a missed
+    // call should only clear a false answer when a human had NOT already picked up, then
+    // it is the bare operand that needs the `&& !alreadyHumanAnswered` guard — that is a
+    // behaviour change, so it is left alone here.
     const clearFalseAnswer =
       shortTalk ||
       callType === "voicemail" ||
       callType === "missed" ||
-      automated ||
-      (callType === "missed" && !alreadyHumanAnswered)
+      automated
 
     await updateCallLog(callSid, {
       call_type: callType,

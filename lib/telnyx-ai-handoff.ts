@@ -30,7 +30,7 @@ export function buildRedirectOnlyToAiBridgeTeXML(userId: string, callSid?: strin
  */
 export function buildShortSayThenRedirectToAiBridgeTeXML(userId: string, callSid?: string): string {
   const appUrl = getAppUrl() // Public base URL for the redirect target
-  const cs = callSid?.trim() // Telnyx call id when present
+  const cs = callSid?.trim() ?? "" // Telnyx call id when present ("" when the caller omits it)
   const q =
     cs.length > 0
       ? `?callSid=${encodeURIComponent(cs)}&zingFrom=incoming-repeat`

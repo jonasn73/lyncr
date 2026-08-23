@@ -1147,7 +1147,9 @@ async function handleCallAnswered(
     )
     if (!speakRes.ok) {
       console.error(JSON.stringify({ zing: "telnyx-cc-greeting-speak-failed", error: speakRes.error }))
-      if (dialPlan.reason === "busy_automation" || !isReasonablePstnDialString(dialTargetE164 || "")) {
+      // No "busy_automation" test here: the earlier guard already returned for that reason,
+      // so by this point it is not reachable. Only the missing-dial-target case remains.
+      if (!isReasonablePstnDialString(dialTargetE164 || "")) {
         await startBusyAutomationFlow(event.callControlId, enrichedState, routing)
       } else {
         // Speak HTTP failed — still Dial with US ringback (never dead air).

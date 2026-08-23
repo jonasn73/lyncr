@@ -379,7 +379,7 @@ export async function syncPortingOrderFromTelnyxLive(order: PortingOrder): Promi
       !focConfirmed &&
       reasonEmpty &&
       noteToPersist &&
-      (nextStatus === "action_required" || telnyxStatus.toLowerCase().includes("exception"))
+      (nextStatus === "action_required" || (telnyxStatus ?? "").toLowerCase().includes("exception"))
     if (needsReason) {
       const updated = await markPortingOrderActionRequired(
         order.owner_user_id,
