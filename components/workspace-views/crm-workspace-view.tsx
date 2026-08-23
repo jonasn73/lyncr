@@ -19,7 +19,6 @@ import {
   Plus,
   Search,
   Star,
-  UserRound,
   X,
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
@@ -1677,6 +1676,18 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   const closeProfile = () => setSelectedId(null)
   const profileOpen = selectedId != null
+  const listSectionRef = useRef<HTMLElement>(null)
+  const profileSectionRef = useRef<HTMLElement>(null)
+
+  // Below lg the profile stacks under the list instead of sitting beside it, so a fresh
+  // selection would otherwise land off-screen. Effect (not render) — no hydration risk.
+  useEffect(() => {
+    if (!isActive || !selectedId) return
+    if (typeof window === "undefined") return
+    if (!window.matchMedia("(min-width: 768px)").matches) return // phones use the dialog
+    if (window.matchMedia("(min-width: 1024px)").matches) return // lg+ is side by side
+    profileSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [isActive, selectedId])
 
   /** Name + pencil in the profile header (desktop panel + mobile dialog). */
   const renderProfileName = (titleClassName: string) => {
@@ -2621,9 +2632,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         </p>
       </header>
 
-      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
+      {/* One column until a customer is picked — the reserved profile pane was ~51% of a
+          1280px screen sitting empty. From lg up a selection splits it side by side;
+          at tablet the profile stacks under the list instead (768px cannot afford
+          a 223px master column). */}
+      <div
+        className={cn(
+          "flex flex-col gap-3",
+          selectedId &&
+            "lg:grid lg:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] lg:items-start lg:gap-4"
+        )}
+      >
         {/* List — always visible (dimmed behind the mobile dialog) */}
-        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background md:min-h-0 md:max-h-[calc(100dvh-10rem)]">
+        <section
+          ref={listSectionRef}
+          className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background md:min-h-0 md:max-h-[calc(100dvh-10rem)]"
+        >
           <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
@@ -2747,14 +2771,17 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           </div>
         </section>
 
-        {/* Desktop (md+): side panel — never a sheet/dialog */}
-        <section className="hidden rounded-2xl border border-zinc-800/90 bg-background p-3 sm:p-4 md:sticky md:top-3 md:block md:min-h-[20rem] md:max-h-[calc(100dvh-10rem)] md:overflow-y-auto">
-          {!selectedId ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
-              <UserRound className="h-8 w-8 opacity-50" />
-              <p className="text-sm">Select a customer to see their profile.</p>
-            </div>
-          ) : (
+        {/* Tablet + desktop profile pane. Phones use the dialog below, so this stays
+            hidden there; with nothing selected it is not rendered at all. */}
+        <section
+          ref={profileSectionRef}
+          className={cn(
+            "rounded-2xl border border-zinc-800/90 bg-background p-3 sm:p-4",
+            "hidden md:block lg:sticky lg:top-3 lg:min-h-[20rem] lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto",
+            !selectedId && "md:hidden"
+          )}
+        >
+          {!selectedId ? null : (
             <>
               {selected ? (
                 <div className="mb-4 border-b border-zinc-800 pb-3">
