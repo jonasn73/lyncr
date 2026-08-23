@@ -65,6 +65,23 @@ export type RoutingTelemetrySnapshot = {
   localDayPeriodKey?: string
   /** IANA zone for localDayPeriodKey (Vercel UTC must not zero 8pm Eastern). */
   timeZone?: string
+  /** epoch ms when this snapshot was fetched — used to drop stale-but-same-day seeds. */
+  fetchedAtMs?: number
+}
+
+/**
+ * Older than this, a same-day cached snapshot is still "today" but the counts (missed
+ * calls, booking rate, etc.) have likely already moved — showing it confidently and then
+ * silently rewriting to the real number on the first live fetch is the exact "confident
+ * value that flips" flash this app works elsewhere to avoid. Treat it as no seed instead
+ * (caller falls back to blank/"—" until the live fetch confirms).
+ */
+const TELEMETRY_SEED_FRESH_MS = 2 * 60 * 1000
+
+function isTelemetrySeedFresh(snapshot: RoutingTelemetrySnapshot, now: number): boolean {
+  // No timestamp = a legacy cache entry from before this field existed — treat as stale.
+  if (typeof snapshot.fetchedAtMs !== "number") return false
+  return now - snapshot.fetchedAtMs <= TELEMETRY_SEED_FRESH_MS
 }
 
 /** Build the sessionStorage key for a workspace org. */
@@ -103,6 +120,7 @@ export function normalizeRoutingTelemetrySnapshot(
     monthPeriodKey: monthKey,
     localDayPeriodKey: dayKey,
     timeZone: tz,
+    fetchedAtMs: raw.fetchedAtMs,
   }
 }
 
@@ -135,6 +153,7 @@ function parseTelemetryRaw(
     monthPeriodKey: raw.monthPeriodKey,
     localDayPeriodKey: raw.localDayPeriodKey,
     timeZone: raw.timeZone,
+    fetchedAtMs: raw.fetchedAtMs,
   }
   return normalizeRoutingTelemetrySnapshot(parsed)
 }
@@ -154,9 +173,10 @@ export function readRoutingTelemetryCache(
   paint?: RoutingTelemetryPaintSeed | null
 ): RoutingTelemetrySnapshot | undefined {
   const want = orgKey(organizationId)
+  const now = Date.now()
 
   // Warm paint seed first — SSR HTML used this; hydrate must match.
-  if (paint?.snapshot && orgKey(paint.organizationId) === want) {
+  if (paint?.snapshot && orgKey(paint.organizationId) === want && isTelemetrySeedFresh(paint.snapshot, now)) {
     return normalizeRoutingTelemetrySnapshot(paint.snapshot)
   }
 
@@ -165,13 +185,17 @@ export function readRoutingTelemetryCache(
       routingTelemetryCacheKey(organizationId)
     )
   )
-  if (fromSession) return fromSession
+  if (fromSession && isTelemetrySeedFresh(fromSession, now)) return fromSession
 
   const fromCookie =
     cookieRaw !== undefined
       ? readPaintSeedCookieValue<TelemetryPaintCookie>(cookieRaw)
       : readPaintSeedCookie<TelemetryPaintCookie>(ROUTING_TELEMETRY_COOKIE_SCOPE)
-  if (fromCookie?.snapshot && orgKey(fromCookie.organizationId) === want) {
+  if (
+    fromCookie?.snapshot &&
+    orgKey(fromCookie.organizationId) === want &&
+    isTelemetrySeedFresh(fromCookie.snapshot, now)
+  ) {
     return normalizeRoutingTelemetrySnapshot(fromCookie.snapshot)
   }
   return undefined
@@ -185,6 +209,7 @@ export function writeRoutingTelemetryCache(
   const tz = sanitizeIanaTimezone(snapshot.timeZone ?? DEFAULT_TELEMETRY_TIMEZONE)
   const stamped: RoutingTelemetrySnapshot = {
     ...snapshot,
+    fetchedAtMs: Date.now(),
     weekPeriodKey: snapshot.weekPeriodKey ?? telemetryWeekPeriodKey(),
     monthPeriodKey: snapshot.monthPeriodKey ?? telemetryMonthPeriodKey(),
     localDayPeriodKey:
