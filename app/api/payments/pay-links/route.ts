@@ -136,7 +136,14 @@ export async function POST(req: NextRequest) {
 
   // Only the business that owns the link (or assigned tech) may sync it from the app.
   const { getCollectPayLinkBySessionId } = await import("@/lib/db")
-  const stored = await getCollectPayLinkBySessionId(link.stripeSessionId)
+  // stripeSessionId is null until the customer reaches Checkout. `WHERE col = NULL` never
+  // matches, so skipping the query is equivalent to running it — this only avoids a
+  // pointless round trip and satisfies the signature. NOTE: when `stored` is null AND
+  // link.jobId is null, neither ownership branch below runs; that pre-existing gap is
+  // deliberately left alone here rather than changed inside a type-cleanup pass.
+  const stored = link.stripeSessionId
+    ? await getCollectPayLinkBySessionId(link.stripeSessionId)
+    : null
   if (stored?.owner_user_id && stored.owner_user_id !== userId) {
     if (link.jobId) {
       const job = await getJobPaymentContext(link.jobId)

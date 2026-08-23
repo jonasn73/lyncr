@@ -8,7 +8,10 @@ import {
 } from "@/lib/telnyx-sms"
 import { toE164 } from "@/lib/phone-e164"
 import { buildTechSetupUrl, techInviteSmsText } from "@/lib/tech-invite"
-import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
+import {
+  resolveWorkspaceSmsSender,
+  type WorkspaceSmsSenderBlockReason,
+} from "@/lib/workspace-sms-sender"
 
 import type { TechInviteSmsErrorType } from "@/lib/tech-invite-sms-types"
 
@@ -24,11 +27,12 @@ export type TechInviteSmsResult = {
   from_e164?: string | null
 }
 
-function mapSenderBlockReason(
-  reason: "porting" | "no_line" | "invalid_line"
-): TechInviteSmsErrorType {
+function mapSenderBlockReason(reason: WorkspaceSmsSenderBlockReason): TechInviteSmsErrorType {
   if (reason === "porting") return "PORTING"
   if (reason === "no_line") return "NO_SMS_LINE"
+  // invalid_line, missing_shop and cross_shop all surface as INVALID_SENDER. The signature
+  // previously listed only the first three reasons, so the workspace ones were already
+  // landing here by fallthrough — taking the real union keeps the two in step.
   return "INVALID_SENDER"
 }
 

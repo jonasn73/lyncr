@@ -822,7 +822,9 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
 export type CollectPayLinkStatus = {
   token: string
   url: string
-  stripeSessionId: string
+  /** Null until the customer reaches Checkout — 135-collect-pay-links-tip-receipt.sql made
+   *  the column nullable so the tip step can come first. */
+  stripeSessionId: string | null
   jobId: string | null
   chargeCents: number
   customerName: string
