@@ -117,7 +117,9 @@ export function DashboardPage() {
   const [aiRingOwnerFirst, setAiRingOwnerFirst] = useState(
     () => bootstrap?.routing.routing.ai_ring_owner_first ?? false
   )
-  const [ringTimeoutSec, setRingTimeoutSec] = useState(() =>
+  // Annotated as number: snapDashboardRingTimeoutSec returns a literal union, which made
+  // the setter incompatible with child props typed (n: number) => void.
+  const [ringTimeoutSec, setRingTimeoutSec] = useState<number>(() =>
     snapDashboardRingTimeoutSec(bootstrap?.routing.routing.ring_timeout_seconds ?? 30)
   )
   const [routingStrategy, setRoutingStrategy] = useState<RoutingStrategy>(

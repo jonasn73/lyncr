@@ -41,18 +41,19 @@ export function resolveAdminRoutingOverrideE164(
 }
 
 /** Build TeXML that dials the admin override number, skipping standard routing evaluation. */
-export function buildAdminRoutingOverrideDial(params: {
-  routing: AdminRoutingOverrideRoutingLike
+// Generic over the routing row so the callback receives exactly the object handed in.
+// Previously the callback slot was typed against the widened structural shape, which meant
+// a resolver reading caller-id fields specific to the real row (primary_phone_number,
+// active_phone_count) could not be passed at all — parameter positions are contravariant.
+export function buildAdminRoutingOverrideDial<R extends AdminRoutingOverrideRoutingLike>(params: {
+  routing: R
   businessLineE164: string
   callerNumber: string
   callSid: string
   appUrl: string
   callerName?: string | null
   greetingPassDone?: boolean
-  resolveOutboundCallerId: (
-    routing: AdminRoutingOverrideRoutingLike & { primary_phone_number?: string; active_phone_count?: number },
-    businessLineE164: string
-  ) => string
+  resolveOutboundCallerId: (routing: R, businessLineE164: string) => string
 }): AdminRoutingOverrideDialResult | null {
   const overrideE164 = resolveAdminRoutingOverrideE164(params.routing)
   if (!overrideE164) return null

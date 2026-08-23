@@ -16189,10 +16189,11 @@ export async function ensureOnboardingLineFromProfile(userId: string): Promise<P
 /** After mock/real checkout — also sync greeting into default routing_config when present. */
 export async function completeOnboardingCheckout(
   userId: string,
-  opts?: UpdateOnboardingProfileRequest & {
-    opening_line?: string
-    fallback_type?: "ai" | "voicemail"
-  }
+  // UpdateOnboardingProfileRequest already declares opening_line and fallback_type, and
+  // does so more permissively (both allow null). The old `& { … }` intersected those down
+  // to non-null, which made the base type unassignable to this parameter. The body below is
+  // null-safe (optional chaining and truthiness checks), so the narrowing bought nothing.
+  opts?: UpdateOnboardingProfileRequest
 ): Promise<OnboardingProfile> {
   const { opening_line, fallback_type, ...profileFields } = opts ?? {}
   const profile = await updateOnboardingProfile(userId, {

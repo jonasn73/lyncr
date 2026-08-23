@@ -182,7 +182,7 @@ export async function processTelnyx10DlcWebhook(body: Record<string, unknown>): 
   if (outcome === "approved" || outcome === "rejected") {
     notification = await notifyTenDlcStatusChange({
       ownerUserId: reg.user_id,
-      organizationId: reg.organization_id,
+      organizationId: reg.organization_id ?? null,
       outcome,
       failureReason: resolved.failureReason,
       eventType: parsed.eventType,

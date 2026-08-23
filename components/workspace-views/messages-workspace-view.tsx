@@ -266,7 +266,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
   const [statusTemplates, setStatusTemplates] = useState<OwnerSmsStatusTemplates>({
     ...DEFAULT_SMS_STATUS_TEMPLATES,
   })
-  const [routeTemplate, setRouteTemplate] = useState(DEFAULT_SMS_PHASE_TEMPLATES.route)
+  // Annotated: without it useState infers the literal default template and rejects any
+  // other string coming back from the settings fetch.
+  const [routeTemplate, setRouteTemplate] = useState<string>(DEFAULT_SMS_PHASE_TEMPLATES.route)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // Scroll the message list only — never the whole page (avoids jumping shared <main>).
   const messagesScrollRef = useRef<HTMLDivElement | null>(null)

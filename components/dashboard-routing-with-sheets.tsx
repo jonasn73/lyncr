@@ -21,6 +21,9 @@ type Props = Omit<
   | "setShowFallbackSettings"
   | "setDashboardStoryKey"
   | "onConfigureStrategy"
+  // Derived internally from isSundayAutopilotActive and forwarded, like the props above —
+  // callers must not supply it.
+  | "autopilotMode"
 > &
   Omit<
     DashboardRoutingSheetsProps,
