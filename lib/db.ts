@@ -8315,7 +8315,7 @@ export async function patchPhoneNumberForUser(
     const org = await getOrganizationForOwner(updates.organization_id, userId)
     if (!org || org.id.startsWith("legacy-")) return false
   }
-  let rows: { id: string }[] // Rows returned by RETURNING id (empty array ⇒ no permission / wrong id)
+  let rows: Record<string, unknown>[] // Rows returned by RETURNING id (empty array ⇒ no permission / wrong id)
   if (
     updates.label !== undefined &&
     updates.friendly_name !== undefined &&
@@ -10595,7 +10595,7 @@ export async function updateOwnerSchedulerJob(params: {
   }
 
   if (params.dispatchStatus !== undefined) {
-    await setLeadDispatchStatus(params.leadId, params.dispatchStatus.trim() || "unassigned_pool")
+    await setLeadDispatchStatus(params.leadId, params.dispatchStatus?.trim() || "unassigned_pool")
   }
   if (params.isSalvageable !== undefined) {
     try {
@@ -10650,12 +10650,12 @@ export async function updateOwnerSchedulerJob(params: {
         ? {
             assigned_tech_id: newTechId,
             assigned_tech_name: params.assignedTechName?.trim() || null,
-            dispatch_status: params.dispatchStatus.trim(),
+            dispatch_status: params.dispatchStatus?.trim() || null,
           }
         : {
             assigned_tech_id: null,
             assigned_tech_name: null,
-            dispatch_status: params.dispatchStatus.trim(),
+            dispatch_status: params.dispatchStatus?.trim() || null,
           }
       try {
         await sql`
@@ -17448,7 +17448,7 @@ export async function getMessaging10DlcRegistration(
 
 function build10DlcUpdateFields(merged: Messaging10DlcRegistration) {
   const v = <K extends keyof Messaging10DlcRegistration>(k: K): unknown =>
-    (merged as Record<string, unknown>)[k as string] ?? null
+    (merged as unknown as Record<string, unknown>)[k as string] ?? null
   return {
     entity_type: v("entity_type"),
     legal_company_name: v("legal_company_name"),

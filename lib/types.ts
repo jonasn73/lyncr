@@ -211,6 +211,10 @@ export interface SchedulerEvent {
   programming_method?: string | null
   /** Free-text job site notes from intake or manual booking. */
   job_notes: string | null
+  /** State / province from collected.region. */
+  region?: string | null
+  /** ZIP from collected.postal_code. */
+  postal_code?: string | null
   /** Geocoded job site latitude (from collected.customer_lat). */
   latitude: number | null
   /** Geocoded job site longitude (from collected.customer_lng). */

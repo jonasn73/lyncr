@@ -132,7 +132,7 @@ export default async function DashboardLayout({
         initialIsMobile={initialIsMobile}
         // Keep the guard out of `children` so the active tab slot is only the page view.
         onboardingGuard={
-          <Suspense fallback={null}>
+          <Suspense key="dashboard-onboarding-guard" fallback={null}>
             <DashboardOnboardingGuard user={user} />
           </Suspense>
         }
