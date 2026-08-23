@@ -436,26 +436,28 @@ function SchedulerWorkspaceViewInner({
   const bootstrapPending = !bootstrapSettled || loading || coldBoardPending
 
   // Never drop pending just because one surface got partial data — that caused literal "0" flash.
+  // Note: intentionally NOT gated on `*Validating` — for a genuinely empty pool/pipeline,
+  // `length === 0` never stops being true, so combining it with `isValidating` (which SWR
+  // flips true on every background poll, not just the first fetch) reopened "pending" on
+  // every poll forever — a permanent empty pool flickered loading→settled indefinitely.
+  // `!*HasResolved` already covers "we've never gotten a real answer yet"; once resolved,
+  // a background revalidation should stay silent, matching useHeldList's philosophy for
+  // the row data itself.
   const boardCountsPending =
     bootstrapPending ||
     orgResolving ||
     pipelineLoading ||
     !pipelineHasResolved ||
-    (paintSaysBoard && displayPipelineJobs.length === 0) ||
-    (pipelineValidating && displayPipelineJobs.length === 0)
+    (paintSaysBoard && displayPipelineJobs.length === 0)
   const techCountsPending =
     bootstrapPending || orgResolving || (paintSaysBoard && assignableTechs.length === 0)
   const metricsPending =
-    bootstrapPending ||
-    !poolHasResolved ||
-    (poolValidating && displayPoolJobs.length === 0) ||
-    pipelineLoading ||
-    !pipelineHasResolved
+    bootstrapPending || !poolHasResolved || pipelineLoading || !pipelineHasResolved
   const calendarSubtitlePending = bootstrapPending
   const poolTrayLoading =
     !schedulerSurfaceReady ||
     orgResolving ||
-    ((poolLoading || !poolHasResolved || poolValidating) && displayPoolJobs.length === 0) ||
+    ((poolLoading || !poolHasResolved) && displayPoolJobs.length === 0) ||
     (!bootstrapSettled && displayPoolJobs.length === 0)
 
   useFlickerCountWatch("SchedulerWorkspaceView", {
@@ -628,8 +630,13 @@ function SchedulerWorkspaceViewInner({
     )
     const painted = boardPaintedRef.current
     // Silent refresh when the board is already on screen — never blank to loading.
+    // Both gated on initialBootstrapDoneRef, not just `loading`: a permanently-empty
+    // board (0 techs/events/pipeline) never satisfies `painted`, so without this gate
+    // every realtime refresh (job-booked, disposition-updated, workspace-data-changed)
+    // re-armed `bootstrapSettled=false` then immediately back to true — a flicker on
+    // every refresh, forever, for any org with nothing to paint.
     if (!seeded && !painted && !initialBootstrapDoneRef.current) setLoading(true)
-    if (!seeded && !painted) setBootstrapSettled(false)
+    if (!seeded && !painted && !initialBootstrapDoneRef.current) setBootstrapSettled(false)
     const bootstrapUrl = `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${orgQuery}`
 
     const bootstrapFetch = fetch(bootstrapUrl, { credentials: "include", cache: "no-store" })

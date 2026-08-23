@@ -4,13 +4,20 @@
 
 import { useEffect, useState } from "react"
 
-/** True while the browser tab is in the foreground (visibilityState === "visible"). */
+/**
+ * True while the browser tab is in the foreground (visibilityState === "visible").
+ *
+ * Starts `true` unconditionally (matching what SSR assumes, since `document` doesn't
+ * exist on the server) and only reads the real value in an effect. Reading
+ * `document.visibilityState` in the initializer would make the client's first render
+ * diverge from the server's whenever the tab isn't focused the instant the page loads
+ * — a real hydration mismatch that makes React discard and rebuild the subtree.
+ */
 export function useDocumentVisible(): boolean {
-  const [visible, setVisible] = useState(() =>
-    typeof document === "undefined" ? true : document.visibilityState === "visible"
-  )
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
+    setVisible(document.visibilityState === "visible")
     const onVis = () => setVisible(document.visibilityState === "visible")
     document.addEventListener("visibilitychange", onVis)
     return () => document.removeEventListener("visibilitychange", onVis)

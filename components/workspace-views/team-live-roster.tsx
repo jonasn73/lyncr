@@ -239,7 +239,8 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
           </h2>
         </div>
         <span className="text-[10px] font-medium tabular-nums text-slate-500">
-          {loading ? "…" : `${rows.length} tech${rows.length === 1 ? "" : "s"}`}
+          {/* Match the list body's gate below — otherwise this blinks to "…" on every 30s poll. */}
+          {loading && rows.length === 0 ? "…" : `${rows.length} tech${rows.length === 1 ? "" : "s"}`}
         </span>
       </div>
 

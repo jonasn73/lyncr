@@ -108,9 +108,13 @@ export function useJobPoolQuery(
   const paintSeed = readMapPoolPaintSeed(paintJobs, orgId)
   const sessionReady = useSessionCacheReady()
 
+  // sessionStorage doesn't exist during SSR, so an ungated read here would return a real
+  // cached list on the client's first hydration pass but nothing on the server — a real
+  // hydration mismatch (React discards and rebuilds the subtree). Gate on sessionReady,
+  // same as the paint place-index read below.
   const fallbackData = useMemo(() => {
     if (!orgId) return undefined
-    const fromSession = readPersistedCache<UnassignedPoolJob[]>(cacheKey)
+    const fromSession = sessionReady ? readPersistedCache<UnassignedPoolJob[]>(cacheKey) : null
     if (fromSession && fromSession.length > 0) return fromSession
     if (paintSeed?.jobs.length) {
       const places = sessionReady
@@ -157,9 +161,12 @@ export function useJobPoolQuery(
 export function useJobPoolSuspenseQuery(activeOrganizationId: string | null) {
   const url = jobPoolHopperUrl(activeOrganizationId)
   const cacheKey = persistedCacheKey("job-pool-hopper", activeOrganizationId ?? "default")
+  const sessionReady = useSessionCacheReady()
+  // Same hydration-mismatch guard as useJobPoolQuery — sessionStorage isn't available
+  // during SSR, so this must not diverge from the server's render on first hydration.
   const fallbackData = useMemo(
-    () => readPersistedCache<UnassignedPoolJob[]>(cacheKey),
-    [cacheKey]
+    () => (sessionReady ? readPersistedCache<UnassignedPoolJob[]>(cacheKey) : undefined),
+    [cacheKey, sessionReady]
   )
   const { data } = useSWR(
     url,
@@ -187,9 +194,10 @@ export function useActivePipelineQuery(
   )
   const sessionReady = useSessionCacheReady()
 
+  // Same hydration-mismatch guard as useJobPoolQuery's fallbackData above.
   const fallbackData = useMemo(() => {
     if (!orgId) return undefined
-    const fromSession = readPersistedCache<ActivePipelineJob[]>(cacheKey)
+    const fromSession = sessionReady ? readPersistedCache<ActivePipelineJob[]>(cacheKey) : null
     if (fromSession && fromSession.length > 0) return fromSession
     return undefined
   }, [cacheKey, sessionReady, orgId])
@@ -236,9 +244,11 @@ export function useActivePipelineSuspenseQuery(
     "job-pool-active",
     `${activeOrganizationId ?? "default"}:${dayKey}`
   )
+  const sessionReady = useSessionCacheReady()
+  // Same hydration-mismatch guard as useJobPoolQuery's fallbackData above.
   const fallbackData = useMemo(
-    () => readPersistedCache<ActivePipelineJob[]>(cacheKey),
-    [cacheKey]
+    () => (sessionReady ? readPersistedCache<ActivePipelineJob[]>(cacheKey) : undefined),
+    [cacheKey, sessionReady]
   )
   const { data } = useSWR(
     url,

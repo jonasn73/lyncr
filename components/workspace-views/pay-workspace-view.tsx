@@ -195,6 +195,9 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
   }, [isActive, callsSeed])
 
   const balanceLabel = billing?.credit_balance_label ?? "\u00a0"
+  // Gate the subscription-plans CTA on this too: without it, a real active plan briefly
+  // rendered as "Subscribe" on every one of the three cards before billing resolved.
+  const billingReady = billing != null
   const subscriptionActive = billing?.subscription_active === true
   const needsCarrierCredit = billing?.needs_carrier_credit === true
   const lowCarrierCreditWarning = billing?.low_carrier_credit_warning === true
@@ -359,7 +362,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
               <button
                 key={plan.tier}
                 type="button"
-                disabled={checkoutTier != null || isCurrentPlan}
+                disabled={!billingReady || checkoutTier != null || isCurrentPlan}
                 onClick={() => void handleSubscribe(plan.tier)}
                 className={cn(
                   "flex flex-col items-start gap-2 rounded-xl border border-border/70 bg-card/80 p-4 text-left",
@@ -372,7 +375,9 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
                 <span className="text-lg font-bold text-foreground">{plan.priceLabel}</span>
                 <span className="text-xs text-muted-foreground">{plan.lineLimitLabel}</span>
                 <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                  {isCurrentPlan ? (
+                  {!billingReady ? (
+                    " "
+                  ) : isCurrentPlan ? (
                     "Current plan"
                   ) : checkoutTier === plan.tier ? (
                     <>

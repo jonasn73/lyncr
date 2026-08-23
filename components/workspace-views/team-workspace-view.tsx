@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { Check, Copy, Loader2, Network, Plus, Save, Send, Trash2, Users } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -214,8 +214,12 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
     null
   )
 
+  // Only the true first load shows the spinner — a reload triggered by
+  // TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not blank
+  // the roster back to a spinner every time.
+  const hasLoadedOnceRef = useRef(false)
   const load = useCallback(() => {
-    setLoading(true)
+    if (!hasLoadedOnceRef.current) setLoading(true)
     Promise.all([
       fetch("/api/receptionists", { credentials: "include" }).then(async (res) => {
         if (!res.ok) throw new Error("Could not load team")
@@ -259,7 +263,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         setError(null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Error"))
-      .finally(() => setLoading(false))
+      .finally(() => {
+        hasLoadedOnceRef.current = true
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { HardHat, Loader2, Plus, Send, Check, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
@@ -69,14 +69,21 @@ export function FieldTechniciansPanel() {
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
 
+  // Only the true first load (or a real org switch) shows the spinner — a roster refresh
+  // triggered by TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not
+  // blank the list back to a spinner every time.
+  const loadedOrgRef = useRef<string | null>(null)
   const load = useCallback(() => {
-    setLoading(true)
+    if (loadedOrgRef.current !== orgId) setLoading(true)
     const qs = organizationQueryString(orgId)
     fetch(`/api/technicians${qs}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
       .then((j: { data?: FieldTechnician[] }) => setTechs(Array.isArray(j.data) ? j.data : []))
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => {
+        loadedOrgRef.current = orgId
+        setLoading(false)
+      })
   }, [orgId])
 
   useEffect(() => load(), [load])
