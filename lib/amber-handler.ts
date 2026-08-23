@@ -16,6 +16,7 @@ import {
   type AmberWorkspaceRow,
 } from "@/lib/amber-db"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
+import { matchAmberQaTopic, answerAmberQa } from "@/lib/amber-qa"
 import { normalizePhoneNumberE164 } from "@/lib/db"
 
 function phonesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -141,6 +142,7 @@ export async function tryHandleAmberInboundSms(params: {
 
   let coworkerChannel = false
   const cmd = parseAmberCommand(params.text)
+  const qaTopic = matchAmberQaTopic(params.text)
   const thread = await getOpenAmberJobThread({
     userId: amber.user_id,
     amberWorkspaceId: amber.id,
@@ -151,9 +153,18 @@ export async function tryHandleAmberInboundSms(params: {
     cmd.kind === "help" ||
     cmd.kind === "greeting" ||
     cmd.kind === "status" ||
-    cmd.kind === "briefing"
+    cmd.kind === "briefing" ||
+    qaTopic != null
 
-  if (honorPresence && cmd.kind === "help") {
+  if (honorPresence && qaTopic) {
+    reply = await answerAmberQa({ topic: qaTopic, amber })
+    await insertAmberAuditEvent({
+      userId: amber.user_id,
+      organizationId: amber.organization_id,
+      eventType: "qa",
+      detail: { topic: qaTopic },
+    })
+  } else if (honorPresence && cmd.kind === "help") {
     reply = amberHelpText()
   } else if (honorPresence && cmd.kind === "greeting") {
     const presence = await getAccountPresence(amber.user_id)
@@ -162,8 +173,12 @@ export async function tryHandleAmberInboundSms(params: {
       ? formatAmberUntilLabel(new Date(amber.presence_available_at), amber.timezone)
       : null
     const { loadAmberBriefingLines, formatAmberHelloSms } = await import("@/lib/amber-briefing")
-    const lines = await loadAmberBriefingLines({ amber })
-    reply = formatAmberHelloSms({ busy, untilLabel: until, lines })
+    const { buildAmberDailySnapshotLine } = await import("@/lib/amber-qa")
+    const [lines, snapshotLine] = await Promise.all([
+      loadAmberBriefingLines({ amber }),
+      buildAmberDailySnapshotLine(amber).catch(() => null),
+    ])
+    reply = formatAmberHelloSms({ busy, untilLabel: until, lines, snapshotLine })
     await insertAmberAuditEvent({
       userId: amber.user_id,
       organizationId: amber.organization_id,

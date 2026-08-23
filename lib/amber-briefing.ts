@@ -42,17 +42,20 @@ export function formatAmberHelloSms(params: {
   busy: boolean
   untilLabel: string | null
   lines: AmberBriefingLine[]
+  /** Compact "Today: $X, N missed calls." line — optional, dropped when the lookup failed. */
+  snapshotLine?: string | null
 }): string {
   const status = params.busy
     ? params.untilLabel
       ? `You’re Busy until ${params.untilLabel}. Your phone does not ring first.`
       : "You’re Busy. Your phone does not ring first."
     : "You’re Available. Your phone rings first."
+  const snapshot = params.snapshotLine?.trim() ? `\n${params.snapshotLine.trim()}` : ""
   if (params.lines.length === 0) {
-    return `Hey.\n${status}\nNothing waiting.`
+    return `Hey.\n${status}${snapshot}\nNothing waiting.`
   }
   const body = formatAmberBriefingSms({ busy: params.busy, lines: params.lines })
-  return `Hey.\n${body}`
+  return `Hey.\n${body}${snapshot}`
 }
 
 function lineFromLead(params: {
