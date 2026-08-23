@@ -12,7 +12,13 @@ export function getPlatformAdminEmailAllowlist(): Set<string> {
 }
 
 /** True when this signed-in user may call admin APIs and open `/admin`. */
-export function isPlatformAdminUser(user: Pick<User, "email" | "is_platform_admin">): boolean {
+// NOTE: despite the name, this does not consult users.is_platform_admin — it delegates to
+// isLyncrAdminUser, which tests the email against the Lyncr admin allowlist. The parameter
+// used to demand is_platform_admin as well, which was misleading (the field is never read)
+// and forced callers holding a partial user to fabricate one. Narrowed to what it uses.
+// Behaviour is unchanged; whether the DB flag SHOULD also grant access is a separate
+// question and deliberately not decided here.
+export function isPlatformAdminUser(user: Pick<User, "email">): boolean {
   return isLyncrAdminUser(user)
 }
 

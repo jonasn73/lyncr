@@ -87,7 +87,12 @@ export function attachLocalBundledPhotos(
   const used = new Set<string>()
   const updated = variants.map((variant) => {
     if (variant.image_url?.startsWith("/key-images/")) return variant
-    const buttonHint = extractButtonCount(variant.title, variant.buttons, variant.fits_text)
+    // extractButtonCount returns the digit as a STRING ("4"), while scoreLocalFile compares
+    // it with `===` against buttonCountFromFilename's number — so 4 === "4" was always false
+    // and the +25 button-match bonus never fired. Parse it so button count actually counts.
+    const buttonHintRaw = extractButtonCount(variant.title, variant.buttons, variant.fits_text)
+    const buttonHintParsed = buttonHintRaw != null ? Number.parseInt(buttonHintRaw, 10) : Number.NaN
+    const buttonHint = Number.isFinite(buttonHintParsed) ? buttonHintParsed : null
     const file = pickBestLocalFile(files, input, buttonHint, used)
     if (!file) return variant
     used.add(file)
@@ -123,6 +128,8 @@ export function attachLocalBundledPhotos(
       fits_text: `${input.year} ${input.make} ${input.model}`,
       source_url: null,
       suggested_key_style: "Push start (smart key)",
+      // Required on FccRemoteVariant — disk-built rows carry no programming hint.
+      programming_method: null,
     })
   }
 

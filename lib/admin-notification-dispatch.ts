@@ -128,14 +128,20 @@ export function shouldSendAdminSystemFallbackEmail(user: User): boolean {
 }
 
 /** Gate Neon/Telnyx health texts — shop owners never receive these. */
-export function shouldSendAdminPlatformHealthSms(user: User): boolean {
+// Narrow like resolveAdminNotificationPreferences — these only read the admin flag and
+// the preferences blob, so callers holding a partial user row can use them.
+export function shouldSendAdminPlatformHealthSms(
+  user: Pick<User, "is_platform_admin" | "admin_notification_preferences">
+): boolean {
   // Non-admins are never on-call for platform health.
   if (!user.is_platform_admin) return false
   return resolveAdminNotificationPreferences(user).sms_platform_health
 }
 
 /** Email fallback for platform health when the admin has no cell (reuses routing-problem email toggle). */
-export function shouldSendAdminPlatformHealthEmail(user: User): boolean {
+export function shouldSendAdminPlatformHealthEmail(
+  user: Pick<User, "is_platform_admin" | "admin_notification_preferences">
+): boolean {
   if (!user.is_platform_admin) return false
   return resolveAdminNotificationPreferences(user).email_system_fallback_alerts
 }

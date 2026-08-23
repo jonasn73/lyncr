@@ -20,7 +20,9 @@ export function resolvePostAuthPath(ctx?: PostAuthContext, nextPath?: string | n
   const wait = accountWaitPath(ctx?.account_status)
   if (wait && !ctx?.operator_access) return wait
 
-  const isOperator = ctx?.operator_access ?? isPlatformAdminUser(ctx?.user ?? { email: "" })
+  // Mirrors the isAdmin line below rather than passing a fabricated { email: "" } stand-in,
+  // which was missing is_platform_admin and only worked because the check reads falsy.
+  const isOperator = ctx?.operator_access ?? (ctx?.user ? isPlatformAdminUser(ctx.user) : false)
   const isAdmin = ctx?.user ? isLyncrAdminUser(ctx.user) : false
   const role = ctx?.user?.account_role ?? "owner"
 
