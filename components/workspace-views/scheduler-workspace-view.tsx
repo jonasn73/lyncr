@@ -70,6 +70,7 @@ import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
 import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { useHeldList } from "@/lib/hooks/use-held-list"
+import { useFrozenVisibleList } from "@/lib/hooks/use-frozen-visible-list"
 import { SettledCount } from "@/components/settled-text"
 import { useFlickerCountWatch } from "@/lib/debug/flicker-debug"
 import type {
@@ -210,7 +211,6 @@ function SchedulerWorkspaceViewInner({
   const boardPaintedRef = useRef(false)
   const boardScopeRef = useRef("")
   const prevOrgRef = useRef<string | null | undefined>(undefined)
-  const bootstrapScopeRef = useRef("")
 
   const sessionReady = useSessionCacheReady()
   // Org switch — clear stale shop rows before bootstrap/SWR catch up (Messages pattern).
@@ -223,7 +223,6 @@ function SchedulerWorkspaceViewInner({
       const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
       const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId)
       if (cached && schedulerBootstrapHasContent(cached)) {
-        bootstrapScopeRef.current = `${cacheOrgId ?? "default"}:${monthKey}`
         setEvents(cached.events)
         setBlockouts(cached.blockouts)
         setTechnicians(cached.technicians)
@@ -238,7 +237,6 @@ function SchedulerWorkspaceViewInner({
     boardPaintedRef.current = false
     appliedBootstrapSeedRef.current = null
     loadSeqRef.current += 1
-    bootstrapScopeRef.current = ""
     setEvents([])
     setBlockouts([])
     setTechnicians([])
@@ -257,35 +255,12 @@ function SchedulerWorkspaceViewInner({
       if (cached.ownerUserId) setOwnerUserId(cached.ownerUserId)
       setLoading(false)
       setBootstrapSettled(true)
-      bootstrapScopeRef.current = `${cacheOrgId ?? "default"}:${monthKey}`
     }
   }, [cacheOrgId, visibleMonth])
 
-  // SSR cannot read sessionStorage — re-apply cache before paint so reload is not empty → rows.
-  useLayoutEffect(() => {
-    if (!sessionReady) return
-    const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
-    const scope = `${cacheOrgId ?? "default"}:${monthKey}`
-    const cached = readSchedulerBootstrapCache(monthKey, cacheOrgId)
-    if (!cached) return
-    if (bootstrapScopeRef.current !== scope) {
-      bootstrapScopeRef.current = scope
-      setEvents(cached.events)
-      setBlockouts(cached.blockouts)
-      setTechnicians(cached.technicians)
-      setLineIndustryTags(cached.lineIndustryTags)
-    } else {
-      setEvents((prev) => (prev.length > 0 ? prev : cached.events))
-      setBlockouts((prev) => (prev.length > 0 ? prev : cached.blockouts))
-      setTechnicians((prev) => (prev.length > 0 ? prev : cached.technicians))
-      setLineIndustryTags((prev) => (prev.length > 0 ? prev : cached.lineIndustryTags))
-    }
-    if (cached.ownerUserId) setOwnerUserId((prev) => prev ?? cached.ownerUserId)
-    if (schedulerBootstrapHasContent(cached)) {
-      setLoading(false)
-      setBootstrapSettled(true)
-    }
-  }, [cacheOrgId, visibleMonth, sessionReady])
+  // Session-unlock re-apply lives in the bootstrapSeed effect below (useSessionSeed already
+  // re-reads synchronously when sessionReady flips — a second useLayoutEffect here was a
+  // redundant duplicate of that path and a source of extra paint jumps).
 
   const {
     focusLeadId,
@@ -399,13 +374,23 @@ function SchedulerWorkspaceViewInner({
   const boardScopeKey = `${cacheOrgId ?? orgId ?? "default"}:${monthKey}`
   // Hold last good calendar + tech rows while bootstrap silently revalidates.
   const filteredEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
-  const displayEvents = useHeldList(filteredEvents, {
+  const heldEvents = useHeldList(filteredEvents, {
     scopeKey: boardScopeKey,
     loading: boardBootstrapLoading,
   })
-  const displayTechnicians = useHeldList(technicians, {
+  // Freeze row identity/fields per id — stops name/status rewrites when SWR/bootstrap
+  // silently revalidates with a fresh object for the same job or technician.
+  const displayEvents = useFrozenVisibleList(heldEvents, {
+    scopeKey: boardScopeKey,
+    getId: (event) => event.id,
+  })
+  const heldTechnicians = useHeldList(technicians, {
     scopeKey: boardScopeKey,
     loading: boardBootstrapLoading,
+  })
+  const displayTechnicians = useFrozenVisibleList(heldTechnicians, {
+    scopeKey: boardScopeKey,
+    getId: (tech) => tech.id,
   })
   const assignableTechs = useMemo(
     () => displayTechnicians.filter((t) => t.is_active && t.portal_user_id),
@@ -418,16 +403,21 @@ function SchedulerWorkspaceViewInner({
     validating: pipelineValidating,
   })
 
-  if (boardScopeRef.current !== boardScopeKey) {
-    boardScopeRef.current = boardScopeKey
-    boardPaintedRef.current = false
-  }
-  if (
-    !boardPaintedRef.current &&
-    (assignableTechs.length > 0 || displayEvents.length > 0 || displayPipelineJobs.length > 0)
-  ) {
-    boardPaintedRef.current = true
-  }
+  // Track board-painted state in an effect (not render body) — keeps the mutation
+  // out of the render pass while still committing before the load()-triggering effect below.
+  useLayoutEffect(() => {
+    if (boardScopeRef.current !== boardScopeKey) {
+      boardScopeRef.current = boardScopeKey
+      boardPaintedRef.current = false
+    }
+    if (
+      !boardPaintedRef.current &&
+      (assignableTechs.length > 0 || displayEvents.length > 0 || displayPipelineJobs.length > 0)
+    ) {
+      boardPaintedRef.current = true
+    }
+  }, [boardScopeKey, assignableTechs.length, displayEvents.length, displayPipelineJobs.length])
+
   const schedulerSurfaceReady =
     sessionReady && orgId != null && bootstrapSettled && !orgResolving
 
@@ -444,32 +434,26 @@ function SchedulerWorkspaceViewInner({
     ((schedulerPaint?.techCount ?? 0) > 0 || (schedulerPaint?.eventCount ?? 0) > 0)
   // Cookie says this month had a board — stay pending until bootstrap settles (cold tab).
   const coldBoardPending = boardPaintCovers && (!bootstrapSettled || loading)
+  // Shared base for every surface below — keeps them from settling on different renders.
+  const bootstrapPending = !bootstrapSettled || loading || coldBoardPending
 
   // Never drop pending just because one surface got partial data — that caused literal "0" flash.
   const boardCountsPending =
-    !bootstrapSettled ||
-    loading ||
+    bootstrapPending ||
     orgResolving ||
-    coldBoardPending ||
     pipelineLoading ||
     !pipelineHasResolved ||
     (paintSaysBoard && displayPipelineJobs.length === 0) ||
     (pipelineValidating && displayPipelineJobs.length === 0)
   const techCountsPending =
-    !bootstrapSettled ||
-    loading ||
-    orgResolving ||
-    coldBoardPending ||
-    (paintSaysBoard && assignableTechs.length === 0)
+    bootstrapPending || orgResolving || (paintSaysBoard && assignableTechs.length === 0)
   const metricsPending =
-    !bootstrapSettled ||
-    loading ||
-    coldBoardPending ||
+    bootstrapPending ||
     !poolHasResolved ||
     (poolValidating && displayPoolJobs.length === 0) ||
     pipelineLoading ||
     !pipelineHasResolved
-  const calendarSubtitlePending = !bootstrapSettled || loading || coldBoardPending
+  const calendarSubtitlePending = bootstrapPending
   const poolTrayLoading =
     !schedulerSurfaceReady ||
     orgResolving ||
@@ -1587,7 +1571,7 @@ function SchedulerWorkspaceViewInner({
         open={drawerOpen}
         poolJob={drawerPoolJob}
         scheduledEvent={drawerScheduledEvent}
-        technicians={technicians}
+        technicians={displayTechnicians}
         activePipelineJobs={displayPipelineJobs}
         editIntentTick={drawerEditIntentTick}
         onClose={closeJobDrawer}
@@ -1603,8 +1587,8 @@ function SchedulerWorkspaceViewInner({
         loading={poolLoading && !intakeScheduleJob}
         notFound={intakeScheduleNotFound}
         job={intakeScheduleJob}
-        technicians={technicians}
-        scheduledEvents={events}
+        technicians={displayTechnicians}
+        scheduledEvents={displayEvents}
         organizationQuery={orgQuery}
         onSchedule={handleScheduleCommitted}
         onSkip={handleIntakeScheduleSkip}

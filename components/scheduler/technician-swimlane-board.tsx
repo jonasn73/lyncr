@@ -530,50 +530,17 @@ export function TechnicianSwimlaneBoard({
     [closeMobileOverlay, mobileOverlay, onBookEmptySlot, onDropPoolJob]
   )
 
-  if (assignableTechs.length === 0) {
-    const emptyMessage = showEmptyState && !loading
-    return (
-      <div
-        className="relative w-full"
-        style={{ height: 64 + gridHeightPx }}
-        aria-busy={loading}
-      >
-        {emptyMessage ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
-            <User className="h-8 w-8 text-zinc-600" aria-hidden />
-            <p className="text-sm text-zinc-400">
-              Add active technicians in Team to use the swimlane board.
-            </p>
-            <p className="max-w-sm text-xs text-zinc-500">
-              Drag jobs from the pool above onto a technician column to assign and schedule in one
-              step.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="hidden w-full md:flex" style={{ height: 64 + gridHeightPx }}>
-              <div className="w-14 shrink-0 border-r border-border/40 bg-card">
-                <div className="h-16 border-b border-border/40" aria-hidden />
-                {hourSlots.map((hour) => (
-                  <div
-                    key={hour}
-                    className="border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-transparent"
-                    style={{ height: SCHEDULER_HOUR_ROW_PX }}
-                  >
-                    {formatHourLabel(hour)}
-                  </div>
-                ))}
-              </div>
-              <div className="min-w-[220px] flex-1 bg-muted/5" aria-hidden />
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
+  const hasAssignableTechs = assignableTechs.length > 0
+  // Only the message toggles — the grid underneath stays mounted so a 0 → N tech
+  // transition patches columns in place instead of unmounting/remounting the board.
+  const showEmptyOverlay = !hasAssignableTechs && showEmptyState && !loading
 
   return (
-    <>
+    <div
+      className="relative w-full"
+      style={!hasAssignableTechs ? { minHeight: 64 + gridHeightPx } : undefined}
+      aria-busy={loading}
+    >
       <MobileTimelineBoard
         assignableTechs={assignableTechs}
         eventsByTech={eventsByTech}
@@ -608,93 +575,109 @@ export function TechnicianSwimlaneBoard({
             ))}
           </div>
 
-          {assignableTechs.map((tech) => {
-            const techUserId = tech.portal_user_id!
-            const laneEvents = eventsByTech.get(techUserId) ?? []
+          {hasAssignableTechs ? (
+            assignableTechs.map((tech) => {
+              const techUserId = tech.portal_user_id!
+              const laneEvents = eventsByTech.get(techUserId) ?? []
 
-            return (
-              <div
-                key={tech.id}
-                className="w-[min(220px,28vw)] shrink-0 border-r border-border/40 last:border-r-0"
-              >
-                <div className="sticky top-0 z-10 flex h-16 flex-col justify-center border-b border-border/40 bg-card/95 px-3 backdrop-blur-sm">
-                  <p className="truncate text-sm font-semibold text-foreground">{tech.name}</p>
-                  <p className="truncate text-[10px] text-zinc-500">
-                    {laneEvents.length} job{laneEvents.length === 1 ? "" : "s"} today
-                  </p>
-                </div>
+              return (
+                <div
+                  key={tech.id}
+                  className="w-[min(220px,28vw)] shrink-0 border-r border-border/40 last:border-r-0"
+                >
+                  <div className="sticky top-0 z-10 flex h-16 flex-col justify-center border-b border-border/40 bg-card/95 px-3 backdrop-blur-sm">
+                    <p className="truncate text-sm font-semibold text-foreground">{tech.name}</p>
+                    <p className="truncate text-[10px] text-zinc-500">
+                      {laneEvents.length} job{laneEvents.length === 1 ? "" : "s"} today
+                    </p>
+                  </div>
 
-                <div className="relative bg-muted/10" style={{ height: gridHeightPx }}>
-                  {hourSlots.map((hour) => {
-                    const isOver = dragOverCell?.techId === techUserId && dragOverCell.hour === hour
-                    return (
-                      <button
-                        key={hour}
-                        type="button"
-                        aria-label={`Assign job to ${tech.name} at ${formatHourLabel(hour)}`}
-                        className={cn(
-                          "absolute left-0 right-0 border-b border-border/20 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                          isOver && "bg-primary/15 ring-2 ring-inset ring-primary/50"
-                        )}
-                        style={{
-                          top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
-                          height: SCHEDULER_HOUR_ROW_PX,
-                        }}
-                        onClick={() => onBookEmptySlot?.(techUserId, hour)}
-                        onDragOver={
-                          touchInteraction
-                            ? undefined
-                            : (e) => {
-                                e.preventDefault()
-                                e.dataTransfer.dropEffect = "move"
-                                setDragOverCell({ techId: techUserId, hour })
-                              }
-                        }
-                        onDragLeave={
-                          touchInteraction
-                            ? undefined
-                            : () => {
-                                setDragOverCell((cell) =>
-                                  cell?.techId === techUserId && cell.hour === hour ? null : cell
-                                )
-                              }
-                        }
-                        onDrop={
-                          touchInteraction
-                            ? undefined
-                            : (e) => {
-                                e.preventDefault()
-                                setDragOverCell(null)
-                                const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
-                                if (!jobId) return
-                                onDropPoolJob?.(jobId, techUserId, hour)
-                              }
-                        }
+                  <div className="relative bg-muted/10" style={{ height: gridHeightPx }}>
+                    {hourSlots.map((hour) => {
+                      const isOver = dragOverCell?.techId === techUserId && dragOverCell.hour === hour
+                      return (
+                        <button
+                          key={hour}
+                          type="button"
+                          aria-label={`Assign job to ${tech.name} at ${formatHourLabel(hour)}`}
+                          className={cn(
+                            "absolute left-0 right-0 border-b border-border/20 bg-transparent transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            isOver && "bg-primary/15 ring-2 ring-inset ring-primary/50"
+                          )}
+                          style={{
+                            top: (hour - SCHEDULER_GRID_START_HOUR) * SCHEDULER_HOUR_ROW_PX,
+                            height: SCHEDULER_HOUR_ROW_PX,
+                          }}
+                          onClick={() => onBookEmptySlot?.(techUserId, hour)}
+                          onDragOver={
+                            touchInteraction
+                              ? undefined
+                              : (e) => {
+                                  e.preventDefault()
+                                  e.dataTransfer.dropEffect = "move"
+                                  setDragOverCell({ techId: techUserId, hour })
+                                }
+                          }
+                          onDragLeave={
+                            touchInteraction
+                              ? undefined
+                              : () => {
+                                  setDragOverCell((cell) =>
+                                    cell?.techId === techUserId && cell.hour === hour ? null : cell
+                                  )
+                                }
+                          }
+                          onDrop={
+                            touchInteraction
+                              ? undefined
+                              : (e) => {
+                                  e.preventDefault()
+                                  setDragOverCell(null)
+                                  const jobId = e.dataTransfer.getData(HOPPER_DRAG_MIME)
+                                  if (!jobId) return
+                                  onDropPoolJob?.(jobId, techUserId, hour)
+                                }
+                          }
+                        />
+                      )
+                    })}
+
+                    {laneEvents.map((ev) => (
+                      <SwimlaneAppointmentBlock
+                        key={ev.id}
+                        ev={ev}
+                        highlighted={highlightId === ev.id}
+                        onSelect={() => onSelectEvent?.(ev)}
                       />
-                    )
-                  })}
+                    ))}
 
-                  {laneEvents.map((ev) => (
-                    <SwimlaneAppointmentBlock
-                      key={ev.id}
-                      ev={ev}
-                      highlighted={highlightId === ev.id}
-                      onSelect={() => onSelectEvent?.(ev)}
-                    />
-                  ))}
-
-                  {laneEvents.length === 0 && !loading ? (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
-                      <p className="text-center text-[10px] text-zinc-600">Drop a pool job here</p>
-                    </div>
-                  ) : null}
+                    {laneEvents.length === 0 && !loading ? (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
+                        <p className="text-center text-[10px] text-zinc-600">Drop a pool job here</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+          ) : (
+            <div className="min-w-[220px] flex-1 bg-muted/5" aria-hidden />
+          )}
         </div>
-
       </div>
-    </>
+
+      {showEmptyOverlay ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
+          <User className="h-8 w-8 text-zinc-600" aria-hidden />
+          <p className="text-sm text-zinc-400">
+            Add active technicians in Team to use the swimlane board.
+          </p>
+          <p className="max-w-sm text-xs text-zinc-500">
+            Drag jobs from the pool above onto a technician column to assign and schedule in one
+            step.
+          </p>
+        </div>
+      ) : null}
+    </div>
   )
 }
