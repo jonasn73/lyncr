@@ -480,9 +480,21 @@ export function WorkspaceTableWrap({
   return inner
 }
 
-export function WorkspaceTh({ children }: { children: ReactNode }) {
+export function WorkspaceTh({
+  children,
+  className,
+}: {
+  children: ReactNode
+  /** Callers pass alignment here (e.g. text-right). Previously dropped on the floor. */
+  className?: string
+}) {
   return (
-    <th className="border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+    <th
+      className={cn(
+        "border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500",
+        className
+      )}
+    >
       {children}
     </th>
   )

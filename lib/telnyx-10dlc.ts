@@ -117,6 +117,9 @@ export type CreateBrandInput = {
   country?: string | null
 }
 
+/** Success carries T; use Record<never, never> for "succeeded, no payload" — note that
+ *  Record<string, never> does NOT work there, since it forces every key (including `ok`)
+ *  to never and makes the success arm unsatisfiable. */
 export type Telnyx10DlcResult<T> =
   | ({ ok: true } & T)
   | { ok: false; error: string }
@@ -585,7 +588,7 @@ export async function getTelnyx10DlcCampaignStatus(
 export async function assignNumberToTelnyx10DlcCampaign(
   e164: string,
   campaignId: string
-): Promise<Telnyx10DlcResult<Record<string, never>>> {
+): Promise<Telnyx10DlcResult<Record<never, never>>> {
   try {
     getTelnyxApiKey()
   } catch {

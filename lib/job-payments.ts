@@ -520,7 +520,9 @@ export async function confirmJobPaymentIntent(
   const pi = paymentIntentId.trim()
   let connectAcct = (opts?.stripeConnectAccountId || "").trim() || null
 
-  let intent: Awaited<ReturnType<typeof stripe.paymentIntents.retrieve>>
+  // Plain PaymentIntent, not the SDK Response wrapper: opts.intent is already a plain one,
+  // and nothing here reads lastResponse.
+  let intent: import("stripe").Stripe.PaymentIntent
   if (opts?.intent && opts.intent.id === pi) {
     intent = opts.intent
     const metaAcct = (intent.metadata?.stripe_connect_account_id || "").trim()

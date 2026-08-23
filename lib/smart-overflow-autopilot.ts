@@ -331,12 +331,16 @@ export function smartOverflowPoolToUnassignedJob(
   | "customer_phone"
   | "location"
   | "summary"
-  | "disposition"
   | "created_at"
   | "job_type"
   | "job_notes"
   | "dispatch_status"
-> & { scheduled_at: string } {
+> & {
+  scheduled_at: string
+  // UnassignedPoolJob has no `disposition`, so it cannot be Picked from it — but the pool
+  // block always carries "BOOKED" and UI lists read it, so it is declared here instead.
+  disposition: SmartOverflowPoolSchemaBlock["disposition"]
+} {
   return {
     id: block.id,
     customer_name: block.customer_name,

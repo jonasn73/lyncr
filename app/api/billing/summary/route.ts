@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { requireSessionUser } from "@/lib/admin-api-guard"
 import { getOnboardingProfile } from "@/lib/db"
 import {
@@ -23,7 +23,7 @@ import {
   tierActiveNumberLimit,
 } from "@/lib/subscription-tier"
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const ctx = await requireSessionUser(req)
     if (ctx instanceof NextResponse) return ctx

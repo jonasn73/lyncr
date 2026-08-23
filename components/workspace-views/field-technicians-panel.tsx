@@ -31,7 +31,9 @@ import {
 type InviteResult = {
   name: string
   phone: string
-  expires_at: string
+  /** Written by this panel's own invite path; the add-technician modal does not supply
+   *  one, and nothing renders it. Optional so both callers type-check honestly. */
+  expires_at?: string
   setup_url: string
   sms_sent: boolean
   sms_error: string | null
