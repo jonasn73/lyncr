@@ -1134,10 +1134,12 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
     expect(recordCallStatusEvent).toHaveBeenCalled()
     expect(updateCallLog).toHaveBeenCalled()
-    const statusCall = recordCallStatusEvent.mock.calls[0]
-    expect(statusCall[0]).toBe("cc-in-hangup")
-    expect(statusCall[1]).toBe("completed")
-    expect(statusCall[2]).toBeGreaterThanOrEqual(590)
+    // The bare vi.fn() has no signature, so mock.calls is typed as an empty tuple.
+    const [statusSid, statusValue, statusSeconds] = recordCallStatusEvent.mock
+      .calls[0] as unknown as [string, string, number]
+    expect(statusSid).toBe("cc-in-hangup")
+    expect(statusValue).toBe("completed")
+    expect(statusSeconds).toBeGreaterThanOrEqual(590)
   })
 
   it("call.hangup on inbound leg hangs up ringing outbound cell leg", async () => {

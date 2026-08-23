@@ -26,9 +26,10 @@ export async function POST(req: NextRequest) {
     const tier = normalizeCheckoutSubscriptionTier(
       body && typeof body === "object" ? String((body as Record<string, unknown>).tier ?? "starter") : "starter"
     )
-    void body &&
-      typeof body === "object" &&
-      (body as Record<string, unknown>).save_billing_method === true
+    // NOTE: clients may still post `save_billing_method`, but nothing consumes it —
+    // createLyncrSubscriptionCheckout takes only (userId, tier). The previous
+    // `void body && …` expression read the flag and discarded the result, so it was a
+    // no-op that made the flag look handled. Wire it through the checkout if it is wanted.
     const { url, sessionId } = await createLyncrSubscriptionCheckout(userId, tier)
     return NextResponse.json({
       data: { checkout_url: url, session_id: sessionId, tier },

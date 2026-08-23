@@ -50,7 +50,7 @@ export type HoldQueueDayStats = {
 /** True when the compact Today bar should paint (any finished activity). */
 export function holdQueueStatsHaveTodayActivity(
   stats: HoldQueueDayStats | null | undefined
-): boolean {
+): stats is HoldQueueDayStats {
   // Missing stats → nothing to show.
   if (!stats) return false
   // Answer, Press 1, or Left must be above zero (waiting uses the amber card).

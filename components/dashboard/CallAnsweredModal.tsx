@@ -1199,13 +1199,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
    * never offer "Restore draft" for those (the form already has them).
    */
   const intakeSessionStartedAtRef = useRef<number>(Date.now())
-  const draftPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // `window.setTimeout` returns a number in the DOM lib, but ReturnType<> on an overloaded
+  // signature picks the LAST overload — NodeJS.Timeout once @types/node is in scope. These are
+  // all browser timers, so annotate them as number.
+  const draftPulseTimerRef = useRef<number | null>(null)
   const skipNextDraftSaveRef = useRef(false)
   /** Restorable draft for the current caller — shown as an explicit Restore chip. */
   const [pendingDraft, setPendingDraft] = useState<IntakeDraftSnapshot | null>(null)
   // Friendly flash after the operator taps Restore draft.
   const [draftRestoredFlash, setDraftRestoredFlash] = useState(false)
-  const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const draftRestoredTimerRef = useRef<number | null>(null)
   const manualStepScrollRef = useRef<HTMLDivElement>(null)
   const addressSearchRef = useRef<JobAddressAutocompleteHandle>(null)
   // Cancels stale live-GPS reverse-geocode when a newer ping arrives.
@@ -1967,9 +1970,9 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dismissedRef.current = loadAnsweredIntakeDismissed(ownerUserId)
 
     let cancelled = false
-    const lookupTimers: ReturnType<typeof window.setTimeout>[] = []
-    let ringingFastPollId: ReturnType<typeof window.setInterval> | null = null
-    let ringingFastPollStopId: ReturnType<typeof window.setTimeout> | null = null
+    const lookupTimers: number[] = []
+    let ringingFastPollId: number | null = null
+    let ringingFastPollStopId: number | null = null
 
     const stopRingingFastPoll = () => {
       if (ringingFastPollId != null) {

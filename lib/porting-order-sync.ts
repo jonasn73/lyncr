@@ -25,6 +25,7 @@ import {
   extractPortRejectionReason,
   extractPortingOrderRecord,
   findPortingOrderId,
+  isPortActionRequiredWebhook,
   isPortRejectionWebhook,
   looksLikePinPasscodeRejection,
   buildPortingNotificationText,
