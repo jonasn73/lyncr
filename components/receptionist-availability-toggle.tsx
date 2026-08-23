@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
+import { AnimatedStatusLabel } from "@/components/ui/animated-status-label"
 
 export function ReceptionistAvailabilityToggle({
   isAvailable,
@@ -68,14 +69,13 @@ export function ReceptionistAvailabilityToggle({
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-2.5">
           {/* Short label next to the switch so duty state is obvious */}
-          <span
+          <AnimatedStatusLabel
+            value={current ? "On" : "Off"}
             className={cn(
-              "text-xs font-semibold uppercase tracking-wide transition-colors duration-200",
+              "text-xs font-semibold uppercase tracking-wide",
               current ? "text-emerald-300" : "text-zinc-500"
             )}
-          >
-            {current ? "On" : "Off"}
-          </span>
+          />
           {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
           <Switch
             checked={current}

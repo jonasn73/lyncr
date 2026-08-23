@@ -3,6 +3,7 @@
 import { type HTMLAttributes, type ReactNode } from "react"
 import { Phone, PhoneMissed, Voicemail } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AnimatedStatusLabel } from "@/components/ui/animated-status-label"
 export { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
 import { MOBILE_BLEED } from "@/lib/mobile-shell"
@@ -176,7 +177,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
         toneClass[tone]
       )}
     >
-      {label}
+      <AnimatedStatusLabel value={label} />
     </span>
   )
 }
@@ -316,7 +317,7 @@ export function ActivityStatusPill({
       title={labels[status] === "Missed" && status !== "missed" ? status.replace(/_/g, " ") : undefined}
     >
       <Icon className={cn("shrink-0 opacity-90", dense ? "h-2.5 w-2.5" : "h-3 w-3")} aria-hidden />
-      {labels[status]}
+      <AnimatedStatusLabel value={labels[status]} />
     </span>
   )
 }

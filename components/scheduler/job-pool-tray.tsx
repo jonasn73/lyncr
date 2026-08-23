@@ -3,6 +3,7 @@
 // Horizontal "Unassigned Job Pool" tray above the scheduler grid.
 
 import { useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Inbox, LifeBuoy, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { JobPoolCard } from "@/components/scheduler/job-pool-card"
@@ -11,6 +12,7 @@ import { useLiveClock } from "@/lib/hooks/use-live-clock"
 import { sortPoolJobsByBookingPriority } from "@/lib/job-pool-display"
 import { isPriceDeniedRescueJob } from "@/lib/rescue-queue"
 import { SCHEDULER_GLASS_CARD } from "@/lib/scheduler-ui-tokens"
+import { MOTION_SPRING_LAYOUT, useMotionPrefs } from "@/lib/motion"
 import type { UnassignedPoolJob } from "@/lib/types"
 
 type PoolViewFilter = "all" | "rescue"
@@ -40,6 +42,7 @@ export function JobPoolTray({
   const mobileTimeline = useSchedulerMobileTimeline()
   const sidebar = variant === "sidebar"
   const now = useLiveClock()
+  const { prefersReducedMotion } = useMotionPrefs()
   const rescueJobs = useMemo(() => jobs.filter((job) => isPriceDeniedRescueJob(job)), [jobs])
   const sortedJobs = useMemo(
     () => sortPoolJobsByBookingPriority(jobs, now),
@@ -179,16 +182,41 @@ export function JobPoolTray({
               : "Pool is empty. New intakes without a tech show up here."}
           </p>
         ) : null}
-        {visibleJobs.map((job) => (
-          <JobPoolCard
-            key={job.id}
-            job={job}
-            highlighted={highlightId === job.id}
-            onSelect={onSelectJob}
-            onMobileAssign={onMobileAssignJob}
-            variant={sidebar || embedded ? "sidebar" : "default"}
-          />
-        ))}
+        {prefersReducedMotion ? (
+          visibleJobs.map((job) => (
+            <JobPoolCard
+              key={job.id}
+              job={job}
+              highlighted={highlightId === job.id}
+              onSelect={onSelectJob}
+              onMobileAssign={onMobileAssignJob}
+              variant={sidebar || embedded ? "sidebar" : "default"}
+            />
+          ))
+        ) : (
+          // sortedJobs re-derives every tick from the live clock, so priority order genuinely
+          // shifts over time — `layout` gives that reorder a FLIP animation instead of a jump.
+          <AnimatePresence initial={false}>
+            {visibleJobs.map((job) => (
+              <motion.div
+                key={job.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={MOTION_SPRING_LAYOUT}
+              >
+                <JobPoolCard
+                  job={job}
+                  highlighted={highlightId === job.id}
+                  onSelect={onSelectJob}
+                  onMobileAssign={onMobileAssignJob}
+                  variant={sidebar || embedded ? "sidebar" : "default"}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </section>
   )

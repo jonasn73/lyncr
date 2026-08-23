@@ -6,6 +6,7 @@ import { ChevronRight, PhoneForwarded } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
+import { AnimatedStatusLabel } from "@/components/ui/animated-status-label"
 
 export type WhoRingsConsoleProps = {
   ringsNow: string
@@ -90,7 +91,9 @@ export function WhoRingsConsole({
           <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Your status
           </dt>
-          <dd className={cn("min-w-0 text-right text-sm font-semibold", statusTone)}>{statusLabel}</dd>
+          <dd className="min-w-0 text-right text-sm font-semibold">
+            <AnimatedStatusLabel value={statusLabel} className={statusTone} />
+          </dd>
         </div>
       </dl>
 

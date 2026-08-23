@@ -5,6 +5,7 @@ import { ActivePipelinePanel } from "@/components/scheduler/active-pipeline-pane
 import { useActivePipelineSuspenseQuery } from "@/lib/hooks/use-job-pool-query"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { ActivePipelinePanelSkeleton } from "@/components/scheduler/scheduler-panel-skeletons"
+import { FadeInOnMount } from "@/components/ui/fade-in-on-mount"
 import type { ActivePipelineJob } from "@/lib/types"
 
 type ActivePipelineListProps = {
@@ -29,15 +30,17 @@ function ActivePipelineListInner({
   const { activeOrganizationId } = useDashboardWorkspace()
   const jobs = useActivePipelineSuspenseQuery(activeOrganizationId, dayKey, true)
   return (
-    <ActivePipelinePanel
-      jobs={jobs}
-      highlightId={highlightId}
-      onFocusJob={onFocusJob}
-      onEditJob={onEditJob}
-      onMarkComplete={onMarkComplete}
-      completingJobId={completingJobId}
-      layout={layout}
-    />
+    <FadeInOnMount>
+      <ActivePipelinePanel
+        jobs={jobs}
+        highlightId={highlightId}
+        onFocusJob={onFocusJob}
+        onEditJob={onEditJob}
+        onMarkComplete={onMarkComplete}
+        completingJobId={completingJobId}
+        layout={layout}
+      />
+    </FadeInOnMount>
   )
 }
 

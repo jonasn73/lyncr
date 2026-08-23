@@ -1008,6 +1008,7 @@ export function OwnerCollectPaymentSheet({
     }
     onCollected?.()
     toast({
+      variant: "success",
       title: "Payment received",
       description: fmtCents(chargedCents),
     })

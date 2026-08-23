@@ -4,6 +4,7 @@ import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { WorkspaceFilterPills } from "@/components/workspace-filter-pills"
+import { useRecentArrivals } from "@/lib/hooks/use-recent-arrivals"
 import {
   CalendarDays,
   ChevronDown,
@@ -1242,6 +1243,9 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
   // Rows stay collapsed by default so more numbers fit on screen.
   // Accordion: at most one row expanded at a time (stable groupKey survives polls).
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  // 12s-poll full-array replace, not Pusher-pushed — "arrival" computed client-side.
+  const rowKeys = useMemo(() => rows.map((call) => call.groupKey), [rows])
+  const recentRowKeys = useRecentArrivals(rowKeys)
 
   function toggleExpanded(key: string) {
     setExpandedKey((prev) => (prev === key ? null : key))
@@ -1296,9 +1300,11 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
           <li
             key={call.groupKey}
             className={cn(
-              "px-3 py-2 transition-colors duration-150",
+              "px-3 py-2 transition-colors transition-shadow duration-150",
               activityRowAccentClass(st),
-              expanded && "bg-zinc-950/40"
+              expanded && "bg-zinc-950/40",
+              // New-arrival pulse — self-clears when useRecentArrivals expires the key.
+              recentRowKeys.has(call.groupKey) && "ring-2 ring-sky-400/70 duration-700"
             )}
           >
             {/*
@@ -1407,6 +1413,9 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
   const inbound = useInboundCallPanelOptional()
   // Stable groupKey so expand state survives poll refreshes.
   const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(() => new Set())
+  // 12s-poll full-array replace, not Pusher-pushed — "arrival" computed client-side.
+  const rowKeys = useMemo(() => rows.map((call) => call.groupKey), [rows])
+  const recentRowKeys = useRecentArrivals(rowKeys)
 
   function openLogSheet(call: UiCallRecord) {
     setSelectedActivityLog(call)
@@ -1490,8 +1499,10 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                   <tr
                     className={cn(
                       WORKSPACE_TABLE_ROW_CLASS,
-                      "group/row transition-colors duration-150 hover:bg-slate-800/55",
-                      activityRowAccentClass(st)
+                      "group/row transition-colors duration-700 hover:bg-slate-800/55",
+                      activityRowAccentClass(st),
+                      // New-arrival pulse — box-shadow rings clip oddly on <tr>, use bg instead.
+                      recentRowKeys.has(call.groupKey) && "!bg-sky-500/20"
                     )}
                   >
                     <WorkspaceTd className="!px-3 !py-2.5 align-middle">

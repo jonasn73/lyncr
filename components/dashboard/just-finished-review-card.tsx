@@ -7,6 +7,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { useRecentArrivals } from "@/lib/hooks/use-recent-arrivals"
 import {
   CalendarCheck,
   CheckCircle2,
@@ -165,6 +166,12 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
     return excludeReadRepliesFromLatest(rawItems)
   }, [rawItems, seenTick])
 
+  // Poll-refreshed list (not Pusher-pushed) — "arrival" is computed client-side by diffing
+  // ids against the previous render, then briefly pulsed so a new alert doesn't just
+  // silently appear.
+  const itemIds = useMemo(() => items.map((item) => item.id), [items])
+  const recentItemIds = useRecentArrivals(itemIds)
+
   // Keep the open detail sheet in sync when delivery / reply updates arrive.
   // Skip no-op setState so list refreshes cannot churn the Sheet open state (#185).
   // Do NOT close when the row was dismissed as read — selected stays until the user closes.
@@ -309,6 +316,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
           }
         }
         toast({
+          variant: "success",
           title: "Thanks + review sent",
           description: "Removed from Latest. It’ll come back only if they reply.",
         })
@@ -613,7 +621,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                 <li key={item.id}>
                   <div
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors transition-shadow duration-700",
                       isPaid
                         ? "border-emerald-500/40 bg-emerald-500/10"
                         : isBook
@@ -622,7 +630,9 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                             ? "border-amber-500/40 bg-amber-500/10"
                             : unread
                               ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                              : "border-sky-500/25 bg-sky-500/5"
+                              : "border-sky-500/25 bg-sky-500/5",
+                      // New-arrival pulse — fades out over 700ms once useRecentArrivals expires the id.
+                      recentItemIds.has(item.id) && "ring-2 ring-sky-400/70"
                     )}
                   >
                     <button

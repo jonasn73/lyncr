@@ -3,6 +3,7 @@
 import { memo, useCallback, useState } from "react"
 import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAnimatedNumber } from "@/lib/hooks/use-animated-number"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
   RoutingCallHistoryDialog,
@@ -31,6 +32,10 @@ type TelemetryPillProps = {
   valueClassName?: string
   labelClassName?: string
   onClick?: () => void
+  /** When set (a real number, baseline ready), the value rolls toward it instead of a hard text swap. */
+  animatedValue?: number | null
+  /** Formats the rolling number — defaults to a plain rounded integer. */
+  animatedFormatter?: (n: number) => string
 }
 
 function TelemetryPill({
@@ -41,7 +46,11 @@ function TelemetryPill({
   valueClassName,
   labelClassName,
   onClick,
+  animatedValue = null,
+  animatedFormatter,
 }: TelemetryPillProps) {
+  const rolled = useAnimatedNumber(animatedValue ?? 0, { formatter: animatedFormatter })
+  const displayValue = animatedValue != null ? rolled : value
   const sharedClasses = cn(
     "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-2.5 py-1.5",
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
@@ -63,7 +72,9 @@ function TelemetryPill({
       >
         {label}
       </span>
-      <span className={cn("text-sm font-bold tabular-nums text-foreground", valueClassName)}>{value}</span>
+      <span className={cn("text-sm font-bold tabular-nums text-foreground", valueClassName)}>
+        {displayValue}
+      </span>
     </>
   )
 
@@ -97,6 +108,8 @@ function TelemetryTickerItem({
   labelClassName,
   sublabelClassName,
   onClick,
+  animatedValue = null,
+  animatedFormatter,
 }: {
   label: string
   value: string | number
@@ -107,12 +120,18 @@ function TelemetryTickerItem({
   /** Override default amber sublabel (e.g. booking fraction 1/18). */
   sublabelClassName?: string
   onClick?: () => void
+  /** When set (a real number, baseline ready), the value rolls toward it instead of a hard text swap. */
+  animatedValue?: number | null
+  /** Formats the rolling number — defaults to a plain rounded integer. */
+  animatedFormatter?: (n: number) => string
 }) {
+  const rolled = useAnimatedNumber(animatedValue ?? 0, { formatter: animatedFormatter })
+  const displayValue = animatedValue != null ? rolled : value
   const body = (
     <>
       {/* Slightly smaller than before so the 3×2 block reads shorter on phones. */}
       <span className={cn("text-sm font-bold leading-none tabular-nums text-slate-100", valueClassName)}>
-        {value}
+        {displayValue}
       </span>
       <span
         className={cn(
@@ -197,6 +216,16 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const linesDisplay = baselineReady ? liveLineCount : "—"
   const holdPathDisplay = baselineReady ? holdPathCalls : null
 
+  // Raw numbers for the rolling-number animation — null while not ready so the pill just
+  // shows "—" with no roll (mirrors the *Display constants above, kept separate since those
+  // are pre-formatted strings for the non-animated fallback path).
+  const linesAnimated = baselineReady ? liveLineCount : null
+  const callsAnimated = baselineReady ? dailyCalls : null
+  const missedAnimated = baselineReady ? missedCalls : null
+  const bookingAnimated = baselineReady ? bookingRatePercent : null
+  const speedAnimated = baselineReady && avgDispatchSpeedMinutes != null ? avgDispatchSpeedMinutes : null
+  const rescueAnimated = baselineReady ? rescueRevenueCents : null
+
   // Prefer seeded/fetched unique-lead count; fall back to missedCalls only while truly unknown.
   // uniqueMissedLeadsReady is true from cookie/session seed — do not wait for /api/calls.
   const hasSeededLeads =
@@ -240,15 +269,17 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       >
         {/* Tighter 3×2 on mobile so Latest / Messages sit higher in the viewport. */}
         <div className={cn(LINES_MOBILE_CARD, "grid grid-cols-3 gap-px p-1")}>
-          <TelemetryTickerItem label="Live" value={linesDisplay} />
+          <TelemetryTickerItem label="Live" value={linesDisplay} animatedValue={linesAnimated} />
           <TelemetryTickerItem
             label="Calls"
             value={callsDisplay}
+            animatedValue={callsAnimated}
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryTickerItem
             label={missedTickerLabel}
             value={missedDisplay}
+            animatedValue={missedAnimated}
             sublabel={baselineReady ? missedTickerSublabel : null}
             valueClassName={baselineReady && missedCalls > 0 ? "text-amber-300" : undefined}
             labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
@@ -257,14 +288,23 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
           <TelemetryTickerItem
             label="Booked jobs"
             value={bookingDisplay}
+            animatedValue={bookingAnimated}
+            animatedFormatter={formatBookingRatePercent}
             sublabel={bookingFraction}
             sublabelClassName="text-zinc-500"
             valueClassName={bookingEmpty || !baselineReady ? "font-medium text-zinc-400" : undefined}
           />
-          <TelemetryTickerItem label="Dispatch" value={speedDisplay} />
+          <TelemetryTickerItem
+            label="Dispatch"
+            value={speedDisplay}
+            animatedValue={speedAnimated}
+            animatedFormatter={formatAvgDispatchSpeedMinutes}
+          />
           <TelemetryTickerItem
             label="Rescue"
             value={rescueDisplay}
+            animatedValue={rescueAnimated}
+            animatedFormatter={formatRescueRevenueDollars}
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
@@ -274,16 +314,24 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         aria-label="Today's workspace telemetry"
       >
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md">
-          <TelemetryPill label="Live lines" value={linesDisplay} icon={Phone} tone="teal" />
+          <TelemetryPill
+            label="Live lines"
+            value={linesDisplay}
+            animatedValue={linesAnimated}
+            icon={Phone}
+            tone="teal"
+          />
           <TelemetryPill
             label="Calls today"
             value={callsDisplay}
+            animatedValue={callsAnimated}
             icon={PhoneIncoming}
             onClick={() => openCallHistory("daily")}
           />
           <TelemetryPill
             label={missedDesktopLabel}
             value={missedDisplay}
+            animatedValue={missedAnimated}
             icon={PhoneMissed}
             tone={baselineReady && missedCalls > 0 ? "amber" : "default"}
             valueClassName={baselineReady && missedCalls > 0 ? "text-amber-400" : undefined}
@@ -297,14 +345,25 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
                 : "Booked jobs today"
             }
             value={bookingDisplay}
+            animatedValue={bookingAnimated}
+            animatedFormatter={formatBookingRatePercent}
             icon={Percent}
             tone="teal"
             valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-slate-400" : undefined}
           />
-          <TelemetryPill label="Avg dispatch today" value={speedDisplay} icon={Timer} tone="teal" />
+          <TelemetryPill
+            label="Avg dispatch today"
+            value={speedDisplay}
+            animatedValue={speedAnimated}
+            animatedFormatter={formatAvgDispatchSpeedMinutes}
+            icon={Timer}
+            tone="teal"
+          />
           <TelemetryPill
             label="Rescue today"
             value={rescueDisplay}
+            animatedValue={rescueAnimated}
+            animatedFormatter={formatRescueRevenueDollars}
             icon={DollarSign}
             tone={rescueHot ? "amber" : "emerald"}
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}

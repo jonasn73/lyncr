@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
 import { computeDispatchOperationsMetrics } from "@/lib/dispatch-operations-metrics"
+import { useAnimatedNumber } from "@/lib/hooks/use-animated-number"
 import type { ActivePipelineJob, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
 
 type MetricCellProps = {
@@ -32,7 +33,8 @@ function MetricCell({
 }: MetricCellProps) {
   // Zero counts stay muted so non-zero KPIs pop as the signal.
   const isZero = !pending && value === 0
-  const display = pending ? "\u00a0" : String(value)
+  const rolled = useAnimatedNumber(value)
+  const display = pending ? "\u00a0" : rolled
 
   // Compact map toolbar — horizontal pill chip.
   if (compact) {
