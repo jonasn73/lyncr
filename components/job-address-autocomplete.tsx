@@ -77,7 +77,9 @@ export const JobAddressAutocomplete = forwardRef<
   }))
 
   const resolvePortalTarget = useCallback((): HTMLElement => {
-    if (typeof document === "undefined") return document.body
+    // Client-only: called from an effect, onFocus, and a render site already guarded by
+    // `typeof document !== "undefined"`. (The old guard here returned document.body after
+    // testing that document was undefined, which would have thrown if it ever ran.)
     // Must render inside the sheet so Radix modal does not swallow clicks.
     const sheet = document.querySelector('[data-slot="sheet-content"]')
     portalRef.current = (sheet as HTMLElement | null) ?? document.body
@@ -203,6 +205,7 @@ export const JobAddressAutocomplete = forwardRef<
   }, [query, validated])
 
   async function pickSuggestion(s: AddressSuggestion) {
+    const placeId = s.place_id?.trim()
     if (isCompleteStructuredAddress(s)) {
       setQuery(s.formatted)
       setValidated(true)
@@ -210,7 +213,6 @@ export const JobAddressAutocomplete = forwardRef<
       setOpen(false)
       return
     }
-    const placeId = s.place_id?.trim()
     if (!placeId) return
     setResolving(true)
     try {
