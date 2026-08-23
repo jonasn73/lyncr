@@ -11,6 +11,18 @@ import {
   buildPresenceOnJobGatherXml,
 } from "@/lib/inbound-time-capture"
 
+
+/** Mirrors the <Say> escaping in lib/inbound-time-capture.ts. Asserting against the
+ *  exported prompt constants (rather than copies of the wording) keeps these tests from
+ *  going stale every time the script is reworded. */
+const texmlEscape = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+
 describe("account presence", () => {
   it("normalizes presence status aliases", () => {
     expect(normalizePresenceStatus("AVAILABLE")).toBe("AVAILABLE")
@@ -40,15 +52,14 @@ describe("account presence", () => {
     const closed = buildPresenceClosedGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-closed"
     )
-    // Unified Busy script (ON_JOB / CLOSED share one Speak). Apostrophes are TeXML-escaped.
-    expect(closed).toContain("can&apos;t take your call right now")
-    expect(closed).toContain("booking link by text")
+    // Unified Busy script (ON_JOB / CLOSED share one Speak).
+    expect(closed).toContain(texmlEscape(PRESENCE_CLOSED_PROMPT))
     expect(closed).toContain("presence-closed")
 
     const onJob = buildPresenceOnJobGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=presence-on-job"
     )
-    expect(onJob).toContain("can&apos;t take your call right now")
+    expect(onJob).toContain(texmlEscape(PRESENCE_ON_JOB_PROMPT))
     expect(onJob).toContain("presence-on-job")
 
     // Product Busy greeting is shared across both presence steps.
