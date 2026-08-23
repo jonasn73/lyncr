@@ -15,7 +15,21 @@ export const PRESENCE_CACHE_SCOPE = "account-presence"
 export const PRESENCE_SESSION_KEY = persistedCacheKey(PRESENCE_CACHE_SCOPE, "status")
 export const PRESENCE_COOKIE = paintSeedCookieName(PRESENCE_CACHE_SCOPE)
 
-type PresenceCache = { status: PresenceStatus }
+type PresenceCache = { status: PresenceStatus; fetchedAtMs?: number }
+
+/**
+ * Older than this, a cached Busy/Available status may no longer be true — changed from
+ * another device, or an ON_JOB "busy until" window that already expired server-side.
+ * Showing it confidently and then silently rewriting once refresh() resolves is the same
+ * "confident value that flips" flash fixed for routing-telemetry-cache. Treat it as no
+ * seed instead (caller falls back to null — presenceReady stays false until the live fetch).
+ */
+const PRESENCE_SEED_FRESH_MS = 2 * 60 * 1000
+
+function isPresenceSeedFresh(cache: PresenceCache | null | undefined, now: number): boolean {
+  if (!cache || typeof cache.fetchedAtMs !== "number") return false
+  return now - cache.fetchedAtMs <= PRESENCE_SEED_FRESH_MS
+}
 
 function parsePresenceStatus(raw: string | undefined | null): PresenceStatus | null {
   if (!raw) return null
@@ -36,13 +50,16 @@ function isValidStatus(s: PresenceStatus | null | undefined): s is PresenceStatu
  * Prefer paint over session when both exist (React #418).
  */
 export function readCachedPresence(paint?: PresenceStatus | null): PresenceStatus | null {
+  // `paint` already passed through readPresencePaintFromCookieRaw's freshness gate below.
   if (isValidStatus(paint)) return paint
 
+  const now = Date.now()
   const fromSession = readPersistedCache<PresenceCache>(PRESENCE_SESSION_KEY)
   const sessionStatus = parsePresenceStatus(fromSession?.status)
-  if (isValidStatus(sessionStatus)) return sessionStatus
+  if (isValidStatus(sessionStatus) && isPresenceSeedFresh(fromSession, now)) return sessionStatus
 
   const fromCookie = readPaintSeedCookie<PresenceCache>(PRESENCE_CACHE_SCOPE)
+  if (!isPresenceSeedFresh(fromCookie, now)) return null
   return parsePresenceStatus(fromCookie?.status)
 }
 
@@ -51,11 +68,13 @@ export function readPresencePaintFromCookieRaw(
   cookieRaw: string | null | undefined
 ): PresenceStatus | null {
   const parsed = readPaintSeedCookieValue<PresenceCache>(cookieRaw)
+  if (!isPresenceSeedFresh(parsed, Date.now())) return null
   return parsePresenceStatus(parsed?.status)
 }
 
 /** Persist after a successful presence fetch (session + cookie). */
 export function writeCachedPresence(status: PresenceStatus): void {
-  writePersistedCache(PRESENCE_SESSION_KEY, { status } satisfies PresenceCache)
-  writePaintSeedCookie(PRESENCE_CACHE_SCOPE, { status } satisfies PresenceCache)
+  const fetchedAtMs = Date.now()
+  writePersistedCache(PRESENCE_SESSION_KEY, { status, fetchedAtMs } satisfies PresenceCache)
+  writePaintSeedCookie(PRESENCE_CACHE_SCOPE, { status, fetchedAtMs } satisfies PresenceCache)
 }

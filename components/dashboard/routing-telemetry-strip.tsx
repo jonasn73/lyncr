@@ -211,7 +211,11 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
       : hasSeededLeads
         ? formatMissedTickerSublabel(missedCalls, uniqueLeads)
         : null
-  const missedDesktopLabel = missedLeadCollapse
+  // Gate on baselineReady like missedDisplay — otherwise this label shows the raw
+  // (possibly stale pre-fetch) missedCalls number while the value pill still shows
+  // "—", then both rewrite together once the real fetch resolves ("2 unanswered"
+  // flips to a different "N unanswered" after settle).
+  const missedDesktopLabel = baselineReady && missedLeadCollapse
     ? `${missedCalls} unanswered (${uniqueLeads} leads)`
     : holdPathDisplay && holdPathDisplay > 0
       ? `Unanswered · ${holdPathDisplay} hold path`
