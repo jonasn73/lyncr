@@ -278,8 +278,12 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
             <div className="flex min-w-0 flex-col leading-tight">
               {!compact ? <span className={SCHEDULER_METADATA_LABEL}>Now</span> : null}
               {/* Absolute top live date/time token — keep this; remove nested date headers elsewhere. */}
+              {/* Server render time vs. client hydration time necessarily differ by design
+                  (this is a live clock) — suppress the expected one-time mismatch instead of
+                  either faking a fixed SSR time or leaving an unavoidable React warning. */}
               <time
                 dateTime={now.toISOString()}
+                suppressHydrationWarning
                 className={cn(
                   "font-semibold tabular-nums text-zinc-100",
                   compact ? "text-xs" : "text-sm"

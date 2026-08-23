@@ -70,7 +70,6 @@ import { useMarkJobComplete } from "@/lib/hooks/use-mark-job-complete"
 import { useEscapeDismiss } from "@/lib/hooks/use-workspace-keyboard"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
 import { useHeldList } from "@/lib/hooks/use-held-list"
-import { useFrozenVisibleList } from "@/lib/hooks/use-frozen-visible-list"
 import { SettledCount } from "@/components/settled-text"
 import { useFlickerCountWatch } from "@/lib/debug/flicker-debug"
 import type {
@@ -167,6 +166,12 @@ function SchedulerWorkspaceViewInner({
   )
   const [blockoutModalOpen, setBlockoutModalOpen] = useState(false)
   const [deletingBlockoutId, setDeletingBlockoutId] = useState<string | null>(null)
+  // Native <details>: `open` is a real DOM attribute React re-syncs every render, so this
+  // must be state (set once from paint-seed blockouts) rather than a recomputed expression —
+  // otherwise every render would force-close a panel the user just opened.
+  const [blockoutsPanelOpen, setBlockoutsPanelOpen] = useState(() =>
+    (initialBootstrap?.blockouts ?? []).some((b) => b.date === dayKeyLocal(selectedDay))
+  )
   const [technicians, setTechnicians] = useState<FieldTechnician[]>(
     () => initialBootstrap?.technicians ?? []
   )
@@ -373,24 +378,17 @@ function SchedulerWorkspaceViewInner({
   const boardBootstrapLoading = orgResolving || loading || !bootstrapSettled
   const boardScopeKey = `${cacheOrgId ?? orgId ?? "default"}:${monthKey}`
   // Hold last good calendar + tech rows while bootstrap silently revalidates.
+  // Not frozen-by-id: unlike CRM/Messages rows, these mutate in place via Pusher
+  // (job status/assignment) and reload (tech deactivated in Team) — freezing would
+  // silently stop those live updates from ever showing.
   const filteredEvents = useMemo(() => excludeDeletedJobs(events), [events, excludeDeletedJobs])
-  const heldEvents = useHeldList(filteredEvents, {
+  const displayEvents = useHeldList(filteredEvents, {
     scopeKey: boardScopeKey,
     loading: boardBootstrapLoading,
   })
-  // Freeze row identity/fields per id — stops name/status rewrites when SWR/bootstrap
-  // silently revalidates with a fresh object for the same job or technician.
-  const displayEvents = useFrozenVisibleList(heldEvents, {
-    scopeKey: boardScopeKey,
-    getId: (event) => event.id,
-  })
-  const heldTechnicians = useHeldList(technicians, {
+  const displayTechnicians = useHeldList(technicians, {
     scopeKey: boardScopeKey,
     loading: boardBootstrapLoading,
-  })
-  const displayTechnicians = useFrozenVisibleList(heldTechnicians, {
-    scopeKey: boardScopeKey,
-    getId: (tech) => tech.id,
   })
   const assignableTechs = useMemo(
     () => displayTechnicians.filter((t) => t.is_active && t.portal_user_id),
@@ -1375,7 +1373,8 @@ function SchedulerWorkspaceViewInner({
             {/* Settings off the primary path — collapsed unless this day already has blockouts. */}
             <details
               className="group rounded-xl border border-zinc-800/80 bg-zinc-950/40 open:bg-zinc-950/60"
-              defaultOpen={blockouts.some((b) => b.date === selectedKey)}
+              open={blockoutsPanelOpen}
+              onToggle={(e) => setBlockoutsPanelOpen(e.currentTarget.open)}
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
                 <span>Booking &amp; blockouts</span>

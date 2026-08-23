@@ -36,5 +36,10 @@ export function viewportCookieValue(isMobile: boolean): "1" | "0" {
   return isMobile ? "1" : "0"
 }
 
-/** Tiny script: save phone/computer before React runs (helps the next refresh). */
-export const VIEWPORT_BOOTSTRAP_SCRIPT = `(function(){try{var m=window.matchMedia("(max-width:${MOBILE_BREAKPOINT_PX - 1}px)").matches;document.cookie="${VIEWPORT_COOKIE}="+(m?"1":"0")+"; Path=/; Max-Age=31536000; SameSite=Lax";document.documentElement.dataset.lyncrVw=m?"mobile":"desktop";}catch(e){}})();`
+/**
+ * Tiny script: save phone/computer before React runs (helps the next refresh).
+ * Only writes the cookie — nothing reads a DOM attribute here, and setting one
+ * before hydration (no CSS/component consumes it) just produced a React
+ * hydration-mismatch warning on the root <html> element for free.
+ */
+export const VIEWPORT_BOOTSTRAP_SCRIPT = `(function(){try{var m=window.matchMedia("(max-width:${MOBILE_BREAKPOINT_PX - 1}px)").matches;document.cookie="${VIEWPORT_COOKIE}="+(m?"1":"0")+"; Path=/; Max-Age=31536000; SameSite=Lax";}catch(e){}})();`
