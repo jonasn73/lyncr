@@ -48,6 +48,19 @@ export type OperationsPaintSeed = {
 /** Prefer more rows that still fit the cookie — empty SSR skeleton is worse than a short list. */
 const MAX_PAINT_CALLS = 8
 
+/**
+ * Older than this, the cookie's call rows have likely already moved (a new call, a status
+ * change) — painting them confidently and then rewriting once the live fetch lands is the
+ * same "confident value that flips" flash fixed for routing-telemetry-cache. `fetchedAt` was
+ * already stamped on every write but never checked on read; wire it in.
+ */
+const OPERATIONS_SEED_FRESH_MS = 2 * 60 * 1000
+
+function isOperationsSeedFresh(seed: OperationsPaintSeed, now: number): boolean {
+  if (typeof seed.fetchedAt !== "number") return false
+  return now - seed.fetchedAt <= OPERATIONS_SEED_FRESH_MS
+}
+
 function clip(s: string, n: number): string {
   const t = String(s || "")
   return t.length > n ? t.slice(0, n) : t
@@ -130,6 +143,7 @@ export function readOperationsPaintSeed(
 ): OperationsPaintSeed | null {
   const parsed = readPaintSeedCookie<OperationsPaintSeed>(OPERATIONS_PAINT_SCOPE)
   if (!isValidSeed(parsed)) return null
+  if (!isOperationsSeedFresh(parsed, Date.now())) return null
   if (organizationId !== undefined && !operationsPaintMatchesOrg(parsed, organizationId)) {
     return null
   }
@@ -141,5 +155,6 @@ export function readOperationsPaintFromCookieRaw(
 ): OperationsPaintSeed | null {
   const parsed = readPaintSeedCookieValue<OperationsPaintSeed>(cookieRaw)
   if (!isValidSeed(parsed)) return null
+  if (!isOperationsSeedFresh(parsed, Date.now())) return null
   return parsed
 }

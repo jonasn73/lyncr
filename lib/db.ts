@@ -5,7 +5,7 @@
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run
 // scripts/001-create-schema.sql and scripts/002-add-password-hash.sql in your Neon SQL Editor.
 
-import { neon } from "@neondatabase/serverless"
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import {
   neighborhoodFromLocation,
@@ -236,8 +236,12 @@ export function userFacingDatabaseError(e: unknown): string | null {
 }
 
 // Lazy Neon client so we only connect when DATABASE_URL is set (prefers pooled endpoint).
-let cachedSql: ReturnType<typeof neon> | null = null
-function getSql(): ReturnType<typeof neon> {
+// Pinned to <false, false> (no arrayMode/fullResults options passed below) — left as the bare
+// generic `ReturnType<typeof neon>`, every `sql\`...\`` call site's result type collapses to
+// the unresolved union `any[][] | Record<string, any>[] | FullQueryResults<boolean>`, which is
+// the single root cause behind ~560 of this file's implicit-any tsc errors.
+let cachedSql: NeonQueryFunction<false, false> | null = null
+function getSql(): NeonQueryFunction<false, false> {
   if (cachedSql) return cachedSql
   const url = resolveNeonDatabaseUrl()
   cachedSql = neon(url)
@@ -9798,7 +9802,7 @@ function isMissingSchedulerColumnError(e: unknown): boolean {
 
 /** Load one scheduler lead row — works before scripts/074 (no scheduled_at column). */
 async function selectSchedulerLeadById(
-  sql: ReturnType<typeof neon>,
+  sql: NeonQueryFunction<false, false>,
   leadId: string
 ): Promise<Record<string, unknown> | undefined> {
   try {

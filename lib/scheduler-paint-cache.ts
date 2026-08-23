@@ -24,6 +24,19 @@ export type SchedulerPaintSeed = {
   fetchedAt: number
 }
 
+/**
+ * fetchedAt was stamped on every write but never checked on read — dead code, and it let a
+ * tech/event count from long enough ago that the roster has since genuinely changed keep
+ * claiming "this month had a board" indefinitely. Generous window (unlike the fast-moving
+ * KPI caches) since this seed's real job is surviving across sessions for hard-refresh SSR.
+ */
+const SCHEDULER_SEED_FRESH_MS = 24 * 60 * 60 * 1000
+
+function isSchedulerSeedFresh(seed: SchedulerPaintSeed, now: number): boolean {
+  if (typeof seed.fetchedAt !== "number") return false
+  return now - seed.fetchedAt <= SCHEDULER_SEED_FRESH_MS
+}
+
 function orgOk(
   seedOrg: string | null | undefined,
   activeOrg: string | null | undefined
@@ -62,6 +75,7 @@ export function readSchedulerPaintSeed(
 ): SchedulerPaintSeed | null {
   const parsed = readPaintSeedCookie<SchedulerPaintSeed>(SCHEDULER_PAINT_SCOPE)
   if (!parsed || typeof parsed.monthKey !== "string") return null
+  if (!isSchedulerSeedFresh(parsed, Date.now())) return null
   if (organizationId !== undefined && !orgOk(parsed.organizationId, organizationId)) {
     return null
   }
@@ -73,6 +87,7 @@ export function readSchedulerPaintFromCookieRaw(
 ): SchedulerPaintSeed | null {
   const parsed = readPaintSeedCookieValue<SchedulerPaintSeed>(cookieRaw)
   if (!parsed || typeof parsed.monthKey !== "string") return null
+  if (!isSchedulerSeedFresh(parsed, Date.now())) return null
   return parsed
 }
 

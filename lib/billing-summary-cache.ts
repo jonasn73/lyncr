@@ -30,6 +30,21 @@ export type BillingSummaryCache = {
   low_carrier_credit_warning?: boolean
   low_carrier_credit_threshold_usd?: number
   plans?: { key: string; monthly_price_label: string; included_minutes_per_month: number }[]
+  /** epoch ms when this seed was written — cookie reads treat an old one as no-seed. */
+  fetchedAtMs?: number
+}
+
+/**
+ * Same cookie-tier freshness gap as header-money-cache.ts: sessionStorage already self-gates
+ * via readPersistedCache's own maxAge envelope, but the cookie/paint tier has no timestamp
+ * of its own, so a stale credit balance would render confidently before the live fetch
+ * corrected it.
+ */
+const BILLING_COOKIE_FRESH_MS = 2 * 60 * 1000
+
+function isBillingCookieFresh(cached: BillingSummaryCache | null | undefined, now: number): boolean {
+  if (!cached || typeof cached.fetchedAtMs !== "number") return false
+  return now - cached.fetchedAtMs <= BILLING_COOKIE_FRESH_MS
 }
 
 function isValid(cached: BillingSummaryCache | null | undefined): cached is BillingSummaryCache {
@@ -45,23 +60,26 @@ export function readBillingSummaryCache(
   cookieRaw?: string | null,
   paint?: BillingSummaryCache | null
 ): BillingSummaryCache | null {
-  if (isValid(paint)) return paint
+  const now = Date.now()
+  if (isValid(paint) && isBillingCookieFresh(paint, now)) return paint
 
+  // sessionStorage already self-gates via readPersistedCache's own maxAge envelope.
   const fromSession = readPersistedCache<BillingSummaryCache>(BILLING_SUMMARY_SESSION_KEY)
   if (isValid(fromSession)) return fromSession
 
   if (cookieRaw !== undefined) {
     const fromServer = readPaintSeedCookieValue<BillingSummaryCache>(cookieRaw)
-    return isValid(fromServer) ? fromServer : null
+    return isValid(fromServer) && isBillingCookieFresh(fromServer, now) ? fromServer : null
   }
 
   const fromCookie = readPaintSeedCookie<BillingSummaryCache>(BILLING_SUMMARY_CACHE_SCOPE)
-  return isValid(fromCookie) ? fromCookie : null
+  return isValid(fromCookie) && isBillingCookieFresh(fromCookie, now) ? fromCookie : null
 }
 
 /** Persist after a successful billing summary fetch (session + compact cookie). */
 export function writeBillingSummaryCache(next: BillingSummaryCache): void {
-  writePersistedCache(BILLING_SUMMARY_SESSION_KEY, next)
+  const fetchedAtMs = Date.now()
+  writePersistedCache(BILLING_SUMMARY_SESSION_KEY, { ...next, fetchedAtMs })
   writePaintSeedCookie(BILLING_SUMMARY_CACHE_SCOPE, {
     current_plan: next.current_plan,
     credit_balance_cents: next.credit_balance_cents,
@@ -74,5 +92,6 @@ export function writeBillingSummaryCache(next: BillingSummaryCache): void {
     needs_carrier_credit: next.needs_carrier_credit,
     low_carrier_credit_warning: next.low_carrier_credit_warning,
     low_carrier_credit_threshold_usd: next.low_carrier_credit_threshold_usd,
+    fetchedAtMs,
   } satisfies Partial<BillingSummaryCache>)
 }

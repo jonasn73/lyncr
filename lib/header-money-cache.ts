@@ -26,6 +26,23 @@ export type HeaderMoneyCache = {
   monthCents: number
   allTimeCents: number
   connectReady: boolean
+  /** epoch ms when this seed was written — cookie/paint reads treat an old one as no-seed. */
+  fetchedAtMs?: number
+}
+
+/**
+ * Older than this, the cookie/paint seed's dollar amounts may already be wrong — a payout
+ * cleared, a card charge came in — and this is the highest-attention number on every page.
+ * Showing it confidently and then rewriting once the live fetch lands is the same
+ * "confident value that flips" flash fixed for routing-telemetry-cache. sessionStorage reads
+ * already self-gate via readPersistedCache's own 30min envelope; this only covers the cookie
+ * tier, which has no timestamp mechanism of its own.
+ */
+const MONEY_COOKIE_FRESH_MS = 2 * 60 * 1000
+
+function isMoneyCookieFresh(cached: HeaderMoneyCache | null | undefined, now: number): boolean {
+  if (!cached || typeof cached.fetchedAtMs !== "number") return false
+  return now - cached.fetchedAtMs <= MONEY_COOKIE_FRESH_MS
 }
 
 function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached is HeaderMoneyCache {
@@ -51,24 +68,27 @@ export function readHeaderMoneyCache(
   cookieRaw?: string | null,
   paint?: HeaderMoneyCache | null
 ): HeaderMoneyCache | null {
-  if (isValidMoneyCache(paint)) return paint
+  const now = Date.now()
+  if (isValidMoneyCache(paint) && isMoneyCookieFresh(paint, now)) return paint
 
+  // sessionStorage already self-gates via readPersistedCache's own maxAge envelope.
   const fromSession = readPersistedCache<HeaderMoneyCache>(HEADER_MONEY_SESSION_KEY)
   if (isValidMoneyCache(fromSession)) return fromSession
 
   if (cookieRaw !== undefined) {
     const fromServer = readPaintSeedCookieValue<HeaderMoneyCache>(cookieRaw)
-    return isValidMoneyCache(fromServer) ? fromServer : null
+    return isValidMoneyCache(fromServer) && isMoneyCookieFresh(fromServer, now) ? fromServer : null
   }
 
   const fromCookie = readPaintSeedCookie<HeaderMoneyCache>(HEADER_MONEY_CACHE_SCOPE)
-  return isValidMoneyCache(fromCookie) ? fromCookie : null
+  return isValidMoneyCache(fromCookie) && isMoneyCookieFresh(fromCookie, now) ? fromCookie : null
 }
 
 /** Persist after a successful balance/collected fetch (session + cookie). */
 export function writeHeaderMoneyCache(next: HeaderMoneyCache): void {
-  writePersistedCache(HEADER_MONEY_SESSION_KEY, next)
-  writePaintSeedCookie(HEADER_MONEY_CACHE_SCOPE, next)
+  const stamped: HeaderMoneyCache = { ...next, fetchedAtMs: Date.now() }
+  writePersistedCache(HEADER_MONEY_SESSION_KEY, stamped)
+  writePaintSeedCookie(HEADER_MONEY_CACHE_SCOPE, stamped)
 }
 
 /** Client-safe currency label for the header chip. */

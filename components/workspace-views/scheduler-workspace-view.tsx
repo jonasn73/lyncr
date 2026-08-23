@@ -214,6 +214,13 @@ function SchedulerWorkspaceViewInner({
   const intakeReturnRef = useRef(false)
   /** True after techs or calendar rows painted — blocks reload from blanking the board. */
   const boardPaintedRef = useRef(false)
+  /**
+   * Fallback for the "empty fetch must not settle when paint says this month already had a
+   * board" guard below — that guard is meant to survive one suspicious blip, not distrust an
+   * empty fetch forever. An org with genuinely zero jobs/techs never fires another realtime
+   * event to retry `load()`, so without a bound the KPI strip stayed pending permanently.
+   */
+  const distrustSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const boardScopeRef = useRef("")
   const prevOrgRef = useRef<string | null | undefined>(undefined)
 
@@ -691,6 +698,10 @@ function SchedulerWorkspaceViewInner({
     return bootstrapFetch.finally(() => {
       initialBootstrapDoneRef.current = true
       setLoading(false)
+      if (distrustSettleTimerRef.current) {
+        clearTimeout(distrustSettleTimerRef.current)
+        distrustSettleTimerRef.current = null
+      }
       if (boardPaintedRef.current) {
         setBootstrapSettled(true)
         return
@@ -704,9 +715,28 @@ function SchedulerWorkspaceViewInner({
       // Empty fetch must not settle when paint says this month already had a board (zero flash).
       if (hasContent || !paintSaysBoard) {
         setBootstrapSettled(true)
+        return
       }
+      // Distrust is a one-blip guard, not a permanent one — an org that's genuinely at zero
+      // (no techs/jobs) never fires another realtime event to retry `load()`, so without a
+      // bound the KPI strip (Active/Pool/On-site/Done) stayed pending forever. Give one real
+      // retry window, then trust the empty fetch over a paint seed that never got confirmed.
+      // `seq` (this closure's own load id, from the top of `load()`) — not the live ref —
+      // so a newer load superseding this one cancels the fallback instead of double-firing.
+      distrustSettleTimerRef.current = setTimeout(() => {
+        distrustSettleTimerRef.current = null
+        if (seq !== loadSeqRef.current) return // a newer load already resolved this
+        if (boardPaintedRef.current) return // resolved via another path already
+        setBootstrapSettled(true)
+      }, 6000)
     })
   }, [monthKey, orgQuery, orgId])
+
+  useEffect(() => {
+    return () => {
+      if (distrustSettleTimerRef.current) clearTimeout(distrustSettleTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     // Skip bootstrap network while Scheduler pane is hidden (SWR already paused via pollEnabled).

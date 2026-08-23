@@ -9,14 +9,14 @@ import {
 } from "@/lib/dashboard-paint-seeds-types"
 import {
   HEADER_MONEY_COOKIE,
-  type HeaderMoneyCache,
+  readHeaderMoneyCache,
 } from "@/lib/header-money-cache"
 import {
   ROUTING_TELEMETRY_COOKIE,
   readRoutingTelemetryCache,
   type RoutingTelemetrySnapshot,
 } from "@/lib/routing-telemetry-cache"
-import { BILLING_SUMMARY_COOKIE, type BillingSummaryCache } from "@/lib/billing-summary-cache"
+import { BILLING_SUMMARY_COOKIE, readBillingSummaryCache } from "@/lib/billing-summary-cache"
 import {
   OWNER_LATEST_COOKIE,
   sanitizeLatestPaintCookieItems,
@@ -92,8 +92,7 @@ export function readDashboardPaintSeedsFromCookies(
   const timeZone = parseTimezoneCookie(getCookie(TIMEZONE_COOKIE))
 
   const moneyRaw = getCookie(HEADER_MONEY_COOKIE)
-  const money = readPaintSeedCookieValue<HeaderMoneyCache>(moneyRaw)
-  const moneyOk = money && typeof money.availableCents === "number" ? money : null
+  const moneyOk = readHeaderMoneyCache(moneyRaw)
 
   const telemetryRaw = getCookie(ROUTING_TELEMETRY_COOKIE)
   const telemetryCookie = readPaintSeedCookieValue<TelemetryPaintCookie>(telemetryRaw)
@@ -115,9 +114,7 @@ export function readDashboardPaintSeedsFromCookies(
       : null
 
   const billingRaw = getCookie(BILLING_SUMMARY_COOKIE)
-  const billing = readPaintSeedCookieValue<BillingSummaryCache>(billingRaw)
-  const billingOk =
-    billing && typeof billing.credit_balance_cents === "number" ? billing : null
+  const billingOk = readBillingSummaryCache(billingRaw)
 
   const presenceRaw = getCookie(PRESENCE_COOKIE)
   const presence = readPresencePaintFromCookieRaw(presenceRaw)
