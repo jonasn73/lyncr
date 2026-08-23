@@ -91,7 +91,12 @@ function applyMocks(scenario: TelnyxFallbackFixture) {
   if (m.ensureAssistant) {
     vi.mocked(lifecycle.ensureTelnyxVoiceAiAssistant).mockResolvedValue(m.ensureAssistant as never)
   } else {
-    vi.mocked(lifecycle.ensureTelnyxVoiceAiAssistant).mockResolvedValue({ linked: false })
+    // EnsureTelnyxVoiceAiResult also requires provisioned + assistantId.
+    vi.mocked(lifecycle.ensureTelnyxVoiceAiAssistant).mockResolvedValue({
+      linked: false,
+      provisioned: false,
+      assistantId: null,
+    })
   }
 }
 

@@ -3,25 +3,14 @@
  * Add a row here when you capture a real callback (see README.md in this folder).
  */
 
-import type { FallbackType, RoutingConfig, User } from "@/lib/types"
+import type { RoutingConfig, User } from "@/lib/types"
+import type { IncomingRoutingRow } from "@/lib/db"
 
 /** What mocked DB/lifecycle return for this request. */
 export type TelnyxFallbackFixtureMocks = {
-  incomingRouting: {
-    user_id: string
-    user_name: string
-    business_name: string
-    inbound_receptionist_whisper_enabled: boolean
-    owner_phone: string
-    selected_receptionist_id: string | null
-    fallback_type: FallbackType
-    ring_timeout_seconds: number
-    ai_ring_owner_first: boolean
-    receptionist_name: string | null
-    receptionist_phone: string | null
-    phone_line_label: string
-    phone_line_friendly_name: string
-  } | null
+  /** The real row shape — a hand-maintained subset drifted out of date and stopped being
+   *  assignable to what getIncomingRoutingByNumber returns. */
+  incomingRouting: IncomingRoutingRow | null
   routingForNumber: RoutingConfig | null
   globalRouting: RoutingConfig | null
   user: User | null
@@ -59,6 +48,10 @@ const baseUser = (over: Partial<User>): User => ({
   credit_balance_cents: 0,
   billing_plan: "trial",
   is_platform_admin: false,
+  // Required on User; without defaults here they could only arrive via the optional `over`,
+  // so the spread widened them to `| undefined` and the fixture stopped being a User.
+  account_role: "owner",
+  answered_call_customer_popup_enabled: true,
   ...over,
 })
 
@@ -72,6 +65,15 @@ const baseRouting = (over: Partial<RoutingConfig>): RoutingConfig => ({
   ring_timeout_seconds: 30,
   ai_ring_owner_first: false,
   updated_at: "2020-01-01T00:00:00.000Z",
+  // Every non-optional RoutingConfig field needs a default here; anything only reachable
+  // through the optional `over` spread widens to `| undefined` and stops being a
+  // RoutingConfig.
+  industry_tag: null,
+  routing_strategy: "private_only",
+  allow_lyncr_network_fallback: false,
+  private_ring_timeout_seconds: 20,
+  inbound_caller_greeting_enabled: false,
+  forward_original_caller_id: false,
   ...over,
 })
 
@@ -91,6 +93,17 @@ const baseIncomingRouting = (
   receptionist_phone: null,
   phone_line_label: "Main Line",
   phone_line_friendly_name: "(555) 111-0001",
+  // Remaining non-optional IncomingRoutingRow fields. Same rule as the fixtures above:
+  // anything reachable only through `over` widens to `| undefined`.
+  inbound_caller_greeting_enabled: false,
+  forward_original_caller_id: false,
+  receptionist_routing_endpoint: "CELL",
+  receptionist_sip_username: null,
+  account_status: "active",
+  active_phone_count: 1,
+  primary_phone_number: "+15551110001",
+  admin_routing_override_phone: null,
+  organization_name: "Fixture Biz",
   ...over,
 })
 
