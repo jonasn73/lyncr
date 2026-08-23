@@ -39,12 +39,13 @@ import {
 
 /** Every member area you can jump to (includes Help, which is not a bottom tab). */
 const JUMP_PAGES = [
-  { id: "dashboard", label: "Routing", href: "/dashboard", icon: Zap },
-  { id: "scheduler", label: "Scheduler", href: "/dashboard/scheduler", icon: CalendarDays },
-  { id: "customers", label: "CRM — Customers & Leads", href: "/dashboard/customers", icon: ContactRound },
+  // Same order as `dashboardNavItems` so the palette and the rail agree.
+  { id: "dashboard", label: "Lines", href: "/dashboard", icon: Zap },
   { id: "activity", label: "Activity", href: "/dashboard/activity", icon: ClipboardList },
   { id: "messages", label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
+  { id: "scheduler", label: "Scheduler", href: "/dashboard/scheduler", icon: CalendarDays },
   { id: "contacts", label: "Map", href: "/dashboard/contacts", icon: Map },
+  { id: "customers", label: "CRM — Customers & Leads", href: "/dashboard/customers", icon: ContactRound },
   { id: "pay", label: "Billing", href: "/dashboard/pay", icon: BarChart3 },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings },
   { id: "inventory", label: "Key inventory", href: "/dashboard/inventory", icon: Package },

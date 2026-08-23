@@ -32,27 +32,34 @@ export type DashboardNavItem = {
   icon: LucideIcon
 }
 
-/** Primary command-dock — CRM (Customers & Leads) promoted; Scheduler stays dispatch. */
+/**
+ * Primary command-dock, ordered by the path a call actually travels:
+ * it rings (Lines) -> you see it (Activity) -> you reply (Messages) -> you book it
+ * (Scheduler) -> you drive to it (Map) -> it settles into a record (CRM) -> account.
+ * Lines stays first and Settings stays last.
+ */
 export const dashboardNavItems: DashboardNavItem[] = [
-  { id: "dashboard", label: "Routing", icon: Zap },
-  { id: "scheduler", label: "Scheduler", icon: CalendarDays },
-  { id: "customers", label: "CRM", icon: ContactRound },
+  { id: "dashboard", label: "Lines", icon: Zap },
   { id: "activity", label: "Activity", icon: ClipboardList },
   { id: "messages", label: "Messages", icon: MessageSquare },
+  { id: "scheduler", label: "Scheduler", icon: CalendarDays },
   { id: "contacts", label: "Map", icon: Map },
+  { id: "customers", label: "CRM", icon: ContactRound },
   { id: "pay", label: "Lyncr bill", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
 /**
- * Mobile bottom bar — Scheduler stays desktop-only (command dock / deep links).
- * Order: Lines · Activity · CRM · Map. Book job still works from CRM / Map.
+ * Mobile bottom bar — same relative order as the rail so muscle memory carries over.
+ * Scheduler stays desktop-only (command dock / deep links); Messages is here because an
+ * unanswered text costs money faster than anything else a phone user can reach.
  */
 export const mobileBottomNavItems: DashboardNavItem[] = [
   { id: "dashboard", label: "Lines", icon: Zap },
   { id: "activity", label: "Activity", icon: ClipboardList },
-  { id: "customers", label: "CRM", icon: ContactRound },
+  { id: "messages", label: "Messages", icon: MessageSquare },
   { id: "contacts", label: "Map", icon: Map },
+  { id: "customers", label: "CRM", icon: ContactRound },
 ]
 
 /** Href for each tab — App Router Link targets for instant client navigation. */
