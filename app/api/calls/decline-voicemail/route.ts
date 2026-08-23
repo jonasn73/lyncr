@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         SELECT to_number
         FROM call_logs
         WHERE user_id = ${userId}
-          AND (provider_call_sid = ${providerSid} OR twilio_call_sid = ${providerSid})
+          AND (provider_call_sid = ${providerSid})
         ORDER BY created_at DESC
         LIMIT 1
       `
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
                 call_type = CASE WHEN call_type = 'incoming' THEN 'missed' ELSE call_type END,
                 ended_at = COALESCE(ended_at, now())
             WHERE user_id = ${userId}
-              AND (provider_call_sid = ${providerSid} OR twilio_call_sid = ${providerSid})
+              AND (provider_call_sid = ${providerSid})
           `
         }
       } catch (e) {

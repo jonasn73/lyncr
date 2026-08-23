@@ -152,7 +152,7 @@ export async function markIvrActionCompleted(callSid: string): Promise<void> {
     await sql`
       UPDATE call_logs
       SET ivr_action_completed = true
-      WHERE provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid}
+      WHERE provider_call_sid = ${callSid}
     `
   } catch (e) {
     // Column may be missing pre-migration — ignore.
@@ -169,7 +169,7 @@ async function wasIvrActionCompleted(callSid: string): Promise<boolean> {
   try {
     const rows = await sql`
       SELECT ivr_action_completed FROM call_logs
-      WHERE provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid}
+      WHERE provider_call_sid = ${callSid}
       LIMIT 1
     `
     return (rows[0] as { ivr_action_completed?: boolean } | undefined)?.ivr_action_completed === true
@@ -190,7 +190,7 @@ export async function claimIvrActionForRescue(callSid: string): Promise<boolean>
     const claimed = await sql`
       UPDATE call_logs
       SET ivr_action_completed = true
-      WHERE (provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid})
+      WHERE (provider_call_sid = ${callSid})
         AND COALESCE(ivr_action_completed, false) = false
       RETURNING id
     `
@@ -198,7 +198,7 @@ export async function claimIvrActionForRescue(callSid: string): Promise<boolean>
     const existing = await sql`
       SELECT id
       FROM call_logs
-      WHERE provider_call_sid = ${callSid} OR twilio_call_sid = ${callSid}
+      WHERE provider_call_sid = ${callSid}
       LIMIT 1
     `
     // No row → still send (cooldown on the SMS itself covers a later double).

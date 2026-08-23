@@ -132,7 +132,7 @@ async function listOwnerSmsFromCandidates(userId?: string): Promise<string[]> {
       const lines = await getPhoneNumbers(userId)
       for (const line of lines) {
         if (line.status !== "active") continue
-        if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+        if (!line.provider_number_sid?.trim()) continue
         add(line.number)
       }
     } catch {

@@ -1322,7 +1322,7 @@ export async function getPhoneNumberLineById(lineId: string): Promise<PhoneNumbe
   if (!id) return null
   try {
     const rows = await sql`
-      SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+      SELECT id, user_id, provider_number_sid, number, friendly_name, label, type, status,
              industry_tag, routing_pool_mode, created_at
       FROM phone_numbers
       WHERE id = ${id} AND status = 'active'
@@ -1332,7 +1332,7 @@ export async function getPhoneNumberLineById(lineId: string): Promise<PhoneNumbe
   } catch (e) {
     if (!isMissingIndustryTagColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+      SELECT id, user_id, provider_number_sid, number, friendly_name, label, type, status, created_at
       FROM phone_numbers
       WHERE id = ${id} AND status = 'active'
       LIMIT 1
@@ -1349,7 +1349,7 @@ export async function getActivePhoneNumberByE164(toNumber: string): Promise<Phon
   const digitKey = phoneDigitsKey(toNumber)
   try {
     const rows = await sql`
-      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+      SELECT id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status,
              industry_tag, routing_pool_mode, created_at
       FROM phone_numbers
       WHERE status = 'active'
@@ -1361,7 +1361,7 @@ export async function getActivePhoneNumberByE164(toNumber: string): Promise<Phon
   } catch (e) {
     if (!isMissingIndustryTagColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+      SELECT id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status, created_at
       FROM phone_numbers
       WHERE status = 'active'
         AND (number = ${normalized} OR regexp_replace(number, '\\D', '', 'g') = ${digitKey})
@@ -3369,46 +3369,6 @@ export async function insertCallLog(log: Omit<CallLog, "id" | "created_at">): Pr
       void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
       return callLogId
     }
-    // Legacy DB: twilio_call_sid NOT NULL — duplicate sid into both columns
-    if (msg.includes("twilio_call_sid")) {
-      try {
-        const rows = await sql`
-          INSERT INTO call_logs (
-            user_id, provider_call_sid, twilio_call_sid, from_number, to_number, caller_name,
-            call_type, status, duration_seconds, routed_to_receptionist_id,
-            routed_to_name, has_recording, recording_url, recording_duration_seconds, first_ring_at
-          ) VALUES (
-            ${log.user_id}, ${sid}, ${sid}, ${fromNum}, ${toNum}, ${log.caller_name},
-            ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
-            ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}, now()
-          )
-          RETURNING id
-        `
-        const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
-        void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
-        return callLogId
-      } catch (e2) {
-        const m2 = pgErrorMessage(e2)
-        if (pgErrorCode(e2) === "42703" && m2.includes("first_ring_at")) {
-          const rows = await sql`
-            INSERT INTO call_logs (
-              user_id, provider_call_sid, twilio_call_sid, from_number, to_number, caller_name,
-              call_type, status, duration_seconds, routed_to_receptionist_id,
-              routed_to_name, has_recording, recording_url, recording_duration_seconds
-            ) VALUES (
-              ${log.user_id}, ${sid}, ${sid}, ${fromNum}, ${toNum}, ${log.caller_name},
-              ${log.call_type}, ${log.status}, ${log.duration_seconds}, ${log.routed_to_receptionist_id},
-              ${log.routed_to_name}, ${log.has_recording}, ${log.recording_url}, ${log.recording_duration_seconds}
-            )
-            RETURNING id
-          `
-          const callLogId = rows[0]?.id != null ? String(rows[0].id) : null
-          void notifyInboundCallInitiatedTelemetry(log, sid, fromNum, toNum, callLogId)
-          return callLogId
-        }
-        throw e2
-      }
-    }
     throw e
   }
 }
@@ -3527,54 +3487,54 @@ export async function updateCallLog(
 ): Promise<void> {
   const sql = getSql()
   if (updates.status !== undefined) {
-    await sql`UPDATE call_logs SET status = ${updates.status} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    await sql`UPDATE call_logs SET status = ${updates.status} WHERE provider_call_sid = ${providerCallSid}`
   }
   if (updates.duration_seconds !== undefined) {
     // Keep the longest known talk time — status webhooks often arrive with 0 after dial callbacks already logged seconds.
     await sql`
       UPDATE call_logs
       SET duration_seconds = GREATEST(COALESCE(duration_seconds, 0), ${updates.duration_seconds})
-      WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}
+      WHERE provider_call_sid = ${providerCallSid}
     `
   }
   if (updates.call_type !== undefined) {
-    await sql`UPDATE call_logs SET call_type = ${updates.call_type} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    await sql`UPDATE call_logs SET call_type = ${updates.call_type} WHERE provider_call_sid = ${providerCallSid}`
   }
   if (updates.has_recording !== undefined) {
-    await sql`UPDATE call_logs SET has_recording = ${updates.has_recording}, recording_url = ${updates.recording_url ?? null}, recording_duration_seconds = ${updates.recording_duration_seconds ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    await sql`UPDATE call_logs SET has_recording = ${updates.has_recording}, recording_url = ${updates.recording_url ?? null}, recording_duration_seconds = ${updates.recording_duration_seconds ?? null} WHERE provider_call_sid = ${providerCallSid}`
   }
   // Timing columns come from scripts/007-call-quality-metrics.sql. Ignore writes
   // when that migration hasn't run yet so call routing/sandbox still works.
   if (updates.answered_at !== undefined) {
     try {
-      await sql`UPDATE call_logs SET answered_at = ${updates.answered_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+      await sql`UPDATE call_logs SET answered_at = ${updates.answered_at ?? null} WHERE provider_call_sid = ${providerCallSid}`
     } catch (e) {
       if (!isMissing007TimingColumnError(e)) throw e
     }
   }
   if (updates.ended_at !== undefined) {
     try {
-      await sql`UPDATE call_logs SET ended_at = ${updates.ended_at ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+      await sql`UPDATE call_logs SET ended_at = ${updates.ended_at ?? null} WHERE provider_call_sid = ${providerCallSid}`
     } catch (e) {
       if (!isMissing007TimingColumnError(e)) throw e
     }
   }
   if (updates.setup_duration_ms !== undefined) {
     try {
-      await sql`UPDATE call_logs SET setup_duration_ms = ${updates.setup_duration_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+      await sql`UPDATE call_logs SET setup_duration_ms = ${updates.setup_duration_ms ?? null} WHERE provider_call_sid = ${providerCallSid}`
     } catch (e) {
       if (!isMissing007TimingColumnError(e)) throw e
     }
   }
   if (updates.post_dial_delay_ms !== undefined) {
     try {
-      await sql`UPDATE call_logs SET post_dial_delay_ms = ${updates.post_dial_delay_ms ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+      await sql`UPDATE call_logs SET post_dial_delay_ms = ${updates.post_dial_delay_ms ?? null} WHERE provider_call_sid = ${providerCallSid}`
     } catch (e) {
       if (!isMissing007TimingColumnError(e)) throw e
     }
   }
   if (updates.routed_to_name !== undefined) {
-    await sql`UPDATE call_logs SET routed_to_name = ${updates.routed_to_name ?? null} WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}`
+    await sql`UPDATE call_logs SET routed_to_name = ${updates.routed_to_name ?? null} WHERE provider_call_sid = ${providerCallSid}`
   }
 }
 
@@ -3626,7 +3586,7 @@ export async function getCallLogUserIdByProviderSid(providerCallSid: string): Pr
   const sql = getSql()
   const rows = await sql`
     SELECT user_id FROM call_logs
-    WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+    WHERE provider_call_sid = ${sid}
     LIMIT 1
   `
   return rows[0]?.user_id != null ? String(rows[0].user_id) : null
@@ -3662,7 +3622,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       LEFT JOIN phone_numbers pn ON pn.user_id = cl.user_id
         AND regexp_replace(coalesce(pn.number, ''), '\\D', '', 'g')
           = regexp_replace(coalesce(cl.to_number, ''), '\\D', '', 'g')
-      WHERE cl.provider_call_sid = ${sid} OR cl.twilio_call_sid = ${sid}
+      WHERE cl.provider_call_sid = ${sid}
       LIMIT 1
     `
     const row = rows[0]
@@ -3688,7 +3648,7 @@ export async function getCallLogSnapshotForTelemetry(providerCallSid: string): P
       SELECT id, user_id, from_number, to_number, duration_seconds, call_type, status,
              answered_at, ended_at, routed_to_name, routed_to_receptionist_id
       FROM call_logs
-      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      WHERE provider_call_sid = ${sid}
       LIMIT 1
     `
     const row = rows[0]
@@ -3732,7 +3692,7 @@ export async function recordCallStatusEvent(
       WITH target AS (
         SELECT id, user_id, from_number, to_number, call_type, answered_at, routed_to_name
         FROM call_logs
-        WHERE provider_call_sid = ${providerSid} OR twilio_call_sid = ${providerSid}
+        WHERE provider_call_sid = ${providerSid}
         LIMIT 1
       ),
       updated AS (
@@ -3828,7 +3788,7 @@ export async function recordCallStatusEvent(
       SET
         status = ${normalizedStatus},
         duration_seconds = GREATEST(COALESCE(duration_seconds, 0), ${durationSeconds})
-      WHERE provider_call_sid = ${providerCallSid} OR twilio_call_sid = ${providerCallSid}
+      WHERE provider_call_sid = ${providerCallSid}
     `
   }
 }
@@ -4706,7 +4666,7 @@ function parseCallLogRow(row: Record<string, unknown>): CallLog {
   return {
     id: String(row.id),
     user_id: String(row.user_id),
-    provider_call_sid: String(row.provider_call_sid ?? row.twilio_call_sid ?? ""),
+    provider_call_sid: String(row.provider_call_sid ?? ""),
     from_number: String(row.from_number),
     to_number: String(row.to_number),
     caller_name: row.caller_name ? String(row.caller_name) : null,
@@ -6152,7 +6112,7 @@ function parsePhoneNumberRow(row: Record<string, unknown>): PhoneNumber {
     id: String(row.id),
     user_id: String(row.user_id),
     organization_id: row.organization_id != null ? String(row.organization_id) : null,
-    provider_number_sid: String(row.provider_number_sid ?? row.twilio_sid ?? ""),
+    provider_number_sid: String(row.provider_number_sid ?? ""),
     number: String(row.number),
     friendly_name: String(row.friendly_name ?? ""),
     label: String(row.label ?? "Business Line"),
@@ -7775,7 +7735,7 @@ export async function listProviderLinkedActiveNumbers(limit = 25): Promise<strin
     SELECT number
     FROM phone_numbers
     WHERE status = 'active'
-      AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+      AND nullif(trim(coalesce(provider_number_sid, '')), '') IS NOT NULL
     ORDER BY created_at ASC
     LIMIT ${limit}
   `) as Record<string, unknown>[]
@@ -7808,7 +7768,7 @@ export async function getProviderLinkedActiveNumber(userId?: string): Promise<st
           AND o.is_default = true
           AND pn.status = 'active'
           AND coalesce(pn.is_amber_control, false) = false
-          AND nullif(trim(coalesce(pn.provider_number_sid, pn.twilio_sid, '')), '') IS NOT NULL
+          AND nullif(trim(coalesce(pn.provider_number_sid, '')), '') IS NOT NULL
         ORDER BY pn.created_at DESC
         LIMIT 1
       `
@@ -7824,7 +7784,7 @@ export async function getProviderLinkedActiveNumber(userId?: string): Promise<st
         WHERE user_id = ${userId}
           AND status = 'active'
           AND coalesce(is_amber_control, false) = false
-          AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+          AND nullif(trim(coalesce(provider_number_sid, '')), '') IS NOT NULL
         ORDER BY created_at DESC
         LIMIT 1
       `
@@ -7836,7 +7796,7 @@ export async function getProviderLinkedActiveNumber(userId?: string): Promise<st
         FROM phone_numbers
         WHERE user_id = ${userId}
           AND status = 'active'
-          AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+          AND nullif(trim(coalesce(provider_number_sid, '')), '') IS NOT NULL
         ORDER BY created_at DESC
         LIMIT 1
       `
@@ -7848,7 +7808,7 @@ export async function getProviderLinkedActiveNumber(userId?: string): Promise<st
     SELECT number
     FROM phone_numbers
     WHERE status = 'active'
-      AND nullif(trim(coalesce(provider_number_sid, twilio_sid, '')), '') IS NOT NULL
+      AND nullif(trim(coalesce(provider_number_sid, '')), '') IS NOT NULL
     ORDER BY created_at DESC
     LIMIT 1
   `
@@ -7886,7 +7846,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
   try {
     if (orgFilter) {
       const rows = await sql`
-        SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.twilio_sid, pn.number, pn.friendly_name,
+        SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.number, pn.friendly_name,
           pn.label, pn.type, pn.status, pn.industry_tag, pn.routing_pool_mode, pn.source_provider, pn.external_verified,
           pn.created_at, pn.admin_routing_override_phone, pn.is_amber_control,
           org.admin_routing_override_phone AS organization_admin_routing_override_phone
@@ -7899,7 +7859,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
       return mapRows(rows)
     }
     const rows = await sql`
-      SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.twilio_sid, pn.number, pn.friendly_name,
+      SELECT pn.id, pn.user_id, pn.organization_id, pn.provider_number_sid, pn.number, pn.friendly_name,
         pn.label, pn.type, pn.status, pn.industry_tag, pn.routing_pool_mode, pn.source_provider, pn.external_verified,
         pn.created_at, pn.admin_routing_override_phone, pn.is_amber_control,
         org.admin_routing_override_phone AS organization_admin_routing_override_phone
@@ -7919,7 +7879,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
     }
     if (orgFilter) {
       const rows = await sql`
-        SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+        SELECT id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status,
           industry_tag, routing_pool_mode, source_provider, external_verified, created_at
         FROM phone_numbers
         WHERE user_id = ${userId}
@@ -7929,7 +7889,7 @@ export async function getPhoneNumbers(userId: string, organizationId?: string | 
       return mapRows(rows)
     }
     const rows = await sql`
-      SELECT id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+      SELECT id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status,
         industry_tag, routing_pool_mode, source_provider, external_verified, created_at
       FROM phone_numbers WHERE user_id = ${userId} ORDER BY created_at ASC
     `
@@ -7944,7 +7904,7 @@ export async function getPhoneNumberByIdForUser(
 ): Promise<PhoneNumber | null> {
   const sql = getSql()
   const rows = await sql`
-    SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+    SELECT id, user_id, provider_number_sid, number, friendly_name, label, type, status, created_at
     FROM phone_numbers
     WHERE id = ${phoneNumberId} AND user_id = ${userId}
     LIMIT 1
@@ -8061,7 +8021,7 @@ export async function insertPhoneNumber(params: {
   try {
     await sql`
       INSERT INTO phone_numbers (
-        id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status,
+        id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status,
         source_provider, external_verified, created_at
       )
       VALUES (
@@ -8083,7 +8043,7 @@ export async function insertPhoneNumber(params: {
   } catch (e) {
     if (!isMissingOrganizationsSchemaError(e)) throw e
     await sql`
-      INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+      INSERT INTO phone_numbers (id, user_id, provider_number_sid, number, friendly_name, label, type, status, created_at)
       VALUES (
         ${id},
         ${params.user_id},
@@ -8156,7 +8116,7 @@ export async function getPhoneNumberByNumberAndStatus(
   const sql = getSql()
   const normalized = normalizePhoneNumberE164(number)
   const rows = await sql`
-    SELECT id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at
+    SELECT id, user_id, provider_number_sid, number, friendly_name, label, type, status, created_at
     FROM phone_numbers WHERE number = ${normalized} AND status = ${status} LIMIT 1
   `
   return rows[0] ? parsePhoneNumberRow(rows[0]) : null
@@ -8181,7 +8141,7 @@ export async function ensurePortingLineRecord(params: {
   if (porting && porting.user_id === params.user_id) {
     await sql`
       UPDATE phone_numbers
-      SET label = ${params.label}, provider_number_sid = ${params.port_order_id}, twilio_sid = ${params.port_order_id}
+      SET label = ${params.label}, provider_number_sid = ${params.port_order_id}
       WHERE id = ${porting.id} AND user_id = ${params.user_id}
     `
     clearIncomingRoutingCache()
@@ -8219,7 +8179,7 @@ export async function updatePhoneNumber(
     await sql`UPDATE phone_numbers SET friendly_name = ${updates.friendly_name} WHERE id = ${phoneNumberId} AND user_id = ${userId}`
   }
   if (updates.provider_number_sid !== undefined) {
-    await sql`UPDATE phone_numbers SET provider_number_sid = ${updates.provider_number_sid}, twilio_sid = ${updates.provider_number_sid} WHERE id = ${phoneNumberId} AND user_id = ${userId}`
+    await sql`UPDATE phone_numbers SET provider_number_sid = ${updates.provider_number_sid} WHERE id = ${phoneNumberId} AND user_id = ${userId}`
   }
   if (updates.status !== undefined) {
     await sql`UPDATE phone_numbers SET status = ${updates.status} WHERE id = ${phoneNumberId} AND user_id = ${userId}`
@@ -12441,7 +12401,7 @@ export async function setCallLogInternalNotes(
     await sql`
       UPDATE call_logs
       SET internal_notes = ${notes}
-      WHERE provider_call_sid = ${key} OR twilio_call_sid = ${key} OR id::text = ${key}
+      WHERE provider_call_sid = ${key} OR id::text = ${key}
     `
   } catch (e) {
     if (pgErrorCode(e) === "42703") return
@@ -12478,7 +12438,7 @@ export async function getCallContactByProviderSid(providerCallSid: string): Prom
   const rows = await sql`
     SELECT user_id, from_number, caller_name, to_number
     FROM call_logs
-    WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+    WHERE provider_call_sid = ${sid}
     ORDER BY created_at DESC
     LIMIT 1
   `
@@ -12540,7 +12500,7 @@ export async function setCallLogDisposition(
     await sql`
       UPDATE call_logs
       SET disposition = ${disposition}
-      WHERE provider_call_sid = ${key} OR twilio_call_sid = ${key} OR id::text = ${key}
+      WHERE provider_call_sid = ${key} OR id::text = ${key}
     `
   } catch (e) {
     if (pgErrorCode(e) === "42703") return
@@ -12568,7 +12528,7 @@ export async function getCallCellHandoffInfo(providerCallSid: string): Promise<C
     rows = await sql`
       SELECT id, user_id, routed_to_receptionist_id, from_number, status, duration_seconds, answered_at
       FROM call_logs
-      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      WHERE provider_call_sid = ${sid}
       ORDER BY created_at DESC
       LIMIT 1
     `
@@ -12577,7 +12537,7 @@ export async function getCallCellHandoffInfo(providerCallSid: string): Promise<C
     rows = await sql`
       SELECT id, user_id, routed_to_receptionist_id, from_number, status, duration_seconds
       FROM call_logs
-      WHERE provider_call_sid = ${sid} OR twilio_call_sid = ${sid}
+      WHERE provider_call_sid = ${sid}
       ORDER BY created_at DESC
       LIMIT 1
     `
@@ -12636,7 +12596,7 @@ export async function getCallAdminOverrideDispatchInfo(
           OR regexp_replace(pn.number, '\\D', '', 'g') = regexp_replace(COALESCE(cl.to_number, ''), '\\D', '', 'g')
         )
       LEFT JOIN organizations org ON org.id = pn.organization_id
-      WHERE (cl.provider_call_sid = ${sid} OR cl.twilio_call_sid = ${sid})
+      WHERE (cl.provider_call_sid = ${sid})
         AND cl.routed_to_name = 'Admin routing override'
       ORDER BY cl.created_at DESC
       LIMIT 1
@@ -14931,7 +14891,7 @@ async function ensureActivePhoneNumberFromReserved(userId: string): Promise<void
   }
   const phoneId = crypto.randomUUID()
   await sql`
-    INSERT INTO phone_numbers (id, user_id, organization_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+    INSERT INTO phone_numbers (id, user_id, organization_id, provider_number_sid, number, friendly_name, label, type, status, created_at)
     VALUES (
       ${phoneId},
       ${userId},
@@ -15041,7 +15001,7 @@ export async function adminApplyUserOverride(params: {
           const phoneId = crypto.randomUUID()
           txnStatements.push(
             sql`
-              INSERT INTO phone_numbers (id, user_id, provider_number_sid, twilio_sid, number, friendly_name, label, type, status, created_at)
+              INSERT INTO phone_numbers (id, user_id, provider_number_sid, number, friendly_name, label, type, status, created_at)
               VALUES (
                 ${phoneId},
                 ${userId},
