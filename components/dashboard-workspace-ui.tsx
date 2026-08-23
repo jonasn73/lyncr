@@ -1,6 +1,6 @@
 "use client"
 
-import { type HTMLAttributes, type ReactNode } from "react"
+import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react"
 import { Phone, PhoneMissed, Voicemail } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AnimatedStatusLabel } from "@/components/ui/animated-status-label"
@@ -399,6 +399,49 @@ export function WorkspaceToggleCard({
 export const workspaceFieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
+/**
+ * Tracks whether a horizontal scroller has more content off either edge.
+ * Starts false so the server render and first client render agree (no hydration mismatch);
+ * the effect fills in the real values right after mount.
+ */
+export function useScrollEdges<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [edges, setEdges] = useState({ start: false, end: false })
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth
+      setEdges({ start: el.scrollLeft > 1, end: max > 1 && el.scrollLeft < max - 1 })
+    }
+    update()
+    el.addEventListener("scroll", update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener("scroll", update)
+      ro.disconnect()
+    }
+  }, [])
+  return { ref, ...edges }
+}
+
+/** Edge fade marking content that continues past a scroller — the scrollbar is hidden. */
+export function ScrollEdgeFade({ side, show }: { side: "left" | "right"; show: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-y-0 z-10 w-10 transition-opacity duration-150",
+        side === "right"
+          ? "right-0 bg-gradient-to-l from-background to-transparent"
+          : "left-0 bg-gradient-to-r from-background to-transparent",
+        show ? "opacity-100" : "opacity-0"
+      )}
+    />
+  )
+}
+
 export function WorkspaceTableWrap({
   children,
   className,
@@ -409,16 +452,26 @@ export function WorkspaceTableWrap({
   /** Extend scroll area to screen edges on mobile (inside DashboardPageView padding). */
   bleed?: boolean
 }) {
+  // The table has a 640px floor, so on phones it always scrolls — with the scrollbar
+  // hidden there was no cue that columns continued off-screen.
+  const { ref, start, end } = useScrollEdges<HTMLDivElement>()
   const inner = (
-    <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <table
-        className={cn(
-          "w-full min-w-[640px] table-fixed border-collapse text-left text-sm",
-          className
-        )}
+    <div className="relative">
+      <div
+        ref={ref}
+        className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {children}
-      </table>
+        <table
+          className={cn(
+            "w-full min-w-[640px] table-fixed border-collapse text-left text-sm",
+            className
+          )}
+        >
+          {children}
+        </table>
+      </div>
+      <ScrollEdgeFade side="left" show={start} />
+      <ScrollEdgeFade side="right" show={end} />
     </div>
   )
   if (bleed) {

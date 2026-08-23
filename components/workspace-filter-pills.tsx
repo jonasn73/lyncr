@@ -64,7 +64,9 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
   return (
     <div
       className={cn(
-        "flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        // Wrap rather than scroll: the row hid ~110px of filters on phones and ~50px on
+        // tablets behind a hidden scrollbar, so options were unreachable with no cue.
+        "flex flex-wrap gap-2 pb-1",
         size === "sm" && "gap-1.5",
         className
       )}
