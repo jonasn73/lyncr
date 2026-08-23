@@ -102,6 +102,13 @@ function toE164(phone: string): string {
   return `+${digits}`
 }
 
+/**
+ * What a leg resolves to at dial time. This is FallbackType plus "network" — the shared
+ * Lyncr agent pool, which is derived from the hybrid routing strategy during the call and
+ * is never stored on routing_config, so it deliberately stays out of FallbackType itself.
+ */
+type ResolvedFallbackTarget = FallbackType | "network"
+
 function normalizeFallbackType(v: string | undefined | null): FallbackType {
   const s = (v || "owner").toLowerCase().trim()
   if (s === "hold_queue") return "hold"
@@ -645,8 +652,9 @@ export async function handleTelnyxFallbackDialEnded(
     const receptionistLegEndedAfterBridge =
       !allowAiHandoffAfterHumanLeg &&
       !primaryWasOwner &&
+      // No "recv-ai" here on purpose: this branch requires !allowAiHandoffAfterHumanLeg,
+      // and a recv-ai path always sets virtualFbAi, so it can never reach this point.
       (pathFallbackMode === "recv" ||
-        pathFallbackMode === "recv-ai" ||
         // A shared Lyncr network agent picked up — end the caller leg, don't then ring the owner cell.
         pathFallbackMode === "network" ||
         pathFallbackMode === "network-ai" ||
@@ -740,7 +748,12 @@ export async function handleTelnyxFallbackDialEnded(
     }
 
     const useLive = Boolean(lr && lr.user_id === userId)
-    let fallbackType = mergeFallbackType(config, lr?.fallback_type, globalDefaultConfig?.fallback_type, useLive)
+    let fallbackType: ResolvedFallbackTarget = mergeFallbackType(
+      config,
+      lr?.fallback_type,
+      globalDefaultConfig?.fallback_type,
+      useLive
+    )
 
     if (primaryWasOwner && fallbackType === "owner") {
       const accountWantsAi =
@@ -925,7 +938,7 @@ export async function handleTelnyxFallbackDialEnded(
       (effectiveBusinessLine || businessLineE164 || pathBnE164 || bnMergedForResolve || "").trim()
     const recvOutboundE164 = await receptionistOutboundE164FromIncomingRow(lr, userId, recvDidHint)
 
-    if (zingAfterRecv && (virtualFbAi || pathFallbackMode === "recv-ai" || pathFallbackMode === "owner-ai")) {
+    if (zingAfterRecv && virtualFbAi) {
       const aiRes = await tryBuildAiAssistantResponse({
         userId,
         user,
@@ -944,7 +957,7 @@ export async function handleTelnyxFallbackDialEnded(
       }
     }
 
-    if (zingAfterRecv && !virtualFbAi && pathFallbackMode !== "recv-ai" && pathFallbackMode !== "owner-ai") {
+    if (zingAfterRecv && !virtualFbAi) {
       playLyncrVoicemail(texml, appUrl, userId, callSid, voicemailGreeting, dialDurationSec)
       return new NextResponse(texml.toString(), {
         headers: { "Content-Type": "text/xml" },
@@ -979,8 +992,7 @@ export async function handleTelnyxFallbackDialEnded(
       })
       const fromDisplayName = buildTelnyxDialFromDisplayName(user?.business_name || "Business")
       const didPath = bnForAction.replace(/\D/g, "")
-      const nextPathMode: TelnyxFallbackPathMode =
-        virtualFbAi || pathFallbackMode === "recv-ai" || pathFallbackMode === "owner-ai" ? "recv-ai" : "recv"
+      const nextPathMode: TelnyxFallbackPathMode = virtualFbAi ? "recv-ai" : "recv"
       const fbTail = nextPathMode === "recv-ai" ? "&fb=ai" : ""
       const secondLegBase =
         didPath.length >= 10
