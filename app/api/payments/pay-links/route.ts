@@ -7,6 +7,7 @@ import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser, listCollectPayLinksByJobId, listCollectPayLinksForOwner } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
+  canAccessCollectPayLink,
   cancelCollectPayLink,
   syncCollectPayLinkStatus,
   syncCollectPayLinksForJob,
@@ -134,34 +135,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Pay link not found" }, { status: 404 })
   }
 
-  // Only the business that owns the link (or assigned tech) may sync it from the app.
-  const { getCollectPayLinkBySessionId } = await import("@/lib/db")
-  // stripeSessionId is null until the customer reaches Checkout. `WHERE col = NULL` never
-  // matches, so skipping the query is equivalent to running it — this only avoids a
-  // pointless round trip and satisfies the signature. NOTE: when `stored` is null AND
-  // link.jobId is null, neither ownership branch below runs; that pre-existing gap is
-  // deliberately left alone here rather than changed inside a type-cleanup pass.
-  const stored = link.stripeSessionId
-    ? await getCollectPayLinkBySessionId(link.stripeSessionId)
-    : null
-  if (stored?.owner_user_id && stored.owner_user_id !== userId) {
-    if (link.jobId) {
-      const job = await getJobPaymentContext(link.jobId)
-      if (!job || (job.ownerUserId !== userId && job.assignedTechId !== userId)) {
-        return NextResponse.json({ error: "Not allowed" }, { status: 403 })
-      }
-    } else if (stored.acting_user_id !== userId) {
-      return NextResponse.json({ error: "Not allowed" }, { status: 403 })
-    }
-  } else if (link.jobId) {
-    const job = await getJobPaymentContext(link.jobId)
-    if (
-      job &&
-      job.ownerUserId !== userId &&
-      job.assignedTechId !== userId
-    ) {
-      return NextResponse.json({ error: "Not allowed" }, { status: 403 })
-    }
+  // Resolve the stored row so ownership can always be established. Previously this looked
+  // the row up ONLY by stripe_session_id — which is null until the customer reaches Checkout
+  // (migration 135) — so for a link with no session id and no job id, `stored` was null,
+  // neither branch below ran, and the handler fell through and returned the link to any
+  // authenticated caller who knew the token.
+  const { getCollectPayLinkBySessionId, getCollectPayLinkByTokenAny } = await import("@/lib/db")
+  const stored =
+    (link.stripeSessionId ? await getCollectPayLinkBySessionId(link.stripeSessionId) : null) ??
+    (token ? await getCollectPayLinkByTokenAny(token) : null) ??
+    (sessionId ? await getCollectPayLinkBySessionId(sessionId) : null)
+
+  const job = link.jobId ? await getJobPaymentContext(link.jobId) : null
+  if (!canAccessCollectPayLink({ userId, link: stored, job })) {
+    // Unresolved row or no relationship to it — do not leak the link.
+    return NextResponse.json(
+      stored ? { error: "Not allowed" } : { error: "Pay link not found" },
+      { status: stored ? 403 : 404 }
+    )
   }
 
   return NextResponse.json({ data: { link } })

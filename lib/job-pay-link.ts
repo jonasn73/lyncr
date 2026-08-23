@@ -839,6 +839,34 @@ export type CollectPayLinkStatus = {
 }
 
 /** Pull latest Stripe status for a stored link; credit wallet if the customer already paid. */
+/**
+ * Who may read or sync a collect pay link from inside the app.
+ *
+ * Fail-closed by design: an unresolved link row returns false rather than falling through.
+ * The previous inline version resolved the row only by stripe_session_id, which is null
+ * until the customer reaches Checkout (migration 135) — so a link with no session id and no
+ * job id passed no ownership check at all and was returned to any authenticated caller
+ * holding the token.
+ */
+export function canAccessCollectPayLink(params: {
+  userId: string
+  link: {
+    owner_user_id: string | null
+    acting_user_id: string | null
+    tech_user_id: string | null
+  } | null
+  job: { ownerUserId: string; assignedTechId: string | null } | null
+}): boolean {
+  const { userId, link, job } = params
+  if (!userId.trim()) return false
+  if (!link) return false
+  if (link.owner_user_id && link.owner_user_id === userId) return true
+  if (link.acting_user_id && link.acting_user_id === userId) return true
+  if (link.tech_user_id && link.tech_user_id === userId) return true
+  if (job && (job.ownerUserId === userId || job.assignedTechId === userId)) return true
+  return false
+}
+
 export async function syncCollectPayLinkStatus(params: {
   token?: string | null
   stripeSessionId?: string | null
