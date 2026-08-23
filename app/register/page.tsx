@@ -114,7 +114,7 @@ function RegisterForm() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-300">Email</label>
                 <input value={validation.invite.target} readOnly className={`${inputClass} cursor-not-allowed opacity-70`} />
-                <p className="mt-1 text-xs text-slate-500">You'll sign in with this email.</p>
+                <p className="mt-1 text-xs text-slate-500">You&apos;ll sign in with this email.</p>
               </div>
             )}
 

@@ -414,7 +414,12 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     paintSeeds.lines?.organizationId ??
     paintSeeds.workspace?.organizationId ??
     (typeof window !== "undefined" ? readActiveOrganizationId() : null)
-  lastOperationsOrgId = activeOrgId
+  // Keep the module-level shop id current for paint-cookie / session-cache writes.
+  // This used to be a bare assignment during render, which meant an SSR render for
+  // one shop overwrote the value for every other request sharing the module.
+  useLayoutEffect(() => {
+    lastOperationsOrgId = activeOrgId
+  }, [activeOrgId])
   const paintOpsRaw = paintSeeds.operations
   // Ignore another shop’s cookie so we never flash the wrong callers.
   const paintOps =
@@ -426,16 +431,19 @@ export function useOperationsData(options?: UseOperationsDataOptions) {
     activeOrgId ?? "operations-v2"
   )
   // Server-rendered full list beats cookie stub and empty skeleton.
-  const seedFromSsr =
+  // Built once per mount — it is only read by the state initializers and the
+  // mount-only effect below, and Date.now() must not run on every render.
+  const [seedFromSsr] = useState<OperationsCache | null>(() =>
     initialCalls && initialCalls.length > 0
       ? {
           calls: initialCalls,
-          quality: null as VoiceQualitySummary | null,
-          insights: null as VoiceOperationsInsights | null,
+          quality: null,
+          insights: null,
           fetchedAt: Date.now(),
-          paintOnly: false as const,
+          paintOnly: false,
         }
       : null
+  )
   const seedFromPaint =
     paintOps != null
       ? {

@@ -260,7 +260,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         setCheckoutTier(null)
         return
       }
-      window.location.href = result.checkoutUrl
+      window.location.assign(result.checkoutUrl)
     } catch (e) {
       toast({
         variant: "destructive",
@@ -276,7 +276,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
     setBuyingPack(amountCents)
     try {
       const { checkoutUrl } = await startCreditPackCheckout(amountCents)
-      window.location.href = checkoutUrl
+      window.location.assign(checkoutUrl)
     } catch (e) {
       toast({
         variant: "destructive",

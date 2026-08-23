@@ -65,6 +65,7 @@ export default function Error({
         >
           Try again
         </button>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full document reload: a client-side Link would keep the crashed React tree and router state alive */}
         <a
           href="/"
           className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"

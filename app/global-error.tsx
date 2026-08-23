@@ -31,6 +31,7 @@ export default function GlobalError({
           >
             Try again
           </button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full document reload: a client-side Link would keep the crashed React tree and router state alive */}
           <a
             href="/"
             style={{ padding: "8px 16px", borderRadius: 8, background: "#27272a", color: "#e4e4e7", textDecoration: "none", fontWeight: 500 }}
