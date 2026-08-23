@@ -97,9 +97,14 @@ function PayThanksInner() {
               ? "Payment received — almost confirmed"
               : "You’re paid up"}
         </p>
-        {amountLabel ? (
-          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-200">{amountLabel}</p>
-        ) : null}
+        {status === "loading" ? null : (
+          // Always rendered once status resolves (even with a blank placeholder) so this line's
+          // height is reserved from the start — appearing as a brand-new element once amountLabel
+          // arrives shifted the paragraph below it (real CLS, not just a text swap).
+          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-200">
+            {amountLabel || " "}
+          </p>
+        )}
         <p className="mt-3 text-sm leading-relaxed text-emerald-200/85">
           {status === "loading"
             ? "Hang tight while we confirm with the card network."

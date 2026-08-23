@@ -113,7 +113,9 @@ export function AdminUserManageDrawer({
   // Wallet adjustment.
   const [walletAmount, setWalletAmount] = useState("")
   const [walletBusy, setWalletBusy] = useState(false)
-  const [creditBalance, setCreditBalance] = useState(0)
+  // Seed from the row prop already available on first render — a hardcoded 0 here flashed
+  // "$0.00" for one frame before the useEffect below applied the real value on every open.
+  const [creditBalance, setCreditBalance] = useState(() => row?.carrier_credit ?? 0)
 
   // Feature flags + provisioned lines (loaded from /api/admin/users/[id]/controls).
   const [controls, setControls] = useState<AdminTenantControls | null>(null)

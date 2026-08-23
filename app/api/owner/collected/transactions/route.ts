@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { listOwnerCollectedTransactions } from "@/lib/owner-collected"
+import { listOwnerCollectedTransactionsReconciled } from "@/lib/owner-collected-reconcile"
 
 export const dynamic = "force-dynamic"
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") || "").trim()
 
   try {
-    const transactions = await listOwnerCollectedTransactions(userId, {
+    const transactions = await listOwnerCollectedTransactionsReconciled(userId, {
       limit: safeLimit,
       q: q || undefined,
     })

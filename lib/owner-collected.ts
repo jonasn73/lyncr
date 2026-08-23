@@ -178,60 +178,21 @@ export function isStalePendingCollectedCharge(
   return nowMs - created > STALE_PENDING_MS
 }
 
-/**
- * A stale PENDING row usually means a genuinely abandoned Collect attempt, but it can also mean
- * a missed webhook delivery on a charge that actually succeeded (or actually failed) on Stripe
- * — in which case just hiding it (see isStalePendingCollectedCharge) makes real money invisible
- * with no trail. Best-effort reconcile a bounded number of stale rows against Stripe before the
- * caller filters: a resolved charge flips to COMPLETED/FAILED and stays visible either way; an
- * unresolvable one (Stripe error, Connect not ready) is left PENDING and still gets hidden as
- * before rather than blocking the whole list.
- */
-const STALE_RECONCILE_MAX_PER_CALL = 5
-
-async function reconcileStalePendingTransactions(
-  ownerUserId: string,
-  transactions: OwnerCollectedTransaction[]
-): Promise<OwnerCollectedTransaction[]> {
-  const stale = transactions.filter(
-    (tx) => isStalePendingCollectedCharge(tx) && tx.stripePaymentIntentId
-  )
-  if (stale.length === 0) return transactions
-
-  const { isStripeConfigured } = await import("@/lib/stripe-config")
-  if (!isStripeConfigured()) return transactions
-
-  let connectAccountId: string
-  try {
-    const { requireConnectReady } = await import("@/lib/stripe-connect")
-    connectAccountId = (await requireConnectReady(ownerUserId)).accountId
-  } catch {
-    return transactions
-  }
-
-  const { confirmJobPaymentIntent } = await import("@/lib/job-payments")
-  const resolved = new Map<string, "COMPLETED" | "FAILED">()
-  for (const tx of stale.slice(0, STALE_RECONCILE_MAX_PER_CALL)) {
-    try {
-      const result = await confirmJobPaymentIntent(tx.stripePaymentIntentId!, {
-        stripeConnectAccountId: connectAccountId,
-      })
-      if (result.status === "succeeded" || result.status === "already_completed") {
-        resolved.set(tx.id, "COMPLETED")
-      } else if (result.status === "failed") {
-        resolved.set(tx.id, "FAILED")
-      }
-    } catch (e) {
-      console.warn("[owner-collected] stale pending reconcile failed:", tx.stripePaymentIntentId, e)
-    }
-  }
-  if (resolved.size === 0) return transactions
-  return transactions.map((tx) => (resolved.has(tx.id) ? { ...tx, status: resolved.get(tx.id)! } : tx))
-}
+// Stale-PENDING reconciliation against Stripe lives in lib/owner-collected-reconcile.ts, NOT
+// here — this file is statically imported by crm-workspace-view.tsx (a Client Component) for
+// formatCollectedDollars/types, so anything here (even behind a dynamic import()) that reaches
+// stripe-connect.ts -> lib/db.ts pulls next/cache + fs into the client bundle and breaks the
+// build. Server-only callers that want reconciliation call the wrapper in that file instead.
 
 export type ListOwnerCollectedOptions = {
   /** Max rows (1–200). Default 100. */
   limit?: number
+  /**
+   * Skip the stale-PENDING filter — for server-only callers (see
+   * lib/owner-collected-reconcile.ts) that want to reconcile those rows against Stripe before
+   * filtering themselves. Default false (filter applied, matching prior behavior).
+   */
+  includeStalePending?: boolean
   /** Search name, phone digits, or job label (vehicle / job type). */
   q?: string
 }
@@ -400,8 +361,9 @@ export async function listOwnerCollectedTransactions(
         `
 
     const mapped = (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
-    const reconciled = await reconcileStalePendingTransactions(uid, mapped)
-    return reconciled.filter((tx) => !isStalePendingCollectedCharge(tx))
+    return opts.includeStalePending
+      ? mapped
+      : mapped.filter((tx) => !isStalePendingCollectedCharge(tx))
   } catch (e) {
     // payment_slips / customers / collect_pay_links / customer_phone missing — leaner query.
     const msg = e instanceof Error ? e.message : String(e)
@@ -522,7 +484,9 @@ function phoneLast10(phone: string): string {
 export async function listOwnerCollectedTransactionsForPhone(
   ownerUserId: string,
   phoneE164: string,
-  limit = 50
+  limit = 50,
+  /** See ListOwnerCollectedOptions.includeStalePending — server-only reconcile callers only. */
+  includeStalePending = false
 ): Promise<OwnerCollectedTransaction[]> {
   const uid = ownerUserId.trim()
   const digits = phoneLast10(phoneE164)
@@ -581,8 +545,9 @@ export async function listOwnerCollectedTransactionsForPhone(
       LIMIT ${safeLimit}
     `
     const mapped = (rows as Record<string, unknown>[]).map(mapOwnerCollectedRow)
-    const reconciled = await reconcileStalePendingTransactions(uid, mapped)
-    return reconciled.filter((tx) => !isStalePendingCollectedCharge(tx))
+    return includeStalePending
+      ? mapped
+      : mapped.filter((tx) => !isStalePendingCollectedCharge(tx))
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return []
     // Fallback without payment_slips / customers — still match walk-up by customer_phone digits.

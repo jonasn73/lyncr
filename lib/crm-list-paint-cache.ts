@@ -36,6 +36,23 @@ export type CrmListPaintRow = {
 export type CrmListPaintSeed = {
   organizationId: string | null
   customers: CrmListPaintRow[]
+  /** epoch ms when this seed was written — see CRM_LIST_SEED_FRESH_MS below. */
+  fetchedAtMs?: number
+}
+
+/**
+ * CRM rows (job_status_label, lead_badge, open_lead_count, lifetime_revenue_cents) change on
+ * every call/payment/status update — unlike account-presence-cache.ts and
+ * missed-lead-insights-cache.ts (which got this same freshness gate in 68ac9631), this cache
+ * had no timestamp check at all and only inherited the generic ~24h cookie/session TTL. A
+ * 10–20-minute-old seed painted a confidently wrong status/badge/revenue number that flipped
+ * once the live list resolved.
+ */
+const CRM_LIST_SEED_FRESH_MS = 2 * 60 * 1000
+
+function isCrmListSeedFresh(seed: Pick<CrmListPaintSeed, "fetchedAtMs">, now: number): boolean {
+  if (typeof seed.fetchedAtMs !== "number") return false
+  return now - seed.fetchedAtMs <= CRM_LIST_SEED_FRESH_MS
 }
 
 const MAX_PAINT_ROWS = 16
@@ -100,6 +117,7 @@ export function writeCrmListIndex(
   const payload: CrmListPaintSeed = {
     organizationId,
     customers: customers.slice(0, MAX_SESSION_ROWS).map(trimRow),
+    fetchedAtMs: Date.now(),
   }
   writePersistedCache(crmListIndexKey(organizationId), payload)
 }
@@ -111,6 +129,7 @@ export function readCrmListIndex(
   if (!parsed || !Array.isArray(parsed.customers) || parsed.customers.length === 0) {
     return null
   }
+  if (!isCrmListSeedFresh(parsed, Date.now())) return null
   if (
     !operationsPaintMatchesOrg(
       { organizationId: parsed.organizationId, calls: [], fetchedAt: 0 },
@@ -128,11 +147,13 @@ export function writeCrmListPaintSeed(
   organizationId: string | null = null
 ): void {
   writeCrmListIndex(customers, organizationId)
+  const fetchedAtMs = Date.now()
   let n = Math.min(MAX_PAINT_ROWS, Math.max(0, customers.length))
   while (n >= 0) {
     const payload: CrmListPaintSeed = {
       organizationId,
       customers: customers.slice(0, n).map(trimRow),
+      fetchedAtMs,
     }
     if (writePaintSeedCookie(CRM_LIST_PAINT_SCOPE, payload)) return
     n -= 1
@@ -144,6 +165,7 @@ export function readCrmListPaintFromCookieRaw(
 ): CrmListPaintSeed | null {
   const parsed = readPaintSeedCookieValue<CrmListPaintSeed>(cookieRaw)
   if (!parsed || !Array.isArray(parsed.customers)) return null
+  if (!isCrmListSeedFresh(parsed, Date.now())) return null
   return parsed
 }
 
@@ -154,6 +176,7 @@ export function readCrmListPaintSeed(
   const fromPaint = paint && Array.isArray(paint.customers) ? paint : null
   const parsed = fromPaint ?? readPaintSeedCookie<CrmListPaintSeed>(CRM_LIST_PAINT_SCOPE) ?? null
   if (!parsed || !Array.isArray(parsed.customers)) return null
+  if (!isCrmListSeedFresh(parsed, Date.now())) return null
   if (
     organizationId !== undefined &&
     !operationsPaintMatchesOrg(

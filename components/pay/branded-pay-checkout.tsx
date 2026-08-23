@@ -306,7 +306,9 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             ) : null}
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">
+          {/* min-h reserves space for the embedded iframe, which renders at 0 height until
+              Stripe's async load finishes — without it the page jumps when it appears. */}
+          <div className="mt-8 min-h-[420px] overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
               options={{ clientSecret: payload.client_secret }}

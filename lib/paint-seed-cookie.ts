@@ -8,6 +8,8 @@
  * Do NOT use for large payloads (Latest is truncated by callers).
  */
 
+import { browserSessionCacheReadsAllowed } from "@/lib/swr/persisted-cache"
+
 const COOKIE_PREFIX = "lyncr_paint_"
 const CACHE_VERSION = 1
 /** Keep under typical 4KB cookie limits. */
@@ -63,9 +65,23 @@ export function writePaintSeedCookie(scope: string, data: unknown): boolean {
   }
 }
 
-/** Read a paint-seed cookie from document.cookie (browser). */
+/**
+ * Read a paint-seed cookie from document.cookie (browser).
+ *
+ * Gated behind the same browserSessionCacheReadsAllowed() flag as sessionStorage
+ * (lib/swr/persisted-cache.ts): document.cookie is a client-only source just like
+ * sessionStorage, and reading it during React's first hydration render — before the
+ * SessionCacheHydrationGate's useLayoutEffect unlocks it — can return a value SSR could
+ * never have produced (SSR seeds from the request's Cookie header via readPaintSeedCookieValue,
+ * a separate, already-consistent path). Reading it too early caused a real hydration mismatch
+ * (server empty, client painting a stale cached value) that made React discard and regenerate
+ * the whole subtree — a visible flash. Skipping the read until the gate flips means the first
+ * hydration render matches SSR, and useSessionSeed's revisionKey (which includes the gate's
+ * ready state) re-reads the real value on the very next render, before paint.
+ */
 export function readPaintSeedCookie<T>(scope: string): T | undefined {
   if (typeof document === "undefined") return undefined
+  if (!browserSessionCacheReadsAllowed()) return undefined
   try {
     const match = document.cookie.match(
       new RegExp(`(?:^|; )${paintSeedCookieName(scope).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
