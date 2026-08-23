@@ -21,3 +21,5 @@ data/*.bak
 # Claude Code session checkpoints (per-session, not shared); launch.json IS shared
 .claude/RESUME.md
 .claude/*.lock
+# Personal permission grants — not imposed on anyone else who clones this repo
+.claude/settings.local.json
