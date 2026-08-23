@@ -165,7 +165,6 @@ async function loadRoutingBootstrap(
       label: row.label ?? undefined,
       organization_id: row.organization_id ?? null,
       provider_number_sid: row.provider_number_sid,
-      twilio_sid: row.twilio_sid,
     })),
     null,
     { reservedNumber: profile?.reserved_number, completedPortTargets }
@@ -214,7 +213,6 @@ async function loadDashboardMainBootstrap(user: User): Promise<DashboardMainBoot
       label: row.label ?? undefined,
       organization_id: row.organization_id ?? null,
       provider_number_sid: row.provider_number_sid,
-      twilio_sid: row.twilio_sid,
     })),
     null,
     { reservedNumber: profile?.reserved_number, completedPortTargets }

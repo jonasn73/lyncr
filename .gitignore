@@ -17,3 +17,7 @@ node_modules/
 *.tsbuildinfo
 data/*.bak
 data/*.bak
+
+# Claude Code session checkpoints (per-session, not shared); launch.json IS shared
+.claude/RESUME.md
+.claude/*.lock

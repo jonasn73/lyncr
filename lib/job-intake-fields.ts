@@ -1,6 +1,5 @@
 // Map scheduler job_type labels ↔ service quote calculator ids (shared by intake + job drawer).
 
-import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import {
   SERVICE_QUOTE_TYPES,
   serviceQuoteTypeIdFromIntake,
@@ -29,8 +28,10 @@ export function serviceQuoteTypeFromJobType(jobType: string): ServiceQuoteTypeId
 /** Value stored on ai_leads.job_type / collected.job_type from a calculator selection. */
 export function dispatchJobTypeFromServiceQuoteTypeId(id: ServiceQuoteTypeId): string {
   const spec = SERVICE_QUOTE_TYPES.find((s) => s.id === id) ?? SERVICE_QUOTE_TYPES[0]
-  if ("dispatchLabel" in spec && spec.dispatchLabel) return spec.dispatchLabel
-  return formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode)
+  // Every SERVICE_QUOTE_TYPES entry declares a non-empty dispatchLabel, so the old
+  // formatIntakeJobTypeForDispatch fallback here was unreachable. If an entry ever omits
+  // it, this line fails to compile — which is the guard.
+  return spec.dispatchLabel
 }
 
 /** True when YMM (+ optional VIN) should show — car lockouts need the vehicle too. */

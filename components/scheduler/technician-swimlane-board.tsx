@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { User, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ScrollEdgeFade, useScrollEdges } from "@/components/dashboard-workspace-ui"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import { HOPPER_DRAG_MIME } from "@/components/scheduler/job-pool-card"
 import {
@@ -362,10 +363,16 @@ function MobileTimelineBoard({
   }) => void
 }) {
   const techColWidth = 112
+  // The hour grid runs ~500px past a phone screen with the scrollbar hidden — fade the
+  // edges so it is obvious the timeline continues.
+  const { ref: scrollRef, end: canScrollOn } = useScrollEdges<HTMLDivElement>()
 
   return (
-    <div className="w-full md:hidden">
-      <div className="overflow-x-auto overscroll-x-contain whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative w-full md:hidden">
+      <div
+        ref={scrollRef}
+        className="overflow-x-auto overscroll-x-contain whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         <div className="inline-flex min-w-full flex-col" style={{ minWidth: techColWidth + timelineWidthPx }}>
           <div className="flex border-b border-border/40 bg-card/95">
             <div
@@ -443,6 +450,7 @@ function MobileTimelineBoard({
           })}
         </div>
       </div>
+      <ScrollEdgeFade side="right" show={canScrollOn} />
     </div>
   )
 }

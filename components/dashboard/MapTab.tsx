@@ -43,6 +43,10 @@ const DispatchLiveMap = dynamic(
   }
 )
 
+/** Shared chrome for the two pool toggles (sheet on mobile+tablet, drawer on lg+). */
+const POOL_TOGGLE_CLASS =
+  "shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
+
 // Which list is open in the drawer / bottom sheet.
 type DrawerTab = "pool" | "roster"
 
@@ -112,15 +116,6 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
   }, [])
 
-  // Phones vs desktop use different panels — never one boolean that starts closed on desktop.
-  const togglePool = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
-      setDesktopPoolCollapsed((c) => !c)
-    } else {
-      setMobilePoolOpen((o) => !o)
-    }
-  }, [])
-
   // Clear focus after the map consumes it (avoids re-panning every render).
   const onFocusJobConsumed = useCallback(() => {
     setFocusJobId(null)
@@ -174,7 +169,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {drawerTab === "pool" ? (
           <div className="p-2">
-            <p className="mb-2 hidden px-1 text-[11px] text-slate-500 md:block">
+            <p className="mb-2 hidden px-1 text-[11px] text-slate-500 lg:block">
               Tap a job to center its pin on the map.
             </p>
             {sortedPool.length === 0 ? (
@@ -211,7 +206,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                           // On phones, peek the map after focusing a pin.
                           if (
                             typeof window !== "undefined" &&
-                            window.matchMedia("(max-width: 767px)").matches
+                            window.matchMedia("(max-width: 1023px)").matches
                           ) {
                             setMobilePoolOpen(false)
                           }
@@ -275,46 +270,52 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               Jobs, techs, and your location — one map for dispatch.
             </p>
           </div>
+          {/* Two CSS-gated buttons rather than one that branches on matchMedia: each owns the
+              panel it actually controls, so aria-expanded is always truthful and the
+              sheet/drawer boundary lives only in Tailwind (one place to change). */}
           <button
             type="button"
-            onClick={togglePool}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
-            aria-expanded={mobilePoolOpen || !desktopPoolCollapsed}
-            aria-controls="dispatch-map-drawer dispatch-map-sheet"
+            onClick={() => setMobilePoolOpen((o) => !o)}
+            className={cn(POOL_TOGGLE_CLASS, "inline-flex lg:hidden")}
+            aria-expanded={mobilePoolOpen}
+            aria-controls="dispatch-map-sheet"
           >
-            {/* Phone copy follows the bottom sheet; desktop copy follows the side panel. */}
-            <span className="inline-flex items-center gap-1.5 md:hidden">
-              {mobilePoolOpen ? (
-                <>
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-                  Close
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="h-3.5 w-3.5" aria-hidden />
-                  Pool
-                  {sortedPool.length > 0 ? (
-                    <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
-                      {sortedPool.length}
-                    </span>
-                  ) : null}
-                </>
-              )}
-            </span>
-            <span className="hidden items-center gap-1.5 md:inline-flex">
-              {desktopPoolCollapsed ? (
-                <>
-                  Job Pool &amp; Roster
-                  {sortedPool.length > 0 ? (
-                    <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
-                      {sortedPool.length}
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                "Hide panel"
-              )}
-            </span>
+            {mobilePoolOpen ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                Close
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                Pool
+                {sortedPool.length > 0 ? (
+                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                    {sortedPool.length}
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDesktopPoolCollapsed((c) => !c)}
+            className={cn(POOL_TOGGLE_CLASS, "hidden lg:inline-flex")}
+            aria-expanded={!desktopPoolCollapsed}
+            aria-controls="dispatch-map-drawer"
+          >
+            {desktopPoolCollapsed ? (
+              <>
+                Job Pool &amp; Roster
+                {sortedPool.length > 0 ? (
+                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                    {sortedPool.length}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              "Hide panel"
+            )}
           </button>
         </div>
         {/* Jobs / Techs / Leads / You — in chrome, not over the map (Leaflet z-index was hiding them). */}
@@ -343,8 +344,8 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                     : "bg-zinc-900/80 text-slate-500 ring-1 ring-zinc-800 hover:text-slate-300"
                 )}
               >
-                <span className="md:hidden">{short}</span>
-                <span className="hidden md:inline">{long}</span>
+                <span className="lg:hidden">{short}</span>
+                <span className="hidden lg:inline">{long}</span>
               </button>
             )
           })}
@@ -377,8 +378,8 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           className="absolute inset-0 z-0 h-full w-full"
         />
 
-        {/* —— Mobile: bottom sheet (opened from header “Pool” button) —— */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] flex flex-col md:hidden">
+        {/* —— Mobile + tablet: bottom sheet (opened from header “Pool” button) —— */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] flex flex-col lg:hidden">
           <aside
             id="dispatch-map-sheet"
             className={cn(
@@ -406,11 +407,11 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           </aside>
         </div>
 
-        {/* —— Desktop: side drawer (never 100% width) —— */}
+        {/* —— Desktop (lg+): side drawer — below 1024px it ate 40% of the map. —— */}
         <aside
           id="dispatch-map-drawer"
           className={cn(
-            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out md:flex",
+            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-zinc-800 bg-slate-950/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out lg:flex",
             // Open on desktop from CSS — no useEffect snap from full-bleed to sidebar.
             desktopPoolCollapsed
               ? "pointer-events-none translate-x-full"

@@ -643,6 +643,9 @@ export function DispatchLiveMap({
         // Pinch-to-zoom still works when dragging is off.
         touchZoom: true,
       }).setView(startCenter, startZoom)
+      // Leaflet defaults attribution to bottom-right, where the Job Pool drawer sits on lg+.
+      // Tile attribution is a CARTO/OSM licence term, so keep it clear of the panel.
+      created.attributionControl.setPosition("bottomleft")
       if (sharedOk) {
         didFit.current = true
         didCenterOnUser.current = true

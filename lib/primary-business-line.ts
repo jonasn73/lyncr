@@ -92,7 +92,7 @@ export async function resolvePrimaryBusinessLineForOrganization(
   const active = numbers.find(
     (n) =>
       n.status === "active" &&
-      Boolean(n.provider_number_sid?.trim() || n.twilio_sid?.trim())
+      Boolean(n.provider_number_sid?.trim())
   )
   if (active?.number?.trim()) {
     return {
@@ -154,7 +154,7 @@ export async function listActiveLinesFor10DlcAssignment(
     const lines = await getPhoneNumbers(ownerUserId)
     for (const line of lines) {
       if (line.status !== "active") continue
-      if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+      if (!line.provider_number_sid?.trim()) continue
       if (line.is_amber_control === true) continue
       push(line.number)
     }
@@ -172,7 +172,7 @@ export async function listActiveLinesFor10DlcAssignment(
     const portRow = numbers.find((n) => normalizePhoneNumberE164(n.number) === portE164)
     if (
       portRow?.status === "active" &&
-      Boolean(portRow.provider_number_sid?.trim() || portRow.twilio_sid?.trim()) &&
+      Boolean(portRow.provider_number_sid?.trim()) &&
       portRow.is_amber_control !== true
     ) {
       push(portE164)
@@ -185,7 +185,7 @@ export async function listActiveLinesFor10DlcAssignment(
 
   for (const line of numbers) {
     if (line.status !== "active") continue
-    if (!(line.provider_number_sid?.trim() || line.twilio_sid?.trim())) continue
+    if (!line.provider_number_sid?.trim()) continue
     if (line.is_amber_control === true) continue
     push(line.number)
   }

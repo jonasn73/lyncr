@@ -12,6 +12,7 @@ import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardStreamProvider } from "@/components/dashboard-stream-context"
 import { isSandboxTestReceptionistEmail } from "@/lib/receptionist-portal-auth"
 import { getCachedSessionUser } from "@/lib/server/cached-session"
+import { userHasActiveLineSubscription } from "@/lib/server-onboarding-guard"
 import { isPlatformAdminUser } from "@/lib/platform-admin"
 import { getUserAccountStatus } from "@/lib/db"
 import { accountWaitPath } from "@/lib/account-status"
@@ -94,7 +95,13 @@ export default async function DashboardLayout({
   }
   if (isPlatformAdminUser(user)) redirect("/admin")
 
-  const wait = accountWaitPath(await getUserAccountStatus(user.id))
+  // `users` has no has_active_subscription column — it lives on onboarding_profiles, so it
+  // has to be read, not taken off the session user (see sessionAccount below).
+  const [accountStatus, hasActiveSubscription] = await Promise.all([
+    getUserAccountStatus(user.id),
+    userHasActiveLineSubscription(user.id),
+  ])
+  const wait = accountWaitPath(accountStatus)
   if (wait) redirect(wait)
 
   // Do not await bootstrap here — it blocked TTFB on every /dashboard load.
@@ -132,7 +139,7 @@ export default async function DashboardLayout({
         initialIsMobile={initialIsMobile}
         // Keep the guard out of `children` so the active tab slot is only the page view.
         onboardingGuard={
-          <Suspense fallback={null}>
+          <Suspense key="dashboard-onboarding-guard" fallback={null}>
             <DashboardOnboardingGuard user={user} />
           </Suspense>
         }
@@ -140,7 +147,7 @@ export default async function DashboardLayout({
           name: user.name?.trim() || "Account",
           email: user.email,
           companyUserId: user.id,
-          hasActiveSubscription: user.has_active_subscription === true,
+          hasActiveSubscription,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
           inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
           ...(user.is_platform_admin

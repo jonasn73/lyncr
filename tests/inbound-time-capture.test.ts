@@ -26,6 +26,18 @@ import {
   ownerLiveAnswered,
 } from "@/lib/missed-call-telemetry"
 
+
+/** Mirrors the <Say> escaping in lib/inbound-time-capture.ts. Asserting against the
+ *  exported prompt constants (rather than copies of the wording) keeps these tests from
+ *  going stale every time the script is reworded. */
+const texmlEscape = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+
 describe("inbound time capture", () => {
   it("treats 8 PM – 7:59 AM Eastern as night mode", () => {
     // 2026-07-13 20:00 EDT = midnight UTC Jul 14? EDT is UTC-4 → 20:00 EDT = 00:00 UTC Jul 14
@@ -148,17 +160,16 @@ describe("inbound time capture", () => {
 
   it("builds calendar full-day and partial busy Gather prompts", () => {
     const full = buildCalendarFullDayGatherXml("https://lyncr.app/api/telnyx-capture?step=calendar-off")
-    // TeXML escapes apostrophes (We're → We&apos;re) — match unescaped fragments.
-    expect(full).toContain("tied up on a service job")
+    expect(full).toContain(texmlEscape(CALENDAR_FULL_DAY_PROMPT))
     expect(full).toContain("calendar-off")
-    expect(CALENDAR_FULL_DAY_PROMPT).toContain("tied up")
 
     const partial = buildCalendarPartialBusyGatherXml(
       "https://lyncr.app/api/telnyx-capture?step=calendar-busy"
     )
-    expect(partial).toContain("tied up on a service job")
+    expect(partial).toContain(texmlEscape(CALENDAR_PARTIAL_BUSY_PROMPT))
     expect(partial).toContain("calendar-busy")
-    expect(CALENDAR_PARTIAL_BUSY_PROMPT).toContain("tied up")
+    // Full-day and partial blockouts intentionally share one script.
+    expect(CALENDAR_FULL_DAY_PROMPT).toBe(CALENDAR_PARTIAL_BUSY_PROMPT)
   })
 })
 

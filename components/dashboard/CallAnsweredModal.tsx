@@ -1897,7 +1897,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             (row, index) =>
               row.id === inventory[index]?.id &&
               row.sku === inventory[index]?.sku &&
-              row.quantity === inventory[index]?.quantity
+              // KeyInventoryApiRow has no `quantity` — comparing it was undefined ===
+              // undefined, i.e. always true, so stock changes looked like no-ops and the
+              // stale list was kept. Compare what the stock warning actually reads.
+              row.totalQuantity === inventory[index]?.totalQuantity &&
+              row.vanQuantity === inventory[index]?.vanQuantity
           )
         ) {
           return prev

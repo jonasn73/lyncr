@@ -1438,10 +1438,12 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
   return (
     // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
     <WorkspacePanel className="bg-background shadow-none ring-0">
-      <div className="md:hidden">
+      {/* Cards through tablet: the 8-column table needs ~1024px — below that, cells
+          overflow and the status badge/caller name paint over the next column. */}
+      <div className="lg:hidden">
         <ActivityCallsMobileList rows={rows} lineLabelMap={lineLabelMap} />
       </div>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <WorkspaceTableWrap className="min-h-0" bleed>
         <colgroup>
           <col className="w-[11%]" />

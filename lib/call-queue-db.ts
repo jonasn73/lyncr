@@ -142,7 +142,6 @@ export async function sweepStaleCallQueueForUser(userId: string): Promise<void> 
             FROM call_logs cl
             WHERE (
               cl.provider_call_sid = cq.call_control_id
-              OR cl.twilio_call_sid = cq.call_control_id
             )
               AND (
                 cl.ended_at IS NOT NULL
@@ -228,7 +227,7 @@ export async function upsertCallQueueBusyMenu(params: {
         FROM call_logs cl
         WHERE (
           cl.provider_call_sid = ${params.callControlId}
-          OR cl.twilio_call_sid = ${params.callControlId}
+         
         )
           AND (
             cl.ended_at IS NOT NULL

@@ -14,7 +14,7 @@ export type PreferredLineCandidate = Pick<
   PhoneNumber | DashboardBusinessNumber,
   "number" | "status" | "label"
 > &
-  Partial<Pick<PhoneNumber, "provider_number_sid" | "twilio_sid" | "is_amber_control">>
+  Partial<Pick<PhoneNumber, "provider_number_sid" | "is_amber_control">>
 
 export type PickPreferredCustomerLineInput = {
   lines: PreferredLineCandidate[]

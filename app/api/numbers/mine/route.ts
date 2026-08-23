@@ -99,7 +99,6 @@ export async function GET(req: NextRequest) {
         label: row.label ?? undefined,
         organization_id: row.organization_id ?? null,
         provider_number_sid: row.provider_number_sid,
-        twilio_sid: row.twilio_sid,
       })),
       orgParam,
       { reservedNumber: globalReserved, completedPortTargets }

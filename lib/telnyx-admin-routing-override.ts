@@ -26,6 +26,8 @@ export type AdminRoutingOverrideRoutingLike = InboundWorkspaceRoutingLike & {
   ring_timeout_seconds?: number | null
   admin_routing_override_phone?: string | null
   inbound_caller_greeting_enabled?: boolean
+  /** routing_config column — decides whether the caller's own number is forwarded as caller ID. */
+  forward_original_caller_id?: boolean
 }
 
 export type AdminRoutingOverrideDialResult = { kind: "raw"; xml: string }

@@ -84,12 +84,15 @@ describe("admin-notification-dispatch", () => {
       adminUser
     )
     expect(prepared.publish).toBe(true)
+    // PreparedOwnerEvent is a discriminated union; expect() does not narrow it.
+    if (!prepared.publish) throw new Error("expected the event to be published")
     expect(prepared.payload.notificationDelivery).toBe("silent")
   })
 
   it("passes through for non-admin owners", async () => {
     const owner = { ...adminUser, is_platform_admin: false }
     const prepared = await prepareOwnerEventForDelivery(owner.id, "call-initiated", {}, owner)
+    if (!prepared.publish) throw new Error("expected the event to be published")
     expect(prepared.payload.notificationDelivery).toBeUndefined()
   })
 })

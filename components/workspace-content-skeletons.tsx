@@ -129,8 +129,8 @@ export function ActivityTableSkeleton() {
   return (
     // Match live list height roughly — avoid a huge empty well under short lists.
     <WorkspacePanel className="min-h-[16rem] bg-background shadow-none ring-0">
-      {/* Mobile: card list — matches ActivityCallsMobileList (not the desktop table). */}
-      <ul className="divide-y divide-zinc-800/70 md:hidden" aria-hidden>
+      {/* Mobile + tablet: card list — matches ActivityCallsMobileList (not the desktop table). */}
+      <ul className="divide-y divide-zinc-800/70 lg:hidden" aria-hidden>
         {Array.from({ length: 6 }, (_, i) => (
           <li key={i} className="px-3 py-2.5">
             <div className="flex items-start gap-2">
@@ -146,7 +146,7 @@ export function ActivityTableSkeleton() {
         ))}
       </ul>
       {/* Desktop table skeleton */}
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <TableSkeletonBody
           columns={[
             { width: "w-[11%]", label: "Status" },

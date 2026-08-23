@@ -957,14 +957,18 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       <WorkspacePanel
         className={cn(
           "flex h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-8.5rem)] flex-col overflow-hidden bg-background shadow-none ring-0",
-          "md:grid md:h-[calc(100dvh-var(--shell-header-h)-12rem)] md:grid-cols-[minmax(240px,320px)_1fr] md:grid-rows-1"
+          "md:h-[calc(100dvh-var(--shell-header-h)-12rem)]",
+          // Side-by-side only from lg, and only with a thread open: the reserved
+          // conversation pane was ~65% of a 1280px screen sitting empty, and at 768px
+          // the list was squeezed to ~240px. Below lg this stays push-navigation.
+          selectedPhone && "lg:grid lg:grid-cols-[minmax(240px,320px)_1fr] lg:grid-rows-1"
         )}
       >
         {/* Thread list — stay in layout on desktop; hide on mobile when a conversation is open */}
         <div
           className={cn(
-            "flex min-h-0 flex-col border-border/60 md:border-r",
-            selectedPhone ? "hidden md:flex" : "flex"
+            "flex min-h-0 flex-col border-border/60 lg:border-r",
+            selectedPhone ? "hidden lg:flex" : "flex"
           )}
         >
           <div className="border-b border-border/60 px-4 py-3">
@@ -1052,7 +1056,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         <div
           className={cn(
             "flex min-h-0 flex-col",
-            selectedPhone ? "flex flex-1" : "hidden md:flex"
+            selectedPhone ? "flex flex-1" : "hidden"
           )}
         >
           {!activeThread ? (
@@ -1074,7 +1078,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               <div className="flex min-h-[4.25rem] shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 md:px-4 md:py-3">
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground md:hidden"
+                  className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground lg:hidden"
                   aria-label="Back to conversations"
                   onClick={() => {
                     appliedDeepLinkKeyRef.current = null

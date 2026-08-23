@@ -262,7 +262,7 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
       const toNumber = String(c.to_number || "")
       // Stable id only — never randomUUID (that remounted list rows and jumped scroll).
       const stableId =
-        String(c.id || c.provider_call_sid || c.twilio_call_sid || "").trim() ||
+        String(c.id || c.provider_call_sid || "").trim() ||
         `${fromNumber}|${toNumber}|${createdAt.toISOString()}`
       return {
         id: stableId,

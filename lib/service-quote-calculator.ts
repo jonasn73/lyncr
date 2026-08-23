@@ -1,6 +1,6 @@
 // Transparent locksmith pricing for the answered-call quick-booking sheet (DB-backed rate profiles).
 
-import { formatIntakeJobTypeForDispatch, type IntakeLocksmithJobType } from "@/lib/intake-job-types"
+import { type IntakeLocksmithJobType } from "@/lib/intake-job-types"
 import {
   DEFAULT_SERVICE_RATE_CARD,
   normalizeServiceQuoteTypeId,
@@ -497,10 +497,8 @@ export function calculateServiceQuote(params: {
     serviceTypeId: spec.id,
     jobType: spec.jobType,
     keyReplacementMode: spec.keyMode,
-    dispatchJobTypeLabel:
-      "dispatchLabel" in spec && spec.dispatchLabel
-        ? spec.dispatchLabel
-        : formatIntakeJobTypeForDispatch(spec.jobType, spec.keyMode),
+    // Unreachable fallback removed — every entry declares a non-empty dispatchLabel.
+    dispatchJobTypeLabel: spec.dispatchLabel,
     baseCents: base,
     distancePremiumCents,
     keyBlankCents,
