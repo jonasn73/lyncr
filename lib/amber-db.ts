@@ -97,6 +97,45 @@ export async function getAmberWorkspace(params: {
   }
 }
 
+/**
+ * First enabled + verified Amber workspace for this account, regardless of organization.
+ * Account-level alerts (carrier credit, billing) aren't org-scoped the way leftover-lead
+ * pings are — an owner with multiple workspaces still has one carrier balance — so this
+ * intentionally ignores organization_id, unlike getAmberWorkspace above.
+ */
+export async function getAnyEnabledAmberWorkspaceForOwner(
+  userId: string
+): Promise<AmberWorkspaceRow | null> {
+  const sql = sqlClient()
+  try {
+    const rows = await sql`
+      SELECT
+        a.id::text,
+        a.user_id::text,
+        a.organization_id::text,
+        a.phone_number_id::text,
+        a.enabled,
+        a.owner_mobile_e164,
+        a.owner_mobile_verified_at::text,
+        a.presence_available_at::text,
+        a.timezone,
+        p.number AS amber_number
+      FROM amber_workspaces a
+      JOIN phone_numbers p ON p.id = a.phone_number_id
+      WHERE a.user_id = ${userId}::uuid
+        AND a.enabled = true
+        AND a.owner_mobile_verified_at IS NOT NULL
+      ORDER BY a.created_at ASC
+      LIMIT 1
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? mapAmberRow(row) : null
+  } catch (e) {
+    if (isMissingAmberRelation(e)) return null
+    throw e
+  }
+}
+
 /** Find Amber workspace by control DID (inbound SMS To). */
 export async function getAmberWorkspaceByControlE164(
   toE164: string
