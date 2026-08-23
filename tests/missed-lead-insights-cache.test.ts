@@ -62,6 +62,7 @@ describe("missed-lead-insights-cache", () => {
       uniqueLeadsToday: 1,
       totalMissedToday: 2,
       localDayPeriodKey: telemetryLocalDayPeriodKey(),
+      fetchedAtMs: Date.now(),
     })
     expect(seed).toEqual(
       expect.objectContaining({ uniqueLeadsToday: 1, totalMissedToday: 2 })
@@ -72,10 +73,28 @@ describe("missed-lead-insights-cache", () => {
     const seed = normalizeMissedLeadsPaintSeed({
       uniqueLeadsToday: 1,
       totalMissedToday: 2,
+      fetchedAtMs: Date.now(),
     })
     expect(seed).toEqual(
       expect.objectContaining({ uniqueLeadsToday: 1, totalMissedToday: 2 })
     )
+  })
+
+  it("drops counts when the cached seed has no fetchedAtMs (legacy entry) or is stale", () => {
+    const legacy = normalizeMissedLeadsPaintSeed({
+      uniqueLeadsToday: 1,
+      totalMissedToday: 2,
+      localDayPeriodKey: telemetryLocalDayPeriodKey(),
+    })
+    expect(legacy).toBeNull()
+
+    const stale = normalizeMissedLeadsPaintSeed({
+      uniqueLeadsToday: 1,
+      totalMissedToday: 2,
+      localDayPeriodKey: telemetryLocalDayPeriodKey(),
+      fetchedAtMs: Date.now() - 3 * 60 * 1000,
+    })
+    expect(stale).toBeNull()
   })
 
   it("writes a compact paint cookie for SSR", () => {
@@ -97,6 +116,7 @@ describe("missed-lead-insights-cache", () => {
     writePaintSeedCookie("missed-lead-insights", {
       uniqueLeadsToday: 3,
       totalMissedToday: 8,
+      fetchedAtMs: Date.now(),
     })
     const parsed = readMissedLeadsFromCookieRaw(store[MISSED_LEADS_COOKIE])
     expect(parsed?.uniqueLeadsToday).toBe(3)
