@@ -25,6 +25,16 @@ export function AdminToolsBoard({
   const [chargeId, setChargeId] = useState("")
   const [destinationAccountId, setDestinationAccountId] = useState("")
   const [sandboxOpen, setSandboxOpen] = useState(false)
+  const [amberEmail, setAmberEmail] = useState("")
+  const [amberBusy, setAmberBusy] = useState(false)
+  const [amberResult, setAmberResult] = useState<{
+    ownerMobileLast4: string | null
+    timezone: string
+    revenue: string
+    missedCalls: string
+    nextJob: string
+    snapshot: string | null
+  } | null>(null)
 
   async function syncTexml() {
     setTexmlBusy(true)
@@ -75,6 +85,34 @@ export function AdminToolsBoard({
       )
     } finally {
       setRemediateBusy(false)
+    }
+  }
+
+  async function previewAmber() {
+    const email = amberEmail.trim()
+    if (!email) {
+      toast.error("Enter a business owner's email")
+      return
+    }
+    setAmberBusy(true)
+    setAmberResult(null)
+    try {
+      const res = await fetch(`/api/admin/tools/amber-preview?email=${encodeURIComponent(email)}`, {
+        credentials: "include",
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: typeof amberResult
+        error?: string
+      }
+      if (!res.ok || !json.data) {
+        toast.error(json.error ?? "Could not build the Amber preview")
+        return
+      }
+      setAmberResult(json.data)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not build the Amber preview")
+    } finally {
+      setAmberBusy(false)
     }
   }
 
@@ -147,6 +185,76 @@ export function AdminToolsBoard({
               {remediateBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Transfer now
             </Button>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amber</h2>
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-slate-100">Preview Amber&apos;s replies</CardTitle>
+            <CardDescription className="text-slate-400">
+              Read-only — pulls the exact text Amber would send for a business&apos;s Q&amp;A and
+              morning-greeting snapshot. Never sends a real SMS, so it&apos;s safe to run against any
+              live business.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-slate-400">Business owner email</Label>
+              <Input
+                value={amberEmail}
+                onChange={(e) => setAmberEmail(e.target.value)}
+                placeholder="owner@business.com"
+                className="border-slate-700 bg-slate-950 text-slate-100"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void previewAmber()
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              disabled={amberBusy || !amberEmail.trim()}
+              onClick={() => void previewAmber()}
+            >
+              {amberBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Preview
+            </Button>
+            {amberResult ? (
+              <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Owner mobile …{amberResult.ownerMobileLast4 ?? "????"} · {amberResult.timezone}
+                </p>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                    &quot;How much did I make today?&quot;
+                  </p>
+                  <p className="text-slate-200">{amberResult.revenue}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                    &quot;Any missed calls?&quot;
+                  </p>
+                  <p className="text-slate-200">{amberResult.missedCalls}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                    &quot;What&apos;s my next job?&quot;
+                  </p>
+                  <p className="text-slate-200">{amberResult.nextJob}</p>
+                </div>
+                {amberResult.snapshot ? (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase text-slate-500">
+                      Morning greeting snapshot
+                    </p>
+                    <p className="text-slate-200">{amberResult.snapshot}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </section>

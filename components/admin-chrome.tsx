@@ -16,6 +16,7 @@ import {
   Network,
   Settings,
   Shield,
+  SquareKanban,
   Users,
   Wallet,
   X,
@@ -62,6 +63,12 @@ const NAV = [
     label: "Tools",
     icon: FlaskConical,
     match: (p: string) => p.startsWith("/admin/tools") || p.startsWith("/admin/sandbox"),
+  },
+  {
+    href: "/admin/improvements",
+    label: "Improvements",
+    icon: SquareKanban,
+    match: (p: string) => p.startsWith("/admin/improvements"),
   },
   {
     href: "/admin/settings",

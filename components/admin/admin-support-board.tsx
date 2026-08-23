@@ -33,9 +33,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { FileText, Loader2, Paperclip, Send, X } from "lucide-react"
+import { FileText, ListPlus, Loader2, Paperclip, Send, X } from "lucide-react"
 
 const FEEDBACK_STATUSES: FeedbackStatus[] = ["open", "triaged", "closed"]
+
+/** issue -> bug-priority default; feature request stays lower unless admin bumps it later. */
+const FEEDBACK_CATEGORY_TO_BOARD: Record<
+  FeedbackSubmission["category"],
+  { category: string; priority: "high" | "medium" | "low" }
+> = {
+  issue: { category: "bug", priority: "high" },
+  feature: { category: "feature request", priority: "medium" },
+  billing: { category: "billing", priority: "medium" },
+  other: { category: "general", priority: "low" },
+}
 
 /** Prefer original support@ when Zoho forwarded into Resend. */
 function displayToAddress(row: Pick<AdminSupportEmailListItem, "received_for" | "to_email" | "to_emails">) {
@@ -497,6 +508,7 @@ function FeedbackQueue() {
   const [feedback, setFeedback] = useState<FeedbackSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [sheet, setSheet] = useState<FeedbackSubmission | null>(null)
+  const [addingToBoard, setAddingToBoard] = useState(false)
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -534,6 +546,37 @@ function FeedbackQueue() {
     setFeedback((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)))
     setSheet((prev) => (prev && prev.id === id ? { ...prev, status } : prev))
     toast.success(`Marked ${status}`)
+  }
+
+  /** Promote a user-submitted bug/feature report onto the App Improvement Board. */
+  async function addToBoard(row: FeedbackSubmission) {
+    setAddingToBoard(true)
+    try {
+      const mapped = FEEDBACK_CATEGORY_TO_BOARD[row.category] ?? FEEDBACK_CATEGORY_TO_BOARD.other
+      const res = await fetch("/api/admin/improvements", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: row.subject,
+          description: row.body,
+          category: mapped.category,
+          priority: mapped.priority,
+          source: "User feedback",
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not add to the board")
+        return
+      }
+      toast.success("Added to the App Improvement Board")
+      if (row.status === "open") await setStatus(row.id, "triaged")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add to the board")
+    } finally {
+      setAddingToBoard(false)
+    }
   }
 
   return (
@@ -620,9 +663,22 @@ function FeedbackQueue() {
                 </div>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{sheet.body}</p>
               </div>
-              <SheetFooter className="border-t border-slate-800 px-4 py-3">
+              <SheetFooter className="flex-row justify-between gap-2 border-t border-slate-800 px-4 py-3 sm:justify-between">
                 <Button type="button" variant="ghost" onClick={() => setSheet(null)}>
                   Close
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-violet-600 text-white hover:bg-violet-500"
+                  disabled={addingToBoard}
+                  onClick={() => void addToBoard(sheet)}
+                >
+                  {addingToBoard ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <ListPlus className="mr-1.5 h-4 w-4" aria-hidden />
+                  )}
+                  Add to Improvement Board
                 </Button>
               </SheetFooter>
             </>
