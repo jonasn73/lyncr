@@ -1,5 +1,9 @@
 // POST /api/payments/confirm
-// Settle a job PaymentIntent after client-side confirmation OR Stripe webhook delivery.
+// Settle a job PaymentIntent after client-side confirmation (stripe.confirmPayment on the
+// client). Server-to-server webhook delivery goes to /api/webhooks/stripe exclusively — this
+// route used to also accept a signed webhook body, but running two live receivers for the
+// same payment_intent.* events raced against each other and let pay-link fulfillment
+// (handled only in /api/webhooks/stripe) silently never run when Stripe hit this URL instead.
 // On success: wallet tx → COMPLETED, tech balance credited, job → completed.
 
 import { NextRequest, NextResponse } from "next/server"
@@ -7,7 +11,7 @@ import Stripe from "stripe"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser } from "@/lib/db"
 import { confirmJobPaymentIntent, getJobPaymentContext } from "@/lib/job-payments"
-import { getStripeClient, getStripeWebhookSecret, isStripeConfigured } from "@/lib/stripe-config"
+import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -50,44 +54,6 @@ export async function POST(req: NextRequest) {
       { error: "Stripe is not configured. Set STRIPE_SECRET_KEY in Vercel / .env.local." },
       { status: 503 }
     )
-  }
-
-  const signature = req.headers.get("stripe-signature")
-
-  // ── Webhook path (Stripe → this route) ───────────────────────────────────
-  if (signature) {
-    const rawBody = await req.text()
-    let event: Stripe.Event
-    try {
-      const stripe = getStripeClient()
-      event = stripe.webhooks.constructEvent(rawBody, signature, getStripeWebhookSecret())
-    } catch (e) {
-      console.error("[payments/confirm] webhook signature failed", e)
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
-    }
-
-    try {
-      if (
-        event.type === "payment_intent.succeeded" ||
-        event.type === "payment_intent.payment_failed" ||
-        event.type === "payment_intent.canceled"
-      ) {
-        const intent = event.data.object as Stripe.PaymentIntent
-        if (intent.metadata?.lyncr_kind === "job_payment" || intent.metadata?.lyncr_kind === "adhoc_payment") {
-          const connectAccountId =
-            typeof event.account === "string"
-              ? event.account
-              : intent.metadata?.stripe_connect_account_id
-          await confirmJobPaymentIntent(intent.id, {
-            stripeConnectAccountId: connectAccountId || null,
-          })
-        }
-      }
-      return NextResponse.json({ received: true })
-    } catch (e) {
-      console.error("[payments/confirm] webhook handler failed", event.type, e)
-      return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
-    }
   }
 
   // ── Client confirmation path (after stripe.confirmPayment) ───────────────

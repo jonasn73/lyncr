@@ -6,11 +6,13 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import {
   createWalletTransaction,
   failWalletTransactionByPaymentIntent,
+  findLatestWalletTransactionByJobId,
   findWalletTransactionByPaymentIntent,
   settleWalletTransactionByPaymentIntent,
   type WalletPaymentMethod,
   type WalletTransaction,
 } from "@/lib/tech-wallet"
+import type Stripe from "stripe"
 
 export type JobPaymentContext = {
   jobId: string
@@ -140,20 +142,13 @@ export function resolveVerifiedChargeCents(
   clientAmount: number,
   options?: { allowInvoiceOverride?: boolean }
 ): { ok: true; chargeCents: number } | { ok: false; error: string } {
-  // Client may send dollars (149.99) or cents (14999). Prefer dollars when < 1000 and fractional.
-  let chargeCents: number
+  // Every caller (tech-payment-modal.tsx, owner-collect-payment-sheet.tsx) sends USD dollars
+  // (e.g. totalCents / 100) — never cents. A prior "large integer = cents" heuristic here
+  // undercharged whole-dollar amounts >= $1000 by 100x; always treat clientAmount as dollars.
   if (!Number.isFinite(clientAmount) || clientAmount <= 0) {
     return { ok: false, error: "amount must be a positive number (USD)" }
   }
-  // Treat values >= 1000 without decimals as cents if they match job cents; else dollars.
-  if (Number.isInteger(clientAmount) && clientAmount >= 1000 && job.expectedChargeCents === clientAmount) {
-    chargeCents = clientAmount
-  } else if (Number.isInteger(clientAmount) && clientAmount >= 1000 && !job.expectedChargeCents) {
-    // Ambiguous large integer with no job price — treat as cents.
-    chargeCents = clientAmount
-  } else {
-    chargeCents = Math.round(clientAmount * 100)
-  }
+  const chargeCents = Math.round(clientAmount * 100)
 
   if (chargeCents < 50) {
     return { ok: false, error: "amount must be at least $0.50" }
@@ -171,6 +166,65 @@ export function resolveVerifiedChargeCents(
   }
 
   return { ok: true, chargeCents }
+}
+
+/**
+ * Block a second real charge on a job — covers both the "customer paid via pay link while the
+ * tech also force-started an in-person charge" collision and the "client timed out waiting for
+ * the response but the server-side confirm:true charge already went through" retry case.
+ * A stale/abandoned attempt (canceled, or never confirmed) self-heals to FAILED and does not block.
+ */
+async function guardAgainstDuplicateJobCharge(params: {
+  jobId: string
+  stripe: Stripe
+  connectAccountId: string
+}): Promise<void> {
+  const existing = await findLatestWalletTransactionByJobId(params.jobId)
+  if (!existing) return
+
+  if (existing.status === "COMPLETED") {
+    throw new Error("This job has already been paid — refresh to see the receipt.")
+  }
+  if (existing.status !== "PENDING" || !existing.stripePaymentIntentId) return
+
+  const priorIntent = await params.stripe.paymentIntents.retrieve(existing.stripePaymentIntentId, {
+    stripeAccount: params.connectAccountId,
+  })
+  const abandoned = priorIntent.status === "canceled" || priorIntent.status === "requires_payment_method"
+  if (abandoned) {
+    await failWalletTransactionByPaymentIntent(existing.stripePaymentIntentId)
+    return
+  }
+  throw new Error(
+    "A charge for this job is already in progress or has completed — refresh before trying again."
+  )
+}
+
+/**
+ * Write the PENDING ledger row after creating the Stripe PaymentIntent. When the card was
+ * already charged (confirm:true, or the PI came back succeeded/processing/requires_capture), a
+ * DB failure here must never surface as a generic error that invites a retry — retrying would
+ * create a second real charge against the same job. When nothing has actually been charged yet
+ * (e.g. a Tap to Pay intent still awaiting the terminal tap), the original error is safe to
+ * surface as-is since a retry there charges nothing twice.
+ */
+async function recordLedgerRowAfterCharge(
+  params: Parameters<typeof createWalletTransaction>[0],
+  paymentIntentId: string,
+  alreadyCharged: boolean
+): Promise<WalletTransaction | null> {
+  try {
+    return await createWalletTransaction(params)
+  } catch (e) {
+    if (!alreadyCharged) throw e
+    console.error(
+      "[job-payments] charge already succeeded on Stripe but the ledger write failed — do not retry this charge",
+      { paymentIntentId, error: e }
+    )
+    throw new Error(
+      `Card was already charged (${paymentIntentId}) but we could not record it — do not retry. Refresh in a moment or contact support with this payment id.`
+    )
+  }
 }
 
 export type CreateJobPaymentIntentResult = {
@@ -218,6 +272,11 @@ export async function createJobPaymentIntent(params: {
   const applicationFeeAmount = computeLyncrApplicationFeeCents(params.chargeCents)
 
   const stripe = getStripeClient()
+  await guardAgainstDuplicateJobCharge({
+    jobId: params.job.jobId,
+    stripe,
+    connectAccountId: connect.accountId,
+  })
   const isTap = params.walletMethod === "TAP_TO_PAY"
   const paymentMethodId = (params.paymentMethodId || "").trim() || null
   // Keyed card was collected earlier — confirm now with final amount (job + tip).
@@ -260,14 +319,23 @@ export async function createJobPaymentIntent(params: {
     throw new Error("Stripe did not return a client_secret")
   }
 
-  const transaction = await createWalletTransaction({
-    userId: params.job.assignedTechId,
-    jobId: params.job.jobId,
-    amountUsd: commissionCents / 100,
-    status: "PENDING",
-    paymentMethod: params.walletMethod,
-    stripePaymentIntentId: intent.id,
-  })
+  const alreadyCharged =
+    confirmWithSavedCard ||
+    intent.status === "succeeded" ||
+    intent.status === "processing" ||
+    intent.status === "requires_capture"
+  const transaction = await recordLedgerRowAfterCharge(
+    {
+      userId: params.job.assignedTechId,
+      jobId: params.job.jobId,
+      amountUsd: commissionCents / 100,
+      status: "PENDING",
+      paymentMethod: params.walletMethod,
+      stripePaymentIntentId: intent.id,
+    },
+    intent.id,
+    alreadyCharged
+  )
 
   return {
     clientSecret: intent.client_secret,
@@ -374,16 +442,25 @@ export async function createAdhocPaymentIntent(params: {
     throw new Error("Stripe did not return a client_secret")
   }
 
-  const transaction = await createWalletTransaction({
-    userId: params.ownerUserId,
-    jobId: null,
-    amountUsd: params.chargeCents / 100,
-    status: "PENDING",
-    paymentMethod: params.walletMethod,
-    stripePaymentIntentId: intent.id,
-    customerPhone: customerPhone || null,
-    customerName: customerName || null,
-  })
+  const alreadyCharged =
+    confirmWithSavedCard ||
+    intent.status === "succeeded" ||
+    intent.status === "processing" ||
+    intent.status === "requires_capture"
+  const transaction = await recordLedgerRowAfterCharge(
+    {
+      userId: params.ownerUserId,
+      jobId: null,
+      amountUsd: params.chargeCents / 100,
+      status: "PENDING",
+      paymentMethod: params.walletMethod,
+      stripePaymentIntentId: intent.id,
+      customerPhone: customerPhone || null,
+      customerName: customerName || null,
+    },
+    intent.id,
+    alreadyCharged
+  )
 
   return {
     clientSecret: intent.client_secret,

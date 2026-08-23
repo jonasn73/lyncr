@@ -186,7 +186,12 @@ export async function loadPaymentInvoice(params: {
     subtotalCents: serviceCents,
     taxCents,
     tipCents,
-    totalCents: tipIncludedInAmount ? amountCents : amountCents + tipCents,
+    // amountCents is exactly what Stripe charged — every current charge-creation path (job,
+    // adhoc, pay link) bakes the tip into that same PaymentIntent, so the displayed total must
+    // never exceed what was actually charged. Adding tipCents on top here (when the
+    // tip-included heuristic below misfires) previously showed a total higher than the real
+    // charge.
+    totalCents: amountCents,
     paymentMethodLabel: paymentMethodLabelFromIntent(full),
     signaturePng: slip?.signature_png || null,
     receiptUrl: `${appUrl}/r/${shortToken}`,

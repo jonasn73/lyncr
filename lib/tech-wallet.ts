@@ -43,6 +43,11 @@ function pgErrorMessage(e: unknown): string {
   return String((e as { message?: string }).message ?? e)
 }
 
+/** True for a unique-constraint violation (e.g. two concurrent inserts racing on the same PaymentIntent). */
+export function isUniqueViolation(e: unknown): boolean {
+  return pgErrorCode(e) === "23505"
+}
+
 /** True when migration 111 has not been applied yet. */
 export function isMissingWalletSchemaError(e: unknown): boolean {
   const msg = pgErrorMessage(e).toLowerCase()
@@ -297,13 +302,19 @@ export async function settleWalletTransaction(
     if (current.status === "COMPLETED") return current
     if (current.status === "FAILED") return current
 
-    await sql`
+    // Guarded UPDATE only matches (and returns a row) for whichever concurrent caller wins the
+    // PENDING -> COMPLETED transition — a second racing caller sees 0 rows back and must not
+    // credit the balance again (it would otherwise double-credit on every concurrent settle).
+    const settled = await sql`
       UPDATE wallet_transactions
       SET status = 'COMPLETED'
       WHERE id = ${transactionId}
         AND user_id = ${techUserId}
         AND status = 'PENDING'
+      RETURNING id
     `
+    if (settled.length === 0) return { ...current, status: "COMPLETED" }
+
     await sql`
       UPDATE users
       SET balance = COALESCE(balance, 0) + ${current.amount}
@@ -348,6 +359,30 @@ export async function settleWalletTransactionByPaymentIntent(
   const existing = await findWalletTransactionByPaymentIntent(stripePaymentIntentId)
   if (!existing) return null
   return settleWalletTransaction(existing.id, existing.userId)
+}
+
+/** Most recent wallet row for a job, any status — used to guard against charging a job twice. */
+export async function findLatestWalletTransactionByJobId(
+  jobId: string
+): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const id = jobId.trim()
+  if (!id) return null
+  try {
+    const rows = await sql`
+      SELECT
+        id, user_id, job_id, amount, status, payment_method,
+        stripe_payment_intent_id, created_at
+      FROM wallet_transactions
+      WHERE job_id = ${id}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (isMissingWalletSchemaError(e)) return null
+    throw e
+  }
 }
 
 /** Mark a PaymentIntent-linked row FAILED (card declined / canceled). */

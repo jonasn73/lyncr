@@ -28,6 +28,7 @@ import {
 import {
   createWalletTransaction,
   findWalletTransactionByPaymentIntent,
+  isUniqueViolation,
 } from "@/lib/tech-wallet"
 
 function fmtUsd(cents: number): string {
@@ -189,9 +190,20 @@ export async function finalizeCollectPayLinkWithTip(params: {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
   }
 
-  const { getCollectPayLinkByToken, attachCollectPayLinkCheckoutSession } = await import("@/lib/db")
+  const {
+    getCollectPayLinkByToken,
+    attachCollectPayLinkCheckoutSession,
+    claimCollectPayLinkCheckoutSessionSlot,
+    releaseCollectPayLinkCheckoutSessionSlot,
+    COLLECT_PAY_LINK_SESSION_PENDING_MARKER,
+  } = await import("@/lib/db")
   const row = await getCollectPayLinkByToken(params.token)
   if (!row) throw new Error("This payment link is invalid or has expired.")
+
+  // Another request is mid-creation for this same token right now.
+  if (row.stripe_session_id === COLLECT_PAY_LINK_SESSION_PENDING_MARKER) {
+    throw new Error("Preparing your payment — try again in a moment.")
+  }
 
   // Already has an open Checkout session — return it (idempotent refresh).
   if (row.stripe_session_id) {
@@ -348,56 +360,69 @@ export async function finalizeCollectPayLinkWithTip(params: {
     return_url: `${appUrl}/pay/thanks?session_id={CHECKOUT_SESSION_ID}`,
   }
 
+  // Atomically claim the right to build this token's session — a concurrent request that loses
+  // the race falls here instead of also creating (and losing track of) its own Stripe session.
+  const claimed = await claimCollectPayLinkCheckoutSessionSlot(payToken)
+  if (!claimed) {
+    throw new Error("Preparing your payment — try again in a moment.")
+  }
+
   let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>
   let venmoIncluded = false
   let dynamicMethods = false
 
   try {
-    session = await stripe.checkout.sessions.create(
-      {
-        ...checkoutBase,
-      },
-      connectOpts
-    )
-    dynamicMethods = true
-    venmoIncluded = Boolean(session.payment_method_types?.includes("venmo"))
-  } catch (dynamicErr) {
-    console.warn(
-      "[pay-link] dynamic payment methods failed — falling back to explicit list:",
-      dynamicErr
-    )
     try {
-      const { excluded_payment_method_types: _excluded, ...withoutExclude } = checkoutBase
-      void _excluded
       session = await stripe.checkout.sessions.create(
         {
-          ...withoutExclude,
-          payment_method_types: [
-            ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO,
-          ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+          ...checkoutBase,
         },
         connectOpts
       )
-      venmoIncluded = true
-    } catch (e) {
-      if (!isUnsupportedPaymentMethodError(e)) throw e
-      console.warn("[pay-link] Venmo/PM rejected — retrying without Venmo:", e)
-      const { excluded_payment_method_types: _excluded2, ...withoutExclude2 } = checkoutBase
-      void _excluded2
-      session = await stripe.checkout.sessions.create(
-        {
-          ...withoutExclude2,
-          payment_method_types: [
-            ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES,
-          ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
-        },
-        connectOpts
+      dynamicMethods = true
+      venmoIncluded = Boolean(session.payment_method_types?.includes("venmo"))
+    } catch (dynamicErr) {
+      console.warn(
+        "[pay-link] dynamic payment methods failed — falling back to explicit list:",
+        dynamicErr
       )
+      try {
+        const { excluded_payment_method_types: _excluded, ...withoutExclude } = checkoutBase
+        void _excluded
+        session = await stripe.checkout.sessions.create(
+          {
+            ...withoutExclude,
+            payment_method_types: [
+              ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES_WITH_VENMO,
+            ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+          },
+          connectOpts
+        )
+        venmoIncluded = true
+      } catch (e) {
+        if (!isUnsupportedPaymentMethodError(e)) throw e
+        console.warn("[pay-link] Venmo/PM rejected — retrying without Venmo:", e)
+        const { excluded_payment_method_types: _excluded2, ...withoutExclude2 } = checkoutBase
+        void _excluded2
+        session = await stripe.checkout.sessions.create(
+          {
+            ...withoutExclude2,
+            payment_method_types: [
+              ...COLLECT_CHECKOUT_PAYMENT_METHOD_TYPES,
+            ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+          },
+          connectOpts
+        )
+      }
     }
-  }
 
-  if (!session.id || !session.client_secret) {
-    throw new Error("Could not create payment session")
+    if (!session.id || !session.client_secret) {
+      throw new Error("Could not create payment session")
+    }
+  } catch (e) {
+    // Release the claim so a later retry isn't blocked by the pending marker forever.
+    await releaseCollectPayLinkCheckoutSessionSlot(payToken).catch(() => {})
+    throw e
   }
 
   await attachCollectPayLinkCheckoutSession({
@@ -465,16 +490,23 @@ export async function fulfillCollectPayLinkFromCheckout(
 
   const existing = await findWalletTransactionByPaymentIntent(paymentIntentId)
   if (!existing) {
-    await createWalletTransaction({
-      userId: walletUserId,
-      jobId: checkoutType === "job_payment_link" ? jobId : null,
-      amountUsd: commissionCents / 100,
-      status: "PENDING",
-      paymentMethod: "MANUAL_CARD",
-      stripePaymentIntentId: paymentIntentId,
-      customerPhone: (meta.customer_phone || "").trim() || null,
-      customerName: (meta.customer_name || "").trim() || null,
-    })
+    try {
+      await createWalletTransaction({
+        userId: walletUserId,
+        jobId: checkoutType === "job_payment_link" ? jobId : null,
+        amountUsd: commissionCents / 100,
+        status: "PENDING",
+        paymentMethod: "MANUAL_CARD",
+        stripePaymentIntentId: paymentIntentId,
+        customerPhone: (meta.customer_phone || "").trim() || null,
+        customerName: (meta.customer_name || "").trim() || null,
+      })
+    } catch (e) {
+      // checkout.session.completed and payment_intent.succeeded can race for the same pay-link
+      // charge — the unique index on stripe_payment_intent_id means the loser here just means
+      // the other webhook already fulfilled it. Fall through to confirm/settle either way.
+      if (!isUniqueViolation(e)) throw e
+    }
   }
 
   await confirmJobPaymentIntent(paymentIntentId, {
@@ -716,16 +748,23 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
 
   const existing = await findWalletTransactionByPaymentIntent(intent.id)
   if (!existing) {
-    await createWalletTransaction({
-      userId: walletUserId,
-      jobId: kind === "job_payment" ? jobId : null,
-      amountUsd: commissionCents / 100,
-      status: "PENDING",
-      paymentMethod: "MANUAL_CARD",
-      stripePaymentIntentId: intent.id,
-      customerPhone: (meta.customer_phone || "").trim() || null,
-      customerName: (meta.customer_name || "").trim() || null,
-    })
+    try {
+      await createWalletTransaction({
+        userId: walletUserId,
+        jobId: kind === "job_payment" ? jobId : null,
+        amountUsd: commissionCents / 100,
+        status: "PENDING",
+        paymentMethod: "MANUAL_CARD",
+        stripePaymentIntentId: intent.id,
+        customerPhone: (meta.customer_phone || "").trim() || null,
+        customerName: (meta.customer_name || "").trim() || null,
+      })
+    } catch (e) {
+      // checkout.session.completed and payment_intent.succeeded can race for the same pay-link
+      // charge — the unique index on stripe_payment_intent_id means the loser here just means
+      // the other webhook already fulfilled it. Fall through to confirm/settle either way.
+      if (!isUniqueViolation(e)) throw e
+    }
   }
 
   await confirmJobPaymentIntent(intent.id, {

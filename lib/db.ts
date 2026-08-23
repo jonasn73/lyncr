@@ -6816,6 +6816,51 @@ export async function insertCollectPayLink(params: {
   }
 }
 
+/** Sentinel written to stripe_session_id while a Checkout session is being created (see below). */
+export const COLLECT_PAY_LINK_SESSION_PENDING_MARKER = "__pending__"
+
+/**
+ * Atomically claim the right to create this token's Checkout session — closes a read-then-write
+ * race where two near-simultaneous tip-confirm requests both see stripe_session_id as null and
+ * each create their own separate Stripe session (only one of which ends up tracked, so a
+ * customer paying on the untracked one goes unfulfilled). Returns false when another request
+ * already holds the claim (either mid-creation or already attached a real session).
+ */
+export async function claimCollectPayLinkCheckoutSessionSlot(token: string): Promise<boolean> {
+  const key = token.trim()
+  if (!key) return false
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE collect_pay_links
+      SET stripe_session_id = ${COLLECT_PAY_LINK_SESSION_PENDING_MARKER}
+      WHERE token = ${key} AND stripe_session_id IS NULL
+      RETURNING token
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return false
+    throw e
+  }
+}
+
+/** Release a claimed-but-failed slot so a later retry isn't blocked by the pending marker forever. */
+export async function releaseCollectPayLinkCheckoutSessionSlot(token: string): Promise<void> {
+  const key = token.trim()
+  if (!key) return
+  const sql = getSql()
+  try {
+    await sql`
+      UPDATE collect_pay_links
+      SET stripe_session_id = NULL
+      WHERE token = ${key} AND stripe_session_id = ${COLLECT_PAY_LINK_SESSION_PENDING_MARKER}
+    `
+  } catch (e) {
+    if (isMissingCollectPayLinksTableError(e)) return
+    throw e
+  }
+}
+
 /** Attach a Checkout session + tip after the customer confirms tip on /pay/{token}. */
 export async function attachCollectPayLinkCheckoutSession(params: {
   token: string
