@@ -7,13 +7,15 @@
 //   2. Ported numbers that completed get wired up
 //   3. Any number that lost its webhook config gets fixed
 //   4. The TeXML app has an outbound voice profile (required for Dial)
-// Also syncs Telnyx numbers into the local DB if missing.
+// Also syncs Telnyx numbers into the local DB if missing, and backfills the carrier id
+// on rows that already exist without one.
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
   getPhoneNumbers,
   insertPhoneNumber,
+  updatePhoneNumber,
   getPhoneNumberByNumberAndStatus,
   normalizePhoneNumberE164,
 } from "@/lib/db"
@@ -43,7 +45,10 @@ export async function POST(req: NextRequest) {
     const telnyxNumbers = await listTelnyxAccountPhoneNumbers()
 
     const dbNumbers = await getPhoneNumbers(userId)
-    const dbDigitSet = new Set(dbNumbers.map((n) => normalizePhoneNumberE164(n.number).replace(/\D/g, "")))
+    const dbByDigits = new Map(
+      dbNumbers.map((n) => [normalizePhoneNumberE164(n.number).replace(/\D/g, ""), n] as const)
+    )
+    const dbDigitSet = new Set(dbByDigits.keys())
 
     for (const tn of telnyxNumbers) {
       if (!tn.phone_number) continue
@@ -64,6 +69,17 @@ export async function POST(req: NextRequest) {
           })
           results.push({ number: e164, action: "added to database" })
           dbDigitSet.add(digitKey)
+        }
+      } else if (digitKey && tn.id) {
+        // The row is already here but never got a carrier id. The insert branch above can
+        // never repair that — the digit-set check passes, so it is skipped on every run —
+        // and without provider_number_sid the line drops out of SMS sending and
+        // primary-line resolution while still looking active in the UI.
+        const existing = dbByDigits.get(digitKey)
+        if (existing && !existing.provider_number_sid?.trim()) {
+          await updatePhoneNumber(existing.id, userId, { provider_number_sid: tn.id })
+          existing.provider_number_sid = tn.id
+          results.push({ number: e164, action: "carrier id backfilled" })
         }
       }
 
