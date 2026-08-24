@@ -1,6 +1,10 @@
 // ============================================
-// Edge middleware — session cookie gate for /dashboard/*, /admin/*, and /onboarding
+// Proxy — session cookie gate for /dashboard/*, /admin/*, and /onboarding
 // ============================================
+// Renamed from middleware.ts for Next 16. Note that Proxy defaults to the
+// Node.js runtime, where Middleware defaulted to Edge, and the runtime option
+// is not configurable here — see the instant-greeting note below.
+//
 // Only checks that the session cookie exists (shape: payload.signature).
 // Real signature + expiry validation stays in /api/auth/session (Node).
 // This avoids a full-screen loading spinner and reduces “wrong page then correct page” flashes.
@@ -23,10 +27,13 @@ import {
 const LYNCR_SESSION = "lyncr_session"
 const LEGACY_ZING_SESSION = "zing_session"
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Pass 1 inbound greeting — Edge response before Node.js (avoids cold-start ring while Telnyx waits).
+  // Pass 1 inbound greeting — answers before the route handler does, so Telnyx is
+  // not left ringing through a cold start. This was written when this file was
+  // Edge middleware; Proxy runs on Node, so the head start is smaller than the
+  // original comment implied. Still ahead of the route, still worth having.
   if (shouldEdgeInstantGreetingIntercept(pathname, request.nextUrl, request.method)) {
     const continueUrl = buildEdgeInboundGreetingContinueUrl(request.url)
     const xml = buildEdgeInstantGreetingTexml(continueUrl)
