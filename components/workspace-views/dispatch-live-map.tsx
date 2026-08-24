@@ -29,6 +29,7 @@ import {
   setSharedDispatchMapView,
 } from "@/lib/dispatch-map-view"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
+import { useShopOrigin } from "@/lib/hooks/use-shop-origin"
 import { useDispatchMapData } from "@/lib/hooks/use-dispatch-map-data"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { calculateTechETA } from "@/lib/dispatch-eta"
@@ -264,6 +265,8 @@ export function DispatchLiveMap({
   const didCenterOnUser = useRef(false)
   /** Signature of plottable job pins — unlock camera only when this set changes. */
   const lastJobPinSig = useRef("")
+  /** Intake target already centered — re-center only when a new address arrives. */
+  const lastDestinationSig = useRef("")
   /** Camera mode: follow keeps You centered; overview frees the camera. */
   const followUserRef = useRef(Boolean(fillParent))
   const [followUser, setFollowUser] = useState(Boolean(fillParent))
@@ -324,17 +327,24 @@ export function DispatchLiveMap({
     return null
   }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status])
 
-  // Prefer live GPS; fall back to the business home city (Louisville 502) baseline.
+  // Saved shop address — the honest baseline when there is no GPS fix.
+  const shopOrigin = useShopOrigin()
+
+  // Prefer live GPS, then the saved shop address; the 502 metro centroid is a last resort
+  // and is labelled as an estimate rather than a shop measurement.
   const originPoint = useMemo(() => {
     if (userLocation) {
       return { lat: userLocation.lat, lng: userLocation.lng, source: "gps" as const }
     }
+    if (shopOrigin) {
+      return { lat: shopOrigin.lat, lng: shopOrigin.lng, source: "shop" as const }
+    }
     return {
       lat: DEFAULT_502_SERVICE_BIAS.lat,
       lng: DEFAULT_502_SERVICE_BIAS.lon,
-      source: "business" as const,
+      source: "metro" as const,
     }
-  }, [userLocation])
+  }, [userLocation, shopOrigin])
 
   // Straight-line miles + rough drive minutes from origin → intake target.
   const travelMetrics = useMemo(() => {
@@ -345,6 +355,7 @@ export function DispatchLiveMap({
       miles,
       durationMins: estimateTravelMinutes(miles),
       fromGps: originPoint.source === "gps",
+      originSource: originPoint.source,
     }
   }, [destination, originPoint])
 
@@ -417,6 +428,28 @@ export function DispatchLiveMap({
     didFit.current = true
     onFocusJobConsumed?.()
   }, [focusJobId, ready, visibleJobs, jobs, onFocusJobConsumed])
+
+  // "View on map" drops the intake pin — center on it, or it lands off-canvas whenever the
+  // shared camera is parked somewhere else and the operator sees an empty map.
+  useEffect(() => {
+    if (!destination) {
+      // Cleared pin — re-center if the same address is sent to the map again.
+      lastDestinationSig.current = ""
+      return
+    }
+    if (!ready) return
+    const map = mapRef.current
+    if (!map) return
+    const sig = `${destination.lat},${destination.lng}`
+    if (sig === lastDestinationSig.current) return
+    lastDestinationSig.current = sig
+    followUserRef.current = false
+    setFollowUser(false)
+    cameraModeRef.current = "free"
+    map.setView([destination.lat, destination.lng], FOCUS_JOB_ZOOM)
+    setSharedDispatchMapView([destination.lat, destination.lng], FOCUS_JOB_ZOOM)
+    didFit.current = true
+  }, [destination, ready])
 
   useEffect(() => {
     followUserRef.current = followUser
