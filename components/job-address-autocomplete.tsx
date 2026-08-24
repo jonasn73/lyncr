@@ -80,9 +80,13 @@ export const JobAddressAutocomplete = forwardRef<
     // Client-only: called from an effect, onFocus, and a render site already guarded by
     // `typeof document !== "undefined"`. (The old guard here returned document.body after
     // testing that document was undefined, which would have thrown if it ever ran.)
-    // Must render inside the sheet so Radix modal does not swallow clicks.
-    const sheet = document.querySelector('[data-slot="sheet-content"]')
-    portalRef.current = (sheet as HTMLElement | null) ?? document.body
+    // Must render inside the sheet/dialog so Radix modal does not swallow clicks — and so
+    // the menu shares that layer's stacking context. Portalled to <body> it would sit at
+    // z-120 under the dialog overlay (z-7000) and never be seen.
+    const layer = document.querySelector(
+      '[data-slot="sheet-content"], [data-slot="dialog-content"]'
+    )
+    portalRef.current = (layer as HTMLElement | null) ?? document.body
     return portalRef.current
   }, [])
 
@@ -91,8 +95,9 @@ export const JobAddressAutocomplete = forwardRef<
     if (!el) return
     const container = resolvePortalTarget()
     const inputRect = el.getBoundingClientRect()
-    const inSheet = container.dataset.slot === "sheet-content"
-    if (inSheet) {
+    const slot = container.dataset.slot
+    const inLayer = slot === "sheet-content" || slot === "dialog-content"
+    if (inLayer) {
       const containerRect = container.getBoundingClientRect()
       setMenuRect({
         top: inputRect.bottom - containerRect.top + 4,
