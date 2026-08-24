@@ -4,6 +4,7 @@ import { memo, useCallback, useRef } from "react"
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
 } from "@/components/ui/sheet"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { StorySheetHeader } from "@/components/story-sheet-header"
@@ -109,6 +110,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       {configureOpen ? (
         <Sheet open={configureOpen} onOpenChange={handleConfigureOpenChange} modal>
           <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            {/* Visible heading lives in the child drawer — name the sheet for screen readers. */}
+            <SheetTitle className="sr-only">Call flow settings</SheetTitle>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <DashboardCallFlowConfigureDrawer
                 ownerPhoneDisplay={ownerPhoneDisplay}
@@ -131,6 +134,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       {ringBackupOpen ? (
         <Sheet open={ringBackupOpen} onOpenChange={handleRingBackupOpenChange} modal>
           <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            {/* Visible heading lives in the child drawer — name the sheet for screen readers. */}
+            <SheetTitle className="sr-only">Ring and backup settings</SheetTitle>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <DashboardRingBackupDrawer
                 ringTimeoutSec={ringTimeoutSec}
@@ -161,6 +166,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
       {dashboardStoryKey != null ? (
         <Sheet open onOpenChange={(open) => !open && setDashboardStoryKey(null)} modal>
           <SheetContent side="right" variant="drawer" className={VOICE_AI_DRAWER_SHEET_CLASS}>
+            {/* Visible heading lives in the child drawer — name the sheet for screen readers. */}
+            <SheetTitle className="sr-only">How this control works</SheetTitle>
             {dashboardStoryKey ? (
               (() => {
                 const story = getAppSheetStory(dashboardStoryKey)

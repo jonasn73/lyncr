@@ -53,7 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetFooter, SheetTitle } from "@/components/ui/sheet"
 import { StorySheetHeader } from "@/components/story-sheet-header"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
@@ -863,6 +863,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
       <Sheet open={onboardingSheetKey != null} onOpenChange={(open) => !open && setOnboardingSheetKey(null)} modal>
         <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {/* Heading comes from the story body — name the sheet for screen readers. */}
+          <SheetTitle className="sr-only">Setup details</SheetTitle>
           {(() => {
             const story = onboardingSheetKey ? getAppSheetStory(onboardingSheetKey) : null
             if (!onboardingSheetKey || !story) return null
