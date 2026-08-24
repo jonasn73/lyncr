@@ -478,7 +478,13 @@ export function useActiveCallForm(
     setForm((prev) => ({
       ...prev,
       serviceAddress: addr,
-      ...(addr ? flatAddressFromStructured(addr) : {}),
+      // Clearing has to wipe the flat fields too. They feed addressSeedQuery,
+      // which the autocomplete falls back to when it has no structured value --
+      // so leaving them behind made it retype the address the operator had just
+      // deleted, and the box could not be cleared at all.
+      ...(addr
+        ? flatAddressFromStructured(addr)
+        : { addressLine1: "", addressLine2: "", city: "", region: "", postalCode: "" }),
     }))
   }, [])
 
