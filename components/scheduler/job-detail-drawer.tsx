@@ -147,10 +147,20 @@ export function JobDetailDrawer({
   const onDeletedRef = useRef(onDeleted)
   onDeletedRef.current = onDeleted
 
-  /** Fresh Neon row for Active Job — wins over stale SWR pool/bootstrap cache. */
-  const [hydratedEvent, setHydratedEvent] = useState<SchedulerEvent | null>(null)
+  /**
+   * Fresh Neon row for Active Job — wins over stale SWR pool/bootstrap cache.
+   *
+   * Tagged with the job it was fetched for. Nothing reachable today retargets an
+   * open drawer at a second job — the slide sheet's scrim closes it before a
+   * board click lands, and the ?focus= path clears this first — but the row wins
+   * over `listSource`, so an untagged one would render as the new job's details
+   * and `handleSave` would PATCH them onto the new job's id. The tag makes that
+   * impossible rather than merely unreachable.
+   */
+  const [hydrated, setHydrated] = useState<{ jobId: string; event: SchedulerEvent } | null>(null)
   const [hydrating, setHydrating] = useState(false)
 
+  const hydratedEvent = hydrated != null && hydrated.jobId === jobId ? hydrated.event : null
   const source = hydratedEvent ?? listSource
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -222,7 +232,7 @@ export function JobDetailDrawer({
 
   useEffect(() => {
     if (!open || !jobId) {
-      setHydratedEvent(null)
+      setHydrated(null)
       setHydrating(false)
       return
     }
@@ -241,7 +251,7 @@ export function JobDetailDrawer({
       })
       .then((event) => {
         if (cancelled || !event) return
-        setHydratedEvent(event)
+        setHydrated({ jobId, event })
       })
       .catch(() => {})
       .finally(() => {
@@ -500,7 +510,7 @@ export function JobDetailDrawer({
   const canSave = customerName.trim().length > 0 && customerPhone.trim().length > 0
 
   const applySavedEvent = useCallback((event: SchedulerEvent) => {
-    setHydratedEvent(event)
+    setHydrated({ jobId: event.id, event })
     setLocalJobStatus(event.job_status ?? null)
     setCustomerName(event.customer_name ?? "")
     setCustomerPhone(event.customer_phone ?? "")
@@ -1032,7 +1042,7 @@ export function JobDetailDrawer({
                 .then(async (res) => {
                   if (!res.ok) return
                   const json = (await res.json()) as { data?: SchedulerEvent }
-                  if (json.data) setHydratedEvent(json.data)
+                  if (json.data) setHydrated({ jobId: json.data.id, event: json.data })
                 })
                 .catch(() => {})
             }
