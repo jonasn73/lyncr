@@ -18,19 +18,16 @@ import {
 import type { CallLog, ReceptionistLedgerRow, ReceptionistLiveStatus, ReceptionistPortalDashboard } from "@/lib/types"
 
 import { envFlagOn } from "@/lib/lyncr-env"
+import { zonedDayRangeIso } from "@/lib/zoned-day"
 
 /** Mirror of readInboundCallControlEnabled — kept local to avoid pulling the voice webhook module into portal. */
 function isCallControlInboundEnabled(): boolean {
   return envFlagOn("INBOUND_CALL_CONTROL")
 }
 
-function startOfUtcDayIso(date = new Date()): string {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).toISOString()
-}
-
-function startOfNextUtcDayIso(date = new Date()): string {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)).toISOString()
-}
+// "Today" used to start at UTC midnight, which is 8pm Eastern — an evening shift watched
+// its own earnings reset before the shift ended. Day bounds now come from the operator's
+// timezone via zonedDayRangeIso.
 
 function ledgerRowFromCall(call: CallLog, businessName: string, payConfig: ReturnType<typeof receptionistPayConfig>): ReceptionistLedgerRow {
   const duration_seconds = resolveReceptionistLegDurationSeconds(call)
@@ -97,11 +94,11 @@ async function buildLiveStatus(ctx: ReceptionistPortalContext): Promise<Receptio
 
 /** Full receptionist portal payload for the dashboard page. */
 export async function buildReceptionistPortalDashboard(
-  ctx: ReceptionistPortalContext
+  ctx: ReceptionistPortalContext,
+  options?: { timezone?: string | null }
 ): Promise<ReceptionistPortalDashboard> {
   const billing_cycle = await getBillingCycleWindowForUser(ctx.owner_user_id)
-  const todayStart = startOfUtcDayIso()
-  const todayEnd = startOfNextUtcDayIso()
+  const { start: todayStart, end: todayEnd } = zonedDayRangeIso(options?.timezone)
 
   const [today_earnings, pay_period_earnings, periodAggregate, ledgerCalls, recentCalls, live_status] =
     await Promise.all([
