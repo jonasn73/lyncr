@@ -1585,6 +1585,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
           holidayGreetingText: null,
         })
       ),
+      // Without this the busy greeting lookup threw, startBusyAutomationFlow
+      // swallowed it, and this test passed over a path it never exercised.
+      resolvePresenceAutomationGreeting: vi.fn(() =>
+        "We are with another customer. Press 1 for a text, or stay on the line."
+      ),
     }))
     vi.doMock("@/lib/call-queue-db", () => ({
       upsertCallQueueBusyMenu: vi.fn(() => Promise.resolve(null)),
