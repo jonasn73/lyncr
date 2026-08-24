@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
+import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
@@ -130,6 +131,134 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
         </p>
       </div>
     </div>
+  )
+}
+
+/** True when the call landed on the operator's own calendar day, not UTC's. */
+function isSameLocalDay(iso: string, now: Date): boolean {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
+/** Shift totals — what she has done today, not what the business has billed all period. */
+function TodayBand({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
+  const now = new Date()
+  const rows = dashboard.recent_calls ?? []
+  const today = rows.filter((row) => isSameLocalDay(row.created_at, now))
+  const answered = today.filter((row) => row.duration_seconds > 0).length
+  const talkSeconds = today.reduce((sum, row) => sum + (row.duration_seconds || 0), 0)
+
+  const tiles = [
+    { label: "Calls today", value: String(today.length), hint: answered === today.length ? "All answered" : `${answered} answered` },
+    { label: "Earned today", value: formatUsd(dashboard.metrics.today_earnings), hint: "Since midnight, your time" },
+    { label: "Talk time", value: formatDuration(talkSeconds), hint: "Across today's calls" },
+  ]
+
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      {tiles.map((tile) => (
+        <div
+          key={tile.label}
+          className="rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            {tile.label}
+          </p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
+            {tile.value}
+          </p>
+          <p className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">{tile.hint}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The people who called, with what CRM knows about them and a way to reach them back.
+ *
+ * This is the working surface of the console. It matters most on a CELL setup, where the
+ * browser screen-pop never opens and this is the only place the caller's identity appears.
+ */
+function RecentCallerList({
+  rows,
+  businessName,
+}: {
+  rows: ReceptionistLedgerRow[]
+  businessName: string
+}) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const recent = rows.slice(0, 6)
+
+  if (recent.length === 0) {
+    return (
+      <p className="px-4 py-8 text-center text-sm text-zinc-500">
+        No calls yet. When one is routed to you it lands here, with whatever the business
+        already knows about the caller.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="divide-y divide-border/40">
+      {recent.map((row) => {
+        const dialable = row.from_number.replace(/[^\d+]/g, "")
+        const open = openId === row.id
+        return (
+          <li key={row.id} className="px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {row.caller_name?.trim() || formatPhoneDisplay(row.from_number)}
+                </p>
+                <p className="mt-0.5 text-xs tabular-nums text-zinc-500">
+                  {row.caller_name?.trim() ? `${formatPhoneDisplay(row.from_number)} · ` : ""}
+                  {formatTimestamp(row.created_at)} · {formatDuration(row.duration_seconds)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <a
+                  href={`tel:${dialable}`}
+                  className="rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                >
+                  Call back
+                </a>
+                <a
+                  href={`sms:${dialable}`}
+                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                >
+                  Text
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : row.id)}
+                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                >
+                  {open ? "Close" : "Notes"}
+                </button>
+              </div>
+            </div>
+            {open ? (
+              <div className="mt-3">
+                <ReceptionistSimpleIntake
+                  callLogId={row.id}
+                  callerNumber={row.from_number}
+                  initialCallerName={row.caller_name}
+                  businessName={businessName}
+                  onSaved={() => setOpenId(null)}
+                  onCancel={() => setOpenId(null)}
+                />
+              </div>
+            ) : null}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -425,10 +554,21 @@ export function ReceptionistPortalView() {
           {/* Compact live strip (hidden while live intake is open) */}
           {!activeCall ? <LiveStatusStrip dashboard={dashboard} /> : null}
 
-          {/* Desktop tip only — non-actionable on phones */}
-          <p className="hidden text-center text-xs text-zinc-600 md:block">
-            Calls &amp; earnings are in their own tabs — use the menu above (or bottom bar on phones).
-          </p>
+          {/* What this shift has actually done — the console used to show nothing here. */}
+          <TodayBand dashboard={dashboard} />
+
+          {/* Who called, who they are, and how to reach them back. On a CELL setup this is
+              the only place the caller's identity appears — the browser screen-pop never
+              opens, so putting it behind that card would have hidden it entirely. */}
+          <WorkspacePanel className="overflow-hidden shadow-none ring-0">
+            <div className="flex items-baseline justify-between gap-3 border-b border-border/50 px-4 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Recent callers</h2>
+              <Link href="/receptionist/calls" className="text-xs font-medium text-primary hover:underline">
+                See all
+              </Link>
+            </div>
+            <RecentCallerList rows={callRows} businessName={dashboard.business_name} />
+          </WorkspacePanel>
         </>
       ) : null}
 
