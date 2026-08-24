@@ -2,8 +2,7 @@
  * Run the lyncr Postgres schema (creates tables).
  * Loads DATABASE_URL from .env.local and runs scripts/001-create-schema.sql
  *
- * Usage: node scripts/run-schema.mjs
- * Or:    pnpm db:schema
+ * Usage: npm run db:schema  (or: node scripts/run-schema.mjs)
  */
 
 import { readFileSync } from "fs"

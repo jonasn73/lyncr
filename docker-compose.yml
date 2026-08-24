@@ -1,6 +1,6 @@
 # lyncr - Local Postgres (no signup required)
 # Run: docker compose up -d
-# Then: pnpm db:schema
+# Then: npm run db:schema
 
 services:
   postgres:
