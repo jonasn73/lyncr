@@ -11,6 +11,7 @@ import type { ReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import {
   getActiveCallLogForReceptionist,
   getBillingCycleWindowForUser,
+  getCustomerNamesByPhonesForUser,
   getReceptionistTalkAggregate,
   getUser,
   listCallLogsForReceptionist,
@@ -72,6 +73,34 @@ async function earningsForRange(
   })
 }
 
+/** Last 10 digits — call logs and CRM disagree on +1 and formatting. */
+function phoneMatchKey(value: string | null | undefined): string {
+  const digits = String(value ?? "").replace(/\D/g, "")
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
+
+/** Fill `caller_name` from CRM on rows the carrier left anonymous. Mutates in place. */
+async function attachCustomerNames(
+  ownerUserId: string,
+  rows: ReceptionistLedgerRow[]
+): Promise<void> {
+  const unnamed = rows.filter((row) => !row.caller_name?.trim())
+  if (unnamed.length === 0) return
+  try {
+    const names = await getCustomerNamesByPhonesForUser(
+      ownerUserId,
+      unnamed.map((row) => row.from_number ?? "")
+    )
+    if (names.size === 0) return
+    for (const row of unnamed) {
+      const name = names.get(phoneMatchKey(row.from_number))
+      if (name) row.caller_name = name
+    }
+  } catch {
+    // A name is a nicety — never fail the whole dashboard over it.
+  }
+}
+
 async function buildLiveStatus(ctx: ReceptionistPortalContext): Promise<ReceptionistLiveStatus> {
   const active = await getActiveCallLogForReceptionist(ctx.receptionist.id)
   if (active && (active.answered_at || /answered|in-progress/i.test(active.status))) {
@@ -118,6 +147,10 @@ export async function buildReceptionistPortalDashboard(
   const payConfig = receptionistPayConfig(ctx.receptionist)
   const ledger = ledgerCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
   const recent_calls = recentCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
+
+  // The Calls tab showed bare phone numbers even for customers already on file. Fill in the
+  // names CRM knows, without overwriting a name the carrier actually supplied.
+  await attachCustomerNames(ctx.owner_user_id, [...ledger, ...recent_calls])
 
   return {
     receptionist: {
