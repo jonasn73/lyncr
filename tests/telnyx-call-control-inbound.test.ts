@@ -185,6 +185,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
   it("speak.ended dials outbound leg via POST /v2/calls with link_to", async () => {
     vi.doMock("@/lib/db", () => ({
+      // The leg map persists the outbound leg and reads it back. Without these two
+      // the persist threw and rememberOutboundDialLeg only ever swallowed it, so the
+      // Neon side of the leg map was never exercised by these tests.
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
           user_id: "u1",
@@ -826,6 +831,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     })
 
     vi.doMock("@/lib/db", () => ({
+      // The leg map persists the outbound leg and reads it back. Without these two
+      // the persist threw and rememberOutboundDialLeg only ever swallowed it, so the
+      // Neon side of the leg map was never exercised by these tests.
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
           user_id: "u1",
@@ -892,6 +902,11 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
 
   it("speak.ended still dials when client_state phase was overwritten to await_caller_answered", async () => {
     vi.doMock("@/lib/db", () => ({
+      // The leg map persists the outbound leg and reads it back. Without these two
+      // the persist threw and rememberOutboundDialLeg only ever swallowed it, so the
+      // Neon side of the leg map was never exercised by these tests.
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
           user_id: "u1",

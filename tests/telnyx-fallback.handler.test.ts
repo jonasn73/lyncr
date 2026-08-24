@@ -33,6 +33,11 @@ vi.mock("@/lib/db", () => {
     },
     updateCallLog: vi.fn(() => Promise.resolve()),
     ensureCallLogForInboundLeg: vi.fn(() => Promise.resolve()),
+    // These tests have no call_logs row, so null is the honest answer. Before
+    // this the lookup threw instead and the telemetry broadcast logged a
+    // failure that read like a real one.
+    getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+    getCallLogUserIdByProviderSid: vi.fn(() => Promise.resolve(null)),
     normalizePhoneNumberE164,
     markTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve()),
     isTelnyxInboundDialCallerLegDone: vi.fn(() => Promise.resolve(false)),
