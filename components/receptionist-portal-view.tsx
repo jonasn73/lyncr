@@ -150,8 +150,8 @@ function CallRows({
 
   return (
     <WorkspaceTableWrap>
-      <table className="w-full text-sm">
-        <thead>
+      {/* No <table> here — WorkspaceTableWrap renders it. Nesting one trips hydration. */}
+      <thead>
           <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-zinc-500">
             <WorkspaceTh>When</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
@@ -196,8 +196,7 @@ function CallRows({
               )}
             </tr>
           ))}
-        </tbody>
-      </table>
+      </tbody>
     </WorkspaceTableWrap>
   )
 }
