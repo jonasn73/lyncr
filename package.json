@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:schema": "node scripts/run-schema.mjs",
     "audit:vehicle-keys": "npx tsx scripts/audit-vehicle-key-coverage.ts",
     "build:fcc-cache": "npx tsx scripts/build-fcc-remote-cache.ts",
     "mirror:fcc-images": "npx tsx scripts/mirror-fcc-key-images.ts",

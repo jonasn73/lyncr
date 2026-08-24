@@ -4,11 +4,12 @@
 
 ### 1. Install Dependencies
 ```bash
-pnpm install
-pnpm add telnyx @neondatabase/serverless ai @ai-sdk/openai
-# OR for Supabase:
-pnpm add telnyx @supabase/supabase-js ai @ai-sdk/openai
+npm install
 ```
+
+That is the whole step. telnyx, @neondatabase/serverless and ai are already
+dependencies in package.json, so there is nothing to add by hand. The Supabase
+alternative this used to list is gone -- the app talks to Neon Postgres only.
 
 ### 2. Create Database
 Run `scripts/001-create-schema.sql` against your Postgres database (Supabase SQL editor or Neon console).
