@@ -19,8 +19,8 @@ import { DashboardPage } from "@/components/dashboard-page"
 import { prefetchOperationsData } from "@/lib/hooks/use-operations-data"
 import {
   initialPresencePaneMounted,
+  rendersSsrActiveSlot,
   shouldMountPresencePane,
-  shouldUseSsrActiveSlot,
 } from "@/lib/dashboard-presence-ssr"
 import { useFlickerDebugLifecycle } from "@/lib/debug/flicker-debug"
 import { cn } from "@/lib/utils"
@@ -160,6 +160,11 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
   // Freeze the page element descriptor so navigation does not replace Activity with CRM children.
   const ssrSlotRef = useRef(ssrActiveSlot)
 
+  // Once we navigate off the SSR'd URL the routed slot holds the new page, so every pane
+  // renders its own component instead. See rendersSsrActiveSlot for why.
+  const rendersSsrSlot = (paneId: string): boolean =>
+    rendersSsrActiveSlot(ssrPage, activePage, paneId)
+
   useFlickerDebugLifecycle("DashboardPresenceHost", {
     activePage,
     ssrPage,
@@ -210,7 +215,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         <RoutingPane />
       </PresencePane>
       <PresencePane active={activePage === "activity"} label="Activities" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "activity") ? (
+        {rendersSsrSlot("activity") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "activity")
         ) : (
           <Suspense fallback={null}>
@@ -219,21 +224,21 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         )}
       </PresencePane>
       <PresencePane active={activePage === "messages"} label="Messages" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "messages") ? (
+        {rendersSsrSlot("messages") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "messages")
         ) : (
           <MessagesWorkspaceView isActive={activePage === "messages"} />
         )}
       </PresencePane>
       <PresencePane active={activePage === "scheduler"} label="Scheduler" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "scheduler") ? (
+        {rendersSsrSlot("scheduler") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "scheduler")
         ) : (
           <SchedulerWorkspaceView isActive={activePage === "scheduler"} />
         )}
       </PresencePane>
       <PresencePane active={activePage === "customers"} label="CRM" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "customers") ? (
+        {rendersSsrSlot("customers") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "customers")
         ) : (
           <Suspense fallback={null}>
@@ -242,7 +247,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         )}
       </PresencePane>
       <PresencePane active={activePage === "contacts"} label="Map" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "contacts") ? (
+        {rendersSsrSlot("contacts") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "contacts")
         ) : (
           <Suspense fallback={null}>
@@ -251,7 +256,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         )}
       </PresencePane>
       <PresencePane active={activePage === "pay"} label="Pay" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "pay") ? (
+        {rendersSsrSlot("pay") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "pay")
         ) : (
           <Suspense fallback={null}>
@@ -260,7 +265,7 @@ export const DashboardPresenceHost = memo(function DashboardPresenceHost({
         )}
       </PresencePane>
       <PresencePane active={activePage === "settings"} label="Settings" deferUntilVisit>
-        {shouldUseSsrActiveSlot(ssrPage, "settings") ? (
+        {rendersSsrSlot("settings") ? (
           renderSsrActivePane(ssrSlotRef.current, activePage === "settings")
         ) : (
           <Suspense fallback={null}>

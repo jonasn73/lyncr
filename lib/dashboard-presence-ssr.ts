@@ -54,6 +54,27 @@ export function shouldUseSsrActiveSlot(ssrPage: string, paneId: string): boolean
 }
 
 /**
+ * Whether a pane should render the routed slot right now.
+ *
+ * Freezing the slot's element descriptor does not freeze what the App Router streams
+ * through it — that outlet always renders the CURRENT route's page. So the slot only holds
+ * the pane's own view while we are still on the URL that was SSR'd; after a client tab
+ * click it holds the new page, which would then render inside the old page's pane.
+ *
+ * Scheduler → Map hit exactly that: the hidden Scheduler pane ended up holding a second
+ * live Dispatch Map, so two Leaflet instances ran at once — double tiles, timers, markers,
+ * and GPS polling, plus a visible flash as the second initialised.
+ */
+export function rendersSsrActiveSlot(
+  ssrPage: string,
+  activePage: string,
+  paneId: string
+): boolean {
+  if (activePage !== ssrPage) return false
+  return shouldUseSsrActiveSlot(ssrPage, paneId)
+}
+
+/**
  * First-paint mount flag for a presence pane.
  * Active tab always mounts (hard refresh must paint it). Deferred inactive
  * tabs stay unmounted until the owner opens them once.
