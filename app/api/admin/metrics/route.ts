@@ -5,6 +5,7 @@ import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { getLyncrAdminMetrics, pingNeonDatabase } from "@/lib/db"
 import { fetchTelnyxRoutingPoolForAdmin } from "@/lib/admin-telnyx-routing-pool"
 import { pingTelnyxApi } from "@/lib/telnyx"
+import { shouldEnableSentry } from "@/lib/sentry-config"
 import type { LyncrAdminMetrics } from "@/lib/types"
 
 export async function GET(req: NextRequest) {
@@ -23,6 +24,10 @@ export async function GET(req: NextRequest) {
       health: {
         neon: neonOk ? "ok" : "error",
         telnyx: telnyxStatus,
+        // Read on the server, so this reflects the deployment's own env rather
+        // than anything a client can see. Amber here means nothing is being
+        // reported: no DSN resolved, or not a production build.
+        sentry: shouldEnableSentry() ? "ok" : "unconfigured",
       },
     }
     return NextResponse.json({ data })

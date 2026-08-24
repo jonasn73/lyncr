@@ -9,6 +9,7 @@ import {
   Loader2,
   MoreVertical,
   Phone,
+  ShieldAlert,
   RefreshCw,
   Search,
 } from "lucide-react"
@@ -858,6 +859,10 @@ export function LyncrAdminDashboard({
             <span className="inline-flex items-center gap-1.5">
               <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
               <HealthDot status={metrics.health.telnyx} />
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Sentry
+              <HealthDot status={metrics.health.sentry} />
             </span>
           </div>
           ) : null}

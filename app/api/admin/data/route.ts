@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { getLyncrAdminMetrics, listLyncrAdminDirectory, pingNeonDatabase } from "@/lib/db"
+import { shouldEnableSentry } from "@/lib/sentry-config"
 import { fetchTelnyxRoutingPoolForAdmin } from "@/lib/admin-telnyx-routing-pool"
 import { buildPlatformFinanceSnapshot } from "@/lib/admin-platform-finance"
 import {
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
       health: {
         neon: neonOk ? "ok" : "error",
         telnyx: telnyxStatus,
+        sentry: shouldEnableSentry() ? "ok" : "unconfigured",
       },
       finance,
     }
