@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import {
   listCustomersForUser,
   upsertCustomerForUser,
@@ -35,8 +36,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // Receptionist intake saves the caller as a customer of the business she answers for.
+  const actor = await resolveIntakeWriteActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
   let body: Record<string, unknown>
   try {
     body = (await req.json()) as Record<string, unknown>
