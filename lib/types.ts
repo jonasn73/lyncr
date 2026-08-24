@@ -820,6 +820,8 @@ export interface LyncrAdminMetrics {
   health: {
     neon: LyncrAdminHealthStatus
     telnyx: LyncrAdminHealthStatus
+    /** Whether crash reporting is actually sending. "unconfigured" = no DSN. */
+    sentry: LyncrAdminHealthStatus
   }
   /** Platform money snapshot for Ops Home (SaaS + card fees + balances). */
   finance?: {
