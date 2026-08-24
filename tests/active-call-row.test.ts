@@ -34,6 +34,9 @@ describe("sameCallRow", () => {
   })
 
   it("does not confuse null with undefined", () => {
-    expect(sameCallRow(BASE, { ...BASE, caller_name: undefined })).toBe(false)
+    // Deliberately off-type: caller_name is string | null, and the point of the
+    // case is that an undefined slipping in is not treated as the null.
+    const withUndefined = { ...BASE, caller_name: undefined } as unknown as ActiveCallRow
+    expect(sameCallRow(BASE, withUndefined)).toBe(false)
   })
 })
