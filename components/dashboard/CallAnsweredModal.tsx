@@ -64,6 +64,7 @@ import {
   serviceNeedsJobTypeStep,
 } from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
+import { sameCallRow } from "@/lib/active-call-row"
 import {
   formatQuoteDollars,
   SERVICE_QUOTE_TYPES,
@@ -966,7 +967,7 @@ function showCallRow(
   setCurrent((prev) => {
     if (prev && dismissed.has(prev.id)) return null
     if (prev?.id === row.id) {
-      return {
+      const merged = {
         ...prev,
         ...row,
         answered_at: row.answered_at ?? prev.answered_at,
@@ -975,6 +976,10 @@ function showCallRow(
         recording_url: row.recording_url ?? prev.recording_url,
         manualCallStatus: row.manualCallStatus ?? prev.manualCallStatus,
       }
+      // The answered-call poll re-sends the same nine fields every few seconds.
+      // Handing back a fresh object for an unchanged call re-ran every effect and
+      // memo keyed on this row for nothing. A real change still changes identity.
+      return sameCallRow(prev, merged) ? prev : merged
     }
     return row
   })
