@@ -26,32 +26,57 @@ export type ReceptionistPayInput = {
   isAnswered: boolean
 }
 
-/** Status values that count as a completed / answered receptionist leg. */
+/**
+ * Statuses a picked-up leg can carry.
+ *
+ * Never sufficient on their own. "completed" is the carrier's word for *the call ended*,
+ * which is true of every call that rings out, hits the hold menu, or goes to voicemail.
+ * Pay requires answered_at as well — see isAnsweredReceptionistCall.
+ */
 const ANSWERED_RECEPTIONIST_STATUSES = new Set([
   "answered",
   "completed",
   "in-progress",
 ])
 
-/** True when a call log status should earn receptionist pay. */
-export function isAnsweredReceptionistCall(status: string): boolean {
-  return ANSWERED_RECEPTIONIST_STATUSES.has(String(status ?? "").trim().toLowerCase())
+/**
+ * Shortest pickup that earns anything.
+ *
+ * An answer-and-immediately-hang-up is a dropped call, not a conversation, and under
+ * FLAT_RATE it would otherwise pay the same as a real one.
+ */
+export const MIN_BILLABLE_TALK_SECONDS = 20
+
+/**
+ * True when a leg should earn receptionist pay.
+ *
+ * Requires an actual pickup. The old version took only the status, so any call reaching
+ * the carrier's terminal state paid out: at Key Squad 502's volume that counted 401 of
+ * 403 calls as payable when 208 had been answered.
+ */
+export function isAnsweredReceptionistCall(
+  call: Pick<CallLog, "status" | "answered_at">
+): boolean {
+  if (!call?.answered_at) return false
+  return ANSWERED_RECEPTIONIST_STATUSES.has(String(call.status ?? "").trim().toLowerCase())
 }
 
 /**
- * Resolve talk seconds for a receptionist leg.
- * Prefers (ended_at - answered_at), then falls back to duration_seconds.
+ * Talk seconds for a receptionist leg — answered_at → ended_at, and nothing else.
+ *
+ * There is deliberately no duration_seconds fallback. That column is the whole call
+ * including ring and hold time, so falling back to it billed a caller's wait as though
+ * someone had been talking to them.
  */
 export function resolveReceptionistLegDurationSeconds(
   call: Pick<CallLog, "answered_at" | "ended_at" | "duration_seconds">
 ): number {
   const answeredAt = call.answered_at ? Date.parse(call.answered_at) : NaN
   const endedAt = call.ended_at ? Date.parse(call.ended_at) : NaN
-  if (Number.isFinite(answeredAt) && Number.isFinite(endedAt) && endedAt >= answeredAt) {
-    return Math.max(0, Math.round((endedAt - answeredAt) / 1000))
+  if (!Number.isFinite(answeredAt) || !Number.isFinite(endedAt) || endedAt < answeredAt) {
+    return 0
   }
-  const fallback = Number(call.duration_seconds ?? 0)
-  return Number.isFinite(fallback) && fallback > 0 ? Math.floor(fallback) : 0
+  return Math.max(0, Math.round((endedAt - answeredAt) / 1000))
 }
 
 /** SQL expression (alias `cl`) matching resolveReceptionistLegDurationSeconds in Postgres. */
@@ -61,14 +86,17 @@ export const RECEPTIONIST_LEG_DURATION_SQL = `
       WHEN cl.answered_at IS NOT NULL AND cl.ended_at IS NOT NULL
         THEN EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
     END,
-    cl.duration_seconds,
     0
   ))
 `
 
-/** SQL filter (alias `cl`) for answered receptionist legs eligible for pay. */
+/**
+ * SQL filter (alias `cl`) for legs eligible for pay.
+ * Mirrors isAnsweredReceptionistCall — keep the two in step.
+ */
 export const ANSWERED_RECEPTIONIST_STATUS_SQL = `
-  lower(cl.status) IN ('answered', 'completed', 'in-progress')
+  cl.answered_at IS NOT NULL
+  AND lower(cl.status) IN ('answered', 'completed', 'in-progress')
 `
 
 /**
@@ -78,6 +106,9 @@ export const ANSWERED_RECEPTIONIST_STATUS_SQL = `
  */
 export function calculateReceptionistPay(input: ReceptionistPayInput): number {
   if (!input.isAnswered) return 0
+  // A pickup that ends immediately is a dropped call, not a conversation. Without this a
+  // 2-second answer would earn a full flat rate.
+  if (input.durationInSeconds < MIN_BILLABLE_TALK_SECONDS) return 0
 
   if (input.payMode === "FLAT_RATE") {
     const flat = input.flatRateUsd ?? RECEPTIONIST_PAY_DEFAULTS.flat_rate_usd
