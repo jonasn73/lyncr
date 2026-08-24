@@ -6,9 +6,19 @@
 // sheet of hours, service rules, and the owner's live dispatch notes.
 
 import { useEffect, useState } from "react"
-import { Clock, ClipboardList, Loader2, Megaphone, PhoneCall, PhoneOff } from "lucide-react"
+import {
+  Clock,
+  ClipboardList,
+  FileText,
+  Loader2,
+  Megaphone,
+  PhoneCall,
+  PhoneOff,
+  Repeat,
+  UserRound,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { CompanyBriefing } from "@/lib/types"
+import type { CompanyBriefing, ReceptionistCallerLookup } from "@/lib/types"
 
 function formatPhoneDisplay(phone: string | null): string {
   if (!phone) return "Unknown caller"
@@ -17,6 +27,121 @@ function formatPhoneDisplay(phone: string | null): string {
   if (digits.length === 11 && digits.startsWith("1"))
     return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
   return phone
+}
+
+/** Tone classes for the CRM job-status label, matching the owner-side CRM list rows. */
+const STATUS_TONE: Record<string, string> = {
+  neutral: "border-zinc-600/50 bg-zinc-700/30 text-zinc-200",
+  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+  emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
+  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
+  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
+}
+
+function formatUsdFromCents(cents: number): string {
+  return `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+}
+
+/**
+ * Who is on the line. Renders while the phone is still ringing — the whole point is that
+ * the operator knows the caller before speaking, not after.
+ */
+function CallerIdentityStrip({
+  caller,
+  callerNumber,
+  callerName,
+}: {
+  caller: ReceptionistCallerLookup | null
+  callerNumber: string | null
+  /** Carrier-supplied name, used only when CRM has no record of its own. */
+  callerName: string | null
+}) {
+  const known = Boolean(caller?.found)
+  const name = caller?.display_name?.trim() || callerName?.trim() || null
+  const place = [caller?.city, caller?.region].filter(Boolean).join(", ")
+
+  const facts: { icon: React.ReactNode; text: string }[] = []
+  if (known && caller) {
+    if (caller.jobs_completed > 0) {
+      facts.push({
+        icon: <Repeat className="h-3 w-3" aria-hidden />,
+        text:
+          caller.jobs_completed === 1
+            ? "1 job completed"
+            : `${caller.jobs_completed} jobs completed`,
+      })
+    }
+    if (caller.lifetime_revenue_cents > 0) {
+      facts.push({
+        icon: <span aria-hidden>$</span>,
+        text: `${formatUsdFromCents(caller.lifetime_revenue_cents)} lifetime`,
+      })
+    }
+    if (caller.has_open_book_form) {
+      facts.push({
+        icon: <FileText className="h-3 w-3" aria-hidden />,
+        text: "Book form waiting on a call",
+      })
+    } else if (caller.open_lead_count > 0) {
+      facts.push({
+        icon: <FileText className="h-3 w-3" aria-hidden />,
+        text:
+          caller.open_lead_count === 1
+            ? "1 open lead"
+            : `${caller.open_lead_count} open leads`,
+      })
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        "mt-3 rounded-xl border px-4 py-3",
+        known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-zinc-700 bg-zinc-800/40"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <UserRound className="h-3.5 w-3.5" aria-hidden />
+          {known ? "Returning customer" : "Caller"}
+        </span>
+        <span className="text-base font-semibold text-foreground">
+          {name || (caller === null ? "Looking up…" : "New caller")}
+        </span>
+        <span className="text-xs tabular-nums text-zinc-400">
+          {formatPhoneDisplay(callerNumber)}
+        </span>
+        {place ? <span className="text-xs text-zinc-500">{place}</span> : null}
+        {caller?.job_status_label ? (
+          <span
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              STATUS_TONE[caller.job_status_tone ?? "neutral"] ?? STATUS_TONE.neutral
+            )}
+          >
+            {caller.job_status_label}
+          </span>
+        ) : null}
+      </div>
+
+      {facts.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
+          {facts.map((fact) => (
+            <span key={fact.text} className="inline-flex items-center gap-1.5">
+              {fact.icon}
+              {fact.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {caller !== null && !known ? (
+        <p className="mt-1.5 text-xs text-zinc-500">
+          No record on file — take the details and they will be saved as a new customer.
+        </p>
+      ) : null}
+    </div>
+  )
 }
 
 function CheatSheetTile({
@@ -73,6 +198,7 @@ export function CompanyBriefingCard({
 }) {
   const [briefing, setBriefing] = useState<CompanyBriefing | null>(null)
   const [loading, setLoading] = useState(true)
+  const [caller, setCaller] = useState<ReceptionistCallerLookup | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +219,28 @@ export function CompanyBriefingCard({
       cancelled = true
     }
   }, [lookupNumber])
+
+  // Who is calling — fetched separately from the company briefing so a slow CRM lookup
+  // never delays "ANSWER AS", and a failed one never blocks the Answer button.
+  useEffect(() => {
+    let cancelled = false
+    setCaller(null)
+    if (!callerNumber?.trim()) return
+    fetch(`/api/receptionist/caller?number=${encodeURIComponent(callerNumber)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("caller"))))
+      .then((j: { data?: ReceptionistCallerLookup }) => {
+        if (!cancelled) setCaller(j.data ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setCaller(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [callerNumber])
 
   const ringing = status === "ringing"
   const businessName = briefing?.business_name?.trim() || fallbackBusinessName?.trim() || "this business"
@@ -137,6 +285,8 @@ export function CompanyBriefingCard({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
             <p className="mt-1 text-sm leading-relaxed text-zinc-100">&ldquo;{script}&rdquo;</p>
           </div>
+
+          <CallerIdentityStrip caller={caller} callerNumber={callerNumber} callerName={callerName} />
         </div>
 
         {/* Phone controls */}

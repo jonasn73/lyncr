@@ -1015,6 +1015,33 @@ export interface ReceptionistPortalDashboard {
 }
 
 /**
+ * Who is on the line, for the receptionist screen-pop.
+ *
+ * A receptionist previously answered every call cold — the console showed a bare phone
+ * number even when that caller already existed in CRM with a quoted job. This is the
+ * subset of the CRM row worth reading out loud in the two seconds before saying hello.
+ */
+export interface ReceptionistCallerLookup {
+  found: boolean
+  /** Null for a caller with no CRM record — the UI says "New caller" rather than guessing. */
+  customer_id: string | null
+  display_name: string | null
+  phone_e164: string | null
+  city: string | null
+  region: string | null
+  /** Completed jobs on file, so "you've been out to them twice" is answerable. */
+  jobs_completed: number
+  lifetime_revenue_cents: number
+  /** Open leads not yet booked — the reason this call may be a follow-up. */
+  open_lead_count: number
+  /** True when they submitted a book form that still needs a call back. */
+  has_open_book_form: boolean
+  /** Latest job/lead status, e.g. "Price quoted" or "Booked · Aug 9, 2:00 PM". */
+  job_status_label: string | null
+  job_status_tone: "neutral" | "amber" | "emerald" | "rose" | "sky" | null
+}
+
+/**
  * Company attributes shown on the receptionist web-phone screen-pop so an operator can answer
  * "as" the business being called. `business_instructions` mirrors onboarding_profiles.routing_instructions.
  */

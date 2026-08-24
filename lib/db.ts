@@ -5229,6 +5229,48 @@ export async function getCustomerByPhoneForUser(userId: string, phoneE164: strin
   return row ? parseCustomerRow(row) : null
 }
 
+/**
+ * Display names for a set of caller numbers, keyed by the last 10 digits.
+ *
+ * Call logs store the carrier's number and CRM stores a normalised one, so matching on the
+ * last 10 digits is what actually lines them up. One query rather than one per row — a call
+ * list is mostly repeat callers.
+ */
+export async function getCustomerNamesByPhonesForUser(
+  userId: string,
+  phones: string[]
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>()
+  const keys = Array.from(
+    new Set(
+      phones
+        .map((p) => String(p ?? "").replace(/\D/g, ""))
+        .map((d) => (d.length > 10 ? d.slice(-10) : d))
+        .filter((d) => d.length === 10)
+    )
+  )
+  if (keys.length === 0) return names
+
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT display_name, right(regexp_replace(phone_e164, '\\D', '', 'g'), 10) AS key
+      FROM customers
+      WHERE user_id = ${userId}
+        AND right(regexp_replace(phone_e164, '\\D', '', 'g'), 10) = ANY(${keys})
+    `
+    for (const row of rows as Record<string, unknown>[]) {
+      const key = String(row.key ?? "")
+      const name = String(row.display_name ?? "").trim()
+      if (key && name) names.set(key, name)
+    }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return names
+    throw e
+  }
+  return names
+}
+
 /** Attach an ai_leads row to a customers profile (CRM list + history join). */
 export async function linkAiLeadToCustomerForUser(
   userId: string,
