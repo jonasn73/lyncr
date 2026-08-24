@@ -1172,6 +1172,19 @@ export function DispatchLiveMap({
         aria-label="Operational dispatch map"
       >
         {mapCanvas}
+        {/*
+          The Map tab used to drop this. Without it a blocked GPS permission is
+          invisible: no You pin appears, distances quietly fall back to the shop
+          address, and nothing tells the operator why or how to fix it.
+          Overlaid rather than stacked so the canvas keeps its full height.
+        */}
+        {locationHint ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[500] flex justify-center px-3">
+            <div className="pointer-events-auto rounded-lg bg-slate-950/85 px-3 py-1.5 shadow-lg backdrop-blur">
+              {locationHint}
+            </div>
+          </div>
+        ) : null}
       </section>
     )
   }
