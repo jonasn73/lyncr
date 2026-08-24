@@ -3,7 +3,10 @@ import { withSentryConfig } from "@sentry/nextjs"
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors fail the build. tsc is clean and there is a guard now: an
+    // error in a test file reached production while this was true, because the
+    // build reports "Skipping validation of types" and never looked.
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,
