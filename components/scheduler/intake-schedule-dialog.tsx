@@ -73,13 +73,39 @@ export function IntakeScheduleDialog({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [datePickerOpen, setDatePickerOpen] = useState(false)
-  const [agendaEvents, setAgendaEvents] = useState<SchedulerEvent[]>(scheduledEvents)
-  const [agendaLoading, setAgendaLoading] = useState(false)
+  /**
+   * Events for a month the `scheduledEvents` prop does not cover, keyed by that
+   * month. Kept separate from the prop so a parent re-render cannot clobber it.
+   */
+  const [fetchedMonth, setFetchedMonth] = useState<{
+    monthKey: string
+    events: SchedulerEvent[]
+  } | null>(null)
 
   const assignableTechs = useMemo(
     () => technicians.filter((t) => t.is_active && t.portal_user_id),
     [technicians]
   )
+
+  const agendaMonthKey = useMemo(
+    () => scheduleMonthKeyFromDateKey(dateValue),
+    [dateValue]
+  )
+  // The prop already carries this month — no need to fetch or store anything.
+  const agendaMonthCovered = useMemo(
+    () =>
+      Boolean(agendaMonthKey) &&
+      scheduledEvents.some((ev) =>
+        dayKeyLocal(new Date(ev.scheduled_at)).startsWith(agendaMonthKey!)
+      ),
+    [scheduledEvents, agendaMonthKey]
+  )
+  const fetchedMonthMatches =
+    fetchedMonth != null && fetchedMonth.monthKey === agendaMonthKey
+  const agendaEvents =
+    !agendaMonthCovered && fetchedMonthMatches ? fetchedMonth!.events : scheduledEvents
+  const agendaLoading =
+    open && Boolean(agendaMonthKey) && !agendaMonthCovered && !fetchedMonthMatches
 
   const timeSlotOptions = useMemo(() => scheduleTimeSlotOptions(), [])
   const selectedDate = useMemo(() => parseScheduleDateKey(dateValue), [dateValue])
@@ -108,45 +134,32 @@ export function IntakeScheduleDialog({
     setDatePickerOpen(false)
   }, [open, job?.id])
 
+  // Fetch only the months the prop does not already cover. Nothing is written
+  // synchronously here, so a re-render cannot restart the agenda mid-flight.
   useEffect(() => {
-    setAgendaEvents(scheduledEvents)
-  }, [scheduledEvents])
-
-  useEffect(() => {
-    if (!open) return
-    const monthKey = scheduleMonthKeyFromDateKey(dateValue)
-    if (!monthKey) return
-
-    const monthCovered = scheduledEvents.some((ev) =>
-      dayKeyLocal(new Date(ev.scheduled_at)).startsWith(monthKey)
-    )
-    if (monthCovered) {
-      setAgendaEvents(scheduledEvents)
-      return
-    }
-
+    if (!agendaLoading || !agendaMonthKey) return
     let cancelled = false
-    setAgendaLoading(true)
     void fetch(
-      `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(monthKey)}${organizationQuery}`,
+      `/api/owner/scheduler/bootstrap?month=${encodeURIComponent(agendaMonthKey)}${organizationQuery}`,
       { credentials: "include", cache: "no-store" }
     )
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load"))))
       .then((j: { data?: { events?: SchedulerEvent[] } }) => {
         if (cancelled) return
-        setAgendaEvents(Array.isArray(j.data?.events) ? j.data!.events! : [])
+        setFetchedMonth({
+          monthKey: agendaMonthKey,
+          events: Array.isArray(j.data?.events) ? j.data!.events! : [],
+        })
       })
       .catch(() => {
-        if (!cancelled) setAgendaEvents([])
-      })
-      .finally(() => {
-        if (!cancelled) setAgendaLoading(false)
+        // Record the empty result so the agenda stops showing a spinner.
+        if (!cancelled) setFetchedMonth({ monthKey: agendaMonthKey, events: [] })
       })
 
     return () => {
       cancelled = true
     }
-  }, [open, dateValue, scheduledEvents, organizationQuery])
+  }, [agendaLoading, agendaMonthKey, organizationQuery])
 
   async function handleSchedule() {
     if (!job || !canSave) return

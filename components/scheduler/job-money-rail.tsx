@@ -67,7 +67,11 @@ export function JobMoneyRail({
   onComplete,
 }: JobMoneyRailProps) {
   const { toast } = useToast()
-  const [busy, setBusy] = useState<"deposit" | "refresh" | null>(null)
+  // Starts on "refresh" when there is a job: the rail loads its links on mount,
+  // so anything else would paint an idle button for one frame first.
+  const [busy, setBusy] = useState<"deposit" | "refresh" | null>(
+    jobId ? "refresh" : null
+  )
   const [links, setLinks] = useState<PayLinkRow[]>([])
   const [lastSentUrl, setLastSentUrl] = useState<string | null>(null)
   const [smsStaging, setSmsStaging] = useState<string | null>(null)
@@ -86,10 +90,10 @@ export function JobMoneyRail({
     (l) => l.paymentStatus === "unpaid" || l.paymentStatus === "unknown"
   )
 
-  const refreshLinks = useCallback(
-    async (sync = false) => {
+  /** Fetches and stores the links. Leaves the busy flag to the caller. */
+  const loadLinks = useCallback(
+    async (sync: boolean) => {
       if (!jobId) return
-      setBusy("refresh")
       try {
         const qs = sync ? "&sync=1" : ""
         const res = await fetch(
@@ -112,9 +116,19 @@ export function JobMoneyRail({
     [jobId]
   )
 
+  /** User-triggered refresh — shows the spinner before the request goes out. */
+  const refreshLinks = useCallback(
+    async (sync = false) => {
+      if (!jobId) return
+      setBusy("refresh")
+      await loadLinks(sync)
+    },
+    [jobId, loadLinks]
+  )
+
   useEffect(() => {
-    void refreshLinks(false)
-  }, [refreshLinks])
+    void loadLinks(false)
+  }, [loadLinks])
 
   const handleSendDeposit = useCallback(async () => {
     if (!customerPhone.trim()) {

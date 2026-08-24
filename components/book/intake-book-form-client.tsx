@@ -86,6 +86,36 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [fromTime, setFromTime] = useState(defaults.from)
   const [toTime, setToTime] = useState(defaults.to)
 
+  const loadCheckout = useCallback(async (payToken: string) => {
+    // Reuse Collect pay page API — same wallets (card / Apple Pay / Cash App / Link / Venmo).
+    const res = await fetch(`/api/pay/${encodeURIComponent(payToken)}`, { cache: "no-store" })
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: string
+      data?: {
+        status?: string
+        client_secret?: string
+        publishable_key?: string
+        stripe_account_id?: string | null
+        redirect_url?: string
+      }
+    }
+    if (!res.ok || !json.data) throw new Error(json.error || "Could not open payment")
+    if (json.data.status === "redirect" && json.data.redirect_url) {
+      window.location.href = json.data.redirect_url
+      return
+    }
+    if (json.data.status === "paid") {
+      setWizardStep("done")
+      return
+    }
+    if (!json.data.client_secret || !json.data.publishable_key) {
+      throw new Error("Payment page missing — ask the shop for a new link")
+    }
+    setPayClientSecret(json.data.client_secret)
+    setPayPublishableKey(json.data.publishable_key)
+    setPayStripeAccount(json.data.stripe_account_id ?? null)
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -133,35 +163,6 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return loadStripe(payPublishableKey, acct ? { stripeAccount: acct } : undefined)
   }, [payPublishableKey, payStripeAccount])
 
-  const loadCheckout = useCallback(async (payToken: string) => {
-    // Reuse Collect pay page API — same wallets (card / Apple Pay / Cash App / Link / Venmo).
-    const res = await fetch(`/api/pay/${encodeURIComponent(payToken)}`, { cache: "no-store" })
-    const json = (await res.json().catch(() => ({}))) as {
-      error?: string
-      data?: {
-        status?: string
-        client_secret?: string
-        publishable_key?: string
-        stripe_account_id?: string | null
-        redirect_url?: string
-      }
-    }
-    if (!res.ok || !json.data) throw new Error(json.error || "Could not open payment")
-    if (json.data.status === "redirect" && json.data.redirect_url) {
-      window.location.href = json.data.redirect_url
-      return
-    }
-    if (json.data.status === "paid") {
-      setWizardStep("done")
-      return
-    }
-    if (!json.data.client_secret || !json.data.publishable_key) {
-      throw new Error("Payment page missing — ask the shop for a new link")
-    }
-    setPayClientSecret(json.data.client_secret)
-    setPayPublishableKey(json.data.publishable_key)
-    setPayStripeAccount(json.data.stripe_account_id ?? null)
-  }, [])
 
   const detailsReady =
     customerName.trim().length >= 2 &&

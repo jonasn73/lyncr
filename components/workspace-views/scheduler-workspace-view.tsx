@@ -1011,6 +1011,9 @@ function SchedulerWorkspaceViewInner({
     suppressUrlFocusRef.current = false
     setDrawerPoolJob(null)
     setDrawerScheduledEvent(null)
+    // Clear the /edit intent. It only ever counted up, and the drawer re-reads it
+    // on every open, so one use of /edit forced edit mode on every job opened after.
+    setDrawerEditIntentTick(0)
     // Journey started in CRM — return to customers (reopen profile when customer id known).
     const crmReturn = crmReturnRef.current
     if (crmReturn) {

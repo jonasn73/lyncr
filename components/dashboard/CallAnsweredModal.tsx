@@ -64,6 +64,7 @@ import {
   serviceNeedsJobTypeStep,
 } from "@/lib/service-sector-routing"
 import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
+import { sameCallRow } from "@/lib/active-call-row"
 import {
   formatQuoteDollars,
   SERVICE_QUOTE_TYPES,
@@ -966,7 +967,7 @@ function showCallRow(
   setCurrent((prev) => {
     if (prev && dismissed.has(prev.id)) return null
     if (prev?.id === row.id) {
-      return {
+      const merged = {
         ...prev,
         ...row,
         answered_at: row.answered_at ?? prev.answered_at,
@@ -975,6 +976,10 @@ function showCallRow(
         recording_url: row.recording_url ?? prev.recording_url,
         manualCallStatus: row.manualCallStatus ?? prev.manualCallStatus,
       }
+      // The answered-call poll re-sends the same nine fields every few seconds.
+      // Handing back a fresh object for an unchanged call re-ran every effect and
+      // memo keyed on this row for nothing. A real change still changes identity.
+      return sameCallRow(prev, merged) ? prev : merged
     }
     return row
   })
@@ -1731,6 +1736,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     return () => window.clearTimeout(timer)
   }, [highlightConfirmBook])
 
+  // Keyed on the call id, not the row object: the answered-call poll rebuilds that
+  // object every 3s (12s on realtime) even when nothing changed, and this effect
+  // re-ran each time and pushed the auto total back into the price box. Picking a
+  // service clears quotedPriceOverridden, so an operator typing into "Pitched
+  // quote" on the Customer step sat in exactly the state that gets overwritten,
+  // and watched the figure they were typing revert mid-call.
   useEffect(() => {
     if (!effectiveCurrent) {
       setCustomPrice("")
@@ -1743,7 +1754,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
       // Avoid re-render loops when the quote string is already in sync.
       setCustomPrice((prev) => (prev === next ? prev : next))
     }
-  }, [effectiveCurrent, autoTotalDollars, form.quotedPriceOverridden])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the row object churns on every poll; its id is what identifies the call
+  }, [effectiveCurrent?.id, autoTotalDollars, form.quotedPriceOverridden])
 
   const applyCustomPriceToForm = useCallback(() => {
     const raw = customPrice.trim()

@@ -2,7 +2,7 @@
 
 // Modal: add a full-day or time-range calendar blockout.
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
@@ -16,19 +16,29 @@ import type { ScheduleBlockout } from "@/lib/types"
 const fieldClass =
   "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
-export function AddBlockoutModal({
-  open,
-  onClose,
-  organizationId,
-  defaultDate,
-  onCreated,
-}: {
+type AddBlockoutModalProps = {
   open: boolean
   onClose: () => void
   organizationId: string | null
   defaultDate: string
   onCreated: (row: ScheduleBlockout) => void
-}) {
+}
+
+/**
+ * Gate only. The form below mounts fresh on each open, so it picks up the
+ * current `defaultDate` and clears any previous error without an effect.
+ */
+export function AddBlockoutModal({ open, ...rest }: AddBlockoutModalProps) {
+  if (!open) return null
+  return <AddBlockoutModalForm {...rest} />
+}
+
+function AddBlockoutModalForm({
+  onClose,
+  organizationId,
+  defaultDate,
+  onCreated,
+}: Omit<AddBlockoutModalProps, "open">) {
   const timeOptions = useMemo(() => scheduleTimeSlotOptions(7, 19, 30), [])
   const [date, setDate] = useState(defaultDate || defaultIntakeScheduleDate())
   const [isFullDay, setIsFullDay] = useState(true)
@@ -37,16 +47,6 @@ export function AddBlockoutModal({
   const [reason, setReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Keep date in sync when the parent re-opens for a different day.
-  useEffect(() => {
-    if (open) {
-      setDate(defaultDate || defaultIntakeScheduleDate())
-      setError(null)
-    }
-  }, [open, defaultDate])
-
-  if (!open) return null
 
   async function handleSave() {
     setSaving(true)

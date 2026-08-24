@@ -309,10 +309,11 @@ function FlickerSuspenseFallbackInner({
   children,
 }: {
   name: string
-  children: ReactNode
+  // Passed as a createElement child, so it is optional on the props type.
+  children?: ReactNode
 }) {
   useFlickerDebugLifecycle(`SuspenseFallback:${name}`, { showingFallback: true })
-  return children
+  return children ?? null
 }
 
 /** Always wraps children in a probe fiber (no visual change; logs only when enabled). */
@@ -323,7 +324,7 @@ export function FlickerSuspenseFallback({
   name: string
   children: ReactNode
 }): ReactNode {
-  return createElement(FlickerSuspenseFallbackInner, { name, children })
+  return createElement(FlickerSuspenseFallbackInner, { name }, children)
 }
 
 /** Tag / id / first classes / data-flicker-probe — never text content or attrs with values. */

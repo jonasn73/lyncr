@@ -1129,7 +1129,6 @@ export async function handleTelnyxFallbackDialEnded(
         )
         // falls through to case "owner"
       }
-      // eslint-disable-next-line no-fallthrough
       case "owner": {
         if (primaryWasOwner) {
           // After your cell leg: offer Voice AI only when routing explicitly asks for AI (not merely because an assistant id exists — that broke “ring phone then voicemail” lines).
