@@ -1947,6 +1947,7 @@ const ActivityWorkspaceViewInner = memo(function ActivityWorkspaceViewInner({
   // Cookie stub stays hidden (skeleton) until session/network delivers the full list.
   return (
     <WorkspaceRightSheetGate<UiCallRecord>
+      sheetTitle="Call details"
       render={(call, close) => (
         <CallLogSheet
           call={call}

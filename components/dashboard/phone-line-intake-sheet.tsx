@@ -2,7 +2,7 @@
 
 import { memo } from "react"
 import { CheckCircle2, Phone, Settings2 } from "lucide-react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { DrawerScrollBody, DrawerStepHeader } from "@/components/dashboard-routing-drawer-shared"
 import { LineRoutingStatus } from "@/components/line-routing-status"
@@ -37,6 +37,8 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" variant="drawer" className={WORKSPACE_SHEET_CLASS}>
+        {/* DrawerStepHeader renders a plain h2 — name the sheet for screen readers. */}
+        <SheetTitle className="sr-only">Phone line settings</SheetTitle>
         <DrawerStepHeader
           step="Phone line"
           title={label}

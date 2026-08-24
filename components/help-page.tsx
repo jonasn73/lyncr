@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetFooter, SheetTitle } from "@/components/ui/sheet"
 import { StorySheetHeader } from "@/components/story-sheet-header"
 import { getAppSheetStory, helpPlanStoryKey, helpCategoryStoryKey } from "@/components/app-sheet-stories"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
@@ -283,6 +283,8 @@ export function HelpPage() {
 
       <Sheet open={helpSheetKey != null} onOpenChange={(open) => !open && setHelpSheetKey(null)} modal>
         <SheetContent side="bottom" className="gap-0 p-0 sm:mx-auto sm:max-w-lg [&>button]:top-3">
+          {/* Heading comes from the story body — name the sheet for screen readers. */}
+          <SheetTitle className="sr-only">Help details</SheetTitle>
           {(() => {
             const story = helpSheetKey ? getAppSheetStory(helpSheetKey) : null
             if (!helpSheetKey) return null

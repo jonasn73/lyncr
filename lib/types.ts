@@ -90,6 +90,11 @@ export interface User {
   admin_notification_preferences?: AdminNotificationPreferences
   /** When false, do not show the answered-call customer sheet (requires `023-user-answered-call-popup-toggle.sql`). */
   answered_call_customer_popup_enabled: boolean
+  /** Shop / home base — origin for intake travel distance when GPS is off (`143-user-shop-address.sql`). */
+  shop_address?: string | null
+  /** Geocoded at pick time so the map never re-geocodes to draw the baseline. */
+  shop_latitude?: number | null
+  shop_longitude?: number | null
   /** When true, public /book requires a Stripe deposit before confirming (`089`). */
   require_deposit?: boolean
 }

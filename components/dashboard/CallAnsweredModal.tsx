@@ -4017,14 +4017,19 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           ) : (
           <>
             {isManual ? (
-              <ManualIntakeToolbar
-                path={manualPath}
-                currentStep={currentStep}
-                phoneDisplay={formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
-                lineState={effectiveCurrent.manualCallStatus ?? "answered"}
-                onLineStateChange={setManualCallStatus}
-                onMinimize={minimizeIntake}
-              />
+              <>
+                {/* Manual path swaps SheetHeader for the toolbar — the sheet still needs a
+                    title, or Radix leaves aria-labelledby pointing at nothing. */}
+                <SheetTitle className="sr-only">New intake</SheetTitle>
+                <ManualIntakeToolbar
+                  path={manualPath}
+                  currentStep={currentStep}
+                  phoneDisplay={formatPhoneDisplay(form.phoneNumber || effectiveCurrent.from_number)}
+                  lineState={effectiveCurrent.manualCallStatus ?? "answered"}
+                  onLineStateChange={setManualCallStatus}
+                  onMinimize={minimizeIntake}
+                />
+              </>
             ) : (
             <SheetHeader
               className={cn(

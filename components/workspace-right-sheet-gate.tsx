@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
 const OpenContext = createContext<((value: unknown) => void) | null>(null)
@@ -20,10 +20,13 @@ export function WorkspaceRightSheetGate<T>({
   children,
   render,
   sheetClassName = WORKSPACE_SHEET_CLASS,
+  sheetTitle = "Details",
 }: {
   children: ReactNode
   render: (value: T, close: () => void) => ReactNode
   sheetClassName?: string
+  /** Accessible name for the drawer — rendered visually hidden, since `render` owns the heading. */
+  sheetTitle?: string
 }) {
   const [value, setValue] = useState<T | null>(null)
   const open = useCallback((next: T) => setValue(next), [])
@@ -34,6 +37,7 @@ export function WorkspaceRightSheetGate<T>({
       <OpenContext.Provider value={open as (value: unknown) => void}>{children}</OpenContext.Provider>
       <Sheet open={value != null} onOpenChange={(o) => !o && close()} modal={false}>
         <SheetContent side="right" variant="drawer" className={sheetClassName}>
+          <SheetTitle className="sr-only">{sheetTitle}</SheetTitle>
           {value != null ? render(value, close) : null}
         </SheetContent>
       </Sheet>

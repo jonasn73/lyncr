@@ -10,6 +10,8 @@ export type IntakeTravelMetrics = {
   miles: number
   durationMins: number
   fromGps: boolean
+  /** Where the measurement started — "metro" is a coarse city-centre guess, not the shop. */
+  originSource?: "gps" | "shop" | "metro"
 }
 
 export type IntakeNearestTech = {
@@ -88,8 +90,12 @@ export function IntakeMapDestinationBanner({
             <span className="font-semibold tabular-nums text-slate-100">
               {formatMiles(travelMetrics.miles)} mi
             </span>
-            {!travelMetrics.fromGps ? (
+            {travelMetrics.originSource === "shop" ? (
               <span className="text-slate-500"> · shop baseline</span>
+            ) : !travelMetrics.fromGps ? (
+              // No GPS and no saved shop address — say it is a rough city estimate rather
+              // than implying it was measured from the shop.
+              <span className="text-amber-300/80"> · rough city estimate — set your shop address</span>
             ) : null}
           </p>
           <p>

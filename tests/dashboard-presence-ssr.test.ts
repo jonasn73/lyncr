@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   initialPresencePaneMounted,
   isDashboardRouteSsrPane,
+  rendersSsrActiveSlot,
   shouldMountPresencePane,
   shouldUseDeferredDynamicPane,
   shouldUseSsrActiveSlot,
@@ -17,6 +18,20 @@ describe("dashboard presence SSR active tab", () => {
     expect(shouldUseSsrActiveSlot("pay", "pay")).toBe(true)
     expect(shouldUseSsrActiveSlot("settings", "settings")).toBe(true)
     expect(shouldUseSsrActiveSlot("scheduler", "scheduler")).toBe(true)
+  })
+
+  it("drops the routed slot once the user navigates off the SSR’d URL", () => {
+    // Still on the hard-refreshed URL → that pane keeps the routed slot (no remount).
+    expect(rendersSsrActiveSlot("scheduler", "scheduler", "scheduler")).toBe(true)
+
+    // Clicked Scheduler → Map. The routed outlet now renders the Map page, so the Scheduler
+    // pane must stop using it — otherwise it holds a second live Dispatch Map.
+    expect(rendersSsrActiveSlot("scheduler", "contacts", "scheduler")).toBe(false)
+    // …and the Map pane renders its own dynamic() view, not the slot.
+    expect(rendersSsrActiveSlot("scheduler", "contacts", "contacts")).toBe(false)
+
+    // Coming back does not resurrect a stale slot for a pane that is not the SSR’d one.
+    expect(rendersSsrActiveSlot("contacts", "contacts", "scheduler")).toBe(false)
   })
 
   it("does not treat Lines as a route SSR slot (host already static-imports DashboardPage)", () => {

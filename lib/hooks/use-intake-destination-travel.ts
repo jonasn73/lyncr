@@ -9,6 +9,7 @@ import { estimateTravelMinutes, travelDistanceMiles } from "@/lib/geo"
 import { DEFAULT_502_SERVICE_BIAS } from "@/lib/geocode-service-bias"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 import { useDispatchMapData } from "@/lib/hooks/use-dispatch-map-data"
+import { useShopOrigin } from "@/lib/hooks/use-shop-origin"
 import type {
   IntakeNearestTech,
   IntakeTravelMetrics,
@@ -31,6 +32,10 @@ export function useIntakeDestinationTravel(
   })
   const techs = mapData?.techs ?? []
 
+  const shopOrigin = useShopOrigin()
+
+  // Live GPS → saved shop address → metro centroid. Only the middle one is a real
+  // measurement from the shop, so the source rides along for the banner to label.
   const originPoint = useMemo(() => {
     if (
       dispatcherLocation.status === "ready" &&
@@ -43,12 +48,15 @@ export function useIntakeDestinationTravel(
         source: "gps" as const,
       }
     }
+    if (shopOrigin) {
+      return { lat: shopOrigin.lat, lng: shopOrigin.lng, source: "shop" as const }
+    }
     return {
       lat: DEFAULT_502_SERVICE_BIAS.lat,
       lng: DEFAULT_502_SERVICE_BIAS.lon,
-      source: "business" as const,
+      source: "metro" as const,
     }
-  }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status])
+  }, [dispatcherLocation.lat, dispatcherLocation.lng, dispatcherLocation.status, shopOrigin])
 
   const travelMetrics = useMemo(() => {
     if (!destination) return null
@@ -61,6 +69,7 @@ export function useIntakeDestinationTravel(
       miles,
       durationMins: estimateTravelMinutes(miles),
       fromGps: originPoint.source === "gps",
+      originSource: originPoint.source,
     }
   }, [destination, originPoint])
 

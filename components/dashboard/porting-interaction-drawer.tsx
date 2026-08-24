@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Check, Lightbulb, Loader2, MessageSquare, Truck } from "lucide-react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 import { DrawerScrollBody, DrawerStepHeader } from "@/components/dashboard-routing-drawer-shared"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -257,6 +257,8 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="right" variant="drawer" className={WORKSPACE_SHEET_CLASS}>
+        {/* DrawerStepHeader renders a plain h2 — name the sheet for screen readers. */}
+        <SheetTitle className="sr-only">Carrier transfer desk</SheetTitle>
         <DrawerStepHeader
           step="Number transfer"
           title="Carrier transfer desk"

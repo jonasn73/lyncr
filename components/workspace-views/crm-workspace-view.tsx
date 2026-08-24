@@ -2614,6 +2614,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   // Messages CRM chip with no saved row — don’t say the whole shop is empty.
   const searchingPhone = looksLikePhoneQuery(debounced || q)
+  /** Empty because a text search filtered everything out, not because the tab is empty. */
+  const nameSearchEmpty = Boolean((debounced || q).trim()) && !searchingPhone
 
   // Lines pattern: list paints from cookie/session; inline skeleton only when empty+loading.
   // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
@@ -2683,29 +2685,47 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             ) : rows.length === 0 ? (
               <div className="flex min-h-[18rem] flex-col items-center gap-3 px-3 py-10 text-center">
                 <p className="text-sm font-medium text-zinc-300">
-                  {filter === "book_forms"
-                    ? "No open book-form leads"
-                    : searchingPhone
-                      ? "This number isn’t saved yet"
-                      : "No customers yet"}
+                  {/* A name search that matches nothing is not the same as having nothing —
+                      saying "none exist" here reads as data loss on a filtered list. */}
+                  {nameSearchEmpty
+                    ? `No matches for “${(debounced || q).trim()}”`
+                    : filter === "book_forms"
+                      ? "No open book-form leads"
+                      : searchingPhone
+                        ? "This number isn’t saved yet"
+                        : "No customers yet"}
                 </p>
                 <p className="max-w-xs text-xs text-zinc-500">
-                  {filter === "book_forms"
-                    ? "When a customer submits your /book link, they show up here."
-                    : searchingPhone
-                      ? "They show up here after a book form, intake, or Activity save."
-                      : "Save a caller from Activity or intake — they’ll show up here."}
+                  {nameSearchEmpty
+                    ? filter === "all"
+                      ? "Nobody here matches that search."
+                      : "Nobody in this tab matches that search — clear it, or try another tab."
+                    : filter === "book_forms"
+                      ? "When a customer submits your /book link, they show up here."
+                      : searchingPhone
+                        ? "They show up here after a book form, intake, or Activity save."
+                        : "Save a caller from Activity or intake — they’ll show up here."}
                 </p>
-                <Link
-                  href={
-                    searchingPhone && (debounced || q).trim()
-                      ? `/dashboard/messages?phone=${encodeURIComponent((debounced || q).trim())}`
-                      : "/dashboard/activity"
-                  }
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
-                >
-                  {searchingPhone ? "Back to texts" : "Open Activity"}
-                </Link>
+                {nameSearchEmpty ? (
+                  <button
+                    type="button"
+                    onClick={() => setQ("")}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                  >
+                    Clear search
+                  </button>
+                ) : (
+                  <Link
+                    href={
+                      searchingPhone && (debounced || q).trim()
+                        ? `/dashboard/messages?phone=${encodeURIComponent((debounced || q).trim())}`
+                        : "/dashboard/activity"
+                    }
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                  >
+                    Open Activity
+                  </Link>
+                )}
               </div>
             ) : (
               <ul className="space-y-1.5">

@@ -12,8 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { workspaceFieldClass } from "@/components/dashboard-workspace-ui"
+import { JobAddressAutocomplete } from "@/components/job-address-autocomplete"
 import { useToast } from "@/hooks/use-toast"
 import { submitFormEvent } from "@/lib/form-keyboard"
+import { clearShopOriginCache } from "@/lib/hooks/use-shop-origin"
+import type { StructuredAddress } from "@/lib/structured-address"
 
 type Props = {
   open: boolean
@@ -54,6 +57,12 @@ export function BusinessProfileModal({
   const [emailRecordingsEnabled, setEmailRecordingsEnabled] = useState(initialEmailRecordingsEnabled)
   // One saving spinner for the whole sheet (name + notification settings).
   const [saving, setSaving] = useState(false)
+  // Shop / home base — origin the dispatch map measures intake travel distance from.
+  // Only a fresh pick carries coordinates, so the saved value stays a display seed and
+  // `shopTouched` decides whether this save should write the field at all.
+  const [shopAddress, setShopAddress] = useState<StructuredAddress | null>(null)
+  const [shopSeed, setShopSeed] = useState("")
+  const [shopTouched, setShopTouched] = useState(false)
 
   // When the sheet opens (or props refresh), reset fields to the latest server values.
   useEffect(() => {
@@ -72,6 +81,26 @@ export function BusinessProfileModal({
     initialEmailRecordingsEnabled,
   ])
 
+  // Shop address lives outside the profile props — pull the saved one when the sheet opens.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setShopAddress(null)
+    setShopTouched(false)
+    void fetch("/api/settings/shop-address", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled) return
+        setShopSeed(json?.data?.address ? String(json.data.address) : "")
+      })
+      .catch(() => {
+        /* Leave the field empty — saving a fresh pick still works. */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
   // One Save: persist business name AND notification settings together.
   async function saveProfile() {
     // Need a company id for notification preferences.
@@ -86,12 +115,27 @@ export function BusinessProfileModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ business_name: trimmed }),
+        body: JSON.stringify({
+          business_name: trimmed,
+          // Untouched field → omit the key entirely so the saved shop address survives.
+          ...(shopTouched
+            ? {
+                shop_address: shopAddress?.formatted?.trim() || null,
+                shop_latitude: shopAddress?.lat ?? null,
+                shop_longitude: shopAddress?.lng ?? null,
+              }
+            : {}),
+        }),
       })
       // Bail if the name save failed.
-      if (!res.ok) throw new Error("Could not save business name")
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error || "Could not save business name")
+      }
       // Keep the local field in sync with what we just saved.
       setBusinessName(trimmed)
+      // Map surfaces cache the shop origin — drop it so the new baseline applies now.
+      if (shopTouched) clearShopOriginCache()
 
       // Save SMS / notification toggles + dispatch phone.
       const result = await updateNotificationPreferences(
@@ -189,6 +233,25 @@ export function BusinessProfileModal({
                 }}
               />
             </label>
+
+            <div className="space-y-2">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                Shop address
+              </span>
+              <JobAddressAutocomplete
+                value={shopAddress}
+                onChange={(next) => {
+                  setShopTouched(true)
+                  setShopAddress(next)
+                }}
+                seedQuery={shopSeed}
+                placeholder="Where your trucks roll out from"
+              />
+              <p className="text-xs text-zinc-500">
+                Travel distance and drive time on intake are measured from here whenever GPS is
+                off. Without it the map falls back to a rough Louisville-metro estimate.
+              </p>
+            </div>
 
             <div className="space-y-3 border-t border-border/60 pt-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SMS alerts</p>
