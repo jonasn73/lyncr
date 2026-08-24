@@ -2,6 +2,7 @@
 // PATCH /api/crm/customers/[id]/vehicles — update year/make/model/VIN on an existing vehicle
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import {
   createCustomerVehicleForUser,
   getCustomerByIdForUser,
@@ -17,8 +18,10 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // Vehicle captured during intake belongs to the owner's CRM, whoever took the call.
+  const actor = await resolveIntakeWriteActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   const customer = await getCustomerByIdForUser(userId, id)

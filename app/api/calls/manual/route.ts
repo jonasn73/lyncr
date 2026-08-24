@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import { insertManualIntakeCallLog } from "@/lib/manual-call-log"
 
 export const dynamic = "force-dynamic"
@@ -15,8 +16,10 @@ type ManualCallBody = {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  // Manual call log belongs to the business, not to whoever keyed it in.
+  const actor = await resolveIntakeWriteActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   try {
     const body = (await req.json().catch(() => ({}))) as ManualCallBody

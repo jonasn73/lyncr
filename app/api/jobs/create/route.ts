@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import { createUnassignedJobFromIntake } from "@/lib/create-intake-job"
 import { buildBookCollectedExtras, type BookUrgency } from "@/lib/book-customer-request"
 
@@ -73,8 +74,10 @@ type CreateJobBody = {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  // Owner or the receptionist answering for them — the job lands under the owner either way.
+  const actor = await resolveIntakeWriteActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   try {
     const body = (await req.json().catch(() => ({}))) as CreateJobBody
