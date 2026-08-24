@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
+import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
@@ -212,7 +213,10 @@ export function ReceptionistPortalView() {
 
   const load = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
-    fetch("/api/receptionist/dashboard", { credentials: "include", cache: "no-store" })
+    fetch(`/api/receptionist/dashboard?timezone=${encodeURIComponent(resolveBrowserTimezone())}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
       .then(async (res) => {
         const json = (await res.json()) as { error?: string; data?: ReceptionistPortalDashboard }
         if (!res.ok) throw new Error(json.error ?? "Could not load dashboard")
@@ -450,7 +454,7 @@ export function ReceptionistPortalView() {
             <WorkspaceStatCard
               label="Today"
               value={formatUsd(dashboard.metrics.today_earnings)}
-              hint="Since midnight UTC"
+              hint="Since midnight, your time"
               accent="primary"
             />
             <WorkspaceStatCard

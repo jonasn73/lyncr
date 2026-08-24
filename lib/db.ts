@@ -25,6 +25,7 @@ import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOver
 import { SITE_NAME } from "@/lib/brand"
 import { lineMatchesOwnerCell } from "@/lib/owner-cell-line-filter"
 import { normalizeWorkspaceDisplayName } from "@/lib/workspace-organizations"
+import { rollBillingCycleWindowForward } from "@/lib/billing-cycle-window"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
 import type {
   CompanyBriefing,
@@ -16478,13 +16479,22 @@ export async function getAgentTalkTime(
   })
 }
 
-/** Current billing cycle window — Stripe period when set, else calendar month UTC. */
+/**
+ * Current billing cycle window — Stripe period when set, else calendar month UTC.
+ *
+ * A stored period is the subscription window captured at signup and is never updated, so
+ * it has to be rolled forward here once it closes. Returning it verbatim meant every call
+ * answered after that date fell outside the window: the receptionist pay ledger read
+ * $0.00 with an empty ledger for months while calls kept landing.
+ */
 export async function getBillingCycleWindowForUser(userId: string): Promise<{ start: string; end: string }> {
   const profile = await getOnboardingProfile(userId)
   const startIso = profile?.billing_cycle_start?.trim()
   const endIso = profile?.billing_cycle_end?.trim()
   if (startIso && endIso) {
-    return { start: startIso, end: endIso }
+    const rolled = rollBillingCycleWindowForward(startIso, endIso)
+    // An unusable stored window falls through to the calendar month below.
+    if (rolled) return rolled
   }
   const now = new Date()
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))

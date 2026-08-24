@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Receptionist portal access required" }, { status: 403 })
     }
 
-    const data = await buildReceptionistPortalDashboard(ctx)
+    // Operator's timezone so "today" ends at their midnight, not UTC's — a 9pm Eastern
+    // call belongs to the shift being worked, not to tomorrow.
+    const timezone = req.nextUrl.searchParams.get("timezone")
+    const data = await buildReceptionistPortalDashboard(ctx, { timezone })
     return NextResponse.json({ data })
   } catch (error) {
     console.error("[lyncr] receptionist dashboard:", error)
