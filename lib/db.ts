@@ -2218,7 +2218,17 @@ function parseUserRow(row: Record<string, unknown>): User {
         ? true
         : pgBool(row.answered_call_customer_popup_enabled),
     account_role: normalizeAccountRole(row.account_role),
+    shop_address: row.shop_address != null ? String(row.shop_address) : null,
+    shop_latitude: coerceShopCoord(row.shop_latitude),
+    shop_longitude: coerceShopCoord(row.shop_longitude),
   }
+}
+
+/** Shop coords are optional — a NULL or unparseable value means "no baseline yet". */
+function coerceShopCoord(raw: unknown): number | null {
+  if (raw == null) return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Map a raw DB account_role to the typed union (defaults to owner / OWNER). */
@@ -3000,6 +3010,45 @@ async function getUserWithoutBillingColumnsInSelect(userId: string): Promise<Use
 }
 
 // Get user by ID
+export type ShopOrigin = {
+  address: string
+  lat: number
+  lng: number
+}
+
+/**
+ * Shop / home-base origin for intake travel distance.
+ *
+ * Kept out of `getUser`'s SELECT on purpose: that query carries fallback chains for
+ * un-migrated databases, and a column it does not know how to degrade past would take
+ * the whole user lookup down. Returns null when unset or un-migrated — callers fall
+ * back to the metro centroid and say so.
+ */
+export async function getUserShopOrigin(userId: string): Promise<ShopOrigin | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT shop_address, shop_latitude, shop_longitude
+      FROM users WHERE id = ${userId} LIMIT 1
+    `
+    const row = rows[0]
+    if (!row) return null
+    const address = row.shop_address != null ? String(row.shop_address).trim() : ""
+    const lat = Number(row.shop_latitude)
+    const lng = Number(row.shop_longitude)
+    if (!address || !Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    return { address, lat, lng }
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("shop_")) {
+      console.warn(
+        "[db] getUserShopOrigin: shop address columns missing — run scripts/143-user-shop-address.sql."
+      )
+      return null
+    }
+    throw e
+  }
+}
+
 export async function getUser(userId: string): Promise<User | null> {
   const sql = getSql()
   try {
@@ -3181,6 +3230,9 @@ export async function updateUser(
     answered_call_customer_popup_enabled?: boolean
     industry?: string
     telnyx_ai_assistant_id?: string | null
+    shop_address?: string | null
+    shop_latitude?: number | null
+    shop_longitude?: number | null
   }
 ): Promise<void> {
   const sql = getSql()
@@ -3238,6 +3290,28 @@ export async function updateUser(
       if (code === "42703" && msg.includes("telnyx_ai_assistant_id")) {
         throw new Error(
           "Could not link assistant: column telnyx_ai_assistant_id is missing. In Neon → SQL Editor, run scripts/012-telnyx-ai-assistant.sql, then try again."
+        )
+      }
+      throw e
+    }
+  }
+  // Address + coords move together — a stale lat/lng under a new address would silently
+  // measure travel from the previous shop.
+  if (updates.shop_address !== undefined) {
+    try {
+      await sql`
+        UPDATE users
+        SET shop_address = ${updates.shop_address},
+            shop_latitude = ${updates.shop_latitude ?? null},
+            shop_longitude = ${updates.shop_longitude ?? null}
+        WHERE id = ${userId}
+      `
+    } catch (e) {
+      const code = pgErrorCode(e)
+      const msg = pgErrorMessage(e)
+      if (code === "42703" && msg.includes("shop_address")) {
+        throw new Error(
+          "Could not save shop address: column shop_address is missing. In Neon → SQL Editor, run scripts/143-user-shop-address.sql, then try again."
         )
       }
       throw e

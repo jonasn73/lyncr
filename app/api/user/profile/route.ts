@@ -30,6 +30,9 @@ export async function PATCH(req: NextRequest) {
       inbound_receptionist_whisper_enabled?: boolean
       answered_call_customer_popup_enabled?: boolean
       industry?: string
+      shop_address?: string | null
+      shop_latitude?: number | null
+      shop_longitude?: number | null
     } = {}
     if (typeof body?.phone === "string" && body.phone.trim()) {
       updates.phone = normalizePhone(body.phone.trim())
@@ -49,6 +52,29 @@ export async function PATCH(req: NextRequest) {
     if (typeof body?.industry === "string") {
       const ind = body.industry.trim().toLowerCase()
       if (allowedIndustry.has(ind)) updates.industry = ind
+    }
+    // Shop address is only useful with coordinates — an address we could not geocode
+    // would leave travel distance measuring from the old shop with a new label.
+    if ("shop_address" in (body ?? {})) {
+      const raw = body.shop_address
+      const address = typeof raw === "string" ? raw.trim() : ""
+      if (!address) {
+        updates.shop_address = null
+        updates.shop_latitude = null
+        updates.shop_longitude = null
+      } else {
+        const lat = Number(body.shop_latitude)
+        const lng = Number(body.shop_longitude)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return NextResponse.json(
+            { error: "Pick the shop address from the suggestions so it can be mapped" },
+            { status: 400 }
+          )
+        }
+        updates.shop_address = address
+        updates.shop_latitude = lat
+        updates.shop_longitude = lng
+      }
     }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
