@@ -67,6 +67,12 @@ export interface EarningLine {
   /** What was measured: talk seconds, shift seconds, job count, or commission base cents. */
   quantity: number
   rate_snapshot: PayComponent
+  /**
+   * Extra context about how the amount was arrived at — which money a commission
+   * percentage was taken from, whether that number was exact. Stored alongside the
+   * component so a row can explain itself without re-deriving anything.
+   */
+  provenance?: Record<string, unknown>
   earned_at: string
 }
 

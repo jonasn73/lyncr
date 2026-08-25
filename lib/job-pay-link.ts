@@ -21,7 +21,7 @@ import {
   TEN_DLC_BLOCK_USER_MESSAGE,
 } from "@/lib/telnyx-sms"
 import {
-  commissionCentsFromCharge,
+  walletCommissionCentsForJob,
   confirmJobPaymentIntent,
   getJobPaymentContext,
 } from "@/lib/job-payments"
@@ -255,7 +255,11 @@ export async function finalizeCollectPayLinkWithTip(params: {
   const businessLabel = (row.business_label || "").trim() || "Your service provider"
   const subtotalCents = Math.max(0, Math.round(row.subtotal_cents || baseCents - (row.tax_cents || 0)))
   const taxCents = Math.max(0, Math.round(row.tax_cents || 0))
-  const commissionCents = jobId ? commissionCentsFromCharge(chargeCents) : chargeCents
+  const commissionCents = await walletCommissionCentsForJob({
+    jobId,
+    chargeCents,
+    tipCents,
+  })
   const checkoutType = jobId ? "job_payment_link" : "adhoc_payment_link"
   const lyncrKind = jobId ? "job_payment" : "adhoc_payment"
   const appUrl = getAppUrl().replace(/\/$/, "")

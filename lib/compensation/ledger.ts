@@ -126,7 +126,9 @@ export async function recordEarningLines(input: RecordEarningsInput): Promise<nu
         ${line.source_id || null},
         ${line.amount_cents},
         ${line.quantity},
-        ${JSON.stringify(line.rate_snapshot)}::jsonb,
+        ${JSON.stringify(
+          line.provenance ? { ...line.rate_snapshot, ...line.provenance } : line.rate_snapshot
+        )}::jsonb,
         ${line.earned_at}::timestamptz
       )
       ON CONFLICT DO NOTHING
