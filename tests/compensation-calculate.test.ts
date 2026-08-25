@@ -3,6 +3,7 @@ import {
   calculateEarnings,
   calculateMinimumWageTopUp,
   reverseEarningLine,
+  splitIntoWorkweeks,
   sumEarningCents,
   type CallPayEvent,
   type JobPayEvent,
@@ -179,9 +180,9 @@ describe("minimum wage floor", () => {
     // 8 hours at $7.25 is $58.00. Twelve minutes of talk at $0.004167/sec earned $3.00.
     const line = calculateMinimumWageTopUp({
       components: [PER_SECOND, floor],
-      periodEarnedCents: 300,
+      weekEarnedCents: 300,
       onShiftSeconds: 8 * 3600,
-      payPeriodId: "period-1",
+      workweekId: "week-1",
       earnedAt: "2026-08-25T22:00:00.000Z",
     })
     expect(line?.amount_cents).toBe(5500)
@@ -192,9 +193,9 @@ describe("minimum wage floor", () => {
     expect(
       calculateMinimumWageTopUp({
         components: [PER_SECOND, floor],
-        periodEarnedCents: 20_000,
+        weekEarnedCents: 20_000,
         onShiftSeconds: 8 * 3600,
-        payPeriodId: "period-1",
+        workweekId: "week-1",
         earnedAt: "2026-08-25T22:00:00.000Z",
       })
     ).toBeNull()
@@ -204,9 +205,9 @@ describe("minimum wage floor", () => {
     expect(
       calculateMinimumWageTopUp({
         components: [PER_SECOND, floor],
-        periodEarnedCents: 0,
+        weekEarnedCents: 0,
         onShiftSeconds: 0,
-        payPeriodId: "period-1",
+        workweekId: "week-1",
         earnedAt: "2026-08-25T22:00:00.000Z",
       })
     ).toBeNull()
@@ -216,12 +217,91 @@ describe("minimum wage floor", () => {
     expect(
       calculateMinimumWageTopUp({
         components: [PER_SECOND],
-        periodEarnedCents: 0,
+        weekEarnedCents: 0,
         onShiftSeconds: 8 * 3600,
-        payPeriodId: "period-1",
+        workweekId: "week-1",
         earnedAt: "2026-08-25T22:00:00.000Z",
       })
     ).toBeNull()
+  })
+})
+
+describe("the floor is judged per workweek", () => {
+  const floor: PayComponent = { kind: "MINIMUM_WAGE_TOPUP", hourly_floor_micros: 7_250_000 }
+
+  it("splits a fortnightly period into two weeks", () => {
+    const weeks = splitIntoWorkweeks("2026-08-02T00:00:00.000Z", "2026-08-16T00:00:00.000Z")
+    expect(weeks).toHaveLength(2)
+    expect(weeks[0].startIso).toBe("2026-08-02T00:00:00.000Z")
+    expect(weeks[1].startIso).toBe("2026-08-09T00:00:00.000Z")
+  })
+
+  it("clips the first and last weeks to the period", () => {
+    // A period starting mid-week must not reach back into the previous one.
+    const weeks = splitIntoWorkweeks("2026-08-05T00:00:00.000Z", "2026-08-12T00:00:00.000Z")
+    expect(weeks[0].startIso).toBe("2026-08-05T00:00:00.000Z")
+    expect(weeks[weeks.length - 1].endIso).toBe("2026-08-12T00:00:00.000Z")
+  })
+
+  it("honors an employer whose week starts on Monday", () => {
+    // 2026-08-02 is a Sunday; with weekStartDay=1 the boundary is the 3rd.
+    const weeks = splitIntoWorkweeks("2026-08-02T00:00:00.000Z", "2026-08-16T00:00:00.000Z", 1)
+    expect(weeks[1].startIso).toBe("2026-08-03T00:00:00.000Z")
+  })
+
+  it("will not let a busy week subsidize a dead one", () => {
+    // The FLSA takes a single workweek as its standard and does not permit averaging.
+    // Week 1: 20 hours, earned $200 — clears $7.25 easily.
+    // Week 2: 20 hours, earned $50 — owes 20 × $7.25 − $50 = $95.
+    const busy = calculateMinimumWageTopUp({
+      components: [PER_SECOND, floor],
+      weekEarnedCents: 20_000,
+      onShiftSeconds: 20 * 3600,
+      workweekId: "week-1",
+      earnedAt: "2026-08-09T00:00:00.000Z",
+    })
+    const dead = calculateMinimumWageTopUp({
+      components: [PER_SECOND, floor],
+      weekEarnedCents: 5_000,
+      onShiftSeconds: 20 * 3600,
+      workweekId: "week-2",
+      earnedAt: "2026-08-16T00:00:00.000Z",
+    })
+    expect(busy).toBeNull()
+    expect(dead?.amount_cents).toBe(9_500)
+
+    // Averaged over the fortnight: 40 hours, $250 earned, floor $290 — a $40 shortfall
+    // where $95 is actually owed. The good week absorbs most of the bad one, which is
+    // the averaging the FLSA does not allow and the reason this takes a workweek.
+    const averaged = calculateMinimumWageTopUp({
+      components: [PER_SECOND, floor],
+      weekEarnedCents: 25_000,
+      onShiftSeconds: 40 * 3600,
+      workweekId: "period-1",
+      earnedAt: "2026-08-16T00:00:00.000Z",
+    })
+    expect(averaged?.amount_cents).toBe(4_000)
+    expect(averaged!.amount_cents).toBeLessThan(dead!.amount_cents)
+  })
+
+  it("keys each week separately so two top-ups can coexist", () => {
+    // A shared pay-period id would collide on the ledger's dedupe index and silently
+    // drop the second week's top-up.
+    const first = calculateMinimumWageTopUp({
+      components: [PER_SECOND, floor],
+      weekEarnedCents: 0,
+      onShiftSeconds: 10 * 3600,
+      workweekId: "week-1",
+      earnedAt: "2026-08-09T00:00:00.000Z",
+    })
+    const second = calculateMinimumWageTopUp({
+      components: [PER_SECOND, floor],
+      weekEarnedCents: 0,
+      onShiftSeconds: 10 * 3600,
+      workweekId: "week-2",
+      earnedAt: "2026-08-16T00:00:00.000Z",
+    })
+    expect(first?.source_id).not.toBe(second?.source_id)
   })
 })
 

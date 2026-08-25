@@ -206,26 +206,86 @@ function calculateForShift(component: PayComponent, event: ShiftPayEvent): Earni
   }
 }
 
+/** Seven days, in milliseconds. */
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+/** One workweek inside a pay period. */
+export interface Workweek {
+  startIso: string
+  endIso: string
+}
+
 /**
- * The top-up owed at the end of a pay period, if any.
+ * Split a pay period into the workweeks the minimum-wage floor is judged over.
+ *
+ * The FLSA takes a single workweek as its standard and does not permit averaging
+ * across two or more of them. A fortnightly pay period containing one busy week and
+ * one dead week owes a top-up for the dead week even if the fortnight as a whole
+ * clears the floor — so a top-up computed over the period would underpay.
+ *
+ * `weekStartDay` is the employer's declared start of the workweek: 0 = Sunday. It is
+ * fixed per employer, not per week, and the boundary is what the floor is measured
+ * against, so it belongs in employer settings rather than being assumed here.
+ */
+export function splitIntoWorkweeks(
+  startIso: string,
+  endIso: string,
+  weekStartDay = 0
+): Workweek[] {
+  const start = Date.parse(startIso)
+  const end = Date.parse(endIso)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return []
+
+  // Walk back from the period start to the most recent workweek boundary.
+  const startDate = new Date(start)
+  const offsetDays = (startDate.getUTCDay() - weekStartDay + 7) % 7
+  let cursor = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate() - offsetDays
+  )
+
+  const weeks: Workweek[] = []
+  while (cursor < end) {
+    const weekEnd = cursor + WEEK_MS
+    // Clip to the period so the first and last weeks do not reach outside it.
+    weeks.push({
+      startIso: new Date(Math.max(cursor, start)).toISOString(),
+      endIso: new Date(Math.min(weekEnd, end)).toISOString(),
+    })
+    cursor = weekEnd
+  }
+  return weeks
+}
+
+/**
+ * The top-up owed for ONE WORKWEEK, if any.
  *
  * A W-2 receptionist waiting for the phone to ring is "engaged to wait" — that time
- * is hours worked. Talk-time or per-call pay alone does not clear minimum wage on a
- * quiet shift, so the period is compared against hours × the applicable floor and
- * the difference is paid as its own ledger row.
+ * is hours worked. Neither part-time hours nor a commission or piece-rate pay method
+ * removes the floor: what the worker earned that week, divided by the hours they
+ * worked that week, must still reach the applicable minimum wage, and the employer
+ * makes up any difference.
  *
- * This is a FLOOR, not payroll. It does not compute overtime: the FLSA regular rate
- * for a worker earning commission requires allocating that commission back across
- * the workweeks it was earned in, and premium pay is a payroll provider's job.
+ * Call this once per workweek — see splitIntoWorkweeks. Running it over a whole pay
+ * period lets a good week subsidize a bad one, which is exactly the averaging the
+ * FLSA does not allow.
+ *
+ * This is a FLOOR, not payroll. It does not compute overtime: the regular rate for a
+ * worker earning commission requires allocating that commission back across the
+ * workweeks it was earned in, and premium pay is a payroll provider's job.
  */
 export function calculateMinimumWageTopUp(params: {
   components: PayComponent[]
-  /** Everything else the worker earned in the period, in cents. */
-  periodEarnedCents: number
-  /** Clocked seconds in the period (work_shifts). No shifts means no floor to apply. */
+  /** Everything else the worker earned in THIS WORKWEEK, in cents. */
+  weekEarnedCents: number
+  /** Clocked seconds in this workweek (work_shifts). No shifts means no floor to apply. */
   onShiftSeconds: number
-  /** pay_periods.id — the ledger's idempotency key for this row. */
-  payPeriodId: string
+  /**
+   * Idempotency key for the ledger row — unique per worker per workweek.
+   * A pay period id alone would collide across the weeks inside it.
+   */
+  workweekId: string
   earnedAt: string
 }): EarningLine | null {
   const component = params.components.find((c) => c.kind === "MINIMUM_WAGE_TOPUP")
@@ -235,13 +295,13 @@ export function calculateMinimumWageTopUp(params: {
   if (seconds <= 0) return null
 
   const floorCents = Math.round((seconds / 3600) * (component.hourly_floor_micros / MICROS_PER_CENT))
-  const shortfall = floorCents - Math.round(params.periodEarnedCents)
+  const shortfall = floorCents - Math.round(params.weekEarnedCents)
   if (shortfall <= 0) return null
 
   return {
     component_kind: "MINIMUM_WAGE_TOPUP",
     source_kind: "ADJUSTMENT",
-    source_id: params.payPeriodId,
+    source_id: params.workweekId,
     amount_cents: shortfall,
     quantity: seconds,
     rate_snapshot: component,

@@ -17,6 +17,12 @@ import {
   openTeamInviteModal,
   TEAM_ROSTER_CHANGED_EVENT,
 } from "@/lib/team-invite-events"
+import {
+  PayPlanButton,
+  PayPlanEditor,
+  usePayPlans,
+  type PayPlanTarget,
+} from "@/components/compensation/pay-plan-editor"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { TeamInvite } from "@/lib/types"
@@ -213,6 +219,9 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const [inviteActionError, setInviteActionError] = useState<{ id: string; message: string } | null>(
     null
   )
+  // Pay plans for the roster, and the row currently open in the editor.
+  const { plans, reload: reloadPlans } = usePayPlans()
+  const [payTarget, setPayTarget] = useState<PayPlanTarget | null>(null)
 
   // Only the true first load shows the spinner — a reload triggered by
   // TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not blank
@@ -664,12 +673,29 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           />
                         </div>
                       </div>
-                      {payout ? (
-                        <p className="mt-2 text-[11px] text-zinc-400">
-                          {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
-                          <span className="font-medium text-zinc-200">{formatUsd(payout.total_earnings)} earned</span>
-                        </p>
-                      ) : null}
+                      <div className="mt-2 flex items-end justify-between gap-3">
+                        <PayPlanButton
+                          plan={plans[member.id]}
+                          label={member.name}
+                          onEdit={() =>
+                            setPayTarget({
+                              kind: "receptionist",
+                              id: member.id,
+                              name: member.name,
+                              employmentType: plans[member.id]?.employment_type ?? "UNSPECIFIED",
+                              components: plans[member.id]?.components ?? [],
+                            })
+                          }
+                        />
+                        {payout ? (
+                          <p className="shrink-0 text-right text-[11px] text-zinc-400">
+                            {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
+                            <span className="font-medium text-zinc-200">
+                              {formatUsd(payout.total_earnings)} earned
+                            </span>
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   )
                 })}
@@ -681,6 +707,15 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
 
       {/* Lower field staff: unified fleet directory. */}
       <FieldTechniciansPanel />
+
+      <PayPlanEditor
+        target={payTarget}
+        onClose={() => setPayTarget(null)}
+        onSaved={(summary) => {
+          void reloadPlans()
+          toast({ title: "Pay updated", description: summary })
+        }}
+      />
 
       {/* Confirm before removing a phone contact or canceling an invite. */}
       <AlertDialog
