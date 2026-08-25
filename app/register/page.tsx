@@ -11,6 +11,15 @@ import { useSearchParams } from "next/navigation"
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 
 type InviteType = "EMAIL" | "SMS"
+
+/** Terms the owner attached to this invite — absent when they sent a bare invite. */
+type InviteAgreement = {
+  id: string
+  employment_type: "W2_EMPLOYEE" | "CONTRACTOR_1099"
+  pay_summary: string
+  body: string
+  business_name: string
+}
 type ValidResult = { valid: true; target: string; type: InviteType }
 type ValidationState =
   | { status: "loading" }
@@ -28,6 +37,10 @@ function RegisterForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  // The agreement this invite carries, if the owner attached pay terms to it.
+  const [agreement, setAgreement] = useState<InviteAgreement | null>(null)
+  const [consent, setConsent] = useState(false)
+  const [signerName, setSignerName] = useState("")
 
   // Validate the invite token on mount.
   useEffect(() => {
@@ -48,6 +61,18 @@ function RegisterForm() {
         setValidation({ status: "valid", invite: { valid: true, target: json.target, type: json.type } })
         // Pre-fill (and lock) the cell number that an SMS invite was sent to.
         if (json.type === "SMS") setPhone(json.target)
+
+        // Terms, when there are any. A bare invite still registers normally.
+        const agreementRes = await fetch(
+          `/api/agreements/for-invite?token=${encodeURIComponent(token)}`,
+          { cache: "no-store" }
+        )
+        if (!cancelled && agreementRes.ok) {
+          const agreementJson = (await agreementRes.json().catch(() => ({}))) as {
+            data?: { agreement?: InviteAgreement | null }
+          }
+          if (agreementJson.data?.agreement) setAgreement(agreementJson.data.agreement)
+        }
       } catch {
         if (!cancelled) setValidation({ status: "invalid", message: "Could not reach the server. Try again." })
       }
@@ -64,13 +89,25 @@ function RegisterForm() {
     if (fullName.trim().length < 2) return setError("Enter your full name.")
     if (phone.replace(/\D/g, "").length < 10) return setError("Enter a valid cell phone number.")
     if (password.length < 8) return setError("Password must be at least 8 characters.")
+    if (agreement) {
+      if (!consent) return setError("Tick the box to agree and sign electronically.")
+      if (signerName.trim().length < 2) return setError("Type your full name to sign.")
+    }
 
     setSubmitting(true)
     try {
       const res = await fetch("/api/auth/register-invited", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, name: fullName, password, phone }),
+        body: JSON.stringify({
+          token,
+          name: fullName,
+          password,
+          phone,
+          ...(agreement
+            ? { consent_electronic: consent, signer_name: signerName.trim() }
+            : {}),
+        }),
       })
       const json = (await res.json().catch(() => ({}))) as { data?: { redirect?: string }; error?: string }
       if (!res.ok) {
@@ -160,6 +197,60 @@ function RegisterForm() {
               />
             </div>
 
+            {agreement && (
+              <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-100">
+                    {agreement.employment_type === "W2_EMPLOYEE"
+                      ? "Your employment terms"
+                      : "Your contractor agreement"}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    From {agreement.business_name}. Read this before you finish signing up.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-primary/30 bg-violet-950/30 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+                    You will be paid
+                  </p>
+                  <p className="mt-0.5 text-sm text-slate-100">{agreement.pay_summary}</p>
+                </div>
+
+                {/* Scrollable rather than collapsed: nobody should have to expand a
+                    disclosure to find the terms they are about to sign. */}
+                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-relaxed text-slate-300">
+                  {agreement.body}
+                </div>
+
+                <div>
+                  <label htmlFor="reg-signature" className="mb-1 block text-sm font-medium text-slate-300">
+                    Sign by typing your full name
+                  </label>
+                  <input
+                    id="reg-signature"
+                    value={signerName}
+                    onChange={(e) => setSignerName(e.target.value)}
+                    placeholder={fullName || "Your full name"}
+                    className={`${inputClass} font-serif italic`}
+                  />
+                </div>
+
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-950 accent-violet-600"
+                  />
+                  <span>
+                    I have read these terms and agree to sign them electronically, with the same
+                    intent as signing on paper. I can save a copy from my account afterwards.
+                  </span>
+                </label>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
@@ -174,7 +265,11 @@ function RegisterForm() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              {submitting ? "Creating your account…" : "Create my account"}
+              {submitting
+                ? "Creating your account…"
+                : agreement
+                  ? "Sign and create my account"
+                  : "Create my account"}
             </button>
           </div>
         )}

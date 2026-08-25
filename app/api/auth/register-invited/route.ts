@@ -15,6 +15,8 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
+import { getPendingAgreementForInvite } from "@/lib/agreements/store"
+import { finalizeSignedAgreement } from "@/lib/agreements/finalize"
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,6 +49,18 @@ export async function POST(req: NextRequest) {
     // Owner team invites (and some admin channel invites) live on team_invites.
     const teamInvite = await getTeamInviteByToken(token)
     if (teamInvite) {
+      // An invite carrying terms cannot be redeemed without agreeing to them. Checked
+      // before the account exists, so a refusal leaves nothing half-created.
+      const pending = await getPendingAgreementForInvite(teamInvite.id)
+      const signerName = String(body.signer_name ?? name).trim()
+      const consent = body.consent_electronic === true
+      if (pending && !consent) {
+        return NextResponse.json(
+          { error: "Read the agreement and agree to sign electronically to continue." },
+          { status: 400 }
+        )
+      }
+
       const { user } = await acceptReceptionistInviteRegistration({
         token,
         full_name: name,
@@ -54,6 +68,27 @@ export async function POST(req: NextRequest) {
         password_hash: passwordHash,
         email: email || null,
       })
+
+      if (pending) {
+        // Signed, then the plan is built from the components the agreement carries —
+        // so the plan cannot say something the signed document does not.
+        await finalizeSignedAgreement({
+          agreement: pending,
+          user,
+          signerName,
+          signatureData: String(body.signature_data ?? signerName),
+          signatureType: body.signature_data ? "DRAWN" : "TYPED",
+          ip:
+            req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+            req.headers.get("x-real-ip") ||
+            null,
+          userAgent: req.headers.get("user-agent"),
+        }).catch((e) => {
+          // The account exists and the signature is the record that matters; a failure
+          // to attach the plan is recoverable from the Team page.
+          console.error("[lyncr] finalize agreement:", e)
+        })
+      }
       const authMeta = postAuthPayload(user)
       const res = NextResponse.json({
         data: {
