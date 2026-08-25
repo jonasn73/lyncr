@@ -16550,17 +16550,31 @@ export async function getReceptionistPayoutMetricsForBillingCycle(
   userId: string
 ): Promise<{ billing_cycle: { start: string; end: string }; agents: ReceptionistPayoutMetrics[] }> {
   const { calculateReceptionistPayTotal } = await import("@/lib/receptionist-pay")
+  const { sumOwnerEarningsByReceptionist } = await import("@/lib/compensation/ledger")
   const billing_cycle = await getBillingCycleWindowForUser(userId)
   const talkRows = await getAgentTalkTime(userId, billing_cycle.start, billing_cycle.end)
 
+  // What each receptionist was actually paid this cycle. A receptionist absent from
+  // this map has no settled rows — either they earned nothing or the backfill has not
+  // reached them — so their number is recomputed rather than reported as zero.
+  const settledCents = await sumOwnerEarningsByReceptionist(
+    userId,
+    billing_cycle.start,
+    billing_cycle.end
+  ).catch(() => new Map<string, number>())
+
   const agents = talkRows.map((row) => {
-    const total_earnings = calculateReceptionistPayTotal({
-      payMode: row.pay_mode,
-      ratePerMinute: row.rate_per_minute,
-      flatRateUsd: row.flat_rate_usd,
-      answeredCalls: row.total_calls,
-      totalTalkSeconds: row.total_seconds,
-    })
+    const settled = settledCents.get(row.receptionist_id)
+    const total_earnings =
+      settled !== undefined
+        ? settled / 100
+        : calculateReceptionistPayTotal({
+            payMode: row.pay_mode,
+            ratePerMinute: row.rate_per_minute,
+            flatRateUsd: row.flat_rate_usd,
+            answeredCalls: row.total_calls,
+            totalTalkSeconds: row.total_seconds,
+          })
     return {
       receptionist_id: row.receptionist_id,
       receptionist_name: row.receptionist_name,

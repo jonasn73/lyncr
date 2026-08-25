@@ -14,6 +14,7 @@ import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendMissedCallRescueSms } from "@/lib/missed-call-rescue"
+import { settleCallEarningsBySid } from "@/lib/compensation/settle-call"
 import { maybeQueuePostCallReviewSms } from "@/lib/post-call-review-sms"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
 import {
@@ -162,6 +163,14 @@ export async function POST(req: NextRequest) {
           await broadcastCallCompletedBySid(callSid)
         } catch (telemetryErr) {
           console.warn("[Telnyx] call-completed telemetry broadcast failed:", telemetryErr)
+        }
+        // Pay the receptionist for this leg. Runs after updateCallLog has cleared any
+        // false answered_at, so a machine pickup does not settle as a conversation.
+        try {
+          await settleCallEarningsBySid(callSid)
+        } catch (payErr) {
+          // Not lost: with no ledger row, the next sweep picks the call up.
+          console.error("[Telnyx] receptionist pay settlement failed:", payErr)
         }
         try {
           await maybeSendPostCallDispositionSms(callSid, callStatus)
