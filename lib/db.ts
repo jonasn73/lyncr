@@ -26,6 +26,7 @@ import { SITE_NAME } from "@/lib/brand"
 import { lineMatchesOwnerCell } from "@/lib/owner-cell-line-filter"
 import { normalizeWorkspaceDisplayName } from "@/lib/workspace-organizations"
 import { rollBillingCycleWindowForward } from "@/lib/billing-cycle-window"
+import { MIN_BILLABLE_TALK_SECONDS } from "@/lib/receptionist-pay"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
 import type {
   CompanyBriefing,
@@ -16683,22 +16684,33 @@ export async function getReceptionistTalkAggregate(
   try {
     const rows = await sql`
       SELECT
-        COUNT(*)::int AS answered_calls,
+        -- Only legs that were actually picked up AND ran past the minimum billable.
+        COUNT(*) FILTER (
+          WHERE EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
+                >= ${MIN_BILLABLE_TALK_SECONDS}
+        )::int AS answered_calls,
         COALESCE(SUM(
+          -- No duration_seconds fallback: that column includes ring and hold time, so it
+          -- billed a caller's wait as conversation.
           GREATEST(0, COALESCE(
             CASE
               WHEN cl.answered_at IS NOT NULL AND cl.ended_at IS NOT NULL
                 THEN EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
             END,
-            cl.duration_seconds,
             0
           ))
+        ) FILTER (
+          WHERE EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
+                >= ${MIN_BILLABLE_TALK_SECONDS}
         ), 0)::int AS total_seconds
       FROM call_logs cl
       WHERE cl.user_id = ${ownerUserId}
         AND cl.routed_to_receptionist_id = ${receptionistId}
         AND cl.created_at >= ${startDate}::timestamptz
         AND cl.created_at < ${endDate}::timestamptz
+        -- answered_at is the pickup record; status alone is the carrier's "call ended".
+        AND cl.answered_at IS NOT NULL
+        AND cl.ended_at IS NOT NULL
         AND lower(cl.status) IN ('answered', 'completed', 'in-progress')
     `
     const row = rows[0]

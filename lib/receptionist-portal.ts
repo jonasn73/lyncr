@@ -32,7 +32,7 @@ function isCallControlInboundEnabled(): boolean {
 
 function ledgerRowFromCall(call: CallLog, businessName: string, payConfig: ReturnType<typeof receptionistPayConfig>): ReceptionistLedgerRow {
   const duration_seconds = resolveReceptionistLegDurationSeconds(call)
-  const isAnswered = isAnsweredReceptionistCall(call.status)
+  const isAnswered = isAnsweredReceptionistCall(call)
   const payout_usd = calculateReceptionistPay({
     durationInSeconds: duration_seconds,
     payMode: payConfig.payMode,
