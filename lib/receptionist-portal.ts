@@ -169,12 +169,16 @@ async function settledCentsForCalls(
 
 async function buildLiveStatus(ctx: ReceptionistPortalContext): Promise<ReceptionistLiveStatus> {
   const active = await getActiveCallLogForReceptionist(ctx.receptionist.id)
-  if (active && (active.answered_at || /answered|in-progress/i.test(active.status))) {
+  const answered = Boolean(active?.answered_at) || /answered|in-progress/i.test(active?.status ?? "")
+  const ringing = !answered && /ringing/i.test(active?.status ?? "")
+
+  if (active && (answered || ringing)) {
     const callOwner = active.user_id !== ctx.owner_user_id ? await getUser(active.user_id) : null
     const business_name =
       callOwner?.business_name?.trim() || ctx.business_name
     return {
-      mode: "on_call",
+      // Ringing and answered carry the same fields; only what the header says differs.
+      mode: ringing ? "ringing" : "on_call",
       business_name,
       caller_number: active.from_number,
       caller_name: active.caller_name,

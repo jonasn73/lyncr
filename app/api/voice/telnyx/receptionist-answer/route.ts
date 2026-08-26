@@ -27,8 +27,16 @@ import { OWNER_PHONE_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
-// Env escape hatch — skip Press-1 for receptionist legs too (owner already skips).
-const PRESS1_SCREEN_DISABLED = ["0", "false", "no"].includes(
+// Press-1 screening is OFF unless explicitly asked for.
+//
+// It was added as an anti-voicemail gate: without it an unanswered cell can bridge
+// the caller into the receptionist's personal voicemail greeting. But it also meant
+// a receptionist who picked up and simply talked was never recorded as having
+// answered — no bridge, no answered_at, no intake, and no pay for the call. A gate
+// that silently drops real answered calls costs more than the voicemail it prevents.
+//
+// Owner legs already skipped it (31ce84e4); receptionist legs now match.
+const PRESS1_SCREEN_ENABLED = ["1", "true", "yes"].includes(
   (process.env.ZING_RECEPTIONIST_PRESS1_SCREEN || "").trim().toLowerCase()
 )
 
@@ -121,10 +129,21 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   })
 }
 
-/** Receptionist HUD — after press-1 accept, or when screening is off / immediate bridge. */
+/** Receptionist HUD — on immediate bridge, or after a press-1 accept when screening is on. */
 function scheduleReceptionistHudConnected(req: NextRequest, receptionistId: string): void {
   const callSid = resolveProviderCallSid(req)
   if (!callSid) return
+  // `after` throws when there is no request scope. This runs on the path that returns
+  // the bridge TeXML, so letting that escape would fail the whole document and drop a
+  // live call for the sake of a HUD notification. The portal polls regardless.
+  try {
+    scheduleHudBroadcast(req, receptionistId, callSid)
+  } catch (e) {
+    console.error("[receptionist-answer] could not schedule HUD broadcast:", e)
+  }
+}
+
+function scheduleHudBroadcast(req: NextRequest, receptionistId: string, callSid: string): void {
   after(async () => {
     try {
       await handleCallConnected({
@@ -172,14 +191,16 @@ async function respond(req: NextRequest): Promise<NextResponse> {
     return xmlResponseBody(immediateBridgeXml(phrase))
   }
 
-  // Receptionist escape hatch — env disables Press-1 for agent legs too.
-  if (PRESS1_SCREEN_DISABLED) {
+  // Receptionist cell: bridge on pickup, same as the owner leg. Stamp answered_at and
+  // open the HUD so the call is recorded, payable, and has an intake form.
+  if (!PRESS1_SCREEN_ENABLED) {
     await notifyOwnerCrmAnswered(req)
     scheduleReceptionistHudConnected(req, receptionistId!)
     return xmlResponseBody(immediateBridgeXml(phrase))
   }
 
-  // Receptionist cell: Press-1 before bridging (anti-voicemail). Do not stamp answered_at yet.
+  // Opt-in only. Press-1 before bridging (anti-voicemail); answered_at is deliberately
+  // not stamped until the key arrives, because nobody has accepted the call yet.
   return xmlResponseBody(
     buildReceptionistPress1ScreenTexml(businessName, gateActionUrl(req), {
       whisperPhrase: phrase,

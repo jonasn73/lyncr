@@ -988,6 +988,21 @@ export interface ReceptionistLedgerRow {
 export type ReceptionistLiveStatus =
   | { mode: "ready"; business_name: string }
   | {
+      /**
+       * The phone is ringing and nobody has picked up yet. Surfaced so intake can be
+       * on screen before the receptionist answers rather than after — she needs to
+       * know who is calling while deciding to pick up, not once she is already
+       * talking. Earns nothing: pay still requires a real pickup.
+       */
+      mode: "ringing"
+      business_name: string
+      caller_number: string
+      caller_name: string | null
+      started_at: string | null
+      provider_call_sid: string | null
+      business_type: ReceptionistBusinessType
+    }
+  | {
       mode: "on_call"
       business_name: string
       caller_number: string

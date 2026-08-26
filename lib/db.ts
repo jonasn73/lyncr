@@ -16690,7 +16690,10 @@ export async function getActiveCallLogForReceptionist(receptionistId: string): P
     const row = rows[0]
     if (!row) return null
     const call = parseCallLogRow(row as Record<string, unknown>)
-    if (call.answered_at || /answered|in-progress/i.test(call.status)) return call
+    // Ringing legs are returned too — the portal shows intake before pickup, and the
+    // caller deciding whether to answer is exactly who needs it. Callers that only
+    // want answered calls check answered_at themselves.
+    if (call.answered_at || /answered|in-progress|ringing/i.test(call.status)) return call
     return null
   } catch (e) {
     if (pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("ended_at")) return null

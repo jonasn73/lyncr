@@ -73,19 +73,23 @@ function billingCycleLabel(start: string, end: string): string {
 function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
   const { live_status, receptionist } = dashboard
   const onCall = live_status.mode === "on_call"
+  const ringing = live_status.mode === "ringing"
   const available = receptionist.is_active
 
   // Primary line shown in the strip
-  const headline = onCall
-    ? "On an active call"
-    : available
-      ? "Online & ready"
-      : "Off duty"
+  const headline = ringing
+    ? "Incoming call — ringing"
+    : onCall
+      ? "On an active call"
+      : available
+        ? "Online & ready"
+        : "Off duty"
 
   // Secondary context (company / caller)
-  const detail = onCall ? (
+  const detail = onCall || ringing ? (
     <>
-      Answering for <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+      {ringing ? "Ringing for " : "Answering for "}
+      <span className="font-medium text-zinc-200">{live_status.business_name}</span>
       {" · "}
       {formatPhoneDisplay(live_status.caller_number)}
       {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
@@ -397,7 +401,10 @@ export function ReceptionistPortalView() {
   // HUD, never closes it. A call ending is exactly when a receptionist is still
   // typing up what it was about, and a poll landing after hangup must not take the
   // form away mid-sentence. Closing stays with the explicit dismiss and call-ended.
-  const polledLive = dashboard?.live_status.mode === "on_call" ? dashboard.live_status : null
+  const polledLive =
+    dashboard?.live_status.mode === "on_call" || dashboard?.live_status.mode === "ringing"
+      ? dashboard.live_status
+      : null
   // Same id realtime publishes, so a call opened by one path and closed by the other
   // logs its intake against the same call.
   const polledCallSid = polledLive?.provider_call_sid ?? null
@@ -492,6 +499,7 @@ export function ReceptionistPortalView() {
 
   const available = dashboard.receptionist.is_active
   const onCall = dashboard.live_status.mode === "on_call"
+  const ringingNow = dashboard.live_status.mode === "ringing"
 
   return (
     <WorkspacePage className={tab === "home" ? "gap-3 sm:gap-4" : undefined}>
@@ -569,7 +577,7 @@ export function ReceptionistPortalView() {
                     onCall ? "text-emerald-200" : available ? "text-foreground" : "text-zinc-400"
                   )}
                 >
-                  {onCall ? "ON CALL" : available ? "ON DUTY" : "OFF DUTY"}
+                  {onCall ? "ON CALL" : ringingNow ? "RINGING" : available ? "ON DUTY" : "OFF DUTY"}
                 </h1>
                 <p className="mt-1.5 truncate text-sm text-zinc-300">
                   <span className="font-medium text-foreground">{dashboard.business_name}</span>
