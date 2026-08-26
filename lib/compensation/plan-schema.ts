@@ -347,7 +347,7 @@ export function validatePayComponents(
   }
   for (const [event, count] of perEventByName) {
     if (count > 1) {
-      errors.push(`Two flat amounts for ${describeEvent(event)} would pay it twice.`)
+      errors.push(`Two flat amounts for ${describeEventWithArticle(event)} would pay it twice.`)
     }
   }
   if (commissionCount > 1) {
@@ -388,10 +388,16 @@ function formatUsd(micros: number, maxFractionDigits = 2): string {
   }).format(microsToDollars(micros))
 }
 
+/** Bare noun — reads correctly after "per". */
 function describeEvent(event: PayEventName): string {
-  if (event === "ANSWERED_CALL") return "an answered call"
-  if (event === "BOOKED_JOB") return "a booked job"
-  return "a completed job"
+  if (event === "ANSWERED_CALL") return "answered call"
+  if (event === "BOOKED_JOB") return "booked job"
+  return "completed job"
+}
+
+/** With an article, for prose that needs one. */
+function describeEventWithArticle(event: PayEventName): string {
+  return `a${event === "ANSWERED_CALL" ? "n" : ""} ${describeEvent(event)}`
 }
 
 function describeUnit(unit: TimeUnit, basis: TimeBasis): string {
