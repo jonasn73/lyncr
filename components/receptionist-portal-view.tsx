@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
 import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
-import { getPusherClient } from "@/lib/realtime/pusher-client"
+import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
@@ -330,6 +330,11 @@ function CallRows({
   )
 }
 
+/** Realtime is live — poll only as a safety net against a dropped event. */
+const DASHBOARD_POLL_MS_REALTIME = 12_000
+/** No realtime — polling is the only way the HUD ever opens, so it runs hard. */
+const DASHBOARD_POLL_MS_FALLBACK = 3_000
+
 export function ReceptionistPortalView() {
   const pathname = usePathname() || "/receptionist"
   const tab = tabFromPath(pathname)
@@ -355,11 +360,58 @@ export function ReceptionistPortalView() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Poll hard when realtime is off and lazily when it is on, matching what the owner
+  // console (CallAnsweredModal) has always done. A fixed 15s here was the reason the
+  // portal went silent on a deploy with no Pusher keys while the owner console kept
+  // working from the same data.
   useEffect(() => {
     load()
-    const timer = window.setInterval(() => load({ silent: true }), 15_000)
-    return () => window.clearInterval(timer)
+    const intervalMs = isRealtimeClientConfigured()
+      ? DASHBOARD_POLL_MS_REALTIME
+      : DASHBOARD_POLL_MS_FALLBACK
+    const timer = window.setInterval(() => {
+      // A backgrounded tab does not need a live call HUD, and a phone that slept for
+      // an hour should not wake to a queue of stale polls.
+      if (document.visibilityState !== "visible") return
+      load({ silent: true })
+    }, intervalMs)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load({ silent: true })
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [load])
+
+  // Calls whose intake has already been opened once, by either path. Without this a
+  // receptionist who dismisses the HUD mid-call gets it thrown back at her by the very
+  // next poll, and there is no way to close it until the caller hangs up.
+  const [handledCallSid, setHandledCallSid] = useState<string | null>(null)
+
+  // Open intake from polled state when realtime did not, or could not, deliver.
+  //
+  // Adjusted during render rather than in an effect: an effect would paint an empty
+  // HUD first and fill it on the next pass. Deliberately one-way — this opens the
+  // HUD, never closes it. A call ending is exactly when a receptionist is still
+  // typing up what it was about, and a poll landing after hangup must not take the
+  // form away mid-sentence. Closing stays with the explicit dismiss and call-ended.
+  const polledLive = dashboard?.live_status.mode === "on_call" ? dashboard.live_status : null
+  // Same id realtime publishes, so a call opened by one path and closed by the other
+  // logs its intake against the same call.
+  const polledCallSid = polledLive?.provider_call_sid ?? null
+  if (polledLive && polledCallSid && polledCallSid !== handledCallSid && !activeCall) {
+    setHandledCallSid(polledCallSid)
+    setActiveCall({
+      callLogId: polledCallSid,
+      businessType: polledLive.business_type,
+      callerNumber: polledLive.caller_number,
+      callerName: polledLive.caller_name,
+      businessName: polledLive.business_name,
+      startedAt: polledLive.started_at ?? new Date().toISOString(),
+    })
+  }
 
   const receptionistId = dashboard?.receptionist.id ?? null
   const dashboardRef = useRef<ReceptionistPortalDashboard | null>(null)
@@ -372,6 +424,7 @@ export function ReceptionistPortalView() {
     const channel = pusher.subscribe(channelName)
 
     const onConnected = (payload: LiveCallSession) => {
+      setHandledCallSid(payload.callLogId)
       setActiveCall({
         callLogId: payload.callLogId,
         businessType: payload.businessType ?? "generic",

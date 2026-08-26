@@ -1,6 +1,7 @@
 // Maps a line's industry/skill tag to the receptionist intake form variant.
 
-export type ReceptionistBusinessType = "locksmith" | "detailing" | "auto_repair" | "generic"
+export type { ReceptionistBusinessType } from "@/lib/types"
+import type { ReceptionistBusinessType } from "@/lib/types"
 
 /** Resolve which live intake form a receptionist should see for a given industry tag. */
 export function resolveBusinessType(industryTag: string | null | undefined): ReceptionistBusinessType {
