@@ -8,6 +8,8 @@ import {
   resolveReceptionistLegDurationSeconds,
 } from "@/lib/receptionist-pay"
 import { getEarningsTotal, sumEarningsBySource } from "@/lib/compensation/ledger"
+import { resolveReceptionistComponents } from "@/lib/compensation/plans"
+import { describePayPlan } from "@/lib/compensation/plan-schema"
 import type { ReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import {
   getActiveCallLogForReceptionist,
@@ -209,6 +211,14 @@ export async function buildReceptionistPortalDashboard(
 
   const payConfig = receptionistPayConfig(ctx.receptionist)
 
+  // Straight from the plan, so the rate a receptionist reads is the one that is
+  // actually paying them. resolveReceptionistComponents falls back to the legacy
+  // columns only for a roster row that has no plan yet.
+  const { components } = await resolveReceptionistComponents(ctx.receptionist).catch(() => ({
+    components: [],
+  }))
+  const pay_summary = components.length > 0 ? describePayPlan(components) : ""
+
   // Per-call amounts as settled, so a row in the ledger shows what was paid for that
   // call rather than what the worker's current rate would pay for it today. The
   // window spans both lists — Recent calls reaches further back than the pay period.
@@ -236,6 +246,7 @@ export async function buildReceptionistPortalDashboard(
       flat_rate_usd: ctx.receptionist.flat_rate_usd,
       routing_endpoint: ctx.receptionist.routing_endpoint ?? "CELL",
     },
+    pay_summary,
     // WEB media can register once a SIP username is provisioned.
     web_calling_available: Boolean(ctx.receptionist.sip_username?.trim()),
     // Call Control inbound still dials PSTN only — browser ring is not live there yet.
