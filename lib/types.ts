@@ -3,6 +3,9 @@
 // ============================================
 
 // --- Users (Business Owners + team) ---
+/** Which intake form a business needs. Mirrors lib/business-type.ts. */
+export type ReceptionistBusinessType = "locksmith" | "detailing" | "auto_repair" | "generic"
+
 /** DB / session role (lowercase). TECHNICIAN maps to field_tech. */
 export type AccountRole = "owner" | "receptionist" | "field_tech"
 
@@ -990,6 +993,14 @@ export type ReceptionistLiveStatus =
       caller_number: string
       caller_name: string | null
       started_at: string | null
+      /**
+       * The carrier's call id, matching what the realtime `call-connected` payload
+       * carries — the two paths must agree or a call opened by one and closed by the
+       * other logs its intake against a different id.
+       */
+      provider_call_sid: string | null
+      /** Which intake form this business needs, so polling opens the same one realtime would. */
+      business_type: ReceptionistBusinessType
     }
 
 /** GET /api/receptionist/dashboard payload. */

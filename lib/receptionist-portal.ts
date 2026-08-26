@@ -10,6 +10,7 @@ import {
 import { getEarningsTotal, sumEarningsBySource } from "@/lib/compensation/ledger"
 import { resolveReceptionistComponents } from "@/lib/compensation/plans"
 import { describePayPlan } from "@/lib/compensation/plan-schema"
+import { resolveBusinessType } from "@/lib/business-type"
 import type { ReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import {
   getActiveCallLogForReceptionist,
@@ -178,6 +179,12 @@ async function buildLiveStatus(ctx: ReceptionistPortalContext): Promise<Receptio
       caller_number: active.from_number,
       caller_name: active.caller_name,
       started_at: active.answered_at ?? active.created_at,
+      // Carried so the portal can open intake from a poll, not only from a realtime
+      // event — the owner console has always worked this way and the portal did not.
+      provider_call_sid: active.provider_call_sid?.trim() || null,
+      business_type: resolveBusinessType(
+        (callOwner ?? (await getUser(ctx.owner_user_id).catch(() => null)))?.industry ?? null
+      ),
     }
   }
   return {
