@@ -4,9 +4,10 @@
 // Driven by the real-time `call-connected` payload; fields swap by business type.
 
 import { useEffect, useMemo, useState } from "react"
-import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle } from "lucide-react"
+import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle, Minus, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
+import type { FieldServiceFieldDef } from "@/lib/field-service-intake"
 import {
   IndustryIntakeFormFields,
   intakeValuesComplete,
@@ -71,6 +72,45 @@ const DISPOSITION_MESSAGES: Record<JobDisposition, string> = {
   FAILED: "Logged as failed — the owner has been notified.",
 }
 
+/**
+ * Intake broken into one screen per topic, in the order the owner console proved out:
+ * what they need, then the vehicle, then the specifics, then where, then anything else.
+ *
+ * Membership comes from the `group` each field already declares, so adding a field to
+ * lib/field-service-intake.ts puts it on the right screen without touching this file.
+ * Address is pulled out of the `job` group into its own screen because it is the single
+ * field most worth getting right and it deserves the room.
+ */
+const STEP_DEFS: { id: string; label: string; match: (f: FieldServiceFieldDef) => boolean }[] = [
+  { id: "job", label: "Job", match: (f) => f.group === "job" && f.type !== "address" && f.name !== "job_notes" },
+  { id: "vehicle", label: "Vehicle", match: (f) => f.group === "vehicle" },
+  { id: "details", label: "Details", match: (f) => f.group === "locksmith" || f.group === "detailing" },
+  { id: "address", label: "Address", match: (f) => f.type === "address" },
+  { id: "notes", label: "Notes", match: (f) => f.name === "job_notes" || f.group === "scheduling" },
+]
+
+type IntakeStep = { id: string; label: string; fields: FieldServiceFieldDef[] }
+
+/** Split a profile's fields into steps, dropping empty ones and losing nothing. */
+function buildSteps(fields: FieldServiceFieldDef[]): IntakeStep[] {
+  const claimed = new Set<string>()
+  const steps: IntakeStep[] = []
+  for (const def of STEP_DEFS) {
+    const owned = fields.filter((f) => !claimed.has(f.name) && def.match(f))
+    owned.forEach((f) => claimed.add(f.name))
+    if (owned.length > 0) steps.push({ id: def.id, label: def.label, fields: owned })
+  }
+  // A field no rule claimed still has to be reachable, or it silently stops being
+  // askable the moment someone adds one with a new group.
+  const orphans = fields.filter((f) => !claimed.has(f.name))
+  if (orphans.length > 0) {
+    const notes = steps.find((s) => s.id === "notes")
+    if (notes) notes.fields.push(...orphans)
+    else steps.push({ id: "more", label: "More", fields: orphans })
+  }
+  return steps
+}
+
 export function ReceptionistLiveIntake({
   session,
   callerNameFallback,
@@ -85,6 +125,20 @@ export function ReceptionistLiveIntake({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [stepIndex, setStepIndex] = useState(0)
+  // Collapsed to a bar rather than closed — she needs to look something up mid-call
+  // without losing what she has typed, which is why the owner console has a PiP.
+  const [minimized, setMinimized] = useState(false)
+
+  const steps = useMemo(() => buildSteps(config.fields), [config.fields])
+  const step = steps[Math.min(stepIndex, steps.length - 1)]
+  const isLastStep = stepIndex >= steps.length - 1
+  // Gate Next on this screen's own required fields, so a missing answer four screens
+  // later cannot block the one in front of her.
+  const stepIncomplete = useMemo(
+    () => (step ? !intakeValuesComplete(step.fields, values) : false),
+    [step, values]
+  )
 
   const callerName = session.callerName || callerNameFallback || null
   const callerNumber = session.callerNumber || null
@@ -196,10 +250,40 @@ export function ReceptionistLiveIntake({
     }
   }
 
+  const callerLabel = callerName || (callerNumber ? formatPhoneDisplay(callerNumber) : "Incoming caller")
+
+  // Collapsed: a thin fixed bar that keeps the call visible and the draft alive.
+  if (minimized) {
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-2.5 shadow-2xl">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+              <PhoneCall className="h-4 w-4" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{callerLabel}</p>
+              <p className="text-[11px] text-emerald-200/70">
+                Intake in progress · <ElapsedTimer startedAt={session.startedAt} />
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMinimized(false)}
+            className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
+          >
+            Resume intake
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <WorkspacePanel className="overflow-hidden border-emerald-500/40 bg-emerald-950/10 p-0">
-      {/* Live call header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-500/10 px-5 py-4">
+      {/* Live call header — sticky so Minimize and Close stay reachable mid-scroll. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-950/95 px-5 py-4 backdrop-blur">
         <div className="flex items-center gap-3">
           <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/30" />
@@ -216,19 +300,72 @@ export function ReceptionistLiveIntake({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-medium text-emerald-200">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-          <ElapsedTimer startedAt={session.startedAt} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-medium text-emerald-200">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <ElapsedTimer startedAt={session.startedAt} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMinimized(true)}
+            aria-label="Minimize intake"
+            title="Minimize — keeps everything you have typed"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-emerald-500/15"
+          >
+            <Minus className="h-4 w-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDismiss("dismissed")}
+            disabled={saving}
+            aria-label="Close intake"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
       </div>
 
+      {/* Where she is, and how much is left. */}
+      {steps.length > 1 ? (
+        <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-5 py-2">
+          {steps.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setStepIndex(i)}
+              aria-current={i === stepIndex}
+              className={`flex-1 rounded-full py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+                i === stepIndex
+                  ? "bg-emerald-500/25 text-emerald-100"
+                  : i < stepIndex
+                    ? "text-emerald-300/70 hover:bg-emerald-500/10"
+                    : "text-zinc-600 hover:bg-emerald-500/5"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {/* Intake form */}
       <div className="px-5 py-5">
-        <h2 className="text-sm font-semibold text-foreground">{config.title}</h2>
-        <p className="mt-1 text-xs text-zinc-500">Fill this in while you talk — it texts the owner the moment you save.</p>
+        <h2 className="text-sm font-semibold text-foreground">
+          {step ? step.label : config.title}
+        </h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          {steps.length > 1
+            ? `Step ${stepIndex + 1} of ${steps.length} — ask as you go, it saves as you type.`
+            : "Fill this in while you talk — it texts the owner the moment you save."}
+        </p>
 
         <div className="mt-4">
-          <IndustryIntakeFormFields fields={config.fields} values={values} onChange={setField} />
+          <IndustryIntakeFormFields
+            fields={step ? step.fields : config.fields}
+            values={values}
+            onChange={setField}
+          />
         </div>
 
         {error ? (
@@ -243,7 +380,9 @@ export function ReceptionistLiveIntake({
         ) : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* How the call ended is the last question, not the first — asking it beside
+              the vehicle year invites logging an outcome before there is one. */}
+          <div className={`flex flex-wrap items-center gap-2 ${isLastStep ? "" : "hidden"}`}>
             <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Disposition:</span>
             <button
               type="button"
@@ -283,24 +422,38 @@ export function ReceptionistLiveIntake({
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onDismiss("dismissed")}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
-            >
-              <X className="h-4 w-4" aria-hidden />
-              Dismiss
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={saving || missingRequired || Boolean(savedMsg)}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
-              Save & text owner
-            </button>
+            {stepIndex > 0 ? (
+              <button
+                type="button"
+                onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+                Back
+              </button>
+            ) : null}
+            {isLastStep ? (
+              <button
+                type="button"
+                onClick={submit}
+                disabled={saving || missingRequired || Boolean(savedMsg)}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
+                Save &amp; text owner
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
+                disabled={saving || stepIncomplete}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </button>
+            )}
           </div>
         </div>
       </div>
