@@ -153,6 +153,36 @@ describe("validation", () => {
     expect(warnings.join(" ")).toContain("employment type")
   })
 
+  it("warns when a contractor is paid for time on duty", () => {
+    // Paying someone to be available is a control fact, and control is one of the two
+    // factors that decide whether a contractor really is one. Warned, never blocked.
+    const { errors, warnings } = validatePayComponents(
+      [{ kind: "TIME", unit: "HOUR", basis: "ON_SHIFT", rate_micros: 15_000_000 }],
+      { employmentType: "CONTRACTOR_1099" }
+    )
+    expect(errors).toEqual([])
+    expect(warnings.join(" ")).toContain("points toward employee")
+  })
+
+  it("does not warn when a contractor is paid for talk time", () => {
+    // Paid for output, not availability — an ordinary contractor arrangement.
+    const { warnings } = validatePayComponents([perSecond], {
+      employmentType: "CONTRACTOR_1099",
+    })
+    expect(warnings.join(" ")).not.toContain("points toward employee")
+  })
+
+  it("does not warn an employee about being paid for time on duty", () => {
+    const { warnings } = validatePayComponents(
+      [
+        { kind: "TIME", unit: "HOUR", basis: "ON_SHIFT", rate_micros: 15_000_000 },
+        { kind: "MINIMUM_WAGE_TOPUP", hourly_floor_micros: 7_250_000 },
+      ],
+      { employmentType: "W2_EMPLOYEE" }
+    )
+    expect(warnings.join(" ")).not.toContain("points toward employee")
+  })
+
   it("warns about commission that is not gated on payment", () => {
     const { warnings } = validatePayComponents(
       [{ kind: "COMMISSION", rate_bps: 500, basis: "SUBTOTAL_EXCL_TAX", require: ["COMPLETED"] }],

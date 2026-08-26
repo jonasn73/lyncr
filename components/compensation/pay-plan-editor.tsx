@@ -707,6 +707,11 @@ function PayPlanForm({
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               How they work for you
             </p>
+            <p className="text-[11px] leading-relaxed text-zinc-500">
+              This isn&apos;t decided by how you pay them — every pay rule below works for
+              either. It&apos;s about how the work happens: how much you direct it, and whether
+              they carry their own costs and risk. Your call to make, not ours.
+            </p>
             <div className="grid gap-1.5">
               {EMPLOYMENT_CHOICES.map((choice) => (
                 <button

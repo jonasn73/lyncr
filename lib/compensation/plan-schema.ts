@@ -363,6 +363,16 @@ export function validatePayComponents(
     )
   }
 
+  // Paying someone to be available is a control fact, and control is one of the two
+  // factors that decide whether a contractor really is one. Not decisive on its own,
+  // and not blocked — the owner classifies, not this system — but it is the single
+  // combination most likely to be looked at, so it is said out loud.
+  if (options.employmentType === "CONTRACTOR_1099" && timeByBasis.has("ON_SHIFT")) {
+    warnings.push(
+      "Paying a contractor for time on duty means paying them to be available, which points toward employee. Paying for talk time or completed work does not."
+    )
+  }
+
   if (options.employmentType === "W2_EMPLOYEE" && topUpCount === 0) {
     const paysOnlyForProduction =
       timeByBasis.get("ON_SHIFT") === undefined &&
