@@ -998,6 +998,13 @@ export interface ReceptionistPortalDashboard {
     Receptionist,
     "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd" | "routing_endpoint"
   >
+  /**
+   * What this receptionist is paid, in words, from their live compensation plan
+   * (`compensation_plans`). The pay_mode / rate_per_minute / flat_rate_usd fields
+   * above are the legacy columns the plan editor no longer writes to, so anything
+   * showing a rate must use this instead or it goes stale the first time pay changes.
+   */
+  pay_summary: string
   /** True when a sip_username is provisioned, so the WEB toggle can actually carry browser audio. */
   web_calling_available: boolean
   /**

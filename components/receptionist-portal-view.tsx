@@ -428,10 +428,14 @@ export function ReceptionistPortalView() {
 
   const cycleLabel = billingCycleLabel(dashboard.billing_cycle.start, dashboard.billing_cycle.end)
   const callRows = dashboard.recent_calls?.length ? dashboard.recent_calls : dashboard.ledger
+  // From the live plan. The legacy pay_mode / flat_rate_usd columns are no longer
+  // written when an owner changes pay, so deriving the label from them showed the
+  // old rate indefinitely.
   const rateLabel =
-    dashboard.receptionist.pay_mode === "FLAT_RATE"
+    dashboard.pay_summary ||
+    (dashboard.receptionist.pay_mode === "FLAT_RATE"
       ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
-      : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`
+      : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`)
 
   const available = dashboard.receptionist.is_active
   const onCall = dashboard.live_status.mode === "on_call"
