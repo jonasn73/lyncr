@@ -21,9 +21,33 @@
 // history settles at TODAY's rate — the old code kept no record of the previous one,
 // so there is nothing truer to use. Worth a spot check before locking a pay period.
 
+import { readFileSync } from "fs"
+import { dirname, join } from "path"
+import { fileURLToPath } from "url"
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "../lib/neon-database-url"
 import { sweepUnsettledCalls } from "../lib/compensation/settle-call"
+
+// tsx does not load .env.local the way `next dev` does, so without this the script
+// dies on "DATABASE_URL is not set" even though the app runs fine. Module-level and
+// therefore before main(), which is before anything opens a connection. An existing
+// environment DATABASE_URL wins, so pointing this at a Neon branch needs no edit.
+try {
+  const envPath = join(dirname(fileURLToPath(import.meta.url)), "..", ".env.local")
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#")) continue
+    const eq = trimmed.indexOf("=")
+    if (eq <= 0) continue
+    const key = trimmed.slice(0, eq).trim()
+    let value = trimmed.slice(eq + 1).trim()
+    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1)
+    if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1)
+    if (!process.env[key]) process.env[key] = value
+  }
+} catch {
+  // No .env.local — fall back to whatever is already in the environment.
+}
 
 const BATCH = 500
 
