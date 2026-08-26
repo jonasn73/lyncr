@@ -3,7 +3,7 @@
 // Live intake form that takes over the receptionist HUD the instant a call connects.
 // Driven by the real-time `call-connected` payload; fields swap by business type.
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle, Minus, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
@@ -233,6 +233,44 @@ export function ReceptionistLiveIntake({
     [step, values]
   )
 
+  /**
+   * A screen advances itself only when every answer on it is a tap.
+   *
+   * Free text has no moment of completion — a name is "done" after the first letter as
+   * far as a required check knows, and jumping mid-word would be worse than a Next
+   * button. Tap-only screens have an unambiguous last action to react to.
+   */
+  const stepAutoAdvances = useMemo(
+    () => Boolean(step) && step.fields.every((f) => f.type !== "text" && f.type !== "textarea"),
+    [step]
+  )
+
+  // Screens that have already advanced themselves. Going Back to one must not bounce
+  // her straight forward again, which is what makes naive auto-advance unusable.
+  const autoAdvancedRef = useRef<Set<number>>(new Set())
+  // Whether this screen still had something to answer when she arrived. A screen that
+  // was already complete — restored from a draft, or revisited — must sit still.
+  const arrivedIncompleteRef = useRef(false)
+  useEffect(() => {
+    arrivedIncompleteRef.current = stepIncomplete
+    // Deliberately only on step change: this records the state on ARRIVAL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIndex])
+
+  useEffect(() => {
+    if (!stepAutoAdvances || isLastStep) return
+    if (stepIncomplete) return
+    if (!arrivedIncompleteRef.current) return
+    if (autoAdvancedRef.current.has(stepIndex)) return
+
+    // Long enough to see the option register, short enough to feel like it kept up.
+    const timer = window.setTimeout(() => {
+      autoAdvancedRef.current.add(stepIndex)
+      setStepIndex((i) => Math.min(steps.length - 1, i + 1))
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [stepAutoAdvances, stepIncomplete, isLastStep, stepIndex, steps.length])
+
   const callerName = session.callerName || callerNameFallback || null
   const callerNumber = session.callerNumber || null
   const draftKey = intakeDraftKey(session.callLogId)
@@ -442,7 +480,10 @@ export function ReceptionistLiveIntake({
             <button
               key={s.id}
               type="button"
-              onClick={() => setStepIndex(i)}
+              onClick={() => {
+                autoAdvancedRef.current.add(i)
+                setStepIndex(i)
+              }}
               aria-current={i === stepIndex}
               className={`flex-1 rounded-full py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
                 i === stepIndex
@@ -534,7 +575,15 @@ export function ReceptionistLiveIntake({
             {stepIndex > 0 ? (
               <button
                 type="button"
-                onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+                onClick={() =>
+                  setStepIndex((i) => {
+                    const previous = Math.max(0, i - 1)
+                    // Disarm the screen she is going back to, so it does not throw her
+                    // forward again the moment it renders complete.
+                    autoAdvancedRef.current.add(previous)
+                    return previous
+                  })
+                }
                 disabled={saving}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
               >

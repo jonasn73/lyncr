@@ -125,31 +125,53 @@ export function IndustryIntakeFormFields({
                 onChange={(e) => onChange(field.name, e.target.value)}
               />
             ) : field.type === "select" ? (
-              <select
-                className={inputClass}
-                value={String(values[field.name] ?? "")}
-                disabled={disabled}
-                onChange={(e) => onChange(field.name, e.target.value)}
-              >
-                <option value="">Select…</option>
-                {field.options?.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              // Tappable options rather than a <select>. On a phone a native select
+              // opens a picker that has to be scrolled and confirmed — three gestures
+              // and a covered screen, while someone is talking. These are one tap, and
+              // every choice is readable without opening anything.
+              <div className="flex flex-wrap gap-1.5">
+                {field.options?.map((opt) => {
+                  const active = String(values[field.name] ?? "") === opt
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={disabled}
+                      aria-pressed={active}
+                      // Tapping the chosen option again clears it — otherwise a
+                      // mis-tap on a required field can never be undone.
+                      onClick={() => onChange(field.name, active ? "" : opt)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
+                        active
+                          ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
+                          : "border-border/70 bg-background text-zinc-300 hover:bg-muted/40"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
             ) : field.type === "checkbox" ? (
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border accent-emerald-500"
-                  checked={values[field.name] === true}
-                  disabled={disabled}
-                  onChange={(e) => onChange(field.name, e.target.checked)}
-                />
-                <span className="text-foreground">{field.label}</span>
-                {values[field.name] === true ? <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> : null}
-              </label>
+              // Rendered as a toggle rather than a checkbox: a 16px box is a poor tap
+              // target on a phone, and it reads as a different kind of control sitting
+              // next to the option chips when it is the same one-tap decision.
+              <button
+                type="button"
+                disabled={disabled}
+                aria-pressed={values[field.name] === true}
+                onClick={() => onChange(field.name, !(values[field.name] === true))}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
+                  values[field.name] === true
+                    ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
+                    : "border-border/70 bg-background text-zinc-300 hover:bg-muted/40"
+                )}
+              >
+                {values[field.name] === true ? <Check className="h-3.5 w-3.5" aria-hidden /> : null}
+                {field.label}
+              </button>
             ) : field.type === "toggle" ? (
               <button
                 type="button"
