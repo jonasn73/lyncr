@@ -289,13 +289,13 @@ function ComponentRow({
                   className={cn(selectClass, "w-48")}
                 >
                   <option value="SUBTOTAL_EXCL_TAX">subtotal before tax</option>
-                  <option value="LABOR_ONLY">labor only</option>
+                  <option value="LABOR_ONLY">labor only (parts excluded)</option>
                   <option value="COLLECTED_TOTAL">everything collected</option>
                 </select>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
                 <span>Only when the job is</span>
-                {CONDITIONS.map((condition) => {
+                {CONDITIONS.map((condition) => {  
                   const on = component.require.includes(condition)
                   return (
                     <button

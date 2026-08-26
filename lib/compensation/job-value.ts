@@ -13,6 +13,12 @@
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import type { CommissionBasis } from "@/lib/compensation/plan-schema"
+import {
+  laborCentsFrom,
+  partsFromInvoiceLineItems,
+  partsFromPricingMetadata,
+  type JobPartsSplit,
+} from "@/lib/compensation/job-parts"
 
 let cachedSql: ReturnType<typeof neon> | null = null
 function getSql(): ReturnType<typeof neon> {
@@ -58,20 +64,58 @@ function toCents(value: unknown): number {
  * of the charge under the legacy flat rate, that behavior is preserved separately
  * rather than by quietly folding tips into a commission base.
  */
-function fromSplit(subtotalCents: number, taxCents: number, source: JobValueSource): JobCommissionBase {
+function fromSplit(
+  subtotalCents: number,
+  taxCents: number,
+  source: JobValueSource,
+  parts?: JobPartsSplit
+): JobCommissionBase {
   const subtotal = Math.max(0, subtotalCents)
   const total = subtotal + Math.max(0, taxCents)
+  const split: JobPartsSplit = parts ?? { partsCents: 0, source: "none", unknown: true }
   return {
     cents: {
       COLLECTED_TOTAL: total,
       SUBTOTAL_EXCL_TAX: subtotal,
-      // No line item in this schema says which part was labor and which was parts or
-      // key stock, so labor cannot be separated. Falls back to the subtotal and says so.
-      LABOR_ONLY: subtotal,
+      LABOR_ONLY: laborCentsFrom(subtotal, split),
     },
     source,
-    approximated: ["LABOR_ONLY"],
+    // Labor is exact once something classified the lines; until then it falls back to
+    // the subtotal and must not be presented as a real labor figure.
+    approximated: split.unknown ? ["LABOR_ONLY"] : [],
   }
+}
+
+/** Parts on a job, from the on-site invoice first and the booked quote after. */
+async function resolvePartsSplit(jobId: string): Promise<JobPartsSplit> {
+  const sql = getSql()
+
+  // What the tech actually billed beats what was quoted.
+  try {
+    const rows = (await sql`
+      SELECT line_items FROM job_invoices
+      WHERE lead_id = ${jobId}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    if (rows[0]) {
+      const split = partsFromInvoiceLineItems(rows[0].line_items)
+      if (!split.unknown) return split
+    }
+  } catch {
+    // Fall through to the quote.
+  }
+
+  try {
+    const rows = (await sql`
+      SELECT collected FROM ai_leads WHERE id = ${jobId} LIMIT 1
+    `) as Record<string, unknown>[]
+    if (rows[0]) return partsFromPricingMetadata(rows[0].collected)
+  } catch {
+    // Fall through.
+  }
+
+  return { partsCents: 0, source: "none", unknown: true }
 }
 
 /**
@@ -85,6 +129,7 @@ export async function resolveJobCommissionBase(jobId: string): Promise<JobCommis
   const id = jobId.trim()
   if (!id) return EMPTY
   const sql = getSql()
+  const parts = await resolvePartsSplit(id)
 
   // 1. The collect link the customer was charged through — it carries the
   //    subtotal/tax split the owner chose at charge time, and tip_cents sits outside
@@ -104,12 +149,12 @@ export async function resolveJobCommissionBase(jobId: string): Promise<JobCommis
     if (rows[0]) {
       const subtotal = toCents(rows[0].subtotal_cents)
       const tax = toCents(rows[0].tax_cents)
-      if (subtotal > 0) return fromSplit(subtotal, tax, "pay_link")
+      if (subtotal > 0) return fromSplit(subtotal, tax, "pay_link", parts)
       const charge = toCents(rows[0].charge_cents)
       if (charge > 0) {
         // Charged as one number with no split recorded — the gross is all there is.
-        const base = fromSplit(charge, 0, "pay_link")
-        return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", "LABOR_ONLY"] }
+        const base = fromSplit(charge, 0, "pay_link", parts)
+        return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", ...base.approximated] }
       }
     }
   } catch {
@@ -128,11 +173,11 @@ export async function resolveJobCommissionBase(jobId: string): Promise<JobCommis
     if (rows[0]) {
       const subtotal = toCents(rows[0].subtotal_cents)
       const tax = toCents(rows[0].tax_cents)
-      if (subtotal > 0) return fromSplit(subtotal, tax, "job_invoice")
+      if (subtotal > 0) return fromSplit(subtotal, tax, "job_invoice", parts)
       const total = toCents(rows[0].total_cents)
       if (total > 0) {
-        const base = fromSplit(total, 0, "job_invoice")
-        return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", "LABOR_ONLY"] }
+        const base = fromSplit(total, 0, "job_invoice", parts)
+        return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", ...base.approximated] }
       }
     }
   } catch {
@@ -151,8 +196,8 @@ export async function resolveJobCommissionBase(jobId: string): Promise<JobCommis
     const quoted =
       toCents(rows[0]?.final_booked_total_cents) || toCents(rows[0]?.calculated_total_cents)
     if (quoted > 0) {
-      const base = fromSplit(quoted, 0, "booked_total")
-      return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", "LABOR_ONLY"] }
+      const base = fromSplit(quoted, 0, "booked_total", parts)
+      return { ...base, approximated: ["SUBTOTAL_EXCL_TAX", ...base.approximated] }
     }
   } catch {
     // Fall through.
