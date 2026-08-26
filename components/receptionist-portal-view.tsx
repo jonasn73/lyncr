@@ -408,6 +408,8 @@ export function ReceptionistPortalView() {
   // Same id realtime publishes, so a call opened by one path and closed by the other
   // logs its intake against the same call.
   const polledCallSid = polledLive?.provider_call_sid ?? null
+  const polledAnswered = dashboard?.live_status.mode === "on_call"
+
   if (polledLive && polledCallSid && polledCallSid !== handledCallSid && !activeCall) {
     setHandledCallSid(polledCallSid)
     setActiveCall({
@@ -417,7 +419,25 @@ export function ReceptionistPortalView() {
       callerName: polledLive.caller_name,
       businessName: polledLive.business_name,
       startedAt: polledLive.started_at ?? new Date().toISOString(),
+      // Ringing until proven otherwise — the clock in the HUD depends on it.
+      answeredAt: polledAnswered ? (polledLive.started_at ?? new Date().toISOString()) : null,
     })
+  } else if (
+    polledLive &&
+    polledAnswered &&
+    activeCall &&
+    activeCall.callLogId === polledCallSid &&
+    !activeCall.answeredAt
+  ) {
+    // Ringing → answered on a HUD that is already open. Stamp the pickup so the timer
+    // switches from counting ring time to counting talk time.
+    setActiveCall({ ...activeCall, answeredAt: polledLive.started_at ?? new Date().toISOString() })
+  } else if (dashboard && !polledLive && activeCall && !activeCall.answeredAt) {
+    // The caller hung up before anyone picked up. There is nothing to write up about a
+    // call that never happened, so the HUD closes itself rather than sitting there with
+    // a running clock. An ANSWERED call that ends is left alone on purpose — that is
+    // exactly when she is still typing up what it was about.
+    setActiveCall(null)
   }
 
   const receptionistId = dashboard?.receptionist.id ?? null
@@ -433,6 +453,7 @@ export function ReceptionistPortalView() {
     const onConnected = (payload: LiveCallSession) => {
       setHandledCallSid(payload.callLogId)
       setActiveCall({
+        answeredAt: payload.answeredAt ?? payload.startedAt ?? new Date().toISOString(),
         callLogId: payload.callLogId,
         businessType: payload.businessType ?? "generic",
         callerNumber: payload.callerNumber ?? null,

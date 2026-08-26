@@ -8,6 +8,7 @@ import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle, Minus, ChevronLeft,
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import type { FieldServiceFieldDef } from "@/lib/field-service-intake"
+import type { ReceptionistCallerLookup } from "@/lib/types"
 import {
   IndustryIntakeFormFields,
   intakeValuesComplete,
@@ -19,6 +20,14 @@ import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 
 export type LiveCallSession = {
   callLogId: string
+  /**
+   * When the call was actually picked up. Null while it is still ringing.
+   *
+   * Separate from startedAt because the intake now opens on the first ring: counting
+   * from startedAt would show ring time as talk time, and talk time is what a
+   * receptionist is paid on.
+   */
+  answeredAt?: string | null
   businessType: "locksmith" | "detailing" | "auto_repair" | "generic"
   callerNumber?: string | null
   callerName?: string | null
@@ -109,6 +118,90 @@ function buildSteps(fields: FieldServiceFieldDef[]): IntakeStep[] {
     else steps.push({ id: "more", label: "More", fields: orphans })
   }
   return steps
+}
+
+const TONE_CLASS: Record<string, string> = {
+  emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
+  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
+  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
+  neutral: "border-zinc-600/50 bg-zinc-500/10 text-zinc-300",
+}
+
+function usdFromCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, cents) / 100)
+}
+
+/**
+ * Who is calling, before she has to ask.
+ *
+ * The owner console has shown caller history for a while; the receptionist — the one
+ * actually talking to them — had none of it, and opened every call as though it were
+ * a stranger. Purely additive: a lookup that fails or finds nobody renders nothing
+ * rather than a row of empty labels.
+ */
+function CallerContext({ callerNumber }: { callerNumber: string | null }) {
+  const [lookup, setLookup] = useState<ReceptionistCallerLookup | null>(null)
+
+  useEffect(() => {
+    if (!callerNumber) return
+    let cancelled = false
+    fetch(`/api/receptionist/caller?number=${encodeURIComponent(callerNumber)}`, {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("lookup"))))
+      .then((json: { data?: ReceptionistCallerLookup }) => {
+        if (!cancelled && json.data?.found) setLookup(json.data)
+      })
+      .catch(() => {
+        // Context is a bonus. Never let it interrupt taking the call.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [callerNumber])
+
+  if (!lookup) return null
+
+  const chips: string[] = []
+  if (lookup.jobs_completed > 0) {
+    chips.push(`${lookup.jobs_completed} job${lookup.jobs_completed === 1 ? "" : "s"} done`)
+  }
+  if (lookup.lifetime_revenue_cents > 0) chips.push(`${usdFromCents(lookup.lifetime_revenue_cents)} lifetime`)
+  if (lookup.city) chips.push([lookup.city, lookup.region].filter(Boolean).join(", "))
+  if (lookup.open_lead_count > 0) {
+    chips.push(`${lookup.open_lead_count} open lead${lookup.open_lead_count === 1 ? "" : "s"}`)
+  }
+  if (lookup.has_open_book_form) chips.push("Booking form waiting")
+
+  return (
+    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-5 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+          Returning customer
+        </span>
+        {lookup.display_name ? (
+          <span className="text-sm font-semibold text-foreground">{lookup.display_name}</span>
+        ) : null}
+        {lookup.job_status_label ? (
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+              TONE_CLASS[lookup.job_status_tone ?? "neutral"] ?? TONE_CLASS.neutral
+            }`}
+          >
+            {lookup.job_status_label}
+          </span>
+        ) : null}
+      </div>
+      {chips.length > 0 ? (
+        <p className="mt-1 text-[11px] text-zinc-400">{chips.join(" · ")}</p>
+      ) : null}
+    </div>
+  )
 }
 
 export function ReceptionistLiveIntake({
@@ -264,7 +357,8 @@ export function ReceptionistLiveIntake({
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{callerLabel}</p>
               <p className="text-[11px] text-emerald-200/70">
-                Intake in progress · <ElapsedTimer startedAt={session.startedAt} />
+                {session.answeredAt ? "Intake in progress · " : "Ringing · "}
+                <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
               </p>
             </div>
           </div>
@@ -301,9 +395,22 @@ export function ReceptionistLiveIntake({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-medium text-emerald-200">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-            <ElapsedTimer startedAt={session.startedAt} />
+          {/* Ringing and talking are different clocks. Showing one number from first
+              ring would report ring time as talk time, which is what she is paid on. */}
+          <div
+            className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${
+              session.answeredAt
+                ? "bg-emerald-500/15 text-emerald-200"
+                : "bg-amber-500/15 text-amber-200"
+            }`}
+          >
+            <span
+              className={`h-2 w-2 animate-pulse rounded-full ${
+                session.answeredAt ? "bg-emerald-400" : "bg-amber-400"
+              }`}
+            />
+            {session.answeredAt ? null : <span className="text-[11px] uppercase tracking-wide">Ringing</span>}
+            <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
           </div>
           <button
             type="button"
@@ -325,6 +432,8 @@ export function ReceptionistLiveIntake({
           </button>
         </div>
       </div>
+
+      <CallerContext callerNumber={callerNumber} />
 
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
