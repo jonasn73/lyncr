@@ -921,7 +921,12 @@ export async function handleTelnyxFallbackDialEnded(
         call_type: "incoming",
         status: dialStatus || "completed",
       })
-      void updateCallLog(callSid, {
+      // Awaited: same reason as the receptionist answer webhook. An un-awaited write
+      // in a serverless function can be frozen with the instance, and this is the only
+      // record that the owner picked this call up. The other fire-and-forget writes on
+      // this path set call_type or status, which the carrier's status webhook restates
+      // anyway; answered_at has no second writer.
+      await updateCallLog(callSid, {
         call_type: "incoming",
         routed_to_name: "Owner",
         answered_at: new Date().toISOString(),
