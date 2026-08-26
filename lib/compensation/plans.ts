@@ -152,6 +152,30 @@ export async function listLivePlansForOwner(
   }
 }
 
+/**
+ * Every live plan that owes a minimum-wage floor.
+ *
+ * The weekly sweep's working set. Filtered in SQL on the components JSONB so a
+ * platform with thousands of plans does not load them all to find the few W-2 ones
+ * carrying a floor.
+ */
+export async function listPlansWithWageFloor(): Promise<CompensationPlan[]> {
+  const sql = getSql()
+  try {
+    const rows = (await sql`
+      SELECT * FROM compensation_plans
+      WHERE effective_to IS NULL
+        AND employment_type = 'W2_EMPLOYEE'
+        AND components @> '[{"kind": "MINIMUM_WAGE_TOPUP"}]'::jsonb
+      ORDER BY owner_user_id ASC
+    `) as Record<string, unknown>[]
+    return rows.map(parsePlanRow)
+  } catch (e) {
+    if (isMissingPlansTable(e)) return []
+    throw e
+  }
+}
+
 /** Every version for one worker, newest first — the audit trail behind a payout. */
 export async function listPlanHistory(ref: WorkerRef): Promise<CompensationPlan[]> {
   const sql = getSql()
