@@ -34,6 +34,25 @@ export async function PATCH(req: NextRequest) {
       is_active: body.is_available,
     })
 
+    // Going on duty starts the clock; going off stops it and pays the hours. Both are
+    // idempotent, so a double-tapped toggle cannot open two shifts or pay one twice.
+    // Availability is the user-facing action — never fail it over a timesheet write.
+    try {
+      const { openShift, closeShift } = await import("@/lib/compensation/shifts")
+      const ref = { role: "receptionist" as const, receptionist_id: ctx.receptionist.id }
+      if (body.is_available) {
+        await openShift({
+          ownerUserId: ctx.receptionist.user_id,
+          ref,
+          workerUserId: userId,
+        })
+      } else {
+        await closeShift({ ref })
+      }
+    } catch (e) {
+      console.error("[lyncr] shift clock on availability change:", e)
+    }
+
     return NextResponse.json({ data: { is_available: body.is_available, is_active: body.is_available } })
   } catch (error) {
     console.error("[lyncr] set receptionist availability:", error)

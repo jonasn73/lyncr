@@ -26,6 +26,12 @@ import {
   TEAM_INVITE_TTL_MS,
 } from "@/lib/team-invites"
 import { getAppUrl } from "@/lib/telnyx"
+import { createPendingAgreement } from "@/lib/agreements/store"
+import {
+  parsePayComponents,
+  validatePayComponents,
+  type EmploymentType,
+} from "@/lib/compensation/plan-schema"
 
 export const dynamic = "force-dynamic"
 
@@ -98,6 +104,55 @@ export async function POST(req: NextRequest) {
       phone,
     })
 
+    // Terms travel with the invite, so what the owner set is what the invitee is shown
+    // — not whatever the plan says by the time they open the link. Optional: an invite
+    // sent without them still works, and the worker gets no agreement to sign.
+    const employmentType = String(body.employment_type ?? "").trim().toUpperCase()
+    const components = parsePayComponents(Array.isArray(body.components) ? body.components : [])
+    let agreement_id: string | null = null
+    let pay_summary: string | null = null
+
+    if (
+      (employmentType === "W2_EMPLOYEE" || employmentType === "CONTRACTOR_1099") &&
+      components.length > 0
+    ) {
+      const validation = validatePayComponents(components, {
+        employmentType: employmentType as EmploymentType,
+      })
+      if (validation.errors.length > 0) {
+        return NextResponse.json(
+          { error: validation.errors[0], details: validation.errors },
+          { status: 400 }
+        )
+      }
+      try {
+        const agreement = await createPendingAgreement({
+          ownerUserId: userId,
+          businessName: sessionUser.business_name,
+          workerName: firstName,
+          workerRole: "receptionist",
+          employmentType: employmentType as EmploymentType,
+          components,
+          inviteId: invite.id,
+        })
+        agreement_id = agreement.id
+        pay_summary = agreement.pay_summary
+      } catch (e) {
+        // The invite is already created and usable; an agreement failure must not
+        // strand it. Surfaced so the owner knows the terms did not go out.
+        console.error("[POST /api/team/invites] agreement:", e)
+        return NextResponse.json(
+          {
+            error:
+              e instanceof Error
+                ? e.message
+                : "The invite was created, but the agreement could not be prepared.",
+          },
+          { status: 500 }
+        )
+      }
+    }
+
     const register_url = buildTeamInviteRegisterUrl(token, getAppUrl())
 
     // Resend when configured; UI always shows Copy link either way.
@@ -114,6 +169,8 @@ export async function POST(req: NextRequest) {
         email: invite.email,
         first_name: invite.first_name,
         expires_at: invite.expires_at,
+        agreement_id,
+        pay_summary,
         register_url,
         email_sent: emailResult.sent,
         email_error: emailResult.error ?? null,

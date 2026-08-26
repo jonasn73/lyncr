@@ -7,6 +7,7 @@ import {
   receptionistPayConfig,
   resolveReceptionistLegDurationSeconds,
 } from "@/lib/receptionist-pay"
+import { getEarningsTotal, sumEarningsBySource } from "@/lib/compensation/ledger"
 import type { ReceptionistPortalContext } from "@/lib/receptionist-portal-auth"
 import {
   getActiveCallLogForReceptionist,
@@ -30,16 +31,28 @@ function isCallControlInboundEnabled(): boolean {
 // its own earnings reset before the shift ended. Day bounds now come from the operator's
 // timezone via zonedDayRangeIso.
 
-function ledgerRowFromCall(call: CallLog, businessName: string, payConfig: ReturnType<typeof receptionistPayConfig>): ReceptionistLedgerRow {
+function ledgerRowFromCall(
+  call: CallLog,
+  businessName: string,
+  payConfig: ReturnType<typeof receptionistPayConfig>,
+  /** call_logs.id → cents already on the earnings ledger for this call. */
+  settledCents?: Map<string, number>
+): ReceptionistLedgerRow {
   const duration_seconds = resolveReceptionistLegDurationSeconds(call)
   const isAnswered = isAnsweredReceptionistCall(call)
-  const payout_usd = calculateReceptionistPay({
-    durationInSeconds: duration_seconds,
-    payMode: payConfig.payMode,
-    ratePerMinute: payConfig.ratePerMinute,
-    flatRateUsd: payConfig.flatRateUsd,
-    isAnswered,
-  })
+  // What the worker was actually paid beats what the current rate would pay now —
+  // that is the whole point of settling at the time of the call.
+  const settled = settledCents?.get(call.id)
+  const payout_usd =
+    settled !== undefined
+      ? settled / 100
+      : calculateReceptionistPay({
+          durationInSeconds: duration_seconds,
+          payMode: payConfig.payMode,
+          ratePerMinute: payConfig.ratePerMinute,
+          flatRateUsd: payConfig.flatRateUsd,
+          isAnswered,
+        })
   return {
     id: call.id,
     created_at: call.created_at,
@@ -52,11 +65,26 @@ function ledgerRowFromCall(call: CallLog, businessName: string, payConfig: Retur
   }
 }
 
+/**
+ * Earnings for a window — from the ledger when it has rows, otherwise recomputed.
+ *
+ * The fallback covers the gap between scripts/145 running and
+ * scripts/backfill-earnings-ledger.ts finishing, when a settled window and an
+ * un-backfilled one both look like zero rows from here. Once a window is settled the
+ * ledger wins, and a rate change stops rewriting what the worker already earned.
+ */
 async function earningsForRange(
   ctx: ReceptionistPortalContext,
   start: string,
   end: string
 ): Promise<number> {
+  const settled = await getEarningsTotal(
+    { role: "receptionist", receptionist_id: ctx.receptionist.id },
+    start,
+    end
+  )
+  if (settled.rows > 0) return settled.cents / 100
+
   const payConfig = receptionistPayConfig(ctx.receptionist)
   const aggregate = await getReceptionistTalkAggregate(
     ctx.owner_user_id,
@@ -98,6 +126,41 @@ async function attachCustomerNames(
     }
   } catch {
     // A name is a nicety — never fail the whole dashboard over it.
+  }
+}
+
+/**
+ * Settled amounts for the calls about to be shown, keyed by call id.
+ *
+ * Queried over one window wide enough to cover every row on screen rather than per
+ * call. Ledger rows are stamped with the call's end time, so the window opens at the
+ * oldest call shown and closes a day out to tolerate clock skew on late webhooks.
+ */
+async function settledCentsForCalls(
+  ctx: ReceptionistPortalContext,
+  calls: CallLog[],
+  fallbackStart: string
+): Promise<Map<string, number>> {
+  if (calls.length === 0) return new Map()
+
+  const timestamps = calls
+    .map((call) => Date.parse(call.created_at))
+    .filter((ms) => Number.isFinite(ms))
+  const start = timestamps.length
+    ? new Date(Math.min(...timestamps)).toISOString()
+    : fallbackStart
+  const end = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+  try {
+    return await sumEarningsBySource(
+      { role: "receptionist", receptionist_id: ctx.receptionist.id },
+      "CALL",
+      start,
+      end
+    )
+  } catch {
+    // Per-call amounts are a refinement — the row still renders a computed payout.
+    return new Map()
   }
 }
 
@@ -145,8 +208,19 @@ export async function buildReceptionistPortalDashboard(
     ])
 
   const payConfig = receptionistPayConfig(ctx.receptionist)
-  const ledger = ledgerCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
-  const recent_calls = recentCalls.map((call) => ledgerRowFromCall(call, ctx.business_name, payConfig))
+
+  // Per-call amounts as settled, so a row in the ledger shows what was paid for that
+  // call rather than what the worker's current rate would pay for it today. The
+  // window spans both lists — Recent calls reaches further back than the pay period.
+  const shownCalls = [...ledgerCalls, ...recentCalls]
+  const settledCents = await settledCentsForCalls(ctx, shownCalls, billing_cycle.start)
+
+  const ledger = ledgerCalls.map((call) =>
+    ledgerRowFromCall(call, ctx.business_name, payConfig, settledCents)
+  )
+  const recent_calls = recentCalls.map((call) =>
+    ledgerRowFromCall(call, ctx.business_name, payConfig, settledCents)
+  )
 
   // The Calls tab showed bare phone numbers even for customers already on file. Fill in the
   // names CRM knows, without overwriting a name the carrier actually supplied.

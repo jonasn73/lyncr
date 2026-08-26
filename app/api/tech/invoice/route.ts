@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic"
 
 type Body = {
   leadId?: string
-  lineItems?: { label?: string; amountCents?: number }[]
+  lineItems?: { label?: string; amountCents?: number; kind?: "labor" | "part" }[]
   taxCents?: number
   paymentMethod?: "card" | "cash" | "none"
   cardLast4?: string
@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
     .map((li) => ({
       label: String(li.label || "").trim().slice(0, 120),
       amount_cents: Math.max(0, Math.round(Number(li.amountCents) || 0)),
+      // Parts come out of a labor commission base. Anything not explicitly marked a
+      // part stays labor — the tech did not say otherwise, and inferring it from the
+      // label would move money on a guess.
+      kind: String((li as { kind?: unknown }).kind ?? "").toLowerCase() === "part"
+        ? ("part" as const)
+        : ("labor" as const),
     }))
     .filter((li) => li.label.length > 0)
   if (lineItems.length === 0) {

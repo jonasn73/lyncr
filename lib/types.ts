@@ -122,6 +122,12 @@ export interface FieldTechnician {
 export interface InvoiceLineItem {
   label: string
   amount_cents: number
+  /**
+   * Whether this line is work performed or hardware the business paid for.
+   * Absent on rows written before parts tracking; treated as labor, because
+   * guessing from the label would quietly move commission money.
+   */
+  kind?: "labor" | "part"
 }
 
 /** An on-site invoice raised by a tech (`job_invoices` — scripts/061). */

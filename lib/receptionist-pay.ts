@@ -1,5 +1,22 @@
 // Receptionist payout helpers — duration resolution + FLAT_RATE / PER_MINUTE earnings.
+//
+// The two pay modes here are the legacy shape (receptionists.pay_mode, scripts/039).
+// Compensation now lives in compensation_plans as a set of components (scripts/144),
+// and the calculations below delegate to that engine so there is one place where
+// money is computed. The exported signatures are unchanged — callers still work in
+// dollars — and the behavior is identical, including the 20-second floor.
 
+import {
+  calculateEarnings,
+  sumEarningCents,
+  type CallPayEvent,
+} from "@/lib/compensation/calculate"
+import {
+  DEFAULT_ANSWERED_CALL_MIN_SECONDS,
+  dollarsToMicros,
+  microsToCents,
+  type PayComponent,
+} from "@/lib/compensation/plan-schema"
 import type { CallLog, Receptionist } from "@/lib/types"
 
 /** How a receptionist is paid for answered inbound legs. */
@@ -45,7 +62,7 @@ const ANSWERED_RECEPTIONIST_STATUSES = new Set([
  * An answer-and-immediately-hang-up is a dropped call, not a conversation, and under
  * FLAT_RATE it would otherwise pay the same as a real one.
  */
-export const MIN_BILLABLE_TALK_SECONDS = 20
+export const MIN_BILLABLE_TALK_SECONDS = DEFAULT_ANSWERED_CALL_MIN_SECONDS
 
 /**
  * True when a leg should earn receptionist pay.
@@ -100,24 +117,55 @@ export const ANSWERED_RECEPTIONIST_STATUS_SQL = `
 `
 
 /**
+ * The legacy pay mode expressed as compensation plan components.
+ *
+ * FLAT_RATE  → PER_EVENT on ANSWERED_CALL
+ * PER_MINUTE → TIME / MINUTE on TALK
+ *
+ * Both carry the 20-second floor explicitly, because it currently applies to either
+ * mode as a hard-coded constant. New plans built in the editor choose their own.
+ */
+export function legacyPayModeComponents(params: {
+  payMode: ReceptionistPayMode
+  ratePerMinute?: number
+  flatRateUsd?: number
+}): PayComponent[] {
+  if (params.payMode === "FLAT_RATE") {
+    return [
+      {
+        kind: "PER_EVENT",
+        event: "ANSWERED_CALL",
+        amount_micros: dollarsToMicros(params.flatRateUsd ?? RECEPTIONIST_PAY_DEFAULTS.flat_rate_usd),
+        min_billable_seconds: MIN_BILLABLE_TALK_SECONDS,
+      },
+    ]
+  }
+  return [
+    {
+      kind: "TIME",
+      unit: "MINUTE",
+      basis: "TALK",
+      rate_micros: dollarsToMicros(params.ratePerMinute ?? RECEPTIONIST_PAY_DEFAULTS.rate_per_minute),
+      min_billable_seconds: MIN_BILLABLE_TALK_SECONDS,
+    },
+  ]
+}
+
+/**
  * Calculate payout for one answered receptionist leg.
  * FLAT_RATE → flat amount per answered call.
  * PER_MINUTE → (durationInSeconds / 60) * ratePerMinute.
  */
 export function calculateReceptionistPay(input: ReceptionistPayInput): number {
-  if (!input.isAnswered) return 0
-  // A pickup that ends immediately is a dropped call, not a conversation. Without this a
-  // 2-second answer would earn a full flat rate.
-  if (input.durationInSeconds < MIN_BILLABLE_TALK_SECONDS) return 0
-
-  if (input.payMode === "FLAT_RATE") {
-    const flat = input.flatRateUsd ?? RECEPTIONIST_PAY_DEFAULTS.flat_rate_usd
-    return roundUsd(flat)
+  const components = legacyPayModeComponents(input)
+  const event: CallPayEvent = {
+    kind: "CALL",
+    id: "",
+    occurred_at: "",
+    answered: input.isAnswered,
+    talk_seconds: Math.max(0, input.durationInSeconds),
   }
-
-  const rate = input.ratePerMinute ?? RECEPTIONIST_PAY_DEFAULTS.rate_per_minute
-  const minutes = Math.max(0, input.durationInSeconds) / 60
-  return roundUsd(minutes * rate)
+  return centsToUsd(sumEarningCents(calculateEarnings(components, event)))
 }
 
 /** Aggregate payout across many answered legs for one receptionist. */
@@ -128,12 +176,19 @@ export function calculateReceptionistPayTotal(params: {
   answeredCalls: number
   totalTalkSeconds: number
 }): number {
-  if (params.payMode === "FLAT_RATE") {
-    const flat = params.flatRateUsd ?? RECEPTIONIST_PAY_DEFAULTS.flat_rate_usd
-    return roundUsd(params.answeredCalls * flat)
+  // An aggregate, not a sum of per-call results: the caller has only the totals, so
+  // the per-call floor cannot be applied here. Once earnings come from the ledger
+  // (scripts/145) this rollup is replaced by summing rows that each honored it.
+  const [component] = legacyPayModeComponents(params)
+
+  if (component.kind === "PER_EVENT") {
+    return centsToUsd(microsToCents(Math.max(0, params.answeredCalls) * component.amount_micros))
   }
-  const rate = params.ratePerMinute ?? RECEPTIONIST_PAY_DEFAULTS.rate_per_minute
-  return roundUsd((Math.max(0, params.totalTalkSeconds) / 60) * rate)
+  if (component.kind === "TIME") {
+    const units = Math.max(0, params.totalTalkSeconds) / 60
+    return centsToUsd(microsToCents(units * component.rate_micros))
+  }
+  return 0
 }
 
 /** Pay settings from a receptionist row (with safe defaults). */
@@ -152,6 +207,12 @@ export function receptionistPayConfig(receptionist: Pick<
   }
 }
 
-function roundUsd(amount: number): number {
-  return Math.round(amount * 100) / 100
+/**
+ * Integer cents back to the dollars these helpers have always returned.
+ *
+ * The rounding already happened in micros→cents, so this is a plain divide — doing
+ * it again on the dollar value is where the old float drift came from.
+ */
+function centsToUsd(cents: number): number {
+  return cents / 100
 }

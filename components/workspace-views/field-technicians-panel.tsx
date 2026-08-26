@@ -8,6 +8,12 @@ import { HardHat, Loader2, Plus, Send, Check, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import { AddTechnicianModal } from "@/components/team/add-technician-modal"
+import {
+  PayPlanButton,
+  PayPlanEditor,
+  usePayPlans,
+  type PayPlanTarget,
+} from "@/components/compensation/pay-plan-editor"
 import { TechInviteSmsAlert } from "@/components/team/tech-invite-sms-alert"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import { organizationQueryString } from "@/lib/workspace-organizations"
@@ -70,6 +76,9 @@ export function FieldTechniciansPanel() {
   const [removeTarget, setRemoveTarget] = useState<FieldTechnician | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
+  // Pay plans for the fleet, and the tech currently open in the editor.
+  const { plans, reload: reloadPlans } = usePayPlans()
+  const [payTarget, setPayTarget] = useState<PayPlanTarget | null>(null)
 
   // Only the true first load (or a real org switch) shows the spinner — a roster refresh
   // triggered by TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not
@@ -311,6 +320,21 @@ export function FieldTechniciansPanel() {
                     </select>
                   </label>
                 ) : null}
+                <div className="mt-1.5">
+                  <PayPlanButton
+                    plan={plans[tech.id]}
+                    label={tech.name}
+                    onEdit={() =>
+                      setPayTarget({
+                        kind: "field_tech",
+                        id: tech.id,
+                        name: tech.name,
+                        employmentType: plans[tech.id]?.employment_type ?? "UNSPECIFIED",
+                        components: plans[tech.id]?.components ?? [],
+                      })
+                    }
+                  />
+                </div>
               </div>
               <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
                 {tech.invite_pending && (
@@ -345,6 +369,12 @@ export function FieldTechniciansPanel() {
           ))}
         </div>
       )}
+
+      <PayPlanEditor
+        target={payTarget}
+        onClose={() => setPayTarget(null)}
+        onSaved={() => void reloadPlans()}
+      />
 
       <AddTechnicianModal
         open={modalOpen}

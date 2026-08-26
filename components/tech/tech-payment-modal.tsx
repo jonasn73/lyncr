@@ -75,7 +75,7 @@ import {
   withTimeout,
 } from "@/lib/payment-timeout"
 
-type Line = { id: string; label: string; amount: string }
+type Line = { id: string; label: string; amount: string; kind: "labor" | "part" }
 type PayMethod = "tap" | "card" | "cash" | "link"
 /** Tip LAST (before money moves) → optional signature after pay → receipt → optional finish job. */
 type PostPayStep = "card_entry" | "tip_sign" | "sign" | "receipt" | "link_sent" | "finish_job"
@@ -99,8 +99,8 @@ type SentPayLink = {
   fulfilledNow?: boolean
 }
 
-function newLine(label = "", amount = ""): Line {
-  return { id: Math.random().toString(36).slice(2), label, amount }
+function newLine(label = "", amount = "", kind: "labor" | "part" = "labor"): Line {
+  return { id: Math.random().toString(36).slice(2), label, amount, kind }
 }
 
 function dollarsToCents(v: string): number {
@@ -377,7 +377,11 @@ export function TechPaymentModal(props: {
 
   const lineItemsPayload = () => {
     const fromLines = lines
-      .map((l) => ({ label: l.label.trim(), amountCents: dollarsToCents(l.amount) }))
+      .map((l) => ({
+        label: l.label.trim(),
+        amountCents: dollarsToCents(l.amount),
+        kind: l.kind,
+      }))
       .filter((l) => l.label && l.amountCents > 0)
     if (subtotalCents <= 0) return []
     // Editable amount wins when it differs from the line sum (cash + Stripe both charge this).
@@ -387,7 +391,11 @@ export function TechPaymentModal(props: {
     ) {
       const label =
         fromLines.map((l) => l.label).filter(Boolean).join(" + ").slice(0, 120) || "Service"
-      return [{ label, amountCents: subtotalCents }]
+      // Collapsing several lines into one custom amount loses the split. Only call the
+      // result a part when every line was one; otherwise it is labor, which never
+      // overstates parts and so never understates a labor commission.
+      const allParts = fromLines.length > 0 && fromLines.every((l) => l.kind === "part")
+      return [{ label, amountCents: subtotalCents, kind: allParts ? "part" : "labor" }]
     }
     return fromLines
   }
@@ -886,7 +894,9 @@ export function TechPaymentModal(props: {
   /** Line items for invoice writes — append tip when collecting tip-last. */
   function invoiceLineItemsWithTip(tipCents: number) {
     const items = lineItemsPayload()
-    if (tipCents > 0) items.push({ label: "Tip", amountCents: tipCents })
+    // A tip is neither work nor hardware; labor keeps it out of a parts deduction,
+    // and job-value excludes tips from every commission base anyway.
+    if (tipCents > 0) items.push({ label: "Tip", amountCents: tipCents, kind: "labor" })
     return items
   }
 
@@ -1856,6 +1866,28 @@ export function TechPaymentModal(props: {
                             className="w-full rounded-md border border-zinc-700 bg-zinc-950 py-1.5 pr-1.5 pl-5 text-right text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                           />
                         </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLines((prev) =>
+                              prev.map((l) =>
+                                l.id === line.id
+                                  ? { ...l, kind: l.kind === "part" ? "labor" : "part" }
+                                  : l
+                              )
+                            )
+                          }
+                          disabled={busy || activePopup !== null}
+                          aria-pressed={line.kind === "part"}
+                          title="Parts are excluded when a tech is paid commission on labor"
+                          className={`shrink-0 rounded-md border px-1.5 py-1 text-[10px] font-medium transition-colors disabled:opacity-40 ${
+                            line.kind === "part"
+                              ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
+                              : "border-zinc-700 text-zinc-500 hover:text-zinc-300"
+                          }`}
+                        >
+                          {line.kind === "part" ? "Part" : "Labor"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => {

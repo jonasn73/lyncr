@@ -16365,12 +16365,14 @@ export async function getAgentTalkTime(
       WITH legs AS (
         SELECT
           cl.routed_to_receptionist_id AS receptionist_id,
+          -- answered_at -> ended_at and nothing else. duration_seconds is the whole
+          -- call including ring and hold, so falling back to it billed a caller's
+          -- wait as though someone had been talking to them.
           GREATEST(0, COALESCE(
             CASE
               WHEN cl.answered_at IS NOT NULL AND cl.ended_at IS NOT NULL
                 THEN EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
             END,
-            cl.duration_seconds,
             0
           )) AS talk_seconds,
           date_trunc('day', cl.created_at)::date AS day
@@ -16379,7 +16381,13 @@ export async function getAgentTalkTime(
           AND cl.routed_to_receptionist_id IS NOT NULL
           AND cl.created_at >= ${startDate}::timestamptz
           AND cl.created_at < ${endDate}::timestamptz
+          -- A pickup, not merely a terminal status: the carrier calls a call
+          -- "completed" when it ends, which is true of every one that rings out.
+          AND cl.answered_at IS NOT NULL
+          AND cl.ended_at IS NOT NULL
           AND lower(cl.status) IN ('answered', 'completed', 'in-progress')
+          AND EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
+              >= ${MIN_BILLABLE_TALK_SECONDS}
       )
       SELECT
         r.id AS receptionist_id,
@@ -16407,7 +16415,6 @@ export async function getAgentTalkTime(
               WHEN cl.answered_at IS NOT NULL AND cl.ended_at IS NOT NULL
                 THEN EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
             END,
-            cl.duration_seconds,
             0
           ))
         ), 0)::int AS seconds
@@ -16416,7 +16423,11 @@ export async function getAgentTalkTime(
         AND cl.routed_to_receptionist_id IS NOT NULL
         AND cl.created_at >= ${startDate}::timestamptz
         AND cl.created_at < ${endDate}::timestamptz
+        AND cl.answered_at IS NOT NULL
+        AND cl.ended_at IS NOT NULL
         AND lower(cl.status) IN ('answered', 'completed', 'in-progress')
+        AND EXTRACT(EPOCH FROM (cl.ended_at - cl.answered_at))::int
+            >= ${MIN_BILLABLE_TALK_SECONDS}
       GROUP BY cl.routed_to_receptionist_id, date_trunc('day', cl.created_at)::date
       ORDER BY day ASC
     `
@@ -16550,17 +16561,31 @@ export async function getReceptionistPayoutMetricsForBillingCycle(
   userId: string
 ): Promise<{ billing_cycle: { start: string; end: string }; agents: ReceptionistPayoutMetrics[] }> {
   const { calculateReceptionistPayTotal } = await import("@/lib/receptionist-pay")
+  const { sumOwnerEarningsByReceptionist } = await import("@/lib/compensation/ledger")
   const billing_cycle = await getBillingCycleWindowForUser(userId)
   const talkRows = await getAgentTalkTime(userId, billing_cycle.start, billing_cycle.end)
 
+  // What each receptionist was actually paid this cycle. A receptionist absent from
+  // this map has no settled rows — either they earned nothing or the backfill has not
+  // reached them — so their number is recomputed rather than reported as zero.
+  const settledCents = await sumOwnerEarningsByReceptionist(
+    userId,
+    billing_cycle.start,
+    billing_cycle.end
+  ).catch(() => new Map<string, number>())
+
   const agents = talkRows.map((row) => {
-    const total_earnings = calculateReceptionistPayTotal({
-      payMode: row.pay_mode,
-      ratePerMinute: row.rate_per_minute,
-      flatRateUsd: row.flat_rate_usd,
-      answeredCalls: row.total_calls,
-      totalTalkSeconds: row.total_seconds,
-    })
+    const settled = settledCents.get(row.receptionist_id)
+    const total_earnings =
+      settled !== undefined
+        ? settled / 100
+        : calculateReceptionistPayTotal({
+            payMode: row.pay_mode,
+            ratePerMinute: row.rate_per_minute,
+            flatRateUsd: row.flat_rate_usd,
+            answeredCalls: row.total_calls,
+            totalTalkSeconds: row.total_seconds,
+          })
     return {
       receptionist_id: row.receptionist_id,
       receptionist_name: row.receptionist_name,

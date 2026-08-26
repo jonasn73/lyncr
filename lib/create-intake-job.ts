@@ -614,6 +614,29 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     `
   }
 
+  // Credit the call this job came out of, so a receptionist commission has something
+  // to key on. Derived from the call rather than passed in, because the caller knows
+  // the call id and not who ended up answering it. Ignored before migration 149.
+  if (input.callLogId) {
+    try {
+      await sql`
+        UPDATE ai_leads l
+        SET source_call_log_id = cl.id,
+            booked_by_receptionist_id = cl.routed_to_receptionist_id
+        FROM call_logs cl
+        WHERE l.id = ${id}
+          AND cl.id = ${input.callLogId}::uuid
+          AND cl.user_id = l.user_id
+      `
+    } catch (e) {
+      const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
+      // 42703 = pre-149. 22P02 = the call id is not a uuid (sandbox / synthetic ids).
+      if (code !== "42703" && code !== "22P02") {
+        console.warn("[intake] booking attribution failed:", e)
+      }
+    }
+  }
+
   // Persist flat-price override columns (ignore if migration 109 not applied yet).
   try {
     await sql`

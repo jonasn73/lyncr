@@ -8,6 +8,7 @@ import type { TelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
 import type { TelnyxCallControlClientState } from "@/lib/telnyx-call-control-state"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
+import { settleCallEarningsInBackground } from "@/lib/compensation/settle-call"
 import { getIncomingRoutingForVoiceWebhook, getCallLogSnapshotForTelemetry, recordCallStatusEvent, updateCallLog } from "@/lib/db"
 import type { CallType } from "@/lib/types"
 import { CAPTURE_STATUS_ANSWERED_FROM_QUEUE } from "@/lib/inbound-time-capture"
@@ -79,6 +80,9 @@ function runTerminalCallSideEffects(
   void evaluateLowCarrierCreditFromCallUsage(callSid).catch((e) => {
     console.error("[telnyx-cc] carrier credit check failed:", e)
   })
+  // recordCallStatusEvent stamped ended_at just above, so talk time is resolvable by
+  // now. If it is not, settlement writes nothing and the sweep retries later.
+  settleCallEarningsInBackground(callSid)
   void (async () => {
     const snapshot = await getCallLogSnapshotForTelemetry(callSid).catch(() => null)
     if (snapshot) {

@@ -27,7 +27,13 @@ function getSql() {
   return neon(resolveNeonDatabaseUrl())
 }
 
-/** Tech commission as a fraction of the customer charge (0–1). Default 1 = full amount to tech. */
+/**
+ * Tech commission as a fraction of the customer charge (0–1). Default 1 = full amount to tech.
+ *
+ * The fallback for a tech with no compensation plan. It is one global number shared by
+ * every business on the platform, which is why plans exist — but changing it out from
+ * under an unplanned tech would silently change their pay, so it stays as the default.
+ */
 export function techJobCommissionRate(): number {
   const raw = Number(process.env.TECH_JOB_COMMISSION_RATE ?? "1")
   if (!Number.isFinite(raw)) return 1
@@ -37,6 +43,44 @@ export function techJobCommissionRate(): number {
 export function commissionCentsFromCharge(chargeCents: number): number {
   const rate = techJobCommissionRate()
   return Math.max(0, Math.round(chargeCents * rate))
+}
+
+/**
+ * What lands in the tech's wallet for this charge.
+ *
+ * Reads the tech's plan when they have one; otherwise falls back to the global env
+ * rate so nothing changes for a tech nobody has set pay for yet.
+ *
+ * The wallet credit and the earnings ledger measure different things and both are
+ * correct: the wallet tracks money the tech is holding or is owed out of this
+ * charge, while the ledger records what the plan says they earned. For a tech on the
+ * default 100% rate those coincide; for a tech on 30% commission they do not, and
+ * the ledger is the one payroll reads.
+ */
+export async function walletCommissionCentsForJob(params: {
+  jobId: string | null
+  chargeCents: number
+  /** Excluded from a plan-driven commission — a tip is not revenue to take a cut of. */
+  tipCents?: number
+}): Promise<number> {
+  const charge = Math.max(0, Math.round(params.chargeCents))
+  if (!params.jobId) return charge
+
+  try {
+    const { resolveTechCommissionRateBps } = await import("@/lib/compensation/tech-commission")
+    const bps = await resolveTechCommissionRateBps(params.jobId)
+    if (bps !== null) {
+      const tip = Math.max(0, Math.round(params.tipCents ?? 0))
+      const commissionable = Math.max(0, charge - tip)
+      // The tip passes through whole on top of the commissioned share.
+      return Math.max(0, Math.round((commissionable * bps) / 10_000) + tip)
+    }
+  } catch (e) {
+    // A plan lookup failure must not block a customer's payment.
+    console.warn("[job-payments] tech commission plan lookup failed:", e)
+  }
+
+  return commissionCentsFromCharge(charge)
 }
 
 function pickPositiveCents(...candidates: unknown[]): number | null {
@@ -261,9 +305,15 @@ export async function createJobPaymentIntent(params: {
   }
 
   const tipCents = Math.max(0, Math.round(params.tipCents ?? 0))
-  const commissionCents = commissionCentsFromCharge(params.chargeCents)
+  const commissionCents = await walletCommissionCentsForJob({
+    jobId: params.job.jobId,
+    chargeCents: params.chargeCents,
+    tipCents,
+  })
   if (commissionCents <= 0) {
-    throw new Error("Commission amount is zero — check TECH_JOB_COMMISSION_RATE")
+    throw new Error(
+      "The tech's share of this charge is zero — check their pay plan, or TECH_JOB_COMMISSION_RATE if they have none."
+    )
   }
 
   const { requireConnectReady, computeLyncrApplicationFeeCents, connectDirectChargeOptions } =
@@ -568,6 +618,11 @@ export async function confirmJobPaymentIntent(
     if (jobId && kind !== "adhoc_payment") {
       const job = await getJobPaymentContext(jobId)
       if (job) await markJobCompletedForPayment(job)
+      // Completed and paid in the same breath — the moment a job-shaped pay component
+      // becomes owed. Backgrounded so a ledger write cannot fail a confirmed payment;
+      // the row is deduped, so a webhook retry settles it once.
+      const { settleJobEarningsInBackground } = await import("@/lib/compensation/settle-job")
+      settleJobEarningsInBackground(jobId)
     }
 
     return {
