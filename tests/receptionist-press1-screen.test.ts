@@ -24,14 +24,18 @@ describe("receptionist-answer route", () => {
     expect(xml).toContain("<Response")
   })
 
-  it("receptionist leg still shows press-1 gather", async () => {
+  it("receptionist leg bridges immediately, same as the owner leg", async () => {
+    // Press-1 used to gate this leg. A receptionist who picked up and just talked was
+    // never recorded as having answered — no bridge, no answered_at, no intake, and no
+    // pay for the call. The screen is now opt-in via ZING_RECEPTIONIST_PRESS1_SCREEN.
     const req = new NextRequest(
       "https://lyncr.app/api/voice/telnyx/receptionist-answer?r=recv-1&cl=CA_test&bt=generic&bn=Key%20Squad"
     )
     const res = await receptionistAnswerGet(req)
     const xml = await res.text()
-    expect(xml).toContain("<Gather")
-    expect(xml).toContain("Press 1 to accept this call")
+    expect(xml).not.toContain("<Gather")
+    expect(xml).not.toContain("Press 1 to accept this call")
+    expect(xml).toContain("<Response")
   })
 })
 
@@ -82,6 +86,7 @@ describe("shouldPlayCallerRingbackDuringDial", () => {
   })
 })
 
+// The screen is still built and still correct — it is opt-in now, not removed.
 describe("buildReceptionistPress1ScreenTexml", () => {
   it("requires digit 1 and mentions Press 1", () => {
     const xml = buildReceptionistPress1ScreenTexml(
