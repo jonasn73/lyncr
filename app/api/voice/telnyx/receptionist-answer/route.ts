@@ -108,14 +108,24 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
   const toNumber = param(req, "to")
   const receptionistId = param(req, "r", "receptionistId")
 
-  void updateCallLog(callSid, {
-    call_type: "incoming",
-    status: "in-progress",
-    answered_at: new Date().toISOString(),
-    ...(receptionistId?.trim() ? {} : { routed_to_name: OWNER_PHONE_ROUTED_TO_NAME }),
-  }).catch((e) => {
+  // AWAITED, not fire-and-forget. This is the only writer of answered_at on the TeXML
+  // path — the status webhook passes skipAnsweredAt precisely because it defers to
+  // here — and an un-awaited promise in a serverless function can be frozen with the
+  // instance before it settles. That is why answered_at landed on some calls and not
+  // others: every unstamped call is invisible to intake, to Activities, and to pay,
+  // because pay requires a real pickup.
+  try {
+    await updateCallLog(callSid, {
+      call_type: "incoming",
+      status: "in-progress",
+      answered_at: new Date().toISOString(),
+      ...(receptionistId?.trim() ? {} : { routed_to_name: OWNER_PHONE_ROUTED_TO_NAME }),
+    })
+  } catch (e) {
+    // Never fail the bridge over the bookkeeping — the caller is waiting on this
+    // document. A missed stamp is recoverable; a dropped call is not.
     console.warn("[receptionist-answer] call-log answer tag failed:", e)
-  })
+  }
 
   await notifyOwnerInboundCallAnswered({
     providerCallSid: callSid,
