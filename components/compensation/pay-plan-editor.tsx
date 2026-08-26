@@ -445,6 +445,190 @@ export function PayPlanButton({
   )
 }
 
+interface PlanCostPreview {
+  windowDays: number
+  calls: { count: number; talkSeconds: number; cents: number }
+  jobs: { count: number; cents: number; capped: boolean }
+  productionCents: number
+  floor: {
+    available: boolean
+    reason?: string
+    weeklyHours: number
+    hoursSource: "tracked" | "assumed"
+    weeks: number
+    topUpCents: number
+  }
+  totalCents: number
+  effectiveHourlyCents: number | null
+}
+
+function usd(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+}
+
+/**
+ * What this plan would have cost over the worker's real recent history.
+ *
+ * The point is to answer "can I afford this" before anyone signs to it, so the number
+ * comes from the calls they actually answered rather than a model. Hours are the one
+ * thing history may not have — until the shift clock has data, the owner supplies an
+ * assumption and the panel says plainly that it is one.
+ */
+function PlanCostPanel({
+  target,
+  components,
+  employmentType,
+}: {
+  target: PayPlanTarget
+  components: PayComponent[]
+  employmentType: EmploymentType
+}) {
+  const [preview, setPreview] = useState<PlanCostPreview | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [weeklyHours, setWeeklyHours] = useState(10)
+
+  const payload = useMemo(
+    () =>
+      JSON.stringify({
+        [target.kind === "receptionist" ? "receptionist_id" : "field_technician_id"]: target.id,
+        employment_type: employmentType,
+        components,
+        window_days: 30,
+        assumed_weekly_hours: weeklyHours,
+      }),
+    [target, employmentType, components, weeklyHours]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    // Debounced: the plan changes on every keystroke in a rate box. The spinner is
+    // turned on inside the timer rather than in the effect body, so a burst of typing
+    // does not flicker it on and off between renders.
+    const timer = setTimeout(() => {
+      setLoading(true)
+      fetch("/api/compensation/plans/preview", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error("preview"))))
+        .then((json: { data?: PlanCostPreview }) => {
+          if (cancelled) return
+          setPreview(json.data ?? null)
+          setFailed(false)
+        })
+        .catch(() => {
+          if (!cancelled) setFailed(true)
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [payload])
+
+  const showHoursInput =
+    employmentType === "W2_EMPLOYEE" && components.some((c) => c.kind === "MINIMUM_WAGE_TOPUP")
+
+  return (
+    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          Last 30 days, this plan would have cost
+        </p>
+        {loading ? <Loader2 className="h-3 w-3 animate-spin text-zinc-600" aria-hidden /> : null}
+      </div>
+
+      {failed ? (
+        <p className="text-xs text-zinc-500">Couldn&apos;t price this plan right now.</p>
+      ) : preview ? (
+        <>
+          <p className="text-2xl font-semibold tabular-nums text-foreground">
+            {usd(preview.totalCents)}
+          </p>
+
+          <div className="space-y-0.5 text-[11px] text-zinc-400">
+            {preview.calls.count > 0 ? (
+              <p>
+                {preview.calls.count} answered call{preview.calls.count === 1 ? "" : "s"} ·{" "}
+                {Math.round(preview.calls.talkSeconds / 60)} min talking ·{" "}
+                <span className="tabular-nums text-zinc-300">{usd(preview.calls.cents)}</span>
+              </p>
+            ) : null}
+            {preview.jobs.count > 0 ? (
+              <p>
+                {preview.jobs.count} completed job{preview.jobs.count === 1 ? "" : "s"}
+                {preview.jobs.capped ? "+" : ""} ·{" "}
+                <span className="tabular-nums text-zinc-300">{usd(preview.jobs.cents)}</span>
+              </p>
+            ) : null}
+            {preview.calls.count === 0 && preview.jobs.count === 0 ? (
+              <p>No calls or jobs in the last 30 days to price this against.</p>
+            ) : null}
+            {preview.floor.available && preview.floor.topUpCents > 0 ? (
+              <p className="text-amber-200/90">
+                + {usd(preview.floor.topUpCents)} to reach the wage floor across{" "}
+                {preview.floor.weeks} week{preview.floor.weeks === 1 ? "" : "s"}
+              </p>
+            ) : null}
+            {preview.floor.available && preview.floor.topUpCents === 0 ? (
+              <p className="text-zinc-500">
+                Production clears the wage floor — no top-up at {preview.floor.weeklyHours} h/week.
+              </p>
+            ) : null}
+            {preview.effectiveHourlyCents !== null ? (
+              <p className="text-zinc-500">
+                Works out to {usd(preview.effectiveHourlyCents)} per hour on duty.
+              </p>
+            ) : null}
+          </div>
+
+          {showHoursInput ? (
+            <label className="flex items-center gap-2 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
+              {preview.floor.hoursSource === "tracked" ? (
+                <span>
+                  Using {preview.floor.weeklyHours} tracked hours a week.
+                </span>
+              ) : (
+                <>
+                  <span>Assume they&apos;re on duty</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={weeklyHours}
+                    aria-label="Assumed hours on duty per week"
+                    onChange={(e) =>
+                      setWeeklyHours(Math.max(0, Math.min(60, Number(e.target.value) || 0)))
+                    }
+                    className={cn(inputClass, "w-14 py-0.5 tabular-nums")}
+                  />
+                  <span>hours a week</span>
+                </>
+              )}
+            </label>
+          ) : null}
+
+          {showHoursInput && preview.floor.hoursSource === "assumed" ? (
+            <p className="text-[10px] leading-relaxed text-zinc-600">
+              An estimate, not a measurement — nobody&apos;s hours are tracked yet. The real floor
+              is worked out per week from what they actually earned that week.
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-xs text-zinc-500">Pricing…</p>
+      )}
+    </div>
+  )
+}
+
 /**
  * The form itself, mounted fresh per worker.
  *
@@ -592,6 +776,14 @@ function PayPlanForm({
               </p>
               <p className="mt-1 text-sm text-foreground">{summary}</p>
             </div>
+          ) : null}
+
+          {components.length > 0 && validation.errors.length === 0 ? (
+            <PlanCostPanel
+              target={target}
+              components={components}
+              employmentType={employmentType}
+            />
           ) : null}
 
           {validation.errors.map((message) => (
