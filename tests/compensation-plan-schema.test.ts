@@ -178,7 +178,7 @@ describe("describing a plan", () => {
         amount_micros: 2_500_000,
         min_billable_seconds: 20,
       })
-    ).toBe("$2.50 per an answered call lasting at least 20 seconds")
+    ).toBe("$2.50 per answered call lasting at least 20 seconds")
   })
 
   it("writes the sentence a contract needs for per-second plus commission", () => {

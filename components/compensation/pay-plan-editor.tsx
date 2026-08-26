@@ -466,6 +466,12 @@ function usd(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 }
 
+/** Talk time, in the unit that does not round it away. Under a minute reads as seconds. */
+function talkTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s talking`
+  return `${Math.round(seconds / 60)} min talking`
+}
+
 /**
  * What this plan would have cost over the worker's real recent history.
  *
@@ -556,7 +562,7 @@ function PlanCostPanel({
             {preview.calls.count > 0 ? (
               <p>
                 {preview.calls.count} answered call{preview.calls.count === 1 ? "" : "s"} ·{" "}
-                {Math.round(preview.calls.talkSeconds / 60)} min talking ·{" "}
+                {talkTime(preview.calls.talkSeconds)} ·{" "}
                 <span className="tabular-nums text-zinc-300">{usd(preview.calls.cents)}</span>
               </p>
             ) : null}
