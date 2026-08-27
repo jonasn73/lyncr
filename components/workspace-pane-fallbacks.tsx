@@ -8,6 +8,7 @@ import {
   WorkspacePanel,
   MOBILE_PANEL_VIEWPORT_MIN_H,
 } from "@/components/dashboard-workspace-ui"
+import { WORKSPACE_VIEWPORT_H } from "@/lib/mobile-shell"
 import {
   ActivityTableSkeleton,
   CrmListRowSkeleton,
@@ -51,7 +52,7 @@ export function ActivityPaneFallback() {
 export function CrmPaneFallback() {
   return (
     <div
-      className="mx-auto flex w-full max-w-workspace flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
+      className="mx-auto flex w-full max-w-workspace flex-col gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 md:pb-8"
       aria-busy="true"
       aria-label="Loading CRM"
     >
@@ -93,9 +94,11 @@ export function MapPaneFallback() {
   return (
     <div
       className={cn(
-        "relative flex w-full flex-col overflow-hidden bg-background",
-        "h-[calc(100dvh-8.75rem)] min-h-[22rem]",
-        "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
+        // Geometry must track MapTab exactly or the real map jumps on mount.
+        "relative mx-auto flex w-full max-w-workspace flex-col overflow-hidden bg-background",
+        WORKSPACE_VIEWPORT_H,
+        "min-h-[22rem]",
+        "sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}
       aria-busy="true"
       aria-label="Loading Map"
