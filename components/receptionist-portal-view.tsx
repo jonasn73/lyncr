@@ -69,24 +69,20 @@ function billingCycleLabel(start: string, end: string): string {
   return `${s.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${e.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
 }
 
-/** Compact live strip under the duty band — not a third full card. */
+/**
+ * Compact live strip under the duty band — shows the in-progress caller detail the duty
+ * band's headline has no room for. Idle/off-duty states already say everything this strip
+ * would otherwise repeat (status + business name), so it renders nothing then rather than
+ * echoing the hero band.
+ */
 function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
-  const { live_status, receptionist } = dashboard
+  const { live_status } = dashboard
   const onCall = live_status.mode === "on_call"
   const ringing = live_status.mode === "ringing"
-  const available = receptionist.is_active
+  if (!onCall && !ringing) return null
 
-  // Primary line shown in the strip
-  const headline = ringing
-    ? "Incoming call — ringing"
-    : onCall
-      ? "On an active call"
-      : available
-        ? "Online & ready"
-        : "Off duty"
-
-  // Secondary context (company / caller)
-  const detail = onCall || ringing ? (
+  const headline = ringing ? "Incoming call — ringing" : "On an active call"
+  const detail = (
     <>
       {ringing ? "Ringing for " : "Answering for "}
       <span className="font-medium text-zinc-200">{live_status.business_name}</span>
@@ -94,38 +90,17 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
       {formatPhoneDisplay(live_status.caller_number)}
       {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
     </>
-  ) : available ? (
-    <>
-      Waiting for <span className="font-medium text-zinc-200">{live_status.business_name}</span>
-    </>
-  ) : (
-    <>
-      Not selected · <span className="font-medium text-zinc-200">{live_status.business_name}</span>
-    </>
   )
 
   return (
     <div
       className={cn(
         "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors duration-300",
-        onCall
-          ? "border-emerald-500/35 bg-emerald-950/25"
-          : available
-            ? "border-primary/25 bg-primary/5"
-            : "border-border/40 bg-zinc-950/40"
+        onCall ? "border-emerald-500/35 bg-emerald-950/25" : "border-primary/25 bg-primary/5"
       )}
     >
-      {/* Soft pulse when available and idle — signals “listening” without noise */}
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
-        {available && !onCall ? (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50 opacity-60" />
-        ) : null}
-        <span
-          className={cn(
-            "relative inline-flex h-2.5 w-2.5 rounded-full",
-            onCall ? "bg-emerald-400" : available ? "bg-primary" : "bg-zinc-600"
-          )}
-        />
+        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-emerald-400" : "bg-primary")} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
@@ -157,28 +132,22 @@ function TodayBand({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
   const answered = today.filter((row) => row.duration_seconds > 0).length
   const talkSeconds = today.reduce((sum, row) => sum + (row.duration_seconds || 0), 0)
 
-  const tiles = [
-    { label: "Calls today", value: String(today.length), hint: answered === today.length ? "All answered" : `${answered} answered` },
-    { label: "Earned today", value: formatUsd(dashboard.metrics.today_earnings), hint: "Since midnight, your time" },
-    { label: "Talk time", value: formatDuration(talkSeconds), hint: "Across today's calls" },
-  ]
-
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      {tiles.map((tile) => (
-        <div
-          key={tile.label}
-          className="rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-            {tile.label}
-          </p>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
-            {tile.value}
-          </p>
-          <p className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">{tile.hint}</p>
-        </div>
-      ))}
+      <WorkspaceStatCard
+        dense
+        label="Calls today"
+        value={String(today.length)}
+        hint={answered === today.length ? "All answered" : `${answered} answered`}
+      />
+      <WorkspaceStatCard
+        dense
+        label="Earned today"
+        value={formatUsd(dashboard.metrics.today_earnings)}
+        hint="Since midnight, your time"
+        accent="primary"
+      />
+      <WorkspaceStatCard dense label="Talk time" value={formatDuration(talkSeconds)} hint="Across today's calls" />
     </div>
   )
 }
@@ -524,7 +493,9 @@ export function ReceptionistPortalView() {
 
   return (
     <WorkspacePage className={tab === "home" ? "gap-3 sm:gap-4" : undefined}>
-      {/* Calls / Earnings keep a compact page header; Home uses the duty band as the hero */}
+      {/* Calls / Earnings keep the default page rhythm and a compact page header; Home is
+          a live ops desk, not a stack of cards, and permanently runs tighter — this is not
+          a leftover from the console redesign, it uses the duty band as the hero instead. */}
       {tab !== "home" ? (
         <WorkspacePageHeader
           eyebrow={tab === "calls" ? "Console" : "Pay"}

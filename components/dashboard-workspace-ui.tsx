@@ -85,11 +85,15 @@ export function WorkspaceStatCard({
   value,
   hint,
   accent,
+  dense = false,
 }: {
   label: string
   value: string
   hint?: string
   accent?: "primary" | "success" | "warning"
+  /** Compact tile for tight ops screens (e.g. receptionist Home) — smaller padding/radius,
+   *  hint hidden on phones. Same metric-tile pattern as the default size, just denser. */
+  dense?: boolean
 }) {
   const accentClass =
     accent === "success"
@@ -97,6 +101,17 @@ export function WorkspaceStatCard({
       : accent === "warning"
         ? "border-amber-500/30 bg-amber-500/5"
         : "border-primary/30 bg-primary/5"
+  if (dense) {
+    return (
+      <div className={cn("rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4", accent && accentClass)}>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+        <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl">
+          {value}
+        </p>
+        {hint ? <p className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">{hint}</p> : null}
+      </div>
+    )
+  }
   return (
     <div className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5", accent && accentClass)}>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
