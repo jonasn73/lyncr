@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner"
 import { adjustUserCredit } from "@/app/actions/admin-actions"
 import { startImpersonation } from "@/app/actions/admin-impersonation"
+import { CallHealthBoard } from "@/components/admin/call-health-board"
 import type { LyncrAdminDirectoryRow, LyncrAdminMetrics } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -866,6 +867,8 @@ export function LyncrAdminDashboard({
             </span>
           </div>
           ) : null}
+
+          <CallHealthBoard />
 
           {pendingOwners.length > 0 ? (
           <section className="space-y-3">

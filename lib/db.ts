@@ -28,6 +28,7 @@ import { normalizeWorkspaceDisplayName } from "@/lib/workspace-organizations"
 import { rollBillingCycleWindowForward } from "@/lib/billing-cycle-window"
 import { MIN_BILLABLE_TALK_SECONDS } from "@/lib/receptionist-pay"
 import { parseRoutingPoolMode, parseSkillsArray, normalizeRoutingPoolSkillTag, routingSkillTagFromCertCode } from "@/lib/routing-pool-skills"
+import { isMissedCallRecord } from "@/lib/missed-call-telemetry"
 import type {
   CompanyBriefing,
   RoutingConfig,
@@ -3982,6 +3983,99 @@ export async function getCallQualitySummary(userId: string, days = 7): Promise<{
       p95_setup_ms: row.p95_setup_ms == null ? null : Number(row.p95_setup_ms),
       avg_post_dial_delay_ms: row.avg_post_dial_delay_ms == null ? null : Number(row.avg_post_dial_delay_ms),
     }
+  }
+}
+
+function percentile95(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const idx = Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1)
+  return sorted[idx]
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null
+  return values.reduce((sum, v) => sum + v, 0) / values.length
+}
+
+/**
+ * Platform-wide call health for the admin dashboard (not scoped to one owner, unlike
+ * getCallQualitySummary above). Classifies "missed" with the same isMissedCallRecord
+ * rule Activities and the owner telemetry views already trust, instead of re-deriving
+ * a status heuristic here that could quietly drift from it.
+ *
+ * Read-only aggregation over existing call_logs columns — no schema change, and no
+ * write into the live call-control path, so it carries no risk to call routing itself.
+ */
+export async function getPlatformCallHealthSummary(days = 7): Promise<{
+  window_days: number
+  total_calls: number
+  missed_calls: number
+  missed_rate_percent: number
+  avg_setup_ms: number | null
+  p95_setup_ms: number | null
+  avg_post_dial_delay_ms: number | null
+  /** Top routed_to_name labels among missed calls — where calls are failing to connect. */
+  missed_by_route: { routed_to_name: string; count: number }[]
+}> {
+  const sql = getSql()
+  type Row = {
+    status: string | null
+    routed_to_name: string | null
+    answered_at: string | null
+    ended_at: string | null
+    duration_seconds: number | null
+    setup_duration_ms: number | null
+    post_dial_delay_ms: number | null
+  }
+  let rows: Row[]
+  try {
+    rows = (await sql`
+      SELECT status, routed_to_name, answered_at, ended_at, duration_seconds,
+             setup_duration_ms, post_dial_delay_ms
+      FROM call_logs
+      WHERE call_type = 'incoming'
+        AND created_at >= now() - (${days}::numeric * interval '1 day')
+    `) as unknown as Row[]
+  } catch (e) {
+    if (!isMissingCallQualityColumnsError(e)) throw e
+    rows = (await sql`
+      SELECT status, routed_to_name, answered_at, ended_at, duration_seconds,
+             NULL::int AS setup_duration_ms, NULL::int AS post_dial_delay_ms
+      FROM call_logs
+      WHERE call_type = 'incoming'
+        AND created_at >= now() - (${days}::numeric * interval '1 day')
+    `) as unknown as Row[]
+  }
+
+  const missedByRoute = new Map<string, number>()
+  let missedCalls = 0
+  for (const row of rows) {
+    if (!isMissedCallRecord({ call_type: "incoming", ...row })) continue
+    missedCalls += 1
+    const label = row.routed_to_name?.trim() || "Unlabeled"
+    missedByRoute.set(label, (missedByRoute.get(label) ?? 0) + 1)
+  }
+
+  const setupTimes = rows
+    .map((r) => r.setup_duration_ms)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+  const postDialTimes = rows
+    .map((r) => r.post_dial_delay_ms)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+
+  return {
+    window_days: days,
+    total_calls: rows.length,
+    missed_calls: missedCalls,
+    missed_rate_percent: rows.length === 0 ? 0 : Math.round((missedCalls / rows.length) * 10000) / 100,
+    avg_setup_ms: average(setupTimes),
+    p95_setup_ms: percentile95(setupTimes),
+    avg_post_dial_delay_ms: average(postDialTimes),
+    missed_by_route: [...missedByRoute.entries()]
+      .map(([routed_to_name, count]) => ({ routed_to_name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8),
   }
 }
 
@@ -8147,7 +8241,6 @@ export async function insertPhoneNumber(params: {
         ${params.user_id},
         ${organizationId},
         ${params.provider_number_sid || ""},
-        ${params.provider_number_sid || ""},
         ${numberE164},
         ${params.friendly_name},
         ${params.label || "Business Line"},
@@ -8165,7 +8258,6 @@ export async function insertPhoneNumber(params: {
       VALUES (
         ${id},
         ${params.user_id},
-        ${params.provider_number_sid || ""},
         ${params.provider_number_sid || ""},
         ${numberE164},
         ${params.friendly_name},
@@ -15017,7 +15109,6 @@ async function ensureActivePhoneNumberFromReserved(userId: string): Promise<void
       ${userId},
       ${orgId},
       '',
-      '',
       ${numberE164},
       ${numberE164},
       'Admin assigned',
@@ -15125,7 +15216,6 @@ export async function adminApplyUserOverride(params: {
               VALUES (
                 ${phoneId},
                 ${userId},
-                '',
                 '',
                 ${numberE164},
                 ${numberE164},
