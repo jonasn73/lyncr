@@ -221,7 +221,7 @@ export function FieldTechniciansPanel() {
   }
 
   return (
-    <WorkspacePanel className="p-5">
+    <WorkspacePanel density="default">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">

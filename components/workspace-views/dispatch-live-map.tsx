@@ -1240,7 +1240,7 @@ export function DispatchLiveMap({
   }
 
   return (
-    <WorkspacePanel className={cn("mb-4 p-5", className)}>
+    <WorkspacePanel density="default" className={cn("mb-4", className)}>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
           <MapPinned className="h-4.5 w-4.5" />

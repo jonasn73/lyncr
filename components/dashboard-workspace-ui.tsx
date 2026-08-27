@@ -61,11 +61,33 @@ export function WorkspacePageHeader({
   )
 }
 
-export function WorkspacePanel({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * The three panel paddings. Call sites pick a density instead of spelling out
+ * `p-*`, so panel padding stays on the 16 / 24 / 32 scale everywhere.
+ */
+const WORKSPACE_PANEL_DENSITY = {
+  compact: "p-4",
+  default: "p-4 sm:p-6",
+  roomy: "p-6 sm:p-8",
+} as const
+
+export type WorkspacePanelDensity = keyof typeof WORKSPACE_PANEL_DENSITY
+
+export function WorkspacePanel({
+  children,
+  className,
+  density,
+}: {
+  children: ReactNode
+  className?: string
+  /** Panel padding. Omit for panels that pad their own body (scroll panes, tables, split layouts). */
+  density?: WorkspacePanelDensity
+}) {
   return (
     <section
       className={cn(
         "overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40",
+        density && WORKSPACE_PANEL_DENSITY[density],
         className
       )}
     >

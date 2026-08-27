@@ -119,7 +119,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
       <WorkspacePageHeader title={certification.title} />
 
       {!showQuiz ? (
-        <WorkspacePanel className="space-y-4 p-6">
+        <WorkspacePanel density="roomy" className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 ring-2 ring-emerald-400/40">
               <CheckCircle2 className="h-6 w-6 text-emerald-300" aria-hidden />
@@ -152,7 +152,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
 
       {showQuiz ? (
       <>
-      <WorkspacePanel className="space-y-3 p-5">
+      <WorkspacePanel density="default" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-zinc-400">
             <Award className="h-4 w-4 text-primary" aria-hidden />

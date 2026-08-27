@@ -376,7 +376,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     )
     if (variant === "modal") return statusBody
     return (
-      <WorkspacePanel className="space-y-4 p-6 sm:p-8">
+      <WorkspacePanel density="roomy" className="space-y-4">
         {statusBody}
         <Link
           href="/dashboard/settings"
@@ -398,7 +398,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     )
     if (variant === "modal") return pendingBody
     return (
-      <WorkspacePanel className="space-y-4 p-6 sm:p-8">
+      <WorkspacePanel density="roomy" className="space-y-4">
         {pendingBody}
         <Link
           href="/dashboard/settings"
@@ -437,7 +437,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
 
       <div className={variant === "modal" ? "space-y-5" : ""}>
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-5 p-6 sm:p-8">
+          <WorkspacePanel density="roomy" className="space-y-5">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-violet-400" aria-hidden />
               <div>
@@ -457,13 +457,13 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         )}
 
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-4 p-6 sm:p-8">{addressFields}</WorkspacePanel>
+          <WorkspacePanel density="roomy" className="space-y-4">{addressFields}</WorkspacePanel>
         ) : (
           addressFields
         )}
 
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-4 p-6 sm:p-8">{useCaseField}</WorkspacePanel>
+          <WorkspacePanel density="roomy" className="space-y-4">{useCaseField}</WorkspacePanel>
         ) : (
           useCaseField
         )}

@@ -200,7 +200,7 @@ export function ReceptionistTrainingView({ userId, initialCatalog }: Props) {
           Loading courses…
         </div>
       ) : catalog.length === 0 ? (
-        <WorkspacePanel className="p-8 text-center text-sm text-zinc-500">
+        <WorkspacePanel density="roomy" className="text-center text-sm text-zinc-500">
           No certifications are published yet. Ask your operator to run migration 043 in Neon.
         </WorkspacePanel>
       ) : (

@@ -127,7 +127,7 @@ function NetworkInstructionsPanel() {
   }
 
   return (
-    <WorkspacePanel className="flex h-full flex-col p-5">
+    <WorkspacePanel density="default" className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
@@ -457,7 +457,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="Dispatch" title="Team" />
 
-      <WorkspacePanel className="p-4 sm:p-5">
+      <WorkspacePanel density="compact">
         <p className="text-sm leading-relaxed text-zinc-300">
           Add people who can answer your business calls.{" "}
           <span className="font-medium text-foreground">Phone contacts</span> ring their cell when you pick them under{" "}
@@ -504,7 +504,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <NetworkInstructionsPanel />
         </div>
 
-        <WorkspacePanel className="flex h-full flex-col p-5 lg:col-span-1">
+        <WorkspacePanel density="default" className="flex h-full flex-col lg:col-span-1">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">

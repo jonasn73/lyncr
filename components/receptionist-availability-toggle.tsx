@@ -93,8 +93,8 @@ export function ReceptionistAvailabilityToggle({
   // Legacy card layout (kept for any other callers)
   return (
     <WorkspacePanel
+      density="default"
       className={cn(
-        "p-5",
         current ? "border-emerald-500/35 bg-emerald-950/15" : "border-zinc-700/80 bg-zinc-900/40"
       )}
     >

@@ -176,7 +176,7 @@ export function ReceptionistEndpointToggle({
 
   // Legacy card layout
   return (
-    <WorkspacePanel className="p-5">
+    <WorkspacePanel density="default">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Answer calls on</p>
