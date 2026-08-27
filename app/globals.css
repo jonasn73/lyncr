@@ -63,6 +63,8 @@
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   /* Between slate-800 and slate-900 — premium card borders */
   --color-slate-850: oklch(0.24 0.018 265);
+  /* Shared workspace content cap — every dashboard page (map included) aligns to this */
+  --container-workspace: 100rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

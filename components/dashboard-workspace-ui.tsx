@@ -24,7 +24,7 @@ export function WorkspacePage({
   className?: string
 } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("mx-auto flex w-full max-w-7xl flex-col gap-6 sm:gap-8", className)} {...rest}>
+    <div className={cn("mx-auto flex w-full max-w-workspace flex-col gap-6 sm:gap-8", className)} {...rest}>
       {children}
     </div>
   )

@@ -274,7 +274,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
       {/* No pb-24 spacer — Available/Caller ID follow Alerts with normal gap (Messages left Lines). */}
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-3 md:pb-4">
-        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4">
+        <div className="mx-auto w-full max-w-workspace px-3 pt-3 sm:px-0 sm:pt-4">
           <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
               activeLineDisplay={activeLineDisplay}

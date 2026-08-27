@@ -832,7 +832,7 @@ export function DashboardPage() {
           </div>
           {/* Same padding + column gaps as live routing surface main column. */}
           <div
-            className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-0 sm:pt-4"
+            className="mx-auto w-full max-w-workspace px-3 pt-3 sm:px-0 sm:pt-4"
             data-flicker-probe="lines-gate-skeleton"
           >
             <div className="flex flex-col gap-3 sm:gap-4">

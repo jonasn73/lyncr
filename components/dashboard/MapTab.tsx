@@ -254,7 +254,8 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
     <div
       className={cn(
         // Fill the tab area above the bottom dock; avoid floating card over the nav.
-        "relative flex w-full flex-col overflow-hidden bg-background",
+        // Same centered cap as WorkspacePage so the map lines up with every other tab.
+        "relative mx-auto flex w-full max-w-workspace flex-col overflow-hidden bg-background",
         "h-[calc(100dvh-8.75rem)] min-h-[22rem]",
         "sm:h-[calc(100dvh-6.5rem)] sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
       )}

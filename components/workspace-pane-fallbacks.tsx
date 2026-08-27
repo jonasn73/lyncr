@@ -51,7 +51,7 @@ export function ActivityPaneFallback() {
 export function CrmPaneFallback() {
   return (
     <div
-      className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
+      className="mx-auto flex w-full max-w-workspace flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8"
       aria-busy="true"
       aria-label="Loading CRM"
     >
