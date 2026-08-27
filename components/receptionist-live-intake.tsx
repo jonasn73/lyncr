@@ -179,7 +179,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   if (lookup.has_open_book_form) chips.push("Booking form waiting")
 
   return (
-    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-5 py-2.5">
+    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
           Returning customer
@@ -226,6 +226,10 @@ export function ReceptionistLiveIntake({
   const steps = useMemo(() => buildSteps(config.fields), [config.fields])
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLastStep = stepIndex >= steps.length - 1
+  // Address is "the single field most worth getting right" (see buildSteps above) — shrink
+  // the header chrome on that screen so the autocomplete gets more room, same idea as the
+  // owner console's compact-on-deep-step header.
+  const denseStep = step?.id === "address"
   // Gate Next on this screen's own required fields, so a missing answer four screens
   // later cannot block the one in front of her.
   const stepIncomplete = useMemo(
@@ -386,7 +390,17 @@ export function ReceptionistLiveIntake({
   // Collapsed: a thin fixed bar that keeps the call visible and the draft alive.
   if (minimized) {
     return (
-      <div className="fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-2.5 shadow-2xl">
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-2.5 shadow-2xl",
+          // The mobile bottom tab nav (ReceptionistPortalChrome) is also fixed to the
+          // viewport edge below `sm`, so a flush bar here sat on top of it and blocked
+          // Home / Calls / Earnings while a call was minimized. Float above the nav
+          // there instead — sm+ has no bottom nav (header nav runs it), so it stays
+          // pinned flush like before.
+          "max-sm:bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] max-sm:rounded-t-xl max-sm:border"
+        )}
+      >
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
@@ -415,11 +429,21 @@ export function ReceptionistLiveIntake({
   return (
     <WorkspacePanel className="overflow-hidden border-emerald-500/40 bg-emerald-950/10 p-0">
       {/* Live call header — sticky so Minimize and Close stay reachable mid-scroll. */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-950/95 px-5 py-4 backdrop-blur">
+      <div
+        className={cn(
+          "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-950/95 backdrop-blur",
+          denseStep ? "px-4 py-2.5" : "px-4 py-4"
+        )}
+      >
         <div className="flex items-center gap-3">
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+          <span
+            className={cn(
+              "relative flex shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300",
+              denseStep ? "h-8 w-8" : "h-10 w-10"
+            )}
+          >
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/30" />
-            <PhoneCall className="relative h-5 w-5" aria-hidden />
+            <PhoneCall className={cn("relative", denseStep ? "h-4 w-4" : "h-5 w-5")} aria-hidden />
           </span>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/80">Call notepad / lead dispatcher</p>
@@ -455,18 +479,24 @@ export function ReceptionistLiveIntake({
             onClick={() => setMinimized(true)}
             aria-label="Minimize intake"
             title="Minimize — keeps everything you have typed"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-emerald-500/15"
+            className={cn(
+              "inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-emerald-500/15",
+              denseStep ? "h-7 w-7" : "h-8 w-8"
+            )}
           >
-            <Minus className="h-4 w-4" aria-hidden />
+            <Minus className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
           </button>
           <button
             type="button"
             onClick={() => onDismiss("dismissed")}
             disabled={saving}
             aria-label="Close intake"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50"
+            className={cn(
+              "inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50",
+              denseStep ? "h-7 w-7" : "h-8 w-8"
+            )}
           >
-            <X className="h-4 w-4" aria-hidden />
+            <X className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
           </button>
         </div>
       </div>
@@ -475,7 +505,7 @@ export function ReceptionistLiveIntake({
 
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
-        <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-5 py-2">
+        <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-4 py-2">
           {steps.map((s, i) => (
             <button
               key={s.id}
@@ -500,7 +530,7 @@ export function ReceptionistLiveIntake({
       ) : null}
 
       {/* Intake form */}
-      <div className="px-5 py-5">
+      <div className="px-4 py-5">
         <h2 className="text-sm font-semibold text-foreground">
           {step ? step.label : config.title}
         </h2>
