@@ -32,10 +32,5 @@
       "path": "/api/cron/apply-wage-floor",
       "schedule": "0 16 * * 1"
     }
-  ],
-  "functions": {
-    "app/api/voice/telnyx/incoming/route.ts": {
-      "memory": 1024
-    }
-  }
+  ]
 }
