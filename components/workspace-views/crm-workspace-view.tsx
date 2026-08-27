@@ -129,7 +129,7 @@ import {
   mergeCrmServiceHistoryWithWalkUps,
 } from "@/lib/crm-walk-up-history"
 
-type CrmFilter = "all" | "leads" | "clients" | "book_forms"
+type CrmFilter = "all" | "leads" | "clients" | "book_forms" | "needs_followup"
 
 const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   booked_client: "Booked client",
@@ -140,6 +140,7 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
   callback: "Needs call",
   repeat_customer: "Repeat customer",
   new_contact: "New contact",
+  needs_followup: "Follow up",
 }
 
 /** Soft color for the CRM list-row job status (Needs call / Booked / Complete…). */
@@ -390,7 +391,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         ? "clients"
         : tabParam === "book_forms"
           ? "book_forms"
-          : "all"
+          : tabParam === "needs_followup"
+            ? "needs_followup"
+            : "all"
 
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
@@ -497,7 +500,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const [receiptName, setReceiptName] = useState("")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState("")
-  const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("sms")
+  const [receiptEmailEnabled, setReceiptEmailEnabled] = useState(false)
   const [receiptBusy, setReceiptBusy] = useState(false)
   // Record invoice for jobs paid outside Lyncr (Venmo) — no Stripe charge.
   const [recordInvoiceOpen, setRecordInvoiceOpen] = useState(false)
@@ -537,6 +540,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     if (tabParam === "leads") setFilter("leads")
     else if (tabParam === "clients") setFilter("clients")
     else if (tabParam === "book_forms") setFilter("book_forms")
+    else if (tabParam === "needs_followup") setFilter("needs_followup")
   }, [tabParam])
 
   // Reopen profile when Scheduler returns with ?customer= (or operator shares the link).
@@ -1328,13 +1332,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         ""
     )
     setReceiptPhone(tx.customerPhone || selected?.phone_e164 || "")
-    // Prefill email from CRM notes when we stored "Email: …" on the profile.
-    setReceiptEmail(emailFromCustomerNotes(selected?.notes))
-    // Default to email when we already know their address; otherwise SMS.
-    const hasEmail = Boolean(emailFromCustomerNotes(selected?.notes))
-    setReceiptChannel(
-      hasEmail ? "email" : tx.customerPhone || selected?.phone_e164 ? "sms" : "email"
-    )
+    // Prefill from the real customer.email column when known, notes as a legacy fallback.
+    const knownEmail = (selected?.email || "").trim() || emailFromCustomerNotes(selected?.notes)
+    setReceiptEmail(knownEmail)
+    // Phone is the primary channel; email is only sent when explicitly asked for.
+    setReceiptEmailEnabled(false)
   }
 
   /** Open Send invoice for a job paid outside Lyncr (Venmo, cash, etc.). */
@@ -1355,9 +1357,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     )
     setReceiptName(editName.trim() || selected?.display_name?.trim() || "")
     setReceiptPhone(selected?.phone_e164 || "")
-    setReceiptEmail(emailFromCustomerNotes(selected?.notes))
-    const hasEmail = Boolean(emailFromCustomerNotes(selected?.notes))
-    setRecordChannel(hasEmail ? (selected?.phone_e164 ? "both" : "email") : "sms")
+    // Prefill from the real customer.email column when known, notes as a legacy fallback.
+    setReceiptEmail((selected?.email || "").trim() || emailFromCustomerNotes(selected?.notes))
+    // Phone is the primary channel here too; "Both"/"Email" stay a manual opt-in.
+    setRecordChannel(selected?.phone_e164 ? "sms" : "email")
     setRecordInvoiceOpen(true)
   }
 
@@ -1594,15 +1597,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   /** Email or text a paid receipt — same endpoint as Money → All payments. */
   const sendReceiptFromCrm = async () => {
     if (!receiptTx?.stripePaymentIntentId) return
-    if (receiptChannel === "email" && !receiptEmail.trim().includes("@")) {
-      toast({
-        title: "Enter an email",
-        description: "Need a valid address to send the invoice.",
-        variant: "destructive",
-      })
-      return
-    }
-    if (receiptChannel === "sms" && receiptPhone.replace(/\D/g, "").length < 10) {
+    const hasPhone = receiptPhone.replace(/\D/g, "").length >= 10
+    const hasEmail = receiptEmailEnabled && receiptEmail.trim().includes("@")
+    if (!hasPhone && !hasEmail) {
       toast({
         title: "Enter a phone number",
         description: "Need a valid number to text the invoice.",
@@ -1610,6 +1607,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       })
       return
     }
+    const channel: "sms" | "email" | "both" = hasPhone && hasEmail ? "both" : hasPhone ? "sms" : "email"
     setReceiptBusy(true)
     try {
       const res = await fetch("/api/payments/send-receipt", {
@@ -1618,16 +1616,16 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentIntentId: receiptTx.stripePaymentIntentId,
-          channel: receiptChannel,
+          channel,
           customerName: receiptName.trim() || undefined,
-          email: receiptChannel === "email" ? receiptEmail.trim() : undefined,
-          phone: receiptChannel === "sms" ? receiptPhone.trim() : undefined,
+          email: hasEmail ? receiptEmail.trim() : undefined,
+          phone: hasPhone ? receiptPhone.trim() : undefined,
         }),
       })
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error || "Could not send invoice")
       toast({
-        title: receiptChannel === "email" ? "Invoice emailed" : "Invoice texted",
+        title: channel === "email" ? "Invoice emailed" : channel === "both" ? "Invoice sent" : "Invoice texted",
         description: "Customer gets a paid invoice with a view link.",
       })
       setReceiptTx(null)
@@ -2672,6 +2670,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 { id: "leads", label: "Leads", tone: "sky" },
                 { id: "book_forms", label: "Book forms", tone: "orange" },
                 { id: "clients", label: "Clients", tone: "sky" },
+                { id: "needs_followup", label: "Needs follow-up", tone: "amber" },
               ]}
             />
           </div>
@@ -2691,9 +2690,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     ? `No matches for “${(debounced || q).trim()}”`
                     : filter === "book_forms"
                       ? "No open book-form leads"
-                      : searchingPhone
-                        ? "This number isn’t saved yet"
-                        : "No customers yet"}
+                      : filter === "needs_followup"
+                        ? "Nobody's overdue right now"
+                        : searchingPhone
+                          ? "This number isn’t saved yet"
+                          : "No customers yet"}
                 </p>
                 <p className="max-w-xs text-xs text-zinc-500">
                   {nameSearchEmpty
@@ -2702,9 +2703,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       : "Nobody in this tab matches that search — clear it, or try another tab."
                     : filter === "book_forms"
                       ? "When a customer submits your /book link, they show up here."
-                      : searchingPhone
-                        ? "They show up here after a book form, intake, or Activity save."
-                        : "Save a caller from Activity or intake — they’ll show up here."}
+                      : filter === "needs_followup"
+                        ? "Customers land here after 6 months without a completed job, or with an unpaid invoice."
+                        : searchingPhone
+                          ? "They show up here after a book form, intake, or Activity save."
+                          : "Save a caller from Activity or intake — they’ll show up here."}
                 </p>
                 {nameSearchEmpty ? (
                   <button
@@ -2994,35 +2997,6 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 {formatCollectedDollars(Math.round(receiptTx.amount * 100))}
               </p>
 
-              <div className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
-                <button
-                  type="button"
-                  onClick={() => setReceiptChannel("email")}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
-                    receiptChannel === "email"
-                      ? "bg-teal-500/20 text-teal-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReceiptChannel("sms")}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
-                    receiptChannel === "sms"
-                      ? "bg-teal-500/20 text-teal-100"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Text
-                </button>
-              </div>
-
               <label className="block space-y-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                   Customer name
@@ -3035,10 +3009,31 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 />
               </label>
 
-              {receiptChannel === "email" ? (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Phone
+                </span>
+                <Input
+                  type="tel"
+                  value={receiptPhone}
+                  onChange={(e) => setReceiptPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="h-10 border-zinc-800 bg-zinc-950"
+                  autoComplete="tel"
+                />
+              </label>
+
+              {receiptEmailEnabled ? (
                 <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                     Email
+                    <button
+                      type="button"
+                      onClick={() => setReceiptEmailEnabled(false)}
+                      className="normal-case text-zinc-500 hover:text-zinc-300"
+                    >
+                      Remove
+                    </button>
                   </span>
                   <Input
                     type="email"
@@ -3047,22 +3042,18 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     placeholder="customer@email.com"
                     className="h-10 border-zinc-800 bg-zinc-950"
                     autoComplete="email"
+                    autoFocus
                   />
                 </label>
               ) : (
-                <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Phone
-                  </span>
-                  <Input
-                    type="tel"
-                    value={receiptPhone}
-                    onChange={(e) => setReceiptPhone(e.target.value)}
-                    placeholder="(555) 123-4567"
-                    className="h-10 border-zinc-800 bg-zinc-950"
-                    autoComplete="tel"
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setReceiptEmailEnabled(true)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-300"
+                >
+                  <Plus className="h-3 w-3" aria-hidden />
+                  Also email a copy
+                </button>
               )}
 
               <Button
@@ -3073,12 +3064,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               >
                 {receiptBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : receiptChannel === "email" ? (
-                  <Mail className="h-4 w-4" />
                 ) : (
                   <MessageSquare className="h-4 w-4" />
                 )}
-                {receiptChannel === "email" ? "Email invoice" : "Text invoice"}
+                Send invoice
               </Button>
             </div>
           ) : null}

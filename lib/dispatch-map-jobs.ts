@@ -76,6 +76,7 @@ export function poolJobToDispatchJob(job: UnassignedPoolJob): DispatchJob | null
     id: job.id,
     customer_name: job.customer_name,
     customer_phone: job.customer_phone,
+    customer_email: job.customer_email ?? null,
     location: job.location,
     summary: job.summary,
     job_status: "UNASSIGNED",

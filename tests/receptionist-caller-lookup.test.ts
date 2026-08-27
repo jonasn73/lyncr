@@ -2,10 +2,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { lookupReceptionistCaller } from "@/lib/receptionist-caller-lookup"
 
 const listCrmCustomersForUser = vi.fn()
+const listCrmServiceHistoryForCustomer = vi.fn()
 
 // Hoisted by vitest above the import, so the module under test binds to these.
 vi.mock("@/lib/db", () => ({
   listCrmCustomersForUser: (...args: unknown[]) => listCrmCustomersForUser(...args),
+  listCrmServiceHistoryForCustomer: (...args: unknown[]) => listCrmServiceHistoryForCustomer(...args),
   normalizePhoneNumberE164: (raw: string) => {
     const digits = String(raw ?? "").replace(/\D/g, "")
     if (digits.length === 10) return `+1${digits}`
@@ -27,12 +29,15 @@ function crmRow(overrides: Record<string, unknown> = {}) {
     has_book_form_lead: false,
     job_status_label: "Price quoted",
     job_status_tone: "amber",
+    notes: "",
     ...overrides,
   }
 }
 
 beforeEach(() => {
   listCrmCustomersForUser.mockReset()
+  listCrmServiceHistoryForCustomer.mockReset()
+  listCrmServiceHistoryForCustomer.mockResolvedValue([])
 })
 
 describe("receptionist caller lookup", () => {

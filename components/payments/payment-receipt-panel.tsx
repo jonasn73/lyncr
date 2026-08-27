@@ -1,16 +1,15 @@
 "use client"
 
-// Shared post-pay receipt UI — Email / Text choice + send or skip.
+// Shared post-pay receipt UI — phone is the primary channel (reused from the
+// customer record), with an optional "also email a copy" add-on.
 // Used by owner Collect and tech Charge so success feels the same.
 
-import { Loader2, Mail, MessageSquare } from "lucide-react"
+import { Loader2, Mail, MessageSquare, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   ChargeResultSummary,
   type TipChargeResult,
 } from "@/components/payments/charge-result-summary"
-
-export type ReceiptChannel = "email" | "sms"
 
 export function PaymentReceiptPanel({
   baseCents,
@@ -20,12 +19,12 @@ export function PaymentReceiptPanel({
   cashNote,
   receiptName,
   onReceiptNameChange,
-  receiptChannel,
-  onReceiptChannelChange,
-  receiptEmail,
-  onReceiptEmailChange,
   receiptPhone,
   onReceiptPhoneChange,
+  emailEnabled,
+  onEmailEnabledChange,
+  receiptEmail,
+  onReceiptEmailChange,
   receiptBusy,
   error,
   onSend,
@@ -40,12 +39,13 @@ export function PaymentReceiptPanel({
   cashNote?: string
   receiptName: string
   onReceiptNameChange: (value: string) => void
-  receiptChannel: ReceiptChannel
-  onReceiptChannelChange: (channel: ReceiptChannel) => void
-  receiptEmail: string
-  onReceiptEmailChange: (value: string) => void
   receiptPhone: string
   onReceiptPhoneChange: (value: string) => void
+  /** Whether the optional "also email a copy" field is expanded. */
+  emailEnabled: boolean
+  onEmailEnabledChange: (enabled: boolean) => void
+  receiptEmail: string
+  onReceiptEmailChange: (value: string) => void
   receiptBusy: boolean
   error?: string | null
   onSend: () => void
@@ -62,36 +62,6 @@ export function PaymentReceiptPanel({
             Send a receipt?
           </p>
 
-          {/* Segmented Email | Text — secondary to the Paid hero. */}
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-900/80 p-1 ring-1 ring-zinc-800">
-            <button
-              type="button"
-              onClick={() => onReceiptChannelChange("email")}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
-                receiptChannel === "email"
-                  ? "bg-zinc-700 text-white shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
-              )}
-            >
-              <Mail className="h-3.5 w-3.5" aria-hidden />
-              Email
-            </button>
-            <button
-              type="button"
-              onClick={() => onReceiptChannelChange("sms")}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
-                receiptChannel === "sms"
-                  ? "bg-zinc-700 text-white shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
-              )}
-            >
-              <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-              Text
-            </button>
-          </div>
-
           <div className="space-y-2">
             <input
               type="text"
@@ -101,18 +71,13 @@ export function PaymentReceiptPanel({
               placeholder="Customer name (optional)"
               className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
             />
-            {receiptChannel === "email" ? (
-              <input
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                autoCapitalize="none"
-                value={receiptEmail}
-                onChange={(e) => onReceiptEmailChange(e.target.value)}
-                placeholder="customer@email.com"
-                className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+
+            {/* Phone is the primary channel — reused from the customer record. */}
+            <div className="relative">
+              <MessageSquare
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
+                aria-hidden
               />
-            ) : (
               <input
                 type="tel"
                 autoComplete="tel"
@@ -120,8 +85,45 @@ export function PaymentReceiptPanel({
                 value={receiptPhone}
                 onChange={(e) => onReceiptPhoneChange(e.target.value)}
                 placeholder="(502) 555-0100"
-                className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-zinc-900/60 py-2 pl-8 pr-3 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
               />
+            </div>
+
+            {emailEnabled ? (
+              <div className="relative">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
+                  aria-hidden
+                />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoFocus
+                  value={receiptEmail}
+                  onChange={(e) => onReceiptEmailChange(e.target.value)}
+                  placeholder="customer@email.com"
+                  className="w-full rounded-lg border-0 bg-zinc-900/60 py-2 pl-8 pr-8 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => onEmailEnabledChange(false)}
+                  aria-label="Remove email"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onEmailEnabledChange(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-300"
+              >
+                <Plus className="h-3 w-3" aria-hidden />
+                Also email a copy
+              </button>
             )}
           </div>
 
@@ -135,8 +137,6 @@ export function PaymentReceiptPanel({
           >
             {receiptBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : receiptChannel === "email" ? (
-              <Mail className="h-4 w-4" aria-hidden />
             ) : (
               <MessageSquare className="h-4 w-4" aria-hidden />
             )}

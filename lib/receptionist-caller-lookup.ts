@@ -5,7 +5,7 @@
 // latest job status label, and it is scoped by owner_user_id so a receptionist only ever
 // sees the business they are linked to.
 
-import { listCrmCustomersForUser } from "@/lib/db"
+import { listCrmCustomersForUser, listCrmServiceHistoryForCustomer } from "@/lib/db"
 import { normalizePhoneNumberE164 } from "@/lib/db"
 import type { ReceptionistCallerLookup } from "@/lib/types"
 
@@ -22,6 +22,10 @@ export const EMPTY_CALLER_LOOKUP: ReceptionistCallerLookup = {
   has_open_book_form: false,
   job_status_label: null,
   job_status_tone: null,
+  notes: null,
+  last_job_summary: null,
+  last_job_vehicle: null,
+  last_job_at: null,
 }
 
 /** Compare on digits — CRM rows and carrier CNAM disagree on +1 / formatting. */
@@ -58,6 +62,27 @@ export async function lookupReceptionistCaller(
     const hit = matches.find((row) => matchKey(row.phone_e164) === key)
     if (!hit) return { ...EMPTY_CALLER_LOOKUP, phone_e164: e164 }
 
+    // Last job is a bonus on top of an already-confirmed match — never let a hiccup
+    // here erase the identity we just found.
+    let lastJobSummary: string | null = null
+    let lastJobVehicle: string | null = null
+    let lastJobAt: string | null = null
+    try {
+      const [lastJob] = await listCrmServiceHistoryForCustomer({
+        userId: ownerUserId,
+        customerId: hit.id,
+        phoneE164: hit.phone_e164,
+        limit: 1,
+      })
+      if (lastJob) {
+        lastJobSummary = lastJob.summary?.trim() || lastJob.job_type?.trim() || null
+        lastJobVehicle = lastJob.vehicle_label
+        lastJobAt = lastJob.scheduled_at ?? lastJob.at ?? null
+      }
+    } catch {
+      // No history is a normal outcome — leave the fields null.
+    }
+
     return {
       found: true,
       customer_id: hit.id,
@@ -71,6 +96,10 @@ export async function lookupReceptionistCaller(
       has_open_book_form: Boolean(hit.has_book_form_lead),
       job_status_label: hit.job_status_label?.trim() || null,
       job_status_tone: hit.job_status_tone ?? null,
+      notes: hit.notes?.trim() || null,
+      last_job_summary: lastJobSummary,
+      last_job_vehicle: lastJobVehicle,
+      last_job_at: lastJobAt,
     }
   } catch {
     // A CRM hiccup must never block the screen-pop or the answer button.

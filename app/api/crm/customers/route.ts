@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") || ""
   const filterRaw = req.nextUrl.searchParams.get("filter") || "all"
   const filter =
-    filterRaw === "leads" || filterRaw === "clients" || filterRaw === "book_forms"
+    filterRaw === "leads" ||
+    filterRaw === "clients" ||
+    filterRaw === "book_forms" ||
+    filterRaw === "needs_followup"
       ? filterRaw
       : "all"
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")

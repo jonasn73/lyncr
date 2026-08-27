@@ -157,6 +157,8 @@ export interface DispatchJob {
   id: string
   customer_name: string | null
   customer_phone: string | null
+  /** Optional email for Send invoice / receipts (collected.customer_email). */
+  customer_email?: string | null
   location: string | null
   summary: string | null
   job_status: string | null
@@ -1078,6 +1080,14 @@ export interface ReceptionistCallerLookup {
   /** Latest job/lead status, e.g. "Price quoted" or "Booked · Aug 9, 2:00 PM". */
   job_status_label: string | null
   job_status_tone: "neutral" | "amber" | "emerald" | "rose" | "sky" | null
+  /** CRM notes on the customer record — read out loud before asking again. */
+  notes: string | null
+  /** Most recent job's summary/service line, e.g. "Ignition repair". */
+  last_job_summary: string | null
+  /** Vehicle on the most recent job, e.g. "2019 Honda Civic". */
+  last_job_vehicle: string | null
+  /** ISO timestamp of the most recent job (scheduled time, else created time). */
+  last_job_at: string | null
 }
 
 /**
@@ -1227,12 +1237,18 @@ export type CrmLeadBadge =
   | "callback"
   | "repeat_customer"
   | "new_contact"
+  | "needs_followup"
 
 export interface CrmCustomerListItem extends Customer {
   jobs_completed: number
   lifetime_revenue_cents: number
   lead_badge: CrmLeadBadge
   open_lead_count: number
+  /** ISO of the most recent completed job — powers the "Needs follow-up" lapsed filter. */
+  last_completed_at?: string | null
+  /** Outstanding balance across unpaid/pending tech-console invoices. */
+  unpaid_cents?: number
+  unpaid_invoice_count?: number
   /**
    * True when this phone has an open lead from a customer book form
    * (public /book or Activity book link) — still findable after Latest dismiss.

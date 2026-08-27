@@ -5548,14 +5548,129 @@ function isCrmTerminalJobStatus(js: string): boolean {
   )
 }
 
+/**
+ * Customers who haven't been serviced in a while, or who have an unpaid tech-console
+ * invoice — a dedicated query rather than a client-side filter of the default list,
+ * because the default candidate set is top-N by `updated_at` and a truly lapsed
+ * customer's row is exactly the one that never bubbles into that window.
+ */
+async function listNeedsFollowUpCustomersForUser(
+  userId: string,
+  options?: { q?: string; limit?: number; lapsedMonths?: number }
+): Promise<CrmCustomerListItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
+  const lapsedMonths = Math.min(Math.max(options?.lapsedMonths ?? 6, 1), 60)
+  const q = (options?.q ?? "").trim()
+  const pat = q ? `%${q}%` : null
+
+  try {
+    const rows = (await sql`
+      WITH job_stats AS (
+        SELECT
+          right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key,
+          count(*) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS completed_count,
+          max(coalesce(scheduled_at, created_at)) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS last_completed_at,
+          sum(
+            coalesce(
+              nullif(trim(collected->>'quoted_price_cents'), '')::int,
+              nullif(trim(collected->>'last_quoted_price_cents'), '')::int,
+              nullif(trim(collected->>'booked_price_cents'), '')::int,
+              0
+            )
+          ) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS lifetime_revenue_cents
+        FROM ai_leads
+        WHERE user_id = ${userId}
+        GROUP BY 1
+      ),
+      unpaid AS (
+        SELECT
+          right(regexp_replace(coalesce(customer_phone, ''), '\\D', '', 'g'), 10) AS phone_key,
+          sum(total_cents) AS unpaid_cents,
+          count(*) AS unpaid_count
+        FROM job_invoices
+        WHERE owner_user_id = ${userId}
+          AND payment_status IN ('unpaid', 'pending')
+        GROUP BY 1
+      )
+      SELECT
+        c.*,
+        js.last_completed_at,
+        coalesce(js.completed_count, 0) AS completed_count,
+        coalesce(js.lifetime_revenue_cents, 0) AS lifetime_revenue_cents,
+        coalesce(u.unpaid_cents, 0) AS unpaid_cents,
+        coalesce(u.unpaid_count, 0) AS unpaid_invoice_count
+      FROM customers c
+      LEFT JOIN job_stats js
+        ON js.phone_key = right(regexp_replace(coalesce(c.phone_e164, ''), '\\D', '', 'g'), 10)
+      LEFT JOIN unpaid u
+        ON u.phone_key = right(regexp_replace(coalesce(c.phone_e164, ''), '\\D', '', 'g'), 10)
+      WHERE c.user_id = ${userId}
+        AND (
+          (js.last_completed_at IS NOT NULL AND js.last_completed_at < now() - make_interval(months => ${lapsedMonths}))
+          OR coalesce(u.unpaid_cents, 0) > 0
+        )
+        AND (
+          ${pat}::text IS NULL
+          OR c.phone_e164 ILIKE ${pat}
+          OR c.display_name ILIKE ${pat}
+          OR c.company_name ILIKE ${pat}
+          OR c.notes ILIKE ${pat}
+        )
+      ORDER BY (coalesce(u.unpaid_cents, 0) > 0) DESC, js.last_completed_at ASC NULLS LAST
+      LIMIT ${lim}
+    `) as Record<string, unknown>[]
+
+    return rows.map((row) => {
+      const customer = parseCustomerRow(row)
+      const unpaidCents = Number(row.unpaid_cents ?? 0)
+      const completedCount = Number(row.completed_count ?? 0)
+      const lastCompletedAt =
+        row.last_completed_at instanceof Date
+          ? row.last_completed_at.toISOString()
+          : row.last_completed_at
+            ? String(row.last_completed_at)
+            : null
+      const jobStatusLabel = unpaidCents > 0
+        ? `Unpaid $${(unpaidCents / 100).toFixed(2)}`
+        : lastCompletedAt
+          ? `Last serviced ${new Date(lastCompletedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+          : null
+      return {
+        ...customer,
+        jobs_completed: completedCount,
+        lifetime_revenue_cents: Number(row.lifetime_revenue_cents ?? 0),
+        lead_badge: "needs_followup",
+        open_lead_count: 0,
+        job_status_label: jobStatusLabel,
+        job_status_tone: unpaidCents > 0 ? "rose" : "amber",
+        last_completed_at: lastCompletedAt,
+        unpaid_cents: unpaidCents,
+        unpaid_invoice_count: Number(row.unpaid_invoice_count ?? 0),
+      } as CrmCustomerListItem
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return []
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    if (isUndefinedRelationError(e, "job_invoices")) return []
+    throw e
+  }
+}
+
 /** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
 export async function listCrmCustomersForUser(
   userId: string,
   options?: {
     q?: string
     limit?: number
-    /** all | leads | clients | book_forms (open customer-filled book links). */
-    filter?: "all" | "leads" | "clients" | "book_forms"
+    /** all | leads | clients | book_forms (open customer-filled book links) | needs_followup. */
+    filter?: "all" | "leads" | "clients" | "book_forms" | "needs_followup"
     /** Owner phone timezone for “Booked · …” labels (not Vercel UTC). */
     timeZone?: string | null
   }
@@ -5563,6 +5678,12 @@ export async function listCrmCustomersForUser(
   const filter = options?.filter ?? "all"
   const timeZone = options?.timeZone ?? null
   const sql = getSql()
+
+  // Lapsed / unpaid — its own query, since the default candidate list (top-N by
+  // updated_at) is exactly the wrong shape for finding customers who went quiet.
+  if (filter === "needs_followup") {
+    return listNeedsFollowUpCustomersForUser(userId, { q: options?.q, limit: options?.limit })
+  }
 
   // Book forms filter: pull phones that still have an open customer-filled lead first
   // so they stay findable after Latest dismiss (not buried past the default customer limit).
@@ -9652,6 +9773,7 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     customer_phone:
       pick(["callback_number", "caller_number", "phone", "callback"]) ||
       (row.caller_e164 != null ? String(row.caller_e164) : null),
+    customer_email: pick(["customer_email", "email"]),
     location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
     summary: row.summary != null ? String(row.summary) : null,
     job_status:

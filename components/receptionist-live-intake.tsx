@@ -136,6 +136,12 @@ function usdFromCents(cents: number): string {
   }).format(Math.max(0, cents) / 100)
 }
 
+function shortDate(iso: string): string | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(d)
+}
+
 /**
  * Who is calling, before she has to ask.
  *
@@ -178,6 +184,12 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   }
   if (lookup.has_open_book_form) chips.push("Booking form waiting")
 
+  const lastJobBits: string[] = []
+  if (lookup.last_job_summary) lastJobBits.push(lookup.last_job_summary)
+  if (lookup.last_job_vehicle) lastJobBits.push(lookup.last_job_vehicle)
+  const lastJobDate = lookup.last_job_at ? shortDate(lookup.last_job_at) : null
+  if (lastJobDate) lastJobBits.push(lastJobDate)
+
   return (
     <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -199,6 +211,16 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
       </div>
       {chips.length > 0 ? (
         <p className="mt-1 text-[11px] text-zinc-400">{chips.join(" · ")}</p>
+      ) : null}
+      {lastJobBits.length > 0 ? (
+        <p className="mt-1 text-[11px] text-zinc-400">
+          <span className="text-zinc-500">Last visit:</span> {lastJobBits.join(" · ")}
+        </p>
+      ) : null}
+      {lookup.notes ? (
+        <p className="mt-1 truncate text-[11px] italic text-zinc-500" title={lookup.notes}>
+          “{lookup.notes}”
+        </p>
       ) : null}
     </div>
   )
