@@ -17,6 +17,7 @@ export type WebRtcStatus =
   | "registered" // browser registered & waiting for calls
   | "ringing" // an inbound call is ringing this browser
   | "active" // call answered & in progress
+  | "reconnecting" // signaling socket dropped — SDK auto-reconnects, this just surfaces it
   | "not_provisioned" // Telnyx WebRTC not set up yet → safely behaves like CELL
   | "error"
 
@@ -49,6 +50,8 @@ interface TelnyxClientLike {
   on: (event: string, cb: (arg: unknown) => void) => void
   connect: () => void
   disconnect: () => void
+  /** Session-wide mic constraints applied to every call's local stream (SDK default: audio: true, no processing). */
+  setAudioSettings?: (settings: MediaTrackConstraints) => Promise<unknown>
 }
 type TelnyxRtcCtor = new (config: { login_token: string }) => TelnyxClientLike
 
@@ -122,6 +125,19 @@ export function useTelnyxWebRtc(opts: { enabled: boolean }): UseTelnyxWebRtc {
         client = new mod.TelnyxRTC({ login_token: tokenData.token })
         client.remoteElement = WEBRTC_REMOTE_AUDIO_ID
 
+        // SDK default is a plain `{ audio: true }` getUserMedia call — no echo cancellation,
+        // noise suppression, or gain control. A receptionist is on this line all day, often
+        // on a laptop mic in a noisy room, so leaving these off is a real clarity cost.
+        // Best-effort: a rejection here (unsupported constraint on some browser) must not
+        // block registration.
+        try {
+          void client
+            .setAudioSettings?.({ echoCancellation: true, noiseSuppression: true, autoGainControl: true })
+            .catch((e: unknown) => console.warn("[webrtc] setAudioSettings failed:", e))
+        } catch (e) {
+          console.warn("[webrtc] setAudioSettings threw:", e)
+        }
+
         client.on("telnyx.ready", () => {
           if (!cancelled) setStatus("registered")
         })
@@ -130,6 +146,15 @@ export function useTelnyxWebRtc(opts: { enabled: boolean }): UseTelnyxWebRtc {
           setStatus("error")
           const msg = (e as { error?: { message?: string } })?.error?.message
           setError(msg ?? "Telnyx connection error")
+        })
+        // The SDK auto-reconnects the signaling socket on its own (default up to 10 attempts,
+        // 1s apart) — this listener only surfaces that window in `status` instead of leaving
+        // a receptionist looking "registered" while the socket is actually down. A successful
+        // reconnect re-fires `telnyx.ready`; an exhausted one fires `telnyx.error` — both are
+        // already handled above.
+        client.on("telnyx.socket.close", () => {
+          if (cancelled) return
+          setStatus((prev) => (prev === "registered" || prev === "ringing" || prev === "active" ? "reconnecting" : prev))
         })
         client.on("telnyx.notification", (n: unknown) => {
           if (cancelled) return

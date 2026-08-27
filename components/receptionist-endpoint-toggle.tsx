@@ -49,6 +49,8 @@ function webStatusLabel(
       return { text: "Incoming call ringing your browser", dot: "bg-emerald-400 animate-pulse" }
     case "active":
       return { text: "On a browser call", dot: "bg-emerald-400" }
+    case "reconnecting":
+      return { text: "Reconnecting your browser…", dot: "bg-amber-400 animate-pulse" }
     case "not_provisioned":
       return { text: "Browser calling not set up yet — using your cell", dot: "bg-zinc-500" }
     case "error":
