@@ -67,7 +67,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
         // Wrap rather than scroll: the row hid ~110px of filters on phones and ~50px on
         // tablets behind a hidden scrollbar, so options were unreachable with no cue.
         "flex flex-wrap gap-2 pb-1",
-        size === "sm" && "gap-1.5",
+        size === "sm" && "gap-2",
         className
       )}
       role="tablist"
@@ -88,7 +88,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               "relative inline-flex shrink-0 items-center gap-2 rounded-full border font-semibold touch-manipulation",
               "motion-safe:active:scale-[0.98]",
               size === "sm"
-                ? "min-h-8 rounded-lg px-2.5 py-1.5 text-[11px]"
+                ? "min-h-8 rounded-lg px-3 py-2 text-[11px]"
                 : "min-h-10 px-4 py-2 text-xs",
               active
                 ? TONE_ACTIVE[tone]
@@ -113,7 +113,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               {chip.badge != null && chip.badge > 0 ? (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    "rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
                     active ? TONE_BADGE_ACTIVE[tone] : "bg-amber-500/15 text-amber-300"
                   )}
                 >

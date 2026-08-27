@@ -63,11 +63,11 @@ export function JobPoolTray({
       className={cn(
         "w-full",
         embedded ? "px-0 py-0" : SCHEDULER_GLASS_CARD,
-        !embedded && (sidebar ? "px-3 py-2.5" : "px-4 py-3")
+        !embedded && (sidebar ? "px-3 py-3" : "px-4 py-3")
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-3">
           <span
             className={cn(
               "flex shrink-0 items-center justify-center rounded-lg",
@@ -122,7 +122,7 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("all")}
           className={cn(
-            "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "flex-1 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
             viewFilter === "all"
               ? "bg-slate-800 text-slate-100"
               : "text-slate-500 hover:text-slate-300"
@@ -134,7 +134,7 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("rescue")}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
             viewFilter === "rescue"
               ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
               : "text-rose-300/80 hover:text-rose-100"
@@ -156,7 +156,7 @@ export function JobPoolTray({
               if (onMobileAssignJob) onMobileAssignJob(next)
               else onSelectJob?.(next)
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-3 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
           >
             Assign next waiting job
             <span className="truncate text-xs font-normal text-emerald-200/80">

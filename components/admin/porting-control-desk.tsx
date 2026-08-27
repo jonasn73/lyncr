@@ -201,7 +201,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 px-2 text-[10px] text-slate-400 hover:text-slate-200"
+            className="h-7 gap-2 px-2 text-[10px] text-slate-400 hover:text-slate-200"
             disabled={refreshing || ordersLoading || detailLoading}
             onClick={() => void refreshDesk()}
           >
@@ -219,10 +219,10 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
         <p className="text-xs text-slate-500">No porting orders for this business owner.</p>
       ) : (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label className="text-xs text-slate-400">Transfer request</Label>
             <select
-              className="w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100"
+              className="w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
               value={selectedId ?? ""}
               onChange={(e) => setSelectedId(e.target.value || null)}
             >
@@ -314,14 +314,14 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   </div>
                   <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
                     {detail.notifications.map((n) => (
-                      <li key={`n-${n.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-1.5">
+                      <li key={`n-${n.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-2">
                         <p className="text-[11px] font-medium text-slate-300">{n.title}</p>
                         <p className="text-[10px] text-slate-500">{displayPortingMessageBody(n.body)}</p>
                         <p className="text-[10px] text-slate-600">{new Date(n.created_at).toLocaleString()}</p>
                       </li>
                     ))}
                     {detail.telnyx_comments.map((c) => (
-                      <li key={`c-${c.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-1.5">
+                      <li key={`c-${c.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-2">
                         <p className="text-[10px] text-slate-500">{commentAuthorLabel(c.user_type)}</p>
                         <p className="text-[11px] text-slate-300">{displayPortingMessageBody(c.body)}</p>
                         <p className="text-[10px] text-slate-600">{new Date(c.created_at).toLocaleString()}</p>

@@ -19,7 +19,7 @@ type OnboardingBillingStepProps = {
 }
 
 const CARD_INPUT_CLASS = cn(
-  "h-10 w-full rounded-xl border border-border/80 bg-secondary/90 px-3.5 text-sm text-foreground",
+  "h-10 w-full rounded-xl border border-border/80 bg-secondary/90 px-4 text-sm text-foreground",
   "placeholder:text-muted-foreground/50",
   "transition-[border-color,box-shadow] duration-150",
   "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"
@@ -115,7 +115,7 @@ export function OnboardingBillingStep({
             Stripe secure checkout
           </div>
           <div className="space-y-3">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label htmlFor="onboarding-card-number" className="sr-only">
                 Card number
               </label>
@@ -155,7 +155,7 @@ export function OnboardingBillingStep({
               />
             </div>
           </div>
-          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <p className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
             <Lock className="h-3 w-3 shrink-0" aria-hidden />
             Card details are handled by Stripe — we open checkout for your selected plan.
           </p>

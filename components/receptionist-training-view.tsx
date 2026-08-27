@@ -93,7 +93,7 @@ function CertificationCard({
 
         {certified ? (
           <div
-            className="flex items-center justify-between rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5"
+            className="flex items-center justify-between rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-3"
             onClick={(e) => e.preventDefault()}
           >
             <div>

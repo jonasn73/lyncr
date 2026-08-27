@@ -267,7 +267,7 @@ function FullscreenSignatureOverlay({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white hover:bg-emerald-500"
+          className="w-full rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white hover:bg-emerald-500"
         >
           {hasInk ? "Done — hand phone back" : "Done"}
         </button>

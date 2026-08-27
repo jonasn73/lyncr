@@ -295,7 +295,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <div className="space-y-4 text-sm">
-            <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+            <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
               <p className="text-xs font-semibold text-foreground">Status</p>
               <p className="mt-1 text-muted-foreground">
                 {status?.enabled ? "On" : "Off"}
@@ -344,7 +344,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   </Button>
                 </div>
                 {lines.length > 0 ? (
-                  <ul className="max-h-48 space-y-1.5 overflow-y-auto">
+                  <ul className="max-h-48 space-y-2 overflow-y-auto">
                     {lines.map((line) => (
                       <li key={line.number}>
                         <button
@@ -417,7 +417,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             )}
 
             {status?.enabled && status.amber_number ? (
-              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
+              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-3">
                 <p className="text-xs font-semibold">SMS on your Lyncr campaign</p>
                 <p
                   className={cn(
@@ -475,7 +475,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                     .
                   </p>
                 </div>
-                <ol className="space-y-2.5 text-[11px] text-muted-foreground">
+                <ol className="space-y-3 text-[11px] text-muted-foreground">
                   <li className="leading-snug">
                     <span className="font-semibold text-foreground">1. Save this contact</span>
                     <br />
@@ -507,7 +507,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             {/* Before verify: quiet tip to save Amber while finishing setup. */}
             {status?.enabled && !verified && status.amber_number ? (
-              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
+              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-3">
                 <p className="text-xs font-semibold">Save this contact</p>
                 <p className="text-[11px] text-muted-foreground">
                   On your phone, save {formatPhoneDisplay(status.amber_number)} as{" "}

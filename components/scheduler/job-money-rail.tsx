@@ -226,14 +226,14 @@ export function JobMoneyRail({
         : null
 
   return (
-    <section className="mt-2.5 space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-3 py-2">
+    <section className="mt-2.5 space-y-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className={SECTION_LABEL}>Money</p>
         <button
           type="button"
           onClick={() => void refreshLinks(true)}
           disabled={busy === "refresh"}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 transition-colors hover:bg-slate-900/50 hover:text-slate-200 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-slate-400 transition-colors hover:bg-slate-900/50 hover:text-slate-200 disabled:opacity-50"
           aria-label="Refresh pay link status"
         >
           {busy === "refresh" ? (
@@ -288,12 +288,12 @@ export function JobMoneyRail({
 
       {!isJobDone ? (
         // Deposit · Collect · Complete — no helper blurbs; Complete lives here (no Close Out section).
-        <div className={cn("grid gap-1.5", onComplete ? "grid-cols-3" : "grid-cols-2")}>
+        <div className={cn("grid gap-2", onComplete ? "grid-cols-3" : "grid-cols-2")}>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="border-sky-500/40 bg-sky-500/10 px-1.5 text-sky-50 hover:bg-sky-500/20"
+            className="border-sky-500/40 bg-sky-500/10 px-2 text-sky-50 hover:bg-sky-500/20"
             disabled={saving || busy === "deposit" || depositCents < 50}
             onClick={() => void handleSendDeposit()}
             title="Send deposit pay link by SMS"
@@ -308,7 +308,7 @@ export function JobMoneyRail({
           <Button
             type="button"
             size="sm"
-            className="bg-emerald-600 px-1.5 text-white hover:bg-emerald-600/90"
+            className="bg-emerald-600 px-2 text-white hover:bg-emerald-600/90"
             disabled={saving || balanceCents < 50}
             onClick={onCollect}
             title="Collect remaining balance"
@@ -321,7 +321,7 @@ export function JobMoneyRail({
               type="button"
               size="sm"
               variant="outline"
-              className="border-emerald-500/40 bg-emerald-500/15 px-1.5 text-emerald-50 hover:bg-emerald-500/25"
+              className="border-emerald-500/40 bg-emerald-500/15 px-2 text-emerald-50 hover:bg-emerald-500/25"
               disabled={saving}
               onClick={onComplete}
               title="Complete job — works from In pool; no tech required"
@@ -332,7 +332,7 @@ export function JobMoneyRail({
           ) : null}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
             size="sm"
@@ -397,7 +397,7 @@ export function JobMoneyRail({
                 : "")
             }
             onChange={(e) => setSmsStaging(e.target.value)}
-            className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/60 p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
+            className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/60 p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
             placeholder="Edit the deposit SMS…"
           />
           {lastSentUrl ? (

@@ -146,7 +146,7 @@ export function ReceptionistEndpointToggle({
       ) : null}
 
       {showBrowserNotLive ? (
-        <p className="rounded-md border border-amber-500/25 bg-amber-950/20 px-2.5 py-1.5 text-xs text-amber-300">
+        <p className="rounded-md border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
           Browser ringing not live yet — use Cell. Inbound Call Control still dials your phone.
         </p>
       ) : null}
@@ -214,7 +214,7 @@ function EndpointButton({
       disabled={busy}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
+        "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
         active ? "bg-primary text-primary-foreground shadow-sm" : "text-zinc-400 hover:text-zinc-200",
         busy && "opacity-70",
         className

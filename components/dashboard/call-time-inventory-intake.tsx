@@ -201,7 +201,7 @@ export function CallTimeInventoryIntake({
     return (
       <div
         className={cn(
-          "rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-2",
+          "rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-2",
           className
         )}
       >
@@ -295,7 +295,7 @@ export function CallTimeInventoryIntake({
     <div
       id="call-time-stock-verification"
       className={cn(
-        "rounded-lg border border-border/70 bg-muted/20 px-2.5 py-2",
+        "rounded-lg border border-border/70 bg-muted/20 px-3 py-2",
         className
       )}
     >
@@ -307,7 +307,7 @@ export function CallTimeInventoryIntake({
         <Button
           type="button"
           size="sm"
-          className="h-7 gap-1 bg-emerald-600 px-2.5 text-[11px] text-white hover:bg-emerald-500"
+          className="h-7 gap-1 bg-emerald-600 px-3 text-[11px] text-white hover:bg-emerald-500"
           disabled={saveBusy}
           onClick={() => {
             setAddOpen(true)

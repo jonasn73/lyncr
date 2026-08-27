@@ -131,7 +131,7 @@ function MoneyStripCell({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-3 text-left transition-colors",
         "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
         emphasize
           ? "border-violet-500/35 bg-violet-950/40"
@@ -151,7 +151,7 @@ function MoneyStripCell({
 
 function MoneyDetailRow({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-2.5 last:border-0">
+    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-3 last:border-0">
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-200">{label}</p>
         {note ? <p className="mt-0.5 text-xs leading-snug text-slate-500">{note}</p> : null}
@@ -574,7 +574,7 @@ export function LyncrAdminDashboard({
       : "Name, status, plan. Tap a row to manage."
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-5 sm:p-6">
+    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
@@ -657,7 +657,7 @@ export function LyncrAdminDashboard({
             {loading && users.length === 0 ? (
               <div className="h-48 rounded-xl border border-slate-800 bg-slate-950/40" aria-hidden />
             ) : homeShopMatches.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-slate-500">
                 No shops match.
               </p>
             ) : (
@@ -853,15 +853,15 @@ export function LyncrAdminDashboard({
           {metrics ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
             <span className="font-medium text-slate-300">System</span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <Database className="h-3.5 w-3.5" aria-hidden /> Neon
               <HealthDot status={metrics.health.neon} />
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
               <HealthDot status={metrics.health.telnyx} />
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Sentry
               <HealthDot status={metrics.health.sentry} />
             </span>
@@ -949,7 +949,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 All
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
                   {roleCounts.all}
                 </span>
               </TabsTrigger>
@@ -958,7 +958,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 Owners
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
                   {roleCounts.owner}
                 </span>
               </TabsTrigger>
@@ -967,7 +967,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 Receptionists
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
                   {roleCounts.receptionist}
                 </span>
               </TabsTrigger>
@@ -1024,7 +1024,7 @@ export function LyncrAdminDashboard({
                         <AccountStatusBadge status={row.account_status} />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <SubscriptionStatusBadge active={row.has_active_subscription} />
                           <TierBadge tier={row.subscription_tier} />
                         </div>

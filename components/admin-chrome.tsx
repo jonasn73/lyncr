@@ -119,7 +119,7 @@ function SupportCountBadge({ count, className }: { count: number; className?: st
   return (
     <span
       className={cn(
-        "min-w-[1.25rem] rounded-full bg-violet-600 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white",
+        "min-w-[1.25rem] rounded-full bg-violet-600 px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-white",
         className
       )}
     >
@@ -141,7 +141,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
                 : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
@@ -153,7 +153,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
           </Link>
         )
       })}
-      <p className="mt-3 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">More</p>
+      <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-wide text-slate-600">More</p>
       {MORE_LINKS.map((item) => {
         const Icon = item.icon
         const active = item.match(pathname)
@@ -163,7 +163,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
                 : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
@@ -196,7 +196,7 @@ function MobileBottomTabs({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Admin primary navigation"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-3 gap-0.5 px-1 py-1.5">
+      <div className="mx-auto grid max-w-lg grid-cols-3 gap-0.5 px-1 py-2">
         {MOBILE_TABS.map((item) => {
           const Icon = item.icon
           const active = item.match(pathname)
@@ -205,7 +205,7 @@ function MobileBottomTabs({
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
+                "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
                 active
                   ? "bg-violet-600/25 text-violet-100"
                   : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
@@ -229,7 +229,7 @@ function MobileBottomTabs({
           aria-expanded={moreOpen}
           onClick={onMoreToggle}
           className={cn(
-            "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center transition-colors",
+            "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
             moreActive
               ? "bg-violet-600/25 text-violet-100"
               : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"

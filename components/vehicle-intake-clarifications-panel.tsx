@@ -182,7 +182,7 @@ export function VehicleIntakeClarificationsPanel({
         const bestOption = prompt.options.find((option) => option.fccId?.trim()) ?? prompt.options[0]
 
         return (
-          <section key={prompt.id} className="grid gap-2 rounded-md border border-amber-500/25 bg-background/40 p-2.5">
+          <section key={prompt.id} className="grid gap-2 rounded-md border border-amber-500/25 bg-background/40 p-3">
             <p className="text-xs font-medium text-foreground">{prompt.question}</p>
             <p className="text-[11px] italic text-muted-foreground">&ldquo;{prompt.askScript}&rdquo;</p>
 
@@ -200,8 +200,8 @@ export function VehicleIntakeClarificationsPanel({
                   })
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/45",
-                  "bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-100",
+                  "inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/45",
+                  "bg-emerald-500/15 px-3 py-3 text-xs font-semibold text-emerald-100",
                   "hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                 )}
               >

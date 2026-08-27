@@ -73,7 +73,7 @@ export function LiveTrafficPulse() {
           </span>
           Live Traffic Pulse
         </CardTitle>
-        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-2 text-xs text-slate-400">
           <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
           {calls.length} active {calls.length === 1 ? "call" : "calls"}
         </span>
@@ -91,7 +91,7 @@ export function LiveTrafficPulse() {
         ) : (
           <ul className="divide-y divide-slate-800/70">
             {calls.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
+              <li key={c.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-100">{c.business_name}</p>
                   <p className="truncate text-xs text-slate-500">

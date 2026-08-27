@@ -206,10 +206,10 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   )
 
   const capacityField = showCapacity ? (
-    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
+    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
       <label
         htmlFor="ivr-capacity-threshold"
-        className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px] leading-snug text-zinc-300"
+        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[11px] leading-snug text-zinc-300"
       >
         <span className="min-w-0 flex-1 font-medium">
           Auto-Bypass to IVR when confirmed daily jobs reach:
@@ -228,7 +228,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               e.currentTarget.blur()
             }
           }}
-          className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-1.5 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+          className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
         />
       </label>
       <p className="mt-1.5 text-[10px] text-zinc-500">
@@ -247,7 +247,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     return (
       <div
         className={cn(
-          "w-full px-3 py-2.5 text-left",
+          "w-full px-3 py-3 text-left",
           !known ? LINES_MOBILE_CARD : isOn ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
           busy && "opacity-60"
         )}
@@ -290,7 +290,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   return (
     <div
       className={cn(
-        "group relative flex w-full flex-1 flex-col rounded-2xl border p-4 text-left transition-colors sm:p-5",
+        "group relative flex w-full flex-1 flex-col rounded-2xl border p-4 text-left transition-colors sm:p-6",
         !known
           ? "border-border/70 bg-card/80"
           : isOn

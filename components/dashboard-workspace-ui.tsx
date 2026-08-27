@@ -210,7 +210,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide",
         toneClass[tone]
       )}
     >
@@ -235,7 +235,7 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold tracking-wide",
         styles[variant]
       )}
     >
@@ -346,7 +346,7 @@ export function ActivityStatusPill({
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-md border font-bold uppercase tracking-wide",
         dense
-          ? "px-1.5 py-0.5 text-[9px] shadow-none"
+          ? "px-2 py-0.5 text-[9px] shadow-none"
           : "px-2 py-0.5 text-[10px]",
         styles[status],
         dense && "shadow-none"
@@ -393,7 +393,7 @@ export function WorkspaceDisclosureRow({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left transition-colors",
+        "flex w-full items-center justify-between gap-3 rounded-2xl border px-6 py-4 text-left transition-colors",
         destructive
           ? "border-destructive/40 bg-destructive/5 hover:bg-destructive/10"
           : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600 hover:bg-zinc-900/70"
@@ -420,7 +420,7 @@ export function WorkspaceToggleCard({
   disabled?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3.5 transition-colors hover:border-zinc-700">
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-4 transition-colors hover:border-zinc-700">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <input
         type="checkbox"
@@ -434,7 +434,7 @@ export function WorkspaceToggleCard({
 }
 
 export const workspaceFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 /**
  * Tracks whether a horizontal scroller has more content off either edge.
@@ -547,7 +547,7 @@ export function WorkspaceTd({
   colSpan?: number
 }) {
   return (
-    <td colSpan={colSpan} className={cn("border-b border-zinc-800/50 px-4 py-3.5 text-foreground", className)}>
+    <td colSpan={colSpan} className={cn("border-b border-zinc-800/50 px-4 py-4 text-foreground", className)}>
       {children}
     </td>
   )
@@ -563,7 +563,7 @@ export function WorkspaceModule({
   children: ReactNode
 }) {
   return (
-    <section className="border-b border-zinc-800/80 px-5 py-6 last:border-b-0">
+    <section className="border-b border-zinc-800/80 px-6 py-6 last:border-b-0">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {description ? <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p> : null}

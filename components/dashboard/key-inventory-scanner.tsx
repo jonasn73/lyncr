@@ -443,7 +443,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {/* Manual SKU fallback + status */}
-          <div className="safe-area-pb mx-auto w-full max-w-md space-y-3 px-4 pb-5 pt-4">
+          <div className="safe-area-pb mx-auto w-full max-w-md space-y-3 px-4 pb-6 pt-4">
             {phase === "looking_up" ? (
               <p className="flex items-center justify-center gap-2 text-sm text-emerald-300">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -585,7 +585,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {item ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-3">
               <KeyInventoryCapturePhotoButton
                 inventoryId={item.id}
                 sku={item.sku}
@@ -641,7 +641,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="ki-new-sku" className="text-xs text-zinc-400">
                 SKU
               </Label>
@@ -653,7 +653,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 autoCapitalize="characters"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="ki-new-fcc" className="text-xs text-zinc-400">
                 FCC ID
               </Label>
@@ -666,7 +666,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 autoCapitalize="characters"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="ki-new-brand" className="text-xs text-zinc-400">
                 Brand
               </Label>

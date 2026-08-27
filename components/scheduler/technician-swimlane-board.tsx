@@ -148,7 +148,7 @@ function MobileTechnicianAssignOverlay({
                   type="button"
                   onClick={() => handleTechTap(techUserId)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition touch-manipulation",
+                    "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition touch-manipulation",
                     MOBILE_TAP_TARGET,
                     selected
                       ? "border-cyan-500 bg-cyan-950/40 ring-2 ring-cyan-500/30"
@@ -325,7 +325,7 @@ function TimelineAppointmentBlock({
       type="button"
       onClick={onSelect}
       className={cn(
-        "absolute top-1 z-10 min-h-[44px] overflow-hidden rounded-md border px-1.5 py-1 text-left shadow-md",
+        "absolute top-1 z-10 min-h-[44px] overflow-hidden rounded-md border px-2 py-1 text-left shadow-md",
         SCHEDULER_TIMELINE_CARD_HOVER,
         highlighted && "ring-2 ring-primary",
         eventCardStyle(ev)

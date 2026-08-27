@@ -136,7 +136,7 @@ export function JobPoolCard({
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
-      <div className={cn("flex w-full items-start gap-1.5", sidebar ? "pr-2" : "pr-16")}>
+      <div className={cn("flex w-full items-start gap-2", sidebar ? "pr-2" : "pr-16")}>
         {!touchInteraction ? (
           <GripVertical
             className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600 opacity-60 group-hover:opacity-100"
@@ -154,7 +154,7 @@ export function JobPoolCard({
             {displayName}
           </p>
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
               {isRescueJob ? (
                 <span className="text-[10px] font-medium tracking-wide text-rose-300">
@@ -162,7 +162,7 @@ export function JobPoolCard({
                 </span>
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <ScheduleInteractionBadge scheduled_at={scheduledAtIso} compact />
               {isAsap ? (
                 <span
@@ -219,7 +219,7 @@ export function JobPoolCard({
           ) : null}
           <div className="mt-1 flex w-full flex-col gap-0.5">
             {/* Always reserve phone row height — phone popping in grew the card. */}
-            <p className="flex min-h-[1.25rem] w-full items-start gap-1.5 text-xs text-slate-400">
+            <p className="flex min-h-[1.25rem] w-full items-start gap-2 text-xs text-slate-400">
               <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
               <span
                 className={cn(
@@ -233,7 +233,7 @@ export function JobPoolCard({
               </span>
             </p>
             {placeLine || postalCode ? (
-              <p className="flex min-h-[2.5rem] w-full items-start gap-1.5 text-xs text-slate-500">
+              <p className="flex min-h-[2.5rem] w-full items-start gap-2 text-xs text-slate-500">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
                 <span className={placeTextClass}>
                   {placeLine}
@@ -244,7 +244,7 @@ export function JobPoolCard({
               </p>
             ) : (
               // Same geometry as the real address row — never swap height when street arrives.
-              <p className="flex min-h-[2.5rem] w-full items-start gap-1.5" aria-hidden>
+              <p className="flex min-h-[2.5rem] w-full items-start gap-2" aria-hidden>
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0" aria-hidden />
                 <span className={cn(placeTextClass, "invisible")}>
                   0000 Placeholder Street, Louisville, KY 40202
@@ -276,7 +276,7 @@ export function JobPoolCard({
         {(touchInteraction && onMobileAssign) || onSelect ? (
           <span
             className={cn(
-              "inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
+              "inline-flex items-center rounded-lg px-3 py-1 text-[11px] font-bold uppercase tracking-wide",
               "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
             )}
           >

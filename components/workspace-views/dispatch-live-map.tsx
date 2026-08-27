@@ -1121,7 +1121,7 @@ export function DispatchLiveMap({
           {selectedJob.customer_phone && (
             <a
               href={`tel:${selectedJob.customer_phone}`}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300"
+              className="mt-2 inline-flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300"
             >
               <Phone className="h-3 w-3" /> {selectedJob.customer_phone}
             </a>
@@ -1135,7 +1135,7 @@ export function DispatchLiveMap({
               value={selectedJob.assigned_tech_id || ""}
               onChange={(e) => void assign(selectedJob.id, e.target.value)}
               disabled={technicians.length === 0 || savingId === selectedJob.id}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
             >
               <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
               {technicians.map((t) => (
@@ -1153,7 +1153,7 @@ export function DispatchLiveMap({
           <button
             type="button"
             onClick={() => router.push(buildSchedulerFocusUrl(selectedJob.id))}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
           >
             Open job sheet
           </button>
@@ -1164,23 +1164,23 @@ export function DispatchLiveMap({
 
   const legend = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-400" />
         </span>
         You
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Assigned
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unassigned
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
       </span>
     </div>
@@ -1213,7 +1213,7 @@ export function DispatchLiveMap({
         */}
         {locationHint ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[500] flex justify-center px-3">
-            <div className="pointer-events-auto rounded-lg bg-slate-950/85 px-3 py-1.5 shadow-lg backdrop-blur">
+            <div className="pointer-events-auto rounded-lg bg-slate-950/85 px-3 py-2 shadow-lg backdrop-blur">
               {locationHint}
             </div>
           </div>
@@ -1241,7 +1241,7 @@ export function DispatchLiveMap({
 
   return (
     <WorkspacePanel density="default" className={cn("mb-4", className)}>
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2.5">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
           <MapPinned className="h-4.5 w-4.5" />
         </span>

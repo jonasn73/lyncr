@@ -82,7 +82,7 @@ export function IntakeScheduleDayAgenda({
                       onPickTime(`${h}:${mi}`)
                     }}
                     className={cn(
-                      "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                       isConflict
                         ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15"
                         : "border-border/60 bg-background/60 hover:bg-background"
@@ -93,7 +93,7 @@ export function IntakeScheduleDayAgenda({
                         {formatSchedulerEventWindow(ev)}
                       </span>
                       {isConflict ? (
-                        <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-300">
+                        <span className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-300">
                           Overlap
                         </span>
                       ) : null}

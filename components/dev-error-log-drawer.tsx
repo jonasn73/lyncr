@@ -257,7 +257,7 @@ export function DevErrorLogDrawer() {
                     <div className="flex items-start justify-between gap-2">
                       <span
                         className={cn(
-                          "rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          "rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                           kindColor(entry.kind)
                         )}
                       >

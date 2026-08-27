@@ -371,7 +371,7 @@ function WeeklyDayBreakdownChart({
                 type="button"
                 onClick={() => onSelectDay(isSelected ? null : day.key)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors",
+                  "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
                   "hover:bg-zinc-900/60",
                   isSelected && "bg-teal-950/40 ring-1 ring-teal-500/30"
                 )}
@@ -464,11 +464,11 @@ function SummaryStat({
   return (
     <div
       className={cn(
-        "rounded-xl border px-3 py-2.5",
+        "rounded-xl border px-3 py-3",
         highlight ? "border-teal-500/30 bg-teal-950/30" : "border-zinc-800/80 bg-zinc-900/40"
       )}
     >
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />
         {label}
       </div>
@@ -577,7 +577,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,820px)] overflow-hidden border-zinc-800 bg-zinc-950 p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-zinc-800 px-5 py-4">
+        <DialogHeader className="border-b border-zinc-800 px-6 py-4">
           <DialogTitle className="text-base text-zinc-50">
             {filter === "weekly_talk" && weekOffset === -1
               ? `Last week · ${weekRangeLabel}`
@@ -638,7 +638,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
         ) : null}
 
         {!loading && !error && showTalkSummary && summary.callCount > 0 ? (
-          <div className="border-b border-zinc-800/60 px-5 py-2 text-xs text-zinc-500">
+          <div className="border-b border-zinc-800/60 px-6 py-2 text-xs text-zinc-500">
             Avg {formatDuration(summary.avgTalkSeconds)} per call
             {filter === "weekly_talk" && selectedWeekDayKey ? (
               <span className="text-zinc-600">
@@ -735,7 +735,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                         {callBackHref ? (
                           <a
                             href={callBackHref}
-                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]"
+                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]"
                           >
                             <Phone className="h-4 w-4 shrink-0" aria-hidden />
                             Call back
@@ -750,7 +750,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
           )}
         </div>
 
-        <div className="border-t border-zinc-800 px-5 py-2 text-center text-[11px] text-zinc-600">
+        <div className="border-t border-zinc-800 px-6 py-2 text-center text-[11px] text-zinc-600">
           {listRows.length} call{listRows.length === 1 ? "" : "s"}
           {selectedWeekDayKey && filter === "weekly_talk"
             ? ` on ${weeklyDayBreakdown.find((d) => d.key === selectedWeekDayKey)?.displayLabel ?? "this day"}`

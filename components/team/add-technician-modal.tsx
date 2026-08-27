@@ -164,7 +164,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
         ) : null}
 
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
             <input
               value={name}
@@ -172,12 +172,12 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               placeholder="Alex Rivera"
               required
               minLength={2}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 
           {mode === "invite" ? (
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Email <span className="font-normal normal-case text-zinc-600">(optional)</span>
               </span>
@@ -186,12 +186,12 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex@example.com"
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
             </label>
           ) : null}
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Phone number</span>
             <input
               type="tel"
@@ -200,7 +200,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(502) 555-0100"
               required
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 
@@ -209,7 +209,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

@@ -77,7 +77,7 @@ export function OrganizationSwitcherPlaceholder({
       aria-busy="true"
       aria-label="Loading business workspace"
       className={cn(
-        "h-9 w-full min-w-0 max-w-full gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+        "h-9 w-full min-w-0 max-w-full gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
         "disabled:opacity-100",
         className
       )}
@@ -394,7 +394,7 @@ export function OrganizationSwitcher({
             aria-haspopup="menu"
             className={cn(
               // Stay inside the header center column — never paint over the logo.
-              "h-9 w-full min-w-0 max-w-full touch-manipulation gap-1.5 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-2.5 md:w-[16rem] md:max-w-[16rem] md:px-3",
+              "h-9 w-full min-w-0 max-w-full touch-manipulation gap-2 border-border/70 bg-card/80 px-2 text-xs font-medium pointer-events-auto sm:max-w-[14rem] sm:px-3 md:w-[16rem] md:max-w-[16rem] md:px-3",
               className
             )}
           >
@@ -421,7 +421,7 @@ export function OrganizationSwitcher({
                   type="button"
                   onClick={() => selectOrg(org.id)}
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none",
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-2 text-left text-sm outline-none",
                     "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-primary/40",
                     selected ? "text-primary" : "text-foreground"
                   )}

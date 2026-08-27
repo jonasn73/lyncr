@@ -144,7 +144,7 @@ function ServiceSectorSelector({
 
       <div
         className={cn(
-          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
+          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-2",
           compact ? "mb-3" : "mb-4"
         )}
       >
@@ -559,7 +559,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   }
 
   const competitionBadge = highCompetition ? (
-    <p className="rounded-md border border-orange-500/40 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-semibold leading-snug text-orange-100">
+    <p className="rounded-md border border-orange-500/40 bg-orange-500/15 px-3 py-2 text-[11px] font-semibold leading-snug text-orange-100">
       🔥 High Competition Area — Aggressive Quote Suggested
       {postalCode ? (
         <span className="font-normal text-orange-100/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
@@ -591,7 +591,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
       ) : null}
       {showBreakdown ? (
         <div
-          className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-2.5"
+          className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-3"
           aria-live="polite"
           aria-atomic="true"
         >
@@ -656,10 +656,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             <div className="grid gap-2">
               {competitionBadge}
               <div className="flex items-center justify-between gap-2">
-                <p className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                <p className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
                   <span>Exact price workspace</span>
                   {quote.pricingTier === "tier3" ? (
-                    <span className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-100">
+                    <span className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-100">
                       ⚠️ High-Security Vehicle - Specialized Programming Required
                     </span>
                   ) : null}
@@ -669,7 +669,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     <button
                       type="button"
                       onClick={resetToBaseline}
-                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10"
                     >
                       <RotateCcw className="h-3 w-3" aria-hidden />
                       Reset
@@ -859,7 +859,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 </span>
               </div>
 
-              <label className="mt-1 grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px]">
+              <label className="mt-1 grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[11px]">
                 <span className="font-medium text-amber-50">🔒 Lock Flat Negotiated Price</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-amber-100/80">$</span>
@@ -890,7 +890,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 </div>
               </label>
 
-              <div className="mt-1 flex flex-wrap gap-1.5">
+              <div className="mt-1 flex flex-wrap gap-2">
                 <button type="button" className={dealPillClass} onClick={waiveTravel}>
                   Waive Travel Fee
                 </button>

@@ -178,7 +178,7 @@ export function ActivePipelinePanel({
                         </button>
                       </div>
 
-                      <div className="mt-3 space-y-2.5 text-sm text-slate-300">
+                      <div className="mt-3 space-y-3 text-sm text-slate-300">
                         <p className="flex items-center gap-2">
                           <Phone className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
                           {telHref ? (
@@ -233,7 +233,7 @@ export function ActivePipelinePanel({
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            "rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
+                            "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide",
                             SCHEDULER_BADGE_STYLE[phase]
                           )}
                         >
@@ -253,7 +253,7 @@ export function ActivePipelinePanel({
                             disabled={isCompleting}
                             aria-label={`Mark ${displayName} as done`}
                             onClick={() => onMarkComplete(job.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-500/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200"
+                            className="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-500/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200"
                           >
                             {isCompleting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -311,12 +311,12 @@ export function ActivePipelinePanel({
                         </p>
                       </div>
 
-                      <div className="mt-2 space-y-1.5">
-                        <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <div className="mt-2 space-y-2">
+                        <p className="flex items-center gap-2 text-xs text-slate-400">
                           <Phone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                           <span className="truncate">{phone}</span>
                         </p>
-                        <p className="flex items-center gap-1.5">
+                        <p className="flex items-center gap-2">
                           <Clock className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                           <span className={cn(SCHEDULER_METADATA_LABEL, "truncate", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
@@ -330,7 +330,7 @@ export function ActivePipelinePanel({
                           </p>
                         ) : null}
                         {vehicle ? (
-                          <p className="flex items-center gap-1.5">
+                          <p className="flex items-center gap-2">
                             <Car className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                             <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{vehicle}</span>
                           </p>
@@ -339,13 +339,13 @@ export function ActivePipelinePanel({
                           <p className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{programmingMethod}</p>
                         ) : null}
                         {job.assigned_tech_name ? (
-                          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <p className="flex items-center gap-2 text-xs text-slate-400">
                             <User className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                             <span className="truncate">{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         {job.location ? (
-                          <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                          <p className="flex items-start gap-2 text-xs text-slate-500">
                             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
                             <span className={isMobileSheet ? "break-words" : "line-clamp-2"}>{job.location}</span>
                           </p>
@@ -354,7 +354,7 @@ export function ActivePipelinePanel({
 
                       <span
                         className={cn(
-                          "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                          "rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide",
                           SCHEDULER_BADGE_STYLE[phase],
                           isMobileSheet ? "mt-3 inline-flex" : "absolute bottom-2.5 right-2.5"
                         )}

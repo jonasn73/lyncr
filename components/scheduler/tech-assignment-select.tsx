@@ -85,7 +85,7 @@ export function TechAssignmentSelect({
   const selectedTech = assignableTechs.find((t) => t.portal_user_id === value)
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <Select
         value={value || "__unassigned__"}
         disabled={disabled}
@@ -117,7 +117,7 @@ export function TechAssignmentSelect({
               loc ? { lat: loc.latitude, lng: loc.longitude } : null
             )
             return (
-              <SelectItem key={techUserId} value={techUserId} className="py-2.5">
+              <SelectItem key={techUserId} value={techUserId} className="py-3">
                 <span className="flex w-full items-center justify-between gap-2">
                   <span>{tech.name}</span>
                   <span className="flex shrink-0 items-center gap-2">

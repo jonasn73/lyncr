@@ -50,7 +50,7 @@ type WizardStep = "details" | "availability" | "pay" | "done"
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
+  "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -323,7 +323,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
         <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <span
             className={cn(
-              "rounded-full px-2.5 py-1",
+              "rounded-full px-3 py-1",
               wizardStep === "details" && "bg-emerald-500/20 text-emerald-200"
             )}
           >
@@ -334,7 +334,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <span className="text-slate-700">→</span>
               <span
                 className={cn(
-                  "rounded-full px-2.5 py-1",
+                  "rounded-full px-3 py-1",
                   wizardStep === "availability" && "bg-emerald-500/20 text-emerald-200"
                 )}
               >
@@ -345,7 +345,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           {invite?.fee_mode !== "none" ? (
             <>
               <span className="text-slate-700">→</span>
-              <span className="rounded-full px-2.5 py-1">3 · Pay</span>
+              <span className="rounded-full px-3 py-1">3 · Pay</span>
             </>
           ) : null}
         </div>
@@ -353,7 +353,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
       {wizardStep === "details" ? (
         <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {/* Name + phone on one row */}
             <div className="grid grid-cols-2 gap-2">
               <label className="block space-y-0.5">
@@ -416,7 +416,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             <fieldset>
               <legend className="mb-1 text-xs font-medium text-slate-400">Job type *</legend>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
@@ -425,8 +425,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     onClick={() => setJobKind(opt.id)}
                     className={
                       jobKind === opt.id
-                        ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-1.5 text-center text-xs font-medium text-emerald-50"
-                        : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-center text-xs text-slate-200"
+                        ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs font-medium text-emerald-50"
+                        : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
                     }
                   >
                     {opt.chip}
@@ -438,7 +438,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             {bookJobKindNeedsVehicle(jobKind) ? (
               <div>
                 <p className="mb-1 text-xs font-medium text-slate-400">Vehicle</p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   <label className="block space-y-0.5">
                     <span className="text-[10px] text-slate-500">Year</span>
                     <input
@@ -501,7 +501,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             <fieldset>
               <legend className="mb-1 text-xs font-medium text-slate-400">Urgency *</legend>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setUrgency("asap")}
@@ -583,7 +583,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-xs font-medium text-slate-300">From</span>
               <select
                 value={fromTime}
@@ -597,7 +597,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 ))}
               </select>
             </label>
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-xs font-medium text-slate-300">To</span>
               <select
                 value={toTime}

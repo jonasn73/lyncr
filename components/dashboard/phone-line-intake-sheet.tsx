@@ -45,7 +45,7 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
           subtitle="Live carrier status and routing for this business number."
           lineLabel={display}
         />
-        <DrawerScrollBody className="space-y-5">
+        <DrawerScrollBody className="space-y-6">
           {line ? (
             <>
               <div className="rounded-xl border border-white/8 bg-neutral-950/60 p-4">
@@ -79,7 +79,7 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
               {line.routing_summary ? (
                 <div className="rounded-xl border border-white/8 bg-neutral-950/50 p-4 text-sm text-muted-foreground">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Routing snapshot</p>
-                  <ul className="mt-2 space-y-1.5">
+                  <ul className="mt-2 space-y-2">
                     <li>
                       Fallback:{" "}
                       <span className="font-medium text-foreground">

@@ -212,7 +212,7 @@ export function AdminImprovementsBoard({
               <DialogDescription>Logs to Backlog — move it to Planned when you decide to tackle it.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label className="text-slate-400">Title</Label>
                 <Input
                   value={draft.title}
@@ -222,7 +222,7 @@ export function AdminImprovementsBoard({
                   autoFocus
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label className="text-slate-400">Description</Label>
                 <Textarea
                   value={draft.description}
@@ -233,7 +233,7 @@ export function AdminImprovementsBoard({
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label className="text-slate-400">Category</Label>
                   <Input
                     value={draft.category}
@@ -247,7 +247,7 @@ export function AdminImprovementsBoard({
                     ))}
                   </datalist>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label className="text-slate-400">Priority</Label>
                   <Select
                     value={draft.priority}
@@ -315,7 +315,7 @@ export function AdminImprovementsBoard({
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             variant="outline"
                             className={cn("text-[10px]", PRIORITY_BADGE_CLASS[item.priority])}

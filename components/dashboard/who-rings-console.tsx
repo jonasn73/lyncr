@@ -45,7 +45,7 @@ export function WhoRingsConsole({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/60 bg-muted/15 px-4 py-3.5 sm:px-5 sm:py-4",
+       "rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-6",
         className
       )}
       aria-label="Who rings next"
@@ -70,7 +70,7 @@ export function WhoRingsConsole({
         ) : null}
       </div>
 
-      <dl className="space-y-2.5" role="status" aria-live="polite">
+      <dl className="space-y-3" role="status" aria-live="polite">
         <div className="flex items-baseline justify-between gap-3">
           <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Rings now

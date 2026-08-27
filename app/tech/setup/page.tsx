@@ -127,7 +127,7 @@ function TechSetupForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3.5 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-4 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
                 placeholder="At least 8 characters"
               />
             </div>
@@ -139,7 +139,7 @@ function TechSetupForm() {
                 required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3.5 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-4 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
                 placeholder="Re-enter password"
               />
             </div>
@@ -153,7 +153,7 @@ function TechSetupForm() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-900/40 transition active:scale-[0.99] disabled:opacity-60"
+              className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-4 text-base font-semibold text-white shadow-lg shadow-indigo-900/40 transition active:scale-[0.99] disabled:opacity-60"
             >
               {busy ? "Setting up…" : "Complete setup"}
             </button>

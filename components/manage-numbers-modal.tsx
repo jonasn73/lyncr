@@ -140,7 +140,7 @@ function PortPinCorrectionForm({
           autoComplete="off"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-1.5 text-xs text-foreground placeholder:text-zinc-600 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
+          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-2 text-xs text-foreground placeholder:text-zinc-600 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
         />
       </label>
       <button
@@ -437,7 +437,7 @@ export function ManageNumbersModal({
     <>
       <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
         <SheetContent side="right" variant="drawer" className={cn(WORKSPACE_SHEET_CLASS, "sm:max-w-md")}>
-          <SheetHeader className="border-b border-border/60 px-6 py-5 text-left">
+          <SheetHeader className="border-b border-border/60 px-6 py-6 text-left">
             <SheetTitle className="text-xl font-semibold tracking-tight">Lines & numbers</SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
               Published business numbers on your account. Release a line you no longer want — carrier credit is not
@@ -452,7 +452,7 @@ export function ManageNumbersModal({
             </p>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
             {loading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading lines" />
@@ -611,7 +611,7 @@ export function ManageNumbersModal({
               <button
                 type="button"
                 onClick={onBuyAnother}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" aria-hidden />
                 Buy another line
@@ -633,7 +633,7 @@ export function ManageNumbersModal({
                   </span>{" "}
                   will be removed from your account and returned to carrier inventory.
                 </p>
-                <ul className="list-disc space-y-1 pl-5">
+                <ul className="list-disc space-y-1 pl-6">
                   <li>Callers will no longer reach you on this number.</li>
                   <li>Future monthly charges for this line stop.</li>
                   <li>The $2 carrier credit used to buy it is not refunded.</li>

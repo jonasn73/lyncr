@@ -82,7 +82,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
       className="overflow-hidden rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-indigo-950/80 via-zinc-950 to-zinc-950 shadow-[0_0_40px_-20px_rgba(99,102,241,0.45)]"
       aria-label="My Wallet"
     >
-      <div className="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
@@ -107,7 +107,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
       </div>
 
       <div className="grid grid-cols-2 gap-2 px-4 py-3">
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
           <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/80">
             Available Balance
           </p>
@@ -115,7 +115,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             {loading && !data ? "—" : formatUsd(data?.availableBalance ?? 0)}
           </p>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-3">
           <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400/80">
             Pending Clearance
           </p>
@@ -146,7 +146,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
         ) : (
           <ul className="divide-y divide-zinc-800/80 overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/60">
             {data.recentTransactions.map((tx) => (
-              <li key={tx.id} className="flex items-center gap-3 px-3 py-2.5">
+              <li key={tx.id} className="flex items-center gap-3 px-3 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-[11px] text-zinc-300">
@@ -154,7 +154,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
                     </span>
                     <span
                       className={cn(
-                        "rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                        "rounded-md px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
                         statusStyle(tx.status)
                       )}
                     >

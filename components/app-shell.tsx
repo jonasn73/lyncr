@@ -58,7 +58,7 @@ const AppShellHeader = memo(function AppShellHeader({
       className={cn(
         // Above map body / Leaflet chrome; notification popover portals at z-[9999].
         // Mobile + business name: two columns (name left, actions right). sm+: logo | name | actions.
-        "sticky top-0 z-50 grid shrink-0 items-center gap-2 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:gap-3 sm:px-5 sm:py-3.5",
+        "sticky top-0 z-50 grid shrink-0 items-center gap-2 border-b px-3 py-3 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:gap-3 sm:px-6 sm:py-4",
         headerCenter
           ? "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]"
           : "grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]",
@@ -180,13 +180,13 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   }, [])
 
   return (
-    <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
+    <div className="flex items-center gap-2" aria-busy="true" aria-label="Loading account">
       <Button
         type="button"
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
+        className="h-9 shrink-0 gap-2 border-emerald-500/40 bg-emerald-500/10 px-3 shadow-sm"
       >
         <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
         <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none" aria-hidden>
@@ -209,7 +209,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 shadow-sm sm:px-2"
+        className="h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 shadow-sm"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />

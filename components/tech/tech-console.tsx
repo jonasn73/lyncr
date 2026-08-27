@@ -213,7 +213,7 @@ export function TechConsole(props: {
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800/80 bg-[#0b0b12]/95 px-5 py-4 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800/80 bg-[#0b0b12]/95 px-6 py-4 backdrop-blur">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-400">{props.businessName}</p>
           <h1 className="text-lg font-bold leading-tight">Hi, {props.techName.split(" ")[0]}</h1>
@@ -236,7 +236,7 @@ export function TechConsole(props: {
         </div>
       </header>
 
-      <main className="flex-1 space-y-3 px-4 py-5">
+      <main className="flex-1 space-y-3 px-4 py-6">
         {!loading && <TechWalletCard refreshToken={walletRefreshToken} />}
 
         {!loading && <BadgesStrip badges={badges} />}
@@ -291,7 +291,7 @@ export function TechConsole(props: {
                     <span className="truncate text-sm text-zinc-300">
                       {job.customer_name || job.customer_phone || "Job"}
                     </span>
-                    <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                    <span className="rounded-full bg-emerald-500/20 px-3 py-0.5 text-[11px] font-medium text-emerald-300">
                       Completed
                     </span>
                   </div>
@@ -474,7 +474,7 @@ function JobCard(props: {
         <a
           href={phoneHref ?? undefined}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98]",
+            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
             phoneHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
           )}
         >
@@ -485,7 +485,7 @@ function JobCard(props: {
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm font-medium transition active:scale-[0.98]",
+            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
             mapsHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
           )}
         >
@@ -495,7 +495,7 @@ function JobCard(props: {
 
       {/* Balance collect entry — tech payment path already exists; no full Money rail */}
       {summary.billingBalanceDollars > 0 ? (
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+        <p className="mt-2 flex items-center gap-2 text-[11px] text-emerald-300/90">
           <CreditCard className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Booked balance {summary.billingLabel}
           {workComplete ? " — ready to collect" : ""}
@@ -578,7 +578,7 @@ function LeftStatusButton(props: {
     return (
       <button
         onClick={props.onEnRoute}
-        className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-sky-500"
+        className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-sky-500"
       >
         <Route className="h-4 w-4" /> Start Route
       </button>

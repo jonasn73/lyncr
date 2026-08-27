@@ -135,7 +135,7 @@ export function AdminNetworkAgentsBoard() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="net-agent-name" className="text-slate-400">
                 Name
               </Label>
@@ -147,7 +147,7 @@ export function AdminNetworkAgentsBoard() {
                 className="border-slate-600 bg-slate-950/80 text-slate-100"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="net-agent-phone" className="text-slate-400">
                 Phone (cell)
               </Label>

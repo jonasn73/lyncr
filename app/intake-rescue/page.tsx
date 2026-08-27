@@ -276,7 +276,7 @@ function IntakeRescueInner() {
   const busy = status === "submitting" || status === "loading"
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-5 px-5 py-10">
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-6 px-6 py-10">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Key Squad</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
@@ -303,7 +303,7 @@ function IntakeRescueInner() {
             <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
               ID / Registration
             </legend>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
               <input
                 type="radio"
                 name="id-mode"
@@ -317,7 +317,7 @@ function IntakeRescueInner() {
                 <span className="mt-0.5 block text-[11px] text-zinc-500">Default — speeds up quoting</span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
               <input
                 type="radio"
                 name="id-mode"
@@ -346,7 +346,7 @@ function IntakeRescueInner() {
             )}
           </fieldset>
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
               Full Name <span className="text-emerald-600">*</span>
             </span>
@@ -362,7 +362,7 @@ function IntakeRescueInner() {
           </label>
 
           <div className="space-y-2">
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
                 Vehicle VIN <span className="font-normal normal-case text-zinc-500">(optional)</span>
               </span>
@@ -439,7 +439,7 @@ function IntakeRescueInner() {
             )}
           </div>
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
               Special Notes
             </span>

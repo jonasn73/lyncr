@@ -164,7 +164,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {lines.length > 1 ? (
         <label className="block">
           <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">

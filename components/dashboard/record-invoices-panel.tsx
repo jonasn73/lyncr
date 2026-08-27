@@ -356,7 +356,7 @@ export function RecordInvoicesPanel({
                     {" · "}
                     <span className="font-mono text-zinc-400">{inv.invoiceNumber}</span>
                   </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
                         "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -377,11 +377,11 @@ export function RecordInvoicesPanel({
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setPreviewInv(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-2.5 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View
@@ -389,7 +389,7 @@ export function RecordInvoicesPanel({
                 <a
                   href={inv.pdfUrl}
                   download
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-2.5 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
                 >
                   <Download className="h-3.5 w-3.5" />
                   PDF
@@ -398,7 +398,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void resend(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
                 >
                   {busy && !isRevise ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -413,7 +413,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => (isRevise ? setReviseId(null) : openRevise(inv))}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-2.5 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900 disabled:opacity-50"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   {isRevise ? "Cancel" : "Revise"}
@@ -471,7 +471,7 @@ export function RecordInvoicesPanel({
                         type="button"
                         onClick={() => setReviseChannel(id)}
                         className={cn(
-                          "rounded-lg py-1.5 text-xs font-semibold",
+                          "rounded-lg py-2 text-xs font-semibold",
                           reviseChannel === id
                             ? "bg-teal-500/20 text-teal-100"
                             : "text-slate-400 hover:text-slate-200"

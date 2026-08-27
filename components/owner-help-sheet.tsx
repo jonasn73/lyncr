@@ -169,7 +169,7 @@ export function OwnerHelpSheet() {
               <Link
                 href="/dashboard/help#support-chat"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                className="inline-flex items-center gap-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
               >
                 <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                 Open full Help chat

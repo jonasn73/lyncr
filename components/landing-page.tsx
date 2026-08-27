@@ -267,7 +267,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               </a>
               <a
                 href={signin}
-                className="inline-flex items-center justify-center rounded-xl border border-border/80 bg-background/30 px-6 py-3.5 text-sm font-semibold text-foreground backdrop-blur-sm transition-[border-color,background-color,transform] hover:border-primary/40 hover:bg-background/50 motion-safe:hover:scale-[1.01]"
+                className="inline-flex items-center justify-center rounded-xl border border-border/80 bg-background/30 px-6 py-4 text-sm font-semibold text-foreground backdrop-blur-sm transition-[border-color,background-color,transform] hover:border-primary/40 hover:bg-background/50 motion-safe:hover:scale-[1.01]"
               >
                 Log in
               </a>
@@ -447,7 +447,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 </div>
                 <ul className="mb-8 flex flex-1 flex-col gap-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5">
+                    <li key={feature} className="flex items-start gap-3">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <span className="text-sm text-muted-foreground">{feature}</span>
                     </li>
@@ -456,7 +456,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 <a
                   href={`${join}${join.includes("?") ? "&" : "?"}plan=${plan.tier}`}
                   className={cn(
-                    "block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-colors",
+                    "block w-full rounded-lg py-3 text-center text-sm font-semibold transition-colors",
                     plan.highlighted
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "border border-border bg-secondary text-foreground hover:bg-secondary/80"
@@ -483,7 +483,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="flex w-full items-center justify-between px-5 py-4 text-left"
+                  className="flex w-full items-center justify-between px-6 py-4 text-left"
                 >
                   <span className="pr-4 text-sm font-medium text-foreground">{faq.q}</span>
                   <ChevronDown
@@ -494,7 +494,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                   />
                 </button>
                 {openFaq === i && (
-                  <div className="border-t border-border px-5 pb-4 pt-3">
+                  <div className="border-t border-border px-6 pb-4 pt-3">
                     <p className="text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
                   </div>
                 )}
@@ -515,7 +515,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
           </p>
           <a
             href={join}
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02]"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02]"
           >
             Create your account
             <ArrowRight className="h-4 w-4" />

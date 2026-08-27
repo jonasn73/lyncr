@@ -182,26 +182,26 @@ export function SendBookLinkSheet({
           ))}
 
           {feeMode === "full_quote" ? (
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-xs font-medium text-zinc-300">Quote amount ($)</span>
               <input
                 inputMode="decimal"
                 value={quoteDollars}
                 onChange={(e) => setQuoteDollars(e.target.value)}
                 placeholder="e.g. 185"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
               />
             </label>
           ) : null}
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-medium text-zinc-300">Short note (optional)</span>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={280}
               placeholder="We’ll call when we’re close…"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             />
           </label>
 
@@ -268,8 +268,8 @@ export function SendBookLinkButton({
         aria-label={accessibleLabel}
         title={accessibleLabel}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
-          compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+          "inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
+          compact ? "h-8 px-3 text-[11px]" : "min-h-11 w-full px-4 py-3 text-sm",
           !visibleLabel && compact && "w-8 px-0",
           className
         )}

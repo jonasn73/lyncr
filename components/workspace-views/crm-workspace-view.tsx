@@ -1695,7 +1695,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     const fallback = formatPhoneDisplay(selected.phone_e164)
     if (editingName) {
       return (
-        <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-2">
           <Input
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
@@ -1736,7 +1736,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       )
     }
     return (
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-2">
         <span className={cn("min-w-0 truncate", titleClassName)}>
           {editName.trim() || fallback}
         </span>
@@ -1760,7 +1760,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         Select a customer to see their profile.
       </p>
     ) : (
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* One loud next step by situation; Call / Message / more stay quieter. */}
         {(() => {
           const hasJobPrimary =
@@ -1770,14 +1770,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             headerJobAction === "View job"
           const collectPrimary = !hasJobPrimary && !isFullyPaidCustomer
           const quietBtn =
-            "inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 text-xs font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/80 hover:text-zinc-200"
+            "inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 text-xs font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/80 hover:text-zinc-200"
           return (
             <div className="space-y-2">
               {collectPrimary ? (
                 <button
                   type="button"
                   onClick={() => void openCollectForCustomer()}
-                  className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/30"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/30"
                   title="Collect payment"
                   aria-label="Collect payment"
                 >
@@ -1898,7 +1898,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           navAction: headerJobAction,
         }) ? (
           <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-200/90">
                 {headerJobTarget.is_open_lead || isCrmPreBookStatusLabel(headerJobTarget.status_label)
                   ? "Submitted request"
@@ -1906,7 +1906,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </h3>
               <span
                 className={cn(
-                  "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
                   headerJobTarget.filled_by_customer
                     ? "bg-orange-500/20 text-orange-100"
                     : "bg-zinc-800 text-zinc-300"
@@ -1915,14 +1915,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 {crmIntakeFilledByLabel(headerJobTarget.intake_source)}
               </span>
               {crmUrgencyLabel(headerJobTarget) === "ASAP" ? (
-                <span className="rounded-md bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-rose-100">
+                <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-100">
                   ASAP
                 </span>
               ) : null}
               {/* Current lifecycle badge — Needs call → Booked · time → Cancelled / Complete. */}
               <span
                 className={cn(
-                  "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
                   headerJobTarget.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
                   headerJobTarget.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
                   headerJobTarget.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
@@ -1937,7 +1937,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   : headerJobTarget.status_label}
               </span>
             </div>
-            <dl className="space-y-1.5 text-sm">
+            <dl className="space-y-2 text-sm">
               <div className="flex gap-2">
                 <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Service</dt>
                 <dd className="min-w-0 font-medium text-slate-100">
@@ -2000,7 +2000,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   type="button"
                   onClick={() => openJobOnScheduler(headerJobTarget)}
                   className={cn(
-                    "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold",
+                    "inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold",
                     headerJobAction === "Recover"
                       ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
                       : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
@@ -2016,7 +2016,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 <button
                   type="button"
                   onClick={() => openJobOnScheduler(headerJobTarget)}
-                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100"
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100"
                   title={crmJobNavTitle(headerJobAction)}
                 >
                   <CalendarCheck className="h-3.5 w-3.5" />
@@ -2030,14 +2030,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 <button
                   type="button"
                   onClick={() => openRecordInvoice(headerJobTarget)}
-                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-100"
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-100"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   Send invoice
                 </button>
               )}
               {/* Compact status chips — texts live under Message; this row is lifecycle only. */}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {/* Call outcomes only before Booked / Cancelled / Complete. */}
                 {isCrmPreBookStatusLabel(headerJobTarget.status_label) ||
                 headerJobTarget.is_open_lead ? (
@@ -2052,7 +2052,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_no_answer")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · no answer"
                           ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
                           : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
@@ -2074,7 +2074,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_answered")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · answered"
                           ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
                           : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
@@ -2094,7 +2094,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   disabled={unreachableBusy || headerJobTarget.status_label === "Cancelled"}
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "cancelled")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Cancelled"
                       ? "border-zinc-500/50 bg-zinc-700/40 text-zinc-100"
                       : "border-zinc-600 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800"
@@ -2117,7 +2117,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   }
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "completed")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-2.5 text-[11px] font-semibold disabled:opacity-50",
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Complete" ||
                       headerJobTarget.status_label === "Done" ||
                       headerJobTarget.status_label === "Completed"
@@ -2201,7 +2201,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 {vehicles.map((v) => (
                   <li
                     key={v.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-3"
                   >
                     {editingVehicleId === v.id ? (
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -2337,7 +2337,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 return (
                   <li
                     key={tx.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -2353,7 +2353,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       </div>
                       <span
                         className={cn(
-                          "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                          "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold",
                           tx.status === "COMPLETED" && "bg-emerald-500/15 text-emerald-300",
                           tx.status === "FAILED" && "bg-rose-500/15 text-rose-300",
                           tx.status === "PENDING" && "bg-amber-500/15 text-amber-200"
@@ -2366,7 +2366,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => openSendReceipt(tx)}
-                        className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20"
+                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20"
                       >
                         <Mail className="h-3.5 w-3.5" />
                         Send invoice / receipt
@@ -2412,7 +2412,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 return (
                 <li
                   key={item.id}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -2435,7 +2435,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     </div>
                     <span
                       className={cn(
-                        "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                        "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold",
                         item.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
                         item.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
                         item.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
@@ -2467,7 +2467,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           type="datetime-local"
                           value={editApptLocal}
                           onChange={(e) => setEditApptLocal(e.target.value)}
-                          className="h-7 w-[11.5rem] border-zinc-800 bg-zinc-950 px-1.5 text-[11px]"
+                          className="h-7 w-[11.5rem] border-zinc-800 bg-zinc-950 px-2 text-[11px]"
                           aria-label="Appointment date and time"
                         />
                         <button
@@ -2728,7 +2728,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 )}
               </div>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {rows.map((row) => {
                   const active = row.id === selectedId
                   const name = row.display_name.trim() || formatPhoneDisplay(row.phone_e164)
@@ -2743,7 +2743,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           setEditName(row.display_name || "")
                         }}
                         className={cn(
-                          "w-full rounded-xl border px-3 py-2.5 text-left",
+                          "w-full rounded-xl border px-3 py-3 text-left",
                           active
                             ? "border-sky-500/40 bg-sky-500/10"
                             : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700"
@@ -2751,7 +2751,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
-                          <span className="shrink-0 rounded-md bg-zinc-950/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                          <span className="shrink-0 rounded-md bg-zinc-950/80 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
                             {BADGE_LABEL[row.lead_badge]}
                           </span>
                         </div>
@@ -2999,7 +2999,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   type="button"
                   onClick={() => setReceiptChannel("email")}
                   className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    "inline-flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold",
                     receiptChannel === "email"
                       ? "bg-teal-500/20 text-teal-100"
                       : "text-slate-400 hover:text-slate-200"
@@ -3012,7 +3012,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   type="button"
                   onClick={() => setReceiptChannel("sms")}
                   className={cn(
-                    "inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold",
+                    "inline-flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold",
                     receiptChannel === "sms"
                       ? "bg-teal-500/20 text-teal-100"
                       : "text-slate-400 hover:text-slate-200"

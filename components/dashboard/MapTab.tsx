@@ -45,7 +45,7 @@ const DispatchLiveMap = dynamic(
 
 /** Shared chrome for the two pool toggles (sheet on mobile+tablet, drawer on lg+). */
 const POOL_TOGGLE_CLASS =
-  "shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
+  "shrink-0 items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800"
 
 // Which list is open in the drawer / bottom sheet.
 type DrawerTab = "pool" | "roster"
@@ -134,12 +134,12 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
   // Shared Job Pool / Roster list body (used by bottom sheet + side drawer).
   const panelBody = (
     <>
-      <div className="flex shrink-0 gap-1 border-b border-zinc-800 p-1.5">
+      <div className="flex shrink-0 gap-1 border-b border-zinc-800 p-2">
         <button
           type="button"
           onClick={() => setDrawerTab("pool")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+            "flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
             drawerTab === "pool"
               ? "bg-zinc-800 text-slate-100"
               : "text-slate-500 hover:text-slate-300"
@@ -155,7 +155,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           type="button"
           onClick={() => setDrawerTab("roster")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+            "flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
             drawerTab === "roster"
               ? "bg-zinc-800 text-slate-100"
               : "text-slate-500 hover:text-slate-300"
@@ -181,7 +181,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 </p>
               )
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {sortedPool.map((job) => {
                   const hasPin =
                     coerceMapCoord(job.latitude) != null &&
@@ -212,7 +212,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                           }
                         }}
                         className={cn(
-                          "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                          "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                           hasPin
                             ? "border-zinc-800 bg-zinc-900/60 hover:border-sky-500/40 hover:bg-zinc-900"
                             : "cursor-not-allowed border-zinc-900 bg-zinc-950/40 opacity-60"
@@ -261,7 +261,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
       )}
     >
       {/* Compact header — layer chips live here so Leaflet panes can’t bury them after load */}
-      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
@@ -291,7 +291,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 <ChevronUp className="h-3.5 w-3.5" aria-hidden />
                 Pool
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] tabular-nums text-rose-300">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -309,7 +309,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               <>
                 Job Pool &amp; Roster
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[10px] tabular-nums text-rose-300">
+                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] tabular-nums text-rose-300">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -339,7 +339,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 aria-pressed={on}
                 aria-label={long}
                 className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                  "rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors",
                   on
                     ? "bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40"
                     : "bg-zinc-900/80 text-slate-500 ring-1 ring-zinc-800 hover:text-slate-300"
@@ -397,7 +397,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               <button
                 type="button"
                 onClick={() => setMobilePoolOpen(false)}
-                className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-400 hover:bg-zinc-900 hover:text-slate-200"
+                className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-400 hover:bg-zinc-900 hover:text-slate-200"
                 aria-label="Close job pool panel"
               >
                 <ChevronDown className="h-3.5 w-3.5" aria-hidden />

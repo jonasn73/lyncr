@@ -158,7 +158,7 @@ export function AdminToolsBoard({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label className="text-slate-400">Stripe charge ID</Label>
               <Input
                 value={chargeId}
@@ -167,7 +167,7 @@ export function AdminToolsBoard({
                 className="border-slate-700 bg-slate-950 text-slate-100"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label className="text-slate-400">Business Stripe account</Label>
               <Input
                 value={destinationAccountId}
@@ -201,7 +201,7 @@ export function AdminToolsBoard({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label className="text-slate-400">Business owner email</Label>
               <Input
                 value={amberEmail}

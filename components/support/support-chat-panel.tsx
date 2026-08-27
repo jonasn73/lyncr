@@ -199,7 +199,7 @@ export function SupportChatPanel() {
                             target="_blank"
                             rel="noreferrer"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-xs underline-offset-2 hover:underline",
+                              "inline-flex items-center gap-2 text-xs underline-offset-2 hover:underline",
                               isUser ? "text-primary-foreground/90" : "text-primary"
                             )}
                           >

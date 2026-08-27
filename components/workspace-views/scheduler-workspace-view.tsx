@@ -1371,14 +1371,14 @@ function SchedulerWorkspaceViewInner({
                   type="button"
                   onClick={openNewIntake}
                   disabled={!inboundCallPanel}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 py-3 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                   New Intake
                 </button>
               </div>
 
-              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-2.5 py-2.5 lg:max-h-none lg:overflow-visible">
+              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
                   loading={poolTrayLoading}
@@ -1416,7 +1416,7 @@ function SchedulerWorkspaceViewInner({
               open={blockoutsPanelOpen}
               onToggle={(e) => setBlockoutsPanelOpen(e.currentTarget.open)}
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
                 <span>Booking &amp; blockouts</span>
                 <ChevronDown
                   className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
@@ -1464,7 +1464,7 @@ function SchedulerWorkspaceViewInner({
 
             {/* Always mount pipeline + swimlanes — never swap “quiet” for the board (CLS). */}
             <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-              <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+              <div className="border-b border-border/60 px-3 py-2 lg:px-4">
                 <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
                 <SettledCount
                   pending={boardCountsPending}
@@ -1538,7 +1538,7 @@ function SchedulerWorkspaceViewInner({
                     </div>
                   </details>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 lg:px-4">
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
                       <SettledCount

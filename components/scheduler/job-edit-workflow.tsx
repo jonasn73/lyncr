@@ -24,13 +24,13 @@ import type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
 const fieldBlockClass = cn(SCHEDULER_FIELD_STACK, "w-full min-w-0 gap-0.5")
 const labelClass = SCHEDULER_METADATA_LABEL
 /** Compact section cards — overflow-visible so nested VIN/inputs are never clipped. */
-const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-2 sm:p-2.5")
+const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-2 sm:p-3")
 const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-1 block")
 // Slightly shorter inputs to reclaim vertical space
 const inputClass = cn(SCHEDULER_INPUT, "h-8")
 const addressTextareaClass = SCHEDULER_TEXTAREA
 /** Dense stacks on laptop/mobile so the whole Edit Job form needs minimal scrolling. */
-const stackClass = "flex flex-col gap-1.5"
+const stackClass = "flex flex-col gap-2"
 
 export type JobEditWorkflowProps = {
   statusLabel: string
@@ -149,14 +149,14 @@ export function JobEditWorkflow({
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-2 sm:px-4",
           stackClass,
           // Extra bottom space so last field (Notes) clears the sticky footer + safe area.
-          "pb-[calc(env(safe-area-inset-bottom)+6.75rem)] sm:pb-5"
+          "pb-[calc(env(safe-area-inset-bottom)+6.75rem)] sm:pb-6"
         )}
       >
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Customer details</h3>
           <div className={stackClass}>
             {/* Name | Phone side-by-side to cut vertical height */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-customer-name">
                   Name
@@ -207,7 +207,7 @@ export function JobEditWorkflow({
                 id="job-edit-location"
                 className={cn(
                   addressTextareaClass,
-                  "field-sizing-fixed min-h-[2.5rem] resize-none py-1.5"
+                  "field-sizing-fixed min-h-[2.5rem] resize-none py-2"
                 )}
                 value={location}
                 onChange={(e) => onLocationChange(e.target.value)}
@@ -221,7 +221,7 @@ export function JobEditWorkflow({
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Job settings</h3>
           <div className={stackClass}>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-scheduled-date">
                   Scheduled date
@@ -249,7 +249,7 @@ export function JobEditWorkflow({
             </div>
 
             {/* Service type | Price side-by-side */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-service-type">
                   Service type
@@ -304,7 +304,7 @@ export function JobEditWorkflow({
             ) : null}
           </h3>
           <div className={stackClass}>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               <div className={fieldBlockClass}>
                 <label className={labelClass} htmlFor="job-edit-vehicle-year">
                   Year
@@ -375,7 +375,7 @@ export function JobEditWorkflow({
               id="job-edit-notes"
               className={cn(
                 addressTextareaClass,
-                "field-sizing-fixed box-border h-14 min-h-14 max-h-14 w-full min-w-0 py-1.5"
+                "field-sizing-fixed box-border h-14 min-h-14 max-h-14 w-full min-w-0 py-2"
               )}
               value={jobNotes}
               onChange={(e) => onJobNotesChange(e.target.value)}
@@ -391,7 +391,7 @@ export function JobEditWorkflow({
       {/* Sticky footer — always visible; body scrolls above it. */}
       <footer
         className={cn(
-          "shrink-0 border-t border-border/60 bg-card px-3 pt-2 sm:px-4 sm:pt-2.5",
+          "shrink-0 border-t border-border/60 bg-card px-3 pt-2 sm:px-4 sm:pt-3",
           "pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
         )}
       >

@@ -70,7 +70,7 @@ export function VinLookupField({
   }, [value])
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-2">
       <div className="relative">
         <ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
         <input

@@ -25,18 +25,18 @@ function SkeletonBar({ className }: { className?: string }) {
 export function CallFlowStepsSkeleton() {
   return (
     <section
-      className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-3.5 sm:px-5 sm:py-4"
+      className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-6"
       aria-busy="true"
       aria-label="Loading who rings next"
     >
       <div className="mb-3 flex items-center gap-2">
         <div className="h-9 w-9 shrink-0 rounded-xl border border-primary/25 bg-primary/10" />
-        <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="min-w-0 flex-1 space-y-2">
           <SkeletonBar className="h-4 w-32" />
           <SkeletonBar className="hidden h-3 w-48 md:block" />
         </div>
       </div>
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-baseline justify-between gap-3">
             <SkeletonBar className="h-3 w-20" />
@@ -55,11 +55,11 @@ export function CallFlowStepsSkeleton() {
 /** CRM customer rows — matches list card height, not a spinner. */
 export function CrmListRowSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <ul className="space-y-1.5" aria-hidden>
+    <ul className="space-y-2" aria-hidden>
       {Array.from({ length: count }, (_, i) => (
         <li
           key={i}
-          className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2.5"
+          className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-3"
         >
           <SkeletonBar className="h-4 w-32 max-w-[70%]" />
           <SkeletonBar className="mt-1.5 h-3 w-24 max-w-[50%]" />
@@ -114,7 +114,7 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
         {Array.from({ length: rows }, (_, i) => (
           <tr key={i} className={WORKSPACE_TABLE_ROW_CLASS}>
             {columns.map((col) => (
-              <td key={col.label} className="border-b border-zinc-800/50 px-4 py-3.5 align-middle">
+              <td key={col.label} className="border-b border-zinc-800/50 px-4 py-4 align-middle">
                 <SkeletonBar className="h-4 w-[70%] max-w-[10rem]" />
               </td>
             ))}
@@ -132,10 +132,10 @@ export function ActivityTableSkeleton() {
       {/* Mobile + tablet: card list — matches ActivityCallsMobileList (not the desktop table). */}
       <ul className="divide-y divide-zinc-800/70 lg:hidden" aria-hidden>
         {Array.from({ length: 6 }, (_, i) => (
-          <li key={i} className="px-3 py-2.5">
+          <li key={i} className="px-3 py-3">
             <div className="flex items-start gap-2">
               <div className="mt-0.5 h-5 w-16 shrink-0 rounded-full bg-zinc-800/80" />
-              <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="min-w-0 flex-1 space-y-2">
                 <div className="h-4 w-[55%] max-w-[12rem] rounded bg-zinc-800/80" />
                 <div className="h-3 w-[40%] max-w-[9rem] rounded bg-zinc-800/60" />
                 <div className="h-3 w-[48%] max-w-[10rem] rounded bg-zinc-800/50" />
@@ -178,7 +178,7 @@ export function PayStatCardsSkeleton() {
 export function PayLedgerSkeleton() {
   return (
     <WorkspacePanel className="min-h-[300px]">
-      <div className="border-b border-zinc-800 px-5 py-4">
+      <div className="border-b border-zinc-800 px-6 py-4">
         <SkeletonBar className="h-4 w-32" />
       </div>
       <TableSkeletonBody

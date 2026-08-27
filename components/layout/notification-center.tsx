@@ -602,7 +602,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                   key={item.id}
                   className={cn("rounded-xl border px-3 py-3", toneClasses(item.tone))}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-start gap-3">
                     <Icon
                       className={cn(
                         "mt-0.5 h-4 w-4 shrink-0",
@@ -619,7 +619,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                             type="button"
                             disabled={item.id === "impersonation" && exitingImpersonation}
                             onClick={item.onAction}
-                            className="rounded-md bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
+                            className="rounded-md bg-background/60 px-3 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
                           >
                             {item.actionLabel}
                           </button>

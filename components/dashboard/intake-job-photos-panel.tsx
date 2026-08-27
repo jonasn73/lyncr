@@ -57,7 +57,7 @@ function PhotoGrid({
           Waiting…
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {photos.map((photo) => (
             <a
               key={photo.id}
@@ -196,7 +196,7 @@ export function IntakeJobPhotosPanel({
   }, [callLogId, customerPhone])
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       {/* Critical dispatch banners stay visible even when the tools stay collapsed. */}
       {infoReceived ? (
         <div className="space-y-2">
@@ -206,7 +206,7 @@ export function IntakeJobPhotosPanel({
             </p>
           </div>
           {rescueMeta?.verify_on_arrival ? (
-            <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-2.5 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+            <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-3 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
               <p className="text-[12px] font-black uppercase tracking-wide text-amber-100">
                 ⚠️ VERIFY ID ON SITE BEFORE UNLOCKING
               </p>
@@ -220,7 +220,7 @@ export function IntakeJobPhotosPanel({
         type="button"
         onClick={() => setExpanded((open) => !open)}
         className={cn(
-          "inline-flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
+          "inline-flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
           compact ? "text-[11px]" : "text-xs"
         )}
         aria-expanded={expanded}
@@ -261,7 +261,7 @@ export function IntakeJobPhotosPanel({
                 disabled={requestState === "sending"}
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-muted/30 font-semibold text-foreground transition-colors hover:bg-muted/50 disabled:opacity-50",
-                  compact ? "px-3 py-2 text-[11px]" : "px-3 py-2.5 text-xs"
+                  compact ? "px-3 py-2 text-[11px]" : "px-3 py-3 text-xs"
                 )}
                 title="Text customer a Pending Info Intake link"
               >
@@ -285,9 +285,9 @@ export function IntakeJobPhotosPanel({
               ) : null}
 
               {hasActivity ? (
-                <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-2.5">
+                <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-3">
                   {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
-                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
                       {rescueMeta?.customer_name ? (
                         <p className="text-xs font-semibold text-emerald-100">
                           {rescueMeta.customer_name}

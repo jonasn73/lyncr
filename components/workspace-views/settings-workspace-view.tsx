@@ -83,7 +83,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className={cn("gap-5 pb-10", embedded && "gap-4 px-0 pb-4")}>
+    <WorkspacePage className={cn("gap-6 pb-10", embedded && "gap-4 px-0 pb-4")}>
       {embedded ? null : <WorkspacePageHeader eyebrow="Account" title="Settings" />}
 
       {/* Full-page Settings only — sheet header already shows email. */}

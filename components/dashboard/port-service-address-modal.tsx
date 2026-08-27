@@ -112,7 +112,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 Legal business name
               </span>
@@ -123,16 +123,16 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
                 className={workspaceFieldClass}
               />
             </label>
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Street</span>
               <input required value={street} onChange={(e) => setStreet(e.target.value)} className={workspaceFieldClass} />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5 sm:col-span-1">
+              <label className="block space-y-2 sm:col-span-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">City</span>
                 <input required value={city} onChange={(e) => setCity(e.target.value)} className={workspaceFieldClass} />
               </label>
-              <label className="block space-y-1.5">
+              <label className="block space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">State</span>
                 <input
                   required
@@ -143,7 +143,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
                   className={workspaceFieldClass}
                 />
               </label>
-              <label className="block space-y-1.5">
+              <label className="block space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">ZIP</span>
                 <input
                   required

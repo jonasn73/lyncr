@@ -125,7 +125,7 @@ export function AppointmentConfirmSmsPanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {(
           [
             { id: "default" as const, label: "Full confirmation" },
@@ -139,7 +139,7 @@ export function AppointmentConfirmSmsPanel({
             disabled={sending}
             onClick={() => applyPreset(chip.id)}
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
+              "rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
               preset === chip.id
                 ? "border-amber-400/60 bg-amber-500/25 text-amber-50"
                 : "border-amber-500/25 bg-slate-950/40 text-amber-100/80 hover:bg-amber-500/15"
@@ -160,7 +160,7 @@ export function AppointmentConfirmSmsPanel({
             setPreset("custom")
             setText(e.target.value)
           }}
-          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-2.5 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-3 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
         />
       </label>
 

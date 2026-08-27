@@ -298,7 +298,7 @@ function LiveChatQueue() {
                 <p className="mt-1 text-xs text-slate-500">
                   {row.owner_name} · {row.owner_email} · {row.status}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
                       {row.admin_unread_count} unread
                     </span>
                   ) : null}
@@ -810,7 +810,7 @@ function EmailInbox() {
                 <p className={cn("mt-1 text-sm", unread ? "font-medium text-slate-100" : "text-slate-300")}>
                   {row.subject || "(no subject)"}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
                       Unread
                     </span>
                   ) : null}

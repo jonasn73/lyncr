@@ -346,13 +346,13 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </div>
 
         <WorkspacePanel>
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-zinc-800 px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Subscription plans</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Each plan maps to a Stripe price — Starter ($19), Professional ($49), or Business ($99) per month.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-3">
             {CHECKOUT_TIER_OPTIONS.map((plan) => {
               const isCurrentPlan =
                 subscriptionActive &&
@@ -396,7 +396,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </WorkspacePanel>
 
         <WorkspacePanel>
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-zinc-800 px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Add carrier credit</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {needsCarrierCredit
@@ -406,7 +406,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
               balance updates automatically.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
             {(billing?.suggested_credit_packs_cents ?? [1000, 2500, 5000, 10000]).map((cents) => (
               <button
                 key={cents}
@@ -439,7 +439,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </WorkspacePanel>
 
         <WorkspacePanel className="min-h-[300px]">
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-zinc-800 px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Talk-time consumption</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Live operator minutes deducted from your balance, billed at {rateLabel}/min.
@@ -476,7 +476,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
             ) : null}
           </WorkspaceTableWrap>
           {ledger.length === 0 ? (
-            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-5 py-12 text-center text-sm text-zinc-500">
+            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-6 py-12 text-center text-sm text-zinc-500">
               {!callsLoaded ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />

@@ -223,11 +223,11 @@ export function OutOfStockFallbackCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 shadow-sm shadow-amber-950/20",
+        "rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 shadow-sm shadow-amber-950/20",
         className
       )}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-200">
           <PackageX className="h-4 w-4" aria-hidden />
         </span>
@@ -255,7 +255,7 @@ export function OutOfStockFallbackCard({
           <p className="mt-1 text-xs text-muted-foreground">
             $50 non-refundable retainer · booking status becomes Pending Deposit.
           </p>
-          <div className="mt-2.5 space-y-1.5">
+          <div className="mt-2.5 space-y-2">
             <Label htmlFor="oos-service-date" className="text-[11px] text-muted-foreground">
               <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden />
               Earliest service date (shipping +2 days)
@@ -283,7 +283,7 @@ export function OutOfStockFallbackCard({
             Generate Special Order Link
           </Button>
           {checkoutUrl ? (
-            <div className="mt-2 space-y-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
+            <div className="mt-2 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
               <p className="text-[11px] font-medium text-emerald-200">Checkout ready · Pending Deposit</p>
               <p className="break-all font-mono text-[10px] text-emerald-100/90">{checkoutUrl}</p>
               <div className="flex gap-2">
@@ -335,7 +335,7 @@ export function OutOfStockFallbackCard({
               {affiliates.map((a) => (
                 <li
                   key={a.id}
-                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/40 px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{a.name}</p>

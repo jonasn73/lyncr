@@ -215,7 +215,7 @@ function RepeatCustomerCrmChips({
   const hasOpenQuote = Boolean(crmOpenLeadId)
   if (!hasGarage && !hasOpenQuote) return null
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", compact ? "mt-1" : "mt-1.5")}>
+    <div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-1" : "mt-1.5")}>
       {hasOpenQuote ? (
         <span
           className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100"
@@ -334,7 +334,7 @@ function ReturningCallerDecisionCard({
   // Draft-only (no CRM) — keep a compact chooser, not a fake profile.
   if (!hasCrmHistory) {
     return (
-      <div className="mx-3 mt-1 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-2.5 sm:mx-4">
+      <div className="mx-3 mt-1 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3 sm:mx-4">
         <p className="text-[11px] font-semibold text-amber-100">Saved draft</p>
         <p className="mt-0.5 text-base font-semibold text-foreground">{customerName}</p>
         {pendingDraft ? (
@@ -350,7 +350,7 @@ function ReturningCallerDecisionCard({
             </button>
           </p>
         ) : null}
-        <div className="mt-2.5 flex flex-col gap-1.5">
+        <div className="mt-2.5 flex flex-col gap-2">
           {pendingDraft ? (
             <button
               type="button"
@@ -408,9 +408,9 @@ function ReturningCallerDecisionCard({
           ) : null}
         </div>
 
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-2 space-y-2">
           {activeJobId ? (
-            <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2">
+            <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-200">
                 Active job
               </p>
@@ -420,7 +420,7 @@ function ReturningCallerDecisionCard({
             </div>
           ) : null}
           {hasOpenLead ? (
-            <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2">
+            <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-200">
                 {bookFormSubmitted ? "Book form submitted" : "Open quote"}
               </p>
@@ -435,7 +435,7 @@ function ReturningCallerDecisionCard({
             </div>
           ) : null}
           {lastJobLine ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-2">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                 Last job
               </p>
@@ -446,7 +446,7 @@ function ReturningCallerDecisionCard({
             </div>
           ) : null}
           {pendingDraft ? (
-            <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-1.5">
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
               <p className="text-[11px] text-amber-100/90">
                 Draft · {formatDraftSavedAgo(pendingDraft.savedAt)}
                 {draftStepLabel ? ` · ${draftStepLabel}` : ""}
@@ -500,14 +500,14 @@ function ReturningCallerDecisionCard({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-4">
-        <div className="flex flex-col gap-1.5">
+      <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-4">
+        <div className="flex flex-col gap-2">
           {primaryContinueLabel ? (
             <button
               type="button"
               onClick={onPrimaryContinue}
               className={cn(
-                "inline-flex w-full items-center justify-center rounded-lg border px-3 py-2.5 text-sm font-semibold touch-manipulation transition-colors active:scale-[0.98]",
+                "inline-flex w-full items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold touch-manipulation transition-colors active:scale-[0.98]",
                 emphasizeJob
                   ? "border-amber-400/60 bg-amber-500/25 text-amber-50 hover:bg-amber-500/35"
                   : "border-sky-400/60 bg-sky-500/25 text-sky-50 hover:bg-sky-500/35"
@@ -525,12 +525,12 @@ function ReturningCallerDecisionCard({
               Open CRM
             </button>
           ) : null}
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             {pendingDraft && restoreSecondary ? (
               <button
                 type="button"
                 onClick={onRestoreDraft}
-                className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-2.5 py-1.5 text-[11px] font-medium text-zinc-300 touch-manipulation hover:border-zinc-500 hover:text-foreground"
+                className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-[11px] font-medium text-zinc-300 touch-manipulation hover:border-zinc-500 hover:text-foreground"
               >
                 Restore draft
               </button>
@@ -538,7 +538,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onNewJob}
-              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-[11px] font-medium text-zinc-400 touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
             >
               Start new job
             </button>
@@ -641,7 +641,7 @@ function ManualIntakeToolbar({
     <div
       className={cn(
         "shrink-0 border-b border-border/60 pr-12",
-        deepStep ? "px-3 pb-2 pt-1.5" : "px-3 pb-3.5 pt-2"
+        deepStep ? "px-3 pb-2 pt-2" : "px-3 pb-4 pt-2"
       )}
     >
       <div className="flex items-center gap-2">
@@ -695,7 +695,7 @@ function ManualIntakeToolbar({
         </Select>
       </div>
       {phoneDisplay ? (
-        <p className="mt-1 mb-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+        <p className="mt-1 mb-0.5 flex items-center gap-2 truncate text-[11px] text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0 text-primary/80" aria-hidden />
           {phoneDisplay}
         </p>
@@ -728,7 +728,7 @@ function IntakeAutoSaveStatus({
   return (
     <motion.span
       layout
-      className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground"
+      className="inline-flex items-center gap-2 text-[10px] text-muted-foreground"
       animate={
         draftPulse
           ? { scale: [1, 1.08, 1], color: "rgb(52 211 153 / 0.95)" }
@@ -790,11 +790,11 @@ function IntakeDraftRestoreBanner({
       <p className="min-w-0 flex-1 text-xs font-medium text-amber-50">
         Saved draft from {formatDraftSavedAgo(draft.savedAt)}
       </p>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
           onClick={onRestore}
-          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-2.5 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300"
+          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300"
         >
           Restore draft
         </button>
@@ -4035,7 +4035,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               className={cn(
                 "shrink-0 border-b border-border/60 pr-12 text-left",
                 // Deep steps: tighter header so the year / address region gets the height.
-                compactIntakeChrome ? "px-3 pb-1.5 pt-1.5" : "px-4 pb-3 pt-2"
+                compactIntakeChrome ? "px-3 pb-2 pt-2" : "px-4 pb-3 pt-2"
               )}
             >
               <div className="flex items-start gap-2">
@@ -4210,7 +4210,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     ? cn(
                         "overflow-hidden",
                         // Deep steps: less padding so content (year grid) claims the viewport.
-                        compactIntakeChrome ? "px-3 py-1.5" : "px-4 py-2"
+                        compactIntakeChrome ? "px-3 py-2" : "px-4 py-2"
                       )
                     : "space-y-4 overflow-y-auto overscroll-y-contain px-6 py-4"
                 )}
@@ -4289,7 +4289,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               className={cn(
                                 WS_SECTION,
                                 // Fill the step — year/make/model grid is the dominant region.
-                                "flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden p-2"
+                                "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2"
                               )}
                             >
                               <legend className="shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -4333,7 +4333,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       data-intake-primary-option={index === 0 ? "" : undefined}
                                       onClick={() => handleJobTypeChange(service.id)}
                                       className={cn(
-                                        "rounded-lg border px-3 py-3.5 text-left text-sm font-semibold transition-colors",
+                                        "rounded-lg border px-3 py-4 text-left text-sm font-semibold transition-colors",
                                         active
                                           ? "border-primary/50 bg-primary/15 text-primary"
                                           : "border-border bg-card/40 text-foreground hover:bg-muted/50"
@@ -4402,7 +4402,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 </div>
                               ) : null}
                               <div className="grid gap-2 sm:grid-cols-2">
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                   <Label htmlFor="lookup-key-style" className="text-xs">
                                     Key type / style
                                   </Label>
@@ -4414,7 +4414,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     className="h-10"
                                   />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                   <Label htmlFor="lookup-fcc" className="text-xs">
                                     FCC / part # (if you wrote it down)
                                   </Label>
@@ -4427,7 +4427,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   />
                                 </div>
                               </div>
-                              <div className="space-y-1.5">
+                              <div className="space-y-2">
                                 <Label htmlFor="lookup-notes" className="text-xs">
                                   Notes from your lookup
                                 </Label>
@@ -4445,7 +4445,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   type="button"
                                   onClick={() => patchForm({ serviceVenue: "mobile" })}
                                   className={cn(
-                                    "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                    "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "mobile"
                                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                                       : "border-zinc-700 bg-zinc-900 text-slate-300"
@@ -4463,7 +4463,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     }
                                   }}
                                   className={cn(
-                                    "rounded-xl border px-2 py-2.5 text-left text-xs font-semibold transition-colors",
+                                    "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "shop"
                                       ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
                                       : "border-zinc-700 bg-zinc-900 text-slate-300"
@@ -4514,7 +4514,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   </div>
                                 </details>
                               ) : null}
-                              <div className="space-y-1.5">
+                              <div className="space-y-2">
                                 <Label htmlFor="manual-ac-phone" className="text-xs">
                                   Phone number
                                 </Label>
@@ -4533,7 +4533,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     type="button"
                                     onClick={() => void requestLiveGps()}
                                     disabled={gpsRequestState === "sending"}
-                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
                                     title="Text customer a live GPS share link"
                                   >
                                     {gpsRequestState === "sending" ? (
@@ -4550,7 +4550,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   </p>
                                 ) : null}
                               </div>
-                              <div className="space-y-1.5 overflow-visible">
+                              <div className="space-y-2 overflow-visible">
                                 <Label className="text-xs">
                                   Service address <span className="text-primary">*</span>
                                 </Label>
@@ -4633,7 +4633,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 Customer &amp; quote
                               </legend>
                               <div className="grid gap-3 rounded-xl border border-border/70 bg-card/40 p-3">
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                   <Label htmlFor="manual-ac-display" className="text-xs">
                                     Caller name <span className="text-primary">*</span>
                                   </Label>
@@ -4646,7 +4646,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     autoFocus
                                   />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                   <Label htmlFor="manual-ac-quote" className="text-xs">
                                     Pitched quote ($)
                                   </Label>
@@ -4867,7 +4867,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary/90">
                     Job details
                   </legend>
-                  <div className="space-y-1.5 overflow-visible">
+                  <div className="space-y-2 overflow-visible">
                     <Label className="text-xs">
                       Service address <span className="text-primary">*</span>
                     </Label>
@@ -4882,7 +4882,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <button
                       type="button"
                       onClick={viewOnMapLayout}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
                     >
                       <MapPin className="h-3.5 w-3.5" aria-hidden />
                       View on Map Layout
@@ -4906,7 +4906,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       locationError={dispatcherLocation.error}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label htmlFor="ac-notes" className="text-xs">
                       Job notes
                     </Label>
@@ -4936,7 +4936,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                     Contact (saved to customer list)
                   </legend>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label htmlFor="ac-display" className="text-xs">
                       Caller name <span className="text-primary">*</span>
                     </Label>
@@ -4948,7 +4948,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       className="h-10"
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label htmlFor="ac-phone" className="text-xs">
                       Phone number
                     </Label>
@@ -4967,7 +4967,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         type="button"
                         onClick={() => void requestLiveGps()}
                         disabled={gpsRequestState === "sending"}
-                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
                       >
                         {gpsRequestState === "sending" ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -5008,7 +5008,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               </div>
 
-              <div className="sticky bottom-0 shrink-0 space-y-1.5 border-t border-slate-800 bg-slate-900 p-2">
+              <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-2">
                 {stepIntake ? (
                   <>
                     {currentStep === "JOB_TYPE" ? (
@@ -5187,7 +5187,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           disabled={jobState === "creating" || !canSavePendingLead}
                           onClick={() => void savePendingLead()}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                         </button>
@@ -5386,7 +5386,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   type="button"
                   disabled={jobState === "creating" || !canSavePendingLead}
                   onClick={() => void savePendingLead()}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                 </button>
@@ -5406,7 +5406,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </p>
                 ) : null}
                 {jobState === "created" ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-[11px] text-emerald-100">
                     Job added to the hopper — assign when ready.
                   </p>
                 ) : null}

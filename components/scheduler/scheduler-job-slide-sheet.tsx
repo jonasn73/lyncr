@@ -73,7 +73,7 @@ export function SchedulerJobSlideSheet({
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
             {isMobile ? (
-              <div className="flex shrink-0 justify-center pt-2.5 pb-1" aria-hidden>
+              <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
                 <span className="h-1 w-10 rounded-full bg-zinc-600/80" />
               </div>
             ) : null}

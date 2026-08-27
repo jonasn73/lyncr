@@ -72,7 +72,7 @@ function VehiclePickerDropdown({
   return (
     <div className="@container w-full min-w-0">
       <div className="grid min-w-0 grid-cols-1 gap-3 @min-[26rem]:grid-cols-3">
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Year</span>
           <select
             className={selectClass}
@@ -88,7 +88,7 @@ function VehiclePickerDropdown({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Make</span>
           <div className="relative">
             <select
@@ -109,7 +109,7 @@ function VehiclePickerDropdown({
             ) : null}
           </div>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Model</span>
           <div className="relative">
             <select
@@ -154,7 +154,7 @@ function SelectionChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "min-h-9 touch-manipulation rounded-xl border px-3 py-1.5 transition-all duration-150",
+        "min-h-9 touch-manipulation rounded-xl border px-3 py-2 transition-all duration-150",
         active || selected ? WS_TEXT_ACTIVE : WS_TEXT,
         active
           ? WS_OPTION_ROW_ACTIVE
@@ -352,7 +352,7 @@ function VehiclePickerSequential({
         <motion.div
           key={activePicker}
           {...PICKER_STEP_MOTION}
-          className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden"
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden"
         >
           <p className={cn(WS_METADATA, "shrink-0")}>{pickerTitle}</p>
           {pickerLoading ? (

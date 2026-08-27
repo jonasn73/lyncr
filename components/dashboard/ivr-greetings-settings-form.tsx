@@ -154,7 +154,7 @@ export function IvrGreetingsSettingsForm({
         </div>
       ) : (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-zinc-300">
               Spoken greeting (text-to-speech)
             </label>
@@ -163,7 +163,7 @@ export function IvrGreetingsSettingsForm({
               rows={4}
               value={greeting}
               onChange={(e) => setGreeting(e.target.value)}
-              className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-2.5")}
+              className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-3")}
               placeholder={DEFAULT_IVR_GREETING_TEXT}
             />
             <p className="text-[10px] text-zinc-600">

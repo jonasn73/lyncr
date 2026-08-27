@@ -297,7 +297,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-5 sm:p-6">
+      <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-6">
         <h2 className="text-base font-semibold text-slate-100">End-to-end test flow</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
           Follow these steps to exercise quiz → routing pool → HUD → SMS intake without manual signup.
@@ -503,7 +503,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
 
         <div className="overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/50">
           {intakeLogs.length === 0 ? (
-            <p className="px-5 py-12 text-center text-sm text-slate-500">
+            <p className="px-6 py-12 text-center text-sm text-slate-500">
               No intake records yet. Seed the sandbox — a sample AKL lead is inserted automatically.
             </p>
           ) : (

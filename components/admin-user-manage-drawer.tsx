@@ -322,7 +322,7 @@ export function AdminUserManageDrawer({
         {row ? (
           <form
             id="admin-user-override-form"
-            className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-2"
+            className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-2"
             onSubmit={(e) => void handleSaveSubmit(e)}
           >
             {targetStatus === "pending" ? (
@@ -492,7 +492,7 @@ export function AdminUserManageDrawer({
                 <AccordionTrigger className="text-sm font-semibold text-slate-200 hover:no-underline">
                   Advanced
                 </AccordionTrigger>
-                <AccordionContent className="space-y-5 pb-4">
+                <AccordionContent className="space-y-6 pb-4">
             <div className="space-y-2">
               <Label className="text-slate-300">Account status</Label>
               <div className="flex flex-wrap gap-2" role="group" aria-label="Account status">
@@ -628,7 +628,7 @@ export function AdminUserManageDrawer({
                       {controls.organizations.map((org) => (
                         <li
                           key={org.id}
-                          className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2.5"
+                          className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-3"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -681,7 +681,7 @@ export function AdminUserManageDrawer({
                             {controls?.pending_invites.map((inv) => (
                               <li
                                 key={inv.id}
-                                className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/60 px-2.5 py-2"
+                                className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2"
                               >
                                 <div className="flex min-w-0 items-center gap-2">
                                   {inv.channel === "SMS" ? (

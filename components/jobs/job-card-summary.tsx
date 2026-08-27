@@ -64,7 +64,7 @@ export function JobCardSummary({
   return (
     <div className={cn("min-w-0", className)}>
       {showHeader ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground">
             {model.customerName}
           </h2>
@@ -114,7 +114,7 @@ export function JobCardSummary({
       <section
         className={cn(
           "space-y-1 text-[12px] leading-snug text-slate-300",
-          showHeader && "mt-2.5 border-t border-border/40 pt-2.5"
+          showHeader && "mt-2.5 border-t border-border/40 pt-3"
         )}
       >
         <p className="min-w-0">

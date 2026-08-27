@@ -110,7 +110,7 @@ export function ChargeResultSummary({
 
         {tipFailed ? (
           <div className="mt-3 w-full max-w-sm rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-left">
-            <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-rose-200">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold text-rose-200">
               <XCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
               Tip failed · {fmtCents(tip.cents)}
             </p>

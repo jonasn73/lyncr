@@ -90,7 +90,7 @@ export function IntakeSchedulePreferenceFields({
             type="button"
             onClick={pickAsap}
             className={cn(
-              "rounded-xl border px-3 py-2.5 text-left transition-colors",
+              "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "asap"
                 ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
@@ -105,7 +105,7 @@ export function IntakeSchedulePreferenceFields({
             type="button"
             onClick={pickWindow}
             className={cn(
-              "rounded-xl border px-3 py-2.5 text-left transition-colors",
+              "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "window"
                 ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
@@ -135,7 +135,7 @@ export function IntakeSchedulePreferenceFields({
                     })
                   }
                   className={cn(
-                    "rounded-xl border px-3 py-2.5 text-left transition-colors",
+                    "rounded-xl border px-3 py-3 text-left transition-colors",
                     value.scheduledDate === day.dateKey
                       ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                       : "border-border bg-card/40 text-foreground hover:border-primary/40"
@@ -151,7 +151,7 @@ export function IntakeSchedulePreferenceFields({
           </fieldset>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="intake-availability-from" className="text-xs">
                 From
               </Label>
@@ -174,7 +174,7 @@ export function IntakeSchedulePreferenceFields({
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="intake-availability-to" className="text-xs">
                 To
               </Label>

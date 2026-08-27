@@ -231,7 +231,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
       )}
       aria-label="Live technician availability"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 px-4 py-3">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-primary" aria-hidden />
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
@@ -261,7 +261,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
               className="flex items-center justify-between gap-3 px-4 py-3"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn("h-2 w-2 shrink-0 rounded-full", PRESENCE_DOT[row.presence])}
                     title={PRESENCE_LABEL[row.presence]}

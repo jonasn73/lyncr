@@ -14,7 +14,7 @@ import {
 import type { ScheduleBlockout } from "@/lib/types"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
 type AddBlockoutModalProps = {
   open: boolean
@@ -119,7 +119,7 @@ function AddBlockoutModalForm({
         </div>
 
         <div className="space-y-4 overflow-y-auto px-4 py-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label htmlFor="blockout-date" className="text-xs font-semibold text-zinc-300">
               Date
             </label>
@@ -132,7 +132,7 @@ function AddBlockoutModalForm({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Block Out Entire Day</p>
               <p className="text-[11px] text-zinc-500">
@@ -149,7 +149,7 @@ function AddBlockoutModalForm({
 
           {!isFullDay ? (
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label htmlFor="blockout-start" className="text-xs font-semibold text-zinc-300">
                   Start time
                 </label>
@@ -166,7 +166,7 @@ function AddBlockoutModalForm({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label htmlFor="blockout-end" className="text-xs font-semibold text-zinc-300">
                   End time
                 </label>
@@ -186,7 +186,7 @@ function AddBlockoutModalForm({
             </div>
           ) : null}
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label htmlFor="blockout-reason" className="text-xs font-semibold text-zinc-300">
               Reason / label
             </label>

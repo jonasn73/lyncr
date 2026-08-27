@@ -20,12 +20,12 @@ function MoneyLine({
   badge?: string
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-2.5 last:border-0">
+    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-3 last:border-0">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium text-slate-200">{label}</p>
           {badge ? (
-            <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               {badge}
             </span>
           ) : null}
@@ -66,7 +66,7 @@ export function BusinessMoneyPeriodChips({
   disabled?: boolean
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Money time period">
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Money time period">
       {PERIOD_OPTIONS.map((opt) => {
         const active = period === opt.id
         return (
@@ -76,7 +76,7 @@ export function BusinessMoneyPeriodChips({
             disabled={disabled}
             onClick={() => onChange(opt.id)}
             className={cn(
-              "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
               "disabled:opacity-50",
               active
@@ -189,7 +189,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       )}
 
       {row.breakdown_notes.length > 0 ? (
-        <ul className="mt-3 space-y-1.5 px-0.5">
+        <ul className="mt-3 space-y-2 px-0.5">
           {row.breakdown_notes.map((n) => (
             <li key={n} className="text-[11px] leading-snug text-slate-500">
               {n}
@@ -214,7 +214,7 @@ export function BusinessMoneyChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
         "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
         "border-slate-800 bg-slate-900/60"
       )}

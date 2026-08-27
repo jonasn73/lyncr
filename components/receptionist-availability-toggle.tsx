@@ -67,7 +67,7 @@ export function ReceptionistAvailabilityToggle({
   if (variant === "console") {
     return (
       <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           {/* Short label next to the switch so duty state is obvious */}
           <AnimatedStatusLabel
             value={current ? "On" : "Off"}

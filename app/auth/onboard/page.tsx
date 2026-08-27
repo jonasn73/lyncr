@@ -34,7 +34,7 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
   return (
     <main className="flex min-h-[100dvh] flex-col bg-[#0a0f14] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(52,211,153,0.12),transparent)]" />
-      <header className="relative z-10 border-b border-white/5 px-6 py-5">
+      <header className="relative z-10 border-b border-white/5 px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-lg font-black text-slate-950 shadow-lg shadow-emerald-900/40">
             L
@@ -405,7 +405,7 @@ function OperatorOnboardWizard() {
         ) : null}
 
         {step === 2 ? (
-          <div className="mt-6 space-y-5 text-center">
+          <div className="mt-6 space-y-6 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 ring-2 ring-emerald-400/50">
               <Sparkles className="h-8 w-8 text-emerald-300" aria-hidden />
             </span>

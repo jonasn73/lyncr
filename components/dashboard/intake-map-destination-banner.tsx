@@ -50,7 +50,7 @@ export function IntakeMapDestinationBanner({
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-2.5 shadow-xl backdrop-blur",
+        "rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-3 shadow-xl backdrop-blur",
         variant === "overlay" &&
           "pointer-events-auto absolute z-[1200] max-w-[min(20rem,calc(100%-1.5rem))] left-3 top-3 sm:right-auto",
         className
@@ -63,7 +63,7 @@ export function IntakeMapDestinationBanner({
         {destination.label?.trim() || "Customer location"}
       </p>
       {destination.address ? (
-        <div className="mt-0.5 flex items-start gap-1.5">
+        <div className="mt-0.5 flex items-start gap-2">
           <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-slate-400">
             {destination.address}
           </p>
@@ -139,7 +139,7 @@ export function IntakeMapDestinationBanner({
           e.stopPropagation()
           onReturn()
         }}
-        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-3 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
       >
         ← Return to Intake Form
       </button>

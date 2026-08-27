@@ -95,7 +95,7 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors duration-300",
+        "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-300",
         onCall ? "border-emerald-500/35 bg-emerald-950/25" : "border-primary/25 bg-primary/5"
       )}
     >
@@ -194,23 +194,23 @@ function RecentCallerList({
                   {formatTimestamp(row.created_at)} · {formatDuration(row.duration_seconds)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <a
                   href={`tel:${dialable}`}
-                  className="rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 >
                   Call back
                 </a>
                 <a
                   href={`sms:${dialable}`}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
                 >
                   Text
                 </a>
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : row.id)}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
                 >
                   {open ? "Close" : "Notes"}
                 </button>
@@ -553,7 +553,7 @@ export function ReceptionistPortalView() {
                   : "border-border/50 bg-card/80"
             )}
           >
-            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6">
               <div className="min-w-0">
                 <p
                   className={cn(
@@ -591,7 +591,7 @@ export function ReceptionistPortalView() {
               />
             </div>
 
-            <div className="border-t border-border/40 px-4 py-3 sm:px-5">
+            <div className="border-t border-border/40 px-4 py-3 sm:px-6">
               <ReceptionistEndpointToggle
                 endpoint={endpoint}
                 webCallingAvailable={webCallingAvailable}

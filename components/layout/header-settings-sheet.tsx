@@ -461,7 +461,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {/* Wallet chip: Stripe Available (or Pending). Tap → Money sheet. */}
         <Button
           type="button"
@@ -469,7 +469,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           size="sm"
           onClick={openMoneyPicker}
           onPointerEnter={() => prefetchCollectJobs()}
-          className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
+          className="h-9 shrink-0 gap-2 border-emerald-500/40 bg-emerald-500/10 px-3 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
           aria-label={
             chipAmountLabel && chipDisplay
               ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money — Collect, bank, or Lyncr bill.`
@@ -498,7 +498,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           variant="outline"
           onClick={() => setOpen(true)}
           className={cn(
-            "group h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 text-foreground shadow-sm",
+            "group h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 text-foreground shadow-sm",
             "hover:bg-muted hover:text-foreground",
             "focus-visible:bg-muted focus-visible:text-foreground",
             "active:bg-muted/80 active:text-foreground",
@@ -545,7 +545,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
             {/* One hero number: ready-to-send if any, else still-clearing */}
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
               {(() => {
                 const ready = availableCents ?? 0
                 const clearing = pendingCents
@@ -602,14 +602,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 </Button>
               ) : null}
               {bankTransfers.length > 0 ? (
-                <div className="mt-3 space-y-1.5">
+                <div className="mt-3 space-y-2">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-200/70">
                     Sent to bank
                   </p>
                   {bankTransfers.slice(0, 3).map((p, i) => (
                     <div
                       key={`${p.createdLabel}-${i}`}
-                      className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-2"
+                      className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2"
                     >
                       <p className="text-sm font-bold tabular-nums text-sky-50">
                         {formatMoneyCents(p.amountCents)}
@@ -632,7 +632,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     setMoneyOpen(false)
                     openGetPaidModal()
                   }}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-200/80 hover:text-emerald-100"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 text-[11px] font-semibold text-emerald-200/80 hover:text-emerald-100"
                 >
                   <Landmark className="h-3.5 w-3.5" aria-hidden />
                   Bank &amp; payouts
@@ -673,7 +673,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <button
               type="button"
               onClick={() => openPayments("all")}
-              className="flex h-12 w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950/70 px-3.5 text-left hover:border-teal-500/40 hover:bg-zinc-900"
+              className="flex h-12 w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 text-left hover:border-teal-500/40 hover:bg-zinc-900"
             >
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
                 <Receipt className="h-4 w-4 text-teal-300" aria-hidden />
@@ -686,7 +686,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <Button
               type="button"
               onClick={openCollect}
-              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-2.5 text-white hover:bg-emerald-500"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-3 text-white hover:bg-emerald-500"
             >
               <span className="text-sm font-semibold">Collect from customer</span>
               <span className="text-[11px] font-medium text-emerald-50/85">
@@ -806,7 +806,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   setOpen(false)
                   openOwnerHelpSheet("chat")
                 }}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 px-3 py-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
               >
                 <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
                 Help
@@ -835,7 +835,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 setBusy(true)
                 void signOutAndGoToLogin()
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-rose-900/50 bg-rose-950/30 px-3 py-2.5 text-sm font-semibold text-rose-300 hover:bg-rose-950/50 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-rose-900/50 bg-rose-950/30 px-3 py-3 text-sm font-semibold text-rose-300 hover:bg-rose-950/50 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

@@ -154,7 +154,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           <p className="text-sm">Loading secure payment…</p>
         </div>
       ) : error && payload?.status !== "tip" ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-5 py-6 text-center">
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-6 py-6 text-center">
           <h2 className="text-lg font-semibold text-red-100">Link unavailable</h2>
           <p className="mt-2 text-sm text-red-200/90">{error}</p>
           <p className="mt-4 text-xs text-zinc-500">
@@ -162,7 +162,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </p>
         </div>
       ) : payload?.status === "paid" ? (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-8 text-center">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-8 text-center">
           <p className="text-2xl font-bold text-white">Payment received</p>
           <p className="mt-2 text-sm text-emerald-100/90">
             Thanks — {payload.business_label} received {fmtUsd(payload.charge_cents)}.
@@ -172,13 +172,13 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </p>
           <Link
             href="/pay/thanks"
-            className="mt-6 inline-flex rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-500"
+            className="mt-6 inline-flex rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500"
           >
             Done
           </Link>
         </div>
       ) : payload?.status === "tip" ? (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <div className="text-center">
             <p className="text-sm text-zinc-400">Service total</p>
             <p className="mt-1 text-4xl font-bold tabular-nums text-amber-300">
@@ -198,7 +198,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
               Add a tip
             </p>
-            <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
               {(
                 [
                   { id: "none" as const, label: "No tip" },

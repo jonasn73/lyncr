@@ -48,8 +48,8 @@ export function ReceptionistPortalChrome({
 
       {/* Desk-style header: console label + name + company */}
       <header className="border-b border-border/50 bg-card/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <Phone className="h-4 w-4" aria-hidden />
             </span>
@@ -106,7 +106,7 @@ export function ReceptionistPortalChrome({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
 
       {/* Mobile bottom tabs — safe-area padding keeps controls above the browser chrome */}
       <nav

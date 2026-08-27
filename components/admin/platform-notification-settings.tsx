@@ -171,7 +171,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
           </CardDescription>
         </CardHeader>
       ) : null}
-      <CardContent className={cn("space-y-5", !showCardChrome && "pt-4")}>
+      <CardContent className={cn("space-y-6", !showCardChrome && "pt-4")}>
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

@@ -208,7 +208,7 @@ export function JobMapPopupForm({
                   "rounded-lg font-semibold uppercase tracking-wide transition-colors",
                   isSheet
                     ? "min-h-12 px-3 py-3 text-sm"
-                    : "flex-1 rounded px-1.5 py-1 text-[9px]",
+                    : "flex-1 rounded px-2 py-1 text-[9px]",
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
@@ -231,7 +231,7 @@ export function JobMapPopupForm({
             value={assignedTechId}
             disabled={saving}
             onChange={(e) => setAssignedTechId(e.target.value)}
-            className={cn(SCHEDULER_INPUT, isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-1.5 text-xs")}
+            className={cn(SCHEDULER_INPUT, isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-2 text-xs")}
           >
             <option value="">Unassigned</option>
             {assignableTechs.map((t) => (
@@ -253,7 +253,7 @@ export function JobMapPopupForm({
           className={cn(
             "flex-1 rounded-md border border-slate-800/80 font-medium text-slate-300",
             SCHEDULER_INTERACTIVE_HOVER,
-            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-2 text-xs"
           )}
         >
           Cancel
@@ -264,7 +264,7 @@ export function JobMapPopupForm({
           onClick={() => void handleSave()}
           className={cn(
             "flex-1 rounded-md bg-primary font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60",
-            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-2 text-xs"
           )}
         >
           {saving ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" aria-hidden /> : "Save changes"}

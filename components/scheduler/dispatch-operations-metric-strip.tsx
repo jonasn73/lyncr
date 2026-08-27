@@ -41,7 +41,7 @@ function MetricCell({
     return (
       <div
         className={cn(
-          "inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/90 px-2.5 py-1",
+          "inline-flex shrink-0 snap-start items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-1",
           className
         )}
       >
@@ -62,7 +62,7 @@ function MetricCell({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-zinc-800/60 bg-zinc-950/40 px-2 py-1.5",
+        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-zinc-800/60 bg-zinc-950/40 px-2 py-2",
         className
       )}
     >
@@ -135,9 +135,9 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       <div
         className={cn(
           showPillRow
-            ? "flex flex-nowrap gap-1.5 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            : "grid grid-cols-2 gap-1.5 px-2.5 py-2 sm:grid-cols-4",
-          sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-2.5 py-1.5",
+            ? "flex flex-nowrap gap-2 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "grid grid-cols-2 gap-2 px-3 py-2 sm:grid-cols-4",
+          sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-3 py-2",
           !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
         )}
       >
@@ -173,7 +173,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           <Button
             type="button"
             size="sm"
-            className="h-7 shrink-0 snap-start gap-1.5 rounded-full bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground"
+            className="h-7 shrink-0 snap-start gap-2 rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-3 w-3" aria-hidden />
@@ -184,15 +184,15 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       {!showPillRow && inboundCallPanel && !hidePrimaryAction ? (
         <div
           className={cn(
-            "px-2.5 pb-2",
+            "px-3 pb-2",
             sidebar ? "pt-0" : "px-3 md:px-8",
-            !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5"
+            !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-3"
           )}
         >
           <Button
             type="button"
             size="sm"
-            className="h-8 w-full gap-1.5 bg-primary font-semibold text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
+            className="h-8 w-full gap-2 bg-primary font-semibold text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-4 w-4" aria-hidden />

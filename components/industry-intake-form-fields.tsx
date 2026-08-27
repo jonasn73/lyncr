@@ -129,7 +129,7 @@ export function IndustryIntakeFormFields({
               // opens a picker that has to be scrolled and confirmed — three gestures
               // and a covered screen, while someone is talking. These are one tap, and
               // every choice is readable without opening anything.
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {field.options?.map((opt) => {
                   const active = String(values[field.name] ?? "") === opt
                   return (

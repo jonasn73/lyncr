@@ -576,7 +576,7 @@ function KeyThumbnail({
         )}
       </div>
       {!showImage ? (
-        <p className="border-t border-slate-800/80 px-2 py-1.5 text-center text-[9px] leading-snug text-slate-500">
+        <p className="border-t border-slate-800/80 px-2 py-2 text-center text-[9px] leading-snug text-slate-500">
           Verify button configuration with customer to confirm selection.
         </p>
       ) : null}
@@ -609,7 +609,7 @@ export function KeySelectionCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "relative w-full touch-manipulation rounded-xl border p-2.5 text-left transition-colors",
+          "relative w-full touch-manipulation rounded-xl border p-3 text-left transition-colors",
           disabled && "cursor-not-allowed opacity-40",
           !disabled && selected
             ? "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/45"
@@ -936,7 +936,7 @@ function FccProfileSection({
         >
           Key blank options
         </button>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <CompatibleVehiclesHint summary={detail.compatible_summary} />
           <a
             href={`https://fccid.io/${encodeURIComponent(p.fcc_id.replace(/\s+/g, ""))}/Remote-Keyfob-Replacement`}
@@ -993,7 +993,7 @@ function CollapsedFccSummary({
       type="button"
       disabled={disabled}
       onClick={onToggle}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-2.5 py-2 text-left hover:border-primary/40"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-left hover:border-primary/40"
     >
       <span className="min-w-0 truncate text-xs font-semibold text-slate-200">
         {layoutCount > 0
@@ -1035,7 +1035,7 @@ function PanelToolbar({
         <button
           type="button"
           onClick={onManualBypass}
-          className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary hover:bg-primary/15"
+          className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary hover:bg-primary/15"
         >
           Can&apos;t find FCC ID? Choose manually
         </button>
@@ -1116,7 +1116,7 @@ function ManualFrequencyGrid({
         <button
           type="button"
           onClick={() => setShowMoreKeys((prev) => !prev)}
-          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
+          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold text-primary hover:bg-primary/10"
         >
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
           {expanded ? "Show less" : `Show ${hiddenCount} more option${hiddenCount === 1 ? "" : "s"}`}
@@ -1830,21 +1830,21 @@ export function VehicleKeyInfoPanel({
       ) : null}
 
       {lookupSource === "ymm_fallback" && activeFccQuery ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-[11px] text-amber-100">
           No exact FCC match for <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span>
           — showing all remotes registered to this {year} {make} {info.model}.
         </p>
       ) : null}
 
       {lookupSource === "fcc" && activeFccQuery ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-[11px] text-emerald-100">
           Matched FCC <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span> — confirm the
           photo on the customer&apos;s key.
         </p>
       ) : null}
 
       {info.match_type === "family" && info.matched_model !== info.model ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-[11px] text-amber-100">
           No exact match for <span className="font-medium">{info.model}</span> — showing closest reference:{" "}
           <span className="font-medium">{info.matched_model}</span>. Confirm on the vehicle before ordering keys.
         </p>

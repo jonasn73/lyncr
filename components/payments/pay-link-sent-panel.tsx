@@ -94,7 +94,7 @@ export function PayLinkSentPanel({
         <button
           type="button"
           onClick={onTextAgain}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 py-3 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
         >
           <MessageSquare className="h-4 w-4" aria-hidden />
           Text again

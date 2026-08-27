@@ -72,7 +72,7 @@ export function PhoneLinesListContent({
                   onClick={() => onLinePress(line)}
                   className={cn(
                     "w-full px-3 py-3 text-left transition-transform motion-safe:active:scale-[0.99]",
-                    transferInProgress ? "pb-1.5" : undefined
+                    transferInProgress ? "pb-2" : undefined
                   )}
                 >
                   <span

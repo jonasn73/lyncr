@@ -29,7 +29,7 @@ import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 const RING_OPTIONS = [15, 20, 30, 45, 60] as const
 
@@ -412,7 +412,7 @@ export function DashboardCallFlowConfigureDrawer({
         ) : (
           <>
             {currentTab === "routing" ? (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <fieldset className="space-y-2">
                   <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Who answers first
@@ -553,7 +553,7 @@ export function DashboardCallFlowConfigureDrawer({
                       <button
                         type="button"
                         onClick={() => setMoreRoutingOpen((o) => !o)}
-                        className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                        className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
                         aria-expanded={moreRoutingOpen}
                       >
                         <span className="text-xs font-semibold text-zinc-400">
@@ -637,7 +637,7 @@ export function DashboardCallFlowConfigureDrawer({
                                 ) : null}
 
                                 {opt.value === "lyncr_pool" && active ? (
-                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200/90">
+                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-3 text-[11px] text-violet-200/90">
                                     Lyncr Pool is active — certified shared agents answer in-browser.
                                   </p>
                                 ) : null}
@@ -700,7 +700,7 @@ export function DashboardCallFlowConfigureDrawer({
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-zinc-300">
                       Re-prompt every (sec)
                     </label>
@@ -724,7 +724,7 @@ export function DashboardCallFlowConfigureDrawer({
                       Music length before we re-speak Busy (20–90). Blank = {holdDefaults.repromptSecs}s.
                     </p>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-zinc-300">
                       Max wait (sec)
                     </label>
@@ -754,7 +754,7 @@ export function DashboardCallFlowConfigureDrawer({
                   <button
                     type="button"
                     onClick={() => setHolidayOpen((o) => !o)}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
                     aria-expanded={holidayOpen}
                   >
                     <span className="text-xs font-semibold text-zinc-300">
@@ -771,7 +771,7 @@ export function DashboardCallFlowConfigureDrawer({
                   {holidayOpen ? (
                     <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <label htmlFor="configure-holiday-start" className="text-[11px] font-medium text-zinc-400">
                             Starts
                           </label>
@@ -785,7 +785,7 @@ export function DashboardCallFlowConfigureDrawer({
                             className={cn(fieldClass, "min-h-10")}
                           />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <label htmlFor="configure-holiday-end" className="text-[11px] font-medium text-zinc-400">
                             Ends
                           </label>
@@ -800,7 +800,7 @@ export function DashboardCallFlowConfigureDrawer({
                           />
                         </div>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <label htmlFor="configure-holiday-text" className="text-[11px] font-medium text-zinc-400">
                           Holiday greeting (text-to-speech)
                         </label>
@@ -836,7 +836,7 @@ export function DashboardCallFlowConfigureDrawer({
             ) : null}
 
             {currentTab === "security" ? (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <section className="space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
                   <label htmlFor="configure-bypass" className="text-xs font-semibold text-amber-200">
                     Secret technician bypass

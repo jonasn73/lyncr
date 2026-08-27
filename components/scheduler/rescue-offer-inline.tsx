@@ -100,7 +100,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
       </button>
 
       {smsMessage ? (
-        <p className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-300">
+        <p className="flex items-center gap-2 text-[10px] font-semibold text-emerald-300">
           <Sparkles className="h-3 w-3" aria-hidden />
           {smsMessage}
         </p>

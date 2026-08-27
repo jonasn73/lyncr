@@ -271,7 +271,7 @@ function MissedLeadCard({
             onClick={handleCallBack}
             className={cn(
               "inline-flex w-full items-center justify-center gap-2 rounded-xl",
-              "border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5",
+              "border border-emerald-500/40 bg-emerald-500/15 px-4 py-3",
               "text-sm font-semibold text-emerald-200 transition-all",
               "hover:bg-emerald-500/25 active:scale-95",
               MOBILE_TAP_TARGET
@@ -284,7 +284,7 @@ function MissedLeadCard({
             type="button"
             onClick={() => onSendBookLink(item)}
             className={cn(
-              "inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
               "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20",
               MOBILE_TAP_TARGET
             )}
@@ -296,7 +296,7 @@ function MissedLeadCard({
         <p className="mt-2 text-xs text-slate-500">No dialable number on this log.</p>
       )}
       {item.count > 1 && item.times.length > 0 ? (
-        <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-medium leading-snug text-amber-100/90">
+        <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-medium leading-snug text-amber-100/90">
           Called today at {item.times.join(" · ")}
         </p>
       ) : null}

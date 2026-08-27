@@ -81,7 +81,7 @@ export function SmsAlertBanner() {
       <button
         type="button"
         onClick={() => openCarrierRegistrationModal({ edit: needsAttention })}
-        className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20"
+        className="rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20"
       >
         {needsAttention ? "Fix registration →" : isPending ? "View status →" : "Set up SMS →"}
       </button>

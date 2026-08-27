@@ -155,7 +155,7 @@ export function SalesTaxSettingsSheet({
                     value={ratePercent}
                     onChange={(e) => setRatePercent(e.target.value)}
                     disabled={!enabledDefault}
-                    className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-right text-sm tabular-nums text-white outline-none disabled:opacity-40"
+                    className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-right text-sm tabular-nums text-white outline-none disabled:opacity-40"
                   />
                   <span className="text-sm text-slate-400">%</span>
                 </div>

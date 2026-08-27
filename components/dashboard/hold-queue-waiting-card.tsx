@@ -257,7 +257,7 @@ export function HoldQueueWaitingCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-amber-500/35 bg-amber-500/5 px-4 py-3.5 sm:px-5",
+        "rounded-2xl border border-amber-500/35 bg-amber-500/5 px-4 py-4 sm:px-6",
         className
       )}
       aria-label="Hold queue waiting"
@@ -311,7 +311,7 @@ export function HoldQueueWaitingCard({
             <li
               key={c.id}
               // Stack on narrow screens so the phone isn’t squeezed beside buttons.
-              className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
             >
               <div className="min-w-0 flex-1">
                 {/* Keep the full number on one line; tabular nums read cleaner. */}
@@ -344,7 +344,7 @@ export function HoldQueueWaitingCard({
                   </p>
                 ) : null}
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {c.callerE164 ? (
                   <SendBookLinkButton
                     phone={c.callerE164}
@@ -356,7 +356,7 @@ export function HoldQueueWaitingCard({
                 {answerLockedBriefly ? (
                   // Short lock only while the Busy greeting speaks (~8s).
                   <span
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
                     title={`Answer unlocks after ~${Math.round(busyMenuAnswerUnlockMs() / 1000)}s while the Busy greeting plays.`}
                   >
                     Can’t answer yet
@@ -368,7 +368,7 @@ export function HoldQueueWaitingCard({
                     disabled={answeringId === c.id || !canAnswer || c.status === "bridging"}
                     onClick={() => void answerCaller(c.id)}
                     className={cn(
-                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50",
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50",
                       MOBILE_TAP_TARGET
                     )}
                   >

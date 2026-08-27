@@ -75,7 +75,7 @@ export function InviteModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
       >
         <UserPlus className="h-4 w-4" aria-hidden />
         Invite receptionist
@@ -134,14 +134,14 @@ export function InviteModal() {
                   <button
                     type="button"
                     onClick={reset}
-                    className="rounded-lg border border-slate-600 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
                   >
                     Invite another
                   </button>
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-500"
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
                   >
                     Done
                   </button>
@@ -204,7 +204,7 @@ export function InviteModal() {
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg border border-slate-600 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
                   >
                     Cancel
                   </button>

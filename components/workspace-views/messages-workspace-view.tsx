@@ -931,7 +931,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 w-[5.5rem] shrink-0 px-2.5 text-xs"
+          className="h-8 w-[5.5rem] shrink-0 px-3 text-xs"
           disabled={loading}
           onClick={() => void loadMessages()}
         >
@@ -1119,10 +1119,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   </p>
                 </div>
                 {/* Fixed chip strip — CRM / Collect appear without growing the row. */}
-                <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
+                <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-2">
                   <div
                     className={cn(
-                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground",
+                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-3 text-[11px] font-semibold text-foreground",
                       !showCrmChip && "invisible pointer-events-none"
                     )}
                     aria-hidden={!showCrmChip}
@@ -1147,7 +1147,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openCollectForThread}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25"
                       aria-label="Collect payment"
                     >
                       <CreditCard className="h-3.5 w-3.5" aria-hidden />
@@ -1160,7 +1160,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               {/* Banner strip always reserved — booking / no-form copy swaps inside. */}
               <div className="min-h-[4.5rem] shrink-0 border-b border-border/60">
                 {showBookingDetailsBanner ? (
-                  <div className="border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
+                  <div className="border-b border-orange-500/30 bg-orange-500/10 px-3 py-3 md:px-4">
                     <p className="truncate text-[11px] font-medium text-orange-100/90">
                       {threadBookForm?.customerName
                         ? `${threadBookForm.customerName} submitted a booking`
@@ -1172,14 +1172,14 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openBookingDetailsFromBanner}
-                      className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
+                      className="mt-1.5 inline-flex items-center gap-2 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
                     >
                       <ClipboardList className="h-3.5 w-3.5" />
                       View booking details
                     </button>
                   </div>
                 ) : showNoFormYetCue ? (
-                  <div className="bg-muted/20 px-3 py-2.5 md:px-4">
+                  <div className="bg-muted/20 px-3 py-3 md:px-4">
                     <p className="text-[11px] font-medium text-muted-foreground">
                       No booking form yet. Reply here — or they can use the book link you sent.
                     </p>
@@ -1208,7 +1208,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     >
                       <div
                         className={cn(
-                          "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug",
+                          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug",
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
@@ -1240,20 +1240,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 <div ref={bottomRef} />
               </div>
 
-              <div className="shrink-0 border-t border-border/60 px-3 py-2.5 md:px-4 md:py-3">
+              <div className="shrink-0 border-t border-border/60 px-3 py-3 md:px-4">
                 {sendError ? (
                   <p className="mb-2 text-xs text-red-300">{sendError}</p>
                 ) : null}
 
                 {/* Quick reply chips — tap fills the box. You still tap Send. */}
                 {replySuggest.chips.length > 0 ? (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {replySuggest.chips.map((chip) => (
                       <button
                         key={chip.id}
                         type="button"
                         onClick={() => setDraft(chip.body)}
-                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
                       >
                         {chip.label}
                       </button>
@@ -1279,13 +1279,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 ) : null}
 
                 {aiDrafts.length > 1 ? (
-                  <div className="mb-2 space-y-1.5">
+                  <div className="mb-2 space-y-2">
                     {aiDrafts.map((option, idx) => (
                       <button
                         key={`ai-draft-${idx}`}
                         type="button"
                         onClick={() => setDraft(option)}
-                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 text-left text-[11px] leading-snug text-foreground/90 hover:bg-muted/40"
+                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-[11px] leading-snug text-foreground/90 hover:bg-muted/40"
                       >
                         {option}
                       </button>

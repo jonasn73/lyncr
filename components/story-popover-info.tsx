@@ -52,7 +52,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
       >
         <div
           className={cn(
-            "border-b px-3 py-2.5",
+            "border-b px-3 py-3",
             op
               ? "border-violet-500/35 bg-gradient-to-br from-violet-950/90 via-slate-900 to-slate-950"
               : "border-primary/20 bg-gradient-to-br from-primary/[0.12] via-card to-card"
@@ -75,7 +75,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         </div>
         <div
           className={cn(
-            "space-y-2 px-3 py-2.5 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
+            "space-y-2 px-3 py-3 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
             op
               ? "text-slate-400 [&_p]:text-slate-400 [&_strong]:text-slate-200 [&_code]:bg-slate-900 [&_code]:text-violet-200"
               : "text-muted-foreground [&_code]:bg-muted"

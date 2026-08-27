@@ -179,7 +179,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   if (lookup.has_open_book_form) chips.push("Booking form waiting")
 
   return (
-    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5">
+    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
           Returning customer
@@ -392,7 +392,7 @@ export function ReceptionistLiveIntake({
     return (
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-2.5 shadow-2xl",
+          "fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-3 shadow-2xl",
           // The mobile bottom tab nav (ReceptionistPortalChrome) is also fixed to the
           // viewport edge below `sm`, so a flush bar here sat on top of it and blocked
           // Home / Calls / Earnings while a call was minimized. Float above the nav
@@ -402,7 +402,7 @@ export function ReceptionistLiveIntake({
         )}
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
               <PhoneCall className="h-4 w-4" aria-hidden />
             </span>
@@ -417,7 +417,7 @@ export function ReceptionistLiveIntake({
           <button
             type="button"
             onClick={() => setMinimized(false)}
-            className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
+            className="shrink-0 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
           >
             Resume intake
           </button>
@@ -432,7 +432,7 @@ export function ReceptionistLiveIntake({
       <div
         className={cn(
           "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-950/95 backdrop-blur",
-          denseStep ? "px-4 py-2.5" : "px-4 py-4"
+          denseStep ? "px-4 py-3" : "px-4 py-4"
         )}
       >
         <div className="flex items-center gap-3">
@@ -505,7 +505,7 @@ export function ReceptionistLiveIntake({
 
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
-        <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-4 py-2">
+        <div className="flex items-center gap-2 border-b border-emerald-500/20 px-4 py-2">
           {steps.map((s, i) => (
             <button
               key={s.id}
@@ -530,7 +530,7 @@ export function ReceptionistLiveIntake({
       ) : null}
 
       {/* Intake form */}
-      <div className="px-4 py-5">
+      <div className="px-4 py-6">
         <h2 className="text-sm font-semibold text-foreground">
           {step ? step.label : config.title}
         </h2>
@@ -568,7 +568,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("BOOKED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="h-4 w-4" aria-hidden />
               Booked
@@ -577,7 +577,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("PENDING_TIME")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Clock className="h-4 w-4" aria-hidden />
               Pending time
@@ -586,7 +586,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("PRICE_REJECTED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-4 w-4" aria-hidden />
               Price rejected
@@ -595,7 +595,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("FAILED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-500/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <AlertTriangle className="h-4 w-4" aria-hidden />
               Failed
@@ -615,7 +615,7 @@ export function ReceptionistLiveIntake({
                   })
                 }
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 Back

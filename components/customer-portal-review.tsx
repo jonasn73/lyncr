@@ -39,7 +39,7 @@ export function CustomerPortalReview({
         subtitle="This review link is no longer available."
         centered
       >
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-5 text-center text-sm text-zinc-400">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-zinc-400">
           Ask the business to send a fresh thank-you text if you still want to leave a review.
         </div>
       </CustomerPortalShell>
@@ -61,7 +61,7 @@ export function CustomerPortalReview({
         </p>
         <a
           href={destinationUrl}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
         >
           Leave a review
           <ExternalLink className="h-4 w-4" aria-hidden />

@@ -386,7 +386,7 @@ export function OperatorOnboardingDashboard() {
                         <li key={key}>
                           <label
                             className={cn(
-                              "flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors",
+                              "flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                               checked
                                 ? "border-emerald-500/40 bg-emerald-500/10"
                                 : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
@@ -480,7 +480,7 @@ export function OperatorOnboardingDashboard() {
                         <div className="flex shrink-0 items-center gap-2">
                           <span
                             className={cn(
-                              "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                              "inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
                               badge.className
                             )}
                           >
@@ -517,7 +517,7 @@ export function OperatorOnboardingDashboard() {
                   {detailBadge ? (
                     <span
                       className={cn(
-                        "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                        "inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
                         detailBadge.className
                       )}
                     >
@@ -559,7 +559,7 @@ export function OperatorOnboardingDashboard() {
                   {detailNotice}
                   {detailManualLink ? (
                     <span className="mt-3 block space-y-2">
-                      <span className="block break-all rounded-md bg-black/20 px-2 py-1.5 font-mono text-[10px]">
+                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-[10px]">
                         {detailManualLink}
                       </span>
                       <Button

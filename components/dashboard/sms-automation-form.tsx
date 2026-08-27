@@ -358,7 +358,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
             aria-selected={tab === t.id}
             onClick={() => selectTab(t.id)}
             className={cn(
-              "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              "shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
               tab === t.id
                 ? "bg-primary/20 text-primary ring-1 ring-primary/35"
                 : "bg-muted/40 text-zinc-400 hover:bg-muted/70 hover:text-foreground"
@@ -370,11 +370,11 @@ export function SmsAutomationForm({ onSaved }: Props) {
       </div>
 
       {showTagChips ? (
-        <div className="shrink-0 space-y-2 rounded-xl border border-primary/25 bg-card/95 px-3 py-2.5">
+        <div className="shrink-0 space-y-2 rounded-xl border border-primary/25 bg-card/95 px-3 py-3">
           <p className="text-[11px] text-zinc-400">
             Tap a tag into <span className="font-semibold text-foreground">{activeLabel}</span>
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {TAGS.filter(({ tag }) => {
               if (tab === "booking") {
                 return (
@@ -497,7 +497,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
               onCaret={rememberCaret}
             />
             <label className="block rounded-xl border border-border/70 bg-muted/20 p-3">
-              <span className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 <Star className="h-3.5 w-3.5 text-amber-300" aria-hidden /> Google review link
               </span>
               <input
@@ -527,7 +527,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
               <div
                 key={meta.key}
                 className={cn(
-                  "space-y-1.5 rounded-lg p-2",
+                  "space-y-2 rounded-lg p-2",
                   activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
                 )}
               >
@@ -574,7 +574,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                   <div
                     key={meta.key}
                     className={cn(
-                      "space-y-1.5 rounded-lg p-2",
+                      "space-y-2 rounded-lg p-2",
                       activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
                     )}
                   >
@@ -623,7 +623,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 type="button"
                 disabled={saving || settings.sms_custom_snippets.length >= MAX_CUSTOM_SNIPPETS}
                 onClick={addSnippet}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/25 disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/25 disabled:opacity-50"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add

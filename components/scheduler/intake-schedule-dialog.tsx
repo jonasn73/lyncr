@@ -215,7 +215,7 @@ export function IntakeScheduleDialog({
           if (saving) e.preventDefault()
         }}
       >
-        <div className="border-b border-border/60 bg-emerald-500/10 px-5 py-4 sm:px-6">
+        <div className="border-b border-border/60 bg-emerald-500/10 px-6 py-4">
           <DialogHeader className="gap-2 text-left">
             <div className="flex items-center gap-2 text-emerald-400">
               <CalendarClock className="h-5 w-5 shrink-0" aria-hidden />
@@ -237,7 +237,7 @@ export function IntakeScheduleDialog({
           ) : null}
 
           {notFound && !loading ? (
-            <div className="px-6 py-5">
+            <div className="px-6 py-6">
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 This job could not be found in the active pool. It may already be scheduled.
               </div>
@@ -246,7 +246,7 @@ export function IntakeScheduleDialog({
 
           {job && !loading ? (
             <div className="grid min-h-[420px] md:grid-cols-2 md:divide-x md:divide-border/60">
-              <div className="space-y-4 px-5 py-5 sm:px-6">
+              <div className="space-y-4 px-6 py-6">
                 <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Customer
@@ -271,7 +271,7 @@ export function IntakeScheduleDialog({
                 </div>
 
                 <div className="grid gap-3">
-                  <div className="grid gap-1.5 text-sm">
+                  <div className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Date</span>
                     <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
@@ -314,7 +314,7 @@ export function IntakeScheduleDialog({
                     </Popover>
                   </div>
 
-                  <label className="grid gap-1.5 text-sm">
+                  <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Time</span>
                     <select
                       className={fieldClass}
@@ -346,7 +346,7 @@ export function IntakeScheduleDialog({
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="grid gap-1.5 text-sm">
+                  <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Duration</span>
                     <select
                       className={fieldClass}
@@ -361,7 +361,7 @@ export function IntakeScheduleDialog({
                       ))}
                     </select>
                   </label>
-                  <label className="grid gap-1.5 text-sm">
+                  <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Assign tech</span>
                     <select
                       className={cn(fieldClass, assignableTechs.length === 0 && "opacity-70")}
@@ -392,7 +392,7 @@ export function IntakeScheduleDialog({
                 ) : null}
               </div>
 
-              <div className="flex min-h-[280px] flex-col px-5 py-5 sm:px-6 md:min-h-0">
+              <div className="flex min-h-[280px] flex-col px-6 py-6 md:min-h-0">
                 {agendaLoading ? (
                   <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -415,7 +415,7 @@ export function IntakeScheduleDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="gap-2 border-t border-border/60 bg-muted/10 px-5 py-4 sm:justify-between sm:px-6">
+        <DialogFooter className="gap-2 border-t border-border/60 bg-muted/10 px-6 py-4 sm:justify-between">
           <Button type="button" variant="ghost" onClick={onSkip} disabled={saving || loading}>
             Skip for now
           </Button>

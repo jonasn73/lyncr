@@ -80,7 +80,7 @@ const SECTION_LABEL =
 
 /** Compact Call / SMS chips — shorter than the old full-width stacked buttons. */
 const CONTACT_BTN =
-  "inline-flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
+  "inline-flex min-h-[34px] flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-semibold transition-colors disabled:opacity-50"
 
 /** Smaller quick-action cells for the collapsed “More actions” grid. */
 const ACTION_BTN =
@@ -233,7 +233,7 @@ export function JobDetailOverview({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Sticky header — name, badge, phone, Call/SMS, Edit stay visible while body scrolls */}
       <header className="relative shrink-0 border-b border-border/50 px-4 py-2 pr-12">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground md:text-lg">
             {customerName}
           </h2>
@@ -261,7 +261,7 @@ export function JobDetailOverview({
         </div>
 
         {/* Phone + Call / SMS on one compact row */}
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="mt-1.5 flex items-center gap-2">
           <p className="min-w-0 flex-1 truncate font-mono text-xs text-slate-300">
             {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
           </p>
@@ -360,7 +360,7 @@ export function JobDetailOverview({
         />
 
         {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
-        <section className="mt-2 space-y-1.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
+        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -404,7 +404,7 @@ export function JobDetailOverview({
           </div>
 
           <div className={SCHEDULER_FIELD_STACK}>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <UserRound className="h-3 w-3 text-slate-500" aria-hidden />
               <p className={SECTION_LABEL}>Assign tech</p>
             </div>
@@ -491,7 +491,7 @@ export function JobDetailOverview({
           )}
           {showMoreActions ? (
             <div className={cn(isMobile && "mt-1.5")}>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <button
                   type="button"
                   // Already cancelled → disabled with clear label (not a dead tap).
@@ -583,7 +583,7 @@ export function JobDetailOverview({
                 placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
                 onChange={(e) => onJobNotesChange(e.target.value)}
                 onBlur={() => onSaveJobNotes()}
-                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-2.5 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
+                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
               />
             </div>
           ) : null}

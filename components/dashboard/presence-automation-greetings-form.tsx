@@ -277,7 +277,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               rows={5}
               value={draft.busy}
               onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
-              className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-2.5")}
+              className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-3")}
               placeholder={DEFAULT_BUSY_GREETING_TEXT}
             />
           </div>
@@ -289,7 +289,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-zinc-300">
                 Re-prompt every (sec)
               </label>
@@ -310,7 +310,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 placeholder={String(holdDefaults.repromptSecs)}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-zinc-300">
                 Max wait (sec)
               </label>
@@ -337,7 +337,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             <button
               type="button"
               onClick={() => setHolidayOpen((o) => !o)}
-              className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+              className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
               aria-expanded={holidayOpen}
             >
               <span className="text-xs font-semibold text-zinc-300">
@@ -358,7 +358,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                   instead of the Busy greeting.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label htmlFor="holiday-start" className="text-[11px] font-medium text-zinc-400">
                       Starts
                     </label>
@@ -372,7 +372,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                       className={cn(fieldClass, "min-h-10 px-3 py-2")}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label htmlFor="holiday-end" className="text-[11px] font-medium text-zinc-400">
                       Ends
                     </label>
@@ -385,7 +385,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label
                     htmlFor="holiday-greeting-text"
                     className="text-[11px] font-medium text-zinc-400"
@@ -397,7 +397,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                     rows={4}
                     value={draft.holidayText}
                     onChange={(e) => setDraft((d) => ({ ...d, holidayText: e.target.value }))}
-                    className={cn(fieldClass, "min-h-[6rem] resize-y px-3 py-2.5")}
+                    className={cn(fieldClass, "min-h-[6rem] resize-y px-3 py-3")}
                     placeholder="Thanks for calling Key Squad. We are closed for the holiday…"
                   />
                 </div>
@@ -419,7 +419,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             ) : null}
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
             <p className="text-xs font-semibold text-zinc-300">Text after missed call</p>
             <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
               Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call

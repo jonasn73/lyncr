@@ -52,7 +52,7 @@ function TelemetryPill({
   const rolled = useAnimatedNumber(animatedValue ?? 0, { formatter: animatedFormatter })
   const displayValue = animatedValue != null ? rolled : value
   const sharedClasses = cn(
-    "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-2.5 py-1.5",
+    "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-3 py-2",
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
     tone === "amber" && "border-amber-500/25 text-amber-100/90",
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
@@ -264,7 +264,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   return (
     <>
       <section
-        className={cn("w-full space-y-1.5 py-0 md:hidden", className)}
+        className={cn("w-full space-y-2 py-0 md:hidden", className)}
         aria-label="Today's dispatch metrics"
       >
         {/* Tighter 3×2 on mobile so Latest / Messages sit higher in the viewport. */}

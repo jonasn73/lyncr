@@ -41,7 +41,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        "w-full rounded-2xl border px-4 py-3.5 sm:px-5 sm:py-4",
+       "w-full rounded-2xl border px-4 py-4 sm:px-6",
         // Fixed min height covers Available + Busy subtitle + one desktop note line.
         "min-h-[5.75rem] md:min-h-[6.75rem]",
         isBusy
@@ -89,7 +89,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
         </div>
         <div
           className={cn(
-            "flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5",
+            "flex shrink-0 items-center gap-2 rounded-full px-2 py-2",
             isBusy && "bg-amber-500/25 ring-2 ring-amber-300"
           )}
         >

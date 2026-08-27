@@ -141,7 +141,7 @@ function NetworkInstructionsPanel() {
             </p>
           </div>
         </div>
-        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-flex">
+        <span className="hidden shrink-0 items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-flex">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
           Live operators
         </span>
@@ -162,7 +162,7 @@ function NetworkInstructionsPanel() {
           "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
           "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
         }
-        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
       />
 
       {error ? (
@@ -480,7 +480,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Open Who answers
             </Link>
@@ -520,7 +520,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <button
               type="button"
               onClick={() => openTeamInviteModal()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" aria-hidden /> Add
             </button>
@@ -542,11 +542,11 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 const hasEmail = Boolean(inv.email?.includes("@"))
                 const busy = inviteBusyId === inv.id
                 return (
-                  <div key={inv.id} className="space-y-1.5 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
+                  <div key={inv.id} className="space-y-2 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
                     <p className="min-w-0 truncate text-xs text-zinc-400">
                       {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
                     </p>
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => void copyInviteLink(inv)}
@@ -595,7 +595,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                       </button>
                     </div>
                     {inviteActionError?.id === inv.id ? (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] leading-snug text-destructive">
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-[10px] leading-snug text-destructive">
                         {inviteActionError.message}
                       </p>
                     ) : null}
@@ -626,7 +626,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 </p>
               </div>
             ) : (
-              <div className="max-h-[420px] space-y-2.5 overflow-y-auto pr-0.5">
+              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-0.5">
                 {members.map((member, i) => {
                   const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
                   const online = isMemberOnline(member)
@@ -634,7 +634,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                   return (
                     <div key={member.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="relative">
                             <Avatar className="h-9 w-9">
                               <AvatarFallback className={cn("text-xs font-semibold text-primary-foreground", color)}>
@@ -654,7 +654,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             <p className="truncate text-xs text-zinc-500">{formatPhoneDisplay(member.phone)}</p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
+                        <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
                             onClick={() =>

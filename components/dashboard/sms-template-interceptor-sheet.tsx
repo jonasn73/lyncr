@@ -49,7 +49,7 @@ export function SmsTemplateInterceptorSheet({
       />
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 rounded-t-2xl p-5 z-50 shadow-2xl",
+          "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 rounded-t-2xl p-6 z-50 shadow-2xl",
           "pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         )}
       >
@@ -79,7 +79,7 @@ export function SmsTemplateInterceptorSheet({
               disabled={sending}
               onClick={() => onSelect(template)}
               className={cn(
-                "w-full text-left p-3.5 bg-slate-900/40 border border-slate-850/60 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer",
+                "w-full text-left p-4 bg-slate-900/40 border border-slate-850/60 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer",
                 "touch-manipulation disabled:cursor-wait disabled:opacity-60"
               )}
             >

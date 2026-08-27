@@ -88,7 +88,7 @@ export function HoldMusicPresetPicker({
         <button
           type="button"
           onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex min-h-10 w-full items-center justify-between gap-2 px-2.5 py-2 text-left"
+          className="flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left"
           aria-expanded={advancedOpen}
         >
           <span className="text-[11px] font-semibold text-zinc-400">Advanced · custom URL</span>
@@ -101,7 +101,7 @@ export function HoldMusicPresetPicker({
           />
         </button>
         {advancedOpen ? (
-          <div className="space-y-1.5 border-t border-zinc-800 px-2.5 pb-2.5 pt-2">
+          <div className="space-y-2 border-t border-zinc-800 px-3 pb-3 pt-2">
             <label htmlFor={`${idPrefix}-url`} className="text-[10px] font-medium text-zinc-500">
               Public HTTPS MP3/WAV
             </label>

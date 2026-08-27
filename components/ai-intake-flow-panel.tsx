@@ -414,7 +414,7 @@ export function AiIntakeFlowPanel({
 
       {/* No voice assistant on file → fallback plays backup voicemail instead of live AI. */}
       {variant === "modal" && aiNoAnswerSelected && !assistantReady && (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-2.5 text-[11px] leading-snug text-foreground">
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/45 bg-destructive/10 px-3 py-3 text-[11px] leading-snug text-foreground">
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-destructive">Voice assistant is not linked yet</p>
             <p className="mt-1 text-muted-foreground">
@@ -471,7 +471,7 @@ export function AiIntakeFlowPanel({
           onChange={(e) => setAiIntake((p) => ({ ...p, busyGreeting: e.target.value }))}
           rows={variant === "modal" ? 3 : 4}
           placeholder={DEFAULT_BUSY_GREETING_LOCKSMITH}
-          className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
         />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <button
@@ -499,22 +499,22 @@ export function AiIntakeFlowPanel({
             <div className="flex justify-end">
               <StoryPopoverInfo storyKey="ai-locksmith-intake-extras" label="About locksmith extras" triggerClassName="h-7 w-7" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-[11px] font-semibold text-muted-foreground">Extra — car keys</label>
               <textarea
                 value={aiIntake.carKeyNotes}
                 onChange={(e) => setAiIntake((p) => ({ ...p, carKeyNotes: e.target.value }))}
                 rows={2}
-                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm"
+                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-[11px] font-semibold text-muted-foreground">Extra — lockouts</label>
               <textarea
                 value={aiIntake.lockoutNotes}
                 onChange={(e) => setAiIntake((p) => ({ ...p, lockoutNotes: e.target.value }))}
                 rows={2}
-                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm"
+                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm"
               />
             </div>
           </>
@@ -529,10 +529,10 @@ export function AiIntakeFlowPanel({
           onChange={(e) => setAiIntake((p) => ({ ...p, otherNotes: e.target.value }))}
           rows={variant === "modal" ? 2 : 2}
           placeholder="Optional notes for the AI script"
-          className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm"
+          className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm"
         />
 
-        <div className="flex items-center justify-between rounded-xl border border-border/70 bg-secondary/35 px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-xl border border-border/70 bg-secondary/35 px-3 py-3">
           <div className="min-w-0 pr-2">
             <p className="text-xs font-semibold text-foreground">Text me new leads</p>
             <p className="text-[10px] text-muted-foreground">SMS when a lead is saved (if messaging is enabled).</p>
@@ -567,7 +567,7 @@ export function AiIntakeFlowPanel({
             const v = e.target.value
             setScriptChoice(v === "auto" ? "auto" : (v as AiIntakeProfileId))
           }}
-          className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+          className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm text-foreground focus:border-primary focus:outline-none"
         >
           <option value="auto">Auto — match my industry ({industryLabel(userIndustry)})</option>
           {AI_INTAKE_PROFILE_IDS.map((id) => (
@@ -599,11 +599,11 @@ export function AiIntakeFlowPanel({
               {flow.branches.map((b, idx) => (
                 <div
                   key={`${b.intent_slug}-${idx}`}
-                  className="rounded-xl border border-border/60 bg-secondary/40 px-3 py-2.5"
+                  className="rounded-xl border border-border/60 bg-secondary/40 px-3 py-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-xs font-semibold text-foreground">{b.title}</p>
-                    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-[9px] text-muted-foreground">
                       {b.intent_slug}
                     </span>
                   </div>
@@ -646,7 +646,7 @@ export function AiIntakeFlowPanel({
               <p className="text-[10px] text-muted-foreground">Loading suggestions…</p>
             ) : null}
             {catalogError ? (
-              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[10px] text-destructive">
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-2 text-[10px] text-destructive">
                 {displayUserFacingMessage(catalogError)}
               </p>
             ) : null}
@@ -672,7 +672,7 @@ export function AiIntakeFlowPanel({
                 value={aiAdvanced.telnyxModel}
                 onChange={(e) => setAiAdvanced((p) => ({ ...p, telnyxModel: e.target.value }))}
                 placeholder="Platform default if empty"
-                className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 autoComplete="off"
               />
               <datalist id={modelListId}>
@@ -695,7 +695,7 @@ export function AiIntakeFlowPanel({
                 value={aiAdvanced.telnyxVoice}
                 onChange={(e) => setAiAdvanced((p) => ({ ...p, telnyxVoice: e.target.value }))}
                 placeholder="Platform default if empty"
-                className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 autoComplete="off"
               />
               <datalist id={voiceListId}>
@@ -704,7 +704,7 @@ export function AiIntakeFlowPanel({
                 ))}
               </datalist>
               {!catalogLoading && voiceOptions.length > 0 ? (
-                <div className="mt-2 space-y-1.5 rounded-xl border border-border/60 bg-secondary/30 p-2">
+                <div className="mt-2 space-y-2 rounded-xl border border-border/60 bg-secondary/30 p-2">
                   <p className="text-[9px] font-medium text-muted-foreground">
                     Review voices — same sample line for each (cloud preview when available; else browser).
                   </p>
@@ -712,7 +712,7 @@ export function AiIntakeFlowPanel({
                     {voiceOptions.slice(0, 50).map((v) => (
                       <li
                         key={v.id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-card/60 px-2 py-1.5 text-[10px]"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-card/60 px-2 py-2 text-[10px]"
                       >
                         <span className="min-w-0 truncate font-mono text-[9px] text-foreground" title={v.id}>
                           {v.label || v.id}
@@ -760,7 +760,7 @@ export function AiIntakeFlowPanel({
                 onChange={(e) => setAiAdvanced((p) => ({ ...p, extraAiInstructions: e.target.value }))}
                 rows={variant === "modal" ? 3 : 4}
                 placeholder="Policies, tone, languages…"
-                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
             </div>
             <p className="text-[9px] text-muted-foreground">
@@ -811,7 +811,7 @@ export function AiIntakeFlowPanel({
           <StoryPopoverInfo storyKey="ai-manual-assistant-id" label="About manual assistant ID" triggerClassName="h-7 w-7" />
         </div>
         {showAdvancedAssistantId && (
-          <div className="space-y-1.5 rounded-lg border border-border/60 bg-secondary/40 p-2">
+          <div className="space-y-2 rounded-lg border border-border/60 bg-secondary/40 p-2">
             <p className="text-[10px] leading-relaxed text-muted-foreground">
               Only if support gave you an ID to use. Leave empty otherwise.
             </p>
@@ -820,7 +820,7 @@ export function AiIntakeFlowPanel({
               value={telnyxAssistantId}
               onChange={(e) => setTelnyxAssistantId(e.target.value)}
               placeholder="Paste ID if support told you to"
-              className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              className="w-full rounded-xl border border-border/70 bg-secondary px-3 py-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               autoComplete="off"
             />
           </div>
@@ -841,7 +841,7 @@ export function AiIntakeFlowPanel({
   if (variant === "page") {
     return (
       <form
-        className="mx-auto max-w-lg space-y-5 px-4 py-6 pb-28"
+        className="mx-auto max-w-lg space-y-6 px-4 py-6 pb-28"
         onSubmit={(e) => {
           submitFormEvent(e)
           if (!saving) void handleSave()

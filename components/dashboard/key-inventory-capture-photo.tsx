@@ -131,7 +131,7 @@ export function KeyInventoryCapturePhotoButton({
   }
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- operator capture / API image

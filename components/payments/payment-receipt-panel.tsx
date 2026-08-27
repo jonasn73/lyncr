@@ -68,7 +68,7 @@ export function PaymentReceiptPanel({
               type="button"
               onClick={() => onReceiptChannelChange("email")}
               className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "email"
                   ? "bg-zinc-700 text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
@@ -81,7 +81,7 @@ export function PaymentReceiptPanel({
               type="button"
               onClick={() => onReceiptChannelChange("sms")}
               className={cn(
-                "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "sms"
                   ? "bg-zinc-700 text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
@@ -151,7 +151,7 @@ export function PaymentReceiptPanel({
         type="button"
         disabled={receiptBusy}
         onClick={onSkip}
-        className="w-full rounded-xl py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
+        className="w-full rounded-xl py-3 text-sm font-semibold text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
       >
         {skipLabel}
       </button>

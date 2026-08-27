@@ -89,7 +89,7 @@ const ADD_CHOICES: { kind: PayComponentKind; label: string; blurb: string }[] = 
 ]
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
 const selectClass = cn(inputClass, "appearance-none")
 
 /** Rate entry in dollars, kept as micros. Allows the sub-cent values a per-second rate needs. */
@@ -542,7 +542,7 @@ function PlanCostPanel({
     employmentType === "W2_EMPLOYEE" && components.some((c) => c.kind === "MINIMUM_WAGE_TOPUP")
 
   return (
-    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
           Last 30 days, this plan would have cost
@@ -703,7 +703,7 @@ function PayPlanForm({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               How they work for you
             </p>
@@ -712,7 +712,7 @@ function PayPlanForm({
               either. It&apos;s about how the work happens: how much you direct it, and whether
               they carry their own costs and risk. Your call to make, not ours.
             </p>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               {EMPLOYMENT_CHOICES.map((choice) => (
                 <button
                   key={choice.value}
@@ -753,7 +753,7 @@ function PayPlanForm({
             )}
 
             {adding ? (
-              <div className="grid gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2">
+              <div className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2">
                 {ADD_CHOICES.map((choice) => (
                   <button
                     key={choice.kind}
@@ -762,7 +762,7 @@ function PayPlanForm({
                       setComponents((prev) => [...prev, blankComponent(choice.kind)])
                       setAdding(false)
                     }}
-                    className="rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-900"
+                    className="rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-900"
                   >
                     <span className="block text-sm text-foreground">{choice.label}</span>
                     <span className="block text-[11px] text-zinc-500">{choice.blurb}</span>
@@ -773,7 +773,7 @@ function PayPlanForm({
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
+                className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden /> Add a pay rule
               </button>
@@ -827,7 +827,7 @@ function PayPlanForm({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-60"
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -835,7 +835,7 @@ function PayPlanForm({
             type="button"
             onClick={() => void save()}
             disabled={saving || validation.errors.length > 0 || components.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {saving ? "Saving…" : "Save pay"}

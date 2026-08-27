@@ -52,7 +52,7 @@ function DirectionCell({ direction }: { direction: string }) {
   const entry = map[d] ?? { label: direction || "—", icon: PhoneIncoming, className: "text-slate-300" }
   const Icon = entry.icon
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", entry.className)}>
+    <span className={cn("inline-flex items-center gap-2 text-xs font-medium", entry.className)}>
       <Icon className="h-3.5 w-3.5" aria-hidden />
       {entry.label}
     </span>
@@ -113,7 +113,7 @@ function UuidCell({ uuid }: { uuid: string }) {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-2">
       <code className="truncate font-mono text-xs text-slate-400" title={uuid || undefined}>
         {shortUuid(uuid)}
       </code>

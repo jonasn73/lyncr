@@ -67,11 +67,11 @@ export function CrmPaneFallback() {
         <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background">
           <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
             <div className="h-10 rounded-md border border-zinc-800 bg-zinc-900/80" />
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {["All", "Leads", "Book forms", "Clients"].map((label) => (
                 <span
                   key={label}
-                  className="rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-800"
+                  className="rounded-lg bg-zinc-900 px-3 py-2 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-800"
                 >
                   {label}
                 </span>
@@ -100,7 +100,7 @@ export function MapPaneFallback() {
       aria-busy="true"
       aria-label="Loading Map"
     >
-      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
@@ -110,7 +110,7 @@ export function MapPaneFallback() {
               Jobs, techs, and your location — one map for dispatch.
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200">
+          <span className="inline-flex shrink-0 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-slate-200">
             Job Pool &amp; Roster
           </span>
         </div>
@@ -182,7 +182,7 @@ export function MessagesPaneFallback() {
 /** Settings list chrome — no small dark card. */
 export function SettingsPaneFallback() {
   return (
-    <WorkspacePage className="gap-5 pb-10" aria-busy="true" aria-label="Loading Settings">
+    <WorkspacePage className="gap-6 pb-10" aria-busy="true" aria-label="Loading Settings">
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
       <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
         <span className="h-12 w-12 shrink-0 rounded-full bg-primary/15" />
@@ -213,15 +213,15 @@ export function SchedulerPaneFallback() {
         {/* Left rail placeholders — intake / pool / live status */}
         <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:gap-3">
           <div className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/40">
-            <div className="border-b border-zinc-800/80 p-2.5">
+            <div className="border-b border-zinc-800/80 p-3">
               <div className="h-10 w-full rounded-lg bg-zinc-800/50" />
             </div>
-            <div className="space-y-2 border-b border-zinc-800/80 px-2.5 py-2.5">
+            <div className="space-y-2 border-b border-zinc-800/80 px-3 py-3">
               <div className="h-3 w-24 rounded bg-zinc-800/50" />
               <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
               <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
             </div>
-            <div className="space-y-2 px-2.5 py-2.5">
+            <div className="space-y-2 px-3 py-3">
               <div className="h-3 w-28 rounded bg-zinc-800/50" />
               <div className="h-12 w-full rounded-lg bg-zinc-800/40" />
               <div className="h-12 w-full rounded-lg bg-zinc-800/40" />

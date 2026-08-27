@@ -93,7 +93,7 @@ export function CarrierTransferDesk({
     <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
       {submitSuccessMessage ? (
         <div
-          className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-2.5 text-xs text-emerald-100"
+          className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-3 text-xs text-emerald-100"
           role="status"
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
@@ -190,7 +190,7 @@ export function CarrierTransferDesk({
         type="button"
         disabled={sending || !order.id || submitBlocked}
         onClick={handleSubmit}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
       >
         {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
         Submit Correction to Carrier

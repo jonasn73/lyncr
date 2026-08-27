@@ -201,10 +201,10 @@ export function BusinessProfileModal({
             {initialName ? `${initialName} · ${initialEmail}` : "Your account and SMS alert delivery settings."}
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[calc(92vh-8rem)] space-y-5 overflow-y-auto pr-1">
+        <div className="max-h-[calc(92vh-8rem)] space-y-6 overflow-y-auto pr-1">
           {/* One form so Enter in any field runs the same Save profile action. */}
           <form
-            className="space-y-5"
+            className="space-y-6"
             onSubmit={(e) => {
               submitFormEvent(e)
               if (!saving) void saveProfile()

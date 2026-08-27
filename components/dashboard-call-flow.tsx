@@ -479,7 +479,7 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
               <button
                 type="button"
                 onClick={openBuyModal}
-                className="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 + Add business number
               </button>
@@ -554,7 +554,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
   const rowClass = bare
     ? "flex w-full min-w-0 items-center gap-2 sm:gap-3"
-    : "flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-2.5 sm:gap-3"
+    : "flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-3 sm:gap-3"
 
   if (shopLines.length === 0) {
     return (
@@ -562,7 +562,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
         className={
           bare
             ? "flex w-full min-w-0 items-center justify-between gap-3"
-            : "flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-2.5"
+            : "flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-3"
         }
       >
         <p className="text-sm text-slate-500">No business line yet</p>
@@ -570,7 +570,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
           type="button"
           onClick={openBuyModal}
           className={cn(
-            "rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10",
+            "rounded-lg px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10",
             MOBILE_TAP_TARGET
           )}
         >
@@ -606,7 +606,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
         type="button"
         onClick={openManageModal}
         className={cn(
-          "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 md:hidden",
+          "shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 md:hidden",
           MOBILE_TAP_TARGET
         )}
       >
@@ -656,7 +656,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
     )
     if (!multi) {
       return (
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0 max-w-full flex-1 basis-[min(100%,12rem)]">
             <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
               {label}
@@ -713,7 +713,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   // Compact mobile: phone left, status pill right — no tall stacked box
   if (compact && !multi) {
     return (
-      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5">
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-3">
         <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
           <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
           <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display || "\u00A0"}</p>
@@ -730,7 +730,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   }
 
   const activeLineFieldClass = compact
-    ? "w-full rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-2.5 text-left"
+    ? "w-full rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-3 text-left"
     : "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-primary/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
   if (!multi) {

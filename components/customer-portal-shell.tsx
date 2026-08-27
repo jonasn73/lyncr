@@ -99,7 +99,7 @@ export function CustomerPortalShell({
 
           <ol
             className={cn(
-              "flex items-center justify-center gap-1.5",
+              "flex items-center justify-center gap-2",
               compact ? "mt-2.5 sm:mt-4" : "mt-5"
             )}
             aria-label="Progress"
@@ -108,7 +108,7 @@ export function CustomerPortalShell({
               const active = i === currentIndex
               const done = i < currentIndex
               return (
-                <li key={step} className="flex items-center gap-1.5">
+                <li key={step} className="flex items-center gap-2">
                   {i > 0 ? (
                     <span
                       className={cn(
@@ -120,7 +120,7 @@ export function CustomerPortalShell({
                   ) : null}
                   <span
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
+                      "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide",
                       active && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/40",
                       done && !active && "text-emerald-300/90",
                       !active && !done && "text-zinc-500"

@@ -299,10 +299,10 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                           className="h-11 w-11 shrink-0 sm:h-8 sm:w-8"
                         />
                       </div>
-                      <div className="mt-5 flex flex-col gap-4 sm:gap-5">
+                      <div className="mt-5 flex flex-col gap-4 sm:gap-6">
                         <div
                           className={cn(
-                            "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-2.5",
+                            "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-3",
                             hasBusinessNumbers ? "border-border/70" : "border-primary/40 ring-1 ring-primary/15"
                           )}
                         >
@@ -336,7 +336,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
                         <div
                           className={cn(
-                            "flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
+                            "flex flex-col gap-2 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
                             !hasBusinessNumbers && "opacity-55"
                           )}
                         >

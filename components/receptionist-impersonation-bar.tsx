@@ -55,7 +55,7 @@ export function ReceptionistImpersonationBar() {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-500/40 bg-violet-950/90 px-4 py-2.5 text-sm text-violet-100"
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-500/40 bg-violet-950/90 px-4 py-3 text-sm text-violet-100"
     >
       <div className="flex min-w-0 items-center gap-2">
         <KeyRound className="h-4 w-4 shrink-0 text-violet-300" aria-hidden />

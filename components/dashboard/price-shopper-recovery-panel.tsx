@@ -79,7 +79,7 @@ export function PriceShopperRecoveryPanel({
     <fieldset
       className={cn(
         "grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5",
-        compact ? "p-2.5" : "p-3",
+        compact ? "p-3" : "p-3",
         className
       )}
     >
@@ -97,7 +97,7 @@ export function PriceShopperRecoveryPanel({
             : ""}
         </p>
       ) : null}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label htmlFor="failure-reason-step" className="text-xs">
           Failure reason
         </Label>
@@ -167,7 +167,7 @@ export function PriceShopperRecoveryPanel({
               >
                 Apply Aftermarket Hardware Swap (${step2Price})
               </Button>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <button
                   type="button"
                   className="text-left text-xs text-slate-400 hover:text-slate-200"

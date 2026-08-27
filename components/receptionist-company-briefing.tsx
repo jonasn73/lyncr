@@ -100,8 +100,8 @@ function CallerIdentityStrip({
         known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-zinc-700 bg-zinc-800/40"
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
           <UserRound className="h-3.5 w-3.5" aria-hidden />
           {known ? "Returning customer" : "Caller"}
         </span>
@@ -127,7 +127,7 @@ function CallerIdentityStrip({
       {facts.length > 0 ? (
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
           {facts.map((fact) => (
-            <span key={fact.text} className="inline-flex items-center gap-1.5">
+            <span key={fact.text} className="inline-flex items-center gap-2">
               {fact.icon}
               {fact.text}
             </span>
@@ -290,12 +290,12 @@ export function CompanyBriefingCard({
         </div>
 
         {/* Phone controls */}
-        <div className="flex items-center justify-center gap-3 p-5">
+        <div className="flex items-center justify-center gap-3 p-6">
           {ringing ? (
             <button
               type="button"
               onClick={onAnswer}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-400 sm:flex-none sm:px-8"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-400 sm:flex-none sm:px-8"
             >
               <PhoneCall className="h-4 w-4" aria-hidden />
               Answer
@@ -304,7 +304,7 @@ export function CompanyBriefingCard({
           <button
             type="button"
             onClick={onHangup}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/90 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 sm:flex-none sm:px-8"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/90 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 sm:flex-none sm:px-8"
           >
             <PhoneOff className="h-4 w-4" aria-hidden />
             {ringing ? "Decline" : "Hang up"}
@@ -312,7 +312,7 @@ export function CompanyBriefingCard({
         </div>
 
         {/* Company cheat-sheet grid */}
-        <div className="grid gap-3 px-5 pb-6 sm:grid-cols-3">
+        <div className="grid gap-3 px-6 pb-6 sm:grid-cols-3">
           <CheatSheetTile
             icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
             label="Hours"
@@ -337,7 +337,7 @@ export function CompanyBriefingCard({
         </div>
 
         {loading && !briefing ? (
-          <p className="flex items-center justify-center gap-2 border-t border-zinc-800 px-5 py-3 text-xs text-zinc-500">
+          <p className="flex items-center justify-center gap-2 border-t border-zinc-800 px-6 py-3 text-xs text-zinc-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Pulling company briefing…
           </p>

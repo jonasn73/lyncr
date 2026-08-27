@@ -79,7 +79,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         : "Carrier reference ID"
 
   return (
-    <div className={cn("space-y-5", variant === "page" ? "p-0" : "")}>
+    <div className={cn("space-y-6", variant === "page" ? "p-0" : "")}>
       <div
         className={cn(
           "flex items-start gap-3 rounded-xl border px-4 py-4",
@@ -105,7 +105,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
               type="button"
               onClick={onRefresh}
               disabled={loading}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted/40 disabled:opacity-50"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/40 disabled:opacity-50"
             >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
               Refresh status
@@ -222,7 +222,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 sm:w-auto sm:px-5"
+          className="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 sm:w-auto sm:px-6"
         >
           Update registration & resubmit
         </button>

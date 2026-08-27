@@ -27,7 +27,7 @@ const QUICK_SMS_TEMPLATES = [
 ] as const
 
 const BTN =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg border py-1.5 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
+  "inline-flex items-center justify-center gap-2 rounded-lg border py-2 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
 
 /** Live-leg chrome next to Decline / SMS — mirrors intake header phase. */
 export type IncomingCallLinePhase = "ringing" | "answered" | "missed" | "voicemail" | "ended"
@@ -272,7 +272,7 @@ export function IncomingCallOpsToolbar({
   if (compactActions) {
     return (
       <>
-      <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className={cn("flex flex-col gap-2", className)}>
         <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
@@ -317,8 +317,8 @@ export function IncomingCallOpsToolbar({
         </div>
 
         {actionsOpen ? (
-          <div id="incoming-call-actions-panel" className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div id="incoming-call-actions-panel" className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 disabled={declining}
@@ -385,7 +385,7 @@ export function IncomingCallOpsToolbar({
                         type="button"
                         disabled={smsSending}
                         onClick={() => void sendQuickSms(template)}
-                        className="w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
                       >
                         {template}
                       </button>
@@ -414,7 +414,7 @@ export function IncomingCallOpsToolbar({
       {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
         {showLookupSpinner ? (
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <p className="flex items-center gap-2 text-[11px] text-slate-500">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             Looking up caller…
           </p>
@@ -424,14 +424,14 @@ export function IncomingCallOpsToolbar({
               <button
                 type="button"
                 onClick={() => onOpenActiveJob(context.jobId)}
-                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
+                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
                 title="Open this job on Scheduler"
                 aria-label={`Open recent job for ${context.metaLine}`}
               >
                 ⚠️ Recent Job Active
               </button>
             ) : (
-              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
                 ⚠️ Recent Job Active
               </span>
             )}
@@ -518,7 +518,7 @@ export function IncomingCallOpsToolbar({
         <div
           id="incoming-quick-sms-panel"
           data-quick-sms
-          className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5"
+          className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
@@ -540,7 +540,7 @@ export function IncomingCallOpsToolbar({
                   type="button"
                   disabled={smsSending}
                   onClick={() => void sendQuickSms(template)}
-                  className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
                 >
                   {template}
                 </button>

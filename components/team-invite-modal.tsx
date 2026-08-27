@@ -140,7 +140,7 @@ export function TeamInviteModal({
                   setError(null)
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
+                  "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "phone"
                     ? "bg-primary text-primary-foreground"
                     : "text-zinc-400 hover:text-foreground"
@@ -156,7 +156,7 @@ export function TeamInviteModal({
                   setError(null)
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
+                  "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "invite"
                     ? "bg-primary text-primary-foreground"
                     : "text-zinc-400 hover:text-foreground"
@@ -182,7 +182,7 @@ export function TeamInviteModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Alex Rivera"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </label>
 
@@ -197,7 +197,7 @@ export function TeamInviteModal({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(502) 555-0100"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                   />
                 </label>
               ) : (
@@ -210,7 +210,7 @@ export function TeamInviteModal({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="alex@example.com"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -222,7 +222,7 @@ export function TeamInviteModal({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="(502) 555-0100"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                 </>
@@ -237,7 +237,7 @@ export function TeamInviteModal({
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] hover:bg-primary/90 disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] hover:bg-primary/90 disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {busy
@@ -254,14 +254,14 @@ export function TeamInviteModal({
 
         {phoneDone ? (
           <div className="mt-2 space-y-4">
-            <p className="rounded-lg border border-emerald-600/30 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-100">
+            <p className="rounded-lg border border-emerald-600/30 bg-emerald-950/30 px-3 py-3 text-sm text-emerald-100">
               Saved. Next: open <span className="font-semibold">Who answers</span> on Routing and pick them so calls
               forward to their phone.
             </p>
             <Link
               href="/dashboard"
               onClick={() => onOpenChange(false)}
-              className="inline-flex w-full items-center justify-center rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex w-full items-center justify-center rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Go to Who answers
             </Link>
@@ -294,7 +294,7 @@ export function TeamInviteModal({
             <button
               type="button"
               onClick={() => void copyLink(inviteDone.register_url)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
               {copied ? "Copied!" : "Copy link"}
@@ -305,7 +305,7 @@ export function TeamInviteModal({
             <Link
               href="/dashboard"
               onClick={() => onOpenChange(false)}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 py-2.5 text-sm font-semibold text-foreground hover:bg-zinc-900"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 py-3 text-sm font-semibold text-foreground hover:bg-zinc-900"
             >
               Go to Who answers
             </Link>

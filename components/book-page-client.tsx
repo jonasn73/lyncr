@@ -38,7 +38,7 @@ const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 // Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-2.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-teal-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-teal-500/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -318,7 +318,7 @@ export default function BookPageClient({
           {error}
         </p>
       ) : payHandoffUrl || wizardStep === "pay" ? (
-        <div className="rounded-2xl border border-teal-900/40 bg-teal-950/30 px-4 py-5 text-center">
+        <div className="rounded-2xl border border-teal-900/40 bg-teal-950/30 px-4 py-6 text-center">
           <p className="text-sm font-semibold text-teal-100">Next: secure deposit</p>
           <p className="mt-2 text-sm text-zinc-300">
             Taking you to checkout to hold your window
@@ -327,14 +327,14 @@ export default function BookPageClient({
           {payHandoffUrl ? (
             <a
               href={payHandoffUrl}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-600 px-5 text-sm font-semibold text-white hover:bg-teal-500"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-600 px-6 text-sm font-semibold text-white hover:bg-teal-500"
             >
               Continue to payment
             </a>
           ) : null}
         </div>
       ) : submitted || wizardStep === "done" ? (
-        <div className="rounded-2xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-5 text-center">
+        <div className="rounded-2xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-6 text-center">
           <p className="text-base font-semibold text-emerald-100">{successCopy.title}</p>
           <p className="mt-2 text-sm text-emerald-200/90">{successCopy.body}</p>
           <p className="mt-3 text-xs text-zinc-400">{successCopy.nextHint}</p>
@@ -379,7 +379,7 @@ export default function BookPageClient({
           {/* —— STEP 1: Compact Details sheet (aim: one phone screen) —— */}
           {wizardStep === "details" ? (
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
-              <div className="space-y-2.5 sm:space-y-3">
+              <div className="space-y-3">
                 {/* Name + phone share one row so both stay above the fold. */}
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block text-xs text-zinc-400">
@@ -444,7 +444,7 @@ export default function BookPageClient({
                 {/* Job type — compact 2×2 chips (not tall full-width slabs). */}
                 <fieldset>
                   <legend className="mb-1 text-xs text-zinc-400">Job type *</legend>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                       <button
                         key={opt.id}
@@ -452,7 +452,7 @@ export default function BookPageClient({
                         title={opt.label}
                         onClick={() => setJobKind(opt.id)}
                         className={cn(
-                          "rounded-lg border px-2 py-1.5 text-center text-xs font-medium leading-tight",
+                          "rounded-lg border px-2 py-2 text-center text-xs font-medium leading-tight",
                           jobKind === opt.id
                             ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                             : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
@@ -481,7 +481,7 @@ export default function BookPageClient({
                 {bookJobKindNeedsVehicle(jobKind) ? (
                   <div>
                     <p className="mb-1 text-xs text-zinc-400">Vehicle</p>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-2">
                       <label className="block text-[10px] text-zinc-500">
                         Year
                         <input
@@ -539,7 +539,7 @@ export default function BookPageClient({
                 {/* Urgency — short side-by-side chips. */}
                 <fieldset>
                   <legend className="mb-1 text-xs text-zinc-400">Urgency *</legend>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setUrgency("asap")}
@@ -629,7 +629,7 @@ export default function BookPageClient({
                       type="button"
                       onClick={() => setDayKey(day.dateKey)}
                       className={cn(
-                        "rounded-xl border px-3 py-2.5 text-left",
+                        "rounded-xl border px-3 py-3 text-left",
                         dayKey === day.dateKey
                           ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
                           : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"

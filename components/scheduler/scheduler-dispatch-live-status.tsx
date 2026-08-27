@@ -65,7 +65,7 @@ function UpcomingJobChip({
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 px-2.5 py-1 text-left",
+        "flex flex-col gap-0.5 px-3 py-1 text-left",
         stackLayout ? "w-full min-w-0" : "min-w-[12rem] shrink-0 snap-start",
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
@@ -267,8 +267,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               compact
                 ? "px-0 py-0"
                 : sidebar
-                  ? "border-b border-zinc-800/80 px-2.5 py-1.5"
-                  : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-3.5 md:py-2.5"
+                  ? "border-b border-zinc-800/80 px-3 py-2"
+                  : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
             )}
           >
             <Clock3
@@ -315,7 +315,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
           <div
             className={cn(
               "border-t border-zinc-800/80",
-              sidebar ? "px-2.5 py-1.5" : "px-3 py-2 md:px-3.5"
+              sidebar ? "px-3 py-2" : "px-3 py-2 md:px-4"
             )}
           >
             <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1")}>Coming up next</p>

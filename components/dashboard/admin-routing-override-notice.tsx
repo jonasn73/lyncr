@@ -42,7 +42,7 @@ export function AdminRoutingOverrideNotice({
             active ? "translate-y-0" : "-translate-y-1"
           )}
         >
-          <p className="flex items-start gap-2.5">
+          <p className="flex items-start gap-3">
             <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-purple-400" aria-hidden />
             <span>
               <span className="font-semibold text-purple-50">System Notice:</span> Platform Admin has

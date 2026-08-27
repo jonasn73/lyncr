@@ -491,13 +491,13 @@ function CallBackButton({
       href={href}
       onClick={handleClick}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98]",
+        "inline-flex items-center justify-center gap-2 rounded-lg border font-semibold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.98]",
         missed
           ? "border-rose-500/45 bg-rose-500/15 text-rose-100 hover:border-rose-400/60 hover:bg-rose-500/25"
           : hold
             ? "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:border-amber-400/55 hover:bg-amber-500/20"
             : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300",
-        compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+        compact ? "h-8 px-3 text-[11px]" : "min-h-11 w-full px-4 py-3 text-sm",
         className
       )}
     >
@@ -608,7 +608,7 @@ function AgentBadge({
   if (agent.kind === "none") {
     return (
       <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2 py-0.5 text-[11px] font-medium text-zinc-500"
+        className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2 py-0.5 text-[11px] font-medium text-zinc-500"
         title={agent.label}
       >
         {agent.label}
@@ -624,7 +624,7 @@ function AgentBadge({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        "inline-flex max-w-full items-center gap-2 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
         tone
       )}
       title={`Answered by: ${agent.label}`}
@@ -824,7 +824,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 openIntakeForActivityCall(inbound, call)
                 onClose()
               }}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/55 hover:bg-teal-500/25 active:scale-[0.98]"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/15 px-4 py-3 text-sm font-semibold text-teal-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/55 hover:bg-teal-500/25 active:scale-[0.98]"
             >
               <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
               Log purpose & outcome
@@ -842,7 +842,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
           ) : canText || customerPhone ? (
             <Link
               href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-4 py-2.5 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/70 hover:bg-teal-500/30 active:scale-[0.98]"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-4 py-3 text-sm font-semibold text-teal-50 transition-[color,background-color,border-color,transform] duration-150 hover:border-teal-400/70 hover:bg-teal-500/30 active:scale-[0.98]"
             >
               <UserRound className="h-4 w-4 shrink-0" aria-hidden />
               Continue in CRM
@@ -899,7 +899,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
+            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-3 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
               {formatDuration(call.durationSeconds)}
             </span>
             <CallTimeDisplay call={call} variant="compact" />
@@ -956,7 +956,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               {schedulerHref ? (
                 <Link
                   href={schedulerHref}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
                 >
                   <CalendarDays className="h-4 w-4" aria-hidden />
                   {activity.scheduleAt ? "View on scheduler map" : "Schedule this job"}
@@ -1047,7 +1047,7 @@ function ActivityGroupActionBar({
   const callBackPrimary = (missed || hold) && canDial
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       {callBackPrimary ? (
         <CallBackButton
           phone={call.callerNumber}
@@ -1064,7 +1064,7 @@ function ActivityGroupActionBar({
         <Link
           href={crmHref}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-[13px] font-semibold text-teal-50 shadow-sm shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-[13px] font-semibold text-teal-50 shadow-sm shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
           aria-label="Continue in CRM"
           title="Continue in CRM"
         >
@@ -1073,13 +1073,13 @@ function ActivityGroupActionBar({
         </Link>
       ) : null}
       {/* Secondary moves — quieter under the primary path. */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {callBackPrimary && crmHref ? (
           <Link
             href={crmHref}
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold",
+              "inline-flex items-center justify-center gap-1 rounded-lg border px-3 text-[11px] font-semibold",
               secondaryChip
             )}
             aria-label="Continue in CRM"
@@ -1094,7 +1094,7 @@ function ActivityGroupActionBar({
             href={messagesHref}
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold",
+              "inline-flex items-center justify-center gap-1 rounded-lg border px-3 text-[11px] font-semibold",
               secondaryChip
             )}
             aria-label="Text in Messages"
@@ -1166,12 +1166,12 @@ function ActivityCallLegActions({
           e.stopPropagation()
           onOpenDetails(call)
         }}
-        className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/30 px-2.5 py-1.5 text-left transition-colors duration-150 hover:border-zinc-700 hover:bg-zinc-900/50"
+        className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/30 px-3 py-2 text-left transition-colors duration-150 hover:border-zinc-700 hover:bg-zinc-900/50"
         aria-label={`Open details for call at ${call.time || "unknown time"}`}
       >
         <ActivityStatusPill status={st} dense />
         <span className="min-w-0 flex-1 text-[11px] text-zinc-400">
-          <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <CallTimeDisplay call={call} variant="inline" />
             <span className="text-zinc-600">·</span>
             <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
@@ -1184,11 +1184,11 @@ function ActivityCallLegActions({
 
   const timeline = buildCallActionsTimeline(call)
   return (
-    <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-2">
+    <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
       <div className="flex min-w-0 items-start gap-2">
         <ActivityStatusPill status={st} dense />
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-400">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-400">
             <CallTimeDisplay call={call} variant="inline" />
             <span className="text-zinc-600">·</span>
             <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
@@ -1203,7 +1203,7 @@ function ActivityCallLegActions({
       {timeline.length > 0 ? (
         <ul className="space-y-0.5 px-0.5">
           {timeline.slice(0, 2).map((line, i) => (
-            <li key={`${call.id}-tl-${i}`} className="flex gap-1.5 text-[10px] text-zinc-500">
+            <li key={`${call.id}-tl-${i}`} className="flex gap-2 text-[10px] text-zinc-500">
               <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
               <span>{line}</span>
             </li>
@@ -1340,7 +1340,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 </p>
                 {/* Collapsed only: latest duration · time · intake (N calls already on the name). */}
                 {!expanded ? (
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
                     <CallTimeDisplay call={call} variant="inline" />
                     <span className="shrink-0 text-zinc-600">·</span>
                     <span className="shrink-0 tabular-nums">
@@ -1371,7 +1371,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   <>
                     <ActivityGroupActionBar call={call} />
                     {jobCall?.activity ? (
-                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-2.5 py-2">
+                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2">
                         <ActivityIntakeSummary
                           activity={jobCall.activity}
                           compact
@@ -1507,10 +1507,10 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       recentRowKeys.has(call.groupKey) && "!bg-sky-500/20"
                     )}
                   >
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       <ActivityStatusPill status={st} />
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       <div className="flex items-center gap-1">
                         <CallTimeDisplay call={call} />
                         <button
@@ -1527,7 +1527,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         </button>
                       </div>
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       <button
                         type="button"
                         onClick={() => toggleExpanded(call.groupKey)}
@@ -1554,7 +1554,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         </p>
                       )}
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       {call.activity ? (
                         <ActivityIntakeSummary
                           activity={call.activity}
@@ -1566,10 +1566,10 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <span className="text-xs text-zinc-600">—</span>
                       )}
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle tabular-nums text-sm text-zinc-300">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle tabular-nums text-sm text-zinc-300">
                       {formatDuration(call.durationSeconds)}
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       {multi ? (
                         <span
                           className="line-clamp-2 text-[11px] leading-snug text-slate-500"
@@ -1581,7 +1581,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <AgentBadge agent={resolveCallAgent(call)} compact />
                       )}
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle">
                       <p className="truncate text-sm font-medium text-zinc-200" title={targetLabel}>
                         {targetLabel}
                       </p>
@@ -1589,8 +1589,8 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         {formatRoutedToLabel(call.routedTo)}
                       </p>
                     </WorkspaceTd>
-                    <WorkspaceTd className="!px-3 !py-2.5 align-middle text-right">
-                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                    <WorkspaceTd className="!px-3 !py-3 align-middle text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-2">
                         {canCallBack(call) ? (
                           <CallBackButton
                             phone={call.callerNumber}
@@ -1611,7 +1611,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <button
                           type="button"
                           onClick={() => openDetails(call)}
-                          className="inline-flex h-8 items-center rounded-lg border border-zinc-700/80 bg-zinc-900/40 px-2.5 text-[11px] font-semibold text-zinc-300 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
+                          className="inline-flex h-8 items-center rounded-lg border border-zinc-700/80 bg-zinc-900/40 px-3 text-[11px] font-semibold text-zinc-300 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-slate-800 hover:text-teal-300"
                         >
                           {shouldOpenIntakeOnActivityClick(call) ? "Intake" : "Log"}
                         </button>
@@ -1801,13 +1801,13 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
       <div className="hidden flex-wrap items-center gap-3 sm:flex">
         <Link
           href="/dashboard/contacts"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200"
+          className="inline-flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-[color,background-color,border-color] duration-150 hover:border-sky-400/50 hover:bg-slate-800 hover:text-sky-200"
         >
           Dispatch Map
         </Link>
         <Link
           href="/dashboard/scheduler"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300"
+          className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-[color,background-color,border-color] duration-150 hover:border-teal-400/50 hover:bg-slate-800 hover:text-teal-300"
         >
           <CalendarDays className="h-3.5 w-3.5" aria-hidden />
           Job scheduler
