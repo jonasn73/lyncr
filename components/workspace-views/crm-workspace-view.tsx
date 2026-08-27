@@ -2728,7 +2728,15 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 )}
               </div>
             ) : (
-              <ul className="space-y-1.5">
+              <ul
+                className={cn(
+                  "space-y-1.5",
+                  // With nobody selected the list owns the full 1600px cap, so one
+                  // card per row just gets wider. Once a customer is picked the list
+                  // is the 0.38fr rail again — keep that single column.
+                  !selectedId && "xl:grid xl:grid-cols-2 xl:gap-1.5 xl:space-y-0 2xl:grid-cols-3"
+                )}
+              >
                 {rows.map((row) => {
                   const active = row.id === selectedId
                   const name = row.display_name.trim() || formatPhoneDisplay(row.phone_e164)

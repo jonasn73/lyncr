@@ -127,7 +127,14 @@ export function ActivePipelinePanel({
             {group.title}
             <span className="ml-2 font-normal text-slate-600">({group.jobs.length})</span>
           </h3>
-          <ul className={cn("flex flex-col", isMobileSheet ? "gap-3" : "gap-2")}>
+          <ul
+            className={cn(
+              "flex flex-col",
+              // Board column is ~1150px at the 1600px cap and the well is only 160px
+              // tall on desktop — extra columns put more jobs in that window.
+              isMobileSheet ? "gap-3" : "gap-2 xl:grid xl:grid-cols-2 xl:items-start 2xl:grid-cols-3"
+            )}
+          >
             {group.jobs.map((job) => {
               const phase = jobPhase(job)
               const urgency = resolveSchedulerJobUrgency({
