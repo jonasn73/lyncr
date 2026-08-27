@@ -1082,6 +1082,13 @@ async function handleCallAnswered(
     })
   }
 
+  // Presence only depends on routing.user_id, which is already known — start it alongside
+  // the dial-plan lookup instead of after it, so the branded greeting (below) isn't waiting
+  // through two DB round-trips in series before the caller hears anything. A lookup failure
+  // must not break dial-plan resolution, so it is swallowed here exactly like the try/catch
+  // around its use below used to.
+  const presencePromise = getAccountPresence(routing.user_id).catch(() => null)
+
   // Re-resolve presence + Who Answers (do not trust provisional Answer client_state target).
   const dialPlan = await resolveCallControlInboundDialPlan(
     routing,
@@ -1119,8 +1126,8 @@ async function handleCallAnswered(
     // Short connect greets must be reliable — ElevenLabs often HTTP-200 then speak.failed.
     // Prefer NaturalHD up front so callers hear "Connecting you now" (persona still maps gender).
     let greetVoice = "Telnyx.NaturalHD.astra"
-    try {
-      const presence = await getAccountPresence(routing.user_id)
+    const presence = await presencePromise
+    if (presence) {
       const personaVoice = preferWorkingSpeakVoice(
         resolveSpeakVoiceForPersona(presence.ivrVoiceEngineModel) || greetVoice
       )
@@ -1128,8 +1135,6 @@ async function handleCallAnswered(
       greetVoice = /^ElevenLabs\./i.test(personaVoice)
         ? elevenLabsNaturalHdFallback(personaVoice)
         : personaVoice
-    } catch {
-      /* persona lookup is optional for branded greet */
     }
     if (!greetVoice) greetVoice = "Telnyx.NaturalHD.astra"
     const nextState = encodeTelnyxCallControlState({

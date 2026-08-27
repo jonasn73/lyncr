@@ -127,16 +127,29 @@ async function notifyOwnerCrmAnswered(req: NextRequest): Promise<void> {
     console.warn("[receptionist-answer] call-log answer tag failed:", e)
   }
 
-  await notifyOwnerInboundCallAnswered({
-    providerCallSid: callSid,
-    ownerUserId,
-    callLogId,
-    fromNumber,
-    toNumber,
-    callerName: param(req, "cn", "callerName"),
-  }).catch((e) => {
-    console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
-  })
+  const callerName = param(req, "cn", "callerName")
+  // Best-effort dashboard telemetry only — not the answered_at write above. Deferred via
+  // `after()` so it does not hold up the TeXML bridge response the caller is waiting on,
+  // same pattern as scheduleHudBroadcast below. `after` throws outside a request scope
+  // (see scheduleReceptionistHudConnected) — never let that escape and drop a live call
+  // over a dashboard notification; fall back to firing it un-awaited instead.
+  const broadcastOwnerAnswered = () =>
+    notifyOwnerInboundCallAnswered({
+      providerCallSid: callSid,
+      ownerUserId,
+      callLogId,
+      fromNumber,
+      toNumber,
+      callerName,
+    }).catch((e) => {
+      console.error("[receptionist-answer] owner call-answered broadcast failed:", e)
+    })
+  try {
+    after(broadcastOwnerAnswered)
+  } catch (e) {
+    console.error("[receptionist-answer] could not schedule owner call-answered broadcast:", e)
+    void broadcastOwnerAnswered()
+  }
 }
 
 /** Receptionist HUD — on immediate bridge, or after a press-1 accept when screening is on. */
