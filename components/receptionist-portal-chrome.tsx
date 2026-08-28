@@ -5,48 +5,76 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { DollarSign, Home, LogOut, Phone, Truck } from "lucide-react"
+import { CalendarDays, DollarSign, Home, LogOut, Phone, Truck, Users } from "lucide-react"
 import { ReceptionistImpersonationBar } from "@/components/receptionist-impersonation-bar"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import type { ReceptionistCapabilities } from "@/lib/types"
 
-const BASE_NAV = [
-  { href: "/receptionist", label: "Home", icon: Home, match: (p: string) => p === "/receptionist" },
+type NavItem = {
+  href: string
+  label: string
+  icon: typeof Home
+  match: (p: string) => boolean
+  /** Shown only when the owner has turned this capability on. Always shown when absent. */
+  requires?: keyof ReceptionistCapabilities
+}
+
+// Same order the owner console uses, so the two consoles read as one product.
+// Home / Calls / Earnings are the front desk itself and are never gated; the mirrored
+// surfaces in between appear exactly when the owner opens them.
+export const RECEPTIONIST_NAV_ITEMS: NavItem[] = [
+  { href: "/receptionist", label: "Home", icon: Home, match: (p) => p === "/receptionist" },
   {
     href: "/receptionist/calls",
     label: "Calls",
     icon: Phone,
-    match: (p: string) => p.startsWith("/receptionist/calls"),
+    match: (p) => p.startsWith("/receptionist/calls"),
+  },
+  {
+    href: "/receptionist/customers",
+    label: "Customers",
+    icon: Users,
+    match: (p) => p.startsWith("/receptionist/customers"),
+    requires: "crm_access",
+  },
+  {
+    href: "/receptionist/scheduler",
+    label: "Scheduler",
+    icon: CalendarDays,
+    match: (p) => p.startsWith("/receptionist/scheduler"),
+    requires: "scheduler",
+  },
+  {
+    href: "/receptionist/dispatch",
+    label: "Dispatch",
+    icon: Truck,
+    match: (p) => p.startsWith("/receptionist/dispatch"),
+    requires: "dispatching",
   },
   {
     href: "/receptionist/earnings",
     label: "Earnings",
     icon: DollarSign,
-    match: (p: string) => p.startsWith("/receptionist/earnings"),
+    match: (p) => p.startsWith("/receptionist/earnings"),
   },
-] as const
-
-const DISPATCH_NAV_ITEM = {
-  href: "/receptionist/dispatch",
-  label: "Dispatch",
-  icon: Truck,
-  match: (p: string) => p.startsWith("/receptionist/dispatch"),
-} as const
+]
 
 export function ReceptionistPortalChrome({
   userName,
   businessName,
-  dispatching = false,
+  capabilities,
   children,
 }: {
   userName: string
   businessName?: string | null
-  /** Owner-configurable — shows the Dispatch tab when true. */
-  dispatching?: boolean
+  /** Owner-configurable access — decides which mirrored tabs appear. */
+  capabilities?: ReceptionistCapabilities
   children: React.ReactNode
 }) {
   const pathname = usePathname() || "/receptionist"
-  const NAV = dispatching ? [...BASE_NAV, DISPATCH_NAV_ITEM] : BASE_NAV
+  // A hidden tab is courtesy, not protection — each route re-checks server-side.
+  const NAV = RECEPTIONIST_NAV_ITEMS.filter((item) => !item.requires || capabilities?.[item.requires] === true)
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
@@ -60,12 +88,12 @@ export function ReceptionistPortalChrome({
       {/* Desk-style header: console label + name + company */}
       <header className="border-b border-border/50 bg-card/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <Phone className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">
+              <p className="truncate text-micro font-semibold uppercase tracking-[0.14em] text-primary">
                 Receptionist console
               </p>
               <p className="truncate text-sm font-semibold leading-tight text-foreground">
@@ -80,41 +108,46 @@ export function ReceptionistPortalChrome({
             </div>
           </div>
 
-          {/* Desktop / tablet header nav — includes Sign out (bottom bar is sm:hidden) */}
-          <div className="hidden items-center gap-0.5 sm:flex">
-            {NAV.map((item) => {
-              const active = item.match(pathname)
-              const Icon = item.icon
-              return (
-                <Button
-                  key={item.href}
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 text-muted-foreground hover:text-foreground",
-                    active && "bg-primary/10 text-primary hover:text-primary"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                    {item.label}
-                  </Link>
-                </Button>
-              )
-            })}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => void handleLogout()}
-              className="h-9 text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Sign out
-            </Button>
-          </div>
         </div>
+
+        {/* Nav gets its own row — the tab list grows with the owner's grants, and it
+            scrolls rather than colliding with the name. Sign out lives here on sm+;
+            the bottom bar carries it on mobile. */}
+        <div className="mx-auto hidden max-w-6xl overflow-x-auto px-4 pb-2 sm:block sm:px-6">
+          <div className="flex w-max items-center gap-0.5">
+          {NAV.map((item) => {
+            const active = item.match(pathname)
+            const Icon = item.icon
+            return (
+              <Button
+                key={item.href}
+                asChild
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-9 text-muted-foreground hover:text-foreground",
+                  active && "bg-primary/10 text-primary hover:text-primary"
+                )}
+              >
+                <Link href={item.href}>
+                  <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  {item.label}
+                </Link>
+              </Button>
+            )
+          })}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void handleLogout()}
+            className="h-9 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            Sign out
+          </Button>
+        </div>
+</div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>

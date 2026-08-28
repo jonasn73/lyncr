@@ -1,7 +1,7 @@
 // DELETE /api/owner/scheduler/blockouts/[id] — reopen blocked slots.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { deleteScheduleBlockout } from "@/lib/schedule-blockouts-db"
 
 export const dynamic = "force-dynamic"
@@ -10,8 +10,11 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await context.params
   const blockoutId = (id || "").trim()

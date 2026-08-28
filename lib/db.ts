@@ -5,6 +5,11 @@
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run
 // scripts/001-create-schema.sql and scripts/002-add-password-hash.sql in your Neon SQL Editor.
 
+import {
+  DEFAULT_FIELD_TECH_CAPABILITIES,
+  parseFieldTechCapabilities,
+} from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import {
@@ -3069,6 +3074,29 @@ export async function getUserShopOrigin(userId: string): Promise<ShopOrigin | nu
       return null
     }
     throw e
+  }
+}
+
+/**
+ * Platform-admin ceiling for one business account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately its own query rather than a column on getUser: that SELECT is the hottest
+ * path in the app and already carries a missing-column fallback, and this table is read
+ * once per authorization, not once per render.
+ *
+ * Fails OPEN — an unreadable or absent column returns {}, which parses as fully granted.
+ * The failure direction matters: this ceiling only ever restricts an owner on their own
+ * account, so failing open leaves them with what they pay for, while the staff layer below
+ * still defaults to denied. A database blip must not lock an owner out of their business.
+ */
+export async function getPlatformAccountGrantsRaw(userId: string): Promise<unknown> {
+  const sql = getSql()
+  try {
+    const rows = await sql`SELECT platform_grants FROM users WHERE id = ${userId} LIMIT 1`
+    return rows[0]?.platform_grants ?? {}
+  } catch (e) {
+    console.warn("[platform grants] falling back to fully granted:", e)
+    return {}
   }
 }
 
@@ -9410,6 +9438,7 @@ function isMissingFieldTechOrganizationColumnError(e: unknown): boolean {
 
 function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician {
   return {
+    capabilities: parseFieldTechCapabilities(row.capabilities),
     id: String(row.id),
     owner_user_id: String(row.user_id),
     organization_id: row.organization_id != null ? String(row.organization_id) : null,
@@ -9579,6 +9608,7 @@ export async function insertFieldTechnician(params: {
     `
   }
   return {
+    capabilities: { ...DEFAULT_FIELD_TECH_CAPABILITIES },
     id,
     owner_user_id: params.owner_user_id,
     organization_id: organizationId,
@@ -9664,6 +9694,37 @@ export async function setFieldTechnicianActive(
 }
 
 /** Move a technician to another workspace or update active flag. */
+/**
+ * Merge a partial capability patch onto one tech's flags.
+ *
+ * Its own function rather than another branch of patchFieldTechnicianForOwner's if-chain:
+ * that one switches on which scalar columns were supplied, while this is a JSONB merge
+ * (`||`), so an owner toggling one flag cannot clear the others.
+ */
+export async function setFieldTechnicianCapabilities(
+  ownerUserId: string,
+  techId: string,
+  patch: Partial<FieldTechnicianCapabilities>
+): Promise<boolean> {
+  const sql = getSql()
+  if (Object.keys(patch).length === 0) return false
+  try {
+    const rows = await sql`
+      UPDATE field_technicians
+      SET capabilities = coalesce(capabilities, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${techId} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      console.warn("[field tech capabilities] column missing — run scripts/152", e)
+      return false
+    }
+    throw e
+  }
+}
+
 export async function patchFieldTechnicianForOwner(
   ownerUserId: string,
   techId: string,
@@ -14920,6 +14981,48 @@ export async function getProfileFeatureFlags(userId: string): Promise<Record<str
 }
 
 /** Toggle a single tenant feature override. Returns the full flag map. */
+/**
+ * Set one platform ceiling flag on an account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately a different store from onboarding_profiles.feature_flags, which it sits
+ * next to in the admin drawer. Those are opt-IN features where an absent key means OFF;
+ * this is an opt-OUT ceiling where an absent key means GRANTED. Putting opposite defaults
+ * in one bag is the kind of subtlety that reads fine and fails later, so they stay apart
+ * and the drawer labels which is which.
+ *
+ * Only ever writes explicit `false`, and deletes the key when re-granting, so the column
+ * holds a denial list rather than a mirror of every capability.
+ */
+export async function setPlatformAccountGrant(
+  userId: string,
+  capability: string,
+  allowed: boolean
+): Promise<Record<string, boolean>> {
+  const sql = getSql()
+  try {
+    const rows = allowed
+      ? await sql`
+          UPDATE users
+          SET platform_grants = coalesce(platform_grants, '{}'::jsonb) - ${capability}
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+      : await sql`
+          UPDATE users
+          SET platform_grants =
+            coalesce(platform_grants, '{}'::jsonb) || jsonb_build_object(${capability}::text, false)
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+    return (rows[0]?.platform_grants ?? {}) as Record<string, boolean>
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      throw new Error("platform_grants column missing — run scripts/151-platform-account-grants.sql in Neon.")
+    }
+    throw e
+  }
+}
+
 export async function setProfileFeatureFlag(
   userId: string,
   flag: string,

@@ -2,7 +2,7 @@
 // Create + email/SMS a paid-outside-Lyncr invoice (Venmo / cash / other) — no Stripe charge.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   getCustomerByIdForUser,
   getOwnerSchedulerEventById,
@@ -32,8 +32,11 @@ function parseChannel(raw: unknown): SendRecordInvoiceChannel {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "invoicing_send",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const user = await getUser(userId)
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })

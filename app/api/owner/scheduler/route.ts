@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   createOwnerSchedulerAppointment,
   isReasonablePstnDialString,
@@ -27,8 +27,11 @@ import type { SchedulerEvent } from "@/lib/types"
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const fromParam = req.nextUrl.searchParams.get("from")
   const toParam = req.nextUrl.searchParams.get("to")
@@ -88,8 +91,11 @@ type CreateSchedulerBody = {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const body = (await req.json().catch(() => ({}))) as CreateSchedulerBody
   const customerName = String(body.customer_name ?? "").trim()

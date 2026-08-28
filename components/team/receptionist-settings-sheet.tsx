@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
+import { grantedCapabilityLabels } from "@/lib/receptionist-capabilities"
 import type { Receptionist, ReceptionistPayoutMetrics } from "@/lib/types"
 import type { RosterPlan } from "@/components/compensation/pay-plan-editor"
 
@@ -119,13 +120,12 @@ export function ReceptionistSettingsSheet({
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Console access</p>
+                  {/* Reads the shared label map rather than naming flags here. Listing them
+                      by hand is how this line came to say "Default" for capabilities that
+                      were in fact granted — it only knew the two that existed when it was
+                      written. */}
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {[
-                      member.capabilities.full_vehicle_key_catalog ? "Full key lookup" : null,
-                      member.capabilities.dispatching ? "Dispatching" : null,
-                    ]
-                      .filter(Boolean)
-                      .join(", ") || "Default — intake only"}
+                    {grantedCapabilityLabels(member.capabilities).join(", ") || "No access granted yet"}
                   </p>
                 </div>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />

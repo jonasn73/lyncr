@@ -28,7 +28,7 @@ import {
 import { ReceptionistSettingsSheet } from "@/components/team/receptionist-settings-sheet"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
-import type { TeamInvite } from "@/lib/types"
+import type { ReceptionistCapabilities, TeamInvite } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -698,8 +698,11 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         onClose={() => setAccessTarget(null)}
         onSaved={(capabilities) => {
           if (accessTarget) {
+            // The dialog is registry-agnostic, so it hands back flat flags; this roster
+            // holds receptionists, and the route only ever echoes their keys.
+            const saved = capabilities as unknown as ReceptionistCapabilities
             setMembers((prev) =>
-              prev.map((m) => (m.id === accessTarget.id ? { ...m, capabilities } : m))
+              prev.map((m) => (m.id === accessTarget.id ? { ...m, capabilities: saved } : m))
             )
           }
           toast({ title: "Access updated" })
@@ -729,7 +732,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           setAccessTarget({
             id: settingsMember.id,
             name: settingsMember.name,
-            capabilities: settingsMember.capabilities,
+            capabilities: { ...settingsMember.capabilities },
           })
         }
         onRemove={() => {

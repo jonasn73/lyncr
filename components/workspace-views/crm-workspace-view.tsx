@@ -49,6 +49,7 @@ import {
   type LeadCallbackOutcome,
 } from "@/lib/unreachable-follow-up"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { useCan } from "@/lib/workspace-capabilities-context"
 import { CustomerSmsComposer } from "@/components/messaging/customer-sms-composer"
 import type {
   CrmCustomerListItem,
@@ -372,6 +373,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   const inboundCallPanel = useInboundCallPanelOptional()
   const { orgId: crmOrgId, orgReady, orgResolving } = useWorkspaceOrgId()
   const paintSeeds = useDashboardPaintSeeds()
+  // What this viewer may do here. An owner has all of them; a receptionist has what the
+  // owner turned on. These only hide affordances — the API refuses the call either way.
+  const canEditCustomers = useCan("crm_edit")
+  const canSeeInvoicing = useCan("invoicing")
+  const canSendInvoices = useCan("invoicing_send")
   // Memoize — cookie fallback must not allocate a new object every render (#185).
   const crmPaint = useMemo(
     () => readCrmListPaintSeed(paintSeeds.crm, crmOrgId),
@@ -1738,14 +1744,16 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         <span className={cn("min-w-0 truncate", titleClassName)}>
           {editName.trim() || fallback}
         </span>
-        <button
-          type="button"
-          onClick={() => setEditingName(true)}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Edit name"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        {canEditCustomers ? (
+          <button
+            type="button"
+            onClick={() => setEditingName(true)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Edit name"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
       </div>
     )
   }
@@ -2260,22 +2268,24 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             <p className="truncate text-2xs text-muted-foreground">FCC {v.fcc_id}</p>
                           ) : null}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingVehicleId(v.id)
-                            setEditVehicleForm({
-                              year: v.year,
-                              make: v.make,
-                              model: v.model,
-                              vin: v.vin,
-                            })
-                          }}
-                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label="Edit vehicle"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                        {canEditCustomers ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingVehicleId(v.id)
+                              setEditVehicleForm({
+                                year: v.year,
+                                make: v.make,
+                                model: v.model,
+                                vin: v.vin,
+                              })
+                            }}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label="Edit vehicle"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </li>
@@ -2286,20 +2296,22 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         ) : null}
 
         {/* Paid-outside invoices (Venmo/cash) — always available for history / resend. */}
-        {selected ? (
+        {selected && canSeeInvoicing ? (
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Invoices
               </h3>
-              <button
-                type="button"
-                onClick={() => openRecordInvoice(headerJobTarget)}
-                className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-primary/90 hover:bg-primary/10"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Send paid invoice
-              </button>
+              {canSendInvoices ? (
+                <button
+                  type="button"
+                  onClick={() => openRecordInvoice(headerJobTarget)}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-primary/90 hover:bg-primary/10"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Send paid invoice
+                </button>
+              ) : null}
             </div>
             <RecordInvoicesPanel
               key={`inv-${selected.id}-${invoicesRefreshKey}`}
@@ -2504,7 +2516,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           </button>
                         ) : null}
                       </span>
-                    ) : !isWalkUpHistoryId(item.id) ? (
+                    ) : !isWalkUpHistoryId(item.id) && canEditCustomers ? (
                       <button
                         type="button"
                         onClick={() => beginEditAppointment(item)}

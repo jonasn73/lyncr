@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveActor } from "@/lib/actor"
 import {
   createJobInvoice,
   getFieldTechnicianByPortalUserId,
@@ -36,13 +36,12 @@ type Body = {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-
-  const user = await getUser(userId)
-  if (!user || user.account_role !== "field_tech") {
+  const actor = await resolveActor(req.headers.get("cookie"), { capability: "collect_payment" })
+  if (!actor || actor.actorRole !== "field_tech") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+  // Acts as the tech, not the business — these rows are scoped to them.
+  const userId = actor.actingUserId
 
   const tech = await getFieldTechnicianByPortalUserId(userId)
   if (!tech) return NextResponse.json({ error: "Technician not linked" }, { status: 403 })

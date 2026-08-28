@@ -3,6 +3,9 @@
 
 "use client"
 
+import { FieldTechAccessEditor, type CapabilityFlags } from "@/components/team/receptionist-access-editor"
+import { grantedFieldTechLabels } from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { HardHat, Loader2, Plus, Send, Check, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -74,6 +77,11 @@ export function FieldTechniciansPanel() {
   const [movingId, setMovingId] = useState<string | null>(null)
   // Confirm-dialog target before deleting a technician from the roster.
   const [removeTarget, setRemoveTarget] = useState<FieldTechnician | null>(null)
+  const [accessTarget, setAccessTarget] = useState<{
+    id: string
+    name: string
+    capabilities: CapabilityFlags
+  } | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   // Pay plans for the fleet, and the tech currently open in the editor.
@@ -321,6 +329,27 @@ export function FieldTechniciansPanel() {
                   </label>
                 ) : null}
                 <div className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAccessTarget({
+                        id: tech.id,
+                        name: tech.name,
+                        capabilities: { ...tech.capabilities },
+                      })
+                    }
+                    aria-label={`Console access for ${tech.name}`}
+                    className="min-w-0 max-w-full text-left"
+                  >
+                    <span className="block text-micro font-medium uppercase tracking-wide text-muted-foreground">
+                      Access
+                    </span>
+                    <span className="block truncate text-2xs text-foreground underline-offset-2 hover:underline">
+                      {grantedFieldTechLabels(tech.capabilities).join(", ") || "Jobs only"}
+                    </span>
+                  </button>
+                </div>
+                <div className="mt-1.5">
                   <PayPlanButton
                     plan={plans[tech.id]}
                     label={tech.name}
@@ -369,6 +398,21 @@ export function FieldTechniciansPanel() {
           ))}
         </div>
       )}
+
+      <FieldTechAccessEditor
+        target={accessTarget}
+        onClose={() => setAccessTarget(null)}
+        onSaved={(capabilities) => {
+          setTechs((prev) =>
+            prev.map((t) =>
+              t.id === accessTarget?.id
+                ? { ...t, capabilities: capabilities as unknown as FieldTechnicianCapabilities }
+                : t
+            )
+          )
+          setAccessTarget(null)
+        }}
+      />
 
       <PayPlanEditor
         target={payTarget}

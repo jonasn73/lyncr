@@ -4,6 +4,7 @@
 // Home is a live ops desk: duty band + answer channel + live strip (not a stack of marketing cards).
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -11,7 +12,40 @@ import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/t
 import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
-import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+
+/** A call currently at this desk — drives the HUD's live state, not the intake form. */
+export type LiveCallSession = {
+  callLogId: string
+  /**
+   * When the call was actually picked up. Null while it is still ringing.
+   *
+   * Separate from startedAt because counting from startedAt would show ring time as talk
+   * time, and talk time is what a receptionist is paid on.
+   */
+  answeredAt?: string | null
+  businessType: "locksmith" | "detailing" | "auto_repair" | "generic"
+  callerNumber?: string | null
+  callerName?: string | null
+  businessName?: string | null
+  startedAt: string
+}
+
+// The one intake form in this product, mounted at the receptionist's desk when the owner
+// has granted `call_intake`. Same component the dashboard shell renders — it resolves the
+// live call itself from /api/calls/ringing-recent + answered-recent, which now return the
+// owner's calls for a linked receptionist, so it needs nothing wired to her HUD.
+//
+// There is no receptionist-flavoured alternative behind this flag any more. Off means she
+// answers and routes calls but writes no intake, which is what "turn her intake off" has
+// to mean if the setting is to be worth anything.
+//
+// Kept dynamic for the same reason the owner shell does it: ~4k LOC plus Leaflet has no
+// business in the portal's first chunk when most desks will not have this turned on.
+const CallAnsweredModal = dynamic(
+  () => import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
+  { ssr: false }
+)
 import type { CallConnectedPayload } from "@/app/actions/call-events"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
@@ -162,9 +196,12 @@ function TodayBand({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
 function RecentCallerList({
   rows,
   businessName,
+  showIntake,
 }: {
   rows: ReceptionistLedgerRow[]
   businessName: string
+  /** Same grant the live form follows — no Notes entry point when intake is off. */
+  showIntake: boolean
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const recent = rows.slice(0, 6)
@@ -208,16 +245,18 @@ function RecentCallerList({
                 >
                   Text
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(open ? null : row.id)}
-                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
-                >
-                  {open ? "Close" : "Notes"}
-                </button>
+                {showIntake ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(open ? null : row.id)}
+                    className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
+                  >
+                    {open ? "Close" : "Notes"}
+                  </button>
+                ) : null}
               </div>
             </div>
-            {open ? (
+            {open && showIntake ? (
               <div className="mt-3">
                 <ReceptionistSimpleIntake
                   callLogId={row.id}
@@ -317,6 +356,9 @@ export function ReceptionistPortalView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeCall, setActiveCall] = useState<LiveCallSession | null>(null)
+  // Owner's id, seeded server-side by the portal layout — the shared views all read the
+  // business account, not hers.
+  const workspaceSession = useDashboardSessionOptional()
 
   const load = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -528,6 +570,10 @@ export function ReceptionistPortalView() {
       ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
       : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`)
 
+  // One switch decides intake everywhere at this desk — the live call form and the
+  // ledger's notes form cannot disagree about whether she takes intake.
+  const canTakeIntake = dashboard.receptionist.capabilities.call_intake === true
+
   const available = dashboard.receptionist.is_active
   const onCall = dashboard.live_status.mode === "on_call"
   const ringingNow = dashboard.live_status.mode === "ringing"
@@ -570,16 +616,8 @@ export function ReceptionistPortalView() {
         />
       ) : null}
 
-      {activeCall ? (
-        <ReceptionistLiveIntake
-          session={activeCall}
-          callerNameFallback={dashboard.live_status.mode === "on_call" ? dashboard.live_status.caller_name : null}
-          capabilities={dashboard.receptionist.capabilities}
-          onDismiss={() => {
-            setActiveCall(null)
-            load({ silent: true })
-          }}
-        />
+      {canTakeIntake ? (
+        <CallAnsweredModal enabled ownerUserId={workspaceSession?.companyUserId ?? null} />
       ) : null}
 
       {tab === "home" ? (
@@ -665,7 +703,11 @@ export function ReceptionistPortalView() {
                 See all
               </Link>
             </div>
-            <RecentCallerList rows={callRows} businessName={dashboard.business_name} />
+            <RecentCallerList
+              rows={callRows}
+              businessName={dashboard.business_name}
+              showIntake={canTakeIntake}
+            />
           </WorkspacePanel>
         </>
       ) : null}
@@ -681,7 +723,7 @@ export function ReceptionistPortalView() {
           <CallRows
             rows={callRows}
             emptyMessage="No calls have rung your phone yet. When a customer is routed to you, it shows up here."
-            showIntake
+            showIntake={canTakeIntake}
           />
         </WorkspacePanel>
       ) : null}

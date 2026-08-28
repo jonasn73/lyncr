@@ -53,6 +53,7 @@ import {
 } from "@/lib/scheduler-paint-cache"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { useCan } from "@/lib/workspace-capabilities-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -325,6 +326,11 @@ function SchedulerWorkspaceViewInner({
 
   // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
+  // The job pool and today's pipeline both read the dispatch-gated /owner/jobs/pool route.
+  // Without this the panes 403 on a loop and sit on a spinner forever, which reads as
+  // broken rather than as "you were not given this". Seeing the calendar is `scheduler`;
+  // triaging unassigned work is `dispatching`.
+  const canDispatch = useCan("dispatching")
 
   const {
     jobs: poolJobs,
@@ -332,7 +338,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: poolValidating,
     hasResolved: poolHasResolved,
     mutate: mutatePool,
-  } = useJobPoolQuery(orgId, pollEnabled)
+  } = useJobPoolQuery(orgId, pollEnabled && canDispatch)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
@@ -344,7 +350,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: pipelineValidating,
     hasResolved: pipelineHasResolved,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled)
+  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled && canDispatch)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -1379,17 +1385,20 @@ function SchedulerWorkspaceViewInner({
                 </button>
               </div>
 
-              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-border/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
-                <JobPoolPanel
-                  jobs={displayPoolJobs}
-                  loading={poolTrayLoading}
-                  highlightId={highlightId}
-                  onSelectJob={openPoolJobDrawer}
-                  onMobileAssignJob={queueMobilePoolAssign}
-                  variant="sidebar"
-                  embedded
-                />
-              </div>
+              {/* Job pool is dispatch triage: hidden unless the owner opted her into dispatching. */}
+              {canDispatch ? (
+                <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-border/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
+                  <JobPoolPanel
+                    jobs={displayPoolJobs}
+                    loading={poolTrayLoading}
+                    highlightId={highlightId}
+                    onSelectJob={openPoolJobDrawer}
+                    onMobileAssignJob={queueMobilePoolAssign}
+                    variant="sidebar"
+                    embedded
+                  />
+                </div>
+              ) : null}
 
               <div ref={liveStatusRef}>
                 <SchedulerDispatchLiveStatus
@@ -1464,43 +1473,46 @@ function SchedulerWorkspaceViewInner({
             ) : null}
 
             {/* Always mount pipeline + swimlanes — never swap “quiet” for the board (CLS). */}
-            <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-              <div className="border-b border-border/60 px-3 py-2 lg:px-4">
-                <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                <SettledCount
-                  pending={boardCountsPending}
-                  count={displayPipelineJobs.length}
-                  paintHint={schedulerPaint?.eventCount}
-                  format={(n) =>
-                    `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
-                  }
-                  className="min-h-[1rem] truncate text-xs text-muted-foreground"
-                />
-              </div>
-              <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                {/* Always mount — empty/null swap was the flash under pipeline data. */}
-                <ActivePipelinePanelStream
-                  jobs={displayPipelineJobs}
-                  dayKey={pipelineDayKey}
-                  useStreamedInitialDay={useStreamedPipeline}
-                  highlightId={highlightId}
-                  onFocusJob={highlightPipelineJob}
-                  onEditJob={editPipelineJob}
-                  onMarkComplete={handleMarkJobComplete}
-                  completingJobId={completingId}
-                  loading={
-                    !schedulerSurfaceReady &&
-                    displayPipelineJobs.length === 0 &&
-                    (pipelineLoading ||
-                      pipelineValidating ||
-                      loading ||
-                      !bootstrapSettled ||
-                      coldBoardPending ||
-                      (paintSaysBoard && !pipelineHasResolved))
-                  }
-                />
-              </div>
-            </WorkspacePanel>
+            {/* Today's jobs come from the dispatch-gated pool route — see JobPoolPanel below. */}
+            {canDispatch ? (
+              <WorkspacePanel className="flex w-full flex-col overflow-hidden">
+                <div className="border-b border-border/60 px-3 py-2 lg:px-4">
+                  <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
+                  <SettledCount
+                    pending={boardCountsPending}
+                    count={displayPipelineJobs.length}
+                    paintHint={schedulerPaint?.eventCount}
+                    format={(n) =>
+                      `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
+                    }
+                    className="min-h-[1rem] truncate text-xs text-muted-foreground"
+                  />
+                </div>
+                <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
+                  {/* Always mount — empty/null swap was the flash under pipeline data. */}
+                  <ActivePipelinePanelStream
+                    jobs={displayPipelineJobs}
+                    dayKey={pipelineDayKey}
+                    useStreamedInitialDay={useStreamedPipeline}
+                    highlightId={highlightId}
+                    onFocusJob={highlightPipelineJob}
+                    onEditJob={editPipelineJob}
+                    onMarkComplete={handleMarkJobComplete}
+                    completingJobId={completingId}
+                    loading={
+                      !schedulerSurfaceReady &&
+                      displayPipelineJobs.length === 0 &&
+                      (pipelineLoading ||
+                        pipelineValidating ||
+                        loading ||
+                        !bootstrapSettled ||
+                        coldBoardPending ||
+                        (paintSaysBoard && !pipelineHasResolved))
+                    }
+                  />
+                </div>
+              </WorkspacePanel>
+            ) : null}
 
             <WorkspacePanel className="relative flex w-full min-w-0 flex-col overflow-hidden">
               {/* No “Board is quiet” overlay — it flashed over swimlanes while techs loaded. */}

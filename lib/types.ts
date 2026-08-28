@@ -118,7 +118,26 @@ export interface FieldTechnician {
   is_active: boolean
   /** True while the tech still has a pending SMS invite (hasn't set their password yet). */
   invite_pending?: boolean
+  /** Owner-configurable per-tech feature flags (`152-field-technician-capabilities.sql`). */
+  capabilities: FieldTechnicianCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this tech into beyond doing the jobs they are handed.
+ *
+ * Keyed to real seams in the tech console rather than invented categories — each one is a
+ * thing that is on the screen today. See lib/field-technician-capabilities.ts.
+ */
+export interface FieldTechnicianCapabilities {
+  /** See the unassigned pool and claim work from it, instead of only doing what's dispatched. */
+  job_pool: boolean
+  /** See and dial the customer's number from the job card. */
+  customer_contact: boolean
+  /** Take payment on site — card, tap to pay, or a pay link. */
+  collect_payment: boolean
+  /** See their own wallet: what they've earned and what's owed. */
+  view_earnings: boolean
 }
 
 /** A single invoice line item. */
@@ -763,7 +782,13 @@ export interface AdminTenantControlPendingInvite {
 
 /** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
 export interface AdminTenantControls {
+  /** Opt-IN platform features — an absent key means off. */
   feature_flags: Record<string, boolean>
+  /**
+   * Opt-OUT ceiling on what this account may do — an absent key means GRANTED.
+   * Opposite default from feature_flags on purpose; see lib/platform-account-grants.ts.
+   */
+  platform_grants: Record<string, boolean>
   phone_lines: AdminTenantControlPhoneLine[]
   /** True when the owner has more than one workspace in `organizations`. */
   is_multi_workspace: boolean
@@ -971,6 +996,21 @@ export interface ReceptionistCapabilities {
   full_vehicle_key_catalog: boolean
   /** Job board + tech assignment — the same JobDetailDrawer/TechAssignmentSelect owners use. */
   dispatching: boolean
+  /** Read the owner's customer book: CRM list, profiles, vehicles, service history. */
+  crm_access: boolean
+  /** Edit those customer records — display name, notes, vehicles, lead appointments. */
+  crm_edit: boolean
+  /** Shared calendar: see the schedule and book onto it. */
+  scheduler: boolean
+  /** See invoices, payment records, and pay links. */
+  invoicing: boolean
+  /** Send an invoice, receipt, or pay link to a customer — money leaving the building. */
+  invoicing_send: boolean
+  /**
+   * Whether she can take intake on a call at all. There is one intake form in this
+   * product — the owner's — so this is the switch for having it, not a choice of which.
+   */
+  call_intake: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */
