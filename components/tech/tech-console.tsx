@@ -4,6 +4,7 @@
 
 "use client"
 
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -52,7 +53,16 @@ export function TechConsole(props: {
   techUserId: string
   techName: string
   businessName: string
+  /**
+   * What the owner has opted this tech into. Hiding is the courtesy — every route below
+   * re-checks the same flags server-side — but a button that 403s is worse than no button.
+   */
+  capabilities: FieldTechnicianCapabilities
 }) {
+  const canClaimJobs = props.capabilities.job_pool === true
+  const canSeeEarnings = props.capabilities.view_earnings === true
+  const canCollectPayment = props.capabilities.collect_payment === true
+  const canContactCustomer = props.capabilities.customer_contact === true
   const router = useRouter()
   const [jobs, setJobs] = useState<DispatchJob[]>([])
   const [badges, setBadges] = useState<TechBadge[]>([])
@@ -71,10 +81,12 @@ export function TechConsole(props: {
     try {
       const [jobsRes, poolRes] = await Promise.all([
         fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" }),
-        fetch("/api/tech/jobs/pool", { credentials: "include", cache: "no-store" }),
+        canClaimJobs
+          ? fetch("/api/tech/jobs/pool", { credentials: "include", cache: "no-store" })
+          : null,
       ])
       const jobsJson = await jobsRes.json()
-      const poolJson = await poolRes.json()
+      const poolJson = poolRes ? await poolRes.json() : null
       if (mounted.current && jobsJson?.data) {
         if (jobsJson.data.jobs) setJobs(jobsJson.data.jobs as DispatchJob[])
         if (jobsJson.data.badges) setBadges(jobsJson.data.badges as TechBadge[])
@@ -90,7 +102,8 @@ export function TechConsole(props: {
         setRefreshing(false)
       }
     }
-  }, [])
+    // Re-created if the grant changes, so a revoked tech stops polling the pool.
+  }, [canClaimJobs])
 
   useEffect(() => {
     mounted.current = true
@@ -237,11 +250,11 @@ export function TechConsole(props: {
       </header>
 
       <main className="flex-1 space-y-3 px-4 py-6">
-        {!loading && <TechWalletCard refreshToken={walletRefreshToken} />}
+        {!loading && canSeeEarnings && <TechWalletCard refreshToken={walletRefreshToken} />}
 
         {!loading && <BadgesStrip badges={badges} />}
 
-        {!loading && poolJobs.length > 0 ? (
+        {!loading && canClaimJobs && poolJobs.length > 0 ? (
           <HopperPoolSection jobs={poolJobs} claimBusyId={claimBusyId} onClaim={claimPoolJob} />
         ) : null}
 
@@ -275,6 +288,8 @@ export function TechConsole(props: {
                 onPausedParts={() => setStatus(job.id, "paused_parts")}
                 onWorkComplete={() => setStatus(job.id, "work_complete")}
                 onProceedToPayment={() => setPaymentJob(job)}
+                canContactCustomer={canContactCustomer}
+                canCollectPayment={canCollectPayment}
               />
             ))}
 
@@ -302,7 +317,7 @@ export function TechConsole(props: {
         )}
       </main>
 
-      {paymentJob && (
+      {paymentJob && canCollectPayment && (
         <TechPaymentModal
           job={paymentJob}
           offerFinishJob={false}
@@ -425,12 +440,16 @@ function JobCard(props: {
   onPausedParts: () => void
   onWorkComplete: () => void
   onProceedToPayment: () => void
+  /** Owner grant — without it the customer's number is not shown to this tech. */
+  canContactCustomer: boolean
+  /** Owner grant — without it there is no route to the payment sheet from this card. */
+  canCollectPayment: boolean
 }) {
   const { job } = props
   const status = job.job_status || "assigned"
   // Shared view-model — same facts the owner Active Job card shows.
   const summary = buildJobCardSummary(job)
-  const phoneHref = summary.phoneHref
+  const phoneHref = props.canContactCustomer ? summary.phoneHref : null
   const mapsHref = job.location ? googleMapsSearchUrl(job.location) : null
   const workComplete = status === "work_complete"
   const canMarkWorkComplete =
@@ -513,7 +532,9 @@ function JobCard(props: {
         />
         <button
           type="button"
-          disabled={!workComplete || props.busy}
+          // Without the grant this is a button to a sheet that will not open and a route
+          // that will refuse — so it is disabled and says why, not silently inert.
+          disabled={!workComplete || props.busy || !props.canCollectPayment}
           onClick={props.onProceedToPayment}
           className={cn(
             "rounded-xl px-3 py-3 text-sm font-semibold shadow-raised transition active:scale-[0.98]",
@@ -522,7 +543,9 @@ function JobCard(props: {
               : "cursor-not-allowed bg-muted text-muted-foreground shadow-none"
           )}
           title={
-            workComplete
+            !props.canCollectPayment
+              ? "Your dispatcher handles payment for this job"
+              : workComplete
               ? "Collect payment and close the job"
               : "Mark Work Complete before collecting payment"
           }

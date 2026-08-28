@@ -1,7 +1,7 @@
 // PATCH /api/tech/jobs/[id]/claim — field tech claims a hopper job
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveActor } from "@/lib/actor"
 import { claimUnassignedJobForTech, getUser } from "@/lib/db"
 import { publishOwnerEvent, publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 
@@ -10,13 +10,12 @@ export const dynamic = "force-dynamic"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-
-  const user = await getUser(userId)
-  if (!user || user.account_role !== "field_tech") {
+  const actor = await resolveActor(req.headers.get("cookie"), { capability: "job_pool" })
+  if (!actor || actor.actorRole !== "field_tech") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+  // Acts as the tech, not the business — these rows are scoped to them.
+  const userId = actor.actingUserId
 
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing job id" }, { status: 400 })

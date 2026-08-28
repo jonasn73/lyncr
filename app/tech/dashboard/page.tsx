@@ -34,6 +34,7 @@ export default async function TechDashboardPage() {
       techUserId={user.id}
       techName={ctx.technician.name || user.name || "Technician"}
       businessName={ctx.business_name}
+      capabilities={ctx.technician.capabilities}
     />
   )
 }
