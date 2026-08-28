@@ -6,7 +6,7 @@
 // DELETE — remove a job from the scheduler / hopper.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 import {
   getOwnerSchedulerEventById,
   isReasonablePstnDialString,
@@ -27,8 +27,9 @@ type RouteContext = { params: Promise<{ id: string }> }
 
 /** Fresh job row for Active Job — billing_balance_cents mirrors quoted_price_cents. */
 export async function GET(_req: NextRequest, context: RouteContext) {
-  const userId = getUserIdFromRequest(_req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(_req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing lead id" }, { status: 400 })
@@ -119,8 +120,9 @@ function isFullJobEdit(body: PatchSchedulerBody): boolean {
 }
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing lead id" }, { status: 400 })
@@ -259,8 +261,9 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_req: NextRequest, context: RouteContext) {
-  const userId = getUserIdFromRequest(_req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(_req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing lead id" }, { status: 400 })

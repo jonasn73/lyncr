@@ -586,7 +586,7 @@ export function OwnerCollectPaymentSheet({
   const [receiptName, setReceiptName] = useState("")
   const [receiptEmail, setReceiptEmail] = useState("")
   const [receiptPhone, setReceiptPhone] = useState("")
-  const [receiptChannel, setReceiptChannel] = useState<"email" | "sms">("email")
+  const [emailEnabled, setEmailEnabled] = useState(false)
   const [receiptBusy, setReceiptBusy] = useState(false)
   // Pre-pay: text a Stripe Checkout link (walk-up / CRM).
   const [payLinkName, setPayLinkName] = useState("")
@@ -623,7 +623,7 @@ export function OwnerCollectPaymentSheet({
     setReceiptName("")
     setReceiptEmail("")
     setReceiptPhone("")
-    setReceiptChannel("email")
+    setEmailEnabled(false)
     setPayLinkName("")
     setPayLinkPhone("")
     setPayLinkPhoneEditing(true)
@@ -1138,7 +1138,6 @@ export function OwnerCollectPaymentSheet({
       if (phone) {
         setPayLinkPhone(phone)
         setReceiptPhone(phone)
-        setReceiptChannel("sms")
       }
       // Job path wins over walk-up — open TechPaymentModal once jobs are ready.
       if (prefill.jobId?.trim()) {
@@ -1546,15 +1545,9 @@ export function OwnerCollectPaymentSheet({
 
   async function sendReceipt() {
     if (!paidPaymentIntentId) return
-    if (receiptChannel === "email" && !receiptEmail.trim().includes("@")) {
-      toast({
-        title: "Enter an email",
-        description: "Need a valid address to send the invoice.",
-        variant: "destructive",
-      })
-      return
-    }
-    if (receiptChannel === "sms" && receiptPhone.replace(/\D/g, "").length < 10) {
+    const hasPhone = receiptPhone.replace(/\D/g, "").length >= 10
+    const hasEmail = emailEnabled && receiptEmail.trim().includes("@")
+    if (!hasPhone && !hasEmail) {
       toast({
         title: "Enter a phone number",
         description: "Need a valid number to text the invoice.",
@@ -1562,6 +1555,7 @@ export function OwnerCollectPaymentSheet({
       })
       return
     }
+    const channel: "sms" | "email" | "both" = hasPhone && hasEmail ? "both" : hasPhone ? "sms" : "email"
 
     setReceiptBusy(true)
     try {
@@ -1571,16 +1565,16 @@ export function OwnerCollectPaymentSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentIntentId: paidPaymentIntentId,
-          channel: receiptChannel,
+          channel,
           customerName: receiptName.trim() || undefined,
-          email: receiptChannel === "email" ? receiptEmail.trim() : undefined,
-          phone: receiptChannel === "sms" ? receiptPhone.trim() : undefined,
+          email: hasEmail ? receiptEmail.trim() : undefined,
+          phone: hasPhone ? receiptPhone.trim() : undefined,
         }),
       })
       const json = (await res.json()) as { error?: string }
       if (!res.ok) throw new Error(json.error || "Could not send invoice")
       toast({
-        title: receiptChannel === "email" ? "Invoice emailed" : "Invoice texted",
+        title: channel === "email" ? "Invoice emailed" : channel === "both" ? "Invoice sent" : "Invoice texted",
         description: "Customer gets an itemized invoice with a view link.",
       })
       finishAndClose()
@@ -2400,12 +2394,12 @@ export function OwnerCollectPaymentSheet({
                 tip={tipResult}
                 receiptName={receiptName}
                 onReceiptNameChange={setReceiptName}
-                receiptChannel={receiptChannel}
-                onReceiptChannelChange={setReceiptChannel}
-                receiptEmail={receiptEmail}
-                onReceiptEmailChange={setReceiptEmail}
                 receiptPhone={receiptPhone}
                 onReceiptPhoneChange={setReceiptPhone}
+                emailEnabled={emailEnabled}
+                onEmailEnabledChange={setEmailEnabled}
+                receiptEmail={receiptEmail}
+                onReceiptEmailChange={setReceiptEmail}
                 receiptBusy={receiptBusy}
                 onSend={() => void sendReceipt()}
                 onSkip={finishAndClose}

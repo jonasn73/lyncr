@@ -829,11 +829,11 @@ export function DashboardPage() {
             className="sticky top-0 z-50 w-full bg-background"
           >
             {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — py-2.5 is part of that fixed 52px geometry */}
-            <div className="flex min-h-[3.25rem] w-full items-center border-b border-border/90 px-3 py-2.5" />
+            <div className="flex min-h-[3.25rem] w-full items-center border-b border-border/90 py-2.5" />
           </div>
           {/* Same padding + column gaps as live routing surface main column. */}
           <div
-            className="mx-auto w-full max-w-workspace px-3 pt-3 sm:px-0 sm:pt-4"
+            className="mx-auto w-full max-w-workspace pt-3 sm:pt-4"
             data-flicker-probe="lines-gate-skeleton"
           >
             <div className="flex flex-col gap-3 sm:gap-4">

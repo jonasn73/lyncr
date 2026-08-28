@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
   if (!paymentIntentId) {
     return NextResponse.json({ error: "paymentIntentId is required" }, { status: 400 })
   }
-  if (channel !== "email" && channel !== "sms") {
-    return NextResponse.json({ error: "channel must be email or sms" }, { status: 400 })
+  if (channel !== "email" && channel !== "sms" && channel !== "both") {
+    return NextResponse.json({ error: "channel must be email, sms, or both" }, { status: 400 })
   }
 
   try {

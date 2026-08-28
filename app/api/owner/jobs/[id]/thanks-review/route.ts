@@ -1,17 +1,18 @@
 // POST /api/owner/jobs/[id]/thanks-review — send thank-you + review SMS now (Today one-tap).
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
 import { getOwnerSchedulerEventById } from "@/lib/db"
 import { sendManualThanksReviewSms } from "@/lib/sms-pipeline"
+import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 
 export const dynamic = "force-dynamic"
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, context: RouteContext) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const { id: leadId } = await context.params
   if (!leadId?.trim()) return NextResponse.json({ error: "Missing job id" }, { status: 400 })

@@ -8,15 +8,23 @@ import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle, Minus, ChevronLeft,
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import type { FieldServiceFieldDef } from "@/lib/field-service-intake"
-import type { ReceptionistCallerLookup } from "@/lib/types"
+import type { ReceptionistCallerLookup, ReceptionistCapabilities } from "@/lib/types"
 import {
   IndustryIntakeFormFields,
   intakeValuesComplete,
   serializeIntakeValues,
   type IntakeFormValues,
 } from "@/components/industry-intake-form-fields"
-import { buildFieldServiceSummary, intakeFieldsForProfile, intakeTitleForProfile } from "@/lib/field-service-intake"
+import {
+  buildFieldServiceSummary,
+  fieldsForJobType,
+  intakeFieldsForProfile,
+  intakeTitleForProfile,
+} from "@/lib/field-service-intake"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
+import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
+import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
 
 export type LiveCallSession = {
   callLogId: string
@@ -136,6 +144,12 @@ function usdFromCents(cents: number): string {
   }).format(Math.max(0, cents) / 100)
 }
 
+function shortDate(iso: string): string | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(d)
+}
+
 /**
  * Who is calling, before she has to ask.
  *
@@ -144,7 +158,21 @@ function usdFromCents(cents: number): string {
  * a stranger. Purely additive: a lookup that fails or finds nobody renders nothing
  * rather than a row of empty labels.
  */
-function CallerContext({ callerNumber }: { callerNumber: string | null }) {
+function CallerContext({
+  callerNumber,
+  onUseLastVehicle,
+  vehicleAlreadySet,
+}: {
+  callerNumber: string | null
+  /** One-tap "she's back in the same car" — skips re-asking YMM and job type. */
+  onUseLastVehicle: (info: {
+    year: string | null
+    make: string | null
+    model: string | null
+    jobType: string | null
+  }) => void
+  vehicleAlreadySet: boolean
+}) {
   const [lookup, setLookup] = useState<ReceptionistCallerLookup | null>(null)
 
   useEffect(() => {
@@ -178,6 +206,16 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   }
   if (lookup.has_open_book_form) chips.push("Booking form waiting")
 
+  const lastJobBits: string[] = []
+  if (lookup.last_job_summary) lastJobBits.push(lookup.last_job_summary)
+  if (lookup.last_job_vehicle) lastJobBits.push(lookup.last_job_vehicle)
+  const lastJobDate = lookup.last_job_at ? shortDate(lookup.last_job_at) : null
+  if (lastJobDate) lastJobBits.push(lastJobDate)
+
+  const hasLastVehicle = Boolean(
+    lookup.last_job_vehicle_year || lookup.last_job_vehicle_make || lookup.last_job_vehicle_model
+  )
+
   return (
     <div className="border-b border-success/20 bg-success/40 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -200,6 +238,33 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
       {chips.length > 0 ? (
         <p className="mt-1 text-2xs text-muted-foreground">{chips.join(" · ")}</p>
       ) : null}
+      {lastJobBits.length > 0 ? (
+        <p className="mt-1 text-2xs text-muted-foreground">
+          <span className="text-muted-foreground">Last visit:</span> {lastJobBits.join(" · ")}
+        </p>
+      ) : null}
+      {hasLastVehicle && !vehicleAlreadySet ? (
+        <button
+          type="button"
+          onClick={() =>
+            onUseLastVehicle({
+              year: lookup.last_job_vehicle_year,
+              make: lookup.last_job_vehicle_make,
+              model: lookup.last_job_vehicle_model,
+              jobType: lookup.last_job_type,
+            })
+          }
+          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-success/40 bg-success/10 px-2 py-1 text-2xs font-semibold text-success hover:bg-success/20"
+        >
+          <Check className="h-3 w-3" aria-hidden />
+          Same vehicle as last time — fill it in
+        </button>
+      ) : null}
+      {lookup.notes ? (
+        <p className="mt-1 truncate text-2xs italic text-muted-foreground" title={lookup.notes}>
+          “{lookup.notes}”
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -208,10 +273,13 @@ export function ReceptionistLiveIntake({
   session,
   callerNameFallback,
   onDismiss,
+  capabilities = DEFAULT_RECEPTIONIST_CAPABILITIES,
 }: {
   session: LiveCallSession
   callerNameFallback?: string | null
   onDismiss: (reason: "saved" | "dismissed") => void
+  /** Owner-configurable — what this receptionist's console can do. */
+  capabilities?: ReceptionistCapabilities
 }) {
   const config = intakeConfigFor(session)
   const [values, setValues] = useState<IntakeFormValues>({})
@@ -222,10 +290,26 @@ export function ReceptionistLiveIntake({
   // Collapsed to a bar rather than closed — she needs to look something up mid-call
   // without losing what she has typed, which is why the owner console has a PiP.
   const [minimized, setMinimized] = useState(false)
+  // Escape hatch for a call that was never going to become a booking (wrong number, a
+  // quick question, "just checking pricing") — the full step wizard is the wrong tool
+  // for that, same reasoning as the owner console's missed-call quick note.
+  const [quickMode, setQuickMode] = useState(false)
 
-  const steps = useMemo(() => buildSteps(config.fields), [config.fields])
+  // A job type that doesn't involve a vehicle (e.g. a house "Rekey") drops the vehicle
+  // step and any car-key-specific fields entirely, rather than asking for a car nobody
+  // has — the same "don't ask unless it applies" idea the owner console already applies
+  // via serviceTypeRequiresVehicle.
+  const effectiveFields = useMemo(
+    () => fieldsForJobType(config.fields, config.profile, String(values.job_type ?? "")),
+    [config.fields, config.profile, values.job_type]
+  )
+  const steps = useMemo(() => buildSteps(effectiveFields), [effectiveFields])
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLastStep = stepIndex >= steps.length - 1
+  // Owner has opted this receptionist into the same key-lookup catalog owners use — it
+  // replaces VIN lookup on the vehicle step (VehiclePickerCascade stays; VIN entry is not
+  // part of that catalog on the owner side either).
+  const showKeyCatalog = capabilities.full_vehicle_key_catalog && step?.id === "vehicle"
   // Address is "the single field most worth getting right" (see buildSteps above) — shrink
   // the header chrome on that screen so the autocomplete gets more room, same idea as the
   // owner console's compact-on-deep-step header.
@@ -302,8 +386,8 @@ export function ReceptionistLiveIntake({
     setValues((prev) => ({ ...prev, [name]: value }))
 
   const missingRequired = useMemo(
-    () => !intakeValuesComplete(config.fields, values),
-    [config.fields, values]
+    () => !intakeValuesComplete(effectiveFields, values),
+    [effectiveFields, values]
   )
 
   function buildSummary(): string {
@@ -501,8 +585,42 @@ export function ReceptionistLiveIntake({
         </div>
       </div>
 
-      <CallerContext callerNumber={callerNumber} />
+      <CallerContext
+        callerNumber={callerNumber}
+        vehicleAlreadySet={Boolean(values.vehicle_year || values.vehicle_make || values.vehicle_model)}
+        onUseLastVehicle={(info) => {
+          if (info.year) setField("vehicle_year", info.year)
+          if (info.make) setField("vehicle_make", info.make)
+          if (info.model) setField("vehicle_model", info.model)
+          if (info.jobType && !values.job_type) setField("job_type", info.jobType)
+        }}
+      />
 
+      {!quickMode ? (
+        <div className="border-b border-success/20 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setQuickMode(true)}
+            className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Not a booking? Log a quick note instead
+          </button>
+        </div>
+      ) : null}
+
+      {quickMode ? (
+        <div className="px-4 py-6">
+          <ReceptionistSimpleIntake
+            callLogId={session.callLogId}
+            callerNumber={callerNumber ?? ""}
+            initialCallerName={callerName}
+            businessName={session.businessName}
+            onSaved={() => onDismiss("saved")}
+            onCancel={() => setQuickMode(false)}
+          />
+        </div>
+      ) : (
+        <>
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
         <div className="flex items-center gap-2 border-b border-success/20 px-4 py-2">
@@ -542,11 +660,54 @@ export function ReceptionistLiveIntake({
 
         <div className="mt-4">
           <IndustryIntakeFormFields
-            fields={step ? step.fields : config.fields}
+            fields={
+              showKeyCatalog
+                ? step!.fields.filter((f) => f.type !== "vin_lookup")
+                : step
+                  ? step.fields
+                  : effectiveFields
+            }
             values={values}
             onChange={setField}
           />
         </div>
+
+        {showKeyCatalog ? (
+          <div className="mt-4">
+            <VehicleKeyInfoPanel
+              year={String(values.vehicle_year ?? "")}
+              make={String(values.vehicle_make ?? "")}
+              model={String(values.vehicle_model ?? "")}
+              disabled={saving}
+              value={
+                values.key_fcc_id || values.key_style
+                  ? {
+                      profileId: String(values.key_profile_id ?? ""),
+                      fccId: String(values.key_fcc_id ?? ""),
+                      frequency: values.key_frequency ? String(values.key_frequency) : null,
+                      chipset: values.key_chipset ? String(values.key_chipset) : null,
+                      keyStyle: values.key_style ? String(values.key_style) : "Not sure yet",
+                      variantId: values.key_variant_id ? String(values.key_variant_id) : null,
+                      programmingMethod: values.programming_method
+                        ? String(values.programming_method)
+                        : null,
+                      tiSku: values.ti_sku ? String(values.ti_sku) : null,
+                    }
+                  : null
+              }
+              onChange={(selection) => {
+                setField("key_profile_id", selection?.profileId ?? null)
+                setField("key_fcc_id", selection?.fccId ?? null)
+                setField("key_frequency", selection?.frequency ?? null)
+                setField("key_chipset", selection?.chipset ?? null)
+                setField("key_style", selection?.keyStyle ?? null)
+                setField("key_variant_id", selection?.variantId ?? null)
+                setField("programming_method", selection?.programmingMethod ?? null)
+                setField("ti_sku", selection?.tiSku ?? null)
+              }}
+            />
+          </div>
+        ) : null}
 
         {error ? (
           <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -645,6 +806,8 @@ export function ReceptionistLiveIntake({
           </div>
         </div>
       </div>
+        </>
+      )}
     </WorkspacePanel>
   )
 }

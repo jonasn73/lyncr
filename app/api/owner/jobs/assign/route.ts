@@ -5,16 +5,17 @@
 // push to that tech's device so the job appears instantly on their console.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
 import { assignJobToTech, listFieldTechnicians } from "@/lib/db"
 import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import { sendTechJobAssignedSms } from "@/lib/tech-job-assigned-sms"
+import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const body = (await req.json().catch(() => ({}))) as { leadId?: string; techUserId?: string | null }
   const leadId = String(body.leadId || "").trim()

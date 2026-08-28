@@ -157,6 +157,8 @@ export interface DispatchJob {
   id: string
   customer_name: string | null
   customer_phone: string | null
+  /** Optional email for Send invoice / receipts (collected.customer_email). */
+  customer_email?: string | null
   location: string | null
   summary: string | null
   job_status: string | null
@@ -955,7 +957,20 @@ export interface Receptionist {
   assigned_workspaces?: OperatorAssignedWorkspace[]
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
+  /** Owner-configurable per-receptionist feature flags (`150-receptionist-capabilities.sql`). */
+  capabilities: ReceptionistCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this receptionist into beyond the default intake — grows one
+ * flag at a time as new capabilities are added. See lib/receptionist-capabilities.ts.
+ */
+export interface ReceptionistCapabilities {
+  /** Full FCC/chipset/programming-method key catalog vs. the plain vehicle picker. */
+  full_vehicle_key_catalog: boolean
+  /** Job board + tech assignment — the same JobDetailDrawer/TechAssignmentSelect owners use. */
+  dispatching: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */
@@ -1022,7 +1037,14 @@ export type ReceptionistLiveStatus =
 export interface ReceptionistPortalDashboard {
   receptionist: Pick<
     Receptionist,
-    "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd" | "routing_endpoint"
+    | "id"
+    | "name"
+    | "is_active"
+    | "pay_mode"
+    | "rate_per_minute"
+    | "flat_rate_usd"
+    | "routing_endpoint"
+    | "capabilities"
   >
   /**
    * What this receptionist is paid, in words, from their live compensation plan
@@ -1078,6 +1100,20 @@ export interface ReceptionistCallerLookup {
   /** Latest job/lead status, e.g. "Price quoted" or "Booked · Aug 9, 2:00 PM". */
   job_status_label: string | null
   job_status_tone: "neutral" | "amber" | "emerald" | "rose" | "sky" | null
+  /** CRM notes on the customer record — read out loud before asking again. */
+  notes: string | null
+  /** Most recent job's summary/service line, e.g. "Ignition repair". */
+  last_job_summary: string | null
+  /** Vehicle on the most recent job, e.g. "2019 Honda Civic". */
+  last_job_vehicle: string | null
+  /** ISO timestamp of the most recent job (scheduled time, else created time). */
+  last_job_at: string | null
+  /** Split YMM from the most recent job — lets the HUD prefill vehicle fields in one tap. */
+  last_job_vehicle_year: string | null
+  last_job_vehicle_make: string | null
+  last_job_vehicle_model: string | null
+  /** Job type on the most recent job, e.g. "Ignition" — offered as a one-tap prefill too. */
+  last_job_type: string | null
 }
 
 /**
@@ -1227,12 +1263,18 @@ export type CrmLeadBadge =
   | "callback"
   | "repeat_customer"
   | "new_contact"
+  | "needs_followup"
 
 export interface CrmCustomerListItem extends Customer {
   jobs_completed: number
   lifetime_revenue_cents: number
   lead_badge: CrmLeadBadge
   open_lead_count: number
+  /** ISO of the most recent completed job — powers the "Needs follow-up" lapsed filter. */
+  last_completed_at?: string | null
+  /** Outstanding balance across unpaid/pending tech-console invoices. */
+  unpaid_cents?: number
+  unpaid_invoice_count?: number
   /**
    * True when this phone has an open lead from a customer book form
    * (public /book or Activity book link) — still findable after Latest dismiss.

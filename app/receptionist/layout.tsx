@@ -33,7 +33,11 @@ export default async function ReceptionistPortalLayout({ children }: { children:
 
   const portalName = ctx.receptionist.name?.trim() || displayName
   return (
-    <ReceptionistPortalChrome userName={portalName} businessName={ctx.business_name}>
+    <ReceptionistPortalChrome
+      userName={portalName}
+      businessName={ctx.business_name}
+      dispatching={ctx.receptionist.capabilities.dispatching}
+    >
       {children}
     </ReceptionistPortalChrome>
   )

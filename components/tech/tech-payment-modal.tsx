@@ -53,7 +53,6 @@ import {
 import { type TipChargeResult } from "@/components/payments/charge-result-summary"
 import {
   PaymentReceiptPanel,
-  type ReceiptChannel,
 } from "@/components/payments/payment-receipt-panel"
 import { PayLinkSentPanel } from "@/components/payments/pay-link-sent-panel"
 import {
@@ -199,9 +198,9 @@ export function TechPaymentModal(props: {
   const [slipBusy, setSlipBusy] = useState(false)
   const [tipResult, setTipResult] = useState<TipChargeResult>({ kind: "none" })
   const [receiptName, setReceiptName] = useState(() => props.job.customer_name?.trim() || "")
-  const [receiptEmail, setReceiptEmail] = useState("")
+  const [receiptEmail, setReceiptEmail] = useState(() => props.job.customer_email?.trim() || "")
   const [receiptPhone, setReceiptPhone] = useState(() => props.job.customer_phone?.trim() || "")
-  const [receiptChannel, setReceiptChannel] = useState<ReceiptChannel>("email")
+  const [emailEnabled, setEmailEnabled] = useState(false)
   const [receiptBusy, setReceiptBusy] = useState(false)
   /** Completing the job from the post-pay finish step. */
   const [finishBusy, setFinishBusy] = useState(false)
@@ -806,11 +805,18 @@ export function TechPaymentModal(props: {
     }
   }
 
-  async function sendReceipt(channel: "email" | "sms") {
+  async function sendReceipt() {
     if (!paidPaymentIntentId) {
       setError("Receipt needs a card payment — cash jobs can skip this.")
       return
     }
+    const hasPhone = receiptPhone.replace(/\D/g, "").length >= 10
+    const hasEmail = emailEnabled && receiptEmail.trim().includes("@")
+    if (!hasPhone && !hasEmail) {
+      setError("Enter a phone number to text the invoice.")
+      return
+    }
+    const channel: "sms" | "email" | "both" = hasPhone && hasEmail ? "both" : hasPhone ? "sms" : "email"
     setReceiptBusy(true)
     setError(null)
     try {
@@ -822,8 +828,8 @@ export function TechPaymentModal(props: {
           paymentIntentId: paidPaymentIntentId,
           channel,
           customerName: receiptName.trim() || undefined,
-          email: channel === "email" ? receiptEmail.trim() : undefined,
-          phone: channel === "sms" ? receiptPhone.trim() : undefined,
+          email: hasEmail ? receiptEmail.trim() : undefined,
+          phone: hasPhone ? receiptPhone.trim() : undefined,
         }),
       })
       const json = (await res.json()) as { error?: string }
@@ -1488,15 +1494,15 @@ export function TechPaymentModal(props: {
               cashNote="Cash payment recorded (job + tip in one total)."
               receiptName={receiptName}
               onReceiptNameChange={setReceiptName}
-              receiptChannel={receiptChannel}
-              onReceiptChannelChange={setReceiptChannel}
-              receiptEmail={receiptEmail}
-              onReceiptEmailChange={setReceiptEmail}
               receiptPhone={receiptPhone}
               onReceiptPhoneChange={setReceiptPhone}
+              emailEnabled={emailEnabled}
+              onEmailEnabledChange={setEmailEnabled}
+              receiptEmail={receiptEmail}
+              onReceiptEmailChange={setReceiptEmail}
               receiptBusy={receiptBusy}
               error={error}
-              onSend={() => void sendReceipt(receiptChannel)}
+              onSend={() => void sendReceipt()}
               onSkip={continueAfterReceipt}
               skipLabel={
                 props.offerFinishJob !== false && isCollectJobStillOpen(props.job)

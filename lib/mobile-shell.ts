@@ -8,6 +8,14 @@ export const MOBILE_SHELL_CSS_VARS = {
   dockH: "var(--shell-dock-h)",
 } as const
 
+/**
+ * Full-height tab body (map, boards) — viewport minus shell chrome and the page
+ * padding DashboardPageView owns (pt-4/pb-8 = 3rem, sm:pt-8/sm:pb-10 = 4.5rem).
+ * --shell-dock-h already folds in the safe-area inset, so this needs no extra term.
+ */
+export const WORKSPACE_VIEWPORT_H =
+  "h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-3rem)] sm:h-[calc(100dvh-var(--shell-header-h)-var(--shell-dock-h)-4.5rem)]"
+
 /** Horizontal bleed for swipe strips inside dashboard page padding. */
 export const MOBILE_BLEED =
   "-mx-4 w-[calc(100%+2rem)] sm:-mx-8 sm:w-[calc(100%+4rem)] md:mx-0 md:w-full"

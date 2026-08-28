@@ -235,7 +235,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
       className="sticky top-0 z-50 w-full bg-background"
     >
       {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — py-2.5 is part of that fixed 52px geometry */}
-      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-border/90 px-3 py-2.5">
+      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-border/90 py-2.5">
         {businessNumbers.length > 0 || quickSetupDecided ? (
           <ActiveLineSubHeader
             bare
@@ -275,7 +275,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
       {/* No pb-24 spacer — Available/Caller ID follow Alerts with normal gap (Messages left Lines). */}
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-3 md:pb-4">
-        <div className="mx-auto w-full max-w-workspace px-3 pt-3 sm:px-0 sm:pt-4">
+        <div className="mx-auto w-full max-w-workspace pt-3 sm:pt-4">
           <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
               activeLineDisplay={activeLineDisplay}
