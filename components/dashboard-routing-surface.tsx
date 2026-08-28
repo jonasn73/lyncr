@@ -418,7 +418,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                 />
 
                 {/* Available + Caller ID — sibling of CallFlow; gap-4 above is the visible space. */}
-                <div className="flex flex-col gap-3 pb-2">
+                <div className="flex flex-col gap-3 pb-2 xl:grid xl:grid-cols-2 xl:items-start">
                   <PresenceStatusBar />
                   <CallerIdUtilitiesCard
                     organizationId={activeOrganizationId}

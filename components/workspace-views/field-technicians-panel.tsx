@@ -285,7 +285,8 @@ export function FieldTechniciansPanel() {
           <p className="text-sm text-muted-foreground">No field technicians yet.</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        // Full-width panel: one tech per 1600px row wastes the cap — pair them from xl.
+        <div className="space-y-2 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0">
           {techs.map((tech) => (
             <div
               key={tech.id}
