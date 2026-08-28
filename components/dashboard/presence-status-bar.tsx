@@ -41,11 +41,11 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        "w-full rounded-2xl border px-4 py-3.5 sm:px-5 sm:py-4",
+       "w-full rounded-2xl border px-4 py-4 sm:px-6",
         // Fixed min height covers Available + Busy subtitle + one desktop note line.
         "min-h-[5.75rem] md:min-h-[6.75rem]",
         isBusy
-          ? "border-amber-400/80 bg-amber-500/10"
+          ? "border-warning/80 bg-warning/10"
           : "border-border/60 bg-muted/15",
         className
       )}
@@ -56,18 +56,18 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           <div className="flex items-center gap-2">
             <label
               htmlFor="presence-available-toggle"
-              className="block cursor-pointer text-xs font-semibold text-slate-200"
+              className="block cursor-pointer text-xs font-semibold text-foreground"
             >
               Available
             </label>
             {/* Spinner while loading or saving — same cue as the old dual-button bar. */}
             <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
               {busySaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               ) : null}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] font-normal text-slate-500">
+          <p className="mt-0.5 text-2xs font-normal text-muted-foreground">
             {isBusy
               ? untilLabel
                 ? `Busy until ${untilLabel} · skip your phone`
@@ -76,35 +76,35 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           </p>
           {/* Desktop-only notes — hide long copy on mobile. */}
           {isAvailable ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-slate-600 md:block">
+            <p className="mt-1 hidden text-2xs leading-snug text-muted-foreground md:block">
               If you&apos;re already on a call, new callers go to hold / team instead of
               interrupting. Text Amber BUSY / AVAILABLE anytime.
             </p>
           ) : null}
           {isBusy && untilLabel ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-slate-600 md:block">
+            <p className="mt-1 hidden text-2xs leading-snug text-muted-foreground md:block">
               Set by Amber text — flips Available at that time (or turn Available on here).
             </p>
           ) : null}
         </div>
         <div
           className={cn(
-            "flex shrink-0 items-center gap-2 rounded-full px-2 py-1.5",
-            isBusy && "bg-amber-500/25 ring-2 ring-amber-300"
+            "flex shrink-0 items-center gap-2 rounded-full px-2 py-2",
+            isBusy && "bg-warning/25 ring-2 ring-warning"
           )}
         >
           {presenceReady ? (
             isAvailable ? (
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              <span className="text-2xs font-bold uppercase tracking-wider text-success">
                 Active
               </span>
             ) : (
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-200">
+              <span className="text-2xs font-bold uppercase tracking-wider text-warning">
                 Busy
               </span>
             )
           ) : (
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Available
             </span>
           )}
@@ -120,9 +120,9 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               // Bigger than the default switch so you can see it outside.
               "h-7 w-11 border-2",
               isBusy
-                ? "data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:border-amber-100 dark:data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
-                : "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-200 dark:data-[state=checked]:bg-emerald-500",
-              "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-md dark:[&_[data-slot=switch-thumb]]:bg-white",
+                ? "data-[state=unchecked]:bg-warning data-[state=unchecked]:border-warning dark:data-[state=unchecked]:bg-warning data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
+                : "data-[state=checked]:bg-success data-[state=checked]:border-success dark:data-[state=checked]:bg-success",
+              "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-raised dark:[&_[data-slot=switch-thumb]]:bg-white",
               "[&_[data-slot=switch-thumb][data-state=checked]]:translate-x-[1.35rem]"
             )}
           />

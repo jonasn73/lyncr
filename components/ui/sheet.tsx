@@ -42,7 +42,7 @@ function SheetOverlay({
         // Above Map tab overlays (z-[2000–2100]) and Leaflet panes so Settings never sits under the map.
         'fixed inset-0 z-[6000]',
         variant === 'drawer'
-          ? 'sigo-sheet-drawer-overlay bg-zinc-950/70 transform-gpu will-change-[opacity] backface-hidden'
+          ? 'sigo-sheet-drawer-overlay bg-background/70 transform-gpu will-change-[opacity] backface-hidden'
           : 'bg-black/60 transform-gpu will-change-[opacity] backface-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}
@@ -61,7 +61,7 @@ function SheetContent({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
-  /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow */
+  /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow-resting */
   variant?: 'default' | 'drawer'
   /** Raise above another open sheet (e.g. Get paid over Settings). */
   overlayClassName?: string
@@ -80,12 +80,12 @@ function SheetContent({
           'bg-background fixed z-[6010] flex flex-col',
           isDrawer
             ? cn(
-                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform backface-hidden',
+                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-raised transform-gpu will-change-transform backface-hidden',
                 side === 'right' && 'right-0 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' && 'left-0 w-3/4 border-r border-l-0 sm:max-w-sm',
               )
             : cn(
-                'shadow-2xl transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
+                'shadow-overlay transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
                 side === 'right' &&
                   'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-full border-l border-border/60 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' &&
@@ -116,7 +116,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn('flex flex-col gap-1.5 p-4', className)}
+      className={cn('flex flex-col gap-2 p-4', className)}
       {...props}
     />
   )

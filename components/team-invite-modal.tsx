@@ -132,7 +132,7 @@ export function TeamInviteModal({
 
         {showForm ? (
           <>
-            <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1">
+            <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1">
               <button
                 type="button"
                 onClick={() => {
@@ -140,10 +140,10 @@ export function TeamInviteModal({
                   setError(null)
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
+                  "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "phone"
                     ? "bg-primary text-primary-foreground"
-                    : "text-zinc-400 hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -156,10 +156,10 @@ export function TeamInviteModal({
                   setError(null)
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
+                  "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "invite"
                     ? "bg-primary text-primary-foreground"
-                    : "text-zinc-400 hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <UserPlus className="h-3.5 w-3.5" aria-hidden />
@@ -167,7 +167,7 @@ export function TeamInviteModal({
               </button>
             </div>
 
-            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               {mode === "phone"
                 ? "This forwards calls when you set Who answers → pick them (Custom Routing). They do not need a Lyncr login."
                 : "They get a signup link. After they accept, they land on the receptionist portal for your business."}
@@ -175,20 +175,20 @@ export function TeamInviteModal({
 
             <form className="mt-3 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
               <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Alex Rivera"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </label>
 
               {mode === "phone" ? (
                 <label className="block space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Mobile number
                   </span>
                   <input
@@ -197,24 +197,24 @@ export function TeamInviteModal({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(502) 555-0100"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                   />
                 </label>
               ) : (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Email</span>
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Email</span>
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="alex@example.com"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Cell (optional)
                     </span>
                     <input
@@ -222,7 +222,7 @@ export function TeamInviteModal({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="(502) 555-0100"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                 </>
@@ -237,7 +237,7 @@ export function TeamInviteModal({
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] hover:bg-primary/90 disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] hover:bg-primary/90 disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {busy
@@ -254,21 +254,21 @@ export function TeamInviteModal({
 
         {phoneDone ? (
           <div className="mt-2 space-y-4">
-            <p className="rounded-lg border border-emerald-600/30 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-100">
+            <p className="rounded-lg border border-success/30 bg-success/30 px-3 py-3 text-sm text-success">
               Saved. Next: open <span className="font-semibold">Who answers</span> on Routing and pick them so calls
               forward to their phone.
             </p>
             <Link
               href="/dashboard"
               onClick={() => onOpenChange(false)}
-              className="inline-flex w-full items-center justify-center rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex w-full items-center justify-center rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Go to Who answers
             </Link>
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="w-full text-center text-xs text-zinc-500 hover:text-zinc-300"
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
             >
               Close
             </button>
@@ -277,35 +277,35 @@ export function TeamInviteModal({
 
         {inviteDone ? (
           <div className="mt-2 space-y-4">
-            <p className="text-sm text-zinc-300">
+            <p className="text-sm text-foreground">
               Invite ready for <span className="font-medium text-foreground">{inviteDone.email}</span>.
               {inviteDone.email_sent
                 ? " We also emailed the link."
                 : " Email was not sent — copy the link below and share it yourself."}
             </p>
             {!inviteDone.email_sent && inviteDone.email_error ? (
-              <p className="rounded-lg border border-amber-600/30 bg-amber-950/25 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+              <p className="rounded-lg border border-warning/30 bg-warning/25 px-3 py-2 text-xs leading-relaxed text-warning/90">
                 {inviteDone.email_error}
               </p>
             ) : null}
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
-              <p className="break-all text-xs text-zinc-400">{inviteDone.register_url}</p>
+            <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
+              <p className="break-all text-xs text-muted-foreground">{inviteDone.register_url}</p>
             </div>
             <button
               type="button"
               onClick={() => void copyLink(inviteDone.register_url)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
               {copied ? "Copied!" : "Copy link"}
             </button>
-            <p className="text-xs leading-relaxed text-zinc-500">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               After they accept, set Who answers → pick them (or Custom Routing) so inbound calls reach them.
             </p>
             <Link
               href="/dashboard"
               onClick={() => onOpenChange(false)}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 py-2.5 text-sm font-semibold text-foreground hover:bg-zinc-900"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-border py-3 text-sm font-semibold text-foreground hover:bg-card"
             >
               Go to Who answers
             </Link>

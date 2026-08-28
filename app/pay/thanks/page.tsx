@@ -89,8 +89,8 @@ function PayThanksInner() {
       subtitle={subtitle}
       centered
     >
-      <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-5 text-center">
-        <p className="text-base font-semibold text-emerald-100">
+      <div className="rounded-xl border border-success/40 bg-success/30 px-4 py-6 text-center">
+        <p className="text-base font-semibold text-success">
           {status === "loading"
             ? "Confirming…"
             : status === "pending"
@@ -101,16 +101,16 @@ function PayThanksInner() {
           // Always rendered once status resolves (even with a blank placeholder) so this line's
           // height is reserved from the start — appearing as a brand-new element once amountLabel
           // arrives shifted the paragraph below it (real CLS, not just a text swap).
-          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-200">
+          <p className="mt-2 text-2xl font-bold tabular-nums text-success">
             {amountLabel || " "}
           </p>
         )}
-        <p className="mt-3 text-sm leading-relaxed text-emerald-200/85">
+        <p className="mt-3 text-sm leading-relaxed text-success/85">
           {status === "loading"
             ? "Hang tight while we confirm with the card network."
             : `Thank you for choosing ${shop}. A receipt is sent automatically by email and text when we have your contact info.`}
         </p>
-        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           After the job, you may get a short thank-you text with a review link. You can close this
           page anytime.
         </p>
@@ -130,7 +130,7 @@ export default function PayThanksPage() {
           subtitle="One moment…"
           centered
         >
-          <p className="text-center text-sm text-zinc-400">Confirming payment…</p>
+          <p className="text-center text-sm text-muted-foreground">Confirming payment…</p>
         </CustomerPortalShell>
       }
     >

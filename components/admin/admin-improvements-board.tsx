@@ -65,9 +65,9 @@ const CATEGORY_SUGGESTIONS = [
 ]
 
 const PRIORITY_BADGE_CLASS: Record<AppImprovementPriority, string> = {
-  high: "border-rose-500/40 bg-rose-500/10 text-rose-300",
-  medium: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  low: "border-slate-600 bg-slate-800/60 text-slate-400",
+  high: "border-destructive/40 bg-destructive/10 text-destructive",
+  medium: "border-warning/40 bg-warning/10 text-warning",
+  low: "border-border bg-muted/60 text-muted-foreground",
 }
 
 function emptyDraft(): {
@@ -193,15 +193,15 @@ export function AdminImprovementsBoard({
     <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-50">App Improvement Board</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-foreground">App Improvement Board</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Ideas, bugs, and roadmap items — decide what to tackle, track progress, mark done, or
             take it off the list.
           </p>
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button type="button" className="bg-violet-600 text-white hover:bg-violet-500">
+            <Button type="button" className="bg-operator text-operator-foreground hover:bg-operator">
               <Plus className="mr-1.5 h-4 w-4" aria-hidden />
               Add improvement
             </Button>
@@ -212,34 +212,34 @@ export function AdminImprovementsBoard({
               <DialogDescription>Logs to Backlog — move it to Planned when you decide to tackle it.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <div className="space-y-1.5">
-                <Label className="text-slate-400">Title</Label>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Title</Label>
                 <Input
                   value={draft.title}
                   onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
                   placeholder="e.g. Amber: multi-turn draft refinement"
-                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  className="border-border bg-background text-foreground"
                   autoFocus
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-slate-400">Description</Label>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Description</Label>
                 <Textarea
                   value={draft.description}
                   onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                   placeholder="What is it, why it matters, any context."
                   rows={4}
-                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  className="border-border bg-background text-foreground"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-400">Category</Label>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Category</Label>
                   <Input
                     value={draft.category}
                     onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
                     list="improvement-category-suggestions"
-                    className="border-slate-700 bg-slate-950 text-slate-100"
+                    className="border-border bg-background text-foreground"
                   />
                   <datalist id="improvement-category-suggestions">
                     {CATEGORY_SUGGESTIONS.map((c) => (
@@ -247,13 +247,13 @@ export function AdminImprovementsBoard({
                     ))}
                   </datalist>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-400">Priority</Label>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Priority</Label>
                   <Select
                     value={draft.priority}
                     onValueChange={(v) => setDraft((d) => ({ ...d, priority: v as AppImprovementPriority }))}
                   >
-                    <SelectTrigger className="border-slate-700 bg-slate-950 text-slate-100">
+                    <SelectTrigger className="border-border bg-background text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -286,47 +286,47 @@ export function AdminImprovementsBoard({
             <div key={col.status} className="space-y-3">
               <div className="flex items-baseline justify-between px-1">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-200">{col.label}</h2>
-                  <p className="text-[11px] text-slate-500">{col.hint}</p>
+                  <h2 className="text-sm font-semibold text-foreground">{col.label}</h2>
+                  <p className="text-2xs text-muted-foreground">{col.hint}</p>
                 </div>
-                <Badge variant="outline" className="border-slate-700 text-slate-400">
+                <Badge variant="outline" className="border-border text-muted-foreground">
                   {rows.length}
                 </Badge>
               </div>
               <div className="space-y-2">
                 {rows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-slate-800 px-3 py-6 text-center text-xs text-slate-600">
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
                     Nothing here
                   </p>
                 ) : (
                   rows.map((item) => (
-                    <Card key={item.id} className="border-slate-800 bg-slate-900/50">
+                    <Card key={item.id} className="border-border bg-card/50">
                       <CardHeader className="space-y-2 pb-2">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold leading-snug text-slate-100">
+                          <p className="text-sm font-semibold leading-snug text-foreground">
                             {item.title}
                           </p>
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(item)}
-                            className="shrink-0 rounded p-1 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400"
+                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${item.title} from the board`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             variant="outline"
-                            className={cn("text-[10px]", PRIORITY_BADGE_CLASS[item.priority])}
+                            className={cn("text-2xs", PRIORITY_BADGE_CLASS[item.priority])}
                           >
                             {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
+                          <Badge variant="outline" className="border-border text-2xs text-muted-foreground">
                             {item.category}
                           </Badge>
                           {item.source ? (
-                            <Badge variant="outline" className="border-sky-700/50 text-[10px] text-sky-400">
+                            <Badge variant="outline" className="border-info/50 text-2xs text-info">
                               {item.source}
                             </Badge>
                           ) : null}
@@ -334,7 +334,7 @@ export function AdminImprovementsBoard({
                       </CardHeader>
                       <CardContent className="space-y-3 pt-0">
                         {item.description ? (
-                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-400">
+                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                             {item.description}
                           </p>
                         ) : null}
@@ -343,7 +343,7 @@ export function AdminImprovementsBoard({
                           onValueChange={(v) => void moveStatus(item, v as AppImprovementStatus)}
                           disabled={movingId === item.id}
                         >
-                          <SelectTrigger className="h-8 border-slate-700 bg-slate-950 text-xs text-slate-300">
+                          <SelectTrigger className="h-9 border-border bg-background text-xs text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

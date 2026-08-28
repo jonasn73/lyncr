@@ -247,27 +247,27 @@ function LiveChatQueue() {
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200"
+          className="border-border text-foreground"
           onClick={() => void loadThreads({ silent: true })}
         >
           Refresh
         </Button>
       </div>
-      <Card className="border-slate-800 bg-slate-900/50">
+      <Card className="border-border bg-card/50">
         <CardHeader>
-          <CardTitle className="text-base text-slate-100">Live chat</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardTitle className="text-base text-foreground">Live chat</CardTitle>
+          <CardDescription className="hidden text-muted-foreground md:block">
             In-app conversations from Help → Chat with Lyncr Support. Newest activity first.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading && threads.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && threads.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               No conversations yet. When a business owner messages from Help, it shows here.
             </p>
           ) : null}
@@ -281,30 +281,30 @@ function LiveChatQueue() {
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   unread
-                    ? "border-violet-500/40 bg-slate-950/60 hover:border-violet-400/60"
-                    : "border-slate-700/80 bg-slate-950/40 hover:border-slate-600"
+                    ? "border-operator/40 bg-background/60 hover:border-operator/60"
+                    : "border-border/80 bg-background/40 hover:border-border"
                 )}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className={cn("text-sm", unread ? "font-semibold text-slate-50" : "text-slate-200")}>
+                  <span className={cn("text-sm", unread ? "font-semibold text-foreground" : "text-foreground")}>
                     {row.business_name}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-muted-foreground">
                     {row.last_message_at
                       ? formatChatTime(row.last_message_at)
                       : formatChatTime(row.created_at)}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {row.owner_name} · {row.owner_email} · {row.status}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-operator/20 px-2 py-0.5 text-2xs font-medium text-operator">
                       {row.admin_unread_count} unread
                     </span>
                   ) : null}
                 </p>
                 {row.last_message_preview ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{row.last_message_preview}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.last_message_preview}</p>
                 ) : null}
               </button>
             )
@@ -326,13 +326,13 @@ function LiveChatQueue() {
       >
         <SheetContent
           side="bottom"
-          className="flex max-h-[92vh] flex-col gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-lg"
+          className="flex max-h-[92vh] flex-col gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
         >
-          <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
+          <SheetHeader className="border-b border-border px-4 py-3 text-left">
             <div className="flex items-start justify-between gap-2 pr-8">
               <div className="min-w-0">
-                <SheetTitle className="text-slate-50">Support chat</SheetTitle>
-                <p className="text-xs text-slate-500">{ownerLabel}</p>
+                <SheetTitle className="text-foreground">Support chat</SheetTitle>
+                <p className="text-xs text-muted-foreground">{ownerLabel}</p>
               </div>
               {activeUserId ? (
                 <Button
@@ -340,7 +340,7 @@ function LiveChatQueue() {
                   size="sm"
                   variant="outline"
                   disabled={impersonatePending}
-                  className="shrink-0 border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                  className="shrink-0 border-border bg-card text-foreground hover:bg-muted"
                   onClick={() => {
                     startImpersonateTransition(async () => {
                       const result = await startImpersonation(activeUserId)
@@ -360,7 +360,7 @@ function LiveChatQueue() {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {detailLoading && messages.length === 0 ? (
               <div className="flex justify-center py-12">
-                <Spinner className="h-8 w-8 text-violet-400" />
+                <Spinner className="h-9 w-9 text-operator" />
               </div>
             ) : null}
             {messages.map((m) => {
@@ -378,13 +378,13 @@ function LiveChatQueue() {
                     className={cn(
                       "max-w-[90%] rounded-2xl px-3 py-2 text-sm",
                       isSystem &&
-                        "max-w-[95%] border border-slate-700 bg-slate-900/80 text-center text-xs text-slate-400",
-                      isAdmin && "bg-violet-600 text-white",
-                      !isAdmin && !isSystem && "border border-slate-700 bg-slate-900 text-slate-100"
+                        "max-w-[95%] border border-border bg-card/80 text-center text-xs text-muted-foreground",
+                      isAdmin && "bg-operator text-operator-foreground",
+                      !isAdmin && !isSystem && "border border-border bg-card text-foreground"
                     )}
                   >
                     {!isSystem ? (
-                      <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide opacity-70">
+                      <p className="mb-0.5 text-micro font-medium uppercase tracking-wide opacity-70">
                         {isAdmin ? "You (Lyncr)" : "Tenant"}
                       </p>
                     ) : null}
@@ -414,7 +414,7 @@ function LiveChatQueue() {
                       </div>
                     ))}
                     {!isSystem ? (
-                      <p className="mt-1 text-[10px] opacity-60">{formatChatTime(m.created_at)}</p>
+                      <p className="mt-1 text-2xs opacity-60">{formatChatTime(m.created_at)}</p>
                     ) : null}
                   </div>
                 </div>
@@ -424,11 +424,11 @@ function LiveChatQueue() {
           </div>
 
           {pending.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-t border-slate-800 px-4 py-2">
+            <div className="flex flex-wrap gap-2 border-t border-border px-4 py-2">
               {pending.map((p) => (
                 <span
                   key={p.url}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-[11px]"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-2xs"
                 >
                   <span className="max-w-[140px] truncate">{p.filename}</span>
                   <button
@@ -442,7 +442,7 @@ function LiveChatQueue() {
             </div>
           ) : null}
 
-          <div className="border-t border-slate-800 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div className="border-t border-border px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <input
               ref={fileRef}
               type="file"
@@ -458,7 +458,7 @@ function LiveChatQueue() {
                 type="button"
                 variant="outline"
                 size="icon"
-                className="shrink-0 border-slate-700"
+                className="shrink-0 border-border"
                 disabled={uploading || pending.length >= 5}
                 onClick={() => fileRef.current?.click()}
                 aria-label="Attach file"
@@ -470,7 +470,7 @@ function LiveChatQueue() {
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Reply as Lyncr Support…"
                 rows={2}
-                className="min-h-[44px] flex-1 resize-none border-slate-700 bg-slate-900 text-slate-100"
+                className="min-h-[44px] flex-1 resize-none border-border bg-card text-foreground"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault()
@@ -481,7 +481,7 @@ function LiveChatQueue() {
               <Button
                 type="button"
                 size="icon"
-                className="shrink-0 bg-violet-600 hover:bg-violet-500"
+                className="shrink-0 bg-operator hover:bg-operator"
                 disabled={sending || (!draft.trim() && pending.length === 0)}
                 onClick={() => void sendReply()}
                 aria-label="Send"
@@ -493,7 +493,7 @@ function LiveChatQueue() {
               <Button type="button" variant="ghost" size="sm" onClick={() => setActiveId(null)}>
                 Close
               </Button>
-              <Button type="button" variant="outline" size="sm" className="border-slate-700" onClick={() => void closeThread()}>
+              <Button type="button" variant="outline" size="sm" className="border-border" onClick={() => void closeThread()}>
                 Mark closed
               </Button>
             </SheetFooter>
@@ -586,44 +586,44 @@ function FeedbackQueue() {
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200"
+          className="border-border text-foreground"
           onClick={() => void load({ silent: true })}
         >
           Refresh
         </Button>
       </div>
-      <Card className="border-slate-800 bg-slate-900/50">
+      <Card className="border-border bg-card/50">
         <CardHeader>
-          <CardTitle className="text-base text-slate-100">Feedback queue</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardTitle className="text-base text-foreground">Feedback queue</CardTitle>
+          <CardDescription className="hidden text-muted-foreground md:block">
             In-app Help submissions (feedback_submissions). Newest first.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading && feedback.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && feedback.length === 0 ? (
-            <p className="text-sm text-slate-400">No feedback yet.</p>
+            <p className="text-sm text-muted-foreground">No feedback yet.</p>
           ) : null}
           {feedback.map((row) => (
             <button
               key={row.id}
               type="button"
               onClick={() => setSheet(row)}
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/40 p-4 text-left transition-colors hover:border-violet-500/40 hover:bg-slate-900/60"
+              className="w-full rounded-xl border border-border/80 bg-background/40 p-4 text-left transition-colors hover:border-operator/40 hover:bg-card/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium uppercase text-slate-500">{row.category}</span>
-                <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-300">
+                <span className="text-xs font-medium uppercase text-muted-foreground">{row.category}</span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-2xs font-medium capitalize text-foreground">
                   {row.status}
                 </span>
               </div>
-              <p className="mt-2 text-sm font-medium text-slate-100">{row.subject}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-slate-400">{row.body}</p>
-              <p className="mt-2 text-xs text-slate-500">{new Date(row.created_at).toLocaleString()}</p>
+              <p className="mt-2 text-sm font-medium text-foreground">{row.subject}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.body}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</p>
             </button>
           ))}
         </CardContent>
@@ -632,24 +632,24 @@ function FeedbackQueue() {
       <Sheet open={sheet != null} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent
           side="bottom"
-          className="gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-lg"
+          className="gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
         >
           {sheet ? (
             <>
-              <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
-                <SheetTitle className="text-slate-50">{sheet.subject}</SheetTitle>
-                <p className="text-xs text-slate-500">
+              <SheetHeader className="border-b border-border px-4 py-3 text-left">
+                <SheetTitle className="text-foreground">{sheet.subject}</SheetTitle>
+                <p className="text-xs text-muted-foreground">
                   {sheet.category} · {new Date(sheet.created_at).toLocaleString()}
                 </p>
               </SheetHeader>
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-medium uppercase text-slate-500">Status</span>
+                  <span className="text-micro font-medium uppercase text-muted-foreground">Status</span>
                   <Select
                     value={sheet.status}
                     onValueChange={(v) => void setStatus(sheet.id, v as FeedbackStatus)}
                   >
-                    <SelectTrigger className="h-8 w-[140px] border-slate-600 bg-slate-900 text-xs text-slate-200">
+                    <SelectTrigger className="h-9 w-[140px] border-border bg-card text-xs text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -661,15 +661,15 @@ function FeedbackQueue() {
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{sheet.body}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{sheet.body}</p>
               </div>
-              <SheetFooter className="flex-row justify-between gap-2 border-t border-slate-800 px-4 py-3 sm:justify-between">
+              <SheetFooter className="flex-row justify-between gap-2 border-t border-border px-4 py-3 sm:justify-between">
                 <Button type="button" variant="ghost" onClick={() => setSheet(null)}>
                   Close
                 </Button>
                 <Button
                   type="button"
-                  className="bg-violet-600 text-white hover:bg-violet-500"
+                  className="bg-operator text-operator-foreground hover:bg-operator"
                   disabled={addingToBoard}
                   onClick={() => void addToBoard(sheet)}
                 >
@@ -762,27 +762,27 @@ function EmailInbox() {
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200"
+          className="border-border text-foreground"
           onClick={() => void load({ silent: true })}
         >
           Refresh
         </Button>
       </div>
-      <Card className="border-slate-800 bg-slate-900/50">
+      <Card className="border-border bg-card/50">
         <CardHeader>
-          <CardTitle className="text-base text-slate-100">support@lyncr.app</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardTitle className="text-base text-foreground">support@lyncr.app</CardTitle>
+          <CardDescription className="hidden text-muted-foreground md:block">
             Inbound via Zoho forward → Resend. Setup: ADMIN-SUPPORT-INBOX.md + Neon migration 127.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading && emails.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && emails.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               No emails yet. After Zoho forwarding and Resend webhook are set up, messages to
               support@lyncr.app show here.
             </p>
@@ -797,28 +797,28 @@ function EmailInbox() {
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   unread
-                    ? "border-violet-500/40 bg-slate-950/60 hover:border-violet-400/60"
-                    : "border-slate-700/80 bg-slate-950/40 hover:border-slate-600"
+                    ? "border-operator/40 bg-background/60 hover:border-operator/60"
+                    : "border-border/80 bg-background/40 hover:border-border"
                 )}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className={cn("text-sm", unread ? "font-semibold text-slate-50" : "text-slate-200")}>
+                  <span className={cn("text-sm", unread ? "font-semibold text-foreground" : "text-foreground")}>
                     {row.from_name ? `${row.from_name} · ${row.from_email}` : row.from_email}
                   </span>
-                  <span className="text-xs text-slate-500">{new Date(row.received_at).toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(row.received_at).toLocaleString()}</span>
                 </div>
-                <p className={cn("mt-1 text-sm", unread ? "font-medium text-slate-100" : "text-slate-300")}>
+                <p className={cn("mt-1 text-sm", unread ? "font-medium text-foreground" : "text-foreground")}>
                   {row.subject || "(no subject)"}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-operator/20 px-2 py-0.5 text-2xs font-medium text-operator">
                       Unread
                     </span>
                   ) : null}
                 </p>
                 {row.text_preview ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-500">{row.text_preview}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.text_preview}</p>
                 ) : null}
-                <p className="mt-2 text-xs text-slate-600">To {displayToAddress(row)}</p>
+                <p className="mt-2 text-xs text-muted-foreground">To {displayToAddress(row)}</p>
               </button>
             )
           })}
@@ -836,43 +836,43 @@ function EmailInbox() {
       >
         <SheetContent
           side="bottom"
-          className="gap-0 border-slate-700 bg-slate-950 p-0 text-slate-200 sm:mx-auto sm:max-w-lg"
+          className="gap-0 border-border bg-background p-0 text-foreground sm:mx-auto sm:max-w-lg"
         >
           {detailLoading && !detail ? (
             <div className="flex justify-center py-16">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {detail ? (
             <>
-              <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
-                <SheetTitle className="text-slate-50">{detail.subject || "(no subject)"}</SheetTitle>
-                <p className="text-xs text-slate-500">
+              <SheetHeader className="border-b border-border px-4 py-3 text-left">
+                <SheetTitle className="text-foreground">{detail.subject || "(no subject)"}</SheetTitle>
+                <p className="text-xs text-muted-foreground">
                   From {detail.from_name ? `${detail.from_name} <${detail.from_email}>` : detail.from_email}
                   {" · "}
                   {new Date(detail.received_at).toLocaleString()}
                 </p>
-                <p className="text-xs text-slate-600">To {displayToAddress(detail)}</p>
+                <p className="text-xs text-muted-foreground">To {displayToAddress(detail)}</p>
               </SheetHeader>
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
                 {detail.text_body ? (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{detail.text_body}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{detail.text_body}</p>
                 ) : detail.html_body ? (
                   // Sandboxed iframe avoids executing scripts from email HTML.
                   <iframe
                     title="Email HTML"
                     sandbox=""
-                    className="min-h-[240px] w-full rounded-lg border border-slate-800 bg-white"
+                    className="min-h-[240px] w-full rounded-lg border border-border bg-white"
                     srcDoc={detail.html_body}
                   />
                 ) : (
-                  <p className="text-sm text-slate-500">No body content stored for this message.</p>
+                  <p className="text-sm text-muted-foreground">No body content stored for this message.</p>
                 )}
-                <p className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-500">
+                <p className="rounded-lg border border-border bg-card/50 px-3 py-2 text-xs text-muted-foreground">
                   Reply coming soon — for now, reply from Zoho if you keep a copy there.
                 </p>
               </div>
-              <SheetFooter className="border-t border-slate-800 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+              <SheetFooter className="border-t border-border px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
                 <Button type="button" variant="ghost" onClick={() => setDetail(null)}>
                   Close
                 </Button>
@@ -889,29 +889,29 @@ export function AdminSupportBoard() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:p-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-50">Support</h1>
-        <p className="mt-1 hidden text-sm text-slate-500 md:block">
+        <h1 className="text-xl font-bold text-foreground">Support</h1>
+        <p className="mt-1 hidden text-sm text-muted-foreground md:block">
           Live chat, emails to support@lyncr.app, and in-app feedback. Tap a row for details.
         </p>
       </div>
 
       <Tabs defaultValue="chat" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-3 bg-slate-900 p-1">
+        <TabsList className="grid h-auto w-full grid-cols-3 bg-card p-1">
           <TabsTrigger
             value="chat"
-            className="data-[state=active]:bg-slate-800 data-[state=active]:text-slate-50"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground"
           >
             Live chat
           </TabsTrigger>
           <TabsTrigger
             value="emails"
-            className="data-[state=active]:bg-slate-800 data-[state=active]:text-slate-50"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground"
           >
             Emails
           </TabsTrigger>
           <TabsTrigger
             value="feedback"
-            className="data-[state=active]:bg-slate-800 data-[state=active]:text-slate-50"
+            className="data-[state=active]:bg-muted data-[state=active]:text-foreground"
           >
             In-app feedback
           </TabsTrigger>

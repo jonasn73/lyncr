@@ -28,28 +28,28 @@ export function StorySheetHeader({
       className={cn(
         "relative shrink-0 space-y-0 border-b px-4 pb-4 pt-2 text-left",
         variant === "member" && "border-primary/25 bg-gradient-to-br from-primary/[0.14] via-card to-card",
-        variant === "operator" && "border-violet-500/35 bg-gradient-to-br from-violet-950/90 via-slate-900 to-slate-950"
+        variant === "operator" && "border-operator/35 bg-gradient-to-br from-operator/90 via-card to-background"
       )}
     >
       <div
         className={cn(
           "mx-auto mb-2 h-1.5 w-11 shrink-0 rounded-full",
-          variant === "member" ? "bg-foreground/25" : "bg-slate-500/60"
+          variant === "member" ? "bg-foreground/25" : "bg-muted-foreground/60"
         )}
         aria-hidden
       />
       <p
         className={cn(
-          "text-[10px] font-semibold uppercase tracking-[0.14em]",
-          variant === "member" ? "text-primary" : "text-violet-300"
+          "text-micro font-semibold uppercase tracking-[0.14em]",
+          variant === "member" ? "text-primary" : "text-operator"
         )}
       >
         {eyebrow}
       </p>
       <p
         className={cn(
-          "mt-0.5 text-[11px] leading-snug",
-          variant === "member" ? "text-muted-foreground" : "text-slate-400"
+          "mt-0.5 text-2xs leading-snug",
+          variant === "member" ? "text-muted-foreground" : "text-muted-foreground"
         )}
       >
         {storyline}
@@ -64,10 +64,10 @@ export function StorySheetHeader({
                 i < step!
                   ? variant === "member"
                     ? "bg-primary shadow-[0_0_10px_-2px_var(--primary)]"
-                    : "bg-violet-400"
+                    : "bg-operator"
                   : variant === "member"
                     ? "bg-muted/70"
-                    : "bg-slate-700"
+                    : "bg-accent"
               )}
             />
           ))}
@@ -76,7 +76,7 @@ export function StorySheetHeader({
       <SheetTitle
         className={cn(
           "mt-3 text-left text-lg font-semibold tracking-tight",
-          variant === "member" ? "text-foreground" : "text-slate-50"
+          variant === "member" ? "text-foreground" : "text-foreground"
         )}
       >
         {title}
@@ -85,7 +85,7 @@ export function StorySheetHeader({
         <SheetDescription
           className={cn(
             "mt-2 text-left text-xs leading-relaxed",
-            variant === "member" ? "text-muted-foreground" : "text-slate-400"
+            variant === "member" ? "text-muted-foreground" : "text-muted-foreground"
           )}
         >
           {description}

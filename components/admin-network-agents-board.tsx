@@ -33,7 +33,7 @@ type NetworkAgent = {
   created_at: string
 }
 
-const opCard = "border-slate-700/80 bg-slate-900/50 text-slate-200 shadow-sm"
+const opCard = "border-border/80 bg-card/50 text-foreground shadow-resting"
 
 export function AdminNetworkAgentsBoard() {
   const { toast } = useToast()
@@ -111,12 +111,12 @@ export function AdminNetworkAgentsBoard() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
       <header className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Network pool</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-xl font-semibold text-foreground">Network pool</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Shared, platform-managed receptionists (no owning business). Businesses on{" "}
-            <span className="font-medium text-slate-300">Only Ring Lyncr Network</span> or{" "}
-            <span className="font-medium text-slate-300">Ring My Team, Fallback to Lyncr</span> route to these by skill.
-            Operator login invites live under <span className="font-medium text-slate-300">People</span>.
+            <span className="font-medium text-foreground">Only Ring Lyncr Network</span> or{" "}
+            <span className="font-medium text-foreground">Ring My Team, Fallback to Lyncr</span> route to these by skill.
+            Operator login invites live under <span className="font-medium text-foreground">People</span>.
           </p>
         </div>
       </header>
@@ -124,19 +124,19 @@ export function AdminNetworkAgentsBoard() {
       {/* Onboarding form */}
       <Card className={opCard}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base text-slate-100">
-            <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
+          <CardTitle className="flex items-center gap-2 text-base text-foreground">
+            <UserPlus className="h-4 w-4 text-operator" aria-hidden />
             Onboard a global network agent
           </CardTitle>
-          <CardDescription className="text-slate-400">
-            Creates a receptionist row with <code className="rounded bg-slate-950 px-1 text-violet-200">user_id = NULL</code>{" "}
+          <CardDescription className="text-muted-foreground">
+            Creates a receptionist row with <code className="rounded bg-background px-1 text-operator">user_id = NULL</code>{" "}
             (requires migration 048). Skills decide which industries they can answer for.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="net-agent-name" className="text-slate-400">
+            <div className="space-y-2">
+              <Label htmlFor="net-agent-name" className="text-muted-foreground">
                 Name
               </Label>
               <Input
@@ -144,11 +144,11 @@ export function AdminNetworkAgentsBoard() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jordan Pierce"
-                className="border-slate-600 bg-slate-950/80 text-slate-100"
+                className="border-border bg-background/80 text-foreground"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="net-agent-phone" className="text-slate-400">
+            <div className="space-y-2">
+              <Label htmlFor="net-agent-phone" className="text-muted-foreground">
                 Phone (cell)
               </Label>
               <Input
@@ -158,13 +158,13 @@ export function AdminNetworkAgentsBoard() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="(555) 123-4567"
-                className="border-slate-600 bg-slate-950/80 text-slate-100"
+                className="border-border bg-background/80 text-foreground"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-400">Skills</Label>
+            <Label className="text-muted-foreground">Skills</Label>
             <div className="flex flex-wrap gap-2">
               {ROUTING_POOL_SKILL_TAGS.map((tag) => {
                 const active = selectedSkills.includes(tag)
@@ -176,8 +176,8 @@ export function AdminNetworkAgentsBoard() {
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       active
-                        ? "border-violet-500/60 bg-violet-600/25 text-violet-100"
-                        : "border-slate-600 bg-slate-950/60 text-slate-300 hover:border-slate-500"
+                        ? "border-operator/60 bg-operator/25 text-operator"
+                        : "border-border bg-background/60 text-foreground hover:border-border"
                     )}
                     aria-pressed={active}
                   >
@@ -190,7 +190,7 @@ export function AdminNetworkAgentsBoard() {
               value={customSkills}
               onChange={(e) => setCustomSkills(e.target.value)}
               placeholder="Custom tags, comma-separated (e.g. detailing_core, locksmith)"
-              className="border-slate-600 bg-slate-950/80 text-slate-100"
+              className="border-border bg-background/80 text-foreground"
             />
           </div>
 
@@ -198,7 +198,7 @@ export function AdminNetworkAgentsBoard() {
             type="button"
             disabled={busy}
             onClick={() => void createAgent()}
-            className="bg-violet-600 text-white hover:bg-violet-500"
+            className="bg-operator text-operator-foreground hover:bg-operator"
           >
             {busy ? "Creating…" : "Create network agent"}
           </Button>
@@ -208,42 +208,42 @@ export function AdminNetworkAgentsBoard() {
       {/* Existing agents */}
       <Card className={opCard}>
         <CardHeader>
-          <CardTitle className="text-base text-slate-100">Active network agents</CardTitle>
-          <CardDescription className="text-slate-400">All receptionists with no owning business (user_id IS NULL).</CardDescription>
+          <CardTitle className="text-base text-foreground">Active network agents</CardTitle>
+          <CardDescription className="text-muted-foreground">All receptionists with no owning business (user_id IS NULL).</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-300" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-operator" />
               Loading…
             </div>
           ) : agents.length === 0 ? (
-            <p className="text-sm text-slate-400">No network agents yet. Onboard one above.</p>
+            <p className="text-sm text-muted-foreground">No network agents yet. Onboard one above.</p>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-700 hover:bg-transparent">
-                  <TableHead className="text-slate-300">Name</TableHead>
-                  <TableHead className="text-slate-300">Phone</TableHead>
-                  <TableHead className="text-slate-300">Skills</TableHead>
-                  <TableHead className="text-slate-300">Status</TableHead>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-foreground">Name</TableHead>
+                  <TableHead className="text-foreground">Phone</TableHead>
+                  <TableHead className="text-foreground">Skills</TableHead>
+                  <TableHead className="text-foreground">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {agents.map((a) => (
-                  <TableRow key={a.id} className="border-slate-800">
-                    <TableCell className="text-sm text-slate-200">{a.name}</TableCell>
-                    <TableCell className="text-sm tabular-nums text-slate-300">{a.phone}</TableCell>
+                  <TableRow key={a.id} className="border-border">
+                    <TableCell className="text-sm text-foreground">{a.name}</TableCell>
+                    <TableCell className="text-sm tabular-nums text-foreground">{a.phone}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {a.skills.length === 0 ? (
-                          <span className="text-xs text-slate-500">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           a.skills.map((s) => (
                             <Badge
                               key={s}
                               variant="outline"
-                              className="border-slate-600 bg-slate-950/60 text-[10px] text-slate-300"
+                              className="border-border bg-background/60 text-2xs text-foreground"
                             >
                               {formatRoutingPoolSkillLabel(s)}
                             </Badge>
@@ -254,10 +254,10 @@ export function AdminNetworkAgentsBoard() {
                     <TableCell>
                       <span
                         className={cn(
-                          "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          "rounded-full border px-2 py-0.5 text-2xs font-medium",
                           a.is_active
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                            : "border-slate-600 bg-slate-950/60 text-slate-400"
+                            ? "border-success/40 bg-success/10 text-success"
+                            : "border-border bg-background/60 text-muted-foreground"
                         )}
                       >
                         {a.is_active ? "Active" : "Inactive"}

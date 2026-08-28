@@ -41,15 +41,15 @@ function MetricCell({
     return (
       <div
         className={cn(
-          "inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border border-zinc-700/80 bg-zinc-900/90 px-2.5 py-1",
+          "inline-flex shrink-0 snap-start items-center gap-2 rounded-full border border-border/80 bg-card/90 px-3 py-1",
           className
         )}
       >
-        <span className="text-[10px] font-medium text-zinc-500">{label}</span>
+        <span className="text-2xs font-medium text-muted-foreground">{label}</span>
         <span
           className={cn(
             "min-w-[0.75rem] text-xs font-bold tabular-nums",
-            isZero || pending ? "text-zinc-600" : valueClassName
+            isZero || pending ? "text-muted-foreground" : valueClassName
           )}
         >
           {display}
@@ -62,19 +62,19 @@ function MetricCell({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-zinc-800/60 bg-zinc-950/40 px-2 py-1.5",
+        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-border/60 bg-background/40 px-2 py-2",
         className
       )}
     >
       <span
         className={cn(
           "min-h-[1.25rem] text-lg font-bold leading-none tracking-tight tabular-nums",
-          isZero || pending ? "text-zinc-600" : valueClassName
+          isZero || pending ? "text-muted-foreground" : valueClassName
         )}
       >
         {display}
       </span>
-      <span className="truncate text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+      <span className="truncate text-micro font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
     </div>
@@ -135,10 +135,10 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       <div
         className={cn(
           showPillRow
-            ? "flex flex-nowrap gap-1.5 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            : "grid grid-cols-2 gap-1.5 px-2.5 py-2 sm:grid-cols-4",
-          sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-2.5 py-1.5",
-          !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
+            ? "flex flex-nowrap gap-2 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "grid grid-cols-2 gap-2 px-3 py-2 sm:grid-cols-4",
+          sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-3 py-2",
+          !showPillRow && !embedded && "border-b border-border bg-card/90 backdrop-blur"
         )}
       >
         <MetricCell
@@ -146,34 +146,34 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           pending={metricsPending}
           label={useShortLabels ? "Active" : "Active Dispatches"}
           value={metrics.activeDispatches}
-          valueClassName="text-sky-300"
+          valueClassName="text-info"
         />
         <MetricCell
           compact={showPillRow}
           pending={metricsPending}
           label={useShortLabels ? "Pool" : "Unassigned Pool"}
           value={metrics.unassignedPool}
-          valueClassName="text-amber-300"
+          valueClassName="text-warning"
         />
         <MetricCell
           compact={showPillRow}
           pending={metricsPending}
           label={useShortLabels ? "On-site" : "On-Site"}
           value={metrics.onSite}
-          valueClassName="text-emerald-300"
+          valueClassName="text-success"
         />
         <MetricCell
           compact={showPillRow}
           pending={metricsPending}
           label={useShortLabels ? "Done" : "Completed Today"}
           value={metrics.completedToday}
-          valueClassName="text-zinc-200"
+          valueClassName="text-foreground"
         />
         {showPillRow && inboundCallPanel && !hidePrimaryAction ? (
           <Button
             type="button"
             size="sm"
-            className="h-7 shrink-0 snap-start gap-1.5 rounded-full bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground"
+            className="h-7 shrink-0 snap-start gap-2 rounded-full bg-primary px-3 text-2xs font-semibold text-primary-foreground"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-3 w-3" aria-hidden />
@@ -184,15 +184,15 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
       {!showPillRow && inboundCallPanel && !hidePrimaryAction ? (
         <div
           className={cn(
-            "px-2.5 pb-2",
+            "px-3 pb-2",
             sidebar ? "pt-0" : "px-3 md:px-8",
-            !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-2.5"
+            !embedded && "border-b border-border bg-card/90 backdrop-blur md:pb-3"
           )}
         >
           <Button
             type="button"
             size="sm"
-            className="h-8 w-full gap-1.5 bg-primary font-semibold text-primary-foreground shadow-md hover:bg-primary/90 md:w-auto"
+            className="h-9 w-full gap-2 bg-primary font-semibold text-primary-foreground shadow-raised hover:bg-primary/90 md:w-auto"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-4 w-4" aria-hidden />

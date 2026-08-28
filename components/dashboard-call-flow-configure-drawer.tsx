@@ -29,7 +29,7 @@ import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 const RING_OPTIONS = [15, 20, 30, 45, 60] as const
 
@@ -374,11 +374,11 @@ export function DashboardCallFlowConfigureDrawer({
       />
 
       {/* Segmented tab bar */}
-      <div className="shrink-0 border-b border-zinc-800 px-4 pt-1 sm:px-6">
+      <div className="shrink-0 border-b border-border px-4 pt-1 sm:px-6">
         <div
           role="tablist"
           aria-label="Call flow settings"
-          className="flex gap-1 rounded-xl border border-zinc-800 bg-zinc-950/80 p-1"
+          className="flex gap-1 rounded-xl border border-border bg-background/80 p-1"
         >
           {TABS.map((tab) => {
             const active = currentTab === tab.id
@@ -390,10 +390,10 @@ export function DashboardCallFlowConfigureDrawer({
                 aria-selected={active}
                 onClick={() => setCurrentTab(tab.id)}
                 className={cn(
-                  "min-h-9 flex-1 rounded-lg px-2 py-2 text-[11px] font-semibold transition-colors sm:text-xs",
+                  "min-h-9 flex-1 rounded-lg px-2 py-2 text-2xs font-semibold transition-colors sm:text-xs",
                   active
-                    ? "bg-zinc-800 text-foreground shadow-sm"
-                    : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                    ? "bg-muted text-foreground shadow-resting"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground"
                 )}
               >
                 {tab.label}
@@ -405,16 +405,16 @@ export function DashboardCallFlowConfigureDrawer({
 
       <DrawerScrollBody>
         {loading || routingLineDetailLoading ? (
-          <div className="flex items-center gap-2 py-8 text-xs text-zinc-500">
+          <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading configuration…
           </div>
         ) : (
           <>
             {currentTab === "routing" ? (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <fieldset className="space-y-2">
-                  <legend className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Who answers first
                   </legend>
                   <div role="radiogroup" aria-label="Active routing mode" className="space-y-2">
@@ -430,8 +430,8 @@ export function DashboardCallFlowConfigureDrawer({
                             className={cn(
                               "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                               active
-                                ? "border-emerald-500/40 bg-emerald-500/10"
-                                : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                ? "border-success/40 bg-success/10"
+                                : "border-border bg-background/40 hover:border-border"
                             )}
                           >
                             <span
@@ -439,34 +439,34 @@ export function DashboardCallFlowConfigureDrawer({
                               className={cn(
                                 "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                 active
-                                  ? "border-emerald-400 bg-emerald-500/20"
-                                  : "border-zinc-600 bg-transparent"
+                                  ? "border-success bg-success/20"
+                                  : "border-border bg-transparent"
                               )}
                             >
                               {active ? (
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                <span className="h-2 w-2 rounded-full bg-success" />
                               ) : null}
                             </span>
                             <span className="min-w-0">
                               <span className="block text-sm font-semibold text-foreground">
                                 {opt.label}
                               </span>
-                              <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
+                              <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
                                 {opt.description}
                               </span>
                             </span>
                           </button>
 
                           {opt.value === "team_receptionist" && active ? (
-                            <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                            <section className="ml-1 space-y-3 rounded-xl border border-border bg-card/40 p-4">
                               <label
                                 htmlFor="configure-team-receptionist"
-                                className="text-xs font-semibold text-zinc-300"
+                                className="text-xs font-semibold text-foreground"
                               >
                                 Who on your Team answers first
                               </label>
                               {teamMembers.length === 0 ? (
-                                <p className="text-[11px] text-amber-200/90">
+                                <p className="text-2xs text-warning/90">
                                   Add a receptionist on the Team page first, then come back here.
                                 </p>
                               ) : (
@@ -489,11 +489,11 @@ export function DashboardCallFlowConfigureDrawer({
                                   ))}
                                 </select>
                               )}
-                              <p className="text-[10px] text-zinc-600">
+                              <p className="text-2xs text-muted-foreground">
                                 Available → rings them first. Unavailable → your phone if Available,
                                 otherwise the busy voice menu (press 1 for booking form).
                               </p>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Ring delay before next step
                               </p>
                               <div className="flex flex-wrap gap-2">
@@ -506,7 +506,7 @@ export function DashboardCallFlowConfigureDrawer({
                                       "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
                                       draft.ringTimeout === sec
                                         ? "border-primary bg-primary/15 text-primary"
-                                        : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                                        : "border-border text-foreground hover:border-border"
                                     )}
                                   >
                                     {sec}s
@@ -517,11 +517,11 @@ export function DashboardCallFlowConfigureDrawer({
                           ) : null}
 
                           {opt.value === "your_phone" && active ? (
-                            <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                            <section className="ml-1 space-y-3 rounded-xl border border-border bg-card/40 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Ring delay before fallback
                               </p>
-                              <p className="text-[11px] text-zinc-500">
+                              <p className="text-2xs text-muted-foreground">
                                 How long to ring your cell before emergency / missed handling.
                                 Tip: with Hold queue, prefer 15–20s so carrier voicemail does not
                                 pick up first (we also detect machines automatically).
@@ -536,7 +536,7 @@ export function DashboardCallFlowConfigureDrawer({
                                       "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
                                       draft.ringTimeout === sec
                                         ? "border-primary bg-primary/15 text-primary"
-                                        : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                                        : "border-border text-foreground hover:border-border"
                                     )}
                                   >
                                     {sec}s
@@ -549,26 +549,26 @@ export function DashboardCallFlowConfigureDrawer({
                       )
                     })}
 
-                    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/30">
+                    <div className="overflow-hidden rounded-xl border border-border bg-background/30">
                       <button
                         type="button"
                         onClick={() => setMoreRoutingOpen((o) => !o)}
-                        className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                        className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
                         aria-expanded={moreRoutingOpen}
                       >
-                        <span className="text-xs font-semibold text-zinc-400">
+                        <span className="text-xs font-semibold text-muted-foreground">
                           More options · Lyncr Pool / Custom
                         </span>
                         <ChevronDown
                           className={cn(
-                            "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+                            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
                             moreRoutingOpen && "rotate-180"
                           )}
                           aria-hidden
                         />
                       </button>
                       {moreRoutingOpen ? (
-                        <div className="space-y-2 border-t border-zinc-800 px-2 pb-3 pt-2">
+                        <div className="space-y-2 border-t border-border px-2 pb-3 pt-2">
                           {advancedRoutingModes.map((opt) => {
                             const active = draft.mode === opt.value
                             return (
@@ -581,8 +581,8 @@ export function DashboardCallFlowConfigureDrawer({
                                   className={cn(
                                     "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                                     active
-                                      ? "border-emerald-500/40 bg-emerald-500/10"
-                                      : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                      ? "border-success/40 bg-success/10"
+                                      : "border-border bg-background/40 hover:border-border"
                                   )}
                                 >
                                   <span
@@ -590,29 +590,29 @@ export function DashboardCallFlowConfigureDrawer({
                                     className={cn(
                                       "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                       active
-                                        ? "border-emerald-400 bg-emerald-500/20"
-                                        : "border-zinc-600 bg-transparent"
+                                        ? "border-success bg-success/20"
+                                        : "border-border bg-transparent"
                                     )}
                                   >
                                     {active ? (
-                                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                      <span className="h-2 w-2 rounded-full bg-success" />
                                     ) : null}
                                   </span>
                                   <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-foreground">
                                       {opt.label}
                                     </span>
-                                    <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
+                                    <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
                                       {opt.description}
                                     </span>
                                   </span>
                                 </button>
 
                                 {opt.value === "custom_routing" && active ? (
-                                  <section className="ml-1 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                                  <section className="ml-1 space-y-2 rounded-xl border border-border bg-card/40 p-4">
                                     <label
                                       htmlFor="configure-custom-phone"
-                                      className="text-xs font-semibold text-zinc-300"
+                                      className="text-xs font-semibold text-foreground"
                                     >
                                       Target 10-digit phone number
                                     </label>
@@ -630,14 +630,14 @@ export function DashboardCallFlowConfigureDrawer({
                                       }
                                       className={cn(fieldClass, "h-11")}
                                     />
-                                    <p className="text-[10px] text-zinc-600">
+                                    <p className="text-2xs text-muted-foreground">
                                       Every inbound call to this business line forwards to this number.
                                     </p>
                                   </section>
                                 ) : null}
 
                                 {opt.value === "lyncr_pool" && active ? (
-                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200/90">
+                                  <p className="ml-1 rounded-xl border border-operator/20 bg-operator/5 px-3 py-3 text-2xs text-operator/90">
                                     Lyncr Pool is active — certified shared agents answer in-browser.
                                   </p>
                                 ) : null}
@@ -655,7 +655,7 @@ export function DashboardCallFlowConfigureDrawer({
             {currentTab === "greetings" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="configure-voice-persona" className="text-xs font-semibold text-zinc-300">
+                  <label htmlFor="configure-voice-persona" className="text-xs font-semibold text-foreground">
                     AI Voice Persona
                   </label>
                   <select
@@ -670,17 +670,17 @@ export function DashboardCallFlowConfigureDrawer({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-zinc-600">
+                  <p className="text-2xs text-muted-foreground">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                       "Tone callers hear on greetings and hold prompts."}
                   </p>
                 </div>
 
-                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-                  <label htmlFor="configure-busy" className="text-xs font-semibold text-zinc-300">
+                <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
+                  <label htmlFor="configure-busy" className="text-xs font-semibold text-foreground">
                     Busy greeting
                   </label>
-                  <p className="hidden text-[10px] text-zinc-600 md:block">
+                  <p className="hidden text-2xs text-muted-foreground md:block">
                     Played when Presence is Busy — press 1 texts a booking link; stay on the line
                     enters the hold queue (music + Lines Answer).
                   </p>
@@ -700,8 +700,8 @@ export function DashboardCallFlowConfigureDrawer({
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-zinc-300">
+                  <div className="space-y-2">
+                    <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-foreground">
                       Re-prompt every (sec)
                     </label>
                     <input
@@ -720,12 +720,12 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.repromptSecs)}
                     />
-                    <p className="hidden text-[10px] text-zinc-600 md:block">
+                    <p className="hidden text-2xs text-muted-foreground md:block">
                       Music length before we re-speak Busy (20–90). Blank = {holdDefaults.repromptSecs}s.
                     </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-zinc-300">
+                  <div className="space-y-2">
+                    <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-foreground">
                       Max wait (sec)
                     </label>
                     <input
@@ -744,35 +744,35 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.maxWaitSecs)}
                     />
-                    <p className="hidden text-[10px] text-zinc-600 md:block">
+                    <p className="hidden text-2xs text-muted-foreground md:block">
                       Then one booking SMS + hangup (120–900). Blank = {holdDefaults.maxWaitSecs}s.
                     </p>
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
+                <div className="overflow-hidden rounded-lg border border-border bg-background/40">
                   <button
                     type="button"
                     onClick={() => setHolidayOpen((o) => !o)}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
                     aria-expanded={holidayOpen}
                   >
-                    <span className="text-xs font-semibold text-zinc-300">
+                    <span className="text-xs font-semibold text-foreground">
                       Scheduled Holiday Closures
                     </span>
                     <ChevronDown
                       className={cn(
-                        "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
                         holidayOpen && "rotate-180"
                       )}
                       aria-hidden
                     />
                   </button>
                   {holidayOpen ? (
-                    <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
+                    <div className="space-y-3 border-t border-border px-3 pb-3 pt-3">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <label htmlFor="configure-holiday-start" className="text-[11px] font-medium text-zinc-400">
+                        <div className="space-y-2">
+                          <label htmlFor="configure-holiday-start" className="text-2xs font-medium text-muted-foreground">
                             Starts
                           </label>
                           <input
@@ -785,8 +785,8 @@ export function DashboardCallFlowConfigureDrawer({
                             className={cn(fieldClass, "min-h-10")}
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <label htmlFor="configure-holiday-end" className="text-[11px] font-medium text-zinc-400">
+                        <div className="space-y-2">
+                          <label htmlFor="configure-holiday-end" className="text-2xs font-medium text-muted-foreground">
                             Ends
                           </label>
                           <input
@@ -800,8 +800,8 @@ export function DashboardCallFlowConfigureDrawer({
                           />
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="configure-holiday-text" className="text-[11px] font-medium text-zinc-400">
+                      <div className="space-y-2">
+                        <label htmlFor="configure-holiday-text" className="text-2xs font-medium text-muted-foreground">
                           Holiday greeting (text-to-speech)
                         </label>
                         <textarea
@@ -825,7 +825,7 @@ export function DashboardCallFlowConfigureDrawer({
                             holidayText: "",
                           }))
                         }
-                        className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                        className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                       >
                         Clear holiday window
                       </button>
@@ -836,9 +836,9 @@ export function DashboardCallFlowConfigureDrawer({
             ) : null}
 
             {currentTab === "security" ? (
-              <div className="space-y-5">
-                <section className="space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                  <label htmlFor="configure-bypass" className="text-xs font-semibold text-amber-200">
+              <div className="space-y-6">
+                <section className="space-y-2 rounded-xl border border-warning/20 bg-warning/5 p-4">
+                  <label htmlFor="configure-bypass" className="text-xs font-semibold text-warning">
                     Secret technician bypass
                   </label>
                   <input
@@ -857,17 +857,17 @@ export function DashboardCallFlowConfigureDrawer({
                     className={cn(fieldClass, "min-h-11")}
                     placeholder="e.g. 9 or 1234"
                   />
-                  <p className="text-[10px] leading-relaxed text-zinc-500">
+                  <p className="text-2xs leading-relaxed text-muted-foreground">
                     Digits dialed during the automation greeting ring your cell and skip presence
                     blocks. Avoid &quot;1&quot; (booking key).
                   </p>
                 </section>
 
-                <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <section className="space-y-3 rounded-xl border border-border bg-card/40 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Emergency / missed-call handling
                   </p>
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-2xs text-muted-foreground">
                     When the primary path does not connect, where should the caller go next?
                   </p>
                   <div role="radiogroup" aria-label="Emergency fallback" className="space-y-2">
@@ -908,7 +908,7 @@ export function DashboardCallFlowConfigureDrawer({
                             "flex w-full gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                             active
                               ? "border-primary/50 bg-primary/10"
-                              : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                              : "border-border bg-background/40 hover:border-border"
                           )}
                         >
                           <span
@@ -917,7 +917,7 @@ export function DashboardCallFlowConfigureDrawer({
                               "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                               active
                                 ? "border-primary bg-primary/20"
-                                : "border-zinc-600 bg-transparent"
+                                : "border-border bg-transparent"
                             )}
                           >
                             {active ? (
@@ -928,7 +928,7 @@ export function DashboardCallFlowConfigureDrawer({
                             <span className="block text-sm font-semibold text-foreground">
                               {opt.label}
                             </span>
-                            <span className="mt-0.5 block text-[11px] text-zinc-500">
+                            <span className="mt-0.5 block text-2xs text-muted-foreground">
                               {opt.description}
                             </span>
                           </span>
@@ -938,18 +938,18 @@ export function DashboardCallFlowConfigureDrawer({
                   </div>
                 </section>
 
-                <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <section className="space-y-2 rounded-xl border border-border bg-card/40 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Hold queue tips
                   </p>
-                  <p className="hidden text-[11px] leading-relaxed text-zinc-500 md:block">
+                  <p className="hidden text-2xs leading-relaxed text-muted-foreground md:block">
                     Pick Hold queue above when you want a missed Available ring to wait with music.
                     We hang up if your cell carrier voicemail answers, then start hold music so you
                     can Answer from Lines. Prefer a 20s ring delay (25s max with Hold — longer often
                     hits personal VM first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
                     (default 3). Music and max wait live under Greetings.
                   </p>
-                  <p className="text-[11px] text-zinc-500 md:hidden">
+                  <p className="text-2xs text-muted-foreground md:hidden">
                     Prefer 20s ring delay with Hold queue (capped ~25s). Concurrent wait cap is platform-wide
                     (default 3). Music + max wait live under Greetings.
                   </p>

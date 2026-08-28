@@ -64,13 +64,13 @@ export function JobCardSummary({
   return (
     <div className={cn("min-w-0", className)}>
       {showHeader ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground">
             {model.customerName}
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-2xs font-semibold",
               pillClass
             )}
           >
@@ -79,7 +79,7 @@ export function JobCardSummary({
           {model.fieldVerificationRequired ? (
             <span
               title="Verify key style on vehicle before cutting a blank"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 text-warning"
             >
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
             </span>
@@ -89,13 +89,13 @@ export function JobCardSummary({
 
       {showHeader && model.customerPhone ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="font-mono text-xs text-slate-300">
+          <p className="font-mono text-xs text-foreground">
             {formatPhoneDisplay(model.customerPhone)}
           </p>
           {showCallChip && model.phoneHref ? (
             <a
               href={model.phoneHref}
-              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100"
+              className="inline-flex items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-0.5 text-2xs font-semibold text-success"
             >
               <Phone className="h-3 w-3" aria-hidden />
               Call
@@ -105,7 +105,7 @@ export function JobCardSummary({
       ) : null}
 
       {model.fieldVerificationRequired && showHeader ? (
-        <p className="mt-1.5 text-[11px] font-medium text-amber-300">
+        <p className="mt-1.5 text-2xs font-medium text-warning">
           Field verification required — confirm dashboard / door lock config before programming.
         </p>
       ) : null}
@@ -113,29 +113,29 @@ export function JobCardSummary({
       {/* Same Attribute · Detail rows as owner Active Job overview */}
       <section
         className={cn(
-          "space-y-1 text-[12px] leading-snug text-slate-300",
-          showHeader && "mt-2.5 border-t border-border/40 pt-2.5"
+          "space-y-1 text-xs leading-snug text-foreground",
+          showHeader && "mt-2.5 border-t border-border/40 pt-3"
         )}
       >
         <p className="min-w-0">
-          <span className="font-semibold text-slate-500">Vehicle</span>
-          <span className="text-slate-600"> · </span>
-          <span className="font-medium text-slate-100">
+          <span className="font-semibold text-muted-foreground">Vehicle</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-medium text-foreground">
             {model.vehicleSummary || "No vehicle / service on file yet"}
           </span>
         </p>
         <p className="min-w-0">
-          <span className="font-semibold text-slate-500">Address</span>
-          <span className="text-slate-600"> · </span>
+          <span className="font-semibold text-muted-foreground">Address</span>
+          <span className="text-muted-foreground"> · </span>
           {model.serviceAddress ? (
             <>
-              <span className="font-medium text-slate-100">{model.serviceAddress}</span>
+              <span className="font-medium text-foreground">{model.serviceAddress}</span>
               {model.mapsUrl ? (
                 <a
                   href={model.mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
+                  className="ml-1.5 inline-flex items-center gap-0.5 text-2xs font-semibold text-success/90 underline-offset-2 hover:underline"
                 >
                   Maps
                   <ExternalLink className="h-3 w-3" aria-hidden />
@@ -149,20 +149,20 @@ export function JobCardSummary({
         <p className="min-w-0">
           {!hideBalance ? (
             <>
-              <span className="font-semibold text-emerald-500/80">Balance</span>
-              <span className="text-slate-600"> · </span>
-              <span className="font-semibold tabular-nums text-emerald-300">
+              <span className="font-semibold text-success/80">Balance</span>
+              <span className="text-muted-foreground"> · </span>
+              <span className="font-semibold tabular-nums text-success">
                 {model.billingLabel}
               </span>
-              <span className="text-slate-600"> · </span>
+              <span className="text-muted-foreground"> · </span>
             </>
           ) : null}
-          <span className="font-semibold text-slate-500">Appt</span>
-          <span className="text-slate-600"> · </span>
+          <span className="font-semibold text-muted-foreground">Appt</span>
+          <span className="text-muted-foreground"> · </span>
           <span
             className={cn(
               "font-medium",
-              appointmentDelayed ? "text-rose-400" : "text-slate-100"
+              appointmentDelayed ? "text-destructive" : "text-foreground"
             )}
           >
             {model.appointmentLabel}
@@ -170,13 +170,13 @@ export function JobCardSummary({
         </p>
         {model.keyHint !== "None on file" ? (
           <p className="min-w-0">
-            <span className="font-semibold text-slate-500">Key</span>
-            <span className="text-slate-600"> · </span>
-            <span className="font-medium text-slate-100">{model.keyHint}</span>
+            <span className="font-semibold text-muted-foreground">Key</span>
+            <span className="text-muted-foreground"> · </span>
+            <span className="font-medium text-foreground">{model.keyHint}</span>
           </p>
         ) : null}
         {!hideSummaryLine && model.summaryLine ? (
-          <p className="line-clamp-2 text-[11px] text-slate-500">{model.summaryLine}</p>
+          <p className="line-clamp-2 text-2xs text-muted-foreground">{model.summaryLine}</p>
         ) : null}
       </section>
     </div>

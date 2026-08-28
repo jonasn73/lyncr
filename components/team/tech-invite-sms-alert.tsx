@@ -38,18 +38,18 @@ export function TechInviteSmsAlert({
 
   if (sentOk) {
     return (
-      <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
+      <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-4">
+        <p className="flex items-center gap-2 text-sm font-semibold text-success">
           Invite texted to {name}
         </p>
         {phone ? (
-          <p className="mt-1 text-xs text-emerald-100/80">
+          <p className="mt-1 text-xs text-success/80">
             We sent a secure setup link to {formatPhoneDisplay(phone)}. They tap it, pick a password,
             and they&apos;re in — no password for you to manage.
           </p>
         ) : null}
         {expiresHint ? (
-          <p className="mt-2 text-[11px] text-emerald-100/60">Link expires in 48 hours.</p>
+          <p className="mt-2 text-2xs text-success/60">Link expires in 48 hours.</p>
         ) : null}
       </div>
     )
@@ -75,29 +75,29 @@ export function TechInviteSmsAlert({
     <div
       className={
         is10Dlc
-          ? "mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4"
-          : "mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4"
+          ? "mb-4 rounded-xl border border-destructive/40 bg-destructive/50 p-4"
+          : "mb-4 rounded-xl border border-warning/30 bg-warning/10 p-4"
       }
     >
       <p
-        className={`text-sm font-semibold ${is10Dlc ? "text-red-200" : "text-amber-200"}`}
+        className={`text-sm font-semibold ${is10Dlc ? "text-destructive" : "text-warning"}`}
       >
         {is10Dlc ? "⚠️ " : ""}
         Invite created for {name}
       </p>
-      <p className={`mt-1 text-xs ${is10Dlc ? "text-red-100/80" : "text-amber-100/80"}`}>
+      <p className={`mt-1 text-xs ${is10Dlc ? "text-destructive/80" : "text-warning/80"}`}>
         <span className="block font-medium">{headline}</span>
         <span className="mt-1 block">{detail}</span>
       </p>
       <p
-        className={`mt-2 break-all rounded-lg p-2 font-mono text-[11px] ${
-          is10Dlc ? "bg-black/40 text-red-100/90" : "bg-black/30 text-amber-100"
+        className={`mt-2 break-all rounded-lg p-2 font-mono text-2xs ${
+          is10Dlc ? "bg-black/40 text-destructive/90" : "bg-black/30 text-warning"
         }`}
       >
         {setupUrl}
       </p>
       {expiresHint ? (
-        <p className={`mt-2 text-[11px] ${is10Dlc ? "text-red-200/60" : "text-amber-100/60"}`}>
+        <p className={`mt-2 text-2xs ${is10Dlc ? "text-destructive/60" : "text-warning/60"}`}>
           Link expires in 48 hours.
         </p>
       ) : null}

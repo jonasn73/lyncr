@@ -57,7 +57,7 @@ function SmsOptInForm() {
 
       <main className="mx-auto max-w-prose px-4 py-8">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-6 w-6 text-primary" aria-hidden />
           </div>
           <div>
@@ -69,9 +69,9 @@ function SmsOptInForm() {
         </div>
 
         {submitted ? (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-5">
+          <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-6">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" aria-hidden />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-foreground">You are opted in</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -83,7 +83,7 @@ function SmsOptInForm() {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label htmlFor="sms-opt-in-phone" className="text-sm font-medium text-foreground">
                 Mobile phone number
@@ -96,7 +96,7 @@ function SmsOptInForm() {
                 placeholder="(555) 123-4567"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
             </div>
 
@@ -115,7 +115,7 @@ function SmsOptInForm() {
 
             <button
               type="submit"
-              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Confirm SMS opt-in
             </button>

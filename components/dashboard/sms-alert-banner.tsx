@@ -66,10 +66,10 @@ export function SmsAlertBanner() {
   }
 
   const tone = needsAttention
-    ? "border-red-500/40 bg-red-600/20 text-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.25)]"
+    ? "border-destructive/40 bg-destructive/20 text-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.25)]"
     : isPending
-      ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-      : "border-violet-500/30 bg-violet-500/10 text-violet-100"
+      ? "border-warning/30 bg-warning/10 text-warning"
+      : "border-operator/30 bg-operator/10 text-operator"
 
   return (
     <div
@@ -81,7 +81,7 @@ export function SmsAlertBanner() {
       <button
         type="button"
         onClick={() => openCarrierRegistrationModal({ edit: needsAttention })}
-        className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20"
+        className="rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20"
       >
         {needsAttention ? "Fix registration →" : isPending ? "View status →" : "Set up SMS →"}
       </button>

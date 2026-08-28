@@ -50,7 +50,7 @@ type WizardStep = "details" | "availability" | "pay" | "done"
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
+  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-success/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -251,7 +251,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-300">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         Loading…
       </div>
@@ -262,7 +262,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <p className="text-lg font-semibold text-white">Link problem</p>
-        <p className="mt-2 text-sm text-slate-400">{error}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
       </div>
     )
   }
@@ -277,10 +277,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center pb-[calc(env(safe-area-inset-bottom)+2rem)]">
         <p className="text-2xl font-semibold text-white">{successCopy.title}</p>
-        <p className="mt-2 text-sm text-slate-400">{successCopy.body}</p>
-        <p className="mt-3 text-xs text-slate-500">{successCopy.nextHint}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{successCopy.body}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{successCopy.nextHint}</p>
         {invite?.business_label ? (
-          <p className="mt-4 text-[11px] text-slate-600">{invite.business_label}</p>
+          <p className="mt-4 text-2xs text-muted-foreground">{invite.business_label}</p>
         ) : null}
       </div>
     )
@@ -293,7 +293,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400/90">
+      <p className="text-xs font-semibold uppercase tracking-wide text-success/90">
         {invite?.business_label || "Your locksmith"}
       </p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
@@ -303,7 +303,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             ? `Pay ${amountLabel}`
             : `Book & pay ${amountLabel}`}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         {wizardStep === "availability"
           ? "Pick one day and when you’re free (start–end)."
           : wizardStep === "pay"
@@ -313,18 +313,18 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               : `Fill this in, then pay ${amountLabel} on the next step.`}
       </p>
       {invite?.operator_note ? (
-        <p className="mt-3 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-300">
+        <p className="mt-3 rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground">
           {invite.operator_note}
         </p>
       ) : null}
 
       {/* Step chips */}
       {wizardStep !== "pay" ? (
-        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-5 flex items-center justify-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           <span
             className={cn(
-              "rounded-full px-2.5 py-1",
-              wizardStep === "details" && "bg-emerald-500/20 text-emerald-200"
+              "rounded-full px-3 py-1",
+              wizardStep === "details" && "bg-success/20 text-success"
             )}
           >
             1 · Details
@@ -334,8 +334,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <span className="text-slate-700">→</span>
               <span
                 className={cn(
-                  "rounded-full px-2.5 py-1",
-                  wizardStep === "availability" && "bg-emerald-500/20 text-emerald-200"
+                  "rounded-full px-3 py-1",
+                  wizardStep === "availability" && "bg-success/20 text-success"
                 )}
               >
                 2 · When
@@ -345,19 +345,19 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           {invite?.fee_mode !== "none" ? (
             <>
               <span className="text-slate-700">→</span>
-              <span className="rounded-full px-2.5 py-1">3 · Pay</span>
+              <span className="rounded-full px-3 py-1">3 · Pay</span>
             </>
           ) : null}
         </div>
       ) : null}
 
       {wizardStep === "details" ? (
-        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
-          <div className="space-y-2.5">
+        <div className="mt-4 rounded-2xl border border-border bg-background/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
+          <div className="space-y-3">
             {/* Name + phone on one row */}
             <div className="grid grid-cols-2 gap-2">
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">Name *</span>
+                <span className="text-xs font-medium text-muted-foreground">Name *</span>
                 <input
                   required
                   value={customerName}
@@ -367,7 +367,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 />
               </label>
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">Phone *</span>
+                <span className="text-xs font-medium text-muted-foreground">Phone *</span>
                 <input
                   required
                   type="tel"
@@ -380,7 +380,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             </div>
 
             <label className="block space-y-0.5">
-              <span className="text-xs font-medium text-slate-400">Address *</span>
+              <span className="text-xs font-medium text-muted-foreground">Address *</span>
               <input
                 required
                 value={address}
@@ -393,8 +393,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {emailOpen || email ? (
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">
-                  Email <span className="text-slate-600">(optional)</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Email <span className="text-muted-foreground">(optional)</span>
                 </span>
                 <input
                   type="email"
@@ -408,15 +408,15 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setEmailOpen(true)}
-                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
                 + Add email
               </button>
             )}
 
             <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-400">Job type *</legend>
-              <div className="grid grid-cols-2 gap-1.5">
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">Job type *</legend>
+              <div className="grid grid-cols-2 gap-2">
                 {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
@@ -425,8 +425,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     onClick={() => setJobKind(opt.id)}
                     className={
                       jobKind === opt.id
-                        ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-1.5 text-center text-xs font-medium text-emerald-50"
-                        : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-center text-xs text-slate-200"
+                        ? "rounded-lg border border-success/50 bg-success/15 px-2 py-2 text-center text-xs font-medium text-success"
+                        : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                     }
                   >
                     {opt.chip}
@@ -437,10 +437,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {bookJobKindNeedsVehicle(jobKind) ? (
               <div>
-                <p className="mb-1 text-xs font-medium text-slate-400">Vehicle</p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Vehicle</p>
+                <div className="grid grid-cols-3 gap-2">
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Year</span>
+                    <span className="text-2xs text-muted-foreground">Year</span>
                     <input
                       value={year}
                       onChange={(e) => setYear(e.target.value)}
@@ -449,7 +449,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Make</span>
+                    <span className="text-2xs text-muted-foreground">Make</span>
                     <input
                       value={make}
                       onChange={(e) => setMake(e.target.value)}
@@ -457,7 +457,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Model</span>
+                    <span className="text-2xs text-muted-foreground">Model</span>
                     <input
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
@@ -466,7 +466,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   </label>
                 </div>
                 <label className="mt-1.5 block space-y-0.5">
-                  <span className="text-[10px] text-slate-500">Or describe</span>
+                  <span className="text-2xs text-muted-foreground">Or describe</span>
                   <input
                     value={vehicleText}
                     onChange={(e) => setVehicleText(e.target.value)}
@@ -479,8 +479,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {notesOpen || notes ? (
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">
-                  Notes <span className="text-slate-600">(optional)</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Notes <span className="text-muted-foreground">(optional)</span>
                 </span>
                 <input
                   value={notes}
@@ -493,52 +493,52 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setNotesOpen(true)}
-                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
                 + Add notes
               </button>
             )}
 
             <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-400">Urgency *</legend>
-              <div className="grid grid-cols-2 gap-1.5">
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">Urgency *</legend>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setUrgency("asap")}
                   className={
                     urgency === "asap"
                       ? "rounded-lg border border-rose-500/40 bg-rose-500/15 px-2 py-2 text-center text-xs text-rose-50"
-                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                      : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                   }
                 >
                   <span className="font-semibold">ASAP</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-500">Need help now</span>
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">Need help now</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setUrgency("window")}
                   className={
                     urgency === "window"
-                      ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-50"
-                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                      ? "rounded-lg border border-success/50 bg-success/15 px-2 py-2 text-center text-xs text-success"
+                      : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                   }
                 >
                   <span className="font-semibold">Schedule</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-500">Pick a window</span>
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">Pick a window</span>
                 </button>
               </div>
             </fieldset>
 
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
 
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800/80 bg-slate-950/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
             <div className="mx-auto w-full max-w-lg">
               <button
                 type="button"
                 disabled={!detailsReady || submitting}
                 onClick={() => onDetailsContinue()}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {urgency === "asap"
@@ -553,13 +553,13 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       ) : null}
 
       {wizardStep === "availability" ? (
-        <div className="mt-6 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+        <div className="mt-6 space-y-4 rounded-2xl border border-border bg-background/40 p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-white">Your availability</p>
             <button
               type="button"
               onClick={() => setWizardStep("details")}
-              className="text-xs text-slate-400 underline-offset-2 hover:underline"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
             >
               Back
             </button>
@@ -573,8 +573,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 onClick={() => setDayKey(day.dateKey)}
                 className={
                   dayKey === day.dateKey
-                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm text-emerald-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left text-sm text-slate-200"
+                    ? "rounded-lg border border-success/50 bg-success/15 px-3 py-3 text-left text-sm text-success"
+                    : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
                 <span className="font-semibold">{day.shortLabel}</span>
@@ -583,8 +583,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">From</span>
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-foreground">From</span>
               <select
                 value={fromTime}
                 onChange={(e) => setFromTime(e.target.value)}
@@ -597,8 +597,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 ))}
               </select>
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">To</span>
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-foreground">To</span>
               <select
                 value={toTime}
                 onChange={(e) => setToTime(e.target.value)}
@@ -614,20 +614,20 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           </div>
 
           {windowReady ? (
-            <p className="text-center text-sm text-slate-200">
-              Free: <span className="font-semibold text-emerald-200">{availabilityLabel}</span>
+            <p className="text-center text-sm text-foreground">
+              Free: <span className="font-semibold text-success">{availabilityLabel}</span>
             </p>
           ) : (
-            <p className="text-center text-[11px] text-rose-300">End time must be after start.</p>
+            <p className="text-center text-2xs text-rose-300">End time must be after start.</p>
           )}
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={!windowReady || submitting}
             onClick={() => void submitForm()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {invite?.fee_mode === "none" ? "Submit" : `Continue to pay ${amountLabel}`}
@@ -637,10 +637,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
       {wizardStep === "pay" && payClientSecret && stripePromise ? (
         <div id="book-link-pay" className="mt-6 space-y-3">
-          <p className="text-center text-sm font-medium text-slate-200">
+          <p className="text-center text-sm font-medium text-foreground">
             Pay {amountLabel} — Cash App, Apple Pay, card, or Link
           </p>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-overlay shadow-black/40">
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
               options={{ clientSecret: payClientSecret }}
@@ -648,7 +648,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <EmbeddedCheckout />
             </EmbeddedCheckoutProvider>
           </div>
-          <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+          <p className="text-center text-2xs leading-relaxed text-muted-foreground">
             On iPhone Safari, Apple Pay shows when available. Cash App and cards work on any device.
           </p>
         </div>

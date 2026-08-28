@@ -16,8 +16,8 @@ export default async function TrackLocationPage({
   if (!token) {
     return (
       <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-lg font-semibold text-zinc-100">Locate link incomplete</h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <h1 className="text-lg font-semibold text-foreground">Locate link incomplete</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           This GPS link is missing its secure code. Ask your locksmith to text a new Request Live GPS
           link.
         </p>

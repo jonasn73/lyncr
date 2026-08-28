@@ -200,7 +200,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
         <p className="text-xs font-semibold">
           {verified ? "Change personal mobile" : "Verify personal mobile"}
         </p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           {status?.suggested_mobile_e164 && !verified
             ? `We filled in your Lyncr alert phone (${formatPhoneDisplay(status.suggested_mobile_e164)}). Tap Text me a code once so Amber only obeys that number.`
             : "We text a one-time code so only your phone can command Amber — not someone who finds the Amber number."}
@@ -295,7 +295,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <div className="space-y-4 text-sm">
-            <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+            <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
               <p className="text-xs font-semibold text-foreground">Status</p>
               <p className="mt-1 text-muted-foreground">
                 {status?.enabled ? "On" : "Off"}
@@ -304,14 +304,14 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   : ""}
               </p>
               {verified ? (
-                <p className="mt-1 text-[11px] text-emerald-400">
+                <p className="mt-1 text-2xs text-success">
                   Personal mobile verified
                   {status?.owner_mobile_e164
                     ? ` · ${formatPhoneDisplay(status.owner_mobile_e164)}`
                     : ""}
                 </p>
               ) : status?.enabled ? (
-                <p className="mt-1 text-[11px] text-amber-400">
+                <p className="mt-1 text-2xs text-warning">
                   Verify your personal mobile before Amber will take commands.
                 </p>
               ) : null}
@@ -320,7 +320,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             {!status?.enabled ? (
               <div className="space-y-3 rounded-xl border border-border/60 px-3 py-3">
                 <p className="text-xs font-semibold">Pick Amber’s private number</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   Choose an area code, pick a number, then turn Amber on. Lyncr attaches it to
                   your SMS campaign automatically — you stay in this app.
                 </p>
@@ -344,7 +344,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   </Button>
                 </div>
                 {lines.length > 0 ? (
-                  <ul className="max-h-48 space-y-1.5 overflow-y-auto">
+                  <ul className="max-h-48 space-y-2 overflow-y-auto">
                     {lines.map((line) => (
                       <li key={line.number}>
                         <button
@@ -360,7 +360,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                         >
                           <span>{line.display}</span>
                           {picked === line.number ? (
-                            <span className="text-[10px] font-semibold uppercase text-primary">
+                            <span className="text-micro font-semibold uppercase text-primary">
                               Selected
                             </span>
                           ) : null}
@@ -417,25 +417,25 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
             )}
 
             {status?.enabled && status.amber_number ? (
-              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
+              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-3">
                 <p className="text-xs font-semibold">SMS on your Lyncr campaign</p>
                 <p
                   className={cn(
-                    "text-[11px] font-medium",
+                    "text-2xs font-medium",
                     sms?.state === "ready"
-                      ? "text-emerald-400"
+                      ? "text-success"
                       : sms?.state === "pending"
-                        ? "text-amber-400"
+                        ? "text-warning"
                         : "text-muted-foreground"
                   )}
                 >
                   {sms?.label || "Checking…"}
                 </p>
                 {sms?.detail ? (
-                  <p className="text-[11px] text-muted-foreground">{sms.detail}</p>
+                  <p className="text-2xs text-muted-foreground">{sms.detail}</p>
                 ) : null}
                 {sms?.state === "no_campaign" ? (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Open Settings → Carrier / SMS registration if you still need to finish
                     approval. Everything stays in Lyncr.
                   </p>
@@ -464,10 +464,10 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             {/* After verify: success + next steps (no leftover code form). */}
             {status?.enabled && verified && !changeNumberOpen && status.amber_number ? (
-              <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+              <div className="space-y-3 rounded-xl border border-success/30 bg-success/5 px-3 py-3">
                 <div>
-                  <p className="text-xs font-semibold text-emerald-400">You’re set</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="text-xs font-semibold text-success">You’re set</p>
+                  <p className="mt-1 text-2xs text-muted-foreground">
                     Amber will only take commands from{" "}
                     {status.owner_mobile_e164
                       ? formatPhoneDisplay(status.owner_mobile_e164)
@@ -475,7 +475,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                     .
                   </p>
                 </div>
-                <ol className="space-y-2.5 text-[11px] text-muted-foreground">
+                <ol className="space-y-3 text-2xs text-muted-foreground">
                   <li className="leading-snug">
                     <span className="font-semibold text-foreground">1. Save this contact</span>
                     <br />
@@ -507,9 +507,9 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             {/* Before verify: quiet tip to save Amber while finishing setup. */}
             {status?.enabled && !verified && status.amber_number ? (
-              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2.5">
+              <div className="space-y-2 rounded-xl border border-border/60 px-3 py-3">
                 <p className="text-xs font-semibold">Save this contact</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   On your phone, save {formatPhoneDisplay(status.amber_number)} as{" "}
                   <span className="font-semibold text-foreground">Amber · Lyncr</span>.
                 </p>
@@ -518,7 +518,7 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             {showVerifyForm ? renderVerifyForm() : null}
 
-            <p className="text-[11px] leading-snug text-muted-foreground">
+            <p className="text-2xs leading-snug text-muted-foreground">
               Amber texts you leftover book jobs with a draft. Reply ok to send it, or tell her
               what to change. If you don’t reply in about 15 minutes, she tells them we got the
               request (no times or prices) and moves on. Skip Noah or don’t text them means skip.

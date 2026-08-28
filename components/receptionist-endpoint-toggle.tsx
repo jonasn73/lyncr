@@ -40,23 +40,23 @@ function webStatusLabel(
 ): { text: string; dot: string } {
   switch (status) {
     case "connecting":
-      return { text: "Connecting your browser…", dot: "bg-amber-400" }
+      return { text: "Connecting your browser…", dot: "bg-warning" }
     case "registered":
       return browserInboundLive
-        ? { text: "Browser ready for calls", dot: "bg-emerald-400" }
-        : { text: "Browser registered — inbound still rings Cell", dot: "bg-amber-400" }
+        ? { text: "Browser ready for calls", dot: "bg-success" }
+        : { text: "Browser registered — inbound still rings Cell", dot: "bg-warning" }
     case "ringing":
-      return { text: "Incoming call ringing your browser", dot: "bg-emerald-400 animate-pulse" }
+      return { text: "Incoming call ringing your browser", dot: "bg-success animate-pulse" }
     case "active":
-      return { text: "On a browser call", dot: "bg-emerald-400" }
+      return { text: "On a browser call", dot: "bg-success" }
     case "reconnecting":
-      return { text: "Reconnecting your browser…", dot: "bg-amber-400 animate-pulse" }
+      return { text: "Reconnecting your browser…", dot: "bg-warning animate-pulse" }
     case "not_provisioned":
-      return { text: "Browser calling not set up yet — using your cell", dot: "bg-zinc-500" }
+      return { text: "Browser calling not set up yet — using your cell", dot: "bg-muted-foreground" }
     case "error":
-      return { text: "Browser calling error — using your cell", dot: "bg-red-400" }
+      return { text: "Browser calling error — using your cell", dot: "bg-destructive" }
     default:
-      return { text: "", dot: "bg-zinc-600" }
+      return { text: "", dot: "bg-muted-foreground" }
   }
 }
 
@@ -113,7 +113,7 @@ export function ReceptionistEndpointToggle({
     <div
       role="radiogroup"
       aria-label="Call answering endpoint"
-      className="inline-flex w-full rounded-lg border border-border/50 bg-zinc-950/50 p-0.5 sm:w-auto"
+      className="inline-flex w-full rounded-lg border border-border/50 bg-background/50 p-0.5 sm:w-auto"
     >
       <EndpointButton
         active={current === "CELL"}
@@ -138,20 +138,20 @@ export function ReceptionistEndpointToggle({
   const extras = (
     <>
       {showWebStatus ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className={cn("inline-block h-1.5 w-1.5 rounded-full", status.dot)} aria-hidden />
           <span>{status.text}</span>
-          {webStatus === "error" && webError ? <span className="text-red-400">· {webError}</span> : null}
+          {webStatus === "error" && webError ? <span className="text-destructive">· {webError}</span> : null}
         </div>
       ) : null}
 
       {showBrowserNotLive ? (
-        <p className="rounded-md border border-amber-500/25 bg-amber-950/20 px-2.5 py-1.5 text-xs text-amber-300">
+        <p className="rounded-md border border-warning/25 bg-warning/20 px-3 py-2 text-xs text-warning">
           Browser ringing not live yet — use Cell. Inbound Call Control still dials your phone.
         </p>
       ) : null}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </>
   )
 
@@ -160,11 +160,11 @@ export function ReceptionistEndpointToggle({
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+          <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Answer on
           </p>
           {/* Longer hint only on desktop — mobile stays action-first */}
-          <p className="hidden text-xs text-zinc-500 md:block">
+          <p className="hidden text-xs text-muted-foreground md:block">
             Where rings land when you&apos;re selected
           </p>
         </div>
@@ -176,11 +176,11 @@ export function ReceptionistEndpointToggle({
 
   // Legacy card layout
   return (
-    <WorkspacePanel className="p-5">
+    <WorkspacePanel density="default">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Answer calls on</p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Answer calls on</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Pick where calls routed to you ring. Browser is instant; cell forwards to your phone.
           </p>
         </div>
@@ -214,8 +214,8 @@ function EndpointButton({
       disabled={busy}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-        active ? "bg-primary text-primary-foreground shadow-sm" : "text-zinc-400 hover:text-zinc-200",
+        "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
+        active ? "bg-primary text-primary-foreground shadow-resting" : "text-muted-foreground hover:text-foreground",
         busy && "opacity-70",
         className
       )}

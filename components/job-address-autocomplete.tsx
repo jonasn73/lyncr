@@ -298,7 +298,7 @@ export const JobAddressAutocomplete = forwardRef<
           width: menuRect.width,
           zIndex: 120,
         }}
-        className="pointer-events-auto max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-xl"
+        className="pointer-events-auto max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-overlay"
       >
         {suggestions.map((s, idx) => (
           <li key={`${s.place_id ?? s.formatted}-${idx}`}>
@@ -321,14 +321,14 @@ export const JobAddressAutocomplete = forwardRef<
   return (
     <div ref={wrapRef} className="relative grid gap-1">
       <div className="relative">
-        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
+        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <input
           ref={inputRef}
           type="text"
           data-intake-primary-search=""
           className={cn(
-            "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
-            validated && "border-emerald-500/50",
+            "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
+            validated && "border-success/50",
             className
           )}
           placeholder={placeholder}
@@ -350,18 +350,18 @@ export const JobAddressAutocomplete = forwardRef<
           autoComplete="off"
         />
         {loading || resolving ? (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" aria-hidden />
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
         ) : null}
       </div>
       {typeof document !== "undefined" && dropdown
         ? createPortal(dropdown, resolvePortalTarget())
         : null}
       {!validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
-        <p className="text-xs text-amber-400">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
+        <p className="text-xs text-warning">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
       ) : null}
       {validationError && query.trim() ? <p className="text-xs text-destructive">{validationError}</p> : null}
       {validated && value ? (
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-2xs text-muted-foreground">
           {value.street_number} {value.route}, {value.locality} {value.postal_code}
         </p>
       ) : null}

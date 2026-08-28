@@ -79,8 +79,8 @@ export function OperatorPayoutLedger() {
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Operator payouts</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-xl font-semibold text-foreground">Operator payouts</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Talk-time, answer speed, and accrued balances across every network agent.
           </p>
         </div>
@@ -88,7 +88,7 @@ export function OperatorPayoutLedger() {
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200"
+          className="border-border text-foreground"
           disabled={refreshing}
           onClick={() => void load(true)}
         >
@@ -97,83 +97,83 @@ export function OperatorPayoutLedger() {
         </Button>
       </div>
 
-      <Card className="border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-slate-900/70 to-slate-950/80">
+      <Card className="border-operator/30 bg-gradient-to-br from-operator/40 via-card/70 to-background/80">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-violet-100">Total outstanding payout balance</CardTitle>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/25 ring-1 ring-violet-400/40">
-            <Wallet className="h-4 w-4 text-violet-200" aria-hidden />
+          <CardTitle className="text-sm font-medium text-operator">Total outstanding payout balance</CardTitle>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-operator/25 ring-1 ring-operator/40">
+            <Wallet className="h-4 w-4 text-operator" aria-hidden />
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold tabular-nums tracking-tight text-slate-50">{formatUsd(totalAccrued)}</p>
-          <p className="mt-1 text-xs text-slate-500">Sum of all unpaid accrued balances.</p>
+          <p className="text-2xl font-bold tabular-nums tracking-tight text-foreground">{formatUsd(totalAccrued)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Sum of all unpaid accrued balances.</p>
         </CardContent>
       </Card>
 
-      <Card className="border-slate-800 bg-slate-900/40">
-        <CardHeader className="border-b border-slate-800/80 pb-4">
-          <CardTitle className="text-lg text-slate-100">Talk-time ledger</CardTitle>
+      <Card className="border-border bg-card/40">
+        <CardHeader className="border-b border-border/80 pb-4">
+          <CardTitle className="text-lg text-foreground">Talk-time ledger</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {loading ? (
-            <div className="flex items-center gap-2 p-6 text-sm text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading…
+            <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Loading…
             </div>
           ) : rows.length === 0 ? (
-            <p className="p-6 text-sm text-slate-400">No receptionists yet.</p>
+            <p className="p-6 text-sm text-muted-foreground">No receptionists yet.</p>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Agent</TableHead>
-                  <TableHead className="text-right text-slate-400">Calls</TableHead>
-                  <TableHead className="text-right text-slate-400">Minutes</TableHead>
-                  <TableHead className="text-right text-slate-400">Avg answer</TableHead>
-                  <TableHead className="text-right text-slate-400">Rate/min</TableHead>
-                  <TableHead className="text-right text-slate-400">Earned</TableHead>
-                  <TableHead className="text-right text-slate-400">Paid</TableHead>
-                  <TableHead className="text-right text-slate-400">Accrued</TableHead>
-                  <TableHead className="text-right text-slate-400">Payout</TableHead>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">Agent</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Calls</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Minutes</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Avg answer</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Rate/min</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Earned</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Paid</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Accrued</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Payout</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
-                  <TableRow key={r.receptionist_id} className="border-slate-800 hover:bg-slate-800/30">
+                  <TableRow key={r.receptionist_id} className="border-border hover:bg-muted/30">
                     <TableCell>
                       <div className="flex min-w-0 flex-col gap-1">
-                        <span className="font-medium text-slate-100">{r.name}</span>
+                        <span className="font-medium text-foreground">{r.name}</span>
                         <div className="flex flex-wrap items-center gap-1">
                           {r.is_network_agent ? (
-                            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-[10px] text-violet-200">
+                            <Badge variant="outline" className="border-operator/40 bg-operator/15 text-2xs text-operator">
                               Network
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="border-slate-600 bg-slate-800/60 text-[10px] text-slate-300">
+                            <Badge variant="outline" className="border-border bg-muted/60 text-2xs text-foreground">
                               Business
                             </Badge>
                           )}
                           {!r.is_active && (
-                            <Badge variant="outline" className="border-slate-700 bg-slate-900 text-[10px] text-slate-500">
+                            <Badge variant="outline" className="border-border bg-card text-2xs text-muted-foreground">
                               Inactive
                             </Badge>
                           )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-200">{r.total_calls}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-200">{r.total_minutes.toFixed(1)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-300">{answerSpeed(r.avg_answer_ms)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-300">{formatUsd(r.rate_per_minute)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-300">{formatUsd(r.earned_usd)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-500">{formatUsd(r.paid_usd)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-emerald-300">
+                    <TableCell className="text-right tabular-nums text-foreground">{r.total_calls}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{r.total_minutes.toFixed(1)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{answerSpeed(r.avg_answer_ms)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{formatUsd(r.rate_per_minute)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{formatUsd(r.earned_usd)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{formatUsd(r.paid_usd)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-success">
                       {formatUsd(r.accrued_usd)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
                         size="sm"
-                        className="bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40"
+                        className="bg-success text-success-foreground hover:bg-success disabled:opacity-40"
                         disabled={payingId === r.receptionist_id || r.accrued_usd <= 0}
                         onClick={() => void markPaid(r)}
                       >

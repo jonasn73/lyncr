@@ -75,7 +75,7 @@ export function InviteModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+        className="inline-flex items-center gap-2 rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator"
       >
         <UserPlus className="h-4 w-4" aria-hidden />
         Invite receptionist
@@ -90,18 +90,18 @@ export function InviteModal() {
             if (e.target === e.currentTarget) close()
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-overlay">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Invite a receptionist</h2>
-                <p className="mt-0.5 text-sm text-slate-400">
+                <h2 className="text-lg font-semibold text-foreground">Invite a receptionist</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   They&apos;ll get a link to set up their own account — no manual entry.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={close}
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
@@ -110,11 +110,11 @@ export function InviteModal() {
 
             {success ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3">
-                  <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
-                  <div className="text-sm text-emerald-100">
+                <div className="flex items-center gap-3 rounded-lg border border-success/40 bg-success/40 px-4 py-3">
+                  <CheckCircle2 className="h-6 w-6 shrink-0 text-success" aria-hidden />
+                  <div className="text-sm text-success">
                     Invitation created for <span className="font-medium">{success.target}</span>.
-                    <div className="mt-0.5 text-emerald-300/80">
+                    <div className="mt-0.5 text-success/80">
                       {success.sent
                         ? `Sent via ${success.type === "EMAIL" ? "email" : "SMS"}.`
                         : `Link created, but auto-send is off${success.send_error ? ` (${success.send_error})` : ""}. Copy it below.`}
@@ -122,26 +122,26 @@ export function InviteModal() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">Registration link</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Registration link</label>
                   <input
                     readOnly
                     value={success.register_url}
                     onFocus={(e) => e.currentTarget.select()}
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-200"
+                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground"
                   />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={reset}
-                    className="rounded-lg border border-slate-600 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   >
                     Invite another
                   </button>
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg bg-violet-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-violet-500"
+                    className="rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground hover:bg-operator"
                   >
                     Done
                   </button>
@@ -150,7 +150,7 @@ export function InviteModal() {
             ) : (
               <div className="space-y-4">
                 {/* Email / SMS toggle */}
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-slate-700 bg-slate-950/60 p-1">
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1">
                   {(["EMAIL", "SMS"] as Channel[]).map((c) => {
                     const active = channel === c
                     return (
@@ -163,7 +163,7 @@ export function InviteModal() {
                         }}
                         className={cn(
                           "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          active ? "bg-violet-600 text-white" : "text-slate-300 hover:bg-slate-800"
+                          active ? "bg-operator text-operator-foreground" : "text-foreground hover:bg-muted"
                         )}
                         aria-pressed={active}
                       >
@@ -175,7 +175,7 @@ export function InviteModal() {
                 </div>
 
                 <div>
-                  <label htmlFor="invite-target" className="mb-1 block text-sm font-medium text-slate-300">
+                  <label htmlFor="invite-target" className="mb-1 block text-sm font-medium text-foreground">
                     {isEmail ? "Email Address" : "Cell Phone Number"}
                   </label>
                   <input
@@ -189,12 +189,12 @@ export function InviteModal() {
                     }}
                     placeholder={isEmail ? "jordan@example.com" : "(555) 123-4567"}
                     autoFocus
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-operator focus:outline-none focus:ring-1 focus:ring-operator"
                   />
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-3 py-2 text-sm text-destructive">
                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                     {error}
                   </div>
@@ -204,7 +204,7 @@ export function InviteModal() {
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg border border-slate-600 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   >
                     Cancel
                   </button>
@@ -212,7 +212,7 @@ export function InviteModal() {
                     type="button"
                     onClick={() => void submit()}
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                     {busy ? "Sending…" : "Send invite"}

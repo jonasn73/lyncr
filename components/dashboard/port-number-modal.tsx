@@ -56,12 +56,12 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
   const rejected = order?.status === "rejected"
 
   return (
-    <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Transfer progress</p>
+    <div className="mt-6 rounded-xl border border-border bg-background/50 p-4">
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer progress</p>
       {order ? (
-        <p className="mt-1 text-xs text-zinc-400">{portingTimelineLabel(order.status)}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{portingTimelineLabel(order.status)}</p>
       ) : (
-        <p className="mt-1 text-xs text-zinc-500">Submit the form to start tracking your port.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Submit the form to start tracking your port.</p>
       )}
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {PORTING_TIMELINE_STEPS.map((label, i) => {
@@ -69,25 +69,25 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
           const current = step === i
           const isRejected = rejected && i === 1
           return (
-            <div key={label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+            <div key={label} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
               <span
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold",
+                  "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                   isRejected
-                    ? "border-red-500/50 bg-red-950/60 text-red-300"
+                    ? "border-destructive/50 bg-destructive/60 text-destructive"
                     : done || (current && order?.status === "completed")
-                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                      ? "border-success/50 bg-success/15 text-success"
                       : current
-                        ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
-                        : "border-zinc-700 bg-zinc-900 text-zinc-600"
+                        ? "border-operator/50 bg-operator/15 text-operator"
+                        : "border-border bg-card text-muted-foreground"
                 )}
               >
                 {done || order?.status === "completed" && i <= step ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span
                 className={cn(
-                  "text-[10px] font-medium leading-tight",
-                  current ? "text-violet-200" : done ? "text-zinc-300" : "text-zinc-600"
+                  "text-2xs font-medium leading-tight",
+                  current ? "text-operator" : done ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 {label}
@@ -97,7 +97,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
         })}
       </div>
       {order?.phone_number ? (
-        <p className="mt-3 text-center text-[11px] text-zinc-500">
+        <p className="mt-3 text-center text-2xs text-muted-foreground">
           {formatPhoneDisplay(order.phone_number)} · {order.current_carrier}
         </p>
       ) : null}
@@ -173,15 +173,15 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       {showActionBanner ? (
         <div
           role="alert"
-          className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3"
+          className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-3"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-amber-100">
+              <p className="text-sm font-semibold text-warning">
                 Action needed: the porting team left an update on this transfer
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+              <p className="mt-1 text-xs leading-relaxed text-warning/80">
                 {actionAlert?.body
                   ? displayPortingMessageBody(actionAlert.body).slice(0, 220)
                   : "Open Messages to read carrier questions (PIN, bill copy, LOA fixes) and reply."}
@@ -189,7 +189,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
               <button
                 type="button"
                 onClick={() => void openMessages()}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-200 underline underline-offset-2 hover:text-amber-100"
+                className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-warning underline underline-offset-2 hover:text-warning"
               >
                 <MessageSquare className="h-3.5 w-3.5" aria-hidden />
                 Open messages & reply
@@ -200,16 +200,16 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       ) : null}
 
       {notifications.length > 0 && !showActionBanner ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+        <div className="rounded-xl border border-border bg-background/40 px-3 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Messages from support
           </p>
           <ul className="mt-2 space-y-2">
             {notifications.slice(0, 3).map((n) => (
-              <li key={n.id} className="text-xs text-zinc-400">
-                <span className="font-medium text-zinc-300">{n.title}</span>
+              <li key={n.id} className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{n.title}</span>
                 {n.body ? (
-                  <span className="text-zinc-500"> — {displayPortingMessageBody(n.body).slice(0, 120)}</span>
+                  <span className="text-muted-foreground"> — {displayPortingMessageBody(n.body).slice(0, 120)}</span>
                 ) : null}
               </li>
             ))}
@@ -220,12 +220,12 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       <button
         type="button"
         onClick={() => void openMessages()}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-2.5 text-sm font-semibold text-violet-200 hover:bg-violet-500/15"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-operator/40 bg-operator/10 px-3 py-3 text-sm font-semibold text-operator hover:bg-operator/15"
       >
         <MessageSquare className="h-4 w-4" aria-hidden />
         Transfer messages
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-amber-950">
+          <span className="rounded-full bg-warning px-2 py-0.5 text-2xs font-bold text-warning">
             {unreadCount} new
           </span>
         ) : null}
@@ -398,13 +398,13 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           <button
             type="button"
             onClick={onBack}
-            className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="mb-3 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
             Back to buy a number
           </button>
           <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <PhoneForwarded className="h-4 w-4 text-violet-400" aria-hidden />
+            <PhoneForwarded className="h-4 w-4 text-operator" aria-hidden />
             Port Your Existing Number to Lyncr
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -413,9 +413,9 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           </p>
         </div>
       ) : (
-        <div className="shrink-0 border-b border-border/60 px-6 py-5">
+        <div className="shrink-0 border-b border-border/60 px-6 py-6">
           <h3 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
-            <PhoneForwarded className="h-5 w-5 text-violet-400" aria-hidden />
+            <PhoneForwarded className="h-5 w-5 text-operator" aria-hidden />
             Port Your Existing Number to Lyncr
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -424,10 +424,10 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Phone number to transfer
             </label>
             <input
@@ -437,11 +437,11 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               inputMode="tel"
               required
               placeholder="+1 (502) 555-0194"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Current carrier name
             </label>
             <input
@@ -449,11 +449,11 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setCarrier(e.target.value)}
               required
               placeholder="Verizon, AT&T, T-Mobile…"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Account number / SID
             </label>
             <input
@@ -461,11 +461,11 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setAccountNumber(e.target.value)}
               required
               placeholder="Carrier account number"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Authorization PIN / password
             </label>
             <input
@@ -474,11 +474,11 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               type="password"
               autoComplete="off"
               placeholder="Port-out PIN from your carrier"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Line label (whisper name)
             </label>
             <input
@@ -487,12 +487,12 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               required
               maxLength={120}
               placeholder="Key Squad 502 Line"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Upload last customer invoice / bill (PDF / image)
             </label>
             <div
@@ -515,14 +515,14 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               }}
               className={cn(
                 "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-                dragOver ? "border-violet-500/60 bg-violet-500/10" : "border-zinc-700 bg-zinc-950/40 hover:border-zinc-600"
+                dragOver ? "border-operator/60 bg-operator/10" : "border-border bg-background/40 hover:border-border"
               )}
             >
-              <Upload className="h-8 w-8 text-zinc-500" aria-hidden />
-              <p className="text-sm font-medium text-zinc-300">
+              <Upload className="h-9 w-9 text-muted-foreground" aria-hidden />
+              <p className="text-sm font-medium text-foreground">
                 {invoiceFile ? invoiceFile.name : "Drag & drop or click to upload"}
               </p>
-              <p className="text-xs text-zinc-500">Required by carrier compliance · PDF, PNG, or JPG · max 12 MB</p>
+              <p className="text-xs text-muted-foreground">Required by carrier compliance · PDF, PNG, or JPG · max 12 MB</p>
             </div>
             <input
               ref={fileInputRef}
@@ -536,7 +536,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           {addressBlock ? (
             <div
               role="alert"
-              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-xs text-destructive"
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-3 text-xs text-destructive"
             >
               <p>{addressBlock.message}</p>
               <button
@@ -558,7 +558,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           <button
             type="submit"
             disabled={busy || Boolean(addressBlock)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground hover:bg-operator disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Submit Official Transfer Request
@@ -579,7 +579,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-xl">
+      <div className="flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-overlay">
         {inner}
         <button
           type="button"

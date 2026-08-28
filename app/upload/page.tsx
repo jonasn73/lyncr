@@ -17,7 +17,7 @@ function UploadRedirectInner() {
 
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center px-6">
-      <p className="text-sm text-zinc-600">Opening intake form…</p>
+      <p className="text-sm text-muted-foreground">Opening intake form…</p>
     </main>
   )
 }
@@ -27,7 +27,7 @@ export default function UploadRedirectPage() {
     <Suspense
       fallback={
         <main className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center px-6">
-          <p className="text-sm text-zinc-600">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         </main>
       }
     >

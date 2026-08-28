@@ -216,17 +216,17 @@ export function CustomerSmsComposer({
   return (
     <div
       className={cn(
-        "space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3",
+        "space-y-2 rounded-xl border border-info/30 bg-info/10 p-3",
         className
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
+          <p className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wider text-info/80">
             <MessageSquare className="h-3 w-3" aria-hidden />
             {title}
           </p>
-          <p className="mt-0.5 truncate font-mono text-xs text-sky-100">
+          <p className="mt-0.5 truncate font-mono text-xs text-info">
             To {formatPhoneDisplay(toPhone)}
           </p>
         </div>
@@ -235,7 +235,7 @@ export function CustomerSmsComposer({
             type="button"
             aria-label="Close SMS composer"
             onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-info/80 hover:bg-info/20 hover:text-info"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -243,11 +243,11 @@ export function CustomerSmsComposer({
       </div>
 
       {lateEnabled ? (
-        <div className="space-y-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2.5">
+        <div className="space-y-2 rounded-lg border border-warning/25 bg-warning/10 p-3">
           <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 text-[11px] font-medium text-amber-100/90">
+            <label className="min-w-0 flex-1 text-2xs font-medium text-warning/90">
               Running late
-              <span className="mt-1 flex items-center gap-1.5">
+              <span className="mt-1 flex items-center gap-2">
                 <input
                   type="number"
                   min={1}
@@ -255,10 +255,10 @@ export function CustomerSmsComposer({
                   disabled={busy}
                   value={etaMinutes}
                   onChange={(e) => setEtaMinutes(e.target.value)}
-                  className="h-9 w-16 rounded-md border border-amber-500/30 bg-slate-950/70 px-2 text-center text-sm font-semibold tabular-nums text-amber-50 focus:border-amber-400/50 focus:outline-none disabled:opacity-50"
+                  className="h-9 w-16 rounded-md border border-warning/30 bg-background/70 px-2 text-center text-sm font-semibold tabular-nums text-warning focus:border-warning/50 focus:outline-none disabled:opacity-50"
                   aria-label="Minutes late"
                 />
-                <span className="text-[11px] text-amber-200/70">min</span>
+                <span className="text-2xs text-warning/70">min</span>
               </span>
             </label>
             <Button
@@ -266,17 +266,17 @@ export function CustomerSmsComposer({
               size="sm"
               disabled={busy}
               onClick={sendRunningLate}
-              className="shrink-0 bg-amber-600 text-white hover:bg-amber-500"
+              className="shrink-0 bg-warning text-warning-foreground hover:bg-warning"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Send late text"}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={busy}
               onClick={() => sendStatusQuick("arrived")}
-              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-[11px] font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
+              className="rounded-md border border-warning/30 bg-background/40 px-2 py-1 text-2xs font-semibold text-warning hover:bg-warning/20 disabled:opacity-50"
             >
               I&apos;m here
             </button>
@@ -291,10 +291,10 @@ export function CustomerSmsComposer({
             disabled={busy}
             onClick={openBookLinkSheet}
             className={cn(
-              "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold disabled:opacity-50",
+              "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-semibold disabled:opacity-50",
               isMissed
-                ? "border-rose-500/40 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25"
-                : "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                ? "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
+                : "border-success/35 bg-success/10 text-success hover:bg-success/20"
             )}
           >
             <Link2 className="h-3.5 w-3.5" aria-hidden />
@@ -312,7 +312,7 @@ export function CustomerSmsComposer({
 
       {showQuickTemplates && extraTemplates.length > 0 ? (
         <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/70">
+          <p className="text-micro font-semibold uppercase tracking-wider text-warning/70">
             Suggested
           </p>
           <ul className="flex flex-col gap-1">
@@ -322,10 +322,10 @@ export function CustomerSmsComposer({
                   type="button"
                   disabled={busy}
                   onClick={() => void sendText(t.body)}
-                  className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-left text-xs font-medium text-amber-50 hover:border-amber-400/50 hover:bg-amber-500/20 disabled:opacity-50"
+                  className="w-full rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-left text-xs font-medium text-warning hover:border-warning/50 hover:bg-warning/20 disabled:opacity-50"
                 >
-                  <span className="block font-semibold text-amber-200">{t.label}</span>
-                  <span className="mt-0.5 line-clamp-2 text-[11px] text-amber-100/80">{t.body}</span>
+                  <span className="block font-semibold text-warning">{t.label}</span>
+                  <span className="mt-0.5 line-clamp-2 text-2xs text-warning/80">{t.body}</span>
                 </button>
               </li>
             ))}
@@ -335,7 +335,7 @@ export function CustomerSmsComposer({
 
       {showQuickTemplates && customSnippets.length > 0 ? (
         <div className="space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/70">Your texts</p>
+          <p className="text-micro font-semibold uppercase tracking-wider text-info/70">Your texts</p>
           <ul className="flex flex-col gap-1">
             {customSnippets.map((snip) => (
               <li key={snip.id}>
@@ -343,10 +343,10 @@ export function CustomerSmsComposer({
                   type="button"
                   disabled={busy}
                   onClick={() => void sendText(snip.body)}
-                  className="w-full rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-left text-xs font-medium text-emerald-50 hover:border-emerald-400/50 hover:bg-emerald-500/20 disabled:opacity-50"
+                  className="w-full rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-left text-xs font-medium text-success hover:border-success/50 hover:bg-success/20 disabled:opacity-50"
                 >
-                  <span className="block font-semibold text-emerald-200">{snip.label}</span>
-                  <span className="mt-0.5 line-clamp-2 text-[11px] text-emerald-100/80">{snip.body}</span>
+                  <span className="block font-semibold text-success">{snip.label}</span>
+                  <span className="mt-0.5 line-clamp-2 text-2xs text-success/80">{snip.body}</span>
                 </button>
               </li>
             ))}
@@ -363,10 +363,10 @@ export function CustomerSmsComposer({
                 disabled={busy}
                 onClick={() => void sendText(template)}
                 className={cn(
-                  "w-full rounded-lg border px-2.5 py-2 text-left text-xs font-medium disabled:opacity-50",
+                  "w-full rounded-lg border px-3 py-2 text-left text-xs font-medium disabled:opacity-50",
                   isMissed
-                    ? "border-rose-500/25 bg-slate-950/50 text-slate-100 hover:border-rose-400/40 hover:bg-slate-900"
-                    : "border-sky-500/20 bg-slate-950/50 text-slate-100 hover:border-sky-400/40 hover:bg-slate-900"
+                    ? "border-destructive/25 bg-background/50 text-foreground hover:border-destructive/40 hover:bg-card"
+                    : "border-info/20 bg-background/50 text-foreground hover:border-info/40 hover:bg-card"
                 )}
               >
                 {template}
@@ -376,7 +376,7 @@ export function CustomerSmsComposer({
         </ul>
       ) : null}
 
-      <div className="space-y-1.5 pt-1">
+      <div className="space-y-2 pt-1">
         <label htmlFor="customer-sms-draft" className="sr-only">
           Custom SMS message
         </label>
@@ -387,7 +387,7 @@ export function CustomerSmsComposer({
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={draftPlaceholder}
-          className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-info/40 bg-background/70 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-info/50 focus:outline-none disabled:opacity-60"
         />
         <Button
           type="button"

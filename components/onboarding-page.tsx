@@ -338,7 +338,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header with progress */}
-      <header className="border-b border-border px-6 py-5">
+      <header className="border-b border-border px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
@@ -359,7 +359,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <SheetInfoTrigger
               onPress={() => setOnboardingSheetKey("onboarding-overview")}
               label="About this setup wizard"
-              className="h-8 w-8"
+              className="h-9 w-9"
             />
           </div>
           <span className="text-xs text-muted-foreground">
@@ -370,10 +370,10 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
       {simulationMode && devModeNotice ? (
         <div
-          className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5"
+          className="border-b border-warning/30 bg-warning/10 px-4 py-3"
           role="status"
         >
-          <p className="mx-auto max-w-lg text-center text-[11px] leading-relaxed text-amber-200/90">
+          <p className="mx-auto max-w-lg text-center text-2xs leading-relaxed text-warning/90">
             {devModeNotice}
           </p>
         </div>
@@ -408,7 +408,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   <span className={cn("text-sm font-medium", numberMethod === "buy" ? "text-primary" : "text-foreground")}>
                     Buy New
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Get a fresh number</span>
+                  <span className="text-2xs text-muted-foreground">Get a fresh number</span>
                 </button>
                 <button
                   onClick={() => { setNumberMethod("port"); setShowResults(false); setSelectedNumber("") }}
@@ -423,7 +423,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   <span className={cn("text-sm font-medium", numberMethod === "port" ? "text-primary" : "text-foreground")}>
                     Port Existing
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Keep your number</span>
+                  <span className="text-2xs text-muted-foreground">Keep your number</span>
                 </button>
               </div>
 
@@ -452,13 +452,13 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             maxLength={3}
                             value={areaCode}
                             onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"
+                            className="w-full rounded-lg border border-border bg-card py-3 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"
                           />
                         </div>
                         <button
                           type="submit"
                           disabled={areaCode.length < 3 || searching}
-                          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                          className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
                         >
                           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
                         </button>
@@ -518,23 +518,23 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             type="button"
                             onClick={() => setSelectedNumber(num.number)}
                             className={cn(
-                              "relative flex min-h-[4rem] shrink-0 items-center justify-between rounded-xl border p-3.5 pt-8 text-left transition-[border-color,background-color,box-shadow]",
+                              "relative flex min-h-[4rem] shrink-0 items-center justify-between rounded-xl border p-4 pt-8 text-left transition-[border-color,background-color,box-shadow]",
                               isSelected
                                 ? "border-primary bg-primary/5 shadow-[var(--electric-glow)] ring-1 ring-primary/40"
                                 : "border-border bg-card hover:border-primary/30"
                             )}
                           >
                             {isSelected ? (
-                              <span className="absolute right-3 top-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              <span className="absolute right-3 top-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-primary">
                                 <Check className="h-3 w-3" aria-hidden />
                                 Selected
                               </span>
                             ) : null}
                             <div>
                               <p className="text-sm font-medium tabular-nums text-foreground">{num.number}</p>
-                              <p className="text-[11px] text-muted-foreground">{num.type}</p>
-                              <p className="text-[10px] font-medium text-primary">{num.trialNote}</p>
-                              <p className="text-[10px] text-muted-foreground">{num.afterTrialPrice}</p>
+                              <p className="text-2xs text-muted-foreground">{num.type}</p>
+                              <p className="text-2xs font-medium text-primary">{num.trialNote}</p>
+                              <p className="text-2xs text-muted-foreground">{num.afterTrialPrice}</p>
                             </div>
                           </button>
                         )
@@ -550,7 +550,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         ) : null}
                       </div>
                       {inventorySource === "demo" ? (
-                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning/90">
                           Live inventory unavailable — showing previews only. Search again or contact support if this persists.
                         </p>
                       ) : null}
@@ -567,30 +567,30 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               {/* Port flow */}
               {numberMethod === "port" && (
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-start gap-2.5 rounded-xl bg-card p-4">
+                  <div className="flex items-start gap-3 rounded-xl bg-card p-4">
                     <ArrowRightLeft className="mt-0.5 h-4 w-4 text-primary" />
                     <p className="text-xs leading-relaxed text-muted-foreground">
                       Port your existing business number to {SITE_NAME}. Takes 24-48 hours with zero downtime.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
                     <input
                       type="tel"
                       placeholder="(555) 123-4567"
                       value={portNumber}
                       onChange={(e) => setPortNumber(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground">Current Carrier</label>
                     <input
                       type="text"
                       placeholder="e.g. AT&T, Verizon, T-Mobile"
                       value={portCarrier}
                       onChange={(e) => setPortCarrier(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -635,40 +635,40 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     if (receptionistName && receptionistPhone) handleAddReceptionist()
                   }}
                 >
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground">Name</label>
                     <input
                       type="text"
                       placeholder="Sarah Miller"
                       value={receptionistName}
                       onChange={(e) => setReceptionistName(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
                     <input
                       type="tel"
                       placeholder="(555) 234-5678"
                       value={receptionistPhone}
                       onChange={(e) => setReceptionistPhone(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-muted-foreground">Pay Rate (per minute)</label>
                     <input
                       type="text"
                       placeholder="$0.50"
                       value={receptionistRate}
                       onChange={(e) => setReceptionistRate(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={!receptionistName || !receptionistPhone}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                     Add Receptionist
@@ -677,7 +677,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               ) : (
                 <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                       {receptionistName.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div>
@@ -744,7 +744,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       type="button"
                       onClick={() => setFallbackStrategy(option.id)}
                       className={cn(
-                        "flex flex-col gap-2.5 rounded-xl border p-3.5 text-left transition-[border-color,background-color,box-shadow] duration-200",
+                        "flex flex-col gap-3 rounded-xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-200",
                         isActive
                           ? "border-primary bg-primary/5 shadow-[var(--electric-glow)] ring-1 ring-primary/40"
                           : "border-border bg-card hover:border-primary/30"
@@ -760,7 +760,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-foreground">{option.title}</p>
-                        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{option.subtext}</p>
+                        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{option.subtext}</p>
                       </div>
                     </button>
                   )
@@ -773,7 +773,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     key="fallback-ai"
                     className="animate-fade-in flex flex-col gap-3 duration-200 will-change-[opacity,transform]"
                   >
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-2">
                       <label
                         htmlFor="onboarding-trade-category"
                         className="text-xs font-semibold text-muted-foreground"
@@ -783,7 +783,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       <Select value={aiTradeCategory} onValueChange={handleAiTradeCategoryChange}>
                         <SelectTrigger
                           id="onboarding-trade-category"
-                          className="h-10 w-full border-border bg-card text-sm text-foreground shadow-none"
+                          className="h-11 w-full border-border bg-card text-sm text-foreground shadow-none"
                         >
                           <SelectValue placeholder="General / Other Trades" />
                         </SelectTrigger>
@@ -803,9 +803,9 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       value={aiGreeting}
                       onChange={(e) => setAiGreeting(e.target.value)}
                       rows={4}
-                      className="resize-none rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {[
                         "Industry-smart intake",
                         "Lead capture",
@@ -814,7 +814,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       ].map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary"
+                          className="rounded-full bg-primary/10 px-3 py-1 text-2xs font-medium text-primary"
                         >
                           {tag}
                         </span>
@@ -831,7 +831,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       value={voicemailGreeting}
                       onChange={(e) => setVoicemailGreeting(e.target.value)}
                       rows={5}
-                      className="resize-none rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                      className="resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                     />
                   </div>
                 )}
@@ -872,7 +872,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               <>
                 <StorySheetHeader {...story} />
                 <div className="border-t border-border/60 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     When you finish, open{" "}
                     <Link href="/dashboard" className="font-medium text-primary underline-offset-4 hover:underline">
                       Call console
@@ -881,7 +881,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   </p>
                 </div>
                 <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">Demo steps here may not purchase real lines until you add numbers in Settings.</p>
+                  <p className="text-2xs text-muted-foreground">Demo steps here may not purchase real lines until you add numbers in Settings.</p>
                 </SheetFooter>
               </>
             )

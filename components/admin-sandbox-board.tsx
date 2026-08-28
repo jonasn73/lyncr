@@ -263,33 +263,33 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-200">
+            <Badge variant="outline" className="border-operator/40 bg-operator/10 text-operator">
               <Shield className="mr-1 h-3 w-3" aria-hidden />
               Dev only
             </Badge>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100">Developer sandbox</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Developer sandbox</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             End-to-end testing for call routing, receptionist HUD, automotive_core quiz, and SMS intake dispatch —
             restricted to{" "}
-            <span className="font-medium text-slate-300">admin@lyncr.app</span>.
+            <span className="font-medium text-foreground">admin@lyncr.app</span>.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="border-slate-600 text-slate-300">
+        <Button asChild variant="outline" size="sm" className="border-border text-foreground">
           <Link href="/admin">← Admin home</Link>
         </Button>
       </div>
 
       {lastAction ? (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+        <p className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
           {lastAction}
         </p>
       ) : null}
 
       {seedWarnings.length > 0 ? (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <p className="font-medium text-amber-50">Seed notes</p>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-100/90">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <p className="font-medium text-warning">Seed notes</p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-warning/90">
             {seedWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -297,66 +297,66 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-5 sm:p-6">
-        <h2 className="text-base font-semibold text-slate-100">End-to-end test flow</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <section className="rounded-xl border border-border/80 bg-card/40 p-6">
+        <h2 className="text-base font-semibold text-foreground">End-to-end test flow</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Follow these steps to exercise quiz → routing pool → HUD → SMS intake without manual signup.
         </p>
-        <ol className="mt-4 space-y-3 text-sm text-slate-300">
+        <ol className="mt-4 space-y-3 text-sm text-foreground">
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               1
             </span>
             <span>
-              Click <strong className="font-medium text-slate-200">Seed sandbox data</strong> — creates Test Locksmith
+              Click <strong className="font-medium text-foreground">Seed sandbox data</strong> — creates Test Locksmith
               Co. and provisions{" "}
-              <span className="font-mono text-violet-300">test_receptionist@lyncr.app</span> with empty skills (quiz-first).
+              <span className="font-mono text-operator">test_receptionist@lyncr.app</span> with empty skills (quiz-first).
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               2
             </span>
             <span>
-              Use <strong className="font-medium text-slate-200">Quick-Switch</strong> below — opens the{" "}
-              <code className="text-violet-300">automotive_core</code> quiz as the test receptionist.
+              Use <strong className="font-medium text-foreground">Quick-Switch</strong> below — opens the{" "}
+              <code className="text-operator">automotive_core</code> quiz as the test receptionist.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               3
             </span>
             <span>
               Pass the quiz to earn the automotive badge, then click{" "}
-              <strong className="font-medium text-slate-200">Return to Admin Sandbox</strong> in the violet bar at the
+              <strong className="font-medium text-foreground">Return to Admin Sandbox</strong> in the violet bar at the
               top of the receptionist portal.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               4
             </span>
             <span>
-              Fire <strong className="font-medium text-slate-200">Simulate inbound call</strong> — the HUD should ring
+              Fire <strong className="font-medium text-foreground">Simulate inbound call</strong> — the HUD should ring
               for the certified receptionist. Review intake rows in the table below.
             </span>
           </li>
         </ol>
 
-        <div className="mt-5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-950/80 via-violet-900/40 to-slate-900/60 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="mt-5 rounded-xl border border-operator/40 bg-gradient-to-r from-operator/80 via-operator/40 to-card/60 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-sm font-semibold text-violet-100">
-              <KeyRound className="h-4 w-4 shrink-0 text-violet-300" aria-hidden />
+            <p className="flex items-center gap-2 text-sm font-semibold text-operator">
+              <KeyRound className="h-4 w-4 shrink-0 text-operator" aria-hidden />
               Quick-Switch to Test Receptionist Session
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-violet-200/80">
+            <p className="mt-1 text-xs leading-relaxed text-operator/80">
               Impersonates <span className="font-mono">test_receptionist@lyncr.app</span> and jumps straight to the
               automotive_core training quiz. Auto-seeds if the account is missing.
             </p>
           </div>
           <Button
             type="button"
-            className="mt-3 w-full shrink-0 bg-violet-600 hover:bg-violet-500 sm:mt-0 sm:w-auto"
+            className="mt-3 w-full shrink-0 bg-operator hover:bg-operator sm:mt-0 sm:w-auto"
             disabled={quickSwitchBusy}
             onClick={() => void handleQuickSwitch()}
           >
@@ -369,29 +369,29 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </Button>
         </div>
         {quickSwitchError ? (
-          <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {quickSwitchError}
           </p>
         ) : null}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-violet-500/30 bg-slate-900/60">
+        <Card className="border-operator/30 bg-card/60">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600/20 text-violet-300">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-operator/20 text-operator">
               <Database className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Run DB Environment Seed</CardTitle>
-            <CardDescription className="text-slate-400">
-              Creates <strong className="font-medium text-slate-300">Test Locksmith Co.</strong> with SMS dispatch
-              enabled, automotive routing line, and <code className="text-violet-300">automotive_core</code> quiz in
+            <CardTitle className="text-lg text-foreground">Run DB Environment Seed</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Creates <strong className="font-medium text-foreground">Test Locksmith Co.</strong> with SMS dispatch
+              enabled, automotive routing line, and <code className="text-operator">automotive_core</code> quiz in
               Neon.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               type="button"
-              className="w-full bg-violet-600 hover:bg-violet-500"
+              className="w-full bg-operator hover:bg-operator"
               disabled={pending}
               onClick={handleSeed}
             >
@@ -401,16 +401,16 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/30 bg-slate-900/60">
+        <Card className="border-warning/30 bg-card/60">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-warning/20 text-warning">
               <PhoneIncoming className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Fire Simulated Inbound Call</CardTitle>
-            <CardDescription className="text-slate-400">
-              Writes in-progress <code className="text-amber-200">call_logs</code> for every online receptionist matched
+            <CardTitle className="text-lg text-foreground">Fire Simulated Inbound Call</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Writes in-progress <code className="text-warning">call_logs</code> for every online receptionist matched
               to the sandbox line — opens the live HUD on{" "}
-              <Link href="/receptionist" className="text-amber-200 underline-offset-2 hover:underline">
+              <Link href="/receptionist" className="text-warning underline-offset-2 hover:underline">
                 /receptionist
               </Link>
               .
@@ -420,7 +420,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             <Button
               type="button"
               variant="outline"
-              className="w-full border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+              className="w-full border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
               disabled={pending || !environment?.business_line_id}
               onClick={handleMockCall}
             >
@@ -430,15 +430,15 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-sky-500/30 bg-slate-900/60 md:col-span-2 lg:col-span-1">
+        <Card className="border-info/30 bg-card/60 md:col-span-2 lg:col-span-1">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-info/20 text-info">
               <ScrollText className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Workspace snapshot</CardTitle>
-            <CardDescription className="text-slate-400">Current sandbox profile after seed.</CardDescription>
+            <CardTitle className="text-lg text-foreground">Workspace snapshot</CardTitle>
+            <CardDescription className="text-muted-foreground">Current sandbox profile after seed.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-xs text-slate-400">
+          <CardContent className="space-y-2 text-xs text-muted-foreground">
             {environment ? (
               <>
                 <Row label="Business" value={environment.business_name} />
@@ -460,7 +460,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                 />
               </>
             ) : (
-              <p className="text-slate-500">Not seeded yet — run DB Environment Seed.</p>
+              <p className="text-muted-foreground">Not seeded yet — run DB Environment Seed.</p>
             )}
           </CardContent>
         </Card>
@@ -469,9 +469,9 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">Review logs &amp; dispatches</h2>
-            <p className="text-sm text-slate-500">
-              Latest <code className="text-slate-400">ai_leads.collected</code> intake payloads for the sandbox
+            <h2 className="text-lg font-semibold text-foreground">Review logs &amp; dispatches</h2>
+            <p className="text-sm text-muted-foreground">
+              Latest <code className="text-muted-foreground">ai_leads.collected</code> intake payloads for the sandbox
               workspace.
             </p>
           </div>
@@ -480,7 +480,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               type="button"
               variant="outline"
               size="sm"
-              className="border-emerald-500/40 text-emerald-200"
+              className="border-success/40 text-success"
               disabled={pending}
               onClick={handleRepairSms}
             >
@@ -491,7 +491,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               type="button"
               variant="ghost"
               size="sm"
-              className="text-slate-400"
+              className="text-muted-foreground"
               disabled={pending}
               onClick={refreshLogs}
             >
@@ -501,16 +501,16 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/50">
+        <div className="overflow-hidden rounded-xl border border-border/80 bg-card/50">
           {intakeLogs.length === 0 ? (
-            <p className="px-5 py-12 text-center text-sm text-slate-500">
+            <p className="px-6 py-12 text-center text-sm text-muted-foreground">
               No intake records yet. Seed the sandbox — a sample AKL lead is inserted automatically.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700/80 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-border/80 text-2xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3 font-medium">When</th>
                     <th className="px-4 py-3 font-medium">Caller</th>
                     <th className="px-4 py-3 font-medium">Intent</th>
@@ -520,33 +520,33 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                 </thead>
                 <tbody>
                   {intakeLogs.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-800/80 last:border-0">
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-400">{formatWhen(row.created_at)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-300">{row.caller_e164 ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-300">{row.intent_slug ?? "—"}</td>
+                    <tr key={row.id} className="border-b border-border/80 last:border-0">
+                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatWhen(row.created_at)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{row.caller_e164 ?? "—"}</td>
+                      <td className="px-4 py-3 text-foreground">{row.intent_slug ?? "—"}</td>
                       <td className="max-w-md px-4 py-3">
-                        <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/80 p-2 font-mono text-[11px] leading-relaxed text-emerald-100/90">
+                        <pre className="max-h-32 overflow-auto rounded-md bg-background/80 p-2 font-mono text-2xs leading-relaxed text-success/90">
                           {JSON.stringify(row.intake_payload, null, 2)}
                         </pre>
                         {row.summary ? (
-                          <p className="mt-1 text-xs text-slate-500">{row.summary}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{row.summary}</p>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
                         {row.sms_sent ? (
                           row.sms_error ? (
-                            <Badge variant="outline" className="border-amber-500/40 text-amber-200">
+                            <Badge variant="outline" className="border-warning/40 text-warning">
                               Queued — {row.sms_error}
                             </Badge>
                           ) : (
-                            <Badge className="border-0 bg-emerald-500/20 text-emerald-200">Queued</Badge>
+                            <Badge className="border-0 bg-success/20 text-success">Queued</Badge>
                           )
                         ) : row.sms_error ? (
-                          <Badge variant="outline" className="border-amber-500/40 text-amber-200">
+                          <Badge variant="outline" className="border-warning/40 text-warning">
                             {row.sms_error}
                           </Badge>
                         ) : (
-                          <span className="text-slate-500">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>
@@ -558,21 +558,21 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         </div>
       </section>
 
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-muted-foreground">
         Test receptionist login:{" "}
-        <span className="font-mono text-slate-500">test_receptionist@lyncr.app</span>
+        <span className="font-mono text-muted-foreground">test_receptionist@lyncr.app</span>
         {" · "}
-        Sandbox owner: <span className="font-mono text-slate-500">sandbox-test-locksmith@lyncr.app</span>
+        Sandbox owner: <span className="font-mono text-muted-foreground">sandbox-test-locksmith@lyncr.app</span>
         {" · "}
-        Dev password (both): <span className="font-mono text-slate-500">SandboxDev123!</span>
+        Dev password (both): <span className="font-mono text-muted-foreground">SandboxDev123!</span>
       </p>
-      <p className="text-xs leading-relaxed text-slate-600">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         Live SMS tests: add{" "}
-        <span className="font-mono text-slate-500">SANDBOX_SMS_DISPATCH_E164</span> in Vercel (your real cell,
+        <span className="font-mono text-muted-foreground">SANDBOX_SMS_DISPATCH_E164</span> in Vercel (your real cell,
         E.164). Outbound sender uses your Telnyx line{" "}
-        <span className="font-mono text-slate-500">+15025758166</span>. If the table shows{" "}
-        <strong className="font-medium text-slate-500">Queued</strong> but no text arrives, register{" "}
-        <strong className="font-medium text-slate-500">10DLC</strong> in Telnyx Mission Control → Messaging → 10DLC
+        <span className="font-mono text-muted-foreground">+15025758166</span>. If the table shows{" "}
+        <strong className="font-medium text-muted-foreground">Queued</strong> but no text arrives, register{" "}
+        <strong className="font-medium text-muted-foreground">10DLC</strong> in Telnyx Mission Control → Messaging → 10DLC
         and assign your line to an approved campaign.
       </p>
     </div>
@@ -583,7 +583,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex justify-between gap-3">
       <span>{label}</span>
-      <span className={cn("text-right text-slate-300", mono && "font-mono text-[11px]")}>{value}</span>
+      <span className={cn("text-right text-foreground", mono && "font-mono text-2xs")}>{value}</span>
     </div>
   )
 }

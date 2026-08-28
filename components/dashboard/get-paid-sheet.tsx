@@ -62,27 +62,27 @@ function fmtCents(cents: number, currency = "usd"): string {
 
 function statusChip(status: ConnectStatus["status"]): { label: string; className: string } {
   if (status === "ready") {
-    return { label: "Ready", className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-200" }
+    return { label: "Ready", className: "border-success/40 bg-success/15 text-success" }
   }
   if (status === "under_review") {
-    return { label: "Under review", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" }
+    return { label: "Under review", className: "border-warning/40 bg-warning/15 text-warning" }
   }
   if (status === "not_configured") {
-    return { label: "Unavailable", className: "border-zinc-600 bg-zinc-800 text-zinc-400" }
+    return { label: "Unavailable", className: "border-border bg-muted text-muted-foreground" }
   }
-  return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
+  return { label: "Needs setup", className: "border-info/40 bg-info/15 text-info" }
 }
 
 function payoutStatusClass(status: string): string {
   const s = status.toLowerCase()
-  if (s === "paid") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (s === "paid") return "border-success/35 bg-success/10 text-success"
   if (s === "pending" || s === "in_transit") {
-    return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+    return "border-warning/35 bg-warning/10 text-warning"
   }
   if (s === "failed" || s === "canceled") {
-    return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+    return "border-destructive/35 bg-destructive/10 text-destructive"
   }
-  return "border-zinc-700 bg-zinc-900 text-zinc-400"
+  return "border-border bg-card text-muted-foreground"
 }
 
 /** Lyncr dark theme for Stripe Connect embeds. */
@@ -317,14 +317,14 @@ export function GetPaidSheet({
         showCloseButton={false}
         overlayClassName="z-[7000]"
         className={cn(
-          "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",
+          "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",
           embedding ? "h-[96dvh] max-h-[96dvh]" : "max-h-[92dvh]"
         )}
       >
         <SheetHeader
           className={cn(
-            "shrink-0 border-b border-zinc-800 text-left",
-            embedding ? "px-4 py-2.5" : "px-4 py-3"
+            "shrink-0 border-b border-border text-left",
+            embedding ? "px-4 py-3" : "px-4 py-3"
           )}
         >
           <div className="flex items-center justify-between gap-3">
@@ -337,7 +337,7 @@ export function GetPaidSheet({
                     : "Set up bank"}
               </SheetTitle>
               {embedding ? null : (
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {status?.ready
                     ? "Change bank details here. Send money from the Money wallet."
                     : "Add your bank so card money can go to you."}
@@ -347,7 +347,7 @@ export function GetPaidSheet({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-zinc-400 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -360,7 +360,7 @@ export function GetPaidSheet({
           <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1">
             {!formReady ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#101018]/90">
-                <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
               </div>
             ) : null}
             <ConnectComponentsProvider connectInstance={connectInstance!}>
@@ -392,7 +392,7 @@ export function GetPaidSheet({
         ) : (
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {loading && !status ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
               </div>
             ) : (
@@ -400,7 +400,7 @@ export function GetPaidSheet({
                 <div className="flex items-center justify-between gap-2">
                   <span
                     className={cn(
-                      "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                      "inline-flex rounded-full border px-3 py-1 text-2xs font-semibold",
                       chip.className
                     )}
                   >
@@ -410,39 +410,39 @@ export function GetPaidSheet({
                     type="button"
                     disabled={loading}
                     onClick={() => void refreshStatus()}
-                    className="text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                    className="text-2xs font-semibold text-info disabled:opacity-50"
                   >
                     Refresh
                   </button>
                 </div>
 
                 {status?.ready ? (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                    <div className="flex items-center gap-2 text-emerald-100">
+                  <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3">
+                    <div className="flex items-center gap-2 text-success">
                       <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
                       <p className="text-sm font-semibold">Bank is connected</p>
                     </div>
-                    <p className="mt-1.5 text-[11px] leading-snug text-emerald-200/70">
+                    <p className="mt-1.5 text-2xs leading-snug text-success/70">
                       Wallet and Send to bank live on Money. This page is only for bank details and
                       past transfers.
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-sky-50">Set up payouts in Lyncr</p>
-                    <p className="mt-1 text-xs leading-relaxed text-sky-100/75">
+                  <div className="rounded-xl border border-info/30 bg-info/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-info">Set up payouts in Lyncr</p>
+                    <p className="mt-1 text-xs leading-relaxed text-info/75">
                       Pick your business type (short), then finish bank details. Customers see{" "}
-                      <strong className="font-semibold text-sky-50">your</strong> name on the
+                      <strong className="font-semibold text-info">your</strong> name on the
                       statement.
                     </p>
                     {status?.message ? (
-                      <p className="mt-2 text-xs text-amber-100/90">{status.message}</p>
+                      <p className="mt-2 text-xs text-warning/90">{status.message}</p>
                     ) : null}
                   </div>
                 )}
 
                 {error ? (
-                  <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     {error}
                   </p>
                 ) : null}
@@ -450,10 +450,10 @@ export function GetPaidSheet({
                 {!status?.ready ? (
                   <>
                     <div>
-                      <p className="mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <p className="mb-1.5 px-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Business type
                       </p>
-                      <div className="grid gap-1.5">
+                      <div className="grid gap-2">
                         {BUSINESS_KINDS.map((k) => {
                           const selected = businessKind === k.id
                           return (
@@ -462,24 +462,24 @@ export function GetPaidSheet({
                               type="button"
                               onClick={() => setBusinessKind(k.id)}
                               className={cn(
-                                "flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                                "flex items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left transition-colors",
                                 selected
-                                  ? "border-emerald-500/60 bg-emerald-500/10"
-                                  : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                  ? "border-success/60 bg-success/10"
+                                  : "border-border bg-background/40 hover:border-border"
                               )}
                             >
                               <span>
-                                <span className="block text-sm font-semibold text-zinc-100">
+                                <span className="block text-sm font-semibold text-foreground">
                                   {k.title}
                                 </span>
-                                <span className="block text-[11px] text-zinc-500">{k.subtitle}</span>
+                                <span className="block text-2xs text-muted-foreground">{k.subtitle}</span>
                               </span>
                               <span
                                 className={cn(
                                   "h-4 w-4 shrink-0 rounded-full border-2",
                                   selected
-                                    ? "border-emerald-400 bg-emerald-500"
-                                    : "border-zinc-600"
+                                    ? "border-success bg-success"
+                                    : "border-border"
                                 )}
                                 aria-hidden
                               />
@@ -492,7 +492,7 @@ export function GetPaidSheet({
                       type="button"
                       disabled={sessionBusy || status?.status === "not_configured"}
                       onClick={() => void startEmbedded("onboarding")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                     >
                       {sessionBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -505,24 +505,24 @@ export function GetPaidSheet({
                 ) : (
                   <>
                     {/* Manual bank transfer — only when something is actually ready */}
-                    <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <section className="space-y-2 rounded-xl border border-border bg-background/50 px-3 py-3">
+                      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Send to bank
                       </p>
                       {!status.payoutsEnabled ? (
-                        <p className="text-xs text-amber-100/90">
+                        <p className="text-xs text-warning/90">
                           Stripe has not enabled bank payouts yet. Open Manage bank below, or wait
                           for approval.
                         </p>
                       ) : status.availableCents < 100 ? (
-                        <p className="text-xs text-zinc-400">
+                        <p className="text-xs text-muted-foreground">
                           Nothing ready yet. Close this and use Money — Send to bank appears there
                           after charges clear (usually 1–2 days).
                         </p>
                       ) : (
                         <>
                           <label className="block">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Amount (USD)
                             </span>
                             <input
@@ -531,14 +531,14 @@ export function GetPaidSheet({
                               value={transferDollars}
                               onChange={(e) => setTransferDollars(e.target.value)}
                               placeholder={(status.availableCents / 100).toFixed(2)}
-                              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600"
+                              className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-3 text-sm text-white outline-none placeholder:text-muted-foreground"
                             />
                           </label>
                           <button
                             type="button"
                             disabled={transferBusy}
                             onClick={() => void sendToBank()}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                           >
                             {transferBusy ? (
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -551,11 +551,11 @@ export function GetPaidSheet({
                             type="button"
                             disabled={transferBusy}
                             onClick={() => void sendToBank({ fullAvailable: true })}
-                            className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                            className="w-full rounded-xl border border-border py-3 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-50"
                           >
                             Send all available ({fmtCents(status.availableCents, status.currency)})
                           </button>
-                          <p className="text-[11px] leading-snug text-zinc-500">
+                          <p className="text-2xs leading-snug text-muted-foreground">
                             Standard transfer — usually arrives in 1–2 business days.
                           </p>
                         </>
@@ -566,10 +566,10 @@ export function GetPaidSheet({
                     <section className="space-y-2">
                       <div className="flex items-center justify-between gap-2 px-0.5">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Bank transfers (net to bank)
                           </p>
-                          <p className="mt-0.5 text-[10px] leading-snug text-zinc-600">
+                          <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                             Recent payouts only — amount after fees, not the Collected total.
                           </p>
                         </div>
@@ -577,7 +577,7 @@ export function GetPaidSheet({
                           type="button"
                           disabled={payoutsLoading}
                           onClick={() => void refreshPayouts()}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-info disabled:opacity-50"
                         >
                           <RefreshCw
                             className={cn("h-3.5 w-3.5", payoutsLoading && "animate-spin")}
@@ -587,9 +587,9 @@ export function GetPaidSheet({
                         </button>
                       </div>
                       {payoutsLoading && payouts.length === 0 ? (
-                        <p className="py-4 text-center text-xs text-zinc-500">Loading transfers…</p>
+                        <p className="py-4 text-center text-xs text-muted-foreground">Loading transfers…</p>
                       ) : payouts.length === 0 ? (
-                        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-zinc-500">
+                        <p className="rounded-xl border border-border bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
                           No bank transfers yet. When you send money (or Stripe auto-pays), it
                           shows here.
                         </p>
@@ -598,28 +598,28 @@ export function GetPaidSheet({
                           {payouts.map((p) => (
                             <li
                               key={p.id}
-                              className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5"
+                              className="rounded-xl border border-border bg-card/50 px-3 py-3"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold tabular-nums text-slate-100">
+                                  <p className="text-sm font-semibold tabular-nums text-foreground">
                                     {fmtCents(p.amountCents, p.currency)}
                                   </p>
-                                  <p className="mt-0.5 text-[11px] text-zinc-500">
+                                  <p className="mt-0.5 text-2xs text-muted-foreground">
                                     {p.createdLabel}
                                     {p.arrivalDateLabel !== "—"
                                       ? ` · arrives ${p.arrivalDateLabel}`
                                       : ""}
                                   </p>
                                   {p.failureMessage ? (
-                                    <p className="mt-1 text-[11px] text-rose-300">
+                                    <p className="mt-1 text-2xs text-destructive">
                                       {p.failureMessage}
                                     </p>
                                   ) : null}
                                 </div>
                                 <span
                                   className={cn(
-                                    "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                    "shrink-0 rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                                     payoutStatusClass(p.status)
                                   )}
                                 >
@@ -636,7 +636,7 @@ export function GetPaidSheet({
                       type="button"
                       disabled={sessionBusy}
                       onClick={() => void startEmbedded("management")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-semibold text-foreground disabled:opacity-50"
                     >
                       {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       Manage bank & business details

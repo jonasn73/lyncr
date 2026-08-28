@@ -67,16 +67,16 @@ export function ReceptionistAvailabilityToggle({
   if (variant === "console") {
     return (
       <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           {/* Short label next to the switch so duty state is obvious */}
           <AnimatedStatusLabel
             value={current ? "On" : "Off"}
             className={cn(
               "text-xs font-semibold uppercase tracking-wide",
-              current ? "text-emerald-300" : "text-zinc-500"
+              current ? "text-success" : "text-muted-foreground"
             )}
           />
-          {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
           <Switch
             checked={current}
             disabled={saving}
@@ -85,7 +85,7 @@ export function ReceptionistAvailabilityToggle({
             className="transition-transform duration-200 data-[state=checked]:scale-105"
           />
         </div>
-        {error ? <p className="max-w-[12rem] text-right text-xs text-red-400">{error}</p> : null}
+        {error ? <p className="max-w-[12rem] text-right text-xs text-destructive">{error}</p> : null}
       </div>
     )
   }
@@ -93,34 +93,34 @@ export function ReceptionistAvailabilityToggle({
   // Legacy card layout (kept for any other callers)
   return (
     <WorkspacePanel
+      density="default"
       className={cn(
-        "p-5",
-        current ? "border-emerald-500/35 bg-emerald-950/15" : "border-zinc-700/80 bg-zinc-900/40"
+        current ? "border-success/35 bg-success/15" : "border-border/80 bg-card/40"
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Your status</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Your status</p>
           <p className="mt-1 text-lg font-semibold text-foreground">
             {current ? "Available" : "Unavailable"}
           </p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             {current ? (
               <>
-                You&apos;re eligible for <span className="font-medium text-zinc-200">{businessName}</span>{" "}
+                You&apos;re eligible for <span className="font-medium text-foreground">{businessName}</span>{" "}
                 when the owner has set you under Who answers. This does not choose you by itself.
               </>
             ) : (
               <>
                 You won&apos;t get rings for{" "}
-                <span className="font-medium text-zinc-200">{businessName}</span> — calls use the
+                <span className="font-medium text-foreground">{businessName}</span> — calls use the
                 owner&apos;s backup instead. Who answers is still the owner&apos;s choice.
               </>
             )}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
           <Switch
             checked={current}
             disabled={saving}
@@ -129,7 +129,7 @@ export function ReceptionistAvailabilityToggle({
           />
         </div>
       </div>
-      {error ? <p className="mt-3 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-3 text-xs text-destructive">{error}</p> : null}
     </WorkspacePanel>
   )
 }

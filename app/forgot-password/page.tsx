@@ -43,9 +43,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-center px-6 py-5">
+      <header className="flex items-center justify-center px-6 py-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" />
@@ -91,7 +91,7 @@ function ForgotPasswordForm({
       </p>
 
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <label htmlFor="email" className="text-xs font-semibold text-muted-foreground">
             Email
           </label>
@@ -103,7 +103,7 @@ function ForgotPasswordForm({
             placeholder="you@company.com"
             autoComplete="email"
             required
-            className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+            className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -116,7 +116,7 @@ function ForgotPasswordForm({
             <p className="mt-1 text-xs text-muted-foreground">Open in this browser. Expires in about one hour.</p>
             <a
               href={resetUrl}
-              className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-primary/40 bg-primary/10 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15"
+              className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-primary/40 bg-primary/10 py-3 text-xs font-semibold text-primary hover:bg-primary/15"
             >
               Open reset page
             </a>

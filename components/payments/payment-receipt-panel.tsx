@@ -57,8 +57,8 @@ export function PaymentReceiptPanel({
       <ChargeResultSummary baseCents={baseCents} tip={tip} baseKind={baseKind} />
 
       {showSend ? (
-        <div className="space-y-3 border-t border-zinc-800/80 pt-3">
-          <p className="text-center text-[11px] font-medium text-zinc-500">
+        <div className="space-y-3 border-t border-border/80 pt-3">
+          <p className="text-center text-2xs font-medium text-muted-foreground">
             Send a receipt?
           </p>
 
@@ -69,13 +69,13 @@ export function PaymentReceiptPanel({
               value={receiptName}
               onChange={(e) => onReceiptNameChange(e.target.value)}
               placeholder="Customer name (optional)"
-              className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+              className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
             />
 
             {/* Phone is the primary channel — reused from the customer record. */}
             <div className="relative">
               <MessageSquare
-                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
               <input
@@ -85,14 +85,14 @@ export function PaymentReceiptPanel({
                 value={receiptPhone}
                 onChange={(e) => onReceiptPhoneChange(e.target.value)}
                 placeholder="(502) 555-0100"
-                className="w-full rounded-lg border-0 bg-zinc-900/60 py-2 pl-8 pr-3 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-card/60 py-2 pl-8 pr-3 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
               />
             </div>
 
             {emailEnabled ? (
               <div className="relative">
                 <Mail
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
                 />
                 <input
@@ -104,13 +104,13 @@ export function PaymentReceiptPanel({
                   value={receiptEmail}
                   onChange={(e) => onReceiptEmailChange(e.target.value)}
                   placeholder="customer@email.com"
-                  className="w-full rounded-lg border-0 bg-zinc-900/60 py-2 pl-8 pr-8 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-zinc-600 focus:ring-emerald-500/40"
+                  className="w-full rounded-lg border-0 bg-card/60 py-2 pl-8 pr-8 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
                 />
                 <button
                   type="button"
                   onClick={() => onEmailEnabledChange(false)}
                   aria-label="Remove email"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden />
                 </button>
@@ -119,7 +119,7 @@ export function PaymentReceiptPanel({
               <button
                 type="button"
                 onClick={() => onEmailEnabledChange(true)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-300"
+                className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-2xs font-medium text-muted-foreground hover:text-foreground"
               >
                 <Plus className="h-3 w-3" aria-hidden />
                 Also email a copy
@@ -127,13 +127,13 @@ export function PaymentReceiptPanel({
             )}
           </div>
 
-          {error ? <p className="text-center text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-center text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={receiptBusy}
             onClick={onSend}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
           >
             {receiptBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -144,14 +144,14 @@ export function PaymentReceiptPanel({
           </button>
         </div>
       ) : cashNote ? (
-        <p className="text-center text-xs text-zinc-500">{cashNote}</p>
+        <p className="text-center text-xs text-muted-foreground">{cashNote}</p>
       ) : null}
 
       <button
         type="button"
         disabled={receiptBusy}
         onClick={onSkip}
-        className="w-full rounded-xl py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
+        className="w-full rounded-xl py-3 text-sm font-semibold text-muted-foreground hover:bg-card/60 hover:text-foreground disabled:opacity-50"
       >
         {skipLabel}
       </button>

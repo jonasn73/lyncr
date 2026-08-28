@@ -31,11 +31,11 @@ function formatPhoneDisplay(phone: string | null): string {
 
 /** Tone classes for the CRM job-status label, matching the owner-side CRM list rows. */
 const STATUS_TONE: Record<string, string> = {
-  neutral: "border-zinc-600/50 bg-zinc-700/30 text-zinc-200",
-  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
-  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
+  neutral: "border-border/50 bg-accent/30 text-foreground",
+  amber: "border-warning/40 bg-warning/10 text-warning",
+  emerald: "border-success/40 bg-success/10 text-success",
+  rose: "border-destructive/40 bg-destructive/10 text-destructive",
+  sky: "border-info/40 bg-info/10 text-info",
 }
 
 function formatUsdFromCents(cents: number): string {
@@ -97,25 +97,25 @@ function CallerIdentityStrip({
     <div
       className={cn(
         "mt-3 rounded-xl border px-4 py-3",
-        known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-zinc-700 bg-zinc-800/40"
+        known ? "border-info/30 bg-info/[0.07]" : "border-border bg-muted/40"
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           <UserRound className="h-3.5 w-3.5" aria-hidden />
           {known ? "Returning customer" : "Caller"}
         </span>
         <span className="text-base font-semibold text-foreground">
           {name || (caller === null ? "Looking up…" : "New caller")}
         </span>
-        <span className="text-xs tabular-nums text-zinc-400">
+        <span className="text-xs tabular-nums text-muted-foreground">
           {formatPhoneDisplay(callerNumber)}
         </span>
-        {place ? <span className="text-xs text-zinc-500">{place}</span> : null}
+        {place ? <span className="text-xs text-muted-foreground">{place}</span> : null}
         {caller?.job_status_label ? (
           <span
             className={cn(
-              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              "rounded-full border px-2 py-0.5 text-2xs font-medium",
               STATUS_TONE[caller.job_status_tone ?? "neutral"] ?? STATUS_TONE.neutral
             )}
           >
@@ -125,9 +125,9 @@ function CallerIdentityStrip({
       </div>
 
       {facts.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground">
           {facts.map((fact) => (
-            <span key={fact.text} className="inline-flex items-center gap-1.5">
+            <span key={fact.text} className="inline-flex items-center gap-2">
               {fact.icon}
               {fact.text}
             </span>
@@ -136,7 +136,7 @@ function CallerIdentityStrip({
       ) : null}
 
       {caller !== null && !known ? (
-        <p className="mt-1.5 text-xs text-zinc-500">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           No record on file — take the details and they will be saved as a new customer.
         </p>
       ) : null}
@@ -159,15 +159,15 @@ function CheatSheetTile({
 }) {
   const has = Boolean(value && value.trim())
   return (
-    <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <p className={cn("flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide", accent)}>
+    <div className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
+      <p className={cn("flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide", accent)}>
         {icon}
         {label}
       </p>
       <p
         className={cn(
           "mt-2 whitespace-pre-wrap text-sm leading-relaxed",
-          has ? "text-zinc-200" : "italic text-zinc-600"
+          has ? "text-foreground" : "italic text-muted-foreground"
         )}
       >
         {has ? value : emptyHint}
@@ -249,26 +249,26 @@ export function CompanyBriefingCard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/50">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-overlay shadow-black/50">
         {/* Header — answer-as greeting */}
         <div
           className={cn(
-            "rounded-t-2xl border-b border-zinc-800 p-6",
-            ringing ? "bg-emerald-950/30" : "bg-primary/10"
+            "rounded-t-2xl border-b border-border p-6",
+            ringing ? "bg-success/30" : "bg-primary/10"
           )}
         >
           <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+            <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
-                  ringing ? "animate-pulse bg-emerald-400" : "bg-primary"
+                  ringing ? "animate-pulse bg-success" : "bg-primary"
                 )}
                 aria-hidden
               />
               Lyncr Company Briefing · {ringing ? "Incoming call" : "On call"}
             </p>
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-muted-foreground">
               {formatPhoneDisplay(callerNumber)}
               {callerName ? ` · ${callerName}` : ""}
             </span>
@@ -276,26 +276,26 @@ export function CompanyBriefingCard({
 
           <p className="mt-3 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
             ANSWER AS:{" "}
-            <span className="text-emerald-300">
+            <span className="text-success">
               {loading && !briefing ? "…" : businessName}
             </span>
           </p>
 
-          <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-100">&ldquo;{script}&rdquo;</p>
+          <div className="mt-3 rounded-xl border border-success/25 bg-success/[0.06] px-4 py-3">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-success">Opening script</p>
+            <p className="mt-1 text-sm leading-relaxed text-foreground">&ldquo;{script}&rdquo;</p>
           </div>
 
           <CallerIdentityStrip caller={caller} callerNumber={callerNumber} callerName={callerName} />
         </div>
 
         {/* Phone controls */}
-        <div className="flex items-center justify-center gap-3 p-5">
+        <div className="flex items-center justify-center gap-3 p-6">
           {ringing ? (
             <button
               type="button"
               onClick={onAnswer}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-400 sm:flex-none sm:px-8"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success sm:flex-none sm:px-8"
             >
               <PhoneCall className="h-4 w-4" aria-hidden />
               Answer
@@ -304,7 +304,7 @@ export function CompanyBriefingCard({
           <button
             type="button"
             onClick={onHangup}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/90 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 sm:flex-none sm:px-8"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive/90 px-6 py-3 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive sm:flex-none sm:px-8"
           >
             <PhoneOff className="h-4 w-4" aria-hidden />
             {ringing ? "Decline" : "Hang up"}
@@ -312,32 +312,32 @@ export function CompanyBriefingCard({
         </div>
 
         {/* Company cheat-sheet grid */}
-        <div className="grid gap-3 px-5 pb-6 sm:grid-cols-3">
+        <div className="grid gap-3 px-6 pb-6 sm:grid-cols-3">
           <CheatSheetTile
             icon={<Clock className="h-3.5 w-3.5" aria-hidden />}
             label="Hours"
             value={briefing?.business_hours ?? null}
             emptyHint={loading ? "Loading…" : "No hours set by owner yet."}
-            accent="text-sky-300"
+            accent="text-info"
           />
           <CheatSheetTile
             icon={<ClipboardList className="h-3.5 w-3.5" aria-hidden />}
             label="Service Rules"
             value={briefing?.service_rules ?? null}
             emptyHint={loading ? "Loading…" : "No rates or policies set yet."}
-            accent="text-violet-300"
+            accent="text-operator"
           />
           <CheatSheetTile
             icon={<Megaphone className="h-3.5 w-3.5" aria-hidden />}
             label="Live Owner Dispatch Notes"
             value={briefing?.business_instructions ?? null}
             emptyHint={loading ? "Loading…" : "No live dispatch notes from the owner right now."}
-            accent="text-amber-300"
+            accent="text-warning"
           />
         </div>
 
         {loading && !briefing ? (
-          <p className="flex items-center justify-center gap-2 border-t border-zinc-800 px-5 py-3 text-xs text-zinc-500">
+          <p className="flex items-center justify-center gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Pulling company briefing…
           </p>

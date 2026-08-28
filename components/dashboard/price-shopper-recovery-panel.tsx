@@ -78,16 +78,16 @@ export function PriceShopperRecoveryPanel({
   return (
     <fieldset
       className={cn(
-        "grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5",
-        compact ? "p-2.5" : "p-3",
+        "grid gap-2 rounded-lg border border-warning/30 bg-warning/5",
+        compact ? "p-3" : "p-3",
         className
       )}
     >
-      <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+      <legend className="px-1 text-micro font-semibold uppercase tracking-wide text-warning">
         Price-shopper recovery
       </legend>
       {negotiationDiscountApplied || quotedPriceOverridden ? (
-        <p className="text-[11px] text-amber-100/90">
+        <p className="text-2xs text-warning/90">
           Last pitched quote: ${parseQuoteDollars(customPrice, baselineTotalCents)}
           {negotiationDiscountApplied
             ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
@@ -97,7 +97,7 @@ export function PriceShopperRecoveryPanel({
             : ""}
         </p>
       ) : null}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label htmlFor="failure-reason-step" className="text-xs">
           Failure reason
         </Label>
@@ -116,38 +116,38 @@ export function PriceShopperRecoveryPanel({
         </Select>
       </div>
       {isPriceTooHigh ? (
-        <div className="mt-2 space-y-3 rounded-lg border border-orange-500/30 bg-slate-950 p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-warning/30 bg-background p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
+            <p className="text-xs font-semibold uppercase tracking-wide text-warning">
               Save the deal — read verbatim
             </p>
-            <span className="shrink-0 text-[10px] font-medium text-orange-400/80">
+            <span className="shrink-0 text-2xs font-medium text-warning/80">
               Step {negotiationStep} of 3
             </span>
           </div>
 
           {negotiationStep === 1 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{routeMatchRecoveryScript(step1Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyRouteMatch}
               >
                 Apply Router Match Discount (${step1Price})
               </Button>
               <button
                 type="button"
-                className="w-full text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                className="w-full text-left text-xs text-warning underline-offset-2 hover:text-warning hover:underline"
                 onClick={() => onNegotiationStepChange(2)}
               >
                 Customer declined this but is still negotiating →
               </button>
               {recoveredViaRouteDiscount ? (
-                <p className="text-[11px] text-emerald-300">
+                <p className="text-2xs text-success">
                   Route discount applied — confirm the job when the customer accepts.
                 </p>
               ) : null}
@@ -156,28 +156,28 @@ export function PriceShopperRecoveryPanel({
 
           {negotiationStep === 2 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{aftermarketRecoveryScript(step2Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyAftermarket}
               >
                 Apply Aftermarket Hardware Swap (${step2Price})
               </Button>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  className="text-left text-xs text-slate-400 hover:text-slate-200"
+                  className="text-left text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => onNegotiationStepChange(1)}
                 >
                   ← Go Back
                 </button>
                 <button
                   type="button"
-                  className="text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                  className="text-left text-xs text-warning underline-offset-2 hover:text-warning hover:underline"
                   onClick={() => onNegotiationStepChange(3)}
                 >
                   Still too high but wants to book →
@@ -188,20 +188,20 @@ export function PriceShopperRecoveryPanel({
 
           {negotiationStep === 3 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{managementFloorRecoveryScript(customerName, step3Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyManagementFloor}
               >
                 Apply Final Management Floor (${step3Price})
               </Button>
               <button
                 type="button"
-                className="text-left text-xs text-slate-400 hover:text-slate-200"
+                className="text-left text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => onNegotiationStepChange(2)}
               >
                 ← Go Back
@@ -214,7 +214,7 @@ export function PriceShopperRecoveryPanel({
         type="button"
         variant="outline"
         size="lg"
-        className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
+        className="w-full gap-2 border-warning/40 text-warning hover:bg-warning/10"
         disabled={lostLeadState === "saving" || !canLogLostLead}
         onClick={onLogLostLead}
       >
@@ -226,11 +226,11 @@ export function PriceShopperRecoveryPanel({
         Customer declined price / hang up
       </Button>
       {lostLeadState === "saved" ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Lost lead logged — recovery SMS will queue after 20 minutes.
         </p>
       ) : null}
-      {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
+      {lostLeadError ? <p className="text-xs text-destructive">{lostLeadError}</p> : null}
     </fieldset>
   )
 }

@@ -93,10 +93,10 @@ function ReceptionistAccessForm({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
-      <DialogContent className="border-zinc-800 bg-zinc-950 text-foreground sm:max-w-md">
+      <DialogContent className="border-border bg-background text-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Access for {target.name}</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Choose what shows up on their console. Off by default — turn something on when you
             want them handling more.
           </DialogDescription>
@@ -112,37 +112,37 @@ function ReceptionistAccessForm({
                 disabled={saving}
                 onClick={() => setCapabilities((prev) => ({ ...prev, [toggle.key]: !on }))}
                 className={cn(
-                  "w-full rounded-lg border px-3 py-2.5 text-left transition disabled:opacity-50",
+                  "w-full rounded-lg border px-3 py-3 text-left transition disabled:opacity-50",
                   on
-                    ? "border-emerald-500/50 bg-emerald-500/10"
-                    : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
+                    ? "border-success/50 bg-success/10"
+                    : "border-border bg-card/40 hover:border-border"
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold text-foreground">{toggle.label}</span>
                   <span
                     className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                      on ? "bg-emerald-500/20 text-emerald-200" : "bg-zinc-800 text-zinc-500"
+                      "shrink-0 rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
+                      on ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
                     )}
                   >
                     {on ? "On" : "Off"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-500">{toggle.description}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{toggle.description}</p>
               </button>
             )
           })}
         </div>
 
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <DialogFooter>
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="inline-flex items-center justify-center rounded-lg border border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             Cancel
           </button>
@@ -150,7 +150,7 @@ function ReceptionistAccessForm({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Save

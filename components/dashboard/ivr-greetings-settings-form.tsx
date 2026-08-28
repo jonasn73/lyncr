@@ -21,7 +21,7 @@ type IvrApiPayload = IvrMenuSettings & {
 }
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-info/50 focus:outline-none focus:ring-1 focus:ring-info/40"
 
 export function IvrGreetingsSettingsForm({
   routingBusinessNumber,
@@ -129,7 +129,7 @@ export function IvrGreetingsSettingsForm({
   return (
     <section
       className={cn(
-        "space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 sm:space-y-4 sm:p-4",
+        "space-y-3 rounded-xl border border-info/20 bg-info/5 p-3 sm:space-y-4 sm:p-4",
         className
       )}
       aria-labelledby="ivr-greetings-heading"
@@ -137,25 +137,25 @@ export function IvrGreetingsSettingsForm({
       <div>
         <p
           id="ivr-greetings-heading"
-          className="text-xs font-semibold uppercase tracking-wide text-blue-300"
+          className="text-xs font-semibold uppercase tracking-wide text-info"
         >
           Greetings · Traditional IVR
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
+        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
           Edit what the text-to-speech engine reads when Off-duty IVR answers. Keypress routes are
           fixed below.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           Loading IVR settings…
         </div>
       ) : (
         <>
-          <div className="space-y-1.5">
-            <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-zinc-300">
+          <div className="space-y-2">
+            <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-foreground">
               Spoken greeting (text-to-speech)
             </label>
             <textarea
@@ -163,30 +163,30 @@ export function IvrGreetingsSettingsForm({
               rows={4}
               value={greeting}
               onChange={(e) => setGreeting(e.target.value)}
-              className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-2.5")}
+              className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-3")}
               placeholder={DEFAULT_IVR_GREETING_TEXT}
             />
-            <p className="text-[10px] text-zinc-600">
+            <p className="text-2xs text-muted-foreground">
               Spoken exactly as written when the keypad menu answers.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+            <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wide text-success/90">
                 Digit 1 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+              <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                 Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
               </p>
             </div>
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+            <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wide text-success/90">
                 Digit 2 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Ring Our Phone</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+              <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                 Dials your cell for 20 seconds. If no answer, offers an SMS booking link.
               </p>
             </div>
@@ -198,7 +198,7 @@ export function IvrGreetingsSettingsForm({
             onClick={() => void handleSave()}
             className={cn(
               "inline-flex min-h-10 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition-opacity sm:min-h-11",
-              "bg-blue-600 hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              "bg-info hover:bg-info disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             {saving ? (

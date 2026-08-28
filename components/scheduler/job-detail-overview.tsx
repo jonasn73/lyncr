@@ -76,15 +76,15 @@ type JobDetailOverviewProps = {
 }
 
 const SECTION_LABEL =
-  "text-[10px] uppercase font-bold tracking-widest text-slate-500"
+  "text-micro uppercase font-bold tracking-widest text-muted-foreground"
 
 /** Compact Call / SMS chips — shorter than the old full-width stacked buttons. */
 const CONTACT_BTN =
-  "inline-flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
+  "inline-flex min-h-[34px] flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-2xs font-semibold transition-colors disabled:opacity-50"
 
 /** Smaller quick-action cells for the collapsed “More actions” grid. */
 const ACTION_BTN =
-  "flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2 text-[10px] font-semibold leading-tight transition-colors disabled:opacity-50"
+  "flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2 text-2xs font-semibold leading-tight transition-colors disabled:opacity-50"
 
 /** Accordion toggle row for secondary sections. */
 function CollapseToggle({
@@ -103,17 +103,17 @@ function CollapseToggle({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/40 bg-slate-950/35 px-3 py-2 text-left transition-colors hover:bg-slate-950/55"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/35 px-3 py-2 text-left transition-colors hover:bg-background/55"
     >
       <span className="min-w-0">
         <span className={cn(SECTION_LABEL, "block")}>{label}</span>
         {!open && hint ? (
-          <span className="mt-0.5 block truncate text-[11px] text-slate-400">{hint}</span>
+          <span className="mt-0.5 block truncate text-2xs text-muted-foreground">{hint}</span>
         ) : null}
       </span>
       <ChevronDown
         className={cn(
-          "h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform",
+          "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
           open && "rotate-180"
         )}
         aria-hidden
@@ -233,13 +233,13 @@ export function JobDetailOverview({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Sticky header — name, badge, phone, Call/SMS, Edit stay visible while body scrolls */}
       <header className="relative shrink-0 border-b border-border/50 px-4 py-2 pr-12">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground md:text-lg">
             {customerName}
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-2xs font-semibold",
               OPERATOR_JOB_PHASE_BADGE_STYLE[operatorPhase]
             )}
           >
@@ -251,7 +251,7 @@ export function JobDetailOverview({
           <button
             type="button"
             onClick={onEdit}
-            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-1 text-2xs font-semibold text-success transition-colors hover:bg-success/20"
           >
             <Pencil className="h-3 w-3" aria-hidden />
             {/* Shorter label on narrow screens */}
@@ -261,8 +261,8 @@ export function JobDetailOverview({
         </div>
 
         {/* Phone + Call / SMS on one compact row */}
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate font-mono text-xs text-slate-300">
+        <div className="mt-1.5 flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
             {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
           </p>
           {phoneHref ? (
@@ -270,7 +270,7 @@ export function JobDetailOverview({
               href={phoneHref}
               className={cn(
                 CONTACT_BTN,
-                "max-w-[5.5rem] flex-none border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                "max-w-[5.5rem] flex-none border-success/35 bg-success/10 text-success hover:bg-success/20"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -282,7 +282,7 @@ export function JobDetailOverview({
               disabled
               className={cn(
                 CONTACT_BTN,
-                "max-w-[5.5rem] flex-none border-slate-800 bg-slate-950/40 text-slate-500"
+                "max-w-[5.5rem] flex-none border-border bg-background/40 text-muted-foreground"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -298,8 +298,8 @@ export function JobDetailOverview({
               CONTACT_BTN,
               "max-w-[5.5rem] flex-none",
               smsComposerOpen
-                ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-                : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                ? "border-info/50 bg-info/20 text-info"
+                : "border-info/35 bg-info/10 text-info hover:bg-info/20"
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
@@ -360,7 +360,7 @@ export function JobDetailOverview({
         />
 
         {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
-        <section className="mt-2 space-y-1.5 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
+        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-background/35 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -404,8 +404,8 @@ export function JobDetailOverview({
           </div>
 
           <div className={SCHEDULER_FIELD_STACK}>
-            <div className="flex items-center gap-1.5">
-              <UserRound className="h-3 w-3 text-slate-500" aria-hidden />
+            <div className="flex items-center gap-2">
+              <UserRound className="h-3 w-3 text-muted-foreground" aria-hidden />
               <p className={SECTION_LABEL}>Assign tech</p>
             </div>
             <TechAssignmentSelect
@@ -454,18 +454,18 @@ export function JobDetailOverview({
             {showKeyDetails ? (
               <div
                 className={cn(
-                  "space-y-1 text-[12px] leading-snug",
-                  isMobile && "mt-1.5 rounded-lg border border-border/40 bg-slate-950/30 px-3 py-2"
+                  "space-y-1 text-xs leading-snug",
+                  isMobile && "mt-1.5 rounded-lg border border-border/40 bg-background/30 px-3 py-2"
                 )}
               >
                 {keyBlocks.map((block) => (
                   <p key={`${block.label}-${block.value}`} className="min-w-0 truncate">
                     <span className={cn(SCHEDULER_METADATA_LABEL, "inline")}>{block.label}</span>
-                    <span className="text-slate-600"> · </span>
+                    <span className="text-muted-foreground"> · </span>
                     <span
                       className={cn(
-                        "font-medium text-slate-100",
-                        block.label === "TI SKU" && "font-mono text-emerald-300"
+                        "font-medium text-foreground",
+                        block.label === "TI SKU" && "font-mono text-success"
                       )}
                     >
                       {block.value}
@@ -491,7 +491,7 @@ export function JobDetailOverview({
           )}
           {showMoreActions ? (
             <div className={cn(isMobile && "mt-1.5")}>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <button
                   type="button"
                   // Already cancelled → disabled with clear label (not a dead tap).
@@ -500,8 +500,8 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobCancelled
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
-                      : "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                      ? "border-border/40 bg-muted/40 text-muted-foreground"
+                      : "border-destructive/35 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   )}
                   title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
                 >
@@ -515,8 +515,8 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobReferred
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
-                      : "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
+                      ? "border-border/40 bg-muted/40 text-muted-foreground"
+                      : "border-operator/35 bg-operator/10 text-operator hover:bg-operator/20"
                   )}
                   title={isJobReferred ? "Already marked referred" : "Mark as referred"}
                 >
@@ -529,7 +529,7 @@ export function JobDetailOverview({
                   onClick={() => onQuickLifecycleAction("completed")}
                   className={cn(
                     ACTION_BTN,
-                    "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                    "border-success/40 bg-success/15 text-success hover:bg-success/25"
                   )}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
@@ -542,8 +542,8 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     reviewSmsFailed
-                      ? "border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
-                      : "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                      ? "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
+                      : "border-warning/40 bg-warning/15 text-warning hover:bg-warning/25"
                   )}
                 >
                   <Star className="h-3.5 w-3.5 opacity-90" aria-hidden />
@@ -571,7 +571,7 @@ export function JobDetailOverview({
           {showNotes ? (
             <div
               className={cn(
-                "rounded-xl border border-slate-800/80 bg-slate-950/70 p-0.5 shadow-inner",
+                "rounded-xl border border-border/80 bg-background/70 p-0.5 shadow-inner",
                 isMobile && "mt-1.5"
               )}
             >
@@ -583,13 +583,13 @@ export function JobDetailOverview({
                 placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
                 onChange={(e) => onJobNotesChange(e.target.value)}
                 onBlur={() => onSaveJobNotes()}
-                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-2.5 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
+                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
               />
             </div>
           ) : null}
         </section>
 
-        {error ? <p className="mt-2 text-sm text-rose-400">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     </div>
   )

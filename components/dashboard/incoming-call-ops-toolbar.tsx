@@ -27,7 +27,7 @@ const QUICK_SMS_TEMPLATES = [
 ] as const
 
 const BTN =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg border py-1.5 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
+  "inline-flex items-center justify-center gap-2 rounded-lg border py-2 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
 
 /** Live-leg chrome next to Decline / SMS — mirrors intake header phase. */
 export type IncomingCallLinePhase = "ringing" | "answered" | "missed" | "voicemail" | "ended"
@@ -72,7 +72,7 @@ export function RepeatCallerUrgencyBadge({
   return (
     <span
       className={cn(
-        "bg-rose-500/20 border border-rose-500 text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
+        "bg-destructive/20 border border-destructive text-destructive text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
         className
       )}
     >
@@ -272,7 +272,7 @@ export function IncomingCallOpsToolbar({
   if (compactActions) {
     return (
       <>
-      <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className={cn("flex flex-col gap-2", className)}>
         <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
@@ -286,7 +286,7 @@ export function IncomingCallOpsToolbar({
             }}
             className={cn(
               BTN,
-              "min-h-8 border-slate-800 bg-slate-900/50 py-1 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+              "min-h-8 border-border bg-card/50 py-1 text-foreground hover:border-border hover:bg-card"
             )}
           >
             Call actions
@@ -297,7 +297,7 @@ export function IncomingCallOpsToolbar({
           </button>
           <span
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-wider",
+              "text-micro font-semibold uppercase tracking-wider",
               intakeCallBadgeClassName(linePhase)
             )}
           >
@@ -308,7 +308,7 @@ export function IncomingCallOpsToolbar({
             <button
               type="button"
               onClick={() => onOpenActiveJob(context.jobId)}
-              className="ml-auto truncate text-[10px] font-bold uppercase tracking-wide text-amber-200"
+              className="ml-auto truncate text-micro font-bold uppercase tracking-wide text-warning"
               title="Open this job on Scheduler"
             >
               Job active
@@ -317,15 +317,15 @@ export function IncomingCallOpsToolbar({
         </div>
 
         {actionsOpen ? (
-          <div id="incoming-call-actions-panel" className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div id="incoming-call-actions-panel" className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 disabled={declining}
                 onClick={() => void handleDecline()}
                 className={cn(
                   BTN,
-                  "min-h-8 border-rose-900/50 bg-rose-950/40 py-1 text-rose-400 hover:bg-rose-950/60"
+                  "min-h-8 border-destructive/50 bg-destructive/40 py-1 text-destructive hover:bg-destructive/60"
                 )}
                 aria-label="Decline and send to voicemail"
               >
@@ -346,8 +346,8 @@ export function IncomingCallOpsToolbar({
                   BTN,
                   "min-h-8 py-1",
                   smsOpen
-                    ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-                    : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+                    ? "border-info/50 bg-info/20 text-info"
+                    : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
                 )}
                 aria-label="Quick SMS templates"
               >
@@ -364,7 +364,7 @@ export function IncomingCallOpsToolbar({
                 onClick={openBookLinkSheet}
                 className={cn(
                   BTN,
-                  "min-h-8 border-emerald-500/40 bg-emerald-500/10 py-1 text-emerald-100 hover:bg-emerald-500/20"
+                  "min-h-8 border-success/40 bg-success/10 py-1 text-success hover:bg-success/20"
                 )}
                 aria-label="Text booking link"
               >
@@ -376,7 +376,7 @@ export function IncomingCallOpsToolbar({
               <div
                 id="incoming-quick-sms-panel"
                 data-quick-sms
-                className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2"
+                className="rounded-xl border border-info/30 bg-info/10 p-2"
               >
                 <ul className="flex flex-col gap-1">
                   {QUICK_SMS_TEMPLATES.map((template) => (
@@ -385,7 +385,7 @@ export function IncomingCallOpsToolbar({
                         type="button"
                         disabled={smsSending}
                         onClick={() => void sendQuickSms(template)}
-                        className="w-full rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-info/15 disabled:opacity-50"
                       >
                         {template}
                       </button>
@@ -414,7 +414,7 @@ export function IncomingCallOpsToolbar({
       {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
         {showLookupSpinner ? (
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <p className="flex items-center gap-2 text-2xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             Looking up caller…
           </p>
@@ -424,24 +424,24 @@ export function IncomingCallOpsToolbar({
               <button
                 type="button"
                 onClick={() => onOpenActiveJob(context.jobId)}
-                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
+                className="inline-flex items-center rounded-md border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-warning transition-colors hover:border-warning/60 hover:bg-warning/20"
                 title="Open this job on Scheduler"
                 aria-label={`Open recent job for ${context.metaLine}`}
               >
                 ⚠️ Recent Job Active
               </button>
             ) : (
-              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+              <span className="inline-flex items-center rounded-md border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-warning">
                 ⚠️ Recent Job Active
               </span>
             )}
-            <span className="text-[11px] font-medium text-slate-300">{context.metaLine}</span>
+            <span className="text-2xs font-medium text-foreground">{context.metaLine}</span>
           </div>
         ) : (
-          <p className="text-[11px] font-medium text-slate-400">{context.cnamToken}</p>
+          <p className="text-2xs font-medium text-muted-foreground">{context.cnamToken}</p>
         )}
         {urgency.isHighUrgency && urgency.minutesSinceLastMissed != null ? (
-          <p className="mt-1 text-[11px] font-medium text-amber-500/90">
+          <p className="mt-1 text-2xs font-medium text-warning/90">
             {formatRepeatCallerHistoryLine(urgency.minutesSinceLastMissed)}
           </p>
         ) : null}
@@ -455,7 +455,7 @@ export function IncomingCallOpsToolbar({
           onClick={() => void handleDecline()}
           className={cn(
             BTN,
-            "border-rose-900/50 bg-rose-950/40 text-rose-400 hover:bg-rose-950/60"
+            "border-destructive/50 bg-destructive/40 text-destructive hover:bg-destructive/60"
           )}
           aria-label="Decline and send to voicemail"
         >
@@ -476,8 +476,8 @@ export function IncomingCallOpsToolbar({
           className={cn(
             BTN,
             smsOpen
-              ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-              : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+              ? "border-info/50 bg-info/20 text-info"
+              : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
           )}
           aria-label="Quick SMS templates"
         >
@@ -495,7 +495,7 @@ export function IncomingCallOpsToolbar({
           onClick={openBookLinkSheet}
           className={cn(
             BTN,
-            "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+            "border-success/40 bg-success/10 text-success hover:bg-success/20"
           )}
           aria-label="Text booking link"
         >
@@ -505,7 +505,7 @@ export function IncomingCallOpsToolbar({
 
         <span
           className={cn(
-            "text-[10px] font-semibold uppercase tracking-wider",
+            "text-micro font-semibold uppercase tracking-wider",
             intakeCallBadgeClassName(linePhase)
           )}
         >
@@ -518,17 +518,17 @@ export function IncomingCallOpsToolbar({
         <div
           id="incoming-quick-sms-panel"
           data-quick-sms
-          className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5"
+          className="rounded-xl border border-info/30 bg-info/10 p-3"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
+            <p className="text-micro font-semibold uppercase tracking-wider text-info/80">
               One-tap texts
             </p>
             <button
               type="button"
               aria-label="Close Quick SMS"
               onClick={() => setSmsOpen(false)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-info/80 hover:bg-info/20 hover:text-info"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -540,7 +540,7 @@ export function IncomingCallOpsToolbar({
                   type="button"
                   disabled={smsSending}
                   onClick={() => void sendQuickSms(template)}
-                  className="w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-info/15 disabled:opacity-50"
                 >
                   {template}
                 </button>

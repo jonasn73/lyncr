@@ -143,19 +143,19 @@ export function DeferredCardKeyInForm(props: {
 
   return (
     <div className="space-y-3 px-1 pb-2">
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+      <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-3">
+        <p className="text-micro font-semibold uppercase tracking-wide text-success/70">
           Service (before tip)
         </p>
-        <p className="text-lg font-bold tabular-nums text-emerald-100">{props.amountLabel}</p>
-        <p className="mt-1 text-[11px] leading-snug text-emerald-100/80">
+        <p className="text-lg font-bold tabular-nums text-success">{props.amountLabel}</p>
+        <p className="mt-1 text-2xs leading-snug text-success/80">
           Key the card now — nothing is charged until the customer finishes tip.
         </p>
       </div>
 
-      <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
+      <div className="min-h-[12rem] rounded-xl border border-border bg-card/80 p-3">
         {!elementReady && !loadFailed ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading card form…
           </div>
@@ -183,8 +183,8 @@ export function DeferredCardKeyInForm(props: {
           />
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
-            <p className="max-w-xs text-xs leading-snug text-slate-400">
+            <p className="text-sm font-semibold text-destructive">Card form unavailable</p>
+            <p className="max-w-xs text-xs leading-snug text-muted-foreground">
               Stripe never finished loading on this screen. Use Try again, or send a pay link.
             </p>
           </div>
@@ -192,11 +192,11 @@ export function DeferredCardKeyInForm(props: {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
-          <p className="text-xs font-semibold text-rose-300">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <p className="text-xs font-semibold text-destructive">
             {loadFailed ? "Card form failed to load" : "Could not save card"}
           </p>
-          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">{error}</p>
+          <p className="mt-0.5 text-xs leading-snug text-destructive/90">{error}</p>
         </div>
       ) : null}
 
@@ -204,7 +204,7 @@ export function DeferredCardKeyInForm(props: {
         <button
           type="button"
           onClick={cancel}
-          className="flex-1 rounded-lg border border-zinc-700 px-3 py-2.5 text-sm font-semibold text-slate-300"
+          className="flex-1 rounded-lg border border-border px-3 py-3 text-sm font-semibold text-foreground"
         >
           Back
         </button>
@@ -218,7 +218,7 @@ export function DeferredCardKeyInForm(props: {
             }
             void saveCardNoCharge()
           }}
-          className="flex flex-[1.4] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="flex flex-[1.4] items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
         >
           {busy ? (
             <>
@@ -234,7 +234,7 @@ export function DeferredCardKeyInForm(props: {
           )}
         </button>
       </div>
-      <p className="text-center text-[10px] leading-snug text-zinc-500">
+      <p className="text-center text-2xs leading-snug text-muted-foreground">
         Card saved — next the customer adds a tip. Nothing charged yet.
       </p>
     </div>

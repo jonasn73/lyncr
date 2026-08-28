@@ -25,10 +25,10 @@ export function ActivityPaneFallback() {
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>
-        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-300/50">
+        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-info/40 bg-info/10 px-3 text-xs font-semibold text-info/50">
           Dispatch Map
         </span>
-        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
+        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
           Job scheduler
         </span>
       </div>
@@ -37,7 +37,7 @@ export function ActivityPaneFallback() {
         {["All activity", "Missed today", "Hold", "Press 1"].map((label) => (
           <span
             key={label}
-            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-[11px] font-semibold text-zinc-500"
+            className="inline-flex h-9 items-center rounded-full border border-border bg-card/60 px-3 text-2xs font-semibold text-muted-foreground"
           >
             {label}
           </span>
@@ -57,7 +57,7 @@ export function CrmPaneFallback() {
       aria-label="Loading CRM"
     >
       <header className="flex flex-col gap-1">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
+        <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
           CRM
         </p>
         <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -65,14 +65,14 @@ export function CrmPaneFallback() {
         </h1>
       </header>
       <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
-        <section className="flex flex-col rounded-2xl border border-zinc-800/90 bg-background">
-          <div className="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
-            <div className="h-10 rounded-md border border-zinc-800 bg-zinc-900/80" />
-            <div className="flex flex-wrap gap-1.5">
+        <section className="flex flex-col rounded-2xl border border-border/90 bg-background">
+          <div className="shrink-0 space-y-2 border-b border-border/80 p-3">
+            <div className="h-11 rounded-md border border-border bg-card/80" />
+            <div className="flex flex-wrap gap-2">
               {["All", "Leads", "Book forms", "Clients"].map((label) => (
                 <span
                   key={label}
-                  className="rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-800"
+                  className="rounded-lg bg-card px-3 py-2 text-2xs font-semibold text-muted-foreground ring-1 ring-border"
                 >
                   {label}
                 </span>
@@ -83,7 +83,7 @@ export function CrmPaneFallback() {
             <CrmListRowSkeleton count={6} />
           </div>
         </section>
-        <section className="hidden min-h-[20rem] rounded-2xl border border-zinc-800/90 bg-background p-4 md:block" />
+        <section className="hidden min-h-[20rem] rounded-2xl border border-border/90 bg-background p-4 md:block" />
       </div>
     </div>
   )
@@ -98,33 +98,33 @@ export function MapPaneFallback() {
         "relative mx-auto flex w-full max-w-workspace flex-col overflow-hidden bg-background",
         WORKSPACE_VIEWPORT_H,
         "min-h-[22rem]",
-        "sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-zinc-800"
+        "sm:min-h-[28rem] sm:rounded-xl sm:border sm:border-border"
       )}
       aria-busy="true"
       aria-label="Loading Map"
     >
-      <header className="flex shrink-0 flex-col gap-2 border-b border-zinc-800/80 px-3 py-2 sm:px-4 sm:py-2.5">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-border/80 px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
+            <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
               Dispatch Map
             </h1>
-            <p className="hidden truncate text-xs text-slate-500 sm:block">
+            <p className="hidden truncate text-xs text-muted-foreground sm:block">
               Jobs, techs, and your location — one map for dispatch.
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-slate-200">
+          <span className="inline-flex shrink-0 items-center rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground">
             Job Pool &amp; Roster
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1" aria-hidden>
-          <span className="pr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="pr-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Layers
           </span>
           {["Jobs", "Techs", "Leads", "You"].map((label) => (
             <span
               key={label}
-              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[11px] text-slate-400"
+              className="rounded-md border border-border bg-card/60 px-2 py-1 text-2xs text-muted-foreground"
             >
               {label}
             </span>
@@ -136,7 +136,7 @@ export function MapPaneFallback() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(39,39,42,0.45),transparent_55%)]" />
         {/* Desktop Job Pool starts open in CSS — keep that width here so the map does not jump. */}
         <div
-          className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-80 max-w-[40%] border-l border-zinc-800 bg-slate-950/95 md:block"
+          className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-80 max-w-[40%] border-l border-border bg-background/95 md:block"
           aria-hidden
         />
       </div>
@@ -153,7 +153,7 @@ export function MessagesPaneFallback() {
       aria-label="Loading Messages"
     >
       <div className="min-w-0">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block">
+        <p className="hidden text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block">
           SMS
         </p>
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:mt-1 md:text-3xl">
@@ -185,13 +185,13 @@ export function MessagesPaneFallback() {
 /** Settings list chrome — no small dark card. */
 export function SettingsPaneFallback() {
   return (
-    <WorkspacePage className="gap-5 pb-10" aria-busy="true" aria-label="Loading Settings">
+    <WorkspacePage className="gap-6 pb-10" aria-busy="true" aria-label="Loading Settings">
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
-      <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
-        <span className="h-12 w-12 shrink-0 rounded-full bg-primary/15" />
+      <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 px-4 py-3">
+        <span className="h-11 w-11 shrink-0 rounded-full bg-primary/15" />
         <div className="min-w-0 flex-1 space-y-2">
-          <span className="block h-4 w-36 rounded bg-zinc-800" />
-          <span className="block h-3 w-48 rounded bg-zinc-800/80" />
+          <span className="block h-4 w-36 rounded bg-muted" />
+          <span className="block h-3 w-48 rounded bg-muted/80" />
         </div>
       </div>
       <div className="space-y-2">
@@ -215,44 +215,44 @@ export function SchedulerPaneFallback() {
       <div className="grid w-full grid-cols-1 items-start gap-3 pb-28 lg:grid-cols-4 lg:gap-4 lg:pb-0">
         {/* Left rail placeholders — intake / pool / live status */}
         <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:gap-3">
-          <div className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/40">
-            <div className="border-b border-zinc-800/80 p-2.5">
-              <div className="h-10 w-full rounded-lg bg-zinc-800/50" />
+          <div className="overflow-hidden rounded-xl border border-border/80 bg-background/40">
+            <div className="border-b border-border/80 p-3">
+              <div className="h-11 w-full rounded-lg bg-muted/50" />
             </div>
-            <div className="space-y-2 border-b border-zinc-800/80 px-2.5 py-2.5">
-              <div className="h-3 w-24 rounded bg-zinc-800/50" />
-              <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
-              <div className="h-16 w-full rounded-lg bg-zinc-800/40" />
+            <div className="space-y-2 border-b border-border/80 px-3 py-3">
+              <div className="h-3 w-24 rounded bg-muted/50" />
+              <div className="h-16 w-full rounded-lg bg-muted/40" />
+              <div className="h-16 w-full rounded-lg bg-muted/40" />
             </div>
-            <div className="space-y-2 px-2.5 py-2.5">
-              <div className="h-3 w-28 rounded bg-zinc-800/50" />
-              <div className="h-12 w-full rounded-lg bg-zinc-800/40" />
-              <div className="h-12 w-full rounded-lg bg-zinc-800/40" />
+            <div className="space-y-2 px-3 py-3">
+              <div className="h-3 w-28 rounded bg-muted/50" />
+              <div className="h-11 w-full rounded-lg bg-muted/40" />
+              <div className="h-11 w-full rounded-lg bg-muted/40" />
             </div>
           </div>
-          <div className="h-11 rounded-xl border border-zinc-800/80 bg-zinc-950/40" />
+          <div className="h-11 rounded-xl border border-border/80 bg-background/40" />
         </div>
         {/* Main board — pipeline + swimlanes well */}
         <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-3 lg:gap-3">
-          <div className="min-h-[8rem] rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-3">
-            <div className="mb-2 h-4 w-32 rounded bg-zinc-800/50" />
+          <div className="min-h-[8rem] rounded-xl border border-border/80 bg-background/20 p-3">
+            <div className="mb-2 h-4 w-32 rounded bg-muted/50" />
             <div className="grid gap-2 sm:grid-cols-2">
-              <div className="h-20 rounded-lg bg-zinc-800/40" />
-              <div className="h-20 rounded-lg bg-zinc-800/40" />
+              <div className="h-20 rounded-lg bg-muted/40" />
+              <div className="h-20 rounded-lg bg-muted/40" />
             </div>
           </div>
-          <div className="min-h-[18rem] rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-3">
+          <div className="min-h-[18rem] rounded-xl border border-border/80 bg-background/20 p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="h-4 w-36 rounded bg-zinc-800/50" />
-              <div className="h-8 w-28 rounded-lg bg-zinc-800/40" />
+              <div className="h-4 w-36 rounded bg-muted/50" />
+              <div className="h-9 w-28 rounded-lg bg-muted/40" />
             </div>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="min-h-[14rem] rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-2">
-                  <div className="mb-2 h-3 w-16 rounded bg-zinc-800/50" />
+                <div key={i} className="min-h-[14rem] rounded-lg border border-border/60 bg-card/30 p-2">
+                  <div className="mb-2 h-3 w-16 rounded bg-muted/50" />
                   <div className="space-y-2">
-                    <div className="h-10 w-full rounded bg-zinc-800/40" />
-                    <div className="h-10 w-full rounded bg-zinc-800/40" />
+                    <div className="h-11 w-full rounded bg-muted/40" />
+                    <div className="h-11 w-full rounded bg-muted/40" />
                   </div>
                 </div>
               ))}
@@ -268,17 +268,17 @@ export function SchedulerPaneFallback() {
 export function PayPaneFallback() {
   return (
     <div className="min-h-[32rem] w-full" aria-busy="true" aria-label="Loading Pay">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
+      <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
       <p className="mt-1 text-lg font-semibold text-foreground">Pay</p>
       <div className="mt-6 grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Lyncr Talk-Time Balance
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3 opacity-60">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Talk-time used (recent)
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>

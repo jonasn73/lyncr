@@ -917,7 +917,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         <div className="min-w-0">
           <p
             className={cn(
-              "hidden min-h-[1rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block",
+              "hidden min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block",
               threadOpen && "invisible"
             )}
           >
@@ -931,7 +931,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 w-[5.5rem] shrink-0 px-2.5 text-xs"
+          className="h-9 w-[5.5rem] shrink-0 px-3 text-xs"
           disabled={loading}
           onClick={() => void loadMessages()}
         >
@@ -951,7 +951,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       </p>
 
       {error ? (
-        <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : null}
@@ -984,7 +984,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               <div className="h-full min-h-[12rem]" aria-busy="true" aria-label="Loading messages" />
             ) : threads.length === 0 ? (
               <div className="flex h-full min-h-[12rem] flex-col items-center gap-3 px-6 py-16 text-center">
-                <MessageSquare className="h-8 w-8 text-muted-foreground/50" aria-hidden />
+                <MessageSquare className="h-9 w-9 text-muted-foreground/50" aria-hidden />
                 <p className="text-sm font-medium text-foreground">No texts yet</p>
                 <p className="max-w-xs text-xs text-muted-foreground">
                   When a customer texts your line — or you text from Activity / CRM — the thread
@@ -992,7 +992,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 </p>
                 <Link
                   href="/dashboard/activity"
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-4 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-info/40 bg-info/10 px-4 text-xs font-semibold text-info hover:bg-info/20"
                 >
                   Open Activity
                 </Link>
@@ -1015,16 +1015,16 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left",
                       "transition-colors duration-150 ease-out",
                       active
-                        ? "bg-emerald-500/10"
+                        ? "bg-success/10"
                         : "hover:bg-muted/40",
-                      thread.needsReply && !active && "bg-amber-500/5"
+                      thread.needsReply && !active && "bg-warning/5"
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-semibold text-foreground">
                         {formatPhoneDisplay(thread.customerPhone)}
                       </span>
-                      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
                         {threadTimeLabel(
                           thread.customerPhone,
                           thread.lastMessage.id,
@@ -1036,7 +1036,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       className={cn(
                         "truncate text-xs",
                         thread.needsReply
-                          ? "font-medium text-amber-100/90"
+                          ? "font-medium text-warning/90"
                           : "text-muted-foreground"
                       )}
                     >
@@ -1071,7 +1071,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
-                <MessageSquare className="h-8 w-8 opacity-40" aria-hidden />
+                <MessageSquare className="h-9 w-9 opacity-40" aria-hidden />
                 <p className="text-sm">Select a conversation to read and reply</p>
               </div>
             )
@@ -1098,7 +1098,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       ? threadPhoneLabel || "\u00a0"
                       : customerName?.trim() || threadPhoneLabel || "\u00a0"}
                   </p>
-                  <p className="min-h-5 truncate text-[11px] text-muted-foreground">
+                  <p className="min-h-5 truncate text-2xs text-muted-foreground">
                     {customerLookupDone && customerName?.trim() && threadTelHref ? (
                       <a
                         href={threadTelHref}
@@ -1119,10 +1119,10 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   </p>
                 </div>
                 {/* Fixed chip strip — CRM / Collect appear without growing the row. */}
-                <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
+                <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-2">
                   <div
                     className={cn(
-                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground",
+                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-3 text-2xs font-semibold text-foreground",
                       !showCrmChip && "invisible pointer-events-none"
                     )}
                     aria-hidden={!showCrmChip}
@@ -1147,7 +1147,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openCollectForThread}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-success/40 bg-success/15 px-3 text-2xs font-semibold text-success hover:bg-success/25"
                       aria-label="Collect payment"
                     >
                       <CreditCard className="h-3.5 w-3.5" aria-hidden />
@@ -1160,8 +1160,8 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               {/* Banner strip always reserved — booking / no-form copy swaps inside. */}
               <div className="min-h-[4.5rem] shrink-0 border-b border-border/60">
                 {showBookingDetailsBanner ? (
-                  <div className="border-b border-orange-500/30 bg-orange-500/10 px-3 py-2.5 md:px-4">
-                    <p className="truncate text-[11px] font-medium text-orange-100/90">
+                  <div className="border-b border-warning/30 bg-warning/10 px-3 py-3 md:px-4">
+                    <p className="truncate text-2xs font-medium text-warning/90">
                       {threadBookForm?.customerName
                         ? `${threadBookForm.customerName} submitted a booking`
                         : "Customer submitted a booking"}
@@ -1172,15 +1172,15 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openBookingDetailsFromBanner}
-                      className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-50 underline-offset-2 hover:underline"
+                      className="mt-1.5 inline-flex items-center gap-2 text-sm font-semibold text-warning underline-offset-2 hover:underline"
                     >
                       <ClipboardList className="h-3.5 w-3.5" />
                       View booking details
                     </button>
                   </div>
                 ) : showNoFormYetCue ? (
-                  <div className="bg-muted/20 px-3 py-2.5 md:px-4">
-                    <p className="text-[11px] font-medium text-muted-foreground">
+                  <div className="bg-muted/20 px-3 py-3 md:px-4">
+                    <p className="text-2xs font-medium text-muted-foreground">
                       No booking form yet. Reply here — or they can use the book link you sent.
                     </p>
                   </div>
@@ -1208,27 +1208,27 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     >
                       <div
                         className={cn(
-                          "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug",
+                          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-snug",
                           outbound
                             ? msg.status === "failed"
-                              ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-emerald-600 text-white"
+                              ? "rounded-br-md bg-destructive text-destructive-foreground"
+                              : "rounded-br-md bg-success text-success-foreground"
                             : "rounded-bl-md border border-border/60 bg-muted/50 text-foreground"
                         )}
                       >
                         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                         <p
                           className={cn(
-                            "mt-1 text-[10px] tabular-nums",
-                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
-                            outbound && msg.status === "failed" && "text-rose-100/90"
+                            "mt-1 text-2xs tabular-nums",
+                            outbound ? "text-success/80" : "text-muted-foreground",
+                            outbound && msg.status === "failed" && "text-destructive/90"
                           )}
                         >
                           {formatOwnerListTime(msg.created_at, messageTimeZone)}
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (
-                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                          <p className="mt-0.5 text-2xs leading-snug text-destructive/80">
                             {msg.delivery_error}
                           </p>
                         ) : null}
@@ -1240,20 +1240,20 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 <div ref={bottomRef} />
               </div>
 
-              <div className="shrink-0 border-t border-border/60 px-3 py-2.5 md:px-4 md:py-3">
+              <div className="shrink-0 border-t border-border/60 px-3 py-3 md:px-4">
                 {sendError ? (
-                  <p className="mb-2 text-xs text-red-300">{sendError}</p>
+                  <p className="mb-2 text-xs text-destructive">{sendError}</p>
                 ) : null}
 
                 {/* Quick reply chips — tap fills the box. You still tap Send. */}
                 {replySuggest.chips.length > 0 ? (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {replySuggest.chips.map((chip) => (
                       <button
                         key={chip.id}
                         type="button"
                         onClick={() => setDraft(chip.body)}
-                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                        className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
                       >
                         {chip.label}
                       </button>
@@ -1267,7 +1267,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     type="button"
                     onClick={() => void suggestReply()}
                     disabled={suggestLoading}
-                    className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+                    className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-operator/30 bg-operator/10 px-3 py-2 text-xs font-semibold text-operator hover:bg-operator/20 disabled:opacity-50"
                   >
                     {suggestLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1279,13 +1279,13 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 ) : null}
 
                 {aiDrafts.length > 1 ? (
-                  <div className="mb-2 space-y-1.5">
+                  <div className="mb-2 space-y-2">
                     {aiDrafts.map((option, idx) => (
                       <button
                         key={`ai-draft-${idx}`}
                         type="button"
                         onClick={() => setDraft(option)}
-                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 text-left text-[11px] leading-snug text-foreground/90 hover:bg-muted/40"
+                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-2xs leading-snug text-foreground/90 hover:bg-muted/40"
                       >
                         {option}
                       </button>
@@ -1312,7 +1312,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     type="button"
                     disabled={sending || !draft.trim()}
                     onClick={() => void sendReply()}
-                    className="shrink-0 bg-emerald-600 hover:bg-emerald-500"
+                    className="shrink-0 bg-success hover:bg-success"
                     aria-label="Send reply"
                   >
                     {sending ? (

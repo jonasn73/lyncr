@@ -28,8 +28,8 @@ type Props = {
 
 function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_steps"] }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Transfer status</p>
+    <div className="rounded-xl border border-border bg-background/60 p-4">
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer status</p>
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         {steps.map((step, i) => (
           <div key={step.key} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
@@ -37,26 +37,26 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                 step.state === "failed"
-                  ? "border-red-500/50 bg-red-950/60 text-red-300"
+                  ? "border-destructive/50 bg-destructive/60 text-destructive"
                   : step.state === "complete"
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                    ? "border-success/50 bg-success/15 text-success"
                     : step.state === "current"
-                      ? "border-sky-500/50 bg-sky-500/15 text-sky-200"
-                      : "border-zinc-700 bg-zinc-900 text-zinc-600"
+                      ? "border-info/50 bg-info/15 text-info"
+                      : "border-border bg-card text-muted-foreground"
               )}
             >
               {step.state === "complete" ? <Check className="h-4 w-4" /> : i + 1}
             </span>
             <span
               className={cn(
-                "text-[10px] font-medium leading-tight",
+                "text-2xs font-medium leading-tight",
                 step.state === "current"
-                  ? "text-sky-200"
+                  ? "text-info"
                   : step.state === "complete"
-                    ? "text-zinc-300"
+                    ? "text-foreground"
                     : step.state === "failed"
-                      ? "text-red-300"
-                      : "text-zinc-600"
+                      ? "text-destructive"
+                      : "text-muted-foreground"
               )}
             >
               {step.label}
@@ -88,11 +88,11 @@ function CarrierLookupGuideBanner({
   if (!banner) return null
   return (
     <div className="flex justify-center px-1">
-      <div className="flex max-w-[98%] items-start gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-[11px] leading-snug text-sky-50/95">
-        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
+      <div className="flex max-w-[98%] items-start gap-2 rounded-full border border-info/25 bg-info/10 px-3 py-2 text-2xs leading-snug text-info/95">
+        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" aria-hidden />
         <p>
           <span aria-hidden>💡 </span>
-          <strong className="font-semibold text-sky-100">{banner.rule_label}</strong>
+          <strong className="font-semibold text-info">{banner.rule_label}</strong>
           {": "}
           {banner.rule_body}
         </p>
@@ -105,7 +105,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
   const visibleItems = useMemo(() => dedupePortingConversationItems(items), [items])
   if (visibleItems.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-zinc-500">
+      <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
         No carrier updates yet. Open this desk again after a moment — carrier correspondence syncs on
         each refresh.
       </p>
@@ -124,9 +124,9 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isSystem) {
           return (
             <div key={item.id} className="flex justify-center px-2">
-              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-1.5 text-center text-[11px] leading-snug text-zinc-400">
+              <div className="max-w-[92%] rounded-full border border-border/80 bg-card/90 px-3 py-2 text-center text-2xs leading-snug text-muted-foreground">
                 {displayPortingMessageBody(text)}
-                <span className="mt-0.5 block text-[10px] text-zinc-600">{formatThreadTime(item.created_at)}</span>
+                <span className="mt-0.5 block text-2xs text-muted-foreground">{formatThreadTime(item.created_at)}</span>
               </div>
             </div>
           )
@@ -135,10 +135,10 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isCustomer) {
           return (
             <div key={item.id} className="flex justify-end">
-              <div className="max-w-[88%] rounded-2xl rounded-br-md border border-sky-500/25 bg-sky-500/15 px-3.5 py-2.5 text-sm text-sky-50 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-200/80">You</p>
+              <div className="max-w-[88%] rounded-2xl rounded-br-md border border-info/25 bg-info/15 px-4 py-3 text-sm text-info shadow-resting">
+                <p className="text-micro font-semibold uppercase tracking-wide text-info/80">You</p>
                 <p className="mt-1 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
-                <time className="mt-2 block text-[10px] text-sky-200/60">{formatThreadTime(item.created_at)}</time>
+                <time className="mt-2 block text-2xs text-info/60">{formatThreadTime(item.created_at)}</time>
               </div>
             </div>
           )
@@ -148,24 +148,24 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
           <div key={item.id} className="flex justify-start">
             <div
               className={cn(
-                "max-w-[92%] rounded-2xl rounded-bl-md border px-3.5 py-2.5 text-sm shadow-sm",
+                "max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 text-sm shadow-resting",
                 isDesk
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-50"
-                  : "border-zinc-700/80 bg-zinc-900/80 text-zinc-200"
+                  ? "border-warning/30 bg-warning/10 text-warning"
+                  : "border-border/80 bg-card/80 text-foreground"
               )}
             >
               <div className="flex items-center gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+                <p className="text-micro font-semibold uppercase tracking-wide text-warning/90">
                   {isDesk ? "Carrier Core Desk" : "Carrier network"}
                 </p>
                 {item.is_new ? (
-                  <span className="rounded-full bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-100">
+                  <span className="rounded-full bg-warning/25 px-2 py-0.5 text-micro font-bold uppercase text-warning">
                     New
                   </span>
                 ) : null}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
-              <time className="mt-2 block text-[10px] text-zinc-500">{formatThreadTime(item.created_at)}</time>
+              <time className="mt-2 block text-2xs text-muted-foreground">{formatThreadTime(item.created_at)}</time>
             </div>
           </div>
         )
@@ -269,7 +269,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
         <DrawerScrollBody className="space-y-6">
           {loading ? (
             <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-label="Loading" />
+              <Loader2 className="h-9 w-9 animate-spin text-muted-foreground" aria-label="Loading" />
             </div>
           ) : detail ? (
             <>
@@ -277,7 +277,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
 
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-amber-400" aria-hidden />
+                  <MessageSquare className="h-4 w-4 text-warning" aria-hidden />
                   <h3 className="text-sm font-semibold text-foreground">Carrier Correspondence Log</h3>
                 </div>
                 <ConversationFeed items={detail.conversation} />
@@ -297,8 +297,8 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
               />
             </>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-zinc-500">
-              <Truck className="h-8 w-8 text-zinc-600" aria-hidden />
+            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted-foreground">
+              <Truck className="h-9 w-9 text-muted-foreground" aria-hidden />
               Select a transfer from the banner to open this desk.
             </div>
           )}

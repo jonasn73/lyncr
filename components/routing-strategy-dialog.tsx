@@ -154,8 +154,8 @@ export function RoutingStrategyDialog({
       <DialogContent className="z-[130] border-border/70 bg-background sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">
-              <Network className="h-4 w-4 text-violet-300" aria-hidden />
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-operator/30 bg-operator/10">
+              <Network className="h-4 w-4 text-operator" aria-hidden />
             </span>
             Call routing strategy
           </DialogTitle>
@@ -165,7 +165,7 @@ export function RoutingStrategyDialog({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-zinc-500">
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
             Loading…
           </div>
@@ -186,18 +186,18 @@ export function RoutingStrategyDialog({
                     className={cn(
                       "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors",
                       selected
-                        ? "border-violet-500/60 bg-violet-500/10"
+                        ? "border-operator/60 bg-operator/10"
                         : "border-border/70 bg-muted/20 hover:border-border"
                     )}
                   >
                     <RadioGroupItem id={`strategy-dlg-${opt.value}`} value={opt.value} className="mt-1" />
                     <Icon
-                      className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-violet-300" : "text-zinc-500")}
+                      className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-operator" : "text-muted-foreground")}
                       aria-hidden
                     />
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-foreground">{opt.title}</span>
-                      <span className="mt-0.5 block text-xs text-zinc-500">{opt.description}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{opt.description}</span>
                     </span>
                   </label>
                 )
@@ -208,7 +208,7 @@ export function RoutingStrategyDialog({
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Allow Lyncr network fallback</p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-muted-foreground">
                     If none of your team is available, let a shared Lyncr agent pick up instead of voicemail.
                   </p>
                 </div>
@@ -223,7 +223,7 @@ export function RoutingStrategyDialog({
 
             {showRingTimeout && (
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Ring my team for (seconds) before falling back
                 </span>
                 <input
@@ -235,9 +235,9 @@ export function RoutingStrategyDialog({
                   value={ringTimeout}
                   onChange={(e) => setRingTimeout(e.target.value)}
                   disabled={saving}
-                  className="w-[8rem] rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm font-semibold text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-[8rem] rounded-lg border border-border bg-card/50 px-3 py-2 text-sm font-semibold text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 text-xs text-muted-foreground">
                   How long your private staff rings before the Lyncr network is tried (5–60s).
                 </p>
               </label>

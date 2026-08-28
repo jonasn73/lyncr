@@ -137,7 +137,7 @@ export function SecondaryCallInterceptBanner({
     <div
       className={cn(
         // Above Map/Leaflet stacking (PiP / intake sheet sit at 6200–6010).
-        "fixed top-4 left-4 right-4 z-[6200] rounded-xl border border-rose-500/40 bg-slate-950 p-3 shadow-2xl",
+        "fixed top-4 left-4 right-4 z-[6200] rounded-xl border border-destructive/40 bg-background p-3 shadow-overlay",
         "md:left-auto md:right-6 md:w-[min(100%,24rem)]",
         className
       )}
@@ -146,19 +146,19 @@ export function SecondaryCallInterceptBanner({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">
+          <p className="text-micro font-bold uppercase tracking-wider text-destructive">
             Second line ringing
           </p>
-          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-100">
+          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">
             {phoneLabel}
           </p>
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-1 text-2xs text-muted-foreground">
             Keep working intake — hold or decline without losing your draft.
           </p>
         </div>
         <span className="relative mt-1 flex h-2.5 w-2.5 shrink-0" aria-hidden>
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-60" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-400" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
         </span>
       </div>
 
@@ -169,8 +169,8 @@ export function SecondaryCallInterceptBanner({
           onClick={() => void handleHoldAndSms()}
           className={cn(
             "inline-flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2",
-            "border-amber-500/40 bg-amber-500/10 text-amber-100",
-            "text-[11px] font-semibold touch-manipulation disabled:opacity-50"
+            "border-warning/40 bg-warning/10 text-warning",
+            "text-2xs font-semibold touch-manipulation disabled:opacity-50"
           )}
         >
           {busy === "hold" ? (
@@ -186,8 +186,8 @@ export function SecondaryCallInterceptBanner({
           onClick={() => void handleDeclineAndSms()}
           className={cn(
             "inline-flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2",
-            "border-rose-500/40 bg-rose-500/10 text-rose-100",
-            "text-[11px] font-semibold touch-manipulation disabled:opacity-50"
+            "border-destructive/40 bg-destructive/10 text-destructive",
+            "text-2xs font-semibold touch-manipulation disabled:opacity-50"
           )}
         >
           {busy === "decline" ? (

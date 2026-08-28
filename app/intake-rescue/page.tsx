@@ -66,8 +66,8 @@ function PhotoCaptureBox({
     <label
       className={
         disabled
-          ? "flex min-h-[140px] cursor-wait flex-col items-center justify-center rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 px-3 text-center opacity-70"
-          : "flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-emerald-500 bg-emerald-50 px-3 text-center active:scale-[0.99]"
+          ? "flex min-h-[140px] cursor-wait flex-col items-center justify-center rounded-2xl border-2 border-dashed border-success bg-success px-3 text-center opacity-70"
+          : "flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-success bg-success px-3 text-center active:scale-[0.99]"
       }
     >
       {slot.previewUrl ? (
@@ -82,8 +82,8 @@ function PhotoCaptureBox({
           📷
         </span>
       )}
-      <span className="mt-1 text-sm font-semibold text-emerald-900">{label}</span>
-      <span className="mt-0.5 text-[11px] text-emerald-800/80">{hint}</span>
+      <span className="mt-1 text-sm font-semibold text-success">{label}</span>
+      <span className="mt-0.5 text-2xs text-success/80">{hint}</span>
       <input
         type="file"
         accept="image/*"
@@ -276,15 +276,15 @@ function IntakeRescueInner() {
   const busy = status === "submitting" || status === "loading"
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-5 px-5 py-10">
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-6 px-6 py-10">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Key Squad</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-success">Key Squad</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
           Pending Info Intake
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{message}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
         {decodedLine ? (
-          <p className="mt-1 text-xs font-medium text-emerald-700">Vehicle: {decodedLine}</p>
+          <p className="mt-1 text-xs font-medium text-success">Vehicle: {decodedLine}</p>
         ) : null}
       </div>
 
@@ -303,7 +303,7 @@ function IntakeRescueInner() {
             <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
               ID / Registration
             </legend>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-success has-[:checked]:bg-success">
               <input
                 type="radio"
                 name="id-mode"
@@ -314,10 +314,10 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">Upload ID now for faster dispatch</span>
-                <span className="mt-0.5 block text-[11px] text-zinc-500">Default — speeds up quoting</span>
+                <span className="mt-0.5 block text-2xs text-muted-foreground">Default — speeds up quoting</span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-2.5 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-warning has-[:checked]:bg-warning">
               <input
                 type="radio"
                 name="id-mode"
@@ -328,7 +328,7 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">I will present physical ID to the technician on arrival</span>
-                <span className="mt-0.5 block text-[11px] text-zinc-500">No photo needed right now</span>
+                <span className="mt-0.5 block text-2xs text-muted-foreground">No photo needed right now</span>
               </span>
             </label>
             {!verifyOnArrival ? (
@@ -340,15 +340,15 @@ function IntakeRescueInner() {
                 onPicked={(f) => void assignSlot(f, "id")}
               />
             ) : (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <p className="rounded-xl border border-warning bg-warning px-3 py-2 text-2xs text-warning">
                 Our technician will verify your ID on site before unlocking.
               </p>
             )}
           </fieldset>
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
-              Full Name <span className="text-emerald-600">*</span>
+              Full Name <span className="text-success">*</span>
             </span>
             <input
               type="text"
@@ -357,14 +357,14 @@ function IntakeRescueInner() {
               disabled={busy}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="First and last name"
-              className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-emerald-500"
+              className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-success"
             />
           </label>
 
           <div className="space-y-2">
-            <label className="block space-y-1.5">
+            <label className="block space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
-                Vehicle VIN <span className="font-normal normal-case text-zinc-500">(optional)</span>
+                Vehicle VIN <span className="font-normal normal-case text-muted-foreground">(optional)</span>
               </span>
               <input
                 type="text"
@@ -375,7 +375,7 @@ function IntakeRescueInner() {
                 onChange={(e) => setVehicleVin(e.target.value.toUpperCase())}
                 placeholder="17-character VIN"
                 maxLength={17}
-                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-success disabled:bg-zinc-100 disabled:text-muted-foreground"
               />
             </label>
             <button
@@ -390,7 +390,7 @@ function IntakeRescueInner() {
               }}
               className={
                 vinUnavailable
-                  ? "inline-flex w-full items-center justify-center rounded-full border border-amber-500 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900"
+                  ? "inline-flex w-full items-center justify-center rounded-full border border-warning bg-warning px-3 py-2 text-xs font-semibold text-warning"
                   : "inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700"
               }
               aria-pressed={vinUnavailable}
@@ -399,7 +399,7 @@ function IntakeRescueInner() {
             </button>
             {vinUnavailable ? (
               <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-                <p className="text-[11px] text-zinc-600">
+                <p className="text-2xs text-muted-foreground">
                   Type what you know — e.g. 2018 Kia Optima.
                 </p>
                 <select
@@ -421,7 +421,7 @@ function IntakeRescueInner() {
                   disabled={busy}
                   onChange={(e) => setVehicleMake(e.target.value)}
                   placeholder="Make (e.g. Kia)"
-                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-emerald-500"
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-success"
                 />
                 <input
                   type="text"
@@ -429,17 +429,17 @@ function IntakeRescueInner() {
                   disabled={busy}
                   onChange={(e) => setVehicleModel(e.target.value)}
                   placeholder="Model (e.g. Optima)"
-                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-emerald-500"
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-success"
                 />
               </div>
             ) : (
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-2xs text-muted-foreground">
                 If provided, we decode Year / Make / Model / Trim automatically.
               </p>
             )}
           </div>
 
-          <label className="block space-y-1.5">
+          <label className="block space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
               Special Notes
             </span>
@@ -449,7 +449,7 @@ function IntakeRescueInner() {
               onChange={(e) => setSpecialNotes(e.target.value)}
               placeholder="Anything else we should know (gate code, parking, key symptoms…)"
               rows={3}
-              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-success"
             />
           </label>
 
@@ -457,7 +457,7 @@ function IntakeRescueInner() {
             type="button"
             disabled={busy}
             onClick={() => void submit()}
-            className="h-12 w-full rounded-xl bg-emerald-600 text-base font-semibold text-white disabled:opacity-60"
+            className="h-11 w-full rounded-xl bg-success text-base font-semibold text-success-foreground disabled:opacity-60"
           >
             {status === "submitting" ? "Submitting…" : "Submit intake info"}
           </button>
@@ -465,7 +465,7 @@ function IntakeRescueInner() {
       ) : null}
 
       {status === "done" ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success">
           Intake received. Our dispatcher has been notified.
         </p>
       ) : null}
@@ -478,7 +478,7 @@ export default function IntakeRescuePage() {
     <Suspense
       fallback={
         <main className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center px-6">
-          <p className="text-sm text-zinc-600">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         </main>
       }
     >

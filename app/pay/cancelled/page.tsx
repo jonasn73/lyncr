@@ -11,7 +11,7 @@ export default function PayCancelledPage() {
       subtitle="No charge was made. Ask the business to send a new link if you still need to pay."
       centered
     >
-      <p className="text-center text-xs text-zinc-500">You can close this window.</p>
+      <p className="text-center text-xs text-muted-foreground">You can close this window.</p>
     </CustomerPortalShell>
   )
 }
