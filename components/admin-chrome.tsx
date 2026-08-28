@@ -375,7 +375,7 @@ export function AdminChrome({
             variant="ghost"
             size="sm"
             disabled={busy}
-            className="h-8 w-full justify-start gap-2 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="h-9 w-full justify-start gap-2 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => {
               setBusy(true)
               void signOutAndGoToLogin()

@@ -279,7 +279,7 @@ export function IntakeScheduleDialog({
                           type="button"
                           variant="outline"
                           disabled={saving}
-                          className="h-10 w-full justify-between border-border/70 bg-background px-3 font-normal"
+                          className="h-11 w-full justify-between border-border/70 bg-background px-3 font-normal"
                         >
                           <span className="flex items-center gap-2">
                             <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden />

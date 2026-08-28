@@ -211,7 +211,7 @@ export function SendBookLinkSheet({
             type="button"
             disabled={sending || (feeMode === "full_quote" && !quoteDollars.trim())}
             onClick={() => void onSend()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Send SMS
@@ -269,7 +269,7 @@ export function SendBookLinkButton({
         title={accessibleLabel}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-lg border border-success/40 bg-success/10 font-semibold text-success transition-[color,background-color,border-color,transform] duration-150 hover:border-success/55 hover:bg-success/20 active:scale-[0.98]",
-          compact ? "h-8 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
+          compact ? "h-9 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
           !visibleLabel && compact && "w-8 px-0",
           className
         )}

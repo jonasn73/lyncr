@@ -315,7 +315,7 @@ const moneyInputClass =
   "w-16 border-0 bg-transparent p-0 text-right text-sm font-semibold tabular-nums text-foreground outline-none ring-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 
 const dealPillClass =
-  "inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-success/50 bg-success/20 px-3 text-micro font-bold uppercase tracking-wide text-success transition-colors hover:bg-success/35 active:scale-[0.98]"
+  "inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-success/50 bg-success/20 px-3 text-micro font-bold uppercase tracking-wide text-success transition-colors hover:bg-success/35 active:scale-[0.98]"
 
 export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
   quote,
@@ -644,7 +644,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               <button
                 type="button"
                 onClick={openFirmStage}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-warning/40 bg-warning/15 text-xs font-semibold text-warning transition-colors hover:bg-warning/25"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-warning/40 bg-warning/15 text-xs font-semibold text-warning transition-colors hover:bg-warning/25"
               >
                 ⚠️ Customer Insists on Exact Price
               </button>
@@ -819,7 +819,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     value={competitorPrice}
                     onChange={(e) => setCompetitorPrice(e.target.value)}
                     placeholder="e.g. 150"
-                    className="h-8 w-24 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="h-9 w-24 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {competitorTarget != null ? (
                     <span className="text-2xs font-semibold text-success">
@@ -872,7 +872,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     onChange={(e) => setFlatLockDollars(e.target.value)}
                     placeholder="e.g. 375"
                     aria-label="Lock flat negotiated price in dollars"
-                    className="h-8 w-28 rounded-md border border-warning/40 bg-background px-2 text-sm tabular-nums text-foreground focus:border-warning focus:outline-none focus:ring-1 focus:ring-warning"
+                    className="h-9 w-28 rounded-md border border-warning/40 bg-background px-2 text-sm tabular-nums text-foreground focus:border-warning focus:outline-none focus:ring-1 focus:ring-warning"
                   />
                   {flatLockActive ? (
                     <button

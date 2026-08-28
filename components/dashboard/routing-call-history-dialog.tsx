@@ -729,7 +729,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                             src={call.recording_url}
                             controls
                             preload="none"
-                            className="mt-2 h-8 w-full accent-cyan-400 opacity-80"
+                            className="mt-2 h-9 w-full accent-cyan-400 opacity-80"
                           />
                         ) : null}
                         {callBackHref ? (

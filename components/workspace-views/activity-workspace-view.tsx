@@ -497,7 +497,7 @@ function CallBackButton({
           : hold
             ? "border-warning/40 bg-warning/10 text-warning hover:border-warning/55 hover:bg-warning/20"
             : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-muted hover:text-teal-300",
-        compact ? "h-8 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
+        compact ? "h-9 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
         className
       )}
     >
@@ -1041,7 +1041,7 @@ function ActivityGroupActionBar({
     : null
   // Quiet secondary chips — same actions, less “four equal buttons.”
   const secondaryChip =
-    "!h-8 min-w-0 flex-1 !border-border/70 !bg-background/40 !text-muted-foreground hover:!border-border hover:!bg-card/70 hover:!text-foreground"
+    "!h-9 min-w-0 flex-1 !border-border/70 !bg-background/40 !text-muted-foreground hover:!border-border hover:!bg-card/70 hover:!text-foreground"
   const canDial = canCallBack(call)
   // Dial-first for Missed + Busy / Hold / Press 1; answered stay CRM-first.
   const callBackPrimary = (missed || hold) && canDial
@@ -1056,7 +1056,7 @@ function ActivityGroupActionBar({
           missed={missed}
           hold={hold && !missed}
           className={cn(
-            "h-10 w-full",
+            "h-11 w-full",
             missed ? "shadow-resting shadow-rose-950/30" : "shadow-resting shadow-warning/30"
           )}
         />
@@ -1064,7 +1064,7 @@ function ActivityGroupActionBar({
         <Link
           href={crmHref}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 shadow-resting shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 shadow-resting shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
           aria-label="Continue in CRM"
           title="Continue in CRM"
         >
@@ -1611,7 +1611,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <button
                           type="button"
                           onClick={() => openDetails(call)}
-                          className="inline-flex h-8 items-center rounded-lg border border-border/80 bg-card/40 px-3 text-2xs font-semibold text-foreground transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-muted hover:text-teal-300"
+                          className="inline-flex h-9 items-center rounded-lg border border-border/80 bg-card/40 px-3 text-2xs font-semibold text-foreground transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-muted hover:text-teal-300"
                         >
                           {shouldOpenIntakeOnActivityClick(call) ? "Intake" : "Log"}
                         </button>

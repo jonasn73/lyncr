@@ -794,14 +794,14 @@ function IntakeDraftRestoreBanner({
         <button
           type="button"
           onClick={onRestore}
-          className="inline-flex h-8 items-center rounded-lg bg-warning/90 px-3 text-2xs font-semibold text-zinc-950 hover:bg-warning"
+          className="inline-flex h-9 items-center rounded-lg bg-warning/90 px-3 text-2xs font-semibold text-zinc-950 hover:bg-warning"
         >
           Restore draft
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex h-8 items-center rounded-lg px-2 text-2xs font-semibold text-warning/80 hover:bg-warning/20 hover:text-warning"
+          className="inline-flex h-9 items-center rounded-lg px-2 text-2xs font-semibold text-warning/80 hover:bg-warning/20 hover:text-warning"
         >
           Dismiss
         </button>
@@ -4118,7 +4118,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <audio
                     src={effectiveCurrent.recording_url}
                     controls
-                    className="h-8 w-full accent-cyan-400"
+                    className="h-9 w-full accent-cyan-400"
                   />
                 </div>
               ) : null}
@@ -4411,7 +4411,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     value={form.keyStyle}
                                     onChange={(e) => patchForm({ keyStyle: e.target.value })}
                                     placeholder="e.g. proximity fob, blade…"
-                                    className="h-10"
+                                    className="h-11"
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -4423,7 +4423,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     value={form.keyFccId}
                                     onChange={(e) => patchForm({ keyFccId: e.target.value })}
                                     placeholder="Optional"
-                                    className="h-10 font-mono"
+                                    className="h-11 font-mono"
                                   />
                                 </div>
                               </div>
@@ -4527,7 +4527,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     value={resolvedPhoneNumber}
                                     onChange={(e) => patchForm({ phoneNumber: e.target.value })}
                                     placeholder="(502) 555-1234"
-                                    className="h-10 flex-1 font-mono text-base"
+                                    className="h-11 flex-1 font-mono text-base"
                                   />
                                   <button
                                     type="button"
@@ -4642,7 +4642,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     value={form.displayName}
                                     onChange={(e) => patchForm({ displayName: e.target.value })}
                                     placeholder="Customer full name"
-                                    className="h-12 text-base"
+                                    className="h-11 text-base"
                                     autoFocus
                                   />
                                 </div>
@@ -4915,7 +4915,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       value={form.notes}
                       onChange={(e) => patchForm({ notes: e.target.value })}
                       placeholder="Gate code, spare location, details…"
-                      className="h-10"
+                      className="h-11"
                     />
                   </div>
                   <div className="grid gap-3">
@@ -4945,7 +4945,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       value={form.displayName}
                       onChange={(e) => patchForm({ displayName: e.target.value })}
                       placeholder="Ask before they hang up"
-                      className="h-10"
+                      className="h-11"
                     />
                   </div>
                   <div className="space-y-2">
@@ -4961,7 +4961,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         value={resolvedPhoneNumber}
                         onChange={(e) => patchForm({ phoneNumber: e.target.value })}
                         placeholder="(502) 555-1234"
-                        className="h-10 flex-1 font-mono text-base"
+                        className="h-11 flex-1 font-mono text-base"
                       />
                       <button
                         type="button"
@@ -5324,7 +5324,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 px-2 text-xs"
+                        className="h-9 px-2 text-xs"
                         disabled={jobState === "creating"}
                         onClick={dismissWithDraftClear}
                       >
@@ -5394,7 +5394,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   type="button"
                   variant="secondary"
                   size="default"
-                  className="h-10 w-full gap-2"
+                  className="h-11 w-full gap-2"
                   disabled={jobState === "creating" || !canDispatch}
                   onClick={() => void sendToDispatch()}
                 >
@@ -5425,7 +5425,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-xs"
+                    className="h-9 px-2 text-xs"
                     disabled={jobState === "creating"}
                     onClick={dismissWithDraftClear}
                   >

@@ -436,7 +436,7 @@ function ProximitySmartKeySvg() {
 /** Physical flip / laser-cut blade key profile. */
 function HighSecurityBladeKeySvg() {
   return (
-    <svg viewBox="0 0 140 56" className="h-12 w-auto" aria-hidden>
+    <svg viewBox="0 0 140 56" className="h-11 w-auto" aria-hidden>
       <path
         d="M18 28c0-9 7-16 16-16h22c3 0 5 2 5 5v22c0 3-2 5-5 5H34c-9 0-16-7-16-16z"
         fill="#1e293b"

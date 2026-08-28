@@ -558,7 +558,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             <Button
               type="button"
               variant="secondary"
-              className="h-12 border border-border bg-card"
+              className="h-11 border border-border bg-card"
               disabled={adjusting}
               onClick={() => void adjustStock(-1)}
             >
@@ -571,7 +571,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             </Button>
             <Button
               type="button"
-              className="h-12 bg-success hover:bg-success"
+              className="h-11 bg-success hover:bg-success"
               disabled={adjusting}
               onClick={() => void adjustStock(1)}
             >

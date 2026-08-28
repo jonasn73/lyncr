@@ -1777,7 +1777,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 <button
                   type="button"
                   onClick={() => void openCollectForCustomer()}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/30"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 hover:bg-teal-500/30"
                   title="Collect payment"
                   aria-label="Collect payment"
                 >
@@ -2052,7 +2052,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_no_answer")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
+                        "inline-flex h-9 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · no answer"
                           ? "border-warning/40 bg-warning/20 text-warning"
                           : "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
@@ -2074,7 +2074,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_answered")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
+                        "inline-flex h-9 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · answered"
                           ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
                           : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
@@ -2094,7 +2094,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   disabled={unreachableBusy || headerJobTarget.status_label === "Cancelled"}
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "cancelled")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
+                    "inline-flex h-9 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Cancelled"
                       ? "border-border/50 bg-accent/40 text-foreground"
                       : "border-border bg-card/60 text-foreground hover:bg-muted"
@@ -2117,7 +2117,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   }
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "completed")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
+                    "inline-flex h-9 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Complete" ||
                       headerJobTarget.status_label === "Done" ||
                       headerJobTarget.status_label === "Completed"
@@ -2147,7 +2147,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1 text-xs"
+                className="h-9 gap-1 text-xs"
                 onClick={() => setAddingVehicle((v) => !v)}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -2297,7 +2297,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <button
                 type="button"
                 onClick={() => openRecordInvoice(headerJobTarget)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
+                className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Send paid invoice
@@ -2323,7 +2323,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <button
                 type="button"
                 onClick={() => void openCollectForCustomer()}
-                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
+                className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {isFullyPaidCustomer ? "Charge again" : "New charge"}
@@ -2366,7 +2366,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => openSendReceipt(tx)}
-                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20"
+                        className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20"
                       >
                         <Mail className="h-3.5 w-3.5" />
                         Send invoice / receipt
@@ -2657,7 +2657,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search name or phone…"
-                className="h-10 border-border bg-card/80 pl-9"
+                className="h-11 border-border bg-card/80 pl-9"
                 aria-label="Search customers"
               />
             </div>
@@ -3031,7 +3031,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   value={receiptName}
                   onChange={(e) => setReceiptName(e.target.value)}
                   placeholder="Optional"
-                  className="h-10 border-border bg-background"
+                  className="h-11 border-border bg-background"
                 />
               </label>
 
@@ -3045,7 +3045,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     value={receiptEmail}
                     onChange={(e) => setReceiptEmail(e.target.value)}
                     placeholder="customer@email.com"
-                    className="h-10 border-border bg-background"
+                    className="h-11 border-border bg-background"
                     autoComplete="email"
                   />
                 </label>
@@ -3059,7 +3059,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     value={receiptPhone}
                     onChange={(e) => setReceiptPhone(e.target.value)}
                     placeholder="(555) 123-4567"
-                    className="h-10 border-border bg-background"
+                    className="h-11 border-border bg-background"
                     autoComplete="tel"
                   />
                 </label>
@@ -3133,7 +3133,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 step={1}
                 value={recordAmountDollars}
                 onChange={(e) => setRecordAmountDollars(e.target.value)}
-                className="h-10 border-border bg-background"
+                className="h-11 border-border bg-background"
               />
             </label>
 
@@ -3176,7 +3176,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 value={recordPayNote}
                 onChange={(e) => setRecordPayNote(e.target.value)}
                 placeholder="Paid via Venmo"
-                className="h-10 border-border bg-background"
+                className="h-11 border-border bg-background"
               />
             </label>
 
@@ -3188,7 +3188,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 value={recordVin}
                 onChange={(e) => setRecordVin(e.target.value)}
                 placeholder="17-character VIN"
-                className="h-10 border-border bg-background font-mono text-sm"
+                className="h-11 border-border bg-background font-mono text-sm"
               />
             </label>
 
@@ -3223,7 +3223,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <Input
                 value={receiptName}
                 onChange={(e) => setReceiptName(e.target.value)}
-                className="h-10 border-border bg-background"
+                className="h-11 border-border bg-background"
               />
             </label>
 
@@ -3237,7 +3237,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   value={receiptEmail}
                   onChange={(e) => setReceiptEmail(e.target.value)}
                   placeholder="customer@email.com"
-                  className="h-10 border-border bg-background"
+                  className="h-11 border-border bg-background"
                 />
               </label>
             )}
@@ -3251,7 +3251,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   type="tel"
                   value={receiptPhone}
                   onChange={(e) => setReceiptPhone(e.target.value)}
-                  className="h-10 border-border bg-background"
+                  className="h-11 border-border bg-background"
                 />
               </label>
             )}

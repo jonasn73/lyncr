@@ -27,7 +27,7 @@ const labelClass = SCHEDULER_METADATA_LABEL
 const sectionClass = cn(SCHEDULER_SECTION, "overflow-visible p-2 sm:p-3")
 const sectionTitleClass = cn(SCHEDULER_METADATA_LABEL, "mb-1 block")
 // Slightly shorter inputs to reclaim vertical space
-const inputClass = cn(SCHEDULER_INPUT, "h-8")
+const inputClass = cn(SCHEDULER_INPUT, "h-9")
 const addressTextareaClass = SCHEDULER_TEXTAREA
 /** Dense stacks on laptop/mobile so the whole Edit Job form needs minimal scrolling. */
 const stackClass = "flex flex-col gap-2"
@@ -397,7 +397,7 @@ export function JobEditWorkflow({
       >
         <Button
           type="button"
-          className="h-10 w-full shadow-[0_0_14px_rgba(59,130,246,0.35)] ring-1 ring-primary/40"
+          className="h-11 w-full shadow-[0_0_14px_rgba(59,130,246,0.35)] ring-1 ring-primary/40"
           onClick={() => void handleSaveClick()}
           disabled={!canSave || saving || deleting || submitting}
         >

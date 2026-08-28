@@ -45,8 +45,8 @@ export function CallFlowStepsSkeleton() {
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-2 border-t border-border/50 pt-3">
-        <div className="h-10 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
-        <div className="h-10 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
+        <div className="h-11 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
+        <div className="h-11 min-w-[8rem] flex-1 rounded-xl border border-border/60 bg-background/50 sm:flex-none" />
       </div>
     </section>
   )

@@ -88,13 +88,13 @@ export function SendToBankPanel({
           value={customDollars}
           onChange={(e) => setCustomDollars(e.target.value)}
           placeholder="Or enter amount"
-          className="h-10 min-w-0 flex-1 rounded-xl border border-success/25 bg-success/40 px-3 text-sm text-success outline-none placeholder:text-success/40"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-success/25 bg-success/40 px-3 text-sm text-success outline-none placeholder:text-success/40"
         />
         <button
           type="button"
           disabled={busy}
           onClick={() => void send()}
-          className="h-10 shrink-0 rounded-xl border border-success/35 px-3 text-xs font-semibold text-success hover:bg-success/15 disabled:opacity-50"
+          className="h-11 shrink-0 rounded-xl border border-success/35 px-3 text-xs font-semibold text-success hover:bg-success/15 disabled:opacity-50"
         >
           Send
         </button>

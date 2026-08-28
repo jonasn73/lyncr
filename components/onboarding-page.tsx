@@ -783,7 +783,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       <Select value={aiTradeCategory} onValueChange={handleAiTradeCategoryChange}>
                         <SelectTrigger
                           id="onboarding-trade-category"
-                          className="h-10 w-full border-border bg-card text-sm text-foreground shadow-none"
+                          className="h-11 w-full border-border bg-card text-sm text-foreground shadow-none"
                         >
                           <SelectValue placeholder="General / Other Trades" />
                         </SelectTrigger>

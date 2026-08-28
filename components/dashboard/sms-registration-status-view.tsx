@@ -137,7 +137,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                   {!isLast ? (
                     <span
                       className={cn(
-                        "hidden h-px flex-1 sm:block sm:h-8 sm:w-px sm:flex-none",
+                        "hidden h-px flex-1 sm:block sm:h-9 sm:w-px sm:flex-none",
                         state === "done" ? "bg-success/40" : "bg-muted"
                       )}
                       aria-hidden

@@ -931,7 +931,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 w-[5.5rem] shrink-0 px-3 text-xs"
+          className="h-9 w-[5.5rem] shrink-0 px-3 text-xs"
           disabled={loading}
           onClick={() => void loadMessages()}
         >

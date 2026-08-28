@@ -208,7 +208,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-10 flex-1 text-xs"
+            className="h-11 flex-1 text-xs"
             disabled={saving}
             onClick={onBookJob}
           >
@@ -217,7 +217,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="ghost"
-            className="h-10 flex-1 text-xs text-muted-foreground"
+            className="h-11 flex-1 text-xs text-muted-foreground"
             disabled={saving}
             onClick={() => {
               if (purpose || notes) {

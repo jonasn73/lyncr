@@ -343,7 +343,7 @@ export function AdminImprovementsBoard({
                           onValueChange={(v) => void moveStatus(item, v as AppImprovementStatus)}
                           disabled={movingId === item.id}
                         >
-                          <SelectTrigger className="h-8 border-border bg-background text-xs text-foreground">
+                          <SelectTrigger className="h-9 border-border bg-background text-xs text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

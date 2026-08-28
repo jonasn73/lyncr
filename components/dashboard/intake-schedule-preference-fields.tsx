@@ -165,7 +165,7 @@ export function IntakeSchedulePreferenceFields({
                     scheduledTime: from,
                   })
                 }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {TIME_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -182,7 +182,7 @@ export function IntakeSchedulePreferenceFields({
                 id="intake-availability-to"
                 value={value.availabilityTo}
                 onChange={(e) => onChange({ availabilityTo: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {TIME_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>

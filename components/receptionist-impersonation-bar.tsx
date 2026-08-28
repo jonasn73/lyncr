@@ -75,7 +75,7 @@ export function ReceptionistImpersonationBar() {
         size="sm"
         variant="outline"
         disabled={exiting}
-        className="h-8 border-violet-400/50 bg-transparent text-violet-100 hover:bg-violet-900/60 hover:text-white"
+        className="h-9 border-violet-400/50 bg-transparent text-violet-100 hover:bg-violet-900/60 hover:text-white"
         onClick={() => void handleReturnToAdmin()}
       >
         {exiting ? (

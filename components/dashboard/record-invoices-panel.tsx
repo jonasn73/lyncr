@@ -297,7 +297,7 @@ export function RecordInvoicesPanel({
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
@@ -381,7 +381,7 @@ export function RecordInvoicesPanel({
                 <button
                   type="button"
                   onClick={() => setPreviewInv(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View
@@ -389,7 +389,7 @@ export function RecordInvoicesPanel({
                 <a
                   href={inv.pdfUrl}
                   download
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
                 >
                   <Download className="h-3.5 w-3.5" />
                   PDF
@@ -398,7 +398,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void resend(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20 disabled:opacity-50"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20 disabled:opacity-50"
                 >
                   {busy && !isRevise ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -413,7 +413,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => (isRevise ? setReviseId(null) : openRevise(inv))}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card disabled:opacity-50"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card disabled:opacity-50"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   {isRevise ? "Cancel" : "Revise"}
@@ -503,7 +503,7 @@ export function RecordInvoicesPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => void submitRevise()}
-                    className="h-10 w-full gap-2 bg-success text-white hover:bg-success"
+                    className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
                   >
                     {busy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

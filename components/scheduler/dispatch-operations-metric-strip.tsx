@@ -192,7 +192,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           <Button
             type="button"
             size="sm"
-            className="h-8 w-full gap-2 bg-primary font-semibold text-primary-foreground shadow-raised hover:bg-primary/90 md:w-auto"
+            className="h-9 w-full gap-2 bg-primary font-semibold text-primary-foreground shadow-raised hover:bg-primary/90 md:w-auto"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-4 w-4" aria-hidden />

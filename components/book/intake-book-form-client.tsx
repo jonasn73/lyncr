@@ -627,7 +627,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             type="button"
             disabled={!windowReady || submitting}
             onClick={() => void submitForm()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {invite?.fee_mode === "none" ? "Submit" : `Continue to pay ${amountLabel}`}

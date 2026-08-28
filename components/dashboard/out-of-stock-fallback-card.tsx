@@ -266,12 +266,12 @@ export function OutOfStockFallbackCard({
               min={minServiceDate()}
               value={serviceDate}
               onChange={(e) => setServiceDate(e.target.value)}
-              className="h-10"
+              className="h-11"
             />
           </div>
           <Button
             type="button"
-            className="mt-2.5 h-10 w-full bg-warning text-white hover:bg-warning"
+            className="mt-2.5 h-11 w-full bg-warning text-white hover:bg-warning"
             disabled={specialBusy || !intake.customer_name.trim() || !intake.caller_e164.trim()}
             onClick={() => void generateSpecialOrder()}
           >
@@ -291,7 +291,7 @@ export function OutOfStockFallbackCard({
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="h-8 flex-1"
+                  className="h-9 flex-1"
                   onClick={() => void copyCheckout()}
                 >
                   <Copy className="h-3.5 w-3.5" aria-hidden />
@@ -300,7 +300,7 @@ export function OutOfStockFallbackCard({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 flex-1"
+                  className="h-9 flex-1"
                   onClick={() => window.open(checkoutUrl, "_blank", "noopener,noreferrer")}
                 >
                   Open

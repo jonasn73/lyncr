@@ -339,7 +339,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                   <div className="space-y-1">
@@ -347,7 +347,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={pin}
                       onChange={(e) => setPin(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                 </div>
@@ -356,7 +356,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   <Input
                     value={streetAddress}
                     onChange={(e) => setStreetAddress(e.target.value)}
-                    className="h-8 border-border bg-background text-xs"
+                    className="h-9 border-border bg-background text-xs"
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -365,7 +365,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                   <div className="space-y-1">
@@ -373,7 +373,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={stateRegion}
                       onChange={(e) => setStateRegion(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                   <div className="space-y-1">
@@ -381,7 +381,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={entityName}
                       onChange={(e) => setEntityName(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                   <div className="space-y-1">
@@ -399,7 +399,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       value={authorizedPerson}
                       onChange={(e) => setAuthorizedPerson(e.target.value)}
-                      className="h-8 border-border bg-background text-xs"
+                      className="h-9 border-border bg-background text-xs"
                     />
                   </div>
                 </div>
@@ -409,7 +409,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       type="file"
                       accept=".pdf,application/pdf"
-                      className="h-8 border-border bg-background text-micro file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:text-micro file:text-foreground"
+                      className="h-9 border-border bg-background text-micro file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:text-micro file:text-foreground"
                       onChange={(e) => setLoaFile(e.target.files?.[0] ?? null)}
                     />
                   </div>
@@ -418,7 +418,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     <Input
                       type="file"
                       accept=".pdf,application/pdf,image/*"
-                      className="h-8 border-border bg-background text-micro file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:text-micro file:text-foreground"
+                      className="h-9 border-border bg-background text-micro file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:text-micro file:text-foreground"
                       onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)}
                     />
                   </div>

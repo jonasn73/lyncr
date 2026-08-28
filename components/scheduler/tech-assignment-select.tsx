@@ -94,7 +94,7 @@ export function TechAssignmentSelect({
         <SelectTrigger
           className={cn(
             SCHEDULER_INPUT,
-            "h-10 w-full",
+            "h-11 w-full",
             disabled && "opacity-55"
           )}
         >

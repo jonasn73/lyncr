@@ -81,7 +81,7 @@ export function ReceptionistPortalChrome({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-8 text-muted-foreground hover:text-foreground",
+                    "h-9 text-muted-foreground hover:text-foreground",
                     active && "bg-primary/10 text-primary hover:text-primary"
                   )}
                 >
@@ -97,7 +97,7 @@ export function ReceptionistPortalChrome({
               variant="ghost"
               size="sm"
               onClick={() => void handleLogout()}
-              className="h-8 text-muted-foreground hover:text-foreground"
+              className="h-9 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Sign out

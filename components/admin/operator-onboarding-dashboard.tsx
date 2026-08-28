@@ -566,7 +566,7 @@ export function OperatorOnboardingDashboard() {
                         type="button"
                         size="sm"
                         variant="secondary"
-                        className="h-8 border-warning/30 bg-warning/10 text-warning hover:bg-warning/20"
+                        className="h-9 border-warning/30 bg-warning/10 text-warning hover:bg-warning/20"
                         onClick={() => void copySetupLink(detailManualLink)}
                       >
                         {copiedLink ? "Copied!" : "Copy setup link"}

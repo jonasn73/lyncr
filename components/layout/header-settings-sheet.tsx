@@ -673,7 +673,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <button
               type="button"
               onClick={() => openPayments("all")}
-              className="flex h-12 w-full items-center justify-between rounded-xl border border-border bg-background/70 px-4 text-left hover:border-teal-500/40 hover:bg-card"
+              className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-background/70 px-4 text-left hover:border-teal-500/40 hover:bg-card"
             >
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Receipt className="h-4 w-4 text-teal-300" aria-hidden />

@@ -649,7 +649,7 @@ function FeedbackQueue() {
                     value={sheet.status}
                     onValueChange={(v) => void setStatus(sheet.id, v as FeedbackStatus)}
                   >
-                    <SelectTrigger className="h-8 w-[140px] border-border bg-card text-xs text-foreground">
+                    <SelectTrigger className="h-9 w-[140px] border-border bg-card text-xs text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

@@ -19,7 +19,7 @@ type OnboardingBillingStepProps = {
 }
 
 const CARD_INPUT_CLASS = cn(
-  "h-10 w-full rounded-xl border border-border/80 bg-secondary/90 px-4 text-sm text-foreground",
+  "h-11 w-full rounded-xl border border-border/80 bg-secondary/90 px-4 text-sm text-foreground",
   "placeholder:text-muted-foreground/50",
   "transition-[border-color,box-shadow] duration-150",
   "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/35"

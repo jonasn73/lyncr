@@ -359,7 +359,7 @@ export function CallTimeInventoryIntake({
             </Button>
             <Button
               type="button"
-              className="h-8 flex-1 bg-success text-2xs hover:bg-success sm:flex-none"
+              className="h-9 flex-1 bg-success text-2xs hover:bg-success sm:flex-none"
               disabled={saveBusy}
               onClick={() => void saveYesIHaveIt()}
             >

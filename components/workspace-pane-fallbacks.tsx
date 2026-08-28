@@ -24,10 +24,10 @@ export function ActivityPaneFallback() {
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>
-        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-300/50">
+        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-300/50">
           Dispatch Map
         </span>
-        <span className="inline-flex h-8 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
+        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
           Job scheduler
         </span>
       </div>
@@ -36,7 +36,7 @@ export function ActivityPaneFallback() {
         {["All activity", "Missed today", "Hold", "Press 1"].map((label) => (
           <span
             key={label}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-card/60 px-3 text-2xs font-semibold text-muted-foreground"
+            className="inline-flex h-9 items-center rounded-full border border-border bg-card/60 px-3 text-2xs font-semibold text-muted-foreground"
           >
             {label}
           </span>
@@ -66,7 +66,7 @@ export function CrmPaneFallback() {
       <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)] md:items-start md:gap-4">
         <section className="flex flex-col rounded-2xl border border-border/90 bg-background">
           <div className="shrink-0 space-y-2 border-b border-border/80 p-3">
-            <div className="h-10 rounded-md border border-border bg-card/80" />
+            <div className="h-11 rounded-md border border-border bg-card/80" />
             <div className="flex flex-wrap gap-2">
               {["All", "Leads", "Book forms", "Clients"].map((label) => (
                 <span
@@ -214,7 +214,7 @@ export function SchedulerPaneFallback() {
         <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:gap-3">
           <div className="overflow-hidden rounded-xl border border-border/80 bg-background/40">
             <div className="border-b border-border/80 p-3">
-              <div className="h-10 w-full rounded-lg bg-muted/50" />
+              <div className="h-11 w-full rounded-lg bg-muted/50" />
             </div>
             <div className="space-y-2 border-b border-border/80 px-3 py-3">
               <div className="h-3 w-24 rounded bg-muted/50" />
@@ -223,8 +223,8 @@ export function SchedulerPaneFallback() {
             </div>
             <div className="space-y-2 px-3 py-3">
               <div className="h-3 w-28 rounded bg-muted/50" />
-              <div className="h-12 w-full rounded-lg bg-muted/40" />
-              <div className="h-12 w-full rounded-lg bg-muted/40" />
+              <div className="h-11 w-full rounded-lg bg-muted/40" />
+              <div className="h-11 w-full rounded-lg bg-muted/40" />
             </div>
           </div>
           <div className="h-11 rounded-xl border border-border/80 bg-background/40" />
@@ -241,15 +241,15 @@ export function SchedulerPaneFallback() {
           <div className="min-h-[18rem] rounded-xl border border-border/80 bg-background/20 p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="h-4 w-36 rounded bg-muted/50" />
-              <div className="h-8 w-28 rounded-lg bg-muted/40" />
+              <div className="h-9 w-28 rounded-lg bg-muted/40" />
             </div>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {Array.from({ length: 4 }, (_, i) => (
                 <div key={i} className="min-h-[14rem] rounded-lg border border-border/60 bg-card/30 p-2">
                   <div className="mb-2 h-3 w-16 rounded bg-muted/50" />
                   <div className="space-y-2">
-                    <div className="h-10 w-full rounded bg-muted/40" />
-                    <div className="h-10 w-full rounded bg-muted/40" />
+                    <div className="h-11 w-full rounded bg-muted/40" />
+                    <div className="h-11 w-full rounded bg-muted/40" />
                   </div>
                 </div>
               ))}
