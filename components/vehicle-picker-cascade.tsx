@@ -72,7 +72,7 @@ function VehiclePickerDropdown({
   return (
     <div className="@container w-full min-w-0">
       <div className="grid min-w-0 grid-cols-1 gap-3 @min-[26rem]:grid-cols-3">
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Year</span>
           <select
             className={selectClass}
@@ -88,7 +88,7 @@ function VehiclePickerDropdown({
             ))}
           </select>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Make</span>
           <div className="relative">
             <select
@@ -105,11 +105,11 @@ function VehiclePickerDropdown({
               ))}
             </select>
             {loadingMakes ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" />
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : null}
           </div>
         </label>
-        <label className="grid min-w-0 gap-1.5 text-sm">
+        <label className="grid min-w-0 gap-2 text-sm">
           <span className="font-medium text-foreground">Model</span>
           <div className="relative">
             <select
@@ -126,7 +126,7 @@ function VehiclePickerDropdown({
               ))}
             </select>
             {loadingModels ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" />
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : null}
           </div>
         </label>
@@ -154,13 +154,13 @@ function SelectionChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "min-h-9 touch-manipulation rounded-xl border px-3 py-1.5 transition-all duration-150",
+        "min-h-9 touch-manipulation rounded-xl border px-3 py-2 transition-all duration-150",
         active || selected ? WS_TEXT_ACTIVE : WS_TEXT,
         active
           ? WS_OPTION_ROW_ACTIVE
           : selected
-            ? "border-emerald-500/40 bg-slate-900/80"
-            : "border-slate-850 bg-slate-900/40 hover:border-emerald-500/30",
+            ? "border-success/40 bg-card/80"
+            : "border-border bg-card/40 hover:border-success/30",
         disabled && "cursor-not-allowed opacity-40"
       )}
       aria-pressed={active}
@@ -352,16 +352,16 @@ function VehiclePickerSequential({
         <motion.div
           key={activePicker}
           {...PICKER_STEP_MOTION}
-          className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden"
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden"
         >
           <p className={cn(WS_METADATA, "shrink-0")}>{pickerTitle}</p>
           {pickerLoading ? (
-            <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
-              <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
+            <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-border bg-card/40">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
               <span className="sr-only">Loading options</span>
             </div>
           ) : pickerOptions.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-6 text-center text-xs text-slate-500">
+            <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
               {activePicker === "make"
                 ? "Pick a year first."
                 : activePicker === "model"
@@ -390,7 +390,7 @@ function VehiclePickerSequential({
                 )}
               />
               {filteredOptions.length === 0 ? (
-                <p className="px-1 py-3 text-center text-[11px] text-muted-foreground">
+                <p className="px-1 py-3 text-center text-2xs text-muted-foreground">
                   {emptyFilterMessage}
                 </p>
               ) : (

@@ -78,18 +78,18 @@ export function BookingDepositSettings({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-lg border border-zinc-800/60 bg-zinc-900/30 px-3 py-2",
+        "flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/30 px-3 py-2",
         className
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-zinc-100">Require deposit on /book</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
+        <p className="text-sm font-medium text-foreground">Require deposit on /book</p>
+        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
           Customers pay a Stripe deposit before the slot is confirmed.
         </p>
       </div>
       {loading ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" aria-label="Loading" />
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Loading" />
       ) : (
         <Switch
           checked={requireDeposit}

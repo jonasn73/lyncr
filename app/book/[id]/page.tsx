@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import BookPageClient from "@/components/book-page-client"
 import { getBookingInviteById } from "@/lib/booking-invite"
-import { isMissedCallBookingCallbackMode } from "@/lib/missed-call-rescue"
+import { isMissedCallBookingCallbackMode } from "@/lib/booking-sms-guards"
 
 export const dynamic = "force-dynamic"
 
@@ -24,7 +24,7 @@ export default async function BookInvitePage({
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-dvh items-center justify-center bg-zinc-950 text-sm text-zinc-400">
+        <main className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
           Loading your booking…
         </main>
       }

@@ -135,15 +135,15 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
         </DialogHeader>
 
         {isPlatformAdmin ? (
-          <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/80 p-1">
+          <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/80 p-1">
             <button
               type="button"
               onClick={() => setMode("invite")}
               className={cn(
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "invite"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-primary text-primary-foreground shadow-resting"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Send Invite Link
@@ -154,8 +154,8 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               className={cn(
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "manual"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-primary text-primary-foreground shadow-resting"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Create Manually
@@ -164,35 +164,35 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
         ) : null}
 
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
-          <label className="block space-y-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
+          <label className="block space-y-2">
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex Rivera"
               required
               minLength={2}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 
           {mode === "invite" ? (
-            <label className="block space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                Email <span className="font-normal normal-case text-zinc-600">(optional)</span>
+            <label className="block space-y-2">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Email <span className="font-normal normal-case text-muted-foreground">(optional)</span>
               </span>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex@example.com"
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
             </label>
           ) : null}
 
-          <label className="block space-y-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Phone number</span>
+          <label className="block space-y-2">
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Phone number</span>
             <input
               type="tel"
               inputMode="tel"
@@ -200,16 +200,16 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(502) 555-0100"
               required
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

@@ -12,7 +12,7 @@ import {
 } from "@/lib/telnyx-sms"
 import type { SmsMessage } from "@/lib/types"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
-import { listAmberControlE164sForOwner } from "@/lib/amber-db"
+import { listControlLineE164sForOwner } from "@/lib/db"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 
 export type WorkspaceCustomerSmsResult =
@@ -56,17 +56,17 @@ export async function sendAndLogWorkspaceCustomerSms(params: {
     return { ok: false, error: sender.message || "No business line available for customer SMS." }
   }
 
-  const amberSkip = new Set(await listAmberControlE164sForOwner(params.ownerUserId))
+  const controlSkip = new Set(await listControlLineE164sForOwner(params.ownerUserId))
   const fromHint = params.fromE164?.trim()
     ? normalizePhoneNumberE164(params.fromE164)
     : ""
 
   let fromE164 = fromHint || sender.from_e164
-  if (fromE164 && amberSkip.has(fromE164)) {
-    fromE164 = !amberSkip.has(sender.from_e164) ? sender.from_e164 : ""
+  if (fromE164 && controlSkip.has(fromE164)) {
+    fromE164 = !controlSkip.has(sender.from_e164) ? sender.from_e164 : ""
   }
   if (!fromE164) {
-    return { ok: false, error: "Customer SMS cannot send from the Amber number." }
+    return { ok: false, error: "Customer SMS cannot send from a control number." }
   }
 
   // If a From number was forced, it must belong to the same shop — never another business.

@@ -597,13 +597,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               className={
                 compact
                   ? LINES_MOBILE_SECTION_LABEL
-                  : "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                  : "text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               }
             >
               Alerts
             </p>
             <span
-              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500/25 px-1.5 text-[10px] font-bold tabular-nums text-orange-100 ring-1 ring-orange-400/40"
+              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning/25 px-2 text-2xs font-bold tabular-nums text-warning ring-1 ring-warning/40"
               aria-label={`${items.length} alert${items.length === 1 ? "" : "s"}`}
             >
               {items.length}
@@ -621,18 +621,18 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                 <li key={item.id}>
                   <div
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors transition-shadow duration-700",
+                      "flex w-full items-center gap-2 rounded-xl border px-3 py-3 text-left transition-colors transition-shadow duration-700",
                       isPaid
-                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        ? "border-success/40 bg-success/10"
                         : isBook
-                          ? "border-orange-500/45 bg-orange-500/10"
+                          ? "border-warning/45 bg-warning/10"
                           : isJob
-                            ? "border-amber-500/40 bg-amber-500/10"
+                            ? "border-warning/40 bg-warning/10"
                             : unread
-                              ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                              : "border-sky-500/25 bg-sky-500/5",
+                              ? "border-info/45 bg-info/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
+                              : "border-info/25 bg-info/5",
                       // New-arrival pulse — fades out over 700ms once useRecentArrivals expires the id.
-                      recentItemIds.has(item.id) && "ring-2 ring-sky-400/70"
+                      recentItemIds.has(item.id) && "ring-2 ring-info/70"
                     )}
                   >
                     <button
@@ -647,23 +647,23 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         <span
                           className={cn(
                             "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full",
-                            unread ? "bg-sky-400 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-sky-500/35"
+                            unread ? "bg-info shadow-[0_0_0_3px_rgba(56,189,248,0.25)]" : "bg-info/35"
                           )}
                           aria-hidden
                         />
                       ) : isPaid ? (
                         <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-success"
                           aria-hidden
                         />
                       ) : isBook ? (
                         <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-orange-400"
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-warning"
                           aria-hidden
                         />
                       ) : (
                         <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-warning"
                           aria-hidden
                         />
                       )}
@@ -672,7 +672,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           <p className="truncate text-sm font-semibold text-foreground">
                             {item.headline}
                           </p>
-                          <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                          <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
                             {formatTimeAgo(item.at)}
                           </span>
                         </div>
@@ -680,23 +680,23 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           className={cn(
                             "mt-0.5 truncate text-xs font-semibold",
                             isPaid
-                              ? "text-emerald-200"
+                              ? "text-success"
                               : isBook
-                                ? "text-orange-200"
+                                ? "text-warning"
                                 : isJob
-                                  ? "text-amber-200"
+                                  ? "text-warning"
                                   : unread
-                                    ? "text-sky-200"
-                                    : "text-sky-300/80"
+                                    ? "text-info"
+                                    : "text-info/80"
                           )}
                         >
                           {item.statusLine}
                         </p>
                         {item.preview ? (
-                          <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+                          <p className="mt-1 truncate text-2xs text-muted-foreground">{item.preview}</p>
                         ) : null}
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     </button>
                     {item.event === "replied" && item.customerPhone ? (
                       <button
@@ -705,7 +705,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           e.stopPropagation()
                           openInMessages(item.customerPhone)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-bold text-sky-100 hover:bg-sky-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-info/40 bg-info/15 px-3 py-2 text-2xs font-bold text-info hover:bg-info/25"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                         Reply
@@ -719,7 +719,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           // Same as tapping the row — open booking details (not new intake).
                           openDetail(item)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-warning/45 bg-warning/15 px-3 py-2 text-2xs font-bold text-warning hover:bg-warning/25"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View booking
@@ -735,10 +735,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           void sendThanksReview(item.completedJobId!)
                         }}
                         className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50",
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
-                            ? "bg-rose-500/90 text-white hover:bg-rose-400"
-                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                            ? "bg-destructive/90 text-destructive-foreground hover:bg-destructive"
+                            : "bg-warning/90 text-warning-foreground hover:bg-warning"
                         )}
                       >
                         {busyJobId === item.completedJobId ? (
@@ -756,7 +756,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           // Payment already received — open read-only detail, not Collect.
                           openDetail(item)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-2.5 py-1.5 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-success/45 bg-success/15 px-3 py-2 text-2xs font-bold text-success hover:bg-success/25"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View
@@ -771,10 +771,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           void sendThanksReview(item.completedJobId!)
                         }}
                         className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50",
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
-                            ? "bg-rose-500/90 text-white hover:bg-rose-400"
-                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                            ? "bg-destructive/90 text-destructive-foreground hover:bg-destructive"
+                            : "bg-warning/90 text-warning-foreground hover:bg-warning"
                         )}
                       >
                         {busyJobId === item.completedJobId ? (
@@ -797,7 +797,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         setSeenTick((n) => n + 1)
                         if (selected?.id === item.id) setSelected(null)
                       }}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       aria-label={`Clear alert for ${item.customerName || "customer"}`}
                       title="Clear"
                     >
@@ -820,7 +820,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
             side="bottom"
             className={cn(
               // Hug content; cap tall Needs-reply threads so the sheet never fills the viewport.
-              "flex h-auto max-h-[min(85dvh,40rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0",
+              "flex h-auto max-h-[min(85dvh,40rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0",
               "sm:mx-auto sm:max-w-lg",
               "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
             )}
@@ -1359,19 +1359,19 @@ function LatestActionDetail({
   return (
     <div className="flex min-h-0 flex-col">
       {/* Mobile drag affordance — matches Map / Scheduler sheets. */}
-      <div className="flex shrink-0 justify-center pb-0.5 pt-2.5 md:hidden" aria-hidden>
-        <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
+      <div className="flex shrink-0 justify-center pb-0.5 pt-3 md:hidden" aria-hidden>
+        <div className="h-1 w-10 rounded-full bg-muted-foreground/80" />
       </div>
 
-      <SheetHeader className="shrink-0 border-b border-zinc-800/80 px-4 pb-3 pt-2 text-left">
+      <SheetHeader className="shrink-0 border-b border-border/80 px-4 pb-3 pt-2 text-left">
         {isBookEvent ? (
           <>
             {/* Booking sheet: title = what happened; name/phone are submitted fields. */}
             <SheetTitle className="pr-8 text-base font-semibold text-foreground">
               Booking request
             </SheetTitle>
-            <p className="mt-1 text-sm font-medium text-orange-100">{item.headline}</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <p className="mt-1 text-sm font-medium text-warning">{item.headline}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Submitted {formatTimeAgo(item.at)}
             </p>
           </>
@@ -1380,20 +1380,20 @@ function LatestActionDetail({
             <SheetTitle className="pr-8 text-base font-semibold text-foreground">
               {item.customerName}
             </SheetTitle>
-            <p className="text-sm text-zinc-500">{phoneLabel}</p>
+            <p className="text-sm text-muted-foreground">{phoneLabel}</p>
             <p className="mt-1 text-sm font-medium text-foreground">{item.headline}</p>
           </>
         )}
         {item.event === "replied" ? (
-          <p className="mt-1 text-xs font-semibold text-sky-300">Needs reply</p>
+          <p className="mt-1 text-xs font-semibold text-info">Needs reply</p>
         ) : null}
         {item.reviewLinkOpened ? (
-          <p className="mt-1 text-xs font-semibold text-emerald-300">Opened</p>
+          <p className="mt-1 text-xs font-semibold text-success">Opened</p>
         ) : reviewDeliveryLabel ? (
           <p
             className={cn(
               "mt-1 text-xs font-semibold",
-              reviewDeliveryLabel === "Failed" ? "text-rose-300" : "text-zinc-400"
+              reviewDeliveryLabel === "Failed" ? "text-destructive" : "text-muted-foreground"
             )}
           >
             {reviewDeliveryLabel}
@@ -1405,60 +1405,60 @@ function LatestActionDetail({
       <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
         {isBookEvent ? (
           // Submitted fields front and center — not buried in “Continue intake”.
-          <section className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-200/90">
+          <section className="rounded-xl border border-warning/30 bg-warning/5 px-3 py-3">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-warning/90">
               Customer booked
             </p>
-            <dl className="mt-2 space-y-1.5 text-sm">
+            <dl className="mt-2 space-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Name</dt>
+                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Name</dt>
                 <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Phone</dt>
-                <dd className="min-w-0 text-zinc-200">{phoneLabel}</dd>
+                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Phone</dt>
+                <dd className="min-w-0 text-foreground">{phoneLabel}</dd>
               </div>
               {bookService ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Service</dt>
-                  <dd className="min-w-0 font-medium text-slate-100">{bookService}</dd>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Service</dt>
+                  <dd className="min-w-0 font-medium text-foreground">{bookService}</dd>
                 </div>
               ) : null}
               {bookVehicle ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Vehicle</dt>
-                  <dd className="min-w-0 text-zinc-200">{bookVehicle}</dd>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Vehicle</dt>
+                  <dd className="min-w-0 text-foreground">{bookVehicle}</dd>
                 </div>
               ) : null}
               {bookAddress ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Address</dt>
-                  <dd className="min-w-0 text-zinc-200">{bookAddress}</dd>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Address</dt>
+                  <dd className="min-w-0 text-foreground">{bookAddress}</dd>
                 </div>
               ) : null}
               {bookWhen ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">When</dt>
-                  <dd className="min-w-0 text-zinc-200">{bookWhen}</dd>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">When</dt>
+                  <dd className="min-w-0 text-foreground">{bookWhen}</dd>
                 </div>
               ) : null}
             </dl>
           </section>
         ) : (
           <section>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Status
             </p>
-            <ul className="mt-1.5 space-y-1.5">
+            <ul className="mt-1.5 space-y-2">
               {steps.map((step) => (
                 <li
                   key={step.label}
                   className={cn(
                     "rounded-xl border px-3 py-2",
                     step.done
-                      ? "border-emerald-500/25 bg-emerald-500/5"
+                      ? "border-success/25 bg-success/5"
                       : step.label === "Needs reply"
-                        ? "border-sky-500/35 bg-sky-500/10"
+                        ? "border-info/35 bg-info/10"
                         : "border-border/60 bg-muted/20"
                   )}
                 >
@@ -1466,17 +1466,17 @@ function LatestActionDetail({
                     className={cn(
                       "text-sm font-medium",
                       step.done
-                        ? "text-emerald-200"
+                        ? "text-success"
                         : step.label === "Needs reply"
-                          ? "text-sky-200"
-                          : "text-zinc-400"
+                          ? "text-info"
+                          : "text-muted-foreground"
                     )}
                   >
                     {step.done ? "✓ " : "○ "}
                     {step.label}
                   </p>
                   {step.detail ? (
-                    <p className="mt-0.5 text-xs text-zinc-500">{step.detail}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{step.detail}</p>
                   ) : null}
                 </li>
               ))}
@@ -1486,22 +1486,22 @@ function LatestActionDetail({
 
         {showSmsThread ? (
           <section>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Conversation
             </p>
             {threadLoading ? (
-              <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading messages…
               </div>
             ) : threadError ? (
-              <p className="mt-2 text-xs text-rose-300">{threadError}</p>
+              <p className="mt-2 text-xs text-destructive">{threadError}</p>
             ) : threadMessages.length === 0 ? (
               // Fallback: still show last pair from Latest if the feed is empty.
               <div className="mt-2 space-y-2">
                 {item.lastOutbound ? (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Your text
                     </p>
                     <p className="mt-1 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-sm text-foreground">
@@ -1511,17 +1511,17 @@ function LatestActionDetail({
                 ) : null}
                 {item.lastInbound ? (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Their reply
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm font-medium text-foreground">
+                    <p className="mt-1 whitespace-pre-wrap rounded-xl border border-info/35 bg-info/10 px-3 py-2 text-sm font-medium text-foreground">
                       {item.lastInbound.body}
                     </p>
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="mt-1.5 max-h-[min(32dvh,14rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-2.5 py-2.5">
+              <div className="mt-1.5 max-h-[min(32dvh,14rem)] space-y-2 overflow-y-auto rounded-xl border border-border/50 bg-muted/10 px-3 py-3">
                 {threadMessages.map((msg) => {
                   const outbound = msg.direction === "outbound"
                   const deliveryLabel = outbound ? formatSmsDeliveryLabel(msg) : null
@@ -1532,27 +1532,27 @@ function LatestActionDetail({
                     >
                       <div
                         className={cn(
-                          "max-w-[88%] rounded-2xl px-3.5 py-2 text-sm leading-snug",
+                          "max-w-[88%] rounded-2xl px-4 py-2 text-sm leading-snug",
                           outbound
                             ? msg.status === "failed"
-                              ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-emerald-600 text-white"
-                            : "rounded-bl-md border border-sky-500/35 bg-sky-500/10 text-foreground"
+                              ? "rounded-br-md bg-destructive text-destructive-foreground"
+                              : "rounded-br-md bg-success text-success-foreground"
+                            : "rounded-bl-md border border-info/35 bg-info/10 text-foreground"
                         )}
                       >
                         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                         <p
                           className={cn(
-                            "mt-1 text-[10px] tabular-nums",
-                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
-                            outbound && msg.status === "failed" && "text-rose-100/90"
+                            "mt-1 text-2xs tabular-nums",
+                            outbound ? "text-success/80" : "text-muted-foreground",
+                            outbound && msg.status === "failed" && "text-destructive/90"
                           )}
                         >
                           {formatMessageTime(msg.created_at)}
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (
-                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                          <p className="mt-0.5 text-2xs leading-snug text-destructive/80">
                             {msg.delivery_error}
                           </p>
                         ) : null}
@@ -1567,10 +1567,10 @@ function LatestActionDetail({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-zinc-800/80 px-4 pt-3">
+      <div className="shrink-0 space-y-2 border-t border-border/80 px-4 pt-3">
         {/* Payment-received alerts are informational — no Collect CTA. */}
         {isPaidEvent ? (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
+          <p className="rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-center text-sm font-semibold text-success">
             Paid · no balance to collect
           </p>
         ) : null}
@@ -1580,7 +1580,7 @@ function LatestActionDetail({
             <button
               type="button"
               onClick={() => onOpenBookIntake(item)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-orange-400"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning"
             >
               <CalendarCheck className="h-4 w-4" />
               Book job
@@ -1591,13 +1591,13 @@ function LatestActionDetail({
                 <a
                   href={telHref}
                   onClick={() => onCallBookForm(item)}
-                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40"
+                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-2xs font-semibold text-foreground hover:bg-muted/40"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </a>
               ) : (
-                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-[11px] font-semibold text-zinc-600">
+                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-2xs font-semibold text-muted-foreground">
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </span>
@@ -1610,7 +1610,7 @@ function LatestActionDetail({
                   !item.bookFormLeadId ||
                   busyJobId === item.bookFormLeadId
                 }
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-warning/35 bg-warning/10 px-2 py-2 text-2xs font-semibold text-warning hover:bg-warning/20 disabled:opacity-40"
               >
                 {busyJobId === item.bookFormLeadId ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1625,7 +1625,7 @@ function LatestActionDetail({
                 type="button"
                 onClick={() => item.customerPhone && onOpenCrm(item.customerPhone)}
                 disabled={!item.customerPhone}
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-2xs font-semibold text-foreground hover:bg-muted/40 disabled:opacity-40"
               >
                 <UserRound className="h-3.5 w-3.5" />
                 CRM
@@ -1636,7 +1636,7 @@ function LatestActionDetail({
                   item.customerPhone && onOpenMessages(item.customerPhone, item)
                 }
                 disabled={!item.customerPhone}
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2 py-2 text-[11px] font-semibold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-info/30 bg-info/10 px-2 py-2 text-2xs font-semibold text-info hover:bg-info/20 disabled:opacity-40"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 Messages
@@ -1648,13 +1648,13 @@ function LatestActionDetail({
           <div className="space-y-2">
             {/* Quick reply chips — tap fills composer (does not send). */}
             {replySuggest.chips.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {replySuggest.chips.map((chip) => (
                   <button
                     key={chip.id}
                     type="button"
                     onClick={() => setReplyDraft(chip.body)}
-                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                    className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
                   >
                     {chip.label}
                   </button>
@@ -1667,7 +1667,7 @@ function LatestActionDetail({
               type="button"
               onClick={() => void suggestReply()}
               disabled={suggestLoading || !lastInboundBody}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-operator/30 bg-operator/10 px-3 py-2 text-xs font-semibold text-operator hover:bg-operator/20 disabled:opacity-50"
             >
               {suggestLoading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1679,13 +1679,13 @@ function LatestActionDetail({
 
             {/* Extra AI draft options if Suggest returned more than one. */}
             {aiDrafts.length > 1 ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {aiDrafts.map((draft, idx) => (
                   <button
                     key={`ai-draft-${idx}`}
                     type="button"
                     onClick={() => setReplyDraft(draft)}
-                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 text-left text-[11px] leading-snug text-zinc-200 hover:bg-muted/40"
+                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-2xs leading-snug text-foreground hover:bg-muted/40"
                   >
                     {draft}
                   </button>
@@ -1700,13 +1700,13 @@ function LatestActionDetail({
                 onChange={(e) => setReplyDraft(e.target.value)}
                 rows={2}
                 placeholder="Type a reply…"
-                className="w-full resize-none bg-transparent px-1.5 py-1 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none"
+                className="w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => void sendInlineReply()}
                 disabled={replySending || !replyDraft.trim()}
-                className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-sky-400 disabled:opacity-50"
+                className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-info px-4 py-3 text-sm font-semibold text-info-foreground hover:bg-info disabled:opacity-50"
               >
                 {replySending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1723,7 +1723,7 @@ function LatestActionDetail({
                 type="button"
                 onClick={() => void markLinkedCancelled()}
                 disabled={cancellingJob}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-500/35 bg-zinc-500/10 px-4 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-500/20 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/35 bg-muted-foreground/10 px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted-foreground/20 disabled:opacity-50"
               >
                 {cancellingJob ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1738,7 +1738,7 @@ function LatestActionDetail({
             <button
               type="button"
               onClick={() => onOpenMessages(item.customerPhone)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-muted/40"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted/40"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               Open in Messages
@@ -1748,13 +1748,13 @@ function LatestActionDetail({
 
         {/* Job finished: compact follow-up chips above primary Send thanks CTA. */}
         {showJobFinishedChips && jobFinishedChips.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {jobFinishedChips.map((chip) => (
               <button
                 key={chip.id}
                 type="button"
                 onClick={() => onOpenMessages(item.customerPhone!, undefined, chip.body)}
-                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-2xs font-semibold text-info hover:bg-info/20"
               >
                 {chip.label}
               </button>
@@ -1770,12 +1770,12 @@ function LatestActionDetail({
             disabled={busyJobId === item.completedJobId}
             onClick={() => onSendThanks(item.completedJobId!)}
             className={cn(
-              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50",
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50",
               sendFailed
-                ? "bg-rose-500 text-white hover:bg-rose-400"
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive"
                 : needsReviewSend
-                  ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
-                  : "border border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                  ? "bg-warning text-warning-foreground hover:bg-warning"
+                  : "border border-warning/35 bg-warning/10 text-warning hover:bg-warning/20"
             )}
           >
             {busyJobId === item.completedJobId ? (
@@ -1791,7 +1791,7 @@ function LatestActionDetail({
           <button
             type="button"
             onClick={() => onOpenMessages(item.customerPhone)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-info/35 bg-info/10 px-4 py-3 text-sm font-semibold text-info hover:bg-info/20"
           >
             <MessageSquare className="h-4 w-4" />
             Open in Messages
@@ -1802,7 +1802,7 @@ function LatestActionDetail({
             type="button"
             disabled={markingOpened}
             onClick={() => onMarkReviewOpened(item.completedJobId!)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-warning/35 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning hover:bg-warning/20 disabled:opacity-50"
           >
             {markingOpened ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1818,11 +1818,11 @@ function LatestActionDetail({
             type="button"
             onClick={() => onOpenJob(item.completedJobId!)}
             className={cn(
-              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold",
               // Paid detail: Open job is primary only when thanks already handled.
               isPaidEvent && !item.thanksReviewPending
-                ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                : "border border-border/60 text-zinc-200 hover:bg-muted/40"
+                ? "bg-success text-success-foreground hover:bg-success"
+                : "border border-border/60 text-foreground hover:bg-muted/40"
             )}
           >
             {isPaidEvent && !item.thanksReviewPending ? <Eye className="h-4 w-4" /> : null}

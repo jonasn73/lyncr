@@ -255,7 +255,7 @@ export function DashboardRingBackupDrawer({
       />
       <DrawerScrollBody className={cn(routingLineDetailLoading && "pointer-events-none opacity-50")}>
         <section className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">What callers hear first</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What callers hear first</p>
           <div className="space-y-2">
             {CALLER_EXPERIENCE_OPTIONS.map((opt) => {
               const Icon = opt.icon
@@ -266,18 +266,18 @@ export function DashboardRingBackupDrawer({
                   type="button"
                   onClick={() => setDraftGreetingEnabled(opt.value)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border px-4 py-3.5 text-left transition-[border-color,background-color] duration-200",
+                    "flex w-full items-start gap-3 rounded-xl border px-4 py-4 text-left transition-[border-color,background-color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950/60">
-                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-zinc-500")} aria-hidden />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
+                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug text-foreground">{opt.label}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{opt.description}</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{opt.description}</p>
                   </div>
                   <RadioDot selected={active} />
                 </button>
@@ -287,13 +287,13 @@ export function DashboardRingBackupDrawer({
         </section>
 
         <section className="mt-8 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Caller ID on your cell</p>
-          <div className="flex items-start justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caller ID on your cell</p>
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card/40 px-4 py-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-snug text-foreground">
                 Show Customer&apos;s Number on Inbound Calls
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+              <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
                 When toggled OFF, inbound calls to your cell will display your Lyncr Business Number so you always know
                 it&apos;s a business lead.
               </p>
@@ -321,11 +321,11 @@ export function DashboardRingBackupDrawer({
                     "flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-[border-color,background-color,color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
                   <span className="text-sm font-bold text-foreground">{preset.label}</span>
-                  <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">{preset.hint}</span>
+                  <span className="mt-0.5 text-micro font-medium uppercase tracking-wide text-muted-foreground">{preset.hint}</span>
                 </button>
               )
             })}
@@ -337,17 +337,17 @@ export function DashboardRingBackupDrawer({
             step={5}
             value={draftSeconds}
             onChange={(e) => setDraftSeconds(snapDashboardRingTimeoutSec(Number(e.target.value)))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-primary"
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
             aria-label="Ring duration in seconds"
           />
-          <div className="flex justify-between text-[10px] tabular-nums text-zinc-600">
+          <div className="flex justify-between text-2xs tabular-nums text-muted-foreground">
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[0]}s</span>
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[DASHBOARD_RING_TIMEOUT_CHOICES.length - 1]}s</span>
           </div>
         </section>
 
         <section className="mt-8 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">If nobody picks up…</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">If nobody picks up…</p>
           <div className="space-y-2">
             {BACKUP_OPTIONS.map((opt) => {
               const Icon = opt.icon
@@ -358,18 +358,18 @@ export function DashboardRingBackupDrawer({
                   type="button"
                   onClick={() => setDraftStrategy(opt.value)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border px-4 py-3.5 text-left transition-[border-color,background-color] duration-200",
+                    "flex w-full items-start gap-3 rounded-xl border px-4 py-4 text-left transition-[border-color,background-color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950/60">
-                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-zinc-500")} aria-hidden />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
+                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug text-foreground">{opt.label}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{opt.description}</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{opt.description}</p>
                   </div>
                   <RadioDot selected={active} />
                 </button>
@@ -377,8 +377,8 @@ export function DashboardRingBackupDrawer({
             })}
           </div>
           {draftStrategy === "blast_team" ? (
-            <p className="flex items-start gap-2 text-[11px] text-zinc-500">
-              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
+            <p className="flex items-start gap-2 text-2xs text-muted-foreground">
+              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               Rings your Step 2 primary first, then escalates using team contacts you configure.
             </p>
           ) : null}
@@ -386,7 +386,7 @@ export function DashboardRingBackupDrawer({
             <button
               type="button"
               onClick={onOpenVoiceAi}
-              className="w-full rounded-lg border border-dashed border-primary/40 bg-primary/5 py-2.5 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+              className="w-full rounded-lg border border-dashed border-primary/40 bg-primary/5 py-3 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
             >
               Open Step 4 Voice &amp; AI settings →
             </button>
@@ -406,11 +406,11 @@ export function DashboardRingBackupDrawer({
 
 function RingBudgetSummary({ physicalRings, draftSeconds }: { physicalRings: number; draftSeconds: number }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Ring budget</p>
+    <div className="rounded-xl border border-border bg-card/50 px-4 py-3">
+      <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Ring budget</p>
       <p className="mt-1 text-lg font-semibold text-foreground">
         ~{physicalRings} physical rings{" "}
-        <span className="text-base font-normal text-zinc-500">({draftSeconds}s on the line)</span>
+        <span className="text-base font-normal text-muted-foreground">({draftSeconds}s on the line)</span>
       </p>
     </div>
   )
@@ -421,7 +421,7 @@ function RadioDot({ selected }: { selected: boolean }) {
     <div
       className={cn(
         "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200",
-        selected ? "border-primary bg-primary shadow-[0_0_12px_-2px_var(--primary)]" : "border-zinc-600"
+        selected ? "border-primary bg-primary shadow-[0_0_12px_-2px_var(--primary)]" : "border-border"
       )}
       aria-hidden
     >

@@ -4,6 +4,7 @@
 // Home is a live ops desk: duty band + answer channel + live strip (not a stack of marketing cards).
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -11,7 +12,41 @@ import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/t
 import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
-import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+
+/** A call currently at this desk — drives the HUD's live state, not the intake form. */
+export type LiveCallSession = {
+  callLogId: string
+  /**
+   * When the call was actually picked up. Null while it is still ringing.
+   *
+   * Separate from startedAt because counting from startedAt would show ring time as talk
+   * time, and talk time is what a receptionist is paid on.
+   */
+  answeredAt?: string | null
+  businessType: "locksmith" | "detailing" | "auto_repair" | "generic"
+  callerNumber?: string | null
+  callerName?: string | null
+  businessName?: string | null
+  startedAt: string
+}
+
+// The one intake form in this product, mounted at the receptionist's desk when the owner
+// has granted `call_intake`. Same component the dashboard shell renders — it resolves the
+// live call itself from /api/calls/ringing-recent + answered-recent, which now return the
+// owner's calls for a linked receptionist, so it needs nothing wired to her HUD.
+//
+// There is no receptionist-flavoured alternative behind this flag any more. Off means she
+// answers and routes calls but writes no intake, which is what "turn her intake off" has
+// to mean if the setting is to be worth anything.
+//
+// Kept dynamic for the same reason the owner shell does it: ~4k LOC plus Leaflet has no
+// business in the portal's first chunk when most desks will not have this turned on.
+const CallAnsweredModal = dynamic(
+  () => import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
+  { ssr: false }
+)
+import type { CallConnectedPayload } from "@/app/actions/call-events"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
 import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
@@ -85,7 +120,7 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   const detail = (
     <>
       {ringing ? "Ringing for " : "Answering for "}
-      <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+      <span className="font-medium text-foreground">{live_status.business_name}</span>
       {" · "}
       {formatPhoneDisplay(live_status.caller_number)}
       {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
@@ -95,18 +130,18 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors duration-300",
-        onCall ? "border-emerald-500/35 bg-emerald-950/25" : "border-primary/25 bg-primary/5"
+        "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-300",
+        onCall ? "border-success/35 bg-success/25" : "border-primary/25 bg-primary/5"
       )}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
-        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-emerald-400" : "bg-primary")} />
+        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-success" : "bg-primary")} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
           {headline}
-          <span className="text-zinc-500"> · </span>
-          <span className="font-normal text-zinc-400">{detail}</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-normal text-muted-foreground">{detail}</span>
         </p>
       </div>
     </div>
@@ -161,16 +196,19 @@ function TodayBand({ dashboard }: { dashboard: ReceptionistPortalDashboard }) {
 function RecentCallerList({
   rows,
   businessName,
+  showIntake,
 }: {
   rows: ReceptionistLedgerRow[]
   businessName: string
+  /** Same grant the live form follows — no Notes entry point when intake is off. */
+  showIntake: boolean
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const recent = rows.slice(0, 6)
 
   if (recent.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-sm text-zinc-500">
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground">
         No calls yet. When one is routed to you it lands here, with whatever the business
         already knows about the caller.
       </p>
@@ -189,34 +227,36 @@ function RecentCallerList({
                 <p className="truncate text-sm font-semibold text-foreground">
                   {row.caller_name?.trim() || formatPhoneDisplay(row.from_number)}
                 </p>
-                <p className="mt-0.5 text-xs tabular-nums text-zinc-500">
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
                   {row.caller_name?.trim() ? `${formatPhoneDisplay(row.from_number)} · ` : ""}
                   {formatTimestamp(row.created_at)} · {formatDuration(row.duration_seconds)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <a
                   href={`tel:${dialable}`}
-                  className="rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 >
                   Call back
                 </a>
                 <a
                   href={`sms:${dialable}`}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
                 >
                   Text
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(open ? null : row.id)}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
-                >
-                  {open ? "Close" : "Notes"}
-                </button>
+                {showIntake ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(open ? null : row.id)}
+                    className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
+                  >
+                    {open ? "Close" : "Notes"}
+                  </button>
+                ) : null}
               </div>
             </div>
-            {open ? (
+            {open && showIntake ? (
               <div className="mt-3">
                 <ReceptionistSimpleIntake
                   callLogId={row.id}
@@ -247,14 +287,14 @@ function CallRows({
   const [openId, setOpenId] = useState<string | null>(null)
 
   if (rows.length === 0) {
-    return <p className="px-4 py-8 text-center text-sm text-zinc-500">{emptyMessage}</p>
+    return <p className="px-4 py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
   }
 
   return (
     <WorkspaceTableWrap>
       {/* No <table> here — WorkspaceTableWrap renders it. Nesting one trips hydration. */}
       <thead>
-          <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-zinc-500">
+          <tr className="border-b border-border/60 text-left text-2xs uppercase tracking-wide text-muted-foreground">
             <WorkspaceTh>When</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
@@ -265,13 +305,13 @@ function CallRows({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={cn(WORKSPACE_TABLE_ROW_CLASS, "border-b border-border/40 last:border-0 align-top")}>
-              <WorkspaceTd className="text-zinc-400">{formatTimestamp(row.created_at)}</WorkspaceTd>
+              <WorkspaceTd className="text-muted-foreground">{formatTimestamp(row.created_at)}</WorkspaceTd>
               <WorkspaceTd>
                 <div className="font-medium text-foreground">{formatPhoneDisplay(row.from_number)}</div>
-                {row.caller_name ? <div className="text-xs text-zinc-500">{row.caller_name}</div> : null}
+                {row.caller_name ? <div className="text-xs text-muted-foreground">{row.caller_name}</div> : null}
               </WorkspaceTd>
               <WorkspaceTd>{formatDuration(row.duration_seconds)}</WorkspaceTd>
-              <WorkspaceTd className="capitalize text-zinc-400">{row.status.replace(/-/g, " ")}</WorkspaceTd>
+              <WorkspaceTd className="capitalize text-muted-foreground">{row.status.replace(/-/g, " ")}</WorkspaceTd>
               {showIntake ? (
                 <WorkspaceTd>
                   {openId === row.id ? (
@@ -316,6 +356,9 @@ export function ReceptionistPortalView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeCall, setActiveCall] = useState<LiveCallSession | null>(null)
+  // Owner's id, seeded server-side by the portal layout — the shared views all read the
+  // business account, not hers.
+  const workspaceSession = useDashboardSessionOptional()
 
   const load = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -366,10 +409,15 @@ export function ReceptionistPortalView() {
   // Open intake from polled state when realtime did not, or could not, deliver.
   //
   // Adjusted during render rather than in an effect: an effect would paint an empty
-  // HUD first and fill it on the next pass. Deliberately one-way — this opens the
-  // HUD, never closes it. A call ending is exactly when a receptionist is still
-  // typing up what it was about, and a poll landing after hangup must not take the
-  // form away mid-sentence. Closing stays with the explicit dismiss and call-ended.
+  // HUD first and fill it on the next pass. Opening is one-way — a poll never yanks
+  // the form away on its own read. Closing an ANSWERED call is normally left to the
+  // explicit dismiss and the call-ended realtime event, since that is exactly when a
+  // receptionist may still be typing up what the call was about — but if that event
+  // never lands (no realtime configured, a dropped connection, a backgrounded tab),
+  // nothing else ever closes the HUD and it sits there claiming the call is still
+  // going. `answeredCallGoneStreak` is the fallback: two consecutive polls agreeing
+  // the call is over closes it exactly like the realtime event would, while still
+  // refusing to act on one racy/stale poll.
   const polledLive =
     dashboard?.live_status.mode === "on_call" || dashboard?.live_status.mode === "ringing"
       ? dashboard.live_status
@@ -378,6 +426,14 @@ export function ReceptionistPortalView() {
   // logs its intake against the same call.
   const polledCallSid = polledLive?.provider_call_sid ?? null
   const polledAnswered = dashboard?.live_status.mode === "on_call"
+  // Counts consecutive POLLS (not renders) that agree the call is over — the WebRTC
+  // hook below re-renders this component far more often than `dashboard` actually
+  // changes, so the streak is keyed off the dashboard object each poll produces.
+  // State, not a ref: this block runs during render, and refs may not be read or
+  // written there.
+  const [answeredCallGoneStreak, setAnsweredCallGoneStreak] = useState(0)
+  const [answeredCallGoneCheckedDashboard, setAnsweredCallGoneCheckedDashboard] =
+    useState<ReceptionistPortalDashboard | null>(null)
 
   if (polledLive && polledCallSid && polledCallSid !== handledCallSid && !activeCall) {
     setHandledCallSid(polledCallSid)
@@ -391,6 +447,7 @@ export function ReceptionistPortalView() {
       // Ringing until proven otherwise — the clock in the HUD depends on it.
       answeredAt: polledAnswered ? (polledLive.started_at ?? new Date().toISOString()) : null,
     })
+    if (answeredCallGoneStreak !== 0) setAnsweredCallGoneStreak(0)
   } else if (
     polledLive &&
     polledAnswered &&
@@ -401,12 +458,33 @@ export function ReceptionistPortalView() {
     // Ringing → answered on a HUD that is already open. Stamp the pickup so the timer
     // switches from counting ring time to counting talk time.
     setActiveCall({ ...activeCall, answeredAt: polledLive.started_at ?? new Date().toISOString() })
+    if (answeredCallGoneStreak !== 0) setAnsweredCallGoneStreak(0)
   } else if (dashboard && !polledLive && activeCall && !activeCall.answeredAt) {
     // The caller hung up before anyone picked up. There is nothing to write up about a
     // call that never happened, so the HUD closes itself rather than sitting there with
-    // a running clock. An ANSWERED call that ends is left alone on purpose — that is
-    // exactly when she is still typing up what it was about.
+    // a running clock.
     setActiveCall(null)
+  } else if (
+    dashboard &&
+    !polledLive &&
+    activeCall &&
+    activeCall.answeredAt &&
+    dashboard !== answeredCallGoneCheckedDashboard
+  ) {
+    // The call has ended after being answered — normally call-ended (realtime) closes
+    // this. Confirm across two separate polls before acting, so a single stale read
+    // can't cut a receptionist off mid-sentence, but still self-heal when realtime
+    // never fires.
+    setAnsweredCallGoneCheckedDashboard(dashboard)
+    const nextStreak = answeredCallGoneStreak + 1
+    if (nextStreak >= 2) {
+      setActiveCall(null)
+      setAnsweredCallGoneStreak(0)
+    } else {
+      setAnsweredCallGoneStreak(nextStreak)
+    }
+  } else if (polledLive && activeCall && answeredCallGoneStreak !== 0) {
+    setAnsweredCallGoneStreak(0)
   }
 
   const receptionistId = dashboard?.receptionist.id ?? null
@@ -419,21 +497,26 @@ export function ReceptionistPortalView() {
     const channelName = `receptionist-${receptionistId}`
     const channel = pusher.subscribe(channelName)
 
-    const onConnected = (payload: LiveCallSession) => {
+    const onConnected = (payload: CallConnectedPayload) => {
+      // This event fires the instant the callee leg answers — payload.startedAt IS the
+      // answer moment, not the ring start, so both fields below are the same timestamp.
+      const answerTime = payload.startedAt ?? new Date().toISOString()
       setHandledCallSid(payload.callLogId)
       setActiveCall({
-        answeredAt: payload.answeredAt ?? payload.startedAt ?? new Date().toISOString(),
+        answeredAt: answerTime,
         callLogId: payload.callLogId,
         businessType: payload.businessType ?? "generic",
         callerNumber: payload.callerNumber ?? null,
         callerName: payload.callerName ?? null,
         businessName: payload.businessName ?? dashboardRef.current?.business_name ?? null,
-        startedAt: payload.startedAt ?? new Date().toISOString(),
+        startedAt: answerTime,
       })
+      setAnsweredCallGoneStreak(0)
       load({ silent: true })
     }
     const onEnded = () => {
       setActiveCall(null)
+      setAnsweredCallGoneStreak(0)
       load({ silent: true })
     }
 
@@ -459,7 +542,7 @@ export function ReceptionistPortalView() {
 
   if (loading && !dashboard) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-sm text-zinc-500">
+      <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
         Loading console…
       </div>
@@ -487,6 +570,10 @@ export function ReceptionistPortalView() {
       ? `${formatUsd(dashboard.receptionist.flat_rate_usd)} / call`
       : `${formatUsd(dashboard.receptionist.rate_per_minute)} / min`)
 
+  // One switch decides intake everywhere at this desk — the live call form and the
+  // ledger's notes form cannot disagree about whether she takes intake.
+  const canTakeIntake = dashboard.receptionist.capabilities.call_intake === true
+
   const available = dashboard.receptionist.is_active
   const onCall = dashboard.live_status.mode === "on_call"
   const ringingNow = dashboard.live_status.mode === "ringing"
@@ -502,12 +589,12 @@ export function ReceptionistPortalView() {
           title={tab === "calls" ? "Calls" : "Earnings"}
           action={
             tab === "earnings" ? (
-              <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
+              <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                 <Wallet className="h-3.5 w-3.5" aria-hidden />
                 {rateLabel}
               </span>
             ) : (
-              <span className="text-xs text-zinc-500">{dashboard.business_name}</span>
+              <span className="text-xs text-muted-foreground">{dashboard.business_name}</span>
             )
           }
         />
@@ -529,15 +616,8 @@ export function ReceptionistPortalView() {
         />
       ) : null}
 
-      {activeCall ? (
-        <ReceptionistLiveIntake
-          session={activeCall}
-          callerNameFallback={dashboard.live_status.mode === "on_call" ? dashboard.live_status.caller_name : null}
-          onDismiss={() => {
-            setActiveCall(null)
-            load({ silent: true })
-          }}
-        />
+      {canTakeIntake ? (
+        <CallAnsweredModal enabled ownerUserId={workspaceSession?.companyUserId ?? null} />
       ) : null}
 
       {tab === "home" ? (
@@ -547,18 +627,18 @@ export function ReceptionistPortalView() {
             className={cn(
               "overflow-hidden rounded-2xl border transition-colors duration-300",
               onCall
-                ? "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card/90 to-card/90"
+                ? "border-success/40 bg-gradient-to-br from-success/40 via-card/90 to-card/90"
                 : available
                   ? "border-primary/35 bg-gradient-to-br from-primary/10 via-card/90 to-card/90"
                   : "border-border/50 bg-card/80"
             )}
           >
-            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6">
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "text-[10px] font-semibold uppercase tracking-[0.16em]",
-                    onCall ? "text-emerald-400" : available ? "text-primary" : "text-zinc-500"
+                    "text-micro font-semibold uppercase tracking-[0.16em]",
+                    onCall ? "text-success" : available ? "text-primary" : "text-muted-foreground"
                   )}
                 >
                   Duty status
@@ -566,17 +646,17 @@ export function ReceptionistPortalView() {
                 <h1
                   className={cn(
                     "mt-1 text-2xl font-semibold tracking-tight sm:text-3xl",
-                    onCall ? "text-emerald-200" : available ? "text-foreground" : "text-zinc-400"
+                    onCall ? "text-success" : available ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {onCall ? "ON CALL" : ringingNow ? "RINGING" : available ? "ON DUTY" : "OFF DUTY"}
                 </h1>
-                <p className="mt-1.5 truncate text-sm text-zinc-300">
+                <p className="mt-1.5 truncate text-sm text-foreground">
                   <span className="font-medium text-foreground">{dashboard.business_name}</span>
-                  <span className="text-zinc-600"> · </span>
-                  <span className="text-zinc-400">{rateLabel}</span>
+                  <span className="text-muted-foreground"> · </span>
+                  <span className="text-muted-foreground">{rateLabel}</span>
                 </p>
-                <p className="mt-2 hidden max-w-md text-xs leading-relaxed text-zinc-500 md:block">
+                <p className="mt-2 hidden max-w-md text-xs leading-relaxed text-muted-foreground md:block">
                   {available
                     ? "You’re eligible when the owner has you under Who answers. This switch doesn’t pick you by itself."
                     : "You won’t get rings — calls use the owner’s backup. Who answers stays the owner’s choice."}
@@ -591,7 +671,7 @@ export function ReceptionistPortalView() {
               />
             </div>
 
-            <div className="border-t border-border/40 px-4 py-3 sm:px-5">
+            <div className="border-t border-border/40 px-4 py-3 sm:px-6">
               <ReceptionistEndpointToggle
                 endpoint={endpoint}
                 webCallingAvailable={webCallingAvailable}
@@ -623,7 +703,11 @@ export function ReceptionistPortalView() {
                 See all
               </Link>
             </div>
-            <RecentCallerList rows={callRows} businessName={dashboard.business_name} />
+            <RecentCallerList
+              rows={callRows}
+              businessName={dashboard.business_name}
+              showIntake={canTakeIntake}
+            />
           </WorkspacePanel>
         </>
       ) : null}
@@ -632,14 +716,14 @@ export function ReceptionistPortalView() {
         <WorkspacePanel className="overflow-hidden shadow-none ring-0">
           <div className="border-b border-border/50 px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">Calls that rang your line</h2>
-            <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
+            <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
               Only calls routed to you for {dashboard.business_name} — not every company call.
             </p>
           </div>
           <CallRows
             rows={callRows}
             emptyMessage="No calls have rung your phone yet. When a customer is routed to you, it shows up here."
-            showIntake
+            showIntake={canTakeIntake}
           />
         </WorkspacePanel>
       ) : null}
@@ -669,7 +753,7 @@ export function ReceptionistPortalView() {
           <WorkspacePanel className="overflow-hidden shadow-none ring-0">
             <div className="border-b border-border/50 px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">Pay period ledger</h2>
-              <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
+              <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
                 Answered calls this pay period for {dashboard.business_name}. Payout per row.
               </p>
             </div>

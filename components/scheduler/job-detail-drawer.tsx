@@ -89,6 +89,7 @@ function toCollectDispatchJob(
     id: source.id,
     customer_name: source.customer_name,
     customer_phone: source.customer_phone,
+    customer_email: source.customer_email ?? null,
     location: source.location,
     summary: source.summary ?? null,
     job_status: jobStatus,
@@ -968,7 +969,7 @@ export function JobDetailDrawer({
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <AlertDialogAction
-              className="bg-emerald-600 text-white hover:bg-emerald-600/90"
+              className="bg-success text-success-foreground hover:bg-success/90"
               disabled={saving}
               onClick={(e) => {
                 e.preventDefault()

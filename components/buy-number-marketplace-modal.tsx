@@ -102,16 +102,16 @@ function InventoryRow({
   onPurchase: (line: AvailableLine) => void
 }) {
   return (
-    <li className="transform-gpu rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 will-change-[opacity,transform]">
+    <li className="transform-gpu rounded-xl border border-border bg-background/60 p-4 will-change-[opacity,transform]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-base font-semibold tabular-nums text-foreground">{line.display}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-primary">
               <Zap className="h-3 w-3" aria-hidden />
               Live line inventory
             </span>
-            <span className="text-xs font-medium text-zinc-400">$2.00 / mo</span>
+            <span className="text-xs font-medium text-muted-foreground">$2.00 / mo</span>
           </div>
         </div>
         <button
@@ -323,7 +323,7 @@ export function BuyNumberMarketplaceModal({
           />
         ) : (
           <>
-        <SheetHeader className="shrink-0 border-b border-border/60 px-6 py-5 text-left">
+        <SheetHeader className="shrink-0 border-b border-border/60 px-6 py-6 text-left">
           <SheetTitle className="text-xl font-semibold tracking-tight">Buy a number</SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
             Search live inventory by area code — only real, purchasable lines are shown.
@@ -336,9 +336,9 @@ export function BuyNumberMarketplaceModal({
               {entitlementsBlocked}
             </div>
           ) : null}
-          <div className="shrink-0 space-y-5 px-6 py-5">
+          <div className="shrink-0 space-y-6 px-6 py-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Line label (whisper)
               </label>
               <input
@@ -346,7 +346,7 @@ export function BuyNumberMarketplaceModal({
                 value={lineLabel}
                 onChange={(e) => setLineLabel(e.target.value)}
                 maxLength={120}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 placeholder="e.g. Main Line"
               />
             </div>
@@ -359,11 +359,11 @@ export function BuyNumberMarketplaceModal({
               }}
             >
               <label className="min-w-0 flex-1">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Area code
                 </span>
                 <div className="relative">
-                  <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
                     inputMode="numeric"
@@ -371,21 +371,21 @@ export function BuyNumberMarketplaceModal({
                     placeholder="502"
                     value={areaCode}
                     onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-2.5 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-card/50 py-3 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </label>
               <button
                 type="submit"
                 disabled={normalizeAreaCode(areaCode).length < 3 || searching || entitlementsBlocked != null}
-                className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90 disabled:opacity-40"
+                className="inline-flex h-[42px] shrink-0 items-center justify-center rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-[var(--electric-glow)] transition-[opacity,transform] hover:bg-primary/90 disabled:opacity-40"
               >
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search Available Lines"}
               </button>
             </form>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Last 4 digits (optional)
               </label>
               <input
@@ -395,15 +395,15 @@ export function BuyNumberMarketplaceModal({
                 placeholder="0194"
                 value={lastFourDigits}
                 onChange={(e) => setLastFourDigits(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
-              <p className="text-xs leading-relaxed text-zinc-500">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 Match numbers ending in these digits within the area code.{" "}
-                <span className="text-zinc-400">
+                <span className="text-muted-foreground">
                   (502) 555-0194 is a reserved movie/TV number — real carriers cannot sell 555-01xx lines.
                 </span>{" "}
-                Try last four <span className="font-medium text-zinc-300">0194</span> in area code{" "}
-                <span className="font-medium text-zinc-300">502</span> instead.
+                Try last four <span className="font-medium text-foreground">0194</span> in area code{" "}
+                <span className="font-medium text-foreground">502</span> instead.
               </p>
             </div>
           </div>
@@ -412,20 +412,20 @@ export function BuyNumberMarketplaceModal({
             <div
               className={cn(
                 "max-h-[min(52dvh,520px)] min-h-[12rem] overflow-y-auto overscroll-contain pr-1",
-                showInventory && "rounded-xl border border-zinc-800/80 bg-zinc-950/30"
+                showInventory && "rounded-xl border border-border/80 bg-background/30"
               )}
             >
               {!showInventory ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   Enter an area code and search to see available lines.
                 </p>
               ) : searching ? (
                 <div className="flex flex-col items-center justify-center gap-3 px-4 py-16">
-                  <div className="relative flex h-12 w-12 items-center justify-center">
+                  <div className="relative flex h-11 w-11 items-center justify-center">
                     <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" aria-hidden />
                     <Loader2 className="relative h-7 w-7 animate-spin text-primary" aria-hidden />
                   </div>
-                  <p className="animate-pulse text-sm font-medium text-zinc-400">
+                  <p className="animate-pulse text-sm font-medium text-muted-foreground">
                     Searching {normalizeAreaCode(areaCode)} inventory…
                   </p>
                 </div>
@@ -434,7 +434,7 @@ export function BuyNumberMarketplaceModal({
                   {searchError}
                 </p>
               ) : results.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   {lastFourDigits.replace(/\D/g, "").length >= 2
                     ? `No 502 lines ending in ${lastFourDigits.replace(/\D/g, "").slice(-4)} right now. Clear the last-4 filter and search again, or try 859 / 606 / 270.`
                     : `No lines available in ${activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area code (859, 606, 270) or search again in a few minutes.`}
@@ -442,7 +442,7 @@ export function BuyNumberMarketplaceModal({
               ) : (
                 <div className="p-3">
                   {searchMeta && searchMeta.total_results > 0 ? (
-                    <p className="mb-3 px-1 text-xs text-zinc-500">
+                    <p className="mb-3 px-1 text-xs text-muted-foreground">
                       Showing {results.length}
                       {searchMeta.total_results > results.length
                         ? ` of ${searchMeta.total_results}+`
@@ -463,15 +463,15 @@ export function BuyNumberMarketplaceModal({
                   </ul>
 
                   {canLoadMore ? (
-                    <div className="mt-4 flex justify-center border-t border-zinc-800/80 pt-4">
+                    <div className="mt-4 flex justify-center border-t border-border/80 pt-4">
                       <button
                         type="button"
                         disabled={loadingMore}
                         onClick={() => void loadMoreNumbers()}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-xs font-semibold text-zinc-400",
+                          "inline-flex items-center gap-2 rounded-lg border border-border bg-transparent px-4 py-2 text-xs font-semibold text-muted-foreground",
                           "transition-[opacity,transform,border-color,color] duration-200",
-                          "hover:scale-[1.02] hover:border-zinc-500 hover:text-zinc-200",
+                          "hover:scale-[1.02] hover:border-border hover:text-foreground",
                           "active:scale-[0.98] disabled:opacity-50"
                         )}
                       >
@@ -492,7 +492,7 @@ export function BuyNumberMarketplaceModal({
           <button
             type="button"
             onClick={() => setPanelView("port")}
-            className="block w-full text-xs font-semibold text-violet-400 hover:text-violet-300 hover:underline"
+            className="block w-full text-xs font-semibold text-operator hover:text-operator hover:underline"
           >
             Port your existing number to Lyncr
           </button>

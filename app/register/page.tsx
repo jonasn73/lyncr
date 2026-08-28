@@ -124,22 +124,22 @@ function RegisterForm() {
   }
 
   const inputClass =
-    "w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+    "w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-operator focus:outline-none focus:ring-1 focus:ring-operator"
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-2xl">
-        <h1 className="text-xl font-semibold text-slate-100">Set up your receptionist account</h1>
-        <p className="mt-1 text-sm text-slate-400">Complete your profile to start answering calls on Lyncr.</p>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-overlay">
+        <h1 className="text-xl font-semibold text-foreground">Set up your receptionist account</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Complete your profile to start answering calls on Lyncr.</p>
 
         {validation.status === "loading" && (
-          <div className="mt-6 flex items-center gap-2 text-sm text-slate-400">
+          <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Verifying your invitation…
           </div>
         )}
 
         {validation.status === "invalid" && (
-          <div className="mt-6 flex items-start gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          <div className="mt-6 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-4 py-3 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>{validation.message}</span>
           </div>
@@ -149,14 +149,14 @@ function RegisterForm() {
           <div className="mt-6 space-y-4">
             {validation.invite.type === "EMAIL" && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">Email</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <input value={validation.invite.target} readOnly className={`${inputClass} cursor-not-allowed opacity-70`} />
-                <p className="mt-1 text-xs text-slate-500">You&apos;ll sign in with this email.</p>
+                <p className="mt-1 text-xs text-muted-foreground">You&apos;ll sign in with this email.</p>
               </div>
             )}
 
             <div>
-              <label htmlFor="reg-name" className="mb-1 block text-sm font-medium text-slate-300">Full Name</label>
+              <label htmlFor="reg-name" className="mb-1 block text-sm font-medium text-foreground">Full Name</label>
               <input
                 id="reg-name"
                 value={fullName}
@@ -168,7 +168,7 @@ function RegisterForm() {
             </div>
 
             <div>
-              <label htmlFor="reg-phone" className="mb-1 block text-sm font-medium text-slate-300">Cell Phone Number</label>
+              <label htmlFor="reg-phone" className="mb-1 block text-sm font-medium text-foreground">Cell Phone Number</label>
               <input
                 id="reg-phone"
                 type="tel"
@@ -179,11 +179,11 @@ function RegisterForm() {
                 placeholder="(555) 123-4567"
                 className={`${inputClass} ${isSms ? "cursor-not-allowed opacity-70" : ""}`}
               />
-              {isSms && <p className="mt-1 text-xs text-slate-500">This is the number your invite was sent to.</p>}
+              {isSms && <p className="mt-1 text-xs text-muted-foreground">This is the number your invite was sent to.</p>}
             </div>
 
             <div>
-              <label htmlFor="reg-password" className="mb-1 block text-sm font-medium text-slate-300">Password</label>
+              <label htmlFor="reg-password" className="mb-1 block text-sm font-medium text-foreground">Password</label>
               <input
                 id="reg-password"
                 type="password"
@@ -198,33 +198,33 @@ function RegisterForm() {
             </div>
 
             {agreement && (
-              <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+              <div className="space-y-3 rounded-xl border border-border bg-background/60 p-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-100">
+                  <h2 className="text-sm font-semibold text-foreground">
                     {agreement.employment_type === "W2_EMPLOYEE"
                       ? "Your employment terms"
                       : "Your contractor agreement"}
                   </h2>
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     From {agreement.business_name}. Read this before you finish signing up.
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-primary/30 bg-violet-950/30 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+                <div className="rounded-lg border border-primary/30 bg-operator/30 px-3 py-2">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-operator">
                     You will be paid
                   </p>
-                  <p className="mt-0.5 text-sm text-slate-100">{agreement.pay_summary}</p>
+                  <p className="mt-0.5 text-sm text-foreground">{agreement.pay_summary}</p>
                 </div>
 
                 {/* Scrollable rather than collapsed: nobody should have to expand a
                     disclosure to find the terms they are about to sign. */}
-                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-relaxed text-slate-300">
+                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs leading-relaxed text-foreground">
                   {agreement.body}
                 </div>
 
                 <div>
-                  <label htmlFor="reg-signature" className="mb-1 block text-sm font-medium text-slate-300">
+                  <label htmlFor="reg-signature" className="mb-1 block text-sm font-medium text-foreground">
                     Sign by typing your full name
                   </label>
                   <input
@@ -236,12 +236,12 @@ function RegisterForm() {
                   />
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-300">
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-foreground">
                   <input
                     type="checkbox"
                     checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-950 accent-violet-600"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-violet-600"
                   />
                   <span>
                     I have read these terms and agree to sign them electronically, with the same
@@ -252,7 +252,7 @@ function RegisterForm() {
             )}
 
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-3 py-2 text-sm text-destructive">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                 {error}
               </div>
@@ -262,7 +262,7 @@ function RegisterForm() {
               type="button"
               onClick={() => void submit()}
               disabled={submitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator px-4 py-3 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {submitting
@@ -275,8 +275,8 @@ function RegisterForm() {
         )}
 
         {done && (
-          <div className="mt-6 flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
-            <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
+          <div className="mt-6 flex items-center gap-3 rounded-lg border border-success/40 bg-success/40 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="h-6 w-6 shrink-0 text-success" aria-hidden />
             Account created — taking you in…
           </div>
         )}
@@ -289,7 +289,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         </div>
       }

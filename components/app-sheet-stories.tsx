@@ -546,7 +546,7 @@ export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
       <>
         <p>
           Pick <strong>Your phone</strong> to ring the owner main line first, or a receptionist to delegate. Saving updates{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-[10px]">routing_config</code> for this DID.
+          <code className="rounded bg-muted px-1 py-0.5 text-2xs">routing_config</code> for this DID.
         </p>
         <p className="mt-2">Fallback (AI, voicemail, ring cell) is tuned on the Call console for the same line.</p>
       </>

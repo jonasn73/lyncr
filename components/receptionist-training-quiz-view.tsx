@@ -99,7 +99,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
   return (
     <WorkspacePage>
       <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="ghost" size="sm" className="text-zinc-400">
+        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
           <Link href="/receptionist/training">
             <ChevronLeft className="mr-1 h-4 w-4" aria-hidden />
             All certifications
@@ -109,7 +109,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           {certification.certification_code}
         </Badge>
         {alreadyCertified ? (
-          <Badge className="border-0 bg-amber-500/20 text-amber-100">
+          <Badge className="border-0 bg-warning/20 text-warning">
             <Sparkles className="mr-1 h-3 w-3" aria-hidden />
             Certified
           </Badge>
@@ -119,14 +119,14 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
       <WorkspacePageHeader title={certification.title} />
 
       {!showQuiz ? (
-        <WorkspacePanel className="space-y-4 p-6">
+        <WorkspacePanel density="roomy" className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 ring-2 ring-emerald-400/40">
-              <CheckCircle2 className="h-6 w-6 text-emerald-300" aria-hidden />
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-success/15 ring-2 ring-success/40">
+              <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-emerald-100">You&apos;re already certified</h2>
-              <p className="text-sm text-zinc-400">
+              <h2 className="text-lg font-semibold text-success">You&apos;re already certified</h2>
+              <p className="text-sm text-muted-foreground">
                 You passed {certification.title} and are in the live routing pool. No need to retake the quiz.
               </p>
             </div>
@@ -143,18 +143,18 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
               Retake quiz anyway
             </Button>
           </div>
-          <p className="text-xs text-zinc-500">
-            Testing a call? Use the violet <span className="font-medium text-zinc-400">Return to Admin Sandbox</span>{" "}
-            bar at the top, then click <span className="font-medium text-zinc-400">Simulate inbound call</span>.
+          <p className="text-xs text-muted-foreground">
+            Testing a call? Use the violet <span className="font-medium text-muted-foreground">Return to Admin Sandbox</span>{" "}
+            bar at the top, then click <span className="font-medium text-muted-foreground">Simulate inbound call</span>.
           </p>
         </WorkspacePanel>
       ) : null}
 
       {showQuiz ? (
       <>
-      <WorkspacePanel className="space-y-3 p-5">
+      <WorkspacePanel density="default" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Award className="h-4 w-4 text-primary" aria-hidden />
             <span>
               Quiz progress:{" "}
@@ -164,12 +164,12 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
               answered
             </span>
           </div>
-          <span className="text-xs font-medium text-zinc-500">
+          <span className="text-xs font-medium text-muted-foreground">
             Passing score: {certification.passing_score}%
           </span>
         </div>
         <div
-          className="h-2 overflow-hidden rounded-full bg-zinc-800"
+          className="h-2 overflow-hidden rounded-full bg-muted"
           role="progressbar"
           aria-valuenow={progressPercent}
           aria-valuemin={0}
@@ -177,14 +177,14 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           aria-label="Quiz completion progress"
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-primary transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-operator to-primary transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
       </WorkspacePanel>
 
       <form onSubmit={handleSubmit} className="space-y-6 pb-8">
-        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Certification quiz
         </div>
 
@@ -242,17 +242,17 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           {resultModal?.passed ? (
             <>
               <DialogHeader className="items-center text-center">
-                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 ring-2 ring-emerald-400/40">
-                  <PartyPopper className="h-8 w-8 text-emerald-300" aria-hidden />
+                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-success/15 ring-2 ring-success/40">
+                  <PartyPopper className="h-9 w-9 text-success" aria-hidden />
                 </div>
-                <DialogTitle className="text-2xl text-emerald-100">You&apos;re certified!</DialogTitle>
-                <DialogDescription className="text-base text-zinc-300">{resultModal.message}</DialogDescription>
+                <DialogTitle className="text-2xl text-success">You&apos;re certified!</DialogTitle>
+                <DialogDescription className="text-base text-foreground">{resultModal.message}</DialogDescription>
               </DialogHeader>
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center">
-                <p className="text-3xl font-bold tabular-nums text-emerald-200">
+              <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-center">
+                <p className="text-3xl font-bold tabular-nums text-success">
                   {resultModal.score}/{resultModal.total}
                 </p>
-                <p className="mt-1 text-sm text-emerald-100/80">{resultModal.percent}% — routing pool unlocked</p>
+                <p className="mt-1 text-sm text-success/80">{resultModal.percent}% — routing pool unlocked</p>
               </div>
               <DialogFooter className="sm:justify-center">
                 <Button type="button" onClick={closeResultModal} className="min-w-[160px]">
@@ -264,20 +264,20 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           ) : resultModal ? (
             <>
               <DialogHeader className="items-center text-center">
-                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/15 ring-2 ring-amber-400/40">
-                  <RotateCcw className="h-8 w-8 text-amber-300" aria-hidden />
+                <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-warning/15 ring-2 ring-warning/40">
+                  <RotateCcw className="h-9 w-9 text-warning" aria-hidden />
                 </div>
-                <DialogTitle className="text-2xl text-amber-100">
+                <DialogTitle className="text-2xl text-warning">
                   {resultModal.total > 0 ? "Keep studying" : "Could not grade quiz"}
                 </DialogTitle>
-                <DialogDescription className="text-base text-zinc-300">{resultModal.message}</DialogDescription>
+                <DialogDescription className="text-base text-foreground">{resultModal.message}</DialogDescription>
               </DialogHeader>
               {resultModal.total > 0 ? (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
-                  <p className="text-3xl font-bold tabular-nums text-amber-200">
+                <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-center">
+                  <p className="text-3xl font-bold tabular-nums text-warning">
                     {resultModal.score}/{resultModal.total}
                   </p>
-                  <p className="mt-1 text-sm text-amber-100/80">
+                  <p className="mt-1 text-sm text-warning/80">
                     {certification.passing_score}% required — review the material and retry
                   </p>
                 </div>

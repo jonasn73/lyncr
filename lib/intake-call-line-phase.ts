@@ -124,13 +124,13 @@ export function intakeCallBadgeLabel(phase: IntakeCallLinePhase): string {
 export function intakeCallBadgeClassName(phase: IntakeCallLinePhase): string {
   switch (phase) {
     case "ringing":
-      return "text-amber-400/90"
+      return "text-warning/90"
     case "answered":
-      return "text-emerald-400/90"
+      return "text-success/90"
     case "missed":
-      return "text-rose-400/90"
+      return "text-destructive/90"
     case "voicemail":
-      return "text-violet-400/90"
+      return "text-operator/90"
     case "ended":
       return "text-muted-foreground"
   }

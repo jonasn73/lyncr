@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveActor } from "@/lib/actor"
 import {
   getActiveJobGeoForTech,
   getFieldTechnicianByPortalUserId,
@@ -25,13 +25,13 @@ export const dynamic = "force-dynamic"
 const ALLOWED_STATUS = new Set(["idle", "en_route", "on_site"])
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-
-  const user = await getUser(userId)
-  if (!user || user.account_role !== "field_tech") {
+  const actor = await resolveActor(req.headers.get("cookie"), { allowFieldTech: true })
+  if (!actor || actor.actorRole !== "field_tech") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+  // Acts as the tech, not the business — these rows are scoped to them.
+  const userId = actor.actingUserId
+  const user = await getUser(userId)
 
   const body = (await req.json().catch(() => ({}))) as {
     latitude?: number
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         if (hasCoords) {
           await publishOwnerEvent(ownerId, "tech-location-updated", {
             techUserId: userId,
-            name: tech?.name ?? user.name,
+            name: tech?.name ?? user?.name ?? "Technician",
             latitude: lat,
             longitude: lng,
             status,

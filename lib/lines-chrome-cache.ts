@@ -6,7 +6,7 @@
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import { businessNumbersMatch } from "@/lib/dashboard-routing-utils"
 import type { RoutingStrategy } from "@/lib/types"
-import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/amber-control-line"
+import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/control-line"
 import {
   paintSeedCookieName,
   readPaintSeedCookie,

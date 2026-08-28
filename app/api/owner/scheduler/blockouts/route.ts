@@ -1,7 +1,7 @@
 // GET list / POST create — owner schedule blockouts.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { validateBlockoutInput } from "@/lib/schedule-blockouts"
 import {
   createScheduleBlockout,
@@ -11,8 +11,11 @@ import {
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const fromDate = req.nextUrl.searchParams.get("from")?.trim() || ""
   const toDate = req.nextUrl.searchParams.get("to")?.trim() || ""
@@ -37,8 +40,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   let body: Record<string, unknown> = {}
   try {

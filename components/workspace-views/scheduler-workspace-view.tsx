@@ -53,6 +53,7 @@ import {
 } from "@/lib/scheduler-paint-cache"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useInboundCallPanelOptional } from "@/lib/inbound-call-panel-context"
+import { useCan } from "@/lib/workspace-capabilities-context"
 import { JobPoolPanel } from "@/components/scheduler/job-pool-panel"
 import { SchedulerDispatchLiveStatus } from "@/components/scheduler/scheduler-dispatch-live-status"
 import { ActivePipelinePanelStream } from "@/components/scheduler/active-pipeline-panel-stream"
@@ -325,6 +326,11 @@ function SchedulerWorkspaceViewInner({
 
   // Pause hopper + pipeline SWR while Scheduler pane / browser tab is hidden.
   const pollEnabled = usePollBudget(isActive)
+  // The job pool and today's pipeline both read the dispatch-gated /owner/jobs/pool route.
+  // Without this the panes 403 on a loop and sit on a spinner forever, which reads as
+  // broken rather than as "you were not given this". Seeing the calendar is `scheduler`;
+  // triaging unassigned work is `dispatching`.
+  const canDispatch = useCan("dispatching")
 
   const {
     jobs: poolJobs,
@@ -332,7 +338,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: poolValidating,
     hasResolved: poolHasResolved,
     mutate: mutatePool,
-  } = useJobPoolQuery(orgId, pollEnabled)
+  } = useJobPoolQuery(orgId, pollEnabled && canDispatch)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
@@ -344,7 +350,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: pipelineValidating,
     hasResolved: pipelineHasResolved,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled)
+  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled && canDispatch)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -1353,7 +1359,7 @@ function SchedulerWorkspaceViewInner({
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <p className="mb-4 hidden text-xs text-zinc-500 md:block">
+        <p className="mb-4 hidden text-xs text-muted-foreground md:block">
           {intakeProfile === "locksmith"
             ? "Vehicle cascade, VIN lookup, and validated job addresses."
             : intakeProfile === "detailing"
@@ -1366,29 +1372,33 @@ function SchedulerWorkspaceViewInner({
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
               {/* Always reserve New Intake height — panel hydrate must not push the board. */}
-              <div className="min-h-[3.25rem] border-b border-zinc-800/80 p-2.5">
+              {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — p-2.5 is part of that fixed 52px geometry */}
+              <div className="min-h-[3.25rem] border-b border-border/80 p-2.5">
                 <button
                   type="button"
                   onClick={openNewIntake}
                   disabled={!inboundCallPanel}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-cyan-500 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-black transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                   New Intake
                 </button>
               </div>
 
-              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-2.5 py-2.5 lg:max-h-none lg:overflow-visible">
-                <JobPoolPanel
-                  jobs={displayPoolJobs}
-                  loading={poolTrayLoading}
-                  highlightId={highlightId}
-                  onSelectJob={openPoolJobDrawer}
-                  onMobileAssignJob={queueMobilePoolAssign}
-                  variant="sidebar"
-                  embedded
-                />
-              </div>
+              {/* Job pool is dispatch triage: hidden unless the owner opted her into dispatching. */}
+              {canDispatch ? (
+                <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-border/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
+                  <JobPoolPanel
+                    jobs={displayPoolJobs}
+                    loading={poolTrayLoading}
+                    highlightId={highlightId}
+                    onSelectJob={openPoolJobDrawer}
+                    onMobileAssignJob={queueMobilePoolAssign}
+                    variant="sidebar"
+                    embedded
+                  />
+                </div>
+              ) : null}
 
               <div ref={liveStatusRef}>
                 <SchedulerDispatchLiveStatus
@@ -1412,19 +1422,19 @@ function SchedulerWorkspaceViewInner({
 
             {/* Settings off the primary path — collapsed unless this day already has blockouts. */}
             <details
-              className="group rounded-xl border border-zinc-800/80 bg-zinc-950/40 open:bg-zinc-950/60"
+              className="group rounded-xl border border-border/80 bg-background/40 open:bg-background/60"
               open={blockoutsPanelOpen}
               onToggle={(e) => setBlockoutsPanelOpen(e.currentTarget.open)}
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                 <span>Booking &amp; blockouts</span>
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                   aria-hidden
                 />
               </summary>
-              <div className="space-y-3 border-t border-zinc-800/80 px-3 py-3">
-                <BookingDepositSettings className="border-zinc-800/60 bg-zinc-950/40" />
+              <div className="space-y-3 border-t border-border/80 px-3 py-3">
+                <BookingDepositSettings className="border-border/60 bg-background/40" />
                 <ScheduleBlockoutsPanel
                   embedded
                   dateKey={selectedKey}
@@ -1457,49 +1467,52 @@ function SchedulerWorkspaceViewInner({
           {/* Main workspace — pipeline + swimlanes */}
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-3 lg:gap-3">
             {markCompleteError ? (
-              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {markCompleteError}
               </p>
             ) : null}
 
             {/* Always mount pipeline + swimlanes — never swap “quiet” for the board (CLS). */}
-            <WorkspacePanel className="flex w-full flex-col overflow-hidden">
-              <div className="border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
-                <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
-                <SettledCount
-                  pending={boardCountsPending}
-                  count={displayPipelineJobs.length}
-                  paintHint={schedulerPaint?.eventCount}
-                  format={(n) =>
-                    `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
-                  }
-                  className="min-h-[1rem] truncate text-xs text-zinc-500"
-                />
-              </div>
-              <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
-                {/* Always mount — empty/null swap was the flash under pipeline data. */}
-                <ActivePipelinePanelStream
-                  jobs={displayPipelineJobs}
-                  dayKey={pipelineDayKey}
-                  useStreamedInitialDay={useStreamedPipeline}
-                  highlightId={highlightId}
-                  onFocusJob={highlightPipelineJob}
-                  onEditJob={editPipelineJob}
-                  onMarkComplete={handleMarkJobComplete}
-                  completingJobId={completingId}
-                  loading={
-                    !schedulerSurfaceReady &&
-                    displayPipelineJobs.length === 0 &&
-                    (pipelineLoading ||
-                      pipelineValidating ||
-                      loading ||
-                      !bootstrapSettled ||
-                      coldBoardPending ||
-                      (paintSaysBoard && !pipelineHasResolved))
-                  }
-                />
-              </div>
-            </WorkspacePanel>
+            {/* Today's jobs come from the dispatch-gated pool route — see JobPoolPanel below. */}
+            {canDispatch ? (
+              <WorkspacePanel className="flex w-full flex-col overflow-hidden">
+                <div className="border-b border-border/60 px-3 py-2 lg:px-4">
+                  <h2 className="text-sm font-semibold text-foreground">Active pipeline</h2>
+                  <SettledCount
+                    pending={boardCountsPending}
+                    count={displayPipelineJobs.length}
+                    paintHint={schedulerPaint?.eventCount}
+                    format={(n) =>
+                      `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
+                    }
+                    className="min-h-[1rem] truncate text-xs text-muted-foreground"
+                  />
+                </div>
+                <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
+                  {/* Always mount — empty/null swap was the flash under pipeline data. */}
+                  <ActivePipelinePanelStream
+                    jobs={displayPipelineJobs}
+                    dayKey={pipelineDayKey}
+                    useStreamedInitialDay={useStreamedPipeline}
+                    highlightId={highlightId}
+                    onFocusJob={highlightPipelineJob}
+                    onEditJob={editPipelineJob}
+                    onMarkComplete={handleMarkJobComplete}
+                    completingJobId={completingId}
+                    loading={
+                      !schedulerSurfaceReady &&
+                      displayPipelineJobs.length === 0 &&
+                      (pipelineLoading ||
+                        pipelineValidating ||
+                        loading ||
+                        !bootstrapSettled ||
+                        coldBoardPending ||
+                        (paintSaysBoard && !pipelineHasResolved))
+                    }
+                  />
+                </div>
+              </WorkspacePanel>
+            ) : null}
 
             <WorkspacePanel className="relative flex w-full min-w-0 flex-col overflow-hidden">
               {/* No “Board is quiet” overlay — it flashed over swimlanes while techs loaded. */}
@@ -1508,7 +1521,7 @@ function SchedulerWorkspaceViewInner({
                       {/* Label only — live date/time already sits in the status card above. */}
                       <span>Calendar</span>
                       <ChevronDown
-                        className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                         aria-hidden
                       />
                     </summary>
@@ -1526,7 +1539,7 @@ function SchedulerWorkspaceViewInner({
                         }}
                         className="mx-auto"
                       />
-                      <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-zinc-500">
+                      <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-muted-foreground">
                         {calendarSubtitlePending
                           ? "\u00a0"
                           : `${displayEvents.length} scheduled this month${
@@ -1538,7 +1551,7 @@ function SchedulerWorkspaceViewInner({
                     </div>
                   </details>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 lg:px-4 lg:py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 lg:px-4">
                     <div className="min-w-0">
                       <h2 className="text-sm font-semibold text-foreground">Tech swimlanes</h2>
                       <SettledCount
@@ -1550,14 +1563,14 @@ function SchedulerWorkspaceViewInner({
                             assignedDayJobCount === 1 ? "" : "s"
                           } on lanes`
                         }
-                        className="min-h-[1rem] truncate text-xs text-zinc-500"
+                        className="min-h-[1rem] truncate text-xs text-muted-foreground"
                       />
                     </div>
                     <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Previous day"
                       >
                         <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -1565,14 +1578,14 @@ function SchedulerWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => setSelectedDay(() => new Date())}
-                        className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="rounded-md px-2 py-1 text-2xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       >
                         Today
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Next day"
                       >
                         <ChevronRight className="h-4 w-4" aria-hidden />

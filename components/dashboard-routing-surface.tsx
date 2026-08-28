@@ -232,9 +232,10 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
     <div
       ref={stickyMeasureRef}
       data-flicker-probe="lines-sticky-chrome"
-      className="sticky top-0 z-50 w-full bg-slate-950"
+      className="sticky top-0 z-50 w-full bg-background"
     >
-      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
+      {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — py-2.5 is part of that fixed 52px geometry */}
+      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-border/90 py-2.5">
         {businessNumbers.length > 0 || quickSetupDecided ? (
           <ActiveLineSubHeader
             bare
@@ -256,7 +257,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             data-flicker-probe="lines-sticky-blank"
           >
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/70">
                 Main line
               </p>
               <p className="truncate text-sm font-semibold text-muted-foreground/80">—</p>
@@ -274,7 +275,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
       {/* No pb-24 spacer — Available/Caller ID follow Alerts with normal gap (Messages left Lines). */}
       <div className="min-h-0 w-full overflow-x-clip overflow-y-visible pb-3 md:pb-4">
-        <div className="mx-auto w-full max-w-workspace px-3 pt-3 sm:px-0 sm:pt-4">
+        <div className="mx-auto w-full max-w-workspace pt-3 sm:pt-4">
           <div className="flex flex-col gap-3 sm:gap-8 lg:flex-row lg:items-start lg:gap-10">
             <DashboardRoutingSidebar
               activeLineDisplay={activeLineDisplay}
@@ -285,7 +286,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             {/* Main column: setup / telemetry / (Who answers + Available stack). */}
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-4">
               {quickSetupDecided && !isSetupComplete ? (
-                <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
+                <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-resting ring-1 ring-primary/10 sm:p-7">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12">
                       <Check className="h-4 w-4 text-primary" aria-hidden />
@@ -296,20 +297,20 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                         <SheetInfoTrigger
                           onPress={() => setDashboardStoryKey("dashboard-quick-setup")}
                           label="About setup checklist"
-                          className="h-11 w-11 shrink-0 sm:h-8 sm:w-8"
+                          className="h-11 w-11 shrink-0 sm:h-9 sm:w-9"
                         />
                       </div>
-                      <div className="mt-5 flex flex-col gap-4 sm:gap-5">
+                      <div className="mt-5 flex flex-col gap-4 sm:gap-6">
                         <div
                           className={cn(
-                            "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-2.5",
+                            "flex flex-col gap-2 rounded-xl border bg-background/60 px-3 py-3",
                             hasBusinessNumbers ? "border-border/70" : "border-primary/40 ring-1 ring-primary/15"
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-foreground">1 · Business number</span>
                             {hasBusinessNumbers ? (
-                              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-2xs font-semibold text-primary">
                                 Done
                               </span>
                             ) : null}
@@ -326,7 +327,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                             <button
                               type="button"
                               onClick={openManageModal}
-                              className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                              className="inline-flex w-fit items-center gap-1 text-2xs font-semibold text-primary hover:underline"
                             >
                               Manage numbers
                               <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -336,20 +337,20 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
                         <div
                           className={cn(
-                            "flex flex-col gap-1.5 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
+                            "flex flex-col gap-2 rounded-xl border border-border/70 bg-background/60 px-3 py-2",
                             !hasBusinessNumbers && "opacity-55"
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-foreground">2 · Who answers</span>
                             {hasBusinessNumbers ? (
-                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-semibold text-primary">
                                 Next
                               </span>
                             ) : null}
                           </div>
                           {hasBusinessNumbers ? (
-                            <a href="#dash-call-flow" className="w-fit text-[11px] font-semibold text-primary hover:underline">
+                            <a href="#dash-call-flow" className="w-fit text-2xs font-semibold text-primary hover:underline">
                               Call flow
                             </a>
                           ) : null}
@@ -363,11 +364,11 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                         >
                           <span className="text-xs font-medium text-foreground">3 · Team</span>
                           {hasReceptionists ? (
-                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-2xs font-semibold text-primary">
                               Added
                             </span>
                           ) : hasBusinessNumbers ? (
-                            <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
+                            <Link href="/dashboard/contacts" className="text-2xs font-semibold text-primary hover:underline">
                               Team
                             </Link>
                           ) : null}

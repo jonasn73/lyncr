@@ -23,7 +23,7 @@ export function SheetInfoTrigger({
         onPress()
       }}
       className={cn(
-        "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary sm:min-h-8 sm:min-w-8 sm:h-8 sm:w-8",
+        "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary sm:min-h-8 sm:min-w-8 sm:h-9 sm:w-9",
         className
       )}
       aria-label={label}

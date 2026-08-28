@@ -436,7 +436,7 @@ function ProximitySmartKeySvg() {
 /** Physical flip / laser-cut blade key profile. */
 function HighSecurityBladeKeySvg() {
   return (
-    <svg viewBox="0 0 140 56" className="h-12 w-auto" aria-hidden>
+    <svg viewBox="0 0 140 56" className="h-11 w-auto" aria-hidden>
       <path
         d="M18 28c0-9 7-16 16-16h22c3 0 5 2 5 5v22c0 3-2 5-5 5H34c-9 0-16-7-16-16z"
         fill="#1e293b"
@@ -557,7 +557,7 @@ function KeyThumbnail({
   const showImage = Boolean(imageUrl) && !failed && !forceFobOutline
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-850">
+    <div className="w-full overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex h-32 items-center justify-center">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
@@ -569,14 +569,14 @@ function KeyThumbnail({
             onError={() => setFailed(true)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 px-3 py-2 text-slate-400">
+          <div className="flex flex-col items-center justify-center gap-2 px-3 py-2 text-muted-foreground">
             <KeyTypeSampleIllustration kind={illustrationKind} />
             <span className="sr-only">{label} layout sample</span>
           </div>
         )}
       </div>
       {!showImage ? (
-        <p className="border-t border-slate-800/80 px-2 py-1.5 text-center text-[9px] leading-snug text-slate-500">
+        <p className="border-t border-border/80 px-2 py-2 text-center text-2xs leading-snug text-muted-foreground">
           Verify button configuration with customer to confirm selection.
         </p>
       ) : null}
@@ -609,20 +609,20 @@ export function KeySelectionCard({
         disabled={disabled}
         onClick={onClick}
         className={cn(
-          "relative w-full touch-manipulation rounded-xl border p-2.5 text-left transition-colors",
+          "relative w-full touch-manipulation rounded-xl border p-3 text-left transition-colors",
           disabled && "cursor-not-allowed opacity-40",
           !disabled && selected
-            ? "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/45"
+            ? "border-success bg-success/40 ring-2 ring-success/45"
             : !disabled
-              ? "border-slate-800 bg-slate-950/50 hover:border-slate-700"
-              : "border-slate-800 bg-slate-950/40"
+              ? "border-border bg-background/50 hover:border-border"
+              : "border-border bg-background/40"
         )}
         aria-pressed={selected}
         aria-disabled={disabled}
       >
         {selected ? (
           <span
-            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-success text-success-foreground shadow-resting"
             aria-hidden
           >
             <Check className="h-3 w-3" strokeWidth={3} />
@@ -638,41 +638,41 @@ export function KeySelectionCard({
         />
         <div className="mt-2.5 min-w-0 space-y-2">
           {card.tiSku ? (
-            <span className="inline-flex max-w-full truncate text-emerald-400 font-mono text-sm tracking-wider bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-md">
+            <span className="inline-flex max-w-full truncate text-success font-mono text-sm tracking-wider bg-success/40 border border-success/50 px-2 py-1 rounded-md">
               {card.tiSku}
             </span>
           ) : (
-            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-emerald-100" : "text-slate-100")}>
+            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-success" : "text-foreground")}>
               {card.label}
             </span>
           )}
           {card.supplierOrderBadge ? (
-            <span className="inline-flex max-w-full flex-wrap items-center rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-[11px] font-semibold leading-snug tracking-wide text-sky-100">
+            <span className="inline-flex max-w-full flex-wrap items-center rounded-md border border-info/50 bg-info/15 px-2 py-1 font-mono text-2xs font-semibold leading-snug tracking-wide text-info">
               {card.supplierOrderBadge}
             </span>
           ) : null}
           {card.specs && card.specs.length > 0 ? (
-            <ul className="space-y-0.5 text-[11px] leading-snug text-slate-300">
+            <ul className="space-y-0.5 text-2xs leading-snug text-foreground">
               {card.specs.map((spec) => (
                 <li key={spec.label}>
-                  <span className="text-slate-500">{spec.label}:</span> {spec.value}
+                  <span className="text-muted-foreground">{spec.label}:</span> {spec.value}
                 </li>
               ))}
             </ul>
           ) : card.description ? (
-            <p className="line-clamp-2 text-[11px] text-slate-400">{card.description}</p>
+            <p className="line-clamp-2 text-2xs text-muted-foreground">{card.description}</p>
           ) : null}
           {card.programmingMethod ? (
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-micro font-medium uppercase tracking-wide text-muted-foreground">
               {card.programmingMethod}
             </p>
           ) : null}
           {card.fccFootnote ? (
-            <p className="font-mono text-[9px] tracking-wide text-slate-600">{card.fccFootnote}</p>
+            <p className="font-mono text-2xs tracking-wide text-muted-foreground">{card.fccFootnote}</p>
           ) : null}
         </div>
         {disabledReason ? (
-          <span className="mt-2 block rounded bg-amber-950/90 px-1 py-0.5 text-center text-[7px] font-semibold leading-tight text-amber-200">
+          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-2xs font-semibold leading-tight text-warning">
             {disabledReason}
           </span>
         ) : null}
@@ -774,7 +774,7 @@ function VariantFilmstrip({
 
   if (compatibleVariants.length === 0) {
     return (
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-2xs text-muted-foreground">
         No key photos — use key style below.
       </p>
     )
@@ -813,7 +813,7 @@ function VariantFilmstrip({
         })}
       </div>
     {showAklBanner ? (
-      <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-medium leading-snug text-amber-100">
+      <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-2xs font-medium leading-snug text-warning">
         🚨 Verification Alert: Ensure the vehicle is equipped with factory remote start before
         cutting/programming this variant to prevent blank waste.
       </p>
@@ -924,19 +924,19 @@ function FccProfileSection({
     <section
       className={cn(
         "grid gap-2 rounded-lg border p-2 transition-colors",
-        selected ? "border-emerald-500/40 bg-emerald-950/20" : "border-border/60 bg-background/40"
+        selected ? "border-success/40 bg-success/20" : "border-border/60 bg-background/40"
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           disabled={disabled}
-          className="text-left text-xs font-semibold text-slate-200"
+          className="text-left text-xs font-semibold text-foreground"
           onClick={() => onSelectProfile(p)}
         >
           Key blank options
         </button>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <CompatibleVehiclesHint summary={detail.compatible_summary} />
           <a
             href={`https://fccid.io/${encodeURIComponent(p.fcc_id.replace(/\s+/g, ""))}/Remote-Keyfob-Replacement`}
@@ -950,10 +950,10 @@ function FccProfileSection({
         </div>
       </div>
 
-      <p className="font-mono text-[9px] tracking-wide text-slate-600">FCC {p.fcc_id}</p>
+      <p className="font-mono text-2xs tracking-wide text-muted-foreground">FCC {p.fcc_id}</p>
 
       {relatedFcc.length > 0 ? (
-        <p className="text-[10px] text-amber-100/80">
+        <p className="text-2xs text-warning/80">
           Related sticker: <span className="font-mono">{relatedFcc.join(", ")}</span>
         </p>
       ) : null}
@@ -993,14 +993,14 @@ function CollapsedFccSummary({
       type="button"
       disabled={disabled}
       onClick={onToggle}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-2.5 py-2 text-left hover:border-primary/40"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-left hover:border-primary/40"
     >
-      <span className="min-w-0 truncate text-xs font-semibold text-slate-200">
+      <span className="min-w-0 truncate text-xs font-semibold text-foreground">
         {layoutCount > 0
           ? `${layoutCount} key blank${layoutCount === 1 ? "" : "s"}`
           : "Key options"}
       </span>
-      <span className="shrink-0 font-mono text-[9px] text-slate-600">
+      <span className="shrink-0 font-mono text-2xs text-muted-foreground">
         FCC {p.fcc_id}
         {p.frequency ? ` · ${p.frequency} MHz` : ""}
       </span>
@@ -1027,7 +1027,7 @@ function PanelToolbar({
         <button
           type="button"
           onClick={onReturnToLookup}
-          className="text-[10px] font-semibold text-primary underline-offset-2 hover:underline"
+          className="text-2xs font-semibold text-primary underline-offset-2 hover:underline"
         >
           Back to database lookup
         </button>
@@ -1035,7 +1035,7 @@ function PanelToolbar({
         <button
           type="button"
           onClick={onManualBypass}
-          className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary hover:bg-primary/15"
+          className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-2xs font-semibold text-primary hover:bg-primary/15"
         >
           Can&apos;t find FCC ID? Choose manually
         </button>
@@ -1091,7 +1091,7 @@ function ManualFrequencyGrid({
   return (
     <div className="grid gap-2">
       {!fromTiCatalog && (subaruMapped || mkpProfile) ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           {subaruMapped ? "Mapped key — FCC " : "MYKEYS Pro — FCC "}
           <span className="font-mono font-semibold text-foreground">
             {subaruMapped ? subaruMappedProxOption().fccId : mkpProfile?.fccId}
@@ -1116,7 +1116,7 @@ function ManualFrequencyGrid({
         <button
           type="button"
           onClick={() => setShowMoreKeys((prev) => !prev)}
-          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
+          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-2 text-2xs font-semibold text-primary hover:bg-primary/10"
         >
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
           {expanded ? "Show less" : `Show ${hiddenCount} more option${hiddenCount === 1 ? "" : "s"}`}
@@ -1641,7 +1641,7 @@ export function VehicleKeyInfoPanel({
     !value?.keyStyle?.trim()
   if (waitingOnClarification) {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-[12px] leading-relaxed text-amber-50/95">
+      <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-3 text-xs leading-relaxed text-warning/95">
         Answer <span className="font-semibold">push-button vs turn-key</span> above first. We’ll show
         the matching order blank after you choose — so we don’t pick the wrong key type for you.
       </div>
@@ -1656,10 +1656,10 @@ export function VehicleKeyInfoPanel({
           onManualBypass={() => setManualBypassMode(true)}
           onReturnToLookup={handleReturnToLookup}
         />
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Could not load key reference — choose a manual key type below to keep the call moving.
         </p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Verify button configuration with customer to confirm selection.
         </p>
         <ManualFrequencyGrid
@@ -1695,15 +1695,15 @@ export function VehicleKeyInfoPanel({
           onReturnToLookup={handleReturnToLookup}
         />
         {hasTiCatalogMatch ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             Confirm buttons with the customer before ordering.
           </p>
         ) : subaruMapped || mkpProfile ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             Confirm buttons with the customer before ordering.
           </p>
         ) : (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             No database match — pick the closest key type and confirm buttons with the customer.
           </p>
         )}
@@ -1820,44 +1820,44 @@ export function VehicleKeyInfoPanel({
         <KeyRound className="h-3.5 w-3.5" aria-hidden />
         Key types for {year} {make} {info.model}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-2xs text-muted-foreground">
         Verify button configuration with customer to confirm selection.
       </p>
       {!hasTiCatalogMatch ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Reference database (TI catalog had no blank) — confirm FCC ID on the customer&apos;s key.
         </p>
       ) : null}
 
       {lookupSource === "ymm_fallback" && activeFccQuery ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+        <p className="rounded-md border border-warning/30 bg-warning/10 px-2 py-2 text-2xs text-warning">
           No exact FCC match for <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span>
           — showing all remotes registered to this {year} {make} {info.model}.
         </p>
       ) : null}
 
       {lookupSource === "fcc" && activeFccQuery ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-100">
+        <p className="rounded-md border border-success/30 bg-success/10 px-2 py-2 text-2xs text-success">
           Matched FCC <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span> — confirm the
           photo on the customer&apos;s key.
         </p>
       ) : null}
 
       {info.match_type === "family" && info.matched_model !== info.model ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100">
+        <p className="rounded-md border border-warning/30 bg-warning/10 px-2 py-2 text-2xs text-warning">
           No exact match for <span className="font-medium">{info.model}</span> — showing closest reference:{" "}
           <span className="font-medium">{info.matched_model}</span>. Confirm on the vehicle before ordering keys.
         </p>
       ) : null}
 
       {multipleFcc ? (
-        <p className="text-[10px] text-sky-100">
+        <p className="text-2xs text-info">
           {profileDetails.length} possible FCC IDs — primary match expanded; tap others to compare.
         </p>
       ) : null}
 
       <div className="grid gap-2 rounded-lg border border-border/50 bg-background/40 p-2">
-        <label className="grid gap-1 text-[11px]">
+        <label className="grid gap-1 text-2xs">
           <span className="font-medium text-foreground">Vehicle trim (optional)</span>
           <input
             className="h-9 rounded-lg border border-border/70 bg-background px-2 text-sm text-foreground"
@@ -1867,7 +1867,7 @@ export function VehicleKeyInfoPanel({
             onChange={(e) => onVehicleTrimChange?.(e.target.value)}
           />
         </label>
-        <label className="flex items-center gap-2 text-[11px] text-foreground">
+        <label className="flex items-center gap-2 text-2xs text-foreground">
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-border"
@@ -1880,19 +1880,19 @@ export function VehicleKeyInfoPanel({
       </div>
 
       {trimHelperMessage ? (
-        <p className="text-[11px] italic leading-snug text-amber-200">{trimHelperMessage}</p>
+        <p className="text-2xs italic leading-snug text-warning">{trimHelperMessage}</p>
       ) : null}
 
       <div className="grid gap-2">
         {selectedKeyId && selectedVariantDetail?.variant ? (
           <section className="grid gap-2 rounded-lg border border-primary/50 bg-primary/10 p-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium text-foreground">Selected layout</span>
+              <span className="text-2xs font-medium text-foreground">Selected layout</span>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={resetKeySelection}
-                className="text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
+                className="text-2xs font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Change
               </button>
@@ -1973,7 +1973,7 @@ export function VehicleKeyInfoPanel({
         )}
       </div>
 
-      <label className="grid gap-1 text-[11px]">
+      <label className="grid gap-1 text-2xs">
         <span className="font-medium text-foreground">Key style (confirm on vehicle)</span>
         <select
           className="h-9 rounded-lg border border-border/70 bg-background px-2 text-sm text-foreground"
@@ -1999,7 +1999,7 @@ export function VehicleKeyInfoPanel({
       </label>
 
       {info.photo_disclaimer ? (
-        <p className="text-[10px] text-muted-foreground">{info.photo_disclaimer}</p>
+        <p className="text-2xs text-muted-foreground">{info.photo_disclaimer}</p>
       ) : null}
     </div>
   )

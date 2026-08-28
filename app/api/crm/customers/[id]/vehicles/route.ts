@@ -1,7 +1,7 @@
 // POST /api/crm/customers/[id]/vehicles — add a garage vehicle
 // PATCH /api/crm/customers/[id]/vehicles — update year/make/model/VIN on an existing vehicle
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import {
   createCustomerVehicleForUser,
@@ -82,8 +82,11 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "crm_edit",
+  })
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   const customer = await getCustomerByIdForUser(userId, id)

@@ -111,11 +111,11 @@ export function MissedCallQuickLogPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
+          <p className="text-micro font-semibold uppercase tracking-wide text-destructive">
             Missed call
           </p>
           <p className="mt-1 flex items-center gap-2 text-lg font-semibold tabular-nums text-foreground">
-            <Phone className="h-5 w-5 shrink-0 text-rose-300" aria-hidden />
+            <Phone className="h-5 w-5 shrink-0 text-destructive" aria-hidden />
             {phoneDisplay}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -124,7 +124,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             What was it about?
           </p>
           <div className="flex flex-wrap gap-2">
@@ -138,8 +138,8 @@ export function MissedCallQuickLogPanel({
                   className={cn(
                     "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
                     active
-                      ? "border-rose-400/50 bg-rose-500/15 text-rose-100"
-                      : "border-zinc-700/80 bg-zinc-900/40 text-zinc-300 hover:border-rose-400/35 hover:bg-slate-800 hover:text-rose-100"
+                      ? "border-destructive/50 bg-destructive/15 text-destructive"
+                      : "border-border/80 bg-card/40 text-foreground hover:border-destructive/35 hover:bg-muted hover:text-destructive"
                   )}
                   aria-pressed={active}
                 >
@@ -151,7 +151,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Notes
           </label>
           <Textarea
@@ -160,24 +160,24 @@ export function MissedCallQuickLogPanel({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything to remember — address hint, what they said, when to call back…"
             rows={3}
-            className="resize-none border-zinc-700/80 bg-zinc-950/50 text-sm"
+            className="resize-none border-border/80 bg-background/50 text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="missed-quick-name" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-            Caller name <span className="font-normal normal-case text-zinc-500">(optional)</span>
+          <label htmlFor="missed-quick-name" className="mb-1.5 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Caller name <span className="font-normal normal-case text-muted-foreground">(optional)</span>
           </label>
           <Input
             id="missed-quick-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="If you know who it was"
-            className="border-zinc-700/80 bg-zinc-950/50"
+            className="border-border/80 bg-background/50"
           />
         </div>
 
-        {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
 
       <div className="shrink-0 space-y-2 border-t border-border/60 bg-card/40 px-4 py-3">
@@ -185,7 +185,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full gap-2 border-rose-500/40 bg-rose-500/10 font-semibold text-rose-100 hover:bg-rose-500/20"
+            className="h-11 w-full gap-2 border-destructive/40 bg-destructive/10 font-semibold text-destructive hover:bg-destructive/20"
             disabled={saving}
             onClick={() => void save("callback", { dialAfter: true })}
           >
@@ -208,7 +208,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-10 flex-1 text-xs"
+            className="h-11 flex-1 text-xs"
             disabled={saving}
             onClick={onBookJob}
           >
@@ -217,7 +217,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="ghost"
-            className="h-10 flex-1 text-xs text-zinc-400"
+            className="h-11 flex-1 text-xs text-muted-foreground"
             disabled={saving}
             onClick={() => {
               if (purpose || notes) {

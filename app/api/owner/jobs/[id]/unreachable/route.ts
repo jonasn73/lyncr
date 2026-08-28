@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getUser, markLeadCalledNoAnswer, normalizePhoneNumberE164 } from "@/lib/db"
-import { hasOutboundSmsToCustomerRecently } from "@/lib/missed-call-rescue"
+import { hasOutboundSmsToCustomerRecently } from "@/lib/booking-sms-guards"
 import {
   buildUnreachableFollowUpSms,
   UNREACHABLE_SMS_COOLDOWN_MINUTES,

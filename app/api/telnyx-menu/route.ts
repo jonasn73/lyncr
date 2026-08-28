@@ -15,7 +15,7 @@ import { toE164 } from "@/lib/phone-e164"
 import { getIvrMenuSettingsByInboundDid } from "@/lib/ivr-menu-db"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { defaultIntakeScheduleDate } from "@/lib/intake-schedule-helpers"
-import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
+import { markIvrActionCompleted } from "@/lib/booking-sms-guards"
 import { IVR_MENU_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 import { buildBookQueryUrl, createBookingInvite } from "@/lib/booking-invite"
 import {

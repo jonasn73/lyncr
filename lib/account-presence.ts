@@ -585,3 +585,22 @@ export async function listOwnersForPresenceCron(): Promise<string[]> {
     }
   }
 }
+
+/**
+ * "3:40 PM EST" for the busy-until label on the presence bar.
+ *
+ * Lived in the Amber command parser, but the presence bar is core: an owner sets Busy
+ * from the app and needs to see when it lifts, whether or not anything else can set it.
+ */
+export function formatPresenceUntilLabel(at: Date, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone || "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(at)
+  } catch {
+    return at.toISOString()
+  }
+}

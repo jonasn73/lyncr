@@ -49,22 +49,22 @@ function PhotoGrid({
 }) {
   return (
     <div className="min-w-0 flex-1">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-[10px] text-slate-500">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-border/80 bg-background/40 px-2 py-2 text-center text-2xs text-muted-foreground">
           Waiting…
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {photos.map((photo) => (
             <a
               key={photo.id}
               href={photo.url}
               target="_blank"
               rel="noreferrer"
-              className="relative aspect-square overflow-hidden rounded-lg border border-slate-600/70 bg-slate-950"
+              className="relative aspect-square overflow-hidden rounded-lg border border-border/70 bg-background"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photo.url} alt={title} className="h-full w-full object-cover" />
@@ -196,18 +196,18 @@ export function IntakeJobPhotosPanel({
   }, [callLogId, customerPhone])
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       {/* Critical dispatch banners stay visible even when the tools stay collapsed. */}
       {infoReceived ? (
         <div className="space-y-2">
-          <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
-            <p className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
+          <div className="rounded-xl border border-success/50 bg-success/15 px-3 py-2 text-center">
+            <p className="text-2xs font-black uppercase tracking-wider text-success">
               [ INFO RECEIVED - READY TO DISPATCH ]
             </p>
           </div>
           {rescueMeta?.verify_on_arrival ? (
-            <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-2.5 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
-              <p className="text-[12px] font-black uppercase tracking-wide text-amber-100">
+            <div className="rounded-xl border-2 border-warning bg-warning/20 px-3 py-3 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+              <p className="text-xs font-black uppercase tracking-wide text-warning">
                 ⚠️ VERIFY ID ON SITE BEFORE UNLOCKING
               </p>
             </div>
@@ -220,8 +220,8 @@ export function IntakeJobPhotosPanel({
         type="button"
         onClick={() => setExpanded((open) => !open)}
         className={cn(
-          "inline-flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
-          compact ? "text-[11px]" : "text-xs"
+          "inline-flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
+          compact ? "text-2xs" : "text-xs"
         )}
         aria-expanded={expanded}
       >
@@ -261,7 +261,7 @@ export function IntakeJobPhotosPanel({
                 disabled={requestState === "sending"}
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-muted/30 font-semibold text-foreground transition-colors hover:bg-muted/50 disabled:opacity-50",
-                  compact ? "px-3 py-2 text-[11px]" : "px-3 py-2.5 text-xs"
+                  compact ? "px-3 py-2 text-2xs" : "px-3 py-3 text-xs"
                 )}
                 title="Text customer a Pending Info Intake link"
               >
@@ -276,8 +276,8 @@ export function IntakeJobPhotosPanel({
               {hint ? (
                 <p
                   className={cn(
-                    "text-[10px]",
-                    requestState === "error" ? "text-red-400" : "text-sky-300/90"
+                    "text-2xs",
+                    requestState === "error" ? "text-destructive" : "text-info/90"
                   )}
                 >
                   {hint}
@@ -285,41 +285,41 @@ export function IntakeJobPhotosPanel({
               ) : null}
 
               {hasActivity ? (
-                <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-2.5">
+                <div className="space-y-2 rounded-xl border border-border/80 bg-card/40 p-3">
                   {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
-                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                    <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
                       {rescueMeta?.customer_name ? (
-                        <p className="text-xs font-semibold text-emerald-100">
+                        <p className="text-xs font-semibold text-success">
                           {rescueMeta.customer_name}
                         </p>
                       ) : null}
                       {vehicleLine ? (
-                        <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
+                        <p className="text-xs text-success/90">{vehicleLine}</p>
                       ) : null}
                       {rescueMeta?.vehicle_vin ? (
-                        <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                        <p className="mt-0.5 font-mono text-2xs text-muted-foreground">
                           VIN {rescueMeta.vehicle_vin}
                         </p>
                       ) : null}
                       {rescueMeta?.special_notes ? (
-                        <p className="mt-1 text-[11px] text-slate-300">
+                        <p className="mt-1 text-2xs text-foreground">
                           {rescueMeta.special_notes}
                         </p>
                       ) : null}
                     </div>
                   ) : null}
 
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-foreground">
                     Job Attachments ({photos.length})
                   </p>
                   <div className="flex gap-2">
                     <PhotoGrid title="Damage" photos={damagePhotos} />
                     {rescueMeta?.verify_on_arrival ? (
                       <div className="min-w-0 flex-1">
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+                        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-warning/90">
                           ID / Registration
                         </p>
-                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-2 text-center text-[10px] font-semibold text-amber-100">
+                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-warning/50 bg-warning/10 px-2 py-2 text-center text-2xs font-semibold text-warning">
                           Verify ID on site
                         </div>
                       </div>
@@ -329,7 +329,7 @@ export function IntakeJobPhotosPanel({
                   </div>
                 </div>
               ) : (
-                <p className="px-0.5 text-[10px] text-muted-foreground">
+                <p className="px-0.5 text-2xs text-muted-foreground">
                   Texts a link so the customer can send damage / ID photos. Skip unless you need them.
                 </p>
               )}

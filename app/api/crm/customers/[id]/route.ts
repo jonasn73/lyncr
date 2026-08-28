@@ -1,7 +1,7 @@
 // GET /api/crm/customers/[id] — profile: customer + vehicles + service history + payments
 // PATCH /api/crm/customers/[id] — edit display name, notes, and/or lead appointment
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   getCustomerByIdForUser,
   listCrmCustomersForUser,
@@ -60,8 +60,11 @@ export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "crm_access",
+  })
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   if (!id?.trim()) return NextResponse.json({ error: "Missing id" }, { status: 400 })
@@ -106,8 +109,11 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "crm_edit",
+  })
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   if (!id?.trim()) return NextResponse.json({ error: "Missing id" }, { status: 400 })

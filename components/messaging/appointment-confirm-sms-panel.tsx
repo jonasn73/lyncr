@@ -111,21 +111,21 @@ export function AppointmentConfirmSmsPanel({
   return (
     <div
       className={cn(
-        "space-y-3 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-left",
+        "space-y-3 rounded-xl border border-warning/35 bg-warning/10 p-4 text-left",
         className
       )}
     >
       <div className="flex items-start gap-2">
-        <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden />
+        <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-amber-50">Confirm SMS before sending</p>
-          <p className="mt-0.5 text-xs text-amber-100/75">
+          <p className="text-sm font-semibold text-warning">Confirm SMS before sending</p>
+          <p className="mt-0.5 text-xs text-warning/75">
             Review the message to {formatPhoneDisplay(toPhone)}. Edit anything that looks wrong.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {(
           [
             { id: "default" as const, label: "Full confirmation" },
@@ -139,10 +139,10 @@ export function AppointmentConfirmSmsPanel({
             disabled={sending}
             onClick={() => applyPreset(chip.id)}
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
+              "rounded-full border px-3 py-1 text-2xs font-semibold transition-colors disabled:opacity-50",
               preset === chip.id
-                ? "border-amber-400/60 bg-amber-500/25 text-amber-50"
-                : "border-amber-500/25 bg-slate-950/40 text-amber-100/80 hover:bg-amber-500/15"
+                ? "border-warning/60 bg-warning/25 text-warning"
+                : "border-warning/25 bg-background/40 text-warning/80 hover:bg-warning/15"
             )}
           >
             {chip.label}
@@ -160,14 +160,14 @@ export function AppointmentConfirmSmsPanel({
             setPreset("custom")
             setText(e.target.value)
           }}
-          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-2.5 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-warning/30 bg-background/70 px-3 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-warning/50 focus:outline-none disabled:opacity-60"
         />
       </label>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button
           type="button"
-          className="h-11 flex-1 bg-emerald-600 font-semibold text-white hover:bg-emerald-500"
+          className="h-11 flex-1 bg-success font-semibold text-success-foreground hover:bg-success"
           disabled={sending || !text.trim()}
           onClick={() => void sendConfirmation()}
         >
@@ -183,7 +183,7 @@ export function AppointmentConfirmSmsPanel({
         <Button
           type="button"
           variant="outline"
-          className="h-11 flex-1 border-amber-500/30 bg-transparent text-amber-100 hover:bg-amber-500/10"
+          className="h-11 flex-1 border-warning/30 bg-transparent text-warning hover:bg-warning/10"
           disabled={sending}
           onClick={onSkip}
         >

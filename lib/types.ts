@@ -118,7 +118,26 @@ export interface FieldTechnician {
   is_active: boolean
   /** True while the tech still has a pending SMS invite (hasn't set their password yet). */
   invite_pending?: boolean
+  /** Owner-configurable per-tech feature flags (`152-field-technician-capabilities.sql`). */
+  capabilities: FieldTechnicianCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this tech into beyond doing the jobs they are handed.
+ *
+ * Keyed to real seams in the tech console rather than invented categories — each one is a
+ * thing that is on the screen today. See lib/field-technician-capabilities.ts.
+ */
+export interface FieldTechnicianCapabilities {
+  /** See the unassigned pool and claim work from it, instead of only doing what's dispatched. */
+  job_pool: boolean
+  /** See and dial the customer's number from the job card. */
+  customer_contact: boolean
+  /** Take payment on site — card, tap to pay, or a pay link. */
+  collect_payment: boolean
+  /** See their own wallet: what they've earned and what's owed. */
+  view_earnings: boolean
 }
 
 /** A single invoice line item. */
@@ -157,6 +176,8 @@ export interface DispatchJob {
   id: string
   customer_name: string | null
   customer_phone: string | null
+  /** Optional email for Send invoice / receipts (collected.customer_email). */
+  customer_email?: string | null
   location: string | null
   summary: string | null
   job_status: string | null
@@ -761,7 +782,13 @@ export interface AdminTenantControlPendingInvite {
 
 /** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
 export interface AdminTenantControls {
+  /** Opt-IN platform features — an absent key means off. */
   feature_flags: Record<string, boolean>
+  /**
+   * Opt-OUT ceiling on what this account may do — an absent key means GRANTED.
+   * Opposite default from feature_flags on purpose; see lib/platform-account-grants.ts.
+   */
+  platform_grants: Record<string, boolean>
   phone_lines: AdminTenantControlPhoneLine[]
   /** True when the owner has more than one workspace in `organizations`. */
   is_multi_workspace: boolean
@@ -955,7 +982,35 @@ export interface Receptionist {
   assigned_workspaces?: OperatorAssignedWorkspace[]
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
+  /** Owner-configurable per-receptionist feature flags (`150-receptionist-capabilities.sql`). */
+  capabilities: ReceptionistCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this receptionist into beyond the default intake — grows one
+ * flag at a time as new capabilities are added. See lib/receptionist-capabilities.ts.
+ */
+export interface ReceptionistCapabilities {
+  /** Full FCC/chipset/programming-method key catalog vs. the plain vehicle picker. */
+  full_vehicle_key_catalog: boolean
+  /** Job board + tech assignment — the same JobDetailDrawer/TechAssignmentSelect owners use. */
+  dispatching: boolean
+  /** Read the owner's customer book: CRM list, profiles, vehicles, service history. */
+  crm_access: boolean
+  /** Edit those customer records — display name, notes, vehicles, lead appointments. */
+  crm_edit: boolean
+  /** Shared calendar: see the schedule and book onto it. */
+  scheduler: boolean
+  /** See invoices, payment records, and pay links. */
+  invoicing: boolean
+  /** Send an invoice, receipt, or pay link to a customer — money leaving the building. */
+  invoicing_send: boolean
+  /**
+   * Whether she can take intake on a call at all. There is one intake form in this
+   * product — the owner's — so this is the switch for having it, not a choice of which.
+   */
+  call_intake: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */
@@ -1022,7 +1077,14 @@ export type ReceptionistLiveStatus =
 export interface ReceptionistPortalDashboard {
   receptionist: Pick<
     Receptionist,
-    "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd" | "routing_endpoint"
+    | "id"
+    | "name"
+    | "is_active"
+    | "pay_mode"
+    | "rate_per_minute"
+    | "flat_rate_usd"
+    | "routing_endpoint"
+    | "capabilities"
   >
   /**
    * What this receptionist is paid, in words, from their live compensation plan
@@ -1078,6 +1140,20 @@ export interface ReceptionistCallerLookup {
   /** Latest job/lead status, e.g. "Price quoted" or "Booked · Aug 9, 2:00 PM". */
   job_status_label: string | null
   job_status_tone: "neutral" | "amber" | "emerald" | "rose" | "sky" | null
+  /** CRM notes on the customer record — read out loud before asking again. */
+  notes: string | null
+  /** Most recent job's summary/service line, e.g. "Ignition repair". */
+  last_job_summary: string | null
+  /** Vehicle on the most recent job, e.g. "2019 Honda Civic". */
+  last_job_vehicle: string | null
+  /** ISO timestamp of the most recent job (scheduled time, else created time). */
+  last_job_at: string | null
+  /** Split YMM from the most recent job — lets the HUD prefill vehicle fields in one tap. */
+  last_job_vehicle_year: string | null
+  last_job_vehicle_make: string | null
+  last_job_vehicle_model: string | null
+  /** Job type on the most recent job, e.g. "Ignition" — offered as a one-tap prefill too. */
+  last_job_type: string | null
 }
 
 /**
@@ -1227,12 +1303,18 @@ export type CrmLeadBadge =
   | "callback"
   | "repeat_customer"
   | "new_contact"
+  | "needs_followup"
 
 export interface CrmCustomerListItem extends Customer {
   jobs_completed: number
   lifetime_revenue_cents: number
   lead_badge: CrmLeadBadge
   open_lead_count: number
+  /** ISO of the most recent completed job — powers the "Needs follow-up" lapsed filter. */
+  last_completed_at?: string | null
+  /** Outstanding balance across unpaid/pending tech-console invoices. */
+  unpaid_cents?: number
+  unpaid_invoice_count?: number
   /**
    * True when this phone has an open lead from a customer book form
    * (public /book or Activity book link) — still findable after Latest dismiss.

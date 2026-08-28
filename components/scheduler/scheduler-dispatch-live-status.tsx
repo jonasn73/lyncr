@@ -65,7 +65,7 @@ function UpcomingJobChip({
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 px-2.5 py-1 text-left",
+        "flex flex-col gap-0.5 px-3 py-1 text-left",
         stackLayout ? "w-full min-w-0" : "min-w-[12rem] shrink-0 snap-start",
         SCHEDULER_URGENCY_CHIP_CLASS[urgency]
       )}
@@ -84,7 +84,7 @@ function UpcomingJobChip({
         {/* Stack layout drops truncate so names like "Allen" are not sliced off. */}
         <span
           className={cn(
-            "mt-0.5 block text-xs font-medium text-slate-100",
+            "mt-0.5 block text-xs font-medium text-foreground",
             stackLayout ? "break-words" : "truncate"
           )}
         >
@@ -107,7 +107,7 @@ function UpcomingJobChip({
             e.stopPropagation()
             onMarkComplete(job.id)
           }}
-          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
+          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-success/40 bg-success/10 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-success hover:bg-success/20"
         >
           {isCompleting ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
           Mark done
@@ -136,10 +136,10 @@ function UpcomingJobsList({
   pending?: boolean
 }) {
   if (pending) {
-    return <p className="min-h-[1.25rem] text-[11px] text-zinc-600">{"\u00a0"}</p>
+    return <p className="min-h-[1.25rem] text-2xs text-muted-foreground">{"\u00a0"}</p>
   }
   if (upcoming.length === 0) {
-    return <p className="text-[11px] text-zinc-600">Nothing scheduled yet</p>
+    return <p className="text-2xs text-muted-foreground">Nothing scheduled yet</p>
   }
 
   return (
@@ -230,7 +230,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   if (upcomingOnly) {
     return (
       <div className={cn(className)} aria-label="Upcoming jobs">
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Coming up next</p>
+        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-muted-foreground">Coming up next</p>
         <UpcomingJobsList
           upcoming={upcoming}
           now={now}
@@ -267,8 +267,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               compact
                 ? "px-0 py-0"
                 : sidebar
-                  ? "border-b border-zinc-800/80 px-2.5 py-1.5"
-                  : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-3.5 md:py-2.5"
+                  ? "border-b border-border/80 px-3 py-2"
+                  : "border-b border-border/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
             )}
           >
             <Clock3
@@ -285,7 +285,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
                 dateTime={now.toISOString()}
                 suppressHydrationWarning
                 className={cn(
-                  "font-semibold tabular-nums text-zinc-100",
+                  "font-semibold tabular-nums text-foreground",
                   compact ? "text-xs" : "text-sm"
                 )}
               >
@@ -314,8 +314,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
         {!compact ? (
           <div
             className={cn(
-              "border-t border-zinc-800/80",
-              sidebar ? "px-2.5 py-1.5" : "px-3 py-2 md:px-3.5"
+              "border-t border-border/80",
+              sidebar ? "px-3 py-2" : "px-3 py-2 md:px-4"
             )}
           >
             <p className={cn(SCHEDULER_METADATA_LABEL, "mb-1")}>Coming up next</p>

@@ -163,12 +163,12 @@ export function VehicleIntakeClarificationsPanel({
   if (!ready || prompts.length === 0) return null
 
   return (
-    <div className="grid gap-3 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3">
+    <div className="grid gap-3 rounded-lg border border-warning/35 bg-warning/10 p-3">
       <div className="flex items-start gap-2">
-        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden />
+        <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-100">Ask the customer</p>
-          <p className="mt-0.5 text-[11px] text-amber-100/80">
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning">Ask the customer</p>
+          <p className="mt-0.5 text-2xs text-warning/80">
             {keyGatePending
               ? "Answer this before we show a key blank — push-start and turn-key use different parts."
               : "Answer these to lock the correct vehicle / key before ordering."}
@@ -182,9 +182,9 @@ export function VehicleIntakeClarificationsPanel({
         const bestOption = prompt.options.find((option) => option.fccId?.trim()) ?? prompt.options[0]
 
         return (
-          <section key={prompt.id} className="grid gap-2 rounded-md border border-amber-500/25 bg-background/40 p-2.5">
+          <section key={prompt.id} className="grid gap-2 rounded-md border border-warning/25 bg-background/40 p-3">
             <p className="text-xs font-medium text-foreground">{prompt.question}</p>
-            <p className="text-[11px] italic text-muted-foreground">&ldquo;{prompt.askScript}&rdquo;</p>
+            <p className="text-2xs italic text-muted-foreground">&ldquo;{prompt.askScript}&rdquo;</p>
 
             {canAutoSelect && bestOption ? (
               <button
@@ -200,9 +200,9 @@ export function VehicleIntakeClarificationsPanel({
                   })
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/45",
-                  "bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-100",
-                  "hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                  "inline-flex items-center justify-center gap-2 rounded-lg border border-success/45",
+                  "bg-success/15 px-3 py-3 text-xs font-semibold text-success",
+                  "hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-50"
                 )}
               >
                 <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -231,12 +231,12 @@ export function VehicleIntakeClarificationsPanel({
                       "disabled:cursor-not-allowed disabled:opacity-50",
                       selected
                         ? "border-primary bg-primary/20 text-primary ring-1 ring-primary/40"
-                        : "border-amber-500/40 bg-background hover:border-primary hover:bg-primary/10 hover:text-primary"
+                        : "border-warning/40 bg-background hover:border-primary hover:bg-primary/10 hover:text-primary"
                     )}
                   >
                     <span className="block">{option.label}</span>
                     {option.keyStyle && !option.label.toLowerCase().includes(option.keyStyle.toLowerCase()) ? (
-                      <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                      <span className="mt-0.5 block text-2xs font-normal text-muted-foreground">
                         {option.keyStyle}
                       </span>
                     ) : null}

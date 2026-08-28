@@ -44,18 +44,18 @@ export function SupportChatReplyBanner() {
       )}
       role="status"
     >
-      <div className="flex items-start gap-3 rounded-xl border border-violet-500/40 bg-slate-950/95 px-3 py-3 shadow-lg backdrop-blur">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 text-violet-300">
+      <div className="flex items-start gap-3 rounded-xl border border-operator/40 bg-background/95 px-3 py-3 shadow-raised backdrop-blur">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-operator/20 text-operator">
           <MessageCircle className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-50">Lyncr Support replied</p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="text-sm font-medium text-foreground">Lyncr Support replied</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             You have {unread} unread {unread === 1 ? "message" : "messages"} in Help chat.
           </p>
           <Link
             href="/dashboard/help#support-chat"
-            className="mt-2 inline-block text-xs font-semibold text-violet-300 underline-offset-2 hover:underline"
+            className="mt-2 inline-block text-xs font-semibold text-operator underline-offset-2 hover:underline"
           >
             Open chat
           </Link>
@@ -63,7 +63,7 @@ export function SupportChatReplyBanner() {
         <button
           type="button"
           aria-label="Dismiss"
-          className="rounded-md p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={() => {
             try {
               sessionStorage.setItem(DISMISS_KEY, String(unread))

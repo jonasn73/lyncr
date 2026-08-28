@@ -95,14 +95,14 @@ export function InvoicePreviewSheet({
         // Sit above CRM customer sheets (z~7200) and Money payments sheet.
         overlayClassName="z-[7400]"
         className={cn(
-          "z-[7410] flex max-h-[94dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg"
+          "z-[7410] flex max-h-[94dvh] flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg"
         )}
       >
-        <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
+        <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <SheetTitle className="text-base font-bold text-slate-100">Invoice</SheetTitle>
-              <p className="mt-0.5 truncate text-xs text-slate-500">
+              <SheetTitle className="text-base font-bold text-foreground">Invoice</SheetTitle>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {invoice?.invoiceNumber
                   ? invoice.invoiceNumber
                   : loading
@@ -113,7 +113,7 @@ export function InvoicePreviewSheet({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-zinc-400 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -124,14 +124,14 @@ export function InvoicePreviewSheet({
         {/* Scrollable receipt area — light gray behind white card. */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 px-3 py-4">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Loading invoice…
             </div>
           ) : error || !invoice ? (
             <div className="rounded-xl border border-rose-200 bg-white px-4 py-8 text-center">
               <p className="text-sm font-semibold text-slate-800">Invoice unavailable</p>
-              <p className="mt-2 text-xs text-slate-500">{error || "Could not load this invoice."}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{error || "Could not load this invoice."}</p>
             </div>
           ) : (
             <PublicInvoiceBody invoice={invoice} />
@@ -139,12 +139,12 @@ export function InvoicePreviewSheet({
         </div>
 
         {/* Dark action bar — PDF, Done, optional open-in-browser. */}
-        <div className="shrink-0 space-y-2 border-t border-zinc-800 bg-[#101018] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+        <div className="shrink-0 space-y-2 border-t border-border bg-[#101018] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
           {pdfHref ? (
             <a
               href={pdfHref}
               download
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success"
             >
               <Download className="h-4 w-4" aria-hidden />
               Download PDF
@@ -153,7 +153,7 @@ export function InvoicePreviewSheet({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-zinc-700 bg-zinc-950/60 text-sm font-semibold text-slate-100 hover:bg-zinc-900"
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background/60 text-sm font-semibold text-foreground hover:bg-card"
           >
             Done
           </button>
@@ -162,7 +162,7 @@ export function InvoicePreviewSheet({
               href={browserHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-9 w-full items-center justify-center gap-1.5 text-[11px] font-semibold text-zinc-500 hover:text-teal-300"
+              className="inline-flex h-9 w-full items-center justify-center gap-2 text-2xs font-semibold text-muted-foreground hover:text-teal-300"
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               Open in browser

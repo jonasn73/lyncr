@@ -219,6 +219,39 @@ export function intakeTitleForProfile(profile: IntakeWorkspaceProfile): string {
   return FIELD_SERVICE_INTAKE_TITLES[profile] ?? FIELD_SERVICE_INTAKE_TITLES.generic
 }
 
+/**
+ * Job types within a profile that don't involve a vehicle at all — a house rekey has no
+ * car to ask about, so asking for one (or "All Keys Lost", a car-key concept) is exactly
+ * the kind of unnecessary question the owner console already skips via
+ * `serviceTypeRequiresVehicle`. Every job type not listed here is assumed vehicle-based,
+ * which is the safe default before a job type is even chosen.
+ */
+const NON_VEHICLE_JOB_TYPES: Partial<Record<IntakeWorkspaceProfile, readonly string[]>> = {
+  locksmith: ["Rekey"],
+  generic: ["Rekey"],
+}
+
+/** False once a job type that doesn't need a vehicle is chosen (e.g. "Rekey"). */
+export function jobTypeRequiresVehicle(profile: IntakeWorkspaceProfile, jobType: string): boolean {
+  const excluded = NON_VEHICLE_JOB_TYPES[profile]
+  const trimmed = jobType.trim()
+  if (!excluded || !trimmed) return true
+  return !excluded.includes(trimmed)
+}
+
+/** Field groups that only make sense once a vehicle is actually involved. */
+const VEHICLE_ONLY_GROUPS = new Set<FieldServiceFieldDef["group"]>(["vehicle", "locksmith", "detailing"])
+
+/** Drop vehicle / vehicle-detail fields for a job type that doesn't need one. */
+export function fieldsForJobType(
+  fields: FieldServiceFieldDef[],
+  profile: IntakeWorkspaceProfile,
+  jobType: string
+): FieldServiceFieldDef[] {
+  if (jobTypeRequiresVehicle(profile, jobType)) return fields
+  return fields.filter((f) => !VEHICLE_ONLY_GROUPS.has(f.group))
+}
+
 /** Build "2021 Ford F-150" from collected intake fields (supports legacy key names). */
 export function formatVehicleLabel(fields: Record<string, unknown>): string | null {
   const year = String(fields.vehicle_year ?? fields.year ?? "").trim()

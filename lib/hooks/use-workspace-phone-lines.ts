@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { useDashboardBootstrapEffective } from "@/components/dashboard-bootstrap-context"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
-import { customerFacingPhoneLines } from "@/lib/amber-control-line"
+import { customerFacingPhoneLines } from "@/lib/control-line"
 import { filterPhoneLinesForOrganization, preferPhoneLinesForWorkspace } from "@/lib/workspace-phone-lines"
 
 /** Phone lines for the active business workspace — never another org's DIDs. */

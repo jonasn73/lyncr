@@ -10,16 +10,12 @@ import {
   OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT,
   OPEN_ROUTING_STRATEGY_MODAL_EVENT,
   OPEN_SMS_AUTOMATION_MODAL_EVENT,
-  OPEN_MISSED_CALL_RESCUE_MODAL_EVENT,
-  OPEN_AMBER_MODAL_EVENT,
   OPEN_TEAM_INVITE_MODAL_EVENT,
   type CarrierRegistrationModalOpenDetail,
 } from "@/lib/settings-modals-events"
 import { CarrierRegistrationModal } from "@/components/dashboard/carrier-registration-modal"
 import { PortServiceAddressModal } from "@/components/dashboard/port-service-address-modal"
 import { SmsAutomationModal } from "@/components/dashboard/sms-automation-modal"
-import { MissedCallRescueSettingsModal } from "@/components/dashboard/missed-call-rescue-settings-modal"
-import { AmberSettingsModal } from "@/components/dashboard/amber-settings-modal"
 import { BusinessProfileModal } from "@/components/dashboard/business-profile-modal"
 import { BillingSubscriptionModal } from "@/components/dashboard/billing-subscription-modal"
 import { RoutingStrategyModal } from "@/components/dashboard/routing-strategy-modal"
@@ -83,8 +79,6 @@ export function DashboardSettingsModalsHost({
   const [carrierInitialEdit, setCarrierInitialEdit] = useState(false)
   const [portAddressOpen, setPortAddressOpen] = useState(false)
   const [smsAutomationOpen, setSmsAutomationOpen] = useState(false)
-  const [missedCallRescueOpen, setMissedCallRescueOpen] = useState(false)
-  const [amberOpen, setAmberOpen] = useState(false)
   const [businessOpen, setBusinessOpen] = useState(false)
   const [billingOpen, setBillingOpen] = useState(false)
   const [routingOpen, setRoutingOpen] = useState(false)
@@ -160,8 +154,6 @@ export function DashboardSettingsModalsHost({
   const openCarrier = useCallback(() => openCarrierFromEvent(), [openCarrierFromEvent])
   const openPortAddress = useCallback(() => setPortAddressOpen(true), [])
   const openSmsAutomation = useCallback(() => setSmsAutomationOpen(true), [])
-  const openMissedCallRescue = useCallback(() => setMissedCallRescueOpen(true), [])
-  const openAmber = useCallback(() => setAmberOpen(true), [])
   const openBusiness = useCallback(() => {
     void refreshProfile()
     setBusinessOpen(true)
@@ -178,8 +170,6 @@ export function DashboardSettingsModalsHost({
       [OPEN_CARRIER_REGISTRATION_MODAL_EVENT, openCarrierFromEvent],
       [OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT, openPortAddress],
       [OPEN_SMS_AUTOMATION_MODAL_EVENT, openSmsAutomation],
-      [OPEN_MISSED_CALL_RESCUE_MODAL_EVENT, openMissedCallRescue],
-      [OPEN_AMBER_MODAL_EVENT, openAmber],
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT, openBusiness],
       [OPEN_BILLING_MODAL_EVENT, openBilling],
       [OPEN_ROUTING_STRATEGY_MODAL_EVENT, openRouting],
@@ -197,8 +187,6 @@ export function DashboardSettingsModalsHost({
     openCarrierFromEvent,
     openPortAddress,
     openSmsAutomation,
-    openMissedCallRescue,
-    openAmber,
     openBusiness,
     openBilling,
     openRouting,
@@ -213,8 +201,6 @@ export function DashboardSettingsModalsHost({
       [OPEN_CARRIER_REGISTRATION_MODAL_EVENT]: () => openCarrierFromEvent(bootstrapEvent),
       [OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT]: openPortAddress,
       [OPEN_SMS_AUTOMATION_MODAL_EVENT]: openSmsAutomation,
-      [OPEN_MISSED_CALL_RESCUE_MODAL_EVENT]: openMissedCallRescue,
-      [OPEN_AMBER_MODAL_EVENT]: openAmber,
       [OPEN_BUSINESS_PROFILE_MODAL_EVENT]: openBusiness,
       [OPEN_BILLING_MODAL_EVENT]: openBilling,
       [OPEN_ROUTING_STRATEGY_MODAL_EVENT]: openRouting,
@@ -226,8 +212,6 @@ export function DashboardSettingsModalsHost({
     openCarrierFromEvent,
     openPortAddress,
     openSmsAutomation,
-    openMissedCallRescue,
-    openAmber,
     openBusiness,
     openBilling,
     openRouting,
@@ -255,11 +239,6 @@ export function DashboardSettingsModalsHost({
       />
       <PortServiceAddressModal open={portAddressOpen} onOpenChange={setPortAddressOpen} />
       <SmsAutomationModal open={smsAutomationOpen} onOpenChange={setSmsAutomationOpen} />
-      <MissedCallRescueSettingsModal
-        open={missedCallRescueOpen}
-        onOpenChange={setMissedCallRescueOpen}
-      />
-      <AmberSettingsModal open={amberOpen} onOpenChange={setAmberOpen} />
       <BusinessProfileModal
         open={businessOpen}
         onOpenChange={setBusinessOpen}
@@ -291,12 +270,6 @@ export function useSettingsModalActions() {
     },
     openSmsAutomation: () => {
       window.dispatchEvent(new CustomEvent(OPEN_SMS_AUTOMATION_MODAL_EVENT))
-    },
-    openMissedCallRescue: () => {
-      window.dispatchEvent(new CustomEvent(OPEN_MISSED_CALL_RESCUE_MODAL_EVENT))
-    },
-    openAmber: () => {
-      window.dispatchEvent(new CustomEvent(OPEN_AMBER_MODAL_EVENT))
     },
     openBusinessProfile: () => {
       window.dispatchEvent(new CustomEvent(OPEN_BUSINESS_PROFILE_MODAL_EVENT))

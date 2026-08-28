@@ -31,13 +31,13 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex max-w-full min-w-0 items-center gap-1.5 text-[11px] font-semibold text-amber-200/95",
+          "inline-flex max-w-full min-w-0 items-center gap-2 text-2xs font-semibold text-warning/95",
           "break-words [overflow-wrap:anywhere]",
           className
         )}
       >
         <span
-          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.95)]"
+          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-warning shadow-[0_0_10px_rgba(251,191,36,0.95)]"
           aria-hidden
         />
         {label}
@@ -50,12 +50,12 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-300",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-operator",
           className
         )}
       >
         <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.9)]"
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-operator shadow-[0_0_8px_rgba(167,139,250,0.9)]"
           aria-hidden
         />
         • Routing to Pool
@@ -66,12 +66,12 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300/95",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-success/95",
           className
         )}
       >
         <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-success shadow-[0_0_8px_rgba(52,211,153,0.9)]"
           aria-hidden
         />
         • Live & Connected
@@ -83,18 +83,18 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-200/90",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-warning/90",
           className
         )}
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden />
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning/80" aria-hidden />
         • Activating line
       </span>
     )
   }
   return (
     <span
-      className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#71717a]", className)}
+      className={cn("inline-flex items-center gap-2 text-2xs font-semibold text-[#71717a]", className)}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d97706]" aria-hidden />
       • Inactive (Pending Payment)

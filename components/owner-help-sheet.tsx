@@ -169,7 +169,7 @@ export function OwnerHelpSheet() {
               <Link
                 href="/dashboard/help#support-chat"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                className="inline-flex items-center gap-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
               >
                 <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                 Open full Help chat
@@ -192,7 +192,7 @@ export function OwnerHelpSheet() {
                 maxLength={8000}
                 className="min-h-[120px] resize-y"
               />
-              <p className="text-[11px] text-muted-foreground">Page: {pathname}</p>
+              <p className="text-2xs text-muted-foreground">Page: {pathname}</p>
               <Button type="button" className="w-full" disabled={sendingReport} onClick={() => void sendReport()}>
                 {sendingReport ? "Sending…" : "Send report"}
               </Button>
@@ -201,7 +201,7 @@ export function OwnerHelpSheet() {
         </div>
 
         <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
+          <p className="text-2xs leading-relaxed text-muted-foreground">
             Evenings and weekends we still see messages. Replies usually come the next business morning. A person
             sends every reply — nothing auto-replies to your customers.
           </p>

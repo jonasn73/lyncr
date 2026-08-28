@@ -672,23 +672,6 @@ export async function createUnassignedJobFromIntake(input: CreateIntakeJobInput)
     await setLeadCoordinates(id, latitude, longitude)
   }
 
-  // Close Amber leftover so 15-min cover does not send a second booked text.
-  try {
-    const { skipOpenAmberLeftoverForOwner } = await import("@/lib/amber-coworker")
-    const orgId =
-      input.organizationId && !String(input.organizationId).startsWith("legacy-")
-        ? input.organizationId
-        : null
-    await skipOpenAmberLeftoverForOwner({
-      userId: input.ownerUserId,
-      organizationId: orgId ?? null,
-      leadId: id,
-      customerPhone: phone,
-    })
-  } catch (e) {
-    console.warn("[create-intake-job] leftover skip failed:", e)
-  }
-
   // Appointment confirmation SMS after a real book (not callback / special-order / referred).
   // Intake UI can defer send so the operator reviews / edits the text first.
   const skipCustomerSms = pendingCallback || isSpecialOrder || isReferredOut

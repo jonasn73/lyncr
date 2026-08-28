@@ -53,11 +53,11 @@ export function PayLinkSentPanel({
 
         <div className="relative flex flex-col items-center pt-1">
           {/* Big check as the visual star. */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 shadow-[0_0_28px_-4px] shadow-emerald-500/40 ring-1 ring-emerald-400/40">
-            <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_28px_-4px] shadow-success/40 ring-1 ring-success/40">
+            <Check className="h-9 w-9 stroke-[2.5]" aria-hidden />
           </div>
 
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+          <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.14em] text-success/80">
             Link sent
           </p>
 
@@ -65,22 +65,22 @@ export function PayLinkSentPanel({
             {fmtCents(amountCents)}
           </p>
 
-          <p className="mt-1.5 text-xs text-zinc-400">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             Texted {phoneLabel}
           </p>
 
-          <p className="mt-1 text-[11px] text-zinc-500">
+          <p className="mt-1 text-2xs text-muted-foreground">
             They open the link and pay — you’ll see it when it clears.
           </p>
         </div>
       </div>
 
       {linkUrl ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-          <p className="break-all text-[10px] text-zinc-500">{linkUrl}</p>
+        <div className="rounded-lg border border-border bg-card/50 px-3 py-2">
+          <p className="break-all text-2xs text-muted-foreground">{linkUrl}</p>
           <button
             type="button"
-            className="mt-1.5 text-[11px] font-semibold text-emerald-300 underline"
+            className="mt-1.5 text-2xs font-semibold text-success underline"
             onClick={() => {
               void navigator.clipboard?.writeText(linkUrl)
             }}
@@ -94,7 +94,7 @@ export function PayLinkSentPanel({
         <button
           type="button"
           onClick={onTextAgain}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card/60 py-3 text-sm font-semibold text-foreground hover:bg-muted"
         >
           <MessageSquare className="h-4 w-4" aria-hidden />
           Text again
@@ -104,7 +104,7 @@ export function PayLinkSentPanel({
       <button
         type="button"
         onClick={onDone}
-        className="flex w-full items-center justify-center rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+        className="flex w-full items-center justify-center rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success"
       >
         Done
       </button>

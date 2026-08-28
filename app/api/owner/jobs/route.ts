@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { after } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
 import {
   listFieldTechnicians,
   listOwnerBookedJobs,
@@ -15,12 +14,14 @@ import {
   listTechLiveLocations,
 } from "@/lib/db"
 import { flushDueScheduledSms } from "@/lib/sms-pipeline"
+import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const scope = req.nextUrl.searchParams.get("scope")?.trim().toLowerCase() || "all"
   const activeOnly = scope === "map" || scope === "collect"

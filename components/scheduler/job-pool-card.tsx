@@ -90,10 +90,10 @@ export function JobPoolCard({
   const isRescueJob = isPriceDeniedRescueJob(job)
   const wrapText = touchInteraction || sidebar
   // Never ellipsis-cut the address — `truncate` was clipping streets on desktop cards.
-  const placeTextClass = "min-w-0 w-full text-xs leading-snug text-slate-500 break-words"
+  const placeTextClass = "min-w-0 w-full text-xs leading-snug text-muted-foreground break-words"
   const detailTextClass = wrapText
     ? "w-full text-sm block break-words text-muted-foreground"
-    : "min-w-0 break-words text-xs text-slate-400"
+    : "min-w-0 break-words text-xs text-muted-foreground"
 
   // One quiet meta line: vehicle • service • $price — skip service when it already is the title.
   const metaParts = [
@@ -125,7 +125,7 @@ export function JobPoolCard({
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
         POOL_JOB_PRIORITY_CARD_CLASS[priority],
-        isRescueJob && "ring-1 ring-rose-500/40",
+        isRescueJob && "ring-1 ring-destructive/40",
         "group relative touch-manipulation text-left",
         sidebar
           ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
@@ -136,17 +136,17 @@ export function JobPoolCard({
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
-      <div className={cn("flex w-full items-start gap-1.5", sidebar ? "pr-2" : "pr-16")}>
+      <div className={cn("flex w-full items-start gap-2", sidebar ? "pr-2" : "pr-16")}>
         {!touchInteraction ? (
           <GripVertical
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600 opacity-60 group-hover:opacity-100"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100"
             aria-hidden
           />
         ) : null}
         <div className={cn(SCHEDULER_FIELD_STACK, wrapText ? "w-full flex-1" : "min-w-0 flex-1")}>
           <p
             className={cn(
-              "w-full text-sm font-medium text-slate-100",
+              "w-full text-sm font-medium text-foreground",
               // Wrap long titles — truncate cut “Duplication” mid-word on paint→live growth.
               "break-words"
             )}
@@ -154,21 +154,21 @@ export function JobPoolCard({
             {displayName}
           </p>
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
               {isRescueJob ? (
-                <span className="text-[10px] font-medium tracking-wide text-rose-300">
+                <span className="text-2xs font-medium tracking-wide text-destructive">
                   Price Denied
                 </span>
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <ScheduleInteractionBadge scheduled_at={scheduledAtIso} compact />
               {isAsap ? (
                 <span
                   className={cn(
                     SCHEDULER_METADATA_LABEL,
-                    "shrink-0 tabular-nums text-rose-400"
+                    "shrink-0 tabular-nums text-destructive"
                   )}
                 >
                   {formatPoolJobElapsedAge(job.created_at, now)} ago
@@ -188,7 +188,7 @@ export function JobPoolCard({
                   e.stopPropagation()
                   setRescueOfferOpen((open) => !open)
                 }}
-                className="text-xs font-bold uppercase tracking-wide text-amber-300 underline decoration-amber-500/60 underline-offset-2 transition-colors hover:text-amber-100"
+                className="text-xs font-bold uppercase tracking-wide text-warning underline decoration-amber-500/60 underline-offset-2 transition-colors hover:text-warning"
               >
                 Offer Lower Price
               </button>
@@ -200,7 +200,7 @@ export function JobPoolCard({
           {metaLine ? (
             <p
               className={cn(
-                "mt-1 min-h-[1rem] text-xs text-slate-400",
+                "mt-1 min-h-[1rem] text-xs text-muted-foreground",
                 // Always wrap long service labels (e.g. “… Duplication”) — truncate was cutting words.
                 "break-words"
               )}
@@ -213,19 +213,19 @@ export function JobPoolCard({
             </p>
           )}
           {programmingMethod ? (
-            <p className={cn("text-[11px] text-slate-500", wrapText ? "break-words" : "truncate")}>
+            <p className={cn("text-2xs text-muted-foreground", wrapText ? "break-words" : "truncate")}>
               {programmingMethod}
             </p>
           ) : null}
           <div className="mt-1 flex w-full flex-col gap-0.5">
             {/* Always reserve phone row height — phone popping in grew the card. */}
-            <p className="flex min-h-[1.25rem] w-full items-start gap-1.5 text-xs text-slate-400">
-              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+            <p className="flex min-h-[1.25rem] w-full items-start gap-2 text-xs text-muted-foreground">
+              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <span
                 className={cn(
                   sidebar
-                    ? "min-w-0 text-[11px] tabular-nums leading-snug text-slate-400"
-                    : cn(detailTextClass, !wrapText && "text-xs text-slate-400"),
+                    ? "min-w-0 text-2xs tabular-nums leading-snug text-muted-foreground"
+                    : cn(detailTextClass, !wrapText && "text-xs text-muted-foreground"),
                   !job.customer_phone && "invisible"
                 )}
               >
@@ -233,25 +233,25 @@ export function JobPoolCard({
               </span>
             </p>
             {placeLine || postalCode ? (
-              <p className="flex min-h-[2.5rem] w-full items-start gap-1.5 text-xs text-slate-500">
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
+              <p className="flex min-h-[2.5rem] w-full items-start gap-2 text-xs text-muted-foreground">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className={placeTextClass}>
                   {placeLine}
                   {postalCode ? (
-                    <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>
+                    <span className="ml-1 text-xs font-medium text-muted-foreground">{postalCode}</span>
                   ) : null}
                 </span>
               </p>
             ) : (
               // Same geometry as the real address row — never swap height when street arrives.
-              <p className="flex min-h-[2.5rem] w-full items-start gap-1.5" aria-hidden>
+              <p className="flex min-h-[2.5rem] w-full items-start gap-2" aria-hidden>
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-0" aria-hidden />
                 <span className={cn(placeTextClass, "invisible")}>
                   0000 Placeholder Street, Louisville, KY 40202
                 </span>
               </p>
             )}
-            <p className="flex min-h-[1rem] items-center gap-1 text-xs text-slate-400">
+            <p className="flex min-h-[1rem] items-center gap-1 text-xs text-muted-foreground">
               {fieldDistanceLabel ? (
                 <>
                   <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
@@ -276,8 +276,8 @@ export function JobPoolCard({
         {(touchInteraction && onMobileAssign) || onSelect ? (
           <span
             className={cn(
-              "inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide",
-              "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+              "inline-flex items-center rounded-lg px-3 py-1 text-2xs font-bold uppercase tracking-wide",
+              "border border-success/50 bg-success/20 text-success"
             )}
           >
             Assign →
@@ -287,7 +287,7 @@ export function JobPoolCard({
         )}
         <span
           className={cn(
-            "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            "rounded-full border px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
             SCHEDULER_BADGE_STYLE.unassigned
           )}
         >

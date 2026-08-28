@@ -8,7 +8,6 @@ import {
   Banknote,
   Loader2,
   LogOut,
-  MessageSquare,
   MessageSquareText,
   Network,
   Package,
@@ -83,32 +82,32 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
     .slice(0, 2)
 
   return (
-    <WorkspacePage className={cn("gap-5 pb-10", embedded && "gap-4 px-0 pb-4")}>
+    <WorkspacePage className={cn("gap-6 pb-10", embedded && "gap-4 px-0 pb-4")}>
       {embedded ? null : <WorkspacePageHeader eyebrow="Account" title="Settings" />}
 
       {/* Full-page Settings only — sheet header already shows email. */}
       {embedded ? null : (
-        <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
+        <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 px-4 py-3">
           {profileLoading ? (
             <>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
               </span>
               <div className="min-w-0 flex-1 space-y-2">
-                <span className="block h-4 w-36 animate-pulse rounded bg-zinc-800" aria-hidden />
-                <span className="block h-3 w-48 animate-pulse rounded bg-zinc-800/80" aria-hidden />
+                <span className="block h-4 w-36 animate-pulse rounded bg-muted" aria-hidden />
+                <span className="block h-3 w-48 animate-pulse rounded bg-muted/80" aria-hidden />
               </div>
             </>
           ) : (
             <>
-              <Avatar className="h-12 w-12 shrink-0">
+              <Avatar className="h-11 w-11 shrink-0">
                 <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">
                   {initials || "ME"}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-foreground">{profile.name || "Account"}</p>
-                <p className="truncate text-sm text-zinc-500">{profile.email}</p>
+                <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
               </div>
             </>
           )}
@@ -118,7 +117,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-xl" /> : null}
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Account</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -140,14 +139,14 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Banknote className="h-5 w-5 text-success" aria-hidden />}
             title="Bank account"
             subtitle="Set up or change the bank that receives card money"
             onClick={modals.openGetPaid}
           />
           <SettingsMenuRow
             grouped
-            icon={<Percent className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Percent className="h-5 w-5 text-success" aria-hidden />}
             title="Sales tax default"
             subtitle="Charge opens with tax on (unless you turn this off)"
             onClick={() => setSalesTaxOpen(true)}
@@ -158,11 +157,11 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <SalesTaxSettingsSheet open={salesTaxOpen} onOpenChange={setSalesTaxOpen} />
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Calls & SMS</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Calls & SMS</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
-            icon={<Users className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Users className="h-5 w-5 text-operator" aria-hidden />}
             title="Team"
             subtitle="Add people who answer — phone or invite link"
             onClick={() => {
@@ -172,45 +171,21 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Network className="h-5 w-5 text-operator" aria-hidden />}
             title="Call routing"
             subtitle="Who answers — team, pool, or hybrid"
             onClick={modals.openRoutingStrategy}
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquare className="h-5 w-5 text-sky-300" aria-hidden />}
-            title="Messages"
-            subtitle="SMS inbox — read and reply to customer texts"
-            onClick={() => {
-              closeHeaderSettings()
-              router.push("/dashboard/messages")
-            }}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Zap className="h-5 w-5 text-operator" aria-hidden />}
             title="SMS templates"
             subtitle="Job texts + your reusable quick SMS shortcuts"
             onClick={modals.openSmsAutomation}
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquareText className="h-5 w-5 text-violet-300" aria-hidden />}
-            title="Missed Call Rescue"
-            subtitle="Auto booking-link textback + IVR capacity"
-            onClick={modals.openMissedCallRescue}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<Sparkles className="h-5 w-5 text-amber-300" aria-hidden />}
-            title="Amber · Lyncr"
-            subtitle="Business assistant by text — Busy / Available from your phone"
-            onClick={modals.openAmber}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<ShieldCheck className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<ShieldCheck className="h-5 w-5 text-operator" aria-hidden />}
             title="Carrier registration"
             subtitle="10DLC for US lead-alert SMS"
             badge={carrierRegistrationPending ? "Pending" : undefined}
@@ -227,11 +202,11 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       </section>
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">More</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">More</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
-            icon={<Package className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Package className="h-5 w-5 text-success" aria-hidden />}
             title="Key inventory"
             subtitle="Stock hub and barcode scanner"
             onClick={() => {
@@ -241,7 +216,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<LifeBuoy className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<LifeBuoy className="h-5 w-5 text-operator" aria-hidden />}
             title="Help"
             subtitle="Chat with Lyncr or report a problem"
             onClick={() => {
@@ -269,7 +244,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             type="button"
             disabled={signingOut}
             onClick={onSignOut}
-            className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-destructive transition-colors hover:text-destructive disabled:opacity-50"
           >
             {signingOut ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -428,13 +403,13 @@ function ToggleRow({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-900/60 px-4 py-3 last:border-0">
+    <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3 last:border-0">
       <span className="flex min-w-0 items-center gap-3">
         <Volume2 className="h-5 w-5 shrink-0 text-primary" aria-hidden />
         <span className="min-w-0">
           <span className="block text-sm font-medium text-foreground">{label}</span>
           {subtitle ? (
-            <span className="mt-0.5 block text-xs leading-snug text-zinc-500">{subtitle}</span>
+            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{subtitle}</span>
           ) : null}
         </span>
       </span>

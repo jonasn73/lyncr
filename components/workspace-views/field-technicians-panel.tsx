@@ -3,6 +3,9 @@
 
 "use client"
 
+import { FieldTechAccessEditor, type CapabilityFlags } from "@/components/team/receptionist-access-editor"
+import { grantedFieldTechLabels } from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { HardHat, Loader2, Plus, Send, Check, Trash2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -74,6 +77,11 @@ export function FieldTechniciansPanel() {
   const [movingId, setMovingId] = useState<string | null>(null)
   // Confirm-dialog target before deleting a technician from the roster.
   const [removeTarget, setRemoveTarget] = useState<FieldTechnician | null>(null)
+  const [accessTarget, setAccessTarget] = useState<{
+    id: string
+    name: string
+    capabilities: CapabilityFlags
+  } | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   // Pay plans for the fleet, and the tech currently open in the editor.
@@ -221,15 +229,15 @@ export function FieldTechniciansPanel() {
   }
 
   return (
-    <WorkspacePanel className="p-5">
+    <WorkspacePanel density="default">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-warning/15 text-warning">
             <HardHat className="h-5 w-5" />
           </span>
           <div>
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Field Technicians</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">Road staff who get jobs on the Lyncr mobile console.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Road staff who get jobs on the Lyncr mobile console.</p>
           </div>
         </div>
         <button
@@ -238,7 +246,7 @@ export function FieldTechniciansPanel() {
             setModalOpen(true)
             setInvite(null)
           }}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" /> Add technician
         </button>
@@ -258,23 +266,23 @@ export function FieldTechniciansPanel() {
       ) : null}
 
       {resendError && !invite ? (
-        <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
-          <p className="text-sm font-semibold text-red-200">
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/50 p-4">
+          <p className="text-sm font-semibold text-destructive">
             ⚠️ {resendError.message.includes("10DLC") ? resendError.message : `Resend failed: ${resendError.message}`}
           </p>
         </div>
       ) : null}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> Loading technicians…
         </div>
       ) : techs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-600">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
             <HardHat className="h-6 w-6" aria-hidden />
           </span>
-          <p className="text-sm text-zinc-500">No field technicians yet.</p>
+          <p className="text-sm text-muted-foreground">No field technicians yet.</p>
         </div>
       ) : (
         // Full-width panel: one tech per 1600px row wastes the cap — pair them from xl.
@@ -282,26 +290,26 @@ export function FieldTechniciansPanel() {
           {techs.map((tech) => (
             <div
               key={tech.id}
-              className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{tech.name}</p>
                   {tech.invite_pending ? (
-                    <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                    <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-2xs font-medium text-warning">
                       Setup pending
                     </span>
                   ) : tech.is_active ? (
-                    <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                    <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-2xs font-medium text-success">
                       Active
                     </span>
                   ) : null}
                 </div>
-                <p className="truncate text-xs text-zinc-500">
+                <p className="truncate text-xs text-muted-foreground">
                   {tech.phone ? formatPhoneDisplay(tech.phone) : "—"}
                 </p>
                 {showWorkspacePicker ? (
-                  <label className="mt-1.5 block text-[10px] text-zinc-500">
+                  <label className="mt-1.5 block text-2xs text-muted-foreground">
                     Business
                     <select
                       value={tech.organization_id ?? ""}
@@ -310,7 +318,7 @@ export function FieldTechniciansPanel() {
                         const next = e.target.value.trim()
                         void moveTech(tech, next ? next : null)
                       }}
-                      className="mt-0.5 w-full max-w-[200px] rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+                      className="mt-0.5 w-full max-w-[200px] rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
                     >
                       <option value="">Unassigned</option>
                       {realOrganizations.map((org) => (
@@ -321,6 +329,27 @@ export function FieldTechniciansPanel() {
                     </select>
                   </label>
                 ) : null}
+                <div className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAccessTarget({
+                        id: tech.id,
+                        name: tech.name,
+                        capabilities: { ...tech.capabilities },
+                      })
+                    }
+                    aria-label={`Console access for ${tech.name}`}
+                    className="min-w-0 max-w-full text-left"
+                  >
+                    <span className="block text-micro font-medium uppercase tracking-wide text-muted-foreground">
+                      Access
+                    </span>
+                    <span className="block truncate text-2xs text-foreground underline-offset-2 hover:underline">
+                      {grantedFieldTechLabels(tech.capabilities).join(", ") || "Jobs only"}
+                    </span>
+                  </button>
+                </div>
                 <div className="mt-1.5">
                   <PayPlanButton
                     plan={plans[tech.id]}
@@ -343,7 +372,7 @@ export function FieldTechniciansPanel() {
                     type="button"
                     onClick={() => void resend(tech)}
                     disabled={resentId === tech.id}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-2xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
                   >
                     {resentId === tech.id ? <Check className="h-3 w-3" /> : <Send className="h-3 w-3" />}
                     {resentId === tech.id ? "Sent" : "Resend"}
@@ -355,13 +384,13 @@ export function FieldTechniciansPanel() {
                     setRemoveError(null)
                     setRemoveTarget(tech)
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-2xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                   aria-label={`Remove ${tech.name} from your team`}
                 >
                   <Trash2 className="h-3 w-3" aria-hidden />
                   Remove
                 </button>
-                <span className={`text-[11px] font-medium ${tech.is_active ? "text-success" : "text-zinc-500"}`}>
+                <span className={`text-2xs font-medium ${tech.is_active ? "text-success" : "text-muted-foreground"}`}>
                   {tech.is_active ? "Active" : "Off"}
                 </span>
                 <Switch checked={tech.is_active} onCheckedChange={() => void toggle(tech)} aria-label={`${tech.name} active`} />
@@ -370,6 +399,21 @@ export function FieldTechniciansPanel() {
           ))}
         </div>
       )}
+
+      <FieldTechAccessEditor
+        target={accessTarget}
+        onClose={() => setAccessTarget(null)}
+        onSaved={(capabilities) => {
+          setTechs((prev) =>
+            prev.map((t) =>
+              t.id === accessTarget?.id
+                ? { ...t, capabilities: capabilities as unknown as FieldTechnicianCapabilities }
+                : t
+            )
+          )
+          setAccessTarget(null)
+        }}
+      />
 
       <PayPlanEditor
         target={payTarget}
@@ -396,12 +440,12 @@ export function FieldTechniciansPanel() {
           }
         }}
       >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+        <AlertDialogContent className="border-border bg-background text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Remove {removeTarget?.name ?? "this technician"} from your team?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-muted-foreground">
               They will disappear from Field Technicians and the live roster. Active/Off toggles stay
               available for everyone else — this only removes this person.
             </AlertDialogDescription>
@@ -412,7 +456,7 @@ export function FieldTechniciansPanel() {
             </p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+            <AlertDialogCancel disabled={removing} className="border-border bg-card">
               Keep
             </AlertDialogCancel>
             <AlertDialogAction

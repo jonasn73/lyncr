@@ -5,6 +5,11 @@
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run
 // scripts/001-create-schema.sql and scripts/002-add-password-hash.sql in your Neon SQL Editor.
 
+import {
+  DEFAULT_FIELD_TECH_CAPABILITIES,
+  parseFieldTechCapabilities,
+} from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import {
@@ -19,6 +24,7 @@ import { calculateServiceQuote } from "@/lib/service-quote-calculator"
 import { buildIntakePricingMetadata, getOwnerServiceRateCard, type ServiceQuoteTypeId } from "@/lib/service-rate-card"
 import { localDayRangeIso } from "@/lib/scheduler-utils"
 import { parseAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES, parseReceptionistCapabilities } from "@/lib/receptionist-capabilities"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
@@ -34,6 +40,7 @@ import type {
   RoutingConfig,
   RoutingStrategy,
   Receptionist,
+  ReceptionistCapabilities,
   User,
   AdminNotificationPreferences,
   MasterToggleMode,
@@ -1173,6 +1180,7 @@ function parseReceptionistRow(row: Record<string, unknown>): Receptionist {
     sip_username: row.sip_username ? String(row.sip_username) : null,
     sip_credential_id: row.sip_credential_id ? String(row.sip_credential_id) : null,
     skills: parseSkillsArray(row.skills),
+    capabilities: parseReceptionistCapabilities(row.capabilities),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
 }
@@ -1244,7 +1252,9 @@ export async function getReceptionist(receptionistId: string): Promise<Reception
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
+        -- 150 column read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists WHERE id = ${receptionistId} LIMIT 1
     `
     return rows[0] ? parseReceptionistRow(rows[0]) : null
@@ -1263,7 +1273,8 @@ export async function getReceptionists(userId: string): Promise<Receptionist[]> 
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists WHERE user_id = ${userId} ORDER BY created_at ASC
     `
     return rows.map(parseReceptionistRow)
@@ -1647,6 +1658,7 @@ export async function insertReceptionist(params: {
     flat_rate_usd: 2.5,
     is_active: true,
     skills: [],
+    capabilities: DEFAULT_RECEPTIONIST_CAPABILITIES,
     created_at: new Date().toISOString(),
   }
 }
@@ -1841,7 +1853,7 @@ export async function updateReceptionist(
   userId: string,
   updates: Partial<
     Pick<Receptionist, "name" | "phone" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd" | "routing_endpoint">
-  >
+  > & { capabilities?: Partial<ReceptionistCapabilities> }
 ): Promise<void> {
   const sql = getSql()
   if (updates.name !== undefined) {
@@ -1878,6 +1890,19 @@ export async function updateReceptionist(
     const endpoint = updates.routing_endpoint === "WEB" ? "WEB" : "CELL"
     try {
       await sql`UPDATE receptionists SET routing_endpoint = ${endpoint} WHERE id = ${receptionistId} AND user_id = ${userId}`
+    } catch (e) {
+      if (pgErrorCode(e) !== "42703") throw e
+    }
+  }
+  if (updates.capabilities !== undefined) {
+    // Merge into the existing JSONB atomically (jsonb || jsonb) so patching one flag can
+    // never clobber another. 150 column — tolerate it not existing yet (42703).
+    try {
+      await sql`
+        UPDATE receptionists
+        SET capabilities = coalesce(capabilities, '{}'::jsonb) || ${JSON.stringify(updates.capabilities)}::jsonb
+        WHERE id = ${receptionistId} AND user_id = ${userId}
+      `
     } catch (e) {
       if (pgErrorCode(e) !== "42703") throw e
     }
@@ -3049,6 +3074,55 @@ export async function getUserShopOrigin(userId: string): Promise<ShopOrigin | nu
       return null
     }
     throw e
+  }
+}
+
+/**
+ * Platform-admin ceiling for one business account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately its own query rather than a column on getUser: that SELECT is the hottest
+ * path in the app and already carries a missing-column fallback, and this table is read
+ * once per authorization, not once per render.
+ *
+ * Fails OPEN — an unreadable or absent column returns {}, which parses as fully granted.
+ * The failure direction matters: this ceiling only ever restricts an owner on their own
+ * account, so failing open leaves them with what they pay for, while the staff layer below
+ * still defaults to denied. A database blip must not lock an owner out of their business.
+ */
+/**
+ * Active DIDs on this account that must never be used as a customer-facing From.
+ *
+ * Was listAmberControlE164sForOwner. Amber is gone but its DID is not: the number is still
+ * provisioned, and a customer text going out from it would come from a number no customer
+ * recognises. Tolerates the column being absent on older databases.
+ */
+export async function listControlLineE164sForOwner(userId: string): Promise<string[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT p.number
+      FROM phone_numbers p
+      WHERE p.user_id = ${userId}::uuid
+        AND p.is_amber_control = true
+        AND p.status = 'active'
+    `
+    return rows
+      .map((r) => normalizePhoneNumberE164(String((r as { number?: string }).number ?? "")))
+      .filter(Boolean)
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || pgErrorCode(e) === "42P01") return []
+    throw e
+  }
+}
+
+export async function getPlatformAccountGrantsRaw(userId: string): Promise<unknown> {
+  const sql = getSql()
+  try {
+    const rows = await sql`SELECT platform_grants FROM users WHERE id = ${userId} LIMIT 1`
+    return rows[0]?.platform_grants ?? {}
+  } catch (e) {
+    console.warn("[platform grants] falling back to fully granted:", e)
+    return {}
   }
 }
 
@@ -5548,14 +5622,129 @@ function isCrmTerminalJobStatus(js: string): boolean {
   )
 }
 
+/**
+ * Customers who haven't been serviced in a while, or who have an unpaid tech-console
+ * invoice — a dedicated query rather than a client-side filter of the default list,
+ * because the default candidate set is top-N by `updated_at` and a truly lapsed
+ * customer's row is exactly the one that never bubbles into that window.
+ */
+async function listNeedsFollowUpCustomersForUser(
+  userId: string,
+  options?: { q?: string; limit?: number; lapsedMonths?: number }
+): Promise<CrmCustomerListItem[]> {
+  const sql = getSql()
+  const lim = Math.min(Math.max(options?.limit ?? 80, 1), 200)
+  const lapsedMonths = Math.min(Math.max(options?.lapsedMonths ?? 6, 1), 60)
+  const q = (options?.q ?? "").trim()
+  const pat = q ? `%${q}%` : null
+
+  try {
+    const rows = (await sql`
+      WITH job_stats AS (
+        SELECT
+          right(regexp_replace(coalesce(nullif(trim(caller_e164), ''), nullif(trim(collected->>'customer_phone'), ''), ''), '\\D', '', 'g'), 10) AS phone_key,
+          count(*) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS completed_count,
+          max(coalesce(scheduled_at, created_at)) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS last_completed_at,
+          sum(
+            coalesce(
+              nullif(trim(collected->>'quoted_price_cents'), '')::int,
+              nullif(trim(collected->>'last_quoted_price_cents'), '')::int,
+              nullif(trim(collected->>'booked_price_cents'), '')::int,
+              0
+            )
+          ) FILTER (
+            WHERE lower(coalesce(nullif(trim(job_status), ''), nullif(trim(collected->>'job_status'), ''), '')) IN ('completed', 'done', 'paid')
+          ) AS lifetime_revenue_cents
+        FROM ai_leads
+        WHERE user_id = ${userId}
+        GROUP BY 1
+      ),
+      unpaid AS (
+        SELECT
+          right(regexp_replace(coalesce(customer_phone, ''), '\\D', '', 'g'), 10) AS phone_key,
+          sum(total_cents) AS unpaid_cents,
+          count(*) AS unpaid_count
+        FROM job_invoices
+        WHERE owner_user_id = ${userId}
+          AND payment_status IN ('unpaid', 'pending')
+        GROUP BY 1
+      )
+      SELECT
+        c.*,
+        js.last_completed_at,
+        coalesce(js.completed_count, 0) AS completed_count,
+        coalesce(js.lifetime_revenue_cents, 0) AS lifetime_revenue_cents,
+        coalesce(u.unpaid_cents, 0) AS unpaid_cents,
+        coalesce(u.unpaid_count, 0) AS unpaid_invoice_count
+      FROM customers c
+      LEFT JOIN job_stats js
+        ON js.phone_key = right(regexp_replace(coalesce(c.phone_e164, ''), '\\D', '', 'g'), 10)
+      LEFT JOIN unpaid u
+        ON u.phone_key = right(regexp_replace(coalesce(c.phone_e164, ''), '\\D', '', 'g'), 10)
+      WHERE c.user_id = ${userId}
+        AND (
+          (js.last_completed_at IS NOT NULL AND js.last_completed_at < now() - make_interval(months => ${lapsedMonths}))
+          OR coalesce(u.unpaid_cents, 0) > 0
+        )
+        AND (
+          ${pat}::text IS NULL
+          OR c.phone_e164 ILIKE ${pat}
+          OR c.display_name ILIKE ${pat}
+          OR c.company_name ILIKE ${pat}
+          OR c.notes ILIKE ${pat}
+        )
+      ORDER BY (coalesce(u.unpaid_cents, 0) > 0) DESC, js.last_completed_at ASC NULLS LAST
+      LIMIT ${lim}
+    `) as Record<string, unknown>[]
+
+    return rows.map((row) => {
+      const customer = parseCustomerRow(row)
+      const unpaidCents = Number(row.unpaid_cents ?? 0)
+      const completedCount = Number(row.completed_count ?? 0)
+      const lastCompletedAt =
+        row.last_completed_at instanceof Date
+          ? row.last_completed_at.toISOString()
+          : row.last_completed_at
+            ? String(row.last_completed_at)
+            : null
+      const jobStatusLabel = unpaidCents > 0
+        ? `Unpaid $${(unpaidCents / 100).toFixed(2)}`
+        : lastCompletedAt
+          ? `Last serviced ${new Date(lastCompletedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+          : null
+      return {
+        ...customer,
+        jobs_completed: completedCount,
+        lifetime_revenue_cents: Number(row.lifetime_revenue_cents ?? 0),
+        lead_badge: "needs_followup",
+        open_lead_count: 0,
+        job_status_label: jobStatusLabel,
+        job_status_tone: unpaidCents > 0 ? "rose" : "amber",
+        last_completed_at: lastCompletedAt,
+        unpaid_cents: unpaidCents,
+        unpaid_invoice_count: Number(row.unpaid_invoice_count ?? 0),
+      } as CrmCustomerListItem
+    })
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customers")) return []
+    if (isUndefinedRelationError(e, "ai_leads")) return []
+    if (isUndefinedRelationError(e, "job_invoices")) return []
+    throw e
+  }
+}
+
 /** CRM list with job counts / LTV / lead badge (phone-matched to ai_leads). */
 export async function listCrmCustomersForUser(
   userId: string,
   options?: {
     q?: string
     limit?: number
-    /** all | leads | clients | book_forms (open customer-filled book links). */
-    filter?: "all" | "leads" | "clients" | "book_forms"
+    /** all | leads | clients | book_forms (open customer-filled book links) | needs_followup. */
+    filter?: "all" | "leads" | "clients" | "book_forms" | "needs_followup"
     /** Owner phone timezone for “Booked · …” labels (not Vercel UTC). */
     timeZone?: string | null
   }
@@ -5563,6 +5752,12 @@ export async function listCrmCustomersForUser(
   const filter = options?.filter ?? "all"
   const timeZone = options?.timeZone ?? null
   const sql = getSql()
+
+  // Lapsed / unpaid — its own query, since the default candidate list (top-N by
+  // updated_at) is exactly the wrong shape for finding customers who went quiet.
+  if (filter === "needs_followup") {
+    return listNeedsFollowUpCustomersForUser(userId, { q: options?.q, limit: options?.limit })
+  }
 
   // Book forms filter: pull phones that still have an open customer-filled lead first
   // so they stay findable after Latest dismiss (not buried past the default customer limit).
@@ -9269,6 +9464,7 @@ function isMissingFieldTechOrganizationColumnError(e: unknown): boolean {
 
 function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician {
   return {
+    capabilities: parseFieldTechCapabilities(row.capabilities),
     id: String(row.id),
     owner_user_id: String(row.user_id),
     organization_id: row.organization_id != null ? String(row.organization_id) : null,
@@ -9438,6 +9634,7 @@ export async function insertFieldTechnician(params: {
     `
   }
   return {
+    capabilities: { ...DEFAULT_FIELD_TECH_CAPABILITIES },
     id,
     owner_user_id: params.owner_user_id,
     organization_id: organizationId,
@@ -9523,6 +9720,37 @@ export async function setFieldTechnicianActive(
 }
 
 /** Move a technician to another workspace or update active flag. */
+/**
+ * Merge a partial capability patch onto one tech's flags.
+ *
+ * Its own function rather than another branch of patchFieldTechnicianForOwner's if-chain:
+ * that one switches on which scalar columns were supplied, while this is a JSONB merge
+ * (`||`), so an owner toggling one flag cannot clear the others.
+ */
+export async function setFieldTechnicianCapabilities(
+  ownerUserId: string,
+  techId: string,
+  patch: Partial<FieldTechnicianCapabilities>
+): Promise<boolean> {
+  const sql = getSql()
+  if (Object.keys(patch).length === 0) return false
+  try {
+    const rows = await sql`
+      UPDATE field_technicians
+      SET capabilities = coalesce(capabilities, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${techId} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      console.warn("[field tech capabilities] column missing — run scripts/152", e)
+      return false
+    }
+    throw e
+  }
+}
+
 export async function patchFieldTechnicianForOwner(
   ownerUserId: string,
   techId: string,
@@ -9652,6 +9880,7 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     customer_phone:
       pick(["callback_number", "caller_number", "phone", "callback"]) ||
       (row.caller_e164 != null ? String(row.caller_e164) : null),
+    customer_email: pick(["customer_email", "email"]),
     location: pick(["location", "service_address", "address", "job_address", "address_line1"]),
     summary: row.summary != null ? String(row.summary) : null,
     job_status:
@@ -14778,6 +15007,48 @@ export async function getProfileFeatureFlags(userId: string): Promise<Record<str
 }
 
 /** Toggle a single tenant feature override. Returns the full flag map. */
+/**
+ * Set one platform ceiling flag on an account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately a different store from onboarding_profiles.feature_flags, which it sits
+ * next to in the admin drawer. Those are opt-IN features where an absent key means OFF;
+ * this is an opt-OUT ceiling where an absent key means GRANTED. Putting opposite defaults
+ * in one bag is the kind of subtlety that reads fine and fails later, so they stay apart
+ * and the drawer labels which is which.
+ *
+ * Only ever writes explicit `false`, and deletes the key when re-granting, so the column
+ * holds a denial list rather than a mirror of every capability.
+ */
+export async function setPlatformAccountGrant(
+  userId: string,
+  capability: string,
+  allowed: boolean
+): Promise<Record<string, boolean>> {
+  const sql = getSql()
+  try {
+    const rows = allowed
+      ? await sql`
+          UPDATE users
+          SET platform_grants = coalesce(platform_grants, '{}'::jsonb) - ${capability}
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+      : await sql`
+          UPDATE users
+          SET platform_grants =
+            coalesce(platform_grants, '{}'::jsonb) || jsonb_build_object(${capability}::text, false)
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+    return (rows[0]?.platform_grants ?? {}) as Record<string, boolean>
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      throw new Error("platform_grants column missing — run scripts/151-platform-account-grants.sql in Neon.")
+    }
+    throw e
+  }
+}
+
 export async function setProfileFeatureFlag(
   userId: string,
   flag: string,
@@ -16703,10 +16974,11 @@ export async function getReceptionistByPortalUserId(portalUserId: string): Promi
   try {
     const rows = await sql`
       SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, portal_user_id, created_at,
-        -- 050/051 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        -- 050/051/150 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
         to_jsonb(receptionists) ->> 'routing_endpoint' AS routing_endpoint,
         to_jsonb(receptionists) ->> 'sip_username' AS sip_username,
-        to_jsonb(receptionists) ->> 'sip_credential_id' AS sip_credential_id
+        to_jsonb(receptionists) ->> 'sip_credential_id' AS sip_credential_id,
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists
       WHERE portal_user_id = ${portalUserId}
       LIMIT 1

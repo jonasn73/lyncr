@@ -1,4 +1,4 @@
-// GET/PUT /api/routing/presence — Lines dashboard presence toggle (+ Amber Busy-until).
+// GET/PUT /api/routing/presence — Lines dashboard presence toggle .
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
@@ -8,10 +8,6 @@ import {
   setAccountPresence,
   type PresenceStatus,
 } from "@/lib/account-presence"
-import {
-  clearAmberPresenceUntilForOwner,
-  getAmberBusyUntilForOwner,
-} from "@/lib/amber-db"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -21,18 +17,15 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const [presence, amberUntil] = await Promise.all([
-      getAccountPresence(userId),
-      getAmberBusyUntilForOwner(userId).catch(() => null),
-    ])
+    const presence = await getAccountPresence(userId)
     return NextResponse.json({
       data: {
         presence_status: presence.presenceStatus,
         presenceClosedManual: presence.presenceClosedManual,
         presence_closed_manual: presence.presenceClosedManual,
-        // Amber “BUSY until …” — shown on Lines Available bar.
-        presence_available_at: amberUntil?.availableAt ?? null,
-        presence_timezone: amberUntil?.timezone ?? null,
+        // Busy-until is no longer set by anything; kept null for the client contract.
+        presence_available_at: null,
+        presence_timezone: null,
       },
     })
   } catch (e) {
@@ -72,21 +65,13 @@ export async function PUT(req: NextRequest) {
       ownerUserId: userId,
       presenceStatus: status,
     })
-    // Flipping Available in the app clears Amber’s scheduled return time.
-    if (saved.presenceStatus === "AVAILABLE") {
-      await clearAmberPresenceUntilForOwner(userId).catch(() => {})
-    }
-    const amberUntil =
-      saved.presenceStatus === "AVAILABLE"
-        ? null
-        : await getAmberBusyUntilForOwner(userId).catch(() => null)
     return NextResponse.json({
       data: {
         presence_status: saved.presenceStatus,
         presenceClosedManual: saved.presenceClosedManual,
         presence_closed_manual: saved.presenceClosedManual,
-        presence_available_at: amberUntil?.availableAt ?? null,
-        presence_timezone: amberUntil?.timezone ?? null,
+        presence_available_at: null,
+        presence_timezone: null,
       },
     })
   } catch (e) {

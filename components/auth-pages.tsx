@@ -108,9 +108,9 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Logo */}
-      <header className="flex items-center justify-center px-6 py-5">
+      <header className="flex items-center justify-center px-6 py-6">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" />
@@ -144,7 +144,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {isSignup && !isInviteSignup && (
               <>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="businessName" className="text-xs font-semibold text-muted-foreground">
                     Business Name
                   </label>
@@ -155,10 +155,10 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     required
-                    className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="ownerName" className="text-xs font-semibold text-muted-foreground">
                     Your Name
                   </label>
@@ -169,10 +169,10 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
                     required
-                    className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="ownerPhone" className="text-xs font-semibold text-muted-foreground">
                     Your cell phone (main line)
                   </label>
@@ -183,13 +183,13 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     value={ownerPhone}
                     onChange={(e) => setOwnerPhone(e.target.value)}
                     required
-                    className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     After signup, open Settings → Business numbers first. Your cell is where we ring you by default.
                   </p>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="industry" className="text-xs font-semibold text-muted-foreground">
                     Industry
                   </label>
@@ -198,7 +198,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
                     required
-                    className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none"
                   >
                     {SIGNUP_INDUSTRY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -206,7 +206,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Used to tailor your AI phone assistant when nobody answers (questions match your trade).
                   </p>
                 </div>
@@ -215,7 +215,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
 
             {isInviteSignup && (
               <>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="ownerName" className="text-xs font-semibold text-muted-foreground">
                     First name
                   </label>
@@ -224,10 +224,10 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     type="text"
                     value={invite?.first_name ?? ""}
                     readOnly
-                    className="rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-sm text-foreground"
+                    className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-foreground"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <label htmlFor="ownerPhone" className="text-xs font-semibold text-muted-foreground">
                     Your cell phone
                   </label>
@@ -238,16 +238,16 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     value={ownerPhone}
                     onChange={(e) => setOwnerPhone(e.target.value)}
                     required
-                    className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                    className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     This is the number we dial when routing calls to you.
                   </p>
                 </div>
               </>
             )}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label htmlFor="email" className="text-xs font-semibold text-muted-foreground">
                 Email
               </label>
@@ -261,13 +261,13 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                 readOnly={isInviteSignup}
                 autoComplete="email"
                 className={cn(
-                  "rounded-lg border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none",
+                  "rounded-lg border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none",
                   isInviteSignup ? "bg-muted/40" : "bg-card"
                 )}
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <label htmlFor="password" className="text-xs font-semibold text-muted-foreground">
                 Password
               </label>
@@ -281,7 +281,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                   required
                   minLength={isSignup ? 8 : 1}
                   autoComplete={isSignup ? "new-password" : "current-password"}
-                  className="w-full rounded-lg border border-border bg-card px-3.5 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-card px-4 py-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                 />
                 <button
                   type="button"

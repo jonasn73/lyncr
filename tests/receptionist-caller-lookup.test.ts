@@ -2,10 +2,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { lookupReceptionistCaller } from "@/lib/receptionist-caller-lookup"
 
 const listCrmCustomersForUser = vi.fn()
+const listCrmServiceHistoryForCustomer = vi.fn()
 
 // Hoisted by vitest above the import, so the module under test binds to these.
 vi.mock("@/lib/db", () => ({
   listCrmCustomersForUser: (...args: unknown[]) => listCrmCustomersForUser(...args),
+  listCrmServiceHistoryForCustomer: (...args: unknown[]) => listCrmServiceHistoryForCustomer(...args),
   normalizePhoneNumberE164: (raw: string) => {
     const digits = String(raw ?? "").replace(/\D/g, "")
     if (digits.length === 10) return `+1${digits}`
@@ -27,12 +29,15 @@ function crmRow(overrides: Record<string, unknown> = {}) {
     has_book_form_lead: false,
     job_status_label: "Price quoted",
     job_status_tone: "amber",
+    notes: "",
     ...overrides,
   }
 }
 
 beforeEach(() => {
   listCrmCustomersForUser.mockReset()
+  listCrmServiceHistoryForCustomer.mockReset()
+  listCrmServiceHistoryForCustomer.mockResolvedValue([])
 })
 
 describe("receptionist caller lookup", () => {
@@ -98,5 +103,35 @@ describe("receptionist caller lookup", () => {
     const result = await lookupReceptionistCaller("owner-1", "+15025551234")
     expect(result.has_open_book_form).toBe(true)
     expect(result.open_lead_count).toBe(3)
+  })
+
+  it("surfaces the last job's split vehicle YMM and job type for one-tap prefill", async () => {
+    listCrmCustomersForUser.mockResolvedValue([crmRow()])
+    listCrmServiceHistoryForCustomer.mockResolvedValue([
+      {
+        summary: "Ignition repair",
+        vehicle_label: "2019 Honda Civic",
+        vehicle_year: "2019",
+        vehicle_make: "Honda",
+        vehicle_model: "Civic",
+        job_type: "Ignition",
+        scheduled_at: "2026-02-01T10:00:00.000Z",
+        at: "2026-01-30T10:00:00.000Z",
+      },
+    ])
+    const result = await lookupReceptionistCaller("owner-1", "+15025551234")
+    expect(result.last_job_vehicle_year).toBe("2019")
+    expect(result.last_job_vehicle_make).toBe("Honda")
+    expect(result.last_job_vehicle_model).toBe("Civic")
+    expect(result.last_job_type).toBe("Ignition")
+  })
+
+  it("leaves vehicle prefill fields null when there is no job history", async () => {
+    listCrmCustomersForUser.mockResolvedValue([crmRow()])
+    const result = await lookupReceptionistCaller("owner-1", "+15025551234")
+    expect(result.last_job_vehicle_year).toBeNull()
+    expect(result.last_job_vehicle_make).toBeNull()
+    expect(result.last_job_vehicle_model).toBeNull()
+    expect(result.last_job_type).toBeNull()
   })
 })

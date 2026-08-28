@@ -37,17 +37,17 @@ export function AdminRoutingOverrideNotice({
         <div
           role="status"
           className={cn(
-            "rounded-xl border border-purple-500/50 bg-purple-950/40 px-4 py-3 text-sm leading-relaxed text-purple-100",
+            "rounded-xl border border-operator/50 bg-operator/40 px-4 py-3 text-sm leading-relaxed text-operator",
             "shadow-[0_0_24px_-6px_rgba(168,85,247,0.35)] transition-transform duration-300 ease-out",
             active ? "translate-y-0" : "-translate-y-1"
           )}
         >
-          <p className="flex items-start gap-2.5">
-            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-purple-400" aria-hidden />
+          <p className="flex items-start gap-3">
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-operator" aria-hidden />
             <span>
-              <span className="font-semibold text-purple-50">System Notice:</span> Platform Admin has
+              <span className="font-semibold text-operator">System Notice:</span> Platform Admin has
               configured direct routing override to{" "}
-              <span className="font-mono font-semibold text-purple-50">{formatPhoneDisplay(phone)}</span>.
+              <span className="font-mono font-semibold text-operator">{formatPhoneDisplay(phone)}</span>.
               Standard routing rules are temporarily bypassed.
             </span>
           </p>

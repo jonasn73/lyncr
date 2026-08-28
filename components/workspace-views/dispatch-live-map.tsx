@@ -1031,7 +1031,7 @@ export function DispatchLiveMap({
       <div
         ref={containerRef}
         className={cn(
-          "relative z-[1] w-full overflow-hidden border border-zinc-800 bg-transparent",
+          "relative z-[1] w-full overflow-hidden border border-border bg-transparent",
           "touch-pan-y",
           fillParent
             ? "h-full min-h-[20rem] rounded-none border-0"
@@ -1054,7 +1054,7 @@ export function DispatchLiveMap({
             disabled={!ready}
             title="See all jobs and where you are"
             aria-label="Zoom out to all jobs"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-700 bg-slate-950/95 text-slate-200 shadow-lg backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-raised backdrop-blur hover:border-info/50 hover:text-info disabled:opacity-40"
           >
             <Maximize2 className="h-5 w-5" aria-hidden />
           </button>
@@ -1066,10 +1066,10 @@ export function DispatchLiveMap({
             aria-label="Center map on my location"
             aria-pressed={followUser}
             className={cn(
-              "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-lg backdrop-blur disabled:opacity-40",
+              "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-raised backdrop-blur disabled:opacity-40",
               followUser
-                ? "border-sky-500/60 bg-sky-500/25 text-sky-100"
-                : "border-zinc-700 bg-slate-950/95 text-slate-200 hover:border-sky-500/50 hover:text-sky-200"
+                ? "border-info/60 bg-info/25 text-info"
+                : "border-border bg-background/95 text-foreground hover:border-info/50 hover:text-info"
             )}
           >
             {followUser ? (
@@ -1098,20 +1098,20 @@ export function DispatchLiveMap({
       ) : null}
 
       {selectedJob && (
-        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
+        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-border bg-card/95 p-3 shadow-overlay backdrop-blur">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">
                 {jobCustomerLabel(selectedJob)}
               </p>
               {selectedJob.location && (
-                <p className="mt-0.5 truncate text-xs text-zinc-500">{selectedJob.location}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{selectedJob.location}</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setSelectedJobId(null)}
-              className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -1121,13 +1121,13 @@ export function DispatchLiveMap({
           {selectedJob.customer_phone && (
             <a
               href={`tel:${selectedJob.customer_phone}`}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300"
+              className="mt-2 inline-flex items-center gap-2 text-xs text-info hover:text-info"
             >
               <Phone className="h-3 w-3" /> {selectedJob.customer_phone}
             </a>
           )}
 
-          <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          <label className="mt-3 block text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Assign technician
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -1135,7 +1135,7 @@ export function DispatchLiveMap({
               value={selectedJob.assigned_tech_id || ""}
               onChange={(e) => void assign(selectedJob.id, e.target.value)}
               disabled={technicians.length === 0 || savingId === selectedJob.id}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-operator disabled:opacity-50"
             >
               <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
               {technicians.map((t) => (
@@ -1144,16 +1144,16 @@ export function DispatchLiveMap({
                 </option>
               ))}
             </select>
-            {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" />}
+            {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
           </div>
           {selectedJob.assigned_tech_name && (
-            <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
+            <p className="mt-2 text-xs text-success">Dispatched to {selectedJob.assigned_tech_name}</p>
           )}
           {/* Same JobDetailDrawer as Scheduler Coming Up Next / CRM Open job. */}
           <button
             type="button"
             onClick={() => router.push(buildSchedulerFocusUrl(selectedJob.id))}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-2.5 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-info/40 bg-info/15 px-3 py-2 text-xs font-semibold text-info hover:bg-info/25"
           >
             Open job sheet
           </button>
@@ -1163,36 +1163,36 @@ export function DispatchLiveMap({
   )
 
   const legend = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
-      <span className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted-foreground">
+      <span className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-400" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-info" />
         </span>
         You
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Assigned
+      <span className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-success" /> Assigned
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unassigned
+      <span className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive" /> Unassigned
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
+      <span className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-white/80" /> Intake target
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
+      <span className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-info" /> Tech
       </span>
     </div>
   )
 
   const locationHint =
     dispatcherLocation.status === "denied" ? (
-      <p className="mt-2 text-center text-xs text-amber-400/90">
+      <p className="mt-2 text-center text-xs text-warning/90">
         Location permission blocked — allow GPS to see proximity miles on job pins.
       </p>
     ) : dispatcherLocation.status === "requesting" && !userLocation ? (
-      <p className="mt-2 text-center text-xs text-slate-500">Locating you…</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Locating you…</p>
     ) : null
 
   // Unified Map tab — canvas only; parent owns layer toggles + drawers.
@@ -1213,7 +1213,7 @@ export function DispatchLiveMap({
         */}
         {locationHint ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[500] flex justify-center px-3">
-            <div className="pointer-events-auto rounded-lg bg-slate-950/85 px-3 py-1.5 shadow-lg backdrop-blur">
+            <div className="pointer-events-auto rounded-lg bg-background/85 px-3 py-2 shadow-raised backdrop-blur">
               {locationHint}
             </div>
           </div>
@@ -1229,7 +1229,7 @@ export function DispatchLiveMap({
         {mapCanvas}
         {locationHint}
         {plottableJobCount === 0 ? (
-          <p className="mt-2 text-center text-xs text-slate-500">
+          <p className="mt-2 text-center text-xs text-muted-foreground">
             {jobs.length === 0
               ? "No active dispatch jobs yet — open hopper jobs and assigned field work pin here (quote leads stay on Leads)."
               : "Active jobs are loaded but need a street address (or ZIP) before they can pin on the map."}
@@ -1240,14 +1240,14 @@ export function DispatchLiveMap({
   }
 
   return (
-    <WorkspacePanel className={cn("mb-4 p-5", className)}>
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
+    <WorkspacePanel density="default" className={cn("mb-4", className)}>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-info/15 text-info">
           <MapPinned className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Active dispatch pins — tap a pin for proximity.
           </p>
         </div>

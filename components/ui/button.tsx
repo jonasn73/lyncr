@@ -11,24 +11,26 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
         destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+          'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         // Muted hover — not accent/primary. App theme is dark on :root without
         // a .dark class, so dark:hover:* never runs; keep light text on hover.
         outline:
-          'border bg-background text-foreground shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 dark:hover:text-foreground',
+          'border bg-background text-foreground shadow-resting hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 dark:hover:text-foreground',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:
           'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 dark:hover:text-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
+      // Three control heights: 28 compact / 36 default / 44 touch. 44 is the
+      // Apple HIG minimum that MOBILE_TAP_TARGET already asks for elsewhere.
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
-        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
+        sm: 'h-7 rounded-md gap-2 px-3 has-[>svg]:px-3',
+        lg: 'h-11 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-9',
-        'icon-sm': 'size-8',
-        'icon-lg': 'size-10',
+        'icon-sm': 'size-7',
+        'icon-lg': 'size-11',
       },
     },
     defaultVariants: {

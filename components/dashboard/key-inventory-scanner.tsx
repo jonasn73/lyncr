@@ -361,7 +361,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
         <DialogContent
           showCloseButton={false}
           className={cn(
-            "fixed inset-0 z-[110] flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-zinc-950 p-0 text-white sm:max-w-none",
+            "fixed inset-0 z-[110] flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 text-white sm:max-w-none",
             "data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
           )}
         >
@@ -374,7 +374,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           <div className="safe-area-pt flex items-center justify-between gap-3 px-4 pb-2 pt-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold tracking-tight">Scan key stock</p>
-              <p className="truncate text-xs text-zinc-400">
+              <p className="truncate text-xs text-muted-foreground">
                 Aim the barcode at the green box
               </p>
             </div>
@@ -385,8 +385,8 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                   size="icon"
                   variant="secondary"
                   className={cn(
-                    "h-11 w-11 rounded-full border border-zinc-700 bg-zinc-900",
-                    torchOn && "border-amber-400/60 bg-amber-500/20 text-amber-200"
+                    "h-11 w-11 rounded-full border border-border bg-card",
+                    torchOn && "border-warning/60 bg-warning/20 text-warning"
                   )}
                   aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
                   onClick={() => void applyTorch(!torchOn)}
@@ -402,7 +402,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 type="button"
                 size="icon"
                 variant="secondary"
-                className="h-11 w-11 rounded-full border border-zinc-700 bg-zinc-900"
+                className="h-11 w-11 rounded-full border border-border bg-card"
                 aria-label="Close scanner"
                 onClick={closeAll}
               >
@@ -413,29 +413,29 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
 
           {/* Viewfinder */}
           <div className="relative mx-auto mt-1 w-full max-w-md flex-1 px-3">
-            <div className="relative h-full min-h-[52dvh] overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+            <div className="relative h-full min-h-[52dvh] overflow-hidden rounded-2xl border border-border bg-black">
               <div id={`ki-reader-${readerDomId}`} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
 
               {/* Green target box overlay (centered) */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="relative h-[22%] w-[78%] max-h-[140px] max-w-[320px]">
-                  <span className="absolute left-0 top-0 h-6 w-6 rounded-tl-md border-l-[3px] border-t-[3px] border-emerald-400" />
-                  <span className="absolute right-0 top-0 h-6 w-6 rounded-tr-md border-r-[3px] border-t-[3px] border-emerald-400" />
-                  <span className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-md border-b-[3px] border-l-[3px] border-emerald-400" />
-                  <span className="absolute bottom-0 right-0 h-6 w-6 rounded-br-md border-b-[3px] border-r-[3px] border-emerald-400" />
-                  <span className="absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-emerald-400/50" />
+                  <span className="absolute left-0 top-0 h-6 w-6 rounded-tl-md border-l-[3px] border-t-[3px] border-success" />
+                  <span className="absolute right-0 top-0 h-6 w-6 rounded-tr-md border-r-[3px] border-t-[3px] border-success" />
+                  <span className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-md border-b-[3px] border-l-[3px] border-success" />
+                  <span className="absolute bottom-0 right-0 h-6 w-6 rounded-br-md border-b-[3px] border-r-[3px] border-success" />
+                  <span className="absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-success/50" />
                 </div>
               </div>
 
               {!cameraReady && !cameraError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/80 text-sm text-zinc-300">
-                  <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-sm text-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin text-success" aria-hidden />
                   Starting camera…
                 </div>
               ) : null}
 
               {cameraError ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/90 p-6 text-center text-sm text-zinc-300">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/90 p-6 text-center text-sm text-foreground">
                   {cameraError}
                 </div>
               ) : null}
@@ -443,16 +443,16 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {/* Manual SKU fallback + status */}
-          <div className="safe-area-pb mx-auto w-full max-w-md space-y-3 px-4 pb-5 pt-4">
+          <div className="safe-area-pb mx-auto w-full max-w-md space-y-3 px-4 pb-6 pt-4">
             {phase === "looking_up" ? (
-              <p className="flex items-center justify-center gap-2 text-sm text-emerald-300">
+              <p className="flex items-center justify-center gap-2 text-sm text-success">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 {statusMsg}
               </p>
             ) : phase === "error" && statusMsg ? (
-              <p className="text-center text-sm text-rose-300">{statusMsg}</p>
+              <p className="text-center text-sm text-destructive">{statusMsg}</p>
             ) : (
-              <p className="text-center text-xs text-zinc-500">
+              <p className="text-center text-xs text-muted-foreground">
                 {cameraReady ? "Hold steady — scan confirms with a short vibrate." : " "}
               </p>
             )}
@@ -462,7 +462,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={manualSku}
                 onChange={(e) => setManualSku(e.target.value.toUpperCase())}
                 placeholder="Or type SKU…"
-                className="h-11 border-zinc-700 bg-zinc-900 font-mono text-sm text-white placeholder:text-zinc-500"
+                className="h-11 border-border bg-card font-mono text-sm text-white placeholder:text-muted-foreground"
                 autoCapitalize="characters"
                 enterKeyHint="search"
                 onKeyDown={(e) => {
@@ -476,7 +476,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
               />
               <Button
                 type="button"
-                className="h-11 shrink-0 bg-emerald-600 hover:bg-emerald-500"
+                className="h-11 shrink-0 bg-success hover:bg-success"
                 disabled={!manualSku.trim() || phase === "looking_up"}
                 onClick={() => {
                   handlingScanRef.current = true
@@ -498,26 +498,26 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           if (!next) dismissResultAndRescan()
         }}
       >
-        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-zinc-800 bg-zinc-950 text-white sm:max-w-sm">
+        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-border bg-background text-white sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg">SKU Found: {item?.sku ?? scannedSku}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               Current stock:{" "}
-              <span className="font-semibold text-emerald-300">{item?.totalQuantity ?? 0}</span>
+              <span className="font-semibold text-success">{item?.totalQuantity ?? 0}</span>
               {item?.lowStock ? (
-                <span className="ml-2 text-amber-300">· reorder soon</span>
+                <span className="ml-2 text-warning">· reorder soon</span>
               ) : null}
             </DialogDescription>
           </DialogHeader>
 
           {item ? (
-            <div className="space-y-1 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400">
+            <div className="space-y-1 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
               <p>
-                Van 1: <span className="text-zinc-200">{item.van1Quantity}</span>
+                Van 1: <span className="text-foreground">{item.van1Quantity}</span>
                 {" · "}
-                Van 2: <span className="text-zinc-200">{item.van2Quantity}</span>
+                Van 2: <span className="text-foreground">{item.van2Quantity}</span>
                 {" · "}
-                Shop: <span className="text-zinc-200">{item.shopQuantity}</span>
+                Shop: <span className="text-foreground">{item.shopQuantity}</span>
               </p>
               {item.fccId || item.brand ? (
                 <p className="font-mono">
@@ -528,7 +528,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           ) : null}
 
           <div className="space-y-2">
-            <Label className="text-xs text-zinc-400">Adjust location</Label>
+            <Label className="text-xs text-muted-foreground">Adjust location</Label>
             <div className="grid grid-cols-3 gap-2">
               {(
                 [
@@ -544,8 +544,8 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                   className={cn(
                     "rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
                     location === value
-                      ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200"
-                      : "border-zinc-700 bg-zinc-900 text-zinc-400"
+                      ? "border-success/70 bg-success/15 text-success"
+                      : "border-border bg-card text-muted-foreground"
                   )}
                 >
                   {label}
@@ -558,7 +558,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             <Button
               type="button"
               variant="secondary"
-              className="h-12 border border-zinc-700 bg-zinc-900"
+              className="h-11 border border-border bg-card"
               disabled={adjusting}
               onClick={() => void adjustStock(-1)}
             >
@@ -571,7 +571,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             </Button>
             <Button
               type="button"
-              className="h-12 bg-emerald-600 hover:bg-emerald-500"
+              className="h-11 bg-success hover:bg-success"
               disabled={adjusting}
               onClick={() => void adjustStock(1)}
             >
@@ -585,7 +585,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {item ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+            <div className="rounded-xl border border-border bg-card/40 px-3 py-3">
               <KeyInventoryCapturePhotoButton
                 inventoryId={item.id}
                 sku={item.sku}
@@ -610,13 +610,13 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           ) : null}
 
           {statusMsg && phase === "found" ? (
-            <p className="text-center text-xs text-rose-300">{statusMsg}</p>
+            <p className="text-center text-xs text-destructive">{statusMsg}</p>
           ) : null}
 
           <Button
             type="button"
             variant="ghost"
-            className="text-zinc-400"
+            className="text-muted-foreground"
             onClick={() => dismissResultAndRescan()}
           >
             Scan another
@@ -631,30 +631,30 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           if (!next) dismissResultAndRescan()
         }}
       >
-        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-zinc-800 bg-zinc-950 text-white sm:max-w-sm">
+        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-border bg-background text-white sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg">New key SKU</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              <span className="font-mono text-emerald-300">{scannedSku}</span> is not in your
+            <DialogDescription className="text-muted-foreground">
+              <span className="font-mono text-success">{scannedSku}</span> is not in your
               inventory yet. Add FCC ID and brand to register it.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="ki-new-sku" className="text-xs text-zinc-400">
+            <div className="space-y-2">
+              <Label htmlFor="ki-new-sku" className="text-xs text-muted-foreground">
                 SKU
               </Label>
               <Input
                 id="ki-new-sku"
                 value={newForm.sku}
                 onChange={(e) => setNewForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))}
-                className="border-zinc-700 bg-zinc-900 font-mono text-white"
+                className="border-border bg-card font-mono text-white"
                 autoCapitalize="characters"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ki-new-fcc" className="text-xs text-zinc-400">
+            <div className="space-y-2">
+              <Label htmlFor="ki-new-fcc" className="text-xs text-muted-foreground">
                 FCC ID
               </Label>
               <Input
@@ -662,12 +662,12 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={newForm.fccId}
                 onChange={(e) => setNewForm((f) => ({ ...f, fccId: e.target.value.toUpperCase() }))}
                 placeholder="e.g. KR55WK49250"
-                className="border-zinc-700 bg-zinc-900 font-mono text-white placeholder:text-zinc-600"
+                className="border-border bg-card font-mono text-white placeholder:text-muted-foreground"
                 autoCapitalize="characters"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ki-new-brand" className="text-xs text-zinc-400">
+            <div className="space-y-2">
+              <Label htmlFor="ki-new-brand" className="text-xs text-muted-foreground">
                 Brand
               </Label>
               <Input
@@ -675,20 +675,20 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={newForm.brand}
                 onChange={(e) => setNewForm((f) => ({ ...f, brand: e.target.value }))}
                 placeholder="Autel, OEM…"
-                className="border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-600"
+                className="border-border bg-card text-white placeholder:text-muted-foreground"
               />
             </div>
           </div>
 
           {statusMsg && phase === "new" ? (
-            <p className="text-center text-xs text-rose-300">{statusMsg}</p>
+            <p className="text-center text-xs text-destructive">{statusMsg}</p>
           ) : null}
 
           <div className="grid grid-cols-2 gap-3">
             <Button
               type="button"
               variant="secondary"
-              className="h-11 border border-zinc-700 bg-zinc-900"
+              className="h-11 border border-border bg-card"
               disabled={savingNew}
               onClick={() => dismissResultAndRescan()}
             >
@@ -696,7 +696,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             </Button>
             <Button
               type="button"
-              className="h-11 bg-emerald-600 hover:bg-emerald-500"
+              className="h-11 bg-success hover:bg-success"
               disabled={savingNew || !newForm.sku.trim()}
               onClick={() => void saveNewKey()}
             >
@@ -725,7 +725,7 @@ export function KeyInventoryScannerLaunchButton({
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className={cn("h-11 gap-2 bg-emerald-600 hover:bg-emerald-500", className)}
+        className={cn("h-11 gap-2 bg-success hover:bg-success", className)}
       >
         <ScanBarcode className="h-4 w-4" aria-hidden />
         Scan inventory

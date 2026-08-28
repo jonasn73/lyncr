@@ -22,23 +22,23 @@ export type WorkspaceFilterPill = {
 
 const TONE_ACTIVE: Record<WorkspaceFilterPillTone, string> = {
   primary: "border-primary/40 text-primary",
-  amber: "border-amber-500/40 text-amber-100",
-  sky: "border-sky-500/40 text-sky-100",
-  orange: "border-orange-500/40 text-orange-100",
+  amber: "border-warning/40 text-warning",
+  sky: "border-info/40 text-info",
+  orange: "border-warning/40 text-warning",
 }
 
 const TONE_PILL: Record<WorkspaceFilterPillTone, string> = {
   primary: "bg-primary/15",
-  amber: "bg-amber-500/15",
-  sky: "bg-sky-500/20",
-  orange: "bg-orange-500/20",
+  amber: "bg-warning/15",
+  sky: "bg-info/20",
+  orange: "bg-warning/20",
 }
 
 const TONE_BADGE_ACTIVE: Record<WorkspaceFilterPillTone, string> = {
   primary: "bg-primary/25 text-primary-foreground",
-  amber: "bg-amber-500/25 text-amber-50",
-  sky: "bg-sky-500/25 text-sky-50",
-  orange: "bg-orange-500/25 text-orange-50",
+  amber: "bg-warning/25 text-warning",
+  sky: "bg-info/25 text-info",
+  orange: "bg-warning/25 text-warning",
 }
 
 export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
@@ -67,7 +67,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
         // Wrap rather than scroll: the row hid ~110px of filters on phones and ~50px on
         // tablets behind a hidden scrollbar, so options were unreachable with no cue.
         "flex flex-wrap gap-2 pb-1",
-        size === "sm" && "gap-1.5",
+        size === "sm" && "gap-2",
         className
       )}
       role="tablist"
@@ -88,11 +88,11 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               "relative inline-flex shrink-0 items-center gap-2 rounded-full border font-semibold touch-manipulation",
               "motion-safe:active:scale-[0.98]",
               size === "sm"
-                ? "min-h-8 rounded-lg px-2.5 py-1.5 text-[11px]"
+                ? "min-h-8 rounded-lg px-3 py-2 text-2xs"
                 : "min-h-10 px-4 py-2 text-xs",
               active
                 ? TONE_ACTIVE[tone]
-                : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:border-zinc-600 hover:bg-slate-800 hover:text-zinc-100"
+                : "border-border bg-background/60 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
             )}
           >
             {active ? (
@@ -113,8 +113,8 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               {chip.badge != null && chip.badge > 0 ? (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                    active ? TONE_BADGE_ACTIVE[tone] : "bg-amber-500/15 text-amber-300"
+                    "rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums",
+                    active ? TONE_BADGE_ACTIVE[tone] : "bg-warning/15 text-warning"
                   )}
                 >
                   {chip.badge}

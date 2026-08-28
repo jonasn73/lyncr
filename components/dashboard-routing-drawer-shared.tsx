@@ -33,7 +33,7 @@ export function DrawerAutoGrowTextarea({
 }
 
 export const routingFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-border focus:outline-none focus:ring-1 focus:ring-border/40"
 
 export function DrawerStepHeader({
   step,
@@ -47,9 +47,9 @@ export function DrawerStepHeader({
   lineLabel?: string | null
 }) {
   return (
-    <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-5 pt-6">
+    <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-card/80 to-transparent px-6 pb-6 pt-6">
       {step?.trim() ? (
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
+        <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
       ) : null}
       <h2
         className={cn(
@@ -60,9 +60,9 @@ export function DrawerStepHeader({
         {title}
       </h2>
       {subtitle.trim() ? (
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-zinc-500">{subtitle}</p>
+        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
       ) : null}
-      {lineLabel ? <p className="mt-2 text-[11px] text-zinc-600">{lineLabel}</p> : null}
+      {lineLabel ? <p className="mt-2 text-2xs text-muted-foreground">{lineLabel}</p> : null}
     </header>
   )
 }
@@ -87,14 +87,14 @@ export function DrawerStickyFooter({
   saveAsSubmit?: boolean
 }) {
   return (
-    <footer className="sticky bottom-0 shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-6 py-4">
+    <footer className="sticky bottom-0 shrink-0 border-t border-border/80 bg-background px-6 py-4">
       <div className="flex gap-3">
         <button
           type={saveAsSubmit ? "submit" : "button"}
           onClick={saveAsSubmit ? undefined : onSave}
           disabled={saving || !dirty}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
             dirty && !saving && "ring-1 ring-primary/50"
           )}
         >
@@ -104,7 +104,7 @@ export function DrawerStickyFooter({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-800 bg-transparent px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:border-zinc-600 hover:bg-zinc-900/50 hover:text-foreground"
+          className="inline-flex flex-1 items-center justify-center rounded-lg border border-border bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-border hover:bg-card/50 hover:text-foreground"
         >
           Cancel
         </button>

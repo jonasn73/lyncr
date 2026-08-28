@@ -3,6 +3,7 @@ import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 
 const getUserIdFromRequest = vi.fn()
 const getUser = vi.fn()
+const getPlatformAccountGrantsRaw = vi.fn((..._a: unknown[]) => ({}) as unknown)
 const getReceptionistPortalContext = vi.fn()
 
 vi.mock("@/lib/auth", () => ({
@@ -10,6 +11,8 @@ vi.mock("@/lib/auth", () => ({
 }))
 vi.mock("@/lib/db", () => ({
   getUser: (...a: unknown[]) => getUser(...a),
+  getPlatformAccountGrantsRaw: (...a: unknown[]) =>
+    getPlatformAccountGrantsRaw(...a),
 }))
 vi.mock("@/lib/receptionist-portal-auth", () => ({
   getReceptionistPortalContext: (...a: unknown[]) => getReceptionistPortalContext(...a),

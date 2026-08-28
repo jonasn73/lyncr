@@ -1,6 +1,6 @@
 // GET /api/crm/customers — enriched CRM customer list
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { listCrmCustomersForUser } from "@/lib/db"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 
@@ -8,13 +8,19 @@ export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "crm_access",
+  })
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const q = req.nextUrl.searchParams.get("q") || ""
   const filterRaw = req.nextUrl.searchParams.get("filter") || "all"
   const filter =
-    filterRaw === "leads" || filterRaw === "clients" || filterRaw === "book_forms"
+    filterRaw === "leads" ||
+    filterRaw === "clients" ||
+    filterRaw === "book_forms" ||
+    filterRaw === "needs_followup"
       ? filterRaw
       : "all"
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")

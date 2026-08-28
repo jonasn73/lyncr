@@ -2,7 +2,7 @@
 // Operator: save a quote lead (optional) + text a $49 service-call form+pay link.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { getUser } from "@/lib/db"
 import { isStripeConfigured } from "@/lib/stripe-config"
 import {
@@ -29,8 +29,11 @@ type Body = {
 
 export async function POST(req: NextRequest) {
   // Must be logged in as the shop owner / operator
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "invoicing_send",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const user = await getUser(userId)
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })

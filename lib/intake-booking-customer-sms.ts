@@ -11,7 +11,7 @@ import {
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
-import { buildGotItHoldingCustomerSms } from "@/lib/amber-coworker-commands"
+import { buildGotItHoldingCustomerSms } from "@/lib/customer-sms-phrases"
 
 /** Resolve a business DID for From + logging (call line → first owned line). */
 async function resolveBusinessLine(params: {
@@ -134,7 +134,7 @@ export async function sendIntakeBookingCustomerSms(params: {
       : null
 
   // Same Follow-up text twice = skip (form we-got-it + Book job, or leftover cover).
-  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/booking-sms-guards")
   if (
     await wouldDuplicateRecentCustomerSms({
       ownerUserId: params.ownerUserId,

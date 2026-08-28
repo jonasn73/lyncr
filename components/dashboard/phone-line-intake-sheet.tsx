@@ -45,13 +45,13 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
           subtitle="Live carrier status and routing for this business number."
           lineLabel={display}
         />
-        <DrawerScrollBody className="space-y-5">
+        <DrawerScrollBody className="space-y-6">
           {line ? (
             <>
-              <div className="rounded-xl border border-white/8 bg-neutral-950/60 p-4">
+              <div className="rounded-xl border border-white/8 bg-background/60 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-teal-500/10">
-                    <Phone className="h-4 w-4 text-teal-300" aria-hidden />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+                    <Phone className="h-4 w-4 text-primary" aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">{display}</p>
@@ -65,8 +65,8 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="flex items-center gap-2 text-emerald-200">
+              <div className="rounded-xl border border-success/20 bg-success/5 p-4">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
                   <p className="text-xs font-semibold uppercase tracking-wide">Carrier status</p>
                 </div>
@@ -77,9 +77,9 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
               </div>
 
               {line.routing_summary ? (
-                <div className="rounded-xl border border-white/8 bg-neutral-950/50 p-4 text-sm text-muted-foreground">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Routing snapshot</p>
-                  <ul className="mt-2 space-y-1.5">
+                <div className="rounded-xl border border-white/8 bg-background/50 p-4 text-sm text-muted-foreground">
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Routing snapshot</p>
+                  <ul className="mt-2 space-y-2">
                     <li>
                       Fallback:{" "}
                       <span className="font-medium text-foreground">

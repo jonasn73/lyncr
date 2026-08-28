@@ -33,14 +33,14 @@ export function SubscriptionTierPicker({ value, onChange, disabled }: Subscripti
             )}
           >
             {plan.highlighted ? (
-              <span className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary">Popular</span>
+              <span className="mb-1 text-micro font-bold uppercase tracking-wide text-primary">Popular</span>
             ) : (
               <span className="mb-1 h-[15px]" aria-hidden />
             )}
             <span className="text-sm font-semibold text-foreground">{plan.name}</span>
             <span className="mt-1 text-lg font-bold text-foreground">{plan.priceLabel}</span>
-            <span className="mt-1 text-[11px] text-muted-foreground">{plan.description}</span>
-            <span className="mt-2 text-[10px] font-medium text-primary">{plan.lineLimitLabel}</span>
+            <span className="mt-1 text-2xs text-muted-foreground">{plan.description}</span>
+            <span className="mt-2 text-2xs font-medium text-primary">{plan.lineLimitLabel}</span>
           </button>
         )
       })}

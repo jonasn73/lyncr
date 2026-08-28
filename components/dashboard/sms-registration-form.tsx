@@ -223,8 +223,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
 
   const identityFields = (
     <div className="grid gap-4 sm:grid-cols-2">
-      <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+      <label className="block space-y-2 sm:col-span-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Legal business name (IRS / EIN letter)
         </span>
         <input
@@ -234,12 +234,12 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           placeholder="Key Squad Locksmith LLC"
           className={workspaceFieldClass}
         />
-        <span className="text-[10px] text-zinc-500">
+        <span className="text-2xs text-muted-foreground">
           Must match the exact legal name on your EIN paperwork — not a nickname or software company.
         </span>
       </label>
-      <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+      <label className="block space-y-2 sm:col-span-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Customer-facing brand name (optional)
         </span>
         <input
@@ -249,8 +249,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           className={workspaceFieldClass}
         />
       </label>
-      <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+      <label className="block space-y-2 sm:col-span-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Business website
         </span>
         <input
@@ -261,12 +261,12 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           placeholder="https://yourbusiness.com"
           className={workspaceFieldClass}
         />
-        <span className="text-[10px] text-zinc-500">
+        <span className="text-2xs text-muted-foreground">
           Required. Use your brand site — carriers reject lyncr.app / agency URLs (error 710).
         </span>
       </label>
-      <label className="block space-y-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Business entity type</span>
+      <label className="block space-y-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Business entity type</span>
         <select
           required
           value={entityType}
@@ -281,8 +281,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           ))}
         </select>
       </label>
-      <label className="block space-y-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Tax ID / EIN</span>
+      <label className="block space-y-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Tax ID / EIN</span>
         <input
           value={taxId}
           onChange={(e) => setTaxId(e.target.value)}
@@ -291,25 +291,25 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           required={requiresSmsRegistrationEin(entityType)}
           className={workspaceFieldClass}
         />
-        <span className="text-[10px] text-zinc-500">Required for LLC, Corp, and Partnership</span>
+        <span className="text-2xs text-muted-foreground">Required for LLC, Corp, and Partnership</span>
       </label>
     </div>
   )
 
   const addressFields = (
     <div className="space-y-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Business address</p>
-      <label className="block space-y-1.5">
-        <span className="text-xs text-zinc-400">Street</span>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Business address</p>
+      <label className="block space-y-2">
+        <span className="text-xs text-muted-foreground">Street</span>
         <input required value={street} onChange={(e) => setStreet(e.target.value)} className={workspaceFieldClass} />
       </label>
       <div className="grid gap-4 sm:grid-cols-3">
-        <label className="block space-y-1.5 sm:col-span-1">
-          <span className="text-xs text-zinc-400">City</span>
+        <label className="block space-y-2 sm:col-span-1">
+          <span className="text-xs text-muted-foreground">City</span>
           <input required value={city} onChange={(e) => setCity(e.target.value)} className={workspaceFieldClass} />
         </label>
-        <label className="block space-y-1.5">
-          <span className="text-xs text-zinc-400">State</span>
+        <label className="block space-y-2">
+          <span className="text-xs text-muted-foreground">State</span>
           <input
             required
             maxLength={2}
@@ -319,8 +319,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
             className={workspaceFieldClass}
           />
         </label>
-        <label className="block space-y-1.5">
-          <span className="text-xs text-zinc-400">ZIP</span>
+        <label className="block space-y-2">
+          <span className="text-xs text-muted-foreground">ZIP</span>
           <input
             required
             value={postal}
@@ -335,8 +335,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
 
   const useCaseField = (
     <div className="space-y-3">
-      <label className="block space-y-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Brief use case description</span>
+      <label className="block space-y-2">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Brief use case description</span>
         <textarea
           required
           rows={4}
@@ -346,8 +346,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         />
       </label>
       {requiresSmsRegistrationEin(entityType) ? (
-        <p className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-          <span className="font-semibold text-violet-200/90">Carrier sub-usecase (added automatically):</span>{" "}
+        <p className="rounded-lg border border-operator/20 bg-operator/5 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-operator/90">Carrier sub-usecase (added automatically):</span>{" "}
           Registered businesses like yours are sent to carriers as{" "}
           <span className="text-foreground">Low volume</span> with sub-usecase{" "}
           <span className="text-foreground">Account notifications</span> (lead alerts and appointment texts). You do
@@ -376,11 +376,11 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     )
     if (variant === "modal") return statusBody
     return (
-      <WorkspacePanel className="space-y-4 p-6 sm:p-8">
+      <WorkspacePanel density="roomy" className="space-y-4">
         {statusBody}
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Back to settings
@@ -398,11 +398,11 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
     )
     if (variant === "modal") return pendingBody
     return (
-      <WorkspacePanel className="space-y-4 p-6 sm:p-8">
+      <WorkspacePanel density="roomy" className="space-y-4">
         {pendingBody}
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Back to settings
@@ -412,7 +412,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} noValidate className={variant === "modal" ? "space-y-5" : "space-y-6"}>
+    <form onSubmit={(e) => void handleSubmit(e)} noValidate className={variant === "modal" ? "space-y-6" : "space-y-6"}>
       {loading && variant === "modal" ? (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
@@ -424,9 +424,9 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           {["Business identity", "Service address", "Campaign use case"].map((step, i) => (
             <li
               key={step}
-              className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-zinc-400"
+              className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-xs font-medium text-muted-foreground"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/15 text-[11px] font-bold text-violet-300">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-operator/15 text-2xs font-bold text-operator">
                 {i + 1}
               </span>
               {step}
@@ -435,11 +435,11 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         </ol>
       ) : null}
 
-      <div className={variant === "modal" ? "space-y-5" : ""}>
+      <div className={variant === "modal" ? "space-y-6" : ""}>
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-5 p-6 sm:p-8">
+          <WorkspacePanel density="roomy" className="space-y-6">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-violet-400" aria-hidden />
+              <ShieldCheck className="h-5 w-5 text-operator" aria-hidden />
               <div>
                 <h2 className="text-base font-semibold text-foreground">A2P 10DLC carrier registration</h2>
                 <p className="text-xs text-muted-foreground">
@@ -451,26 +451,26 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           </WorkspacePanel>
         ) : (
           <>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Business identity</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Business identity</p>
             {identityFields}
           </>
         )}
 
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-4 p-6 sm:p-8">{addressFields}</WorkspacePanel>
+          <WorkspacePanel density="roomy" className="space-y-4">{addressFields}</WorkspacePanel>
         ) : (
           addressFields
         )}
 
         {variant === "page" ? (
-          <WorkspacePanel className="space-y-4 p-6 sm:p-8">{useCaseField}</WorkspacePanel>
+          <WorkspacePanel density="roomy" className="space-y-4">{useCaseField}</WorkspacePanel>
         ) : (
           useCaseField
         )}
       </div>
 
       {submitError ? (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300" role="alert">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
           {submitError}
         </p>
       ) : null}
@@ -481,7 +481,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           disabled={busy || loading}
           onClick={() => void handleSubmit()}
           className={cn(
-            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-900/30 hover:bg-violet-500 disabled:opacity-50 sm:w-auto sm:px-5"
+            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground shadow-raised shadow-operator/30 hover:bg-operator disabled:opacity-50 sm:w-auto sm:px-6"
           )}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
@@ -498,7 +498,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         ) : null}
       </div>
       {existing && !pending ? (
-        <p className="text-[11px] text-zinc-500">Last saved draft loaded — submit to send for carrier review.</p>
+        <p className="text-2xs text-muted-foreground">Last saved draft loaded — submit to send for carrier review.</p>
       ) : null}
     </form>
   )

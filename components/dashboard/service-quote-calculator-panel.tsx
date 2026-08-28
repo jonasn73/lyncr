@@ -139,12 +139,12 @@ function ServiceSectorSelector({
   return (
     <div className={cn("relative z-10", compact ? "my-0" : "my-4")}>
       {compact ? null : (
-        <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
+        <Label className="mb-3 block text-xs text-foreground">Tap a service to continue</Label>
       )}
 
       <div
         className={cn(
-          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-1.5",
+          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-border bg-card/50 p-2",
           compact ? "mb-3" : "mb-4"
         )}
       >
@@ -156,11 +156,11 @@ function ServiceSectorSelector({
               type="button"
               onClick={() => handleSectorChange(sector)}
               className={cn(
-                "relative touch-manipulation rounded-lg px-2 py-2 text-center text-[11px] font-semibold transition-colors active:scale-[0.98]",
+                "relative touch-manipulation rounded-lg px-2 py-2 text-center text-2xs font-semibold transition-colors active:scale-[0.98]",
                 compact ? "min-h-9" : "min-h-10",
                 active
-                  ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                  : "border border-transparent text-slate-400 hover:text-slate-200"
+                  ? "border border-success/40 bg-success/15 text-success shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                  : "border border-transparent text-muted-foreground hover:text-foreground"
               )}
               aria-pressed={active}
             >
@@ -221,7 +221,7 @@ function ServiceSectorSelector({
                 className={cn(
                   WS_METADATA,
                   "shrink-0 normal-case",
-                  carKeyFobActive ? "text-emerald-400/70" : ""
+                  carKeyFobActive ? "text-success/70" : ""
                 )}
               >
                 Copy or AKL
@@ -266,7 +266,7 @@ function ServiceSectorSelector({
                   {service.label}
                 </span>
                 {tag ? (
-                  <span className={cn(WS_METADATA, "shrink-0 normal-case", active ? "text-emerald-400/70" : "")}>
+                  <span className={cn(WS_METADATA, "shrink-0 normal-case", active ? "text-success/70" : "")}>
                     {tag}
                   </span>
                 ) : null}
@@ -315,7 +315,7 @@ const moneyInputClass =
   "w-16 border-0 bg-transparent p-0 text-right text-sm font-semibold tabular-nums text-foreground outline-none ring-0 focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 
 const dealPillClass =
-  "inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 text-[10px] font-bold uppercase tracking-wide text-emerald-50 transition-colors hover:bg-emerald-500/35 active:scale-[0.98]"
+  "inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-success/50 bg-success/20 px-3 text-micro font-bold uppercase tracking-wide text-success transition-colors hover:bg-success/35 active:scale-[0.98]"
 
 export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorPanel({
   quote,
@@ -559,10 +559,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   }
 
   const competitionBadge = highCompetition ? (
-    <p className="rounded-md border border-orange-500/40 bg-orange-500/15 px-2.5 py-1.5 text-[11px] font-semibold leading-snug text-orange-100">
+    <p className="rounded-md border border-warning/40 bg-warning/15 px-3 py-2 text-2xs font-semibold leading-snug text-warning">
       🔥 High Competition Area — Aggressive Quote Suggested
       {postalCode ? (
-        <span className="font-normal text-orange-100/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
+        <span className="font-normal text-warning/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
       ) : null}
     </p>
   ) : null
@@ -572,12 +572,12 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
       className={cn(
         selectorOnlyCompact
           ? "grid gap-2 border-0 bg-transparent p-0"
-          : "grid gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3",
+          : "grid gap-3 rounded-xl border border-success/30 bg-success/5 p-3",
         className
       )}
     >
       {selectorOnlyCompact ? null : (
-        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-success">
           Quick booking · service quote
         </legend>
       )}
@@ -591,25 +591,25 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
       ) : null}
       {showBreakdown ? (
         <div
-          className="rounded-lg border border-emerald-500/20 bg-background/40 px-3 py-2.5"
+          className="rounded-lg border border-success/20 bg-background/40 px-3 py-3"
           aria-live="polite"
           aria-atomic="true"
         >
           {variant === "breakdown-only" ? (
-            <p className="mb-2 text-[11px] font-medium text-emerald-200/90">{selectedLabel}</p>
+            <p className="mb-2 text-2xs font-medium text-success/90">{selectedLabel}</p>
           ) : null}
 
           {/* Stage: silent — zero pricing friction */}
           {priceStage === "silent" ? (
             <div className="grid gap-2">
               {competitionBadge}
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 Skip the price talk if the caller is ready to book — or open a guided pitch.
               </p>
               <button
                 type="button"
                 onClick={() => setPriceStage("starting")}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/50 bg-emerald-500/15 text-sm font-semibold text-emerald-50 transition-colors hover:bg-emerald-500/25"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-success/50 bg-success/15 text-sm font-semibold text-success transition-colors hover:bg-success/25"
               >
                 💵 Discuss Pricing
               </button>
@@ -621,7 +621,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             <div className="grid gap-3">
               {competitionBadge}
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-emerald-100">
+                <p className="text-sm font-semibold text-success">
                   Quote Base: Starting at $
                   {highCompetition ? aggressiveBaseFloor || HIGH_COMPETITION_BASE_FLOOR_DOLLARS : baselineBase || 85}{" "}
                   + travel
@@ -630,12 +630,12 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 <button
                   type="button"
                   onClick={() => setPriceStage("silent")}
-                  className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground"
+                  className="shrink-0 text-2xs text-muted-foreground hover:text-foreground"
                 >
                   Hide
                 </button>
               </div>
-              <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-amber-50">
+              <p className="rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">
                 🏷️ Pitch: &ldquo;Our baseline starts at $
                 {highCompetition ? aggressiveBaseFloor || HIGH_COMPETITION_BASE_FLOOR_DOLLARS : baselineBase || 85}.
                 We&apos;ll inspect your vehicle&apos;s specific immobilizer features on-site to give you a
@@ -644,7 +644,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               <button
                 type="button"
                 onClick={openFirmStage}
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 text-xs font-semibold text-amber-50 transition-colors hover:bg-amber-500/25"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-warning/40 bg-warning/15 text-xs font-semibold text-warning transition-colors hover:bg-warning/25"
               >
                 ⚠️ Customer Insists on Exact Price
               </button>
@@ -656,10 +656,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
             <div className="grid gap-2">
               {competitionBadge}
               <div className="flex items-center justify-between gap-2">
-                <p className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                <p className="flex flex-wrap items-center gap-2 text-micro font-semibold uppercase tracking-wide text-success/90">
                   <span>Exact price workspace</span>
                   {quote.pricingTier === "tier3" ? (
-                    <span className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-amber-100">
+                    <span className="inline-flex items-center rounded-md border border-warning/50 bg-warning/15 px-2 py-0.5 text-2xs font-semibold normal-case tracking-normal text-warning">
                       ⚠️ High-Security Vehicle - Specialized Programming Required
                     </span>
                   ) : null}
@@ -669,7 +669,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     <button
                       type="button"
                       onClick={resetToBaseline}
-                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-emerald-300/90 hover:bg-emerald-500/10"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-medium text-success/90 hover:bg-success/10"
                     >
                       <RotateCcw className="h-3 w-3" aria-hidden />
                       Reset
@@ -678,7 +678,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   <button
                     type="button"
                     onClick={() => setPriceStage("starting")}
-                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    className="text-2xs text-muted-foreground hover:text-foreground"
                   >
                     Soft pitch
                   </button>
@@ -686,11 +686,11 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               </div>
 
               {diagnosticCushion ? (
-                <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2">
-                  <p className="text-sm font-bold tabular-nums text-sky-100">
+                <div className="rounded-lg border border-info/35 bg-info/10 px-3 py-2">
+                  <p className="text-sm font-bold tabular-nums text-info">
                     Entry fee: $29 on-site diagnostic
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-sky-100/85">
+                  <p className="mt-0.5 text-2xs leading-snug text-info/85">
                     Waived when we proceed with key cutting / programming. Full job estimate stays{" "}
                     <span className="font-semibold tabular-nums">
                       {formatQuoteDollars(totalEstimateCents)}
@@ -718,7 +718,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                       }}
                       className={cn(
                         moneyInputClass,
-                        baseDirty && Math.round(safeBase) !== baselineBase && "text-amber-200"
+                        baseDirty && Math.round(safeBase) !== baselineBase && "text-warning"
                       )}
                     />
                   </span>
@@ -740,7 +740,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                       }}
                       className={cn(
                         moneyInputClass,
-                        travelDirty && Math.round(safeTravel) !== baselineTravel && "text-amber-200"
+                        travelDirty && Math.round(safeTravel) !== baselineTravel && "text-warning"
                       )}
                     />
                   </span>
@@ -760,7 +760,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                         type="checkbox"
                         checked={includeKeyBlank}
                         onChange={(e) => setIncludeKeyBlank(e.target.checked)}
-                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-emerald-500"
+                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-success"
                         aria-label={`Include ${blankLine.label}`}
                       />
                       <span className={cn("min-w-0", !includeKeyBlank && "line-through opacity-60")}>
@@ -784,7 +784,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                         type="checkbox"
                         checked={includeKeyProgramming}
                         onChange={(e) => setIncludeKeyProgramming(e.target.checked)}
-                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-emerald-500"
+                        className="h-3.5 w-3.5 shrink-0 rounded border-border accent-success"
                         aria-label={`Include ${programmingLine.label}`}
                       />
                       <span
@@ -807,7 +807,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 ) : null}
               </ul>
 
-              <label className="mt-1 grid gap-1 rounded-md border border-border/40 bg-background/30 p-2 text-[11px]">
+              <label className="mt-1 grid gap-1 rounded-md border border-border/40 bg-background/30 p-2 text-2xs">
                 <span className="font-medium text-foreground">Competitor Price Match</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground">They quoted $</span>
@@ -819,28 +819,28 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     value={competitorPrice}
                     onChange={(e) => setCompetitorPrice(e.target.value)}
                     placeholder="e.g. 150"
-                    className="h-8 w-24 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="h-9 w-24 rounded-md border border-border/70 bg-background px-2 text-sm tabular-nums text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {competitorTarget != null ? (
-                    <span className="text-[11px] font-semibold text-emerald-200">
+                    <span className="text-2xs font-semibold text-success">
                       → Beat by $10 → pitch ${competitorTarget}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-2xs text-muted-foreground">
                       Auto-sets our total $10 under their number
                     </span>
                   )}
                 </div>
               </label>
 
-              <p className="text-[11px] leading-snug text-emerald-200/80">
+              <p className="text-2xs leading-snug text-success/80">
                 Suggested Quote Range:{" "}
-                <span className="font-semibold tabular-nums text-emerald-100">
+                <span className="font-semibold tabular-nums text-success">
                   ${suggestedRangeLowDollars} – ${suggestedRangeHighDollars}
                 </span>
               </p>
 
-              <div className="flex items-baseline justify-between border-t border-emerald-500/20 pt-2">
+              <div className="flex items-baseline justify-between border-t border-success/20 pt-2">
                 <span className="text-xs font-medium text-foreground">Total estimate</span>
                 <span className="inline-flex items-baseline gap-2">
                   {flatLockActive ? (
@@ -851,7 +851,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   <span
                     className={cn(
                       "text-lg font-bold tabular-nums",
-                      flatLockActive || isOverridden ? "text-amber-200" : "text-emerald-300"
+                      flatLockActive || isOverridden ? "text-warning" : "text-success"
                     )}
                   >
                     {formatQuoteDollars(totalEstimateCents)}
@@ -859,10 +859,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 </span>
               </div>
 
-              <label className="mt-1 grid gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px]">
-                <span className="font-medium text-amber-50">🔒 Lock Flat Negotiated Price</span>
+              <label className="mt-1 grid gap-1 rounded-md border border-warning/30 bg-warning/10 p-3 text-2xs">
+                <span className="font-medium text-warning">🔒 Lock Flat Negotiated Price</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-amber-100/80">$</span>
+                  <span className="text-warning/80">$</span>
                   <input
                     type="number"
                     min={0}
@@ -872,25 +872,25 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     onChange={(e) => setFlatLockDollars(e.target.value)}
                     placeholder="e.g. 375"
                     aria-label="Lock flat negotiated price in dollars"
-                    className="h-8 w-28 rounded-md border border-amber-500/40 bg-background px-2 text-sm tabular-nums text-foreground focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    className="h-9 w-28 rounded-md border border-warning/40 bg-background px-2 text-sm tabular-nums text-foreground focus:border-warning focus:outline-none focus:ring-1 focus:ring-warning"
                   />
                   {flatLockActive ? (
                     <button
                       type="button"
                       onClick={() => setFlatLockDollars("")}
-                      className="text-[10px] font-medium text-amber-200 underline-offset-2 hover:underline"
+                      className="text-2xs font-medium text-warning underline-offset-2 hover:underline"
                     >
                       Clear lock
                     </button>
                   ) : (
-                    <span className="text-[10px] text-amber-100/70">
+                    <span className="text-2xs text-warning/70">
                       Optional — overrides the system total when you book
                     </span>
                   )}
                 </div>
               </label>
 
-              <div className="mt-1 flex flex-wrap gap-1.5">
+              <div className="mt-1 flex flex-wrap gap-2">
                 <button type="button" className={dealPillClass} onClick={waiveTravel}>
                   Waive Travel Fee
                 </button>
@@ -901,7 +901,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   type="button"
                   className={cn(
                     dealPillClass,
-                    diagnosticCushion && "border-sky-400/60 bg-sky-500/25 text-sky-50"
+                    diagnosticCushion && "border-info/60 bg-info/25 text-info"
                   )}
                   onClick={toggleDiagnosticCushion}
                 >
@@ -912,7 +912,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               {(quote.distanceMiles != null ||
                 quote.keyBlankCents > 0 ||
                 quote.programmingCents > 0) && (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   System baseline = {formatQuoteDollars(quote.baseCents)} service
                   {quote.distanceMiles != null
                     ? ` + ${formatQuoteDollars(quote.distancePremiumCents)} travel (${quote.distanceMiles.toFixed(1)} mi)`
@@ -925,7 +925,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     : ""}
                 </p>
               )}
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 {quote.dispatchJobTypeLabel}
                 {vehicleYear || vehicleMake || vehicleModel
                   ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`

@@ -18,7 +18,7 @@ export { loadOwnedPaymentIntent } from "@/lib/payment-intent-access"
 export type SendPaymentReceiptInput = {
   userId: string
   paymentIntentId: string
-  channel: "email" | "sms"
+  channel: "email" | "sms" | "both"
   customerName?: string | null
   email?: string | null
   phone?: string | null
@@ -122,52 +122,59 @@ export async function sendPaymentReceipt(
     invoice.customerName = input.customerName!.trim()
   }
 
-  if (input.channel === "sms") {
+  const wantSms = input.channel === "sms" || input.channel === "both"
+  const wantEmail = input.channel === "email" || input.channel === "both"
+  const errors: string[] = []
+  let anySent = false
+
+  if (wantSms) {
     const toE164 = normalizePhoneNumberE164(input.phone ?? "")
-    if (!toE164) return { sent: false, error: "Enter a valid phone number" }
-    const text = buildPaymentInvoiceSms(invoice)
-    const result = await sendTelnyxSms({
-      userId: input.userId,
-      toE164,
-      text,
-    })
-    if (!result.ok) return { sent: false, error: result.error || "SMS could not be sent" }
-    return { sent: true, receiptUrl: invoice.receiptUrl }
-  }
-
-  const email = (input.email ?? "").trim().toLowerCase()
-  if (!email.includes("@") || email.length < 5) {
-    return { sent: false, error: "Enter a valid email address" }
-  }
-
-  const apiKey = process.env.RESEND_API_KEY?.trim()
-  if (!apiKey) {
-    return { sent: false, error: "Email is not configured (RESEND_API_KEY)" }
-  }
-
-  const html = buildPaymentInvoiceEmailHtml(invoice)
-  const text = buildPaymentInvoiceEmailText(invoice)
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: paymentInvoiceFromAddress(invoice.businessName),
-        to: email,
-        subject: buildPaymentInvoiceEmailSubject(invoice),
-        html,
-        text,
-      }),
-    })
-    if (!res.ok) {
-      return { sent: false, error: "Email could not be sent" }
+    if (!toE164) {
+      errors.push("Enter a valid phone number")
+    } else {
+      const text = buildPaymentInvoiceSms(invoice)
+      const result = await sendTelnyxSms({ userId: input.userId, toE164, text })
+      if (!result.ok) errors.push(result.error || "SMS could not be sent")
+      else anySent = true
     }
-    return { sent: true, receiptUrl: invoice.receiptUrl }
-  } catch {
-    return { sent: false, error: "Email send failed — please try again" }
   }
+
+  if (wantEmail) {
+    const email = (input.email ?? "").trim().toLowerCase()
+    if (!email.includes("@") || email.length < 5) {
+      errors.push("Enter a valid email address")
+    } else {
+      const apiKey = process.env.RESEND_API_KEY?.trim()
+      if (!apiKey) {
+        errors.push("Email is not configured (RESEND_API_KEY)")
+      } else {
+        const html = buildPaymentInvoiceEmailHtml(invoice)
+        const text = buildPaymentInvoiceEmailText(invoice)
+        try {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: paymentInvoiceFromAddress(invoice.businessName),
+              to: email,
+              subject: buildPaymentInvoiceEmailSubject(invoice),
+              html,
+              text,
+            }),
+          })
+          if (!res.ok) errors.push("Email could not be sent")
+          else anySent = true
+        } catch {
+          errors.push("Email send failed — please try again")
+        }
+      }
+    }
+  }
+
+  if (!anySent) return { sent: false, error: errors[0] || "Could not send receipt" }
+  // Partial failure on "both" (e.g. SMS sent, email bounced) still counts as sent.
+  return { sent: true, error: errors[0], receiptUrl: invoice.receiptUrl }
 }

@@ -123,7 +123,7 @@ export async function runSmsPipeline(params: {
 
   // Booking confirm uses the same Follow-up template as intake / leftover cover — skip a second copy.
   if (params.phase === "booking") {
-    const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+    const { wouldDuplicateRecentCustomerSms } = await import("@/lib/booking-sms-guards")
     if (
       await wouldDuplicateRecentCustomerSms({
         ownerUserId: ctx.owner_user_id,

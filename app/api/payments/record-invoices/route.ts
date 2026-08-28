@@ -3,7 +3,7 @@
 // Query: customerId?, jobId?, q? (name/phone/invoice #), limit?
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   jobRecordInvoiceToApi,
   listJobRecordInvoicesForOwner,
@@ -13,8 +13,11 @@ export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "invoicing",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { searchParams } = new URL(req.url)
   const customerId = searchParams.get("customerId")

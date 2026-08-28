@@ -44,45 +44,45 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
   const paidHow = paidHowLabel(invoice)
 
   return (
-    <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm">
+    <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-resting">
       {/* Soft PAID stamp — visible but not covering content. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute right-4 top-28 rotate-[-12deg] select-none rounded-lg border-[3px] border-emerald-500/70 px-3 py-1 text-sm font-extrabold tracking-[0.2em] text-emerald-600/80"
+        className="pointer-events-none absolute right-4 top-28 rotate-[-12deg] select-none rounded-lg border-[3px] border-success/70 px-3 py-1 text-sm font-extrabold tracking-[0.2em] text-success/80"
       >
         PAID
       </div>
 
-      <header className="border-b border-slate-200 bg-slate-900 px-5 py-5 text-white">
+      <header className="border-b border-slate-200 bg-card px-6 py-6 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            <p className="text-2xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
               Invoice
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{invoice.businessName}</h1>
             {invoice.businessPhone ? (
-              <p className="mt-1 text-sm text-slate-300">{invoice.businessPhone}</p>
+              <p className="mt-1 text-sm text-foreground">{invoice.businessPhone}</p>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-full bg-emerald-500 px-3 py-1.5 text-[11px] font-extrabold tracking-wide text-white">
+          <span className="shrink-0 rounded-full bg-success px-3 py-2 text-2xs font-extrabold tracking-wide text-success-foreground">
             PAID
           </span>
         </div>
       </header>
 
-      <div className="space-y-5 px-5 py-5">
+      <div className="space-y-6 px-6 py-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total paid
             </p>
-            <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-600">
+            <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-success">
               {formatInvoiceUsd(invoice.totalCents)}
             </p>
             <p className="mt-1 text-sm font-medium text-slate-700">{paidHow}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Invoice #
             </p>
             <p className="mt-0.5 font-mono text-sm font-semibold">{invoice.invoiceNumber}</p>
@@ -91,20 +91,20 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Date paid
             </dt>
             <dd className="mt-0.5 text-slate-800">{invoice.paidAtLabel}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Payment
             </dt>
             <dd className="mt-0.5 text-slate-800">{invoice.paymentMethodLabel}</dd>
           </div>
           {invoice.customerName ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Bill to
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.customerName}</dd>
@@ -112,7 +112,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.vehicleLabel ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Vehicle
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.vehicleLabel}</dd>
@@ -120,7 +120,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.vehicleVin ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 VIN
               </dt>
               <dd className="mt-0.5 font-mono text-sm text-slate-800">{invoice.vehicleVin}</dd>
@@ -128,7 +128,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.addressLine1 ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Address
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.addressLine1}</dd>
@@ -136,9 +136,9 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
         </dl>
 
-        <table className="w-full border-t-2 border-slate-900 text-sm">
+        <table className="w-full border-t-2 border-border text-sm">
           <thead>
-            <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <tr className="text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               <th className="py-3 text-left">Description</th>
               <th className="py-3 text-right">Amount</th>
             </tr>
@@ -154,9 +154,9 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-900">
+            <tr className="border-t-2 border-border">
               <td className="pt-4 text-base font-extrabold">Total paid</td>
-              <td className="pt-4 text-right text-base font-extrabold tabular-nums text-emerald-600">
+              <td className="pt-4 text-right text-base font-extrabold tabular-nums text-success">
                 {formatInvoiceUsd(invoice.totalCents)}
               </td>
             </tr>
@@ -165,7 +165,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         {invoice.signaturePng ? (
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <p className="text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               Customer signature
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -177,7 +177,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           </div>
         ) : null}
 
-        <p className="text-[11px] leading-relaxed text-slate-400">
+        <p className="text-2xs leading-relaxed text-muted-foreground">
           Keep this for your records.
         </p>
       </div>

@@ -10,9 +10,9 @@ import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { updateCallLog } from "@/lib/db"
 import type { CallType } from "@/lib/types"
 import {
-  claimIvrActionForRescue,
+  claimIvrAction,
   hasOutboundSmsToCustomerRecently,
-} from "@/lib/missed-call-rescue"
+} from "@/lib/booking-sms-guards"
 
 /** Default auto-SMS cooldown — kill duplicate press-1 / rescue / max-wait blasts. */
 export const BOOKING_SMS_COOLDOWN_MINUTES = 45
@@ -139,7 +139,7 @@ export async function sendInboundBookingSmsAndTag(opts: {
 }): Promise<void> {
   // First hangup wins. Second overlapping event does not send another book link.
   if (opts.callSid) {
-    const won = await claimIvrActionForRescue(opts.callSid)
+    const won = await claimIvrAction(opts.callSid)
     if (!won) return
   }
   await sendInboundBookingSms({

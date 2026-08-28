@@ -27,9 +27,9 @@ export function InventoryWorkspaceView() {
         }
       />
 
-      <WorkspacePanel className="p-5 sm:p-6">
+      <WorkspacePanel density="default">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-success/30 bg-success/10 text-success">
             <ScanBarcode className="h-5 w-5" aria-hidden />
           </span>
           <div className="min-w-0 space-y-2">
