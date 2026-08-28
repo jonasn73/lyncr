@@ -304,7 +304,7 @@ function MissedLeadCard({
   )
 }
 
-export function MissedCallRescueSheet({
+export function MissedCallsSheet({
   open,
   onOpenChange,
   businessNumbers,

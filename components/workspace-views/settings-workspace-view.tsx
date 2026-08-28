@@ -185,13 +185,6 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquareText className="h-5 w-5 text-operator" aria-hidden />}
-            title="Missed Call Rescue"
-            subtitle="Auto booking-link textback + IVR capacity"
-            onClick={modals.openMissedCallRescue}
-          />
-          <SettingsMenuRow
-            grouped
             icon={<Sparkles className="h-5 w-5 text-warning" aria-hidden />}
             title="Amber · Lyncr"
             subtitle="Business assistant by text — Busy / Available from your phone"

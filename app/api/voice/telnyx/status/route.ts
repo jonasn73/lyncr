@@ -13,7 +13,6 @@ import { evaluateLowCarrierCreditFromCallUsage } from "@/lib/carrier-credit-aler
 import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { maybeSendPostCallDispositionSms } from "@/lib/post-call-disposition-sms"
 import { maybeSendAdminOverrideDispatchSms } from "@/lib/admin-override-dispatch-sms"
-import { maybeSendMissedCallRescueSms } from "@/lib/missed-call-rescue"
 import { settleCallEarningsBySid } from "@/lib/compensation/settle-call"
 import { maybeQueuePostCallReviewSms } from "@/lib/post-call-review-sms"
 import { parseTelnyxTalkSecondsFromForm } from "@/lib/telnyx-call-duration"
@@ -195,23 +194,6 @@ export async function POST(req: NextRequest) {
               Boolean(snap2?.answered_at) &&
               !isAutomatedCallHandler(routed) &&
               talkSec >= MIN_LIVE_ANSWER_DURATION_SECONDS
-            const preferRescue =
-              !humanAnswered &&
-              (callStatus === "no-answer" ||
-                callStatus === "busy" ||
-                callStatus === "canceled" ||
-                (callStatus === "completed" &&
-                  (talkSec < 45 || talkSec < MIN_LIVE_ANSWER_DURATION_SECONDS) &&
-                  !humanAnswered))
-            if (preferRescue && fromNumber && toNumber) {
-              await maybeSendMissedCallRescueSms({
-                callSid,
-                callStatus,
-                fromNumber,
-                toNumber,
-                preferRescue: true,
-              })
-            }
           }
         } catch (rescueErr) {
           console.error("[Telnyx] Missed Call Rescue SMS failed:", rescueErr)

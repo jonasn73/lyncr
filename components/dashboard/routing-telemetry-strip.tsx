@@ -9,7 +9,7 @@ import {
   RoutingCallHistoryDialog,
   type CallHistoryFilter,
 } from "@/components/dashboard/routing-call-history-dialog"
-import { MissedCallRescueSheet } from "@/components/dashboard/missed-call-rescue-sheet"
+import { MissedCallsSheet } from "@/components/dashboard/missed-calls-sheet"
 import { useRealTimeStatsContext } from "@/components/dashboard/real-time-stats-provider"
 import {
   formatAvgDispatchSpeedMinutes,
@@ -389,7 +389,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         />
       ) : null}
       {rescueOpen ? (
-        <MissedCallRescueSheet
+        <MissedCallsSheet
           open={rescueOpen}
           onOpenChange={setRescueOpen}
           businessNumbers={businessNumbers}
