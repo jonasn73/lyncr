@@ -23,6 +23,7 @@ import {
   usePayPlans,
   type PayPlanTarget,
 } from "@/components/compensation/pay-plan-editor"
+import { grantedCapabilityLabels } from "@/lib/receptionist-capabilities"
 import {
   ReceptionistAccessEditor,
   type ReceptionistAccessTarget,
@@ -709,12 +710,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                               Access
                             </span>
                             <span className="block truncate text-2xs text-foreground underline-offset-2 hover:underline">
-                              {[
-                                member.capabilities.full_vehicle_key_catalog ? "Full key lookup" : null,
-                                member.capabilities.dispatching ? "Dispatching" : null,
-                              ]
-                                .filter(Boolean)
-                                .join(", ") || "Default"}
+                              {grantedCapabilityLabels(member.capabilities).join(", ") || "Default"}
                             </span>
                           </button>
                         </div>

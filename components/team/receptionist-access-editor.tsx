@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
 import type { ReceptionistCapabilities } from "@/lib/types"
 
 export interface ReceptionistAccessTarget {
@@ -33,19 +34,39 @@ interface ReceptionistAccessEditorProps {
 
 const CAPABILITY_TOGGLES: {
   key: keyof ReceptionistCapabilities
-  label: string
   description: string
 }[] = [
   {
     key: "full_vehicle_key_catalog",
-    label: "Full vehicle key lookup",
     description:
       "Gives the same detailed key-cutting catalog owners use (FCC ID search, chip type, programming method) instead of the simple vehicle picker.",
   },
   {
     key: "dispatching",
-    label: "Dispatching",
     description: "Lets them see the job board and assign or reassign a tech — the same console you use.",
+  },
+  {
+    key: "crm_access",
+    description:
+      "Opens your CRM to them — customer list, profiles, vehicles, and service history. Taking intake already works without this.",
+  },
+  {
+    key: "crm_edit",
+    description:
+      "Lets them correct a name, add notes, fix a vehicle, or move a lead's appointment. Needs the customer book above.",
+  },
+  {
+    key: "scheduler",
+    description: "Your calendar, live: they can see the schedule, book onto it, and set blockouts.",
+  },
+  {
+    key: "invoicing",
+    description: "Read-only view of invoices and payment records. They cannot send anything with this alone.",
+  },
+  {
+    key: "invoicing_send",
+    description:
+      "Lets them send or revise an invoice to a customer. This one leaves the building — turn it on deliberately.",
   },
 ]
 
@@ -119,7 +140,7 @@ function ReceptionistAccessForm({
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-foreground">{toggle.label}</span>
+                  <span className="text-sm font-semibold text-foreground">{RECEPTIONIST_CAPABILITY_LABELS[toggle.key]}</span>
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
