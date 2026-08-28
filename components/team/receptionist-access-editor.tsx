@@ -69,9 +69,9 @@ export const CAPABILITY_TOGGLES: {
       "Lets them send or revise an invoice to a customer. This one leaves the building — turn it on deliberately.",
   },
   {
-    key: "owner_intake_form",
+    key: "call_intake",
     description:
-      "Runs your own answered-call intake at their desk instead of the simplified version — same questions, same quoting, key lookup and scheduling. Off means they keep the short form.",
+      "Lets them take intake on a call, using your own intake form — same questions, same quoting, key lookup and scheduling. Off means no intake form at their desk at all.",
   },
 ]
 

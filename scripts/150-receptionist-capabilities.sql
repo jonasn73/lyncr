@@ -13,5 +13,5 @@ ALTER TABLE receptionists
     "scheduler": false,
     "invoicing": false,
     "invoicing_send": false,
-    "owner_intake_form": false
+    "call_intake": false
   }'::jsonb;

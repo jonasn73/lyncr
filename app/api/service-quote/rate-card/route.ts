@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
-    capability: "owner_intake_form",
+    capability: "call_intake",
   })
   if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   const userId = actor.ownerUserId

@@ -19,7 +19,7 @@ export const DEFAULT_RECEPTIONIST_CAPABILITIES: ReceptionistCapabilities = {
   scheduler: false,
   invoicing: false,
   invoicing_send: false,
-  owner_intake_form: false,
+  call_intake: false,
 }
 
 /**
@@ -37,7 +37,7 @@ export const RECEPTIONIST_CAPABILITY_LABELS: Record<keyof ReceptionistCapabiliti
   scheduler: "Scheduler",
   invoicing: "See invoicing",
   invoicing_send: "Send invoices",
-  owner_intake_form: "Owner's intake form",
+  call_intake: "Call intake",
 }
 
 /** Every capability the owner has turned on, in registry order. */
@@ -66,6 +66,6 @@ export function parseReceptionistCapabilities(raw: unknown): ReceptionistCapabil
     scheduler: obj.scheduler === true,
     invoicing: obj.invoicing === true,
     invoicing_send: obj.invoicing_send === true,
-    owner_intake_form: obj.owner_intake_form === true,
+    call_intake: obj.call_intake === true,
   }
 }
