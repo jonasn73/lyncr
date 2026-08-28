@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   bookingLinkSmsToneFromSource,
   isMissedCallBookingCallbackMode,
-} from "@/lib/missed-call-rescue"
+} from "@/lib/booking-sms-guards"
 import { buildBookQueryUrl } from "@/lib/booking-invite"
 
 describe("missed-call booking callback mode", () => {

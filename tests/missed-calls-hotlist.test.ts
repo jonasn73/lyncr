@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { collapseMissedHotlist } from "@/components/dashboard/missed-call-rescue-sheet"
+import { collapseMissedHotlist } from "@/components/dashboard/missed-calls-sheet"
 
 describe("collapseMissedHotlist", () => {
   it("groups by number across non-consecutive rows and keeps the newest timestamp", () => {

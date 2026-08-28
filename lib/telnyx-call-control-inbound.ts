@@ -75,7 +75,7 @@ import {
 } from "@/lib/inbound-time-capture"
 import { resolveInboundDialPlan, type InboundDialPlanResult } from "@/lib/inbound-dial-plan"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
-import { markIvrActionCompleted } from "@/lib/missed-call-rescue"
+import { markIvrActionCompleted } from "@/lib/booking-sms-guards"
 import {
   getAccountPresence,
   resolvePresenceAutomationGreeting,

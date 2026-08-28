@@ -4,7 +4,7 @@
 
 import { getOwnerSmsSettings, getUser } from "@/lib/db"
 import { sendAmberOwnerSms } from "@/lib/amber-owner-sms"
-import { hasOutboundSmsToCustomerRecently } from "@/lib/missed-call-rescue"
+import { hasOutboundSmsToCustomerRecently } from "@/lib/booking-sms-guards"
 import {
   AMBER_SILENT_LEFTOVER_MS,
   buildAmberDraftPreviewText,

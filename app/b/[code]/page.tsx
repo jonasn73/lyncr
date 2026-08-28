@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import BookPageClient from "@/components/book-page-client"
 import { getBookingInviteById } from "@/lib/booking-invite"
-import { isMissedCallBookingCallbackMode } from "@/lib/missed-call-rescue"
+import { isMissedCallBookingCallbackMode } from "@/lib/booking-sms-guards"
 
 export const dynamic = "force-dynamic"
 

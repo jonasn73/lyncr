@@ -72,7 +72,7 @@ export async function sendGotItHoldingCustomerSms(params: {
   }
 
   // Don't send the same booked / we-got-it note twice in 45 minutes.
-  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/booking-sms-guards")
   if (
     await wouldDuplicateRecentCustomerSms({
       ownerUserId: params.ownerUserId,

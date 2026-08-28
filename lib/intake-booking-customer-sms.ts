@@ -134,7 +134,7 @@ export async function sendIntakeBookingCustomerSms(params: {
       : null
 
   // Same Follow-up text twice = skip (form we-got-it + Book job, or leftover cover).
-  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/missed-call-rescue")
+  const { wouldDuplicateRecentCustomerSms } = await import("@/lib/booking-sms-guards")
   if (
     await wouldDuplicateRecentCustomerSms({
       ownerUserId: params.ownerUserId,

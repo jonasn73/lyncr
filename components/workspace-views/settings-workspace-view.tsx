@@ -8,7 +8,6 @@ import {
   Banknote,
   Loader2,
   LogOut,
-  MessageSquare,
   MessageSquareText,
   Network,
   Package,
@@ -179,27 +178,10 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquare className="h-5 w-5 text-info" aria-hidden />}
-            title="Messages"
-            subtitle="SMS inbox — read and reply to customer texts"
-            onClick={() => {
-              closeHeaderSettings()
-              router.push("/dashboard/messages")
-            }}
-          />
-          <SettingsMenuRow
-            grouped
             icon={<Zap className="h-5 w-5 text-operator" aria-hidden />}
             title="SMS templates"
             subtitle="Job texts + your reusable quick SMS shortcuts"
             onClick={modals.openSmsAutomation}
-          />
-          <SettingsMenuRow
-            grouped
-            icon={<MessageSquareText className="h-5 w-5 text-operator" aria-hidden />}
-            title="Missed Call Rescue"
-            subtitle="Auto booking-link textback + IVR capacity"
-            onClick={modals.openMissedCallRescue}
           />
           <SettingsMenuRow
             grouped

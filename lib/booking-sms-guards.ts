@@ -92,13 +92,14 @@ export async function hasOutboundSmsToCustomerRecently(params: {
     `
     return (rows as unknown[]).length > 0
   } catch (e) {
-    console.warn("[missed-call-rescue] SMS lookback failed:", e)
+    console.warn("[booking-sms-guards] SMS lookback failed:", e)
     return false
   }
 }
 
+
 /** Last few shop texts to this phone (used to skip a second booked / follow-up SMS). */
-export async function recentOutboundSmsBodies(params: {
+async function recentOutboundSmsBodies(params: {
   ownerUserId: string
   customerPhone: string
   /** Default 45 minutes — same window as missed-call rescue. */
@@ -129,7 +130,7 @@ export async function recentOutboundSmsBodies(params: {
       .map((r) => String(r.body || "").trim())
       .filter(Boolean)
   } catch (e) {
-    console.warn("[missed-call-rescue] SMS body lookback failed:", e)
+    console.warn("[booking-sms-guards] SMS body lookback failed:", e)
     return []
   }
 }
@@ -158,7 +159,7 @@ export async function markIvrActionCompleted(callSid: string): Promise<void> {
     // Column may be missing pre-migration — ignore.
     const msg = e instanceof Error ? e.message : String(e)
     if (!msg.includes("ivr_action_completed")) {
-      console.warn("[missed-call-rescue] mark IVR complete failed:", e)
+      console.warn("[booking-sms-guards] mark IVR complete failed:", e)
     }
   }
 }
@@ -183,7 +184,7 @@ async function wasIvrActionCompleted(callSid: string): Promise<boolean> {
  * If there is no call log row yet, we still allow send (do not skip a real miss).
  * If a row exists and is already claimed, skip.
  */
-export async function claimIvrActionForRescue(callSid: string): Promise<boolean> {
+export async function claimIvrAction(callSid: string): Promise<boolean> {
   if (!callSid.trim()) return false
   const sql = sqlClient()
   try {
@@ -211,173 +212,4 @@ export async function claimIvrActionForRescue(callSid: string): Promise<boolean>
   }
 }
 
-/**
- * After a terminal inbound status: if this was a true miss (rang team / no answer),
- * never completed press-1, and we haven't texted recently — send Missed Call Rescue.
- * Busy / hold hangups without press 1 must NOT get an auto booking SMS here.
- */
-export async function maybeSendMissedCallRescueSms(params: {
-  callSid: string
-  callStatus: string
-  fromNumber: string
-  toNumber: string
-  /** When true, this call used the IVR menu path (or short abandoned talk time). */
-  preferRescue?: boolean
-}): Promise<{ sent: boolean; reason: string }> {
-  const status = params.callStatus.trim().toLowerCase()
-  const terminal = ["completed", "busy", "failed", "no-answer", "canceled"].includes(status)
-  if (!terminal) return { sent: false, reason: "not_terminal" }
 
-  if (await wasIvrActionCompleted(params.callSid)) {
-    return { sent: false, reason: "ivr_action_completed" }
-  }
-
-  // Busy menu / hold / already-sent capture links are not “true missed” rescues.
-  const snap = await getCallLogSnapshotForTelemetry(params.callSid).catch(() => null)
-  const routed = snap?.routed_to_name ?? null
-  if (
-    isHoldAutomationStatus(routed) ||
-    isCaptureMissedLinkStatus(routed) ||
-    isAutomatedCallHandler(routed)
-  ) {
-    return { sent: false, reason: "busy_or_automated_path" }
-  }
-
-  const from = normalizePhoneNumberE164(params.fromNumber) || toE164(params.fromNumber)
-  const to = normalizePhoneNumberE164(params.toNumber) || toE164(params.toNumber)
-  if (!from || !to) return { sent: false, reason: "missing_phones" }
-
-  const owner = await getUserByPhoneNumber(to)
-  if (!owner) return { sent: false, reason: "unknown_line" }
-
-  // Account toggle — Lines "Missed Call Rescue" / Greetings note (“Text after missed call”).
-  if (!(await getMissedCallTextbackEnabled(owner.id))) {
-    return { sent: false, reason: "textback_disabled" }
-  }
-
-  // Only rescue short / unanswered legs (or explicitly flagged IVR abandons).
-  const prefer = params.preferRescue === true
-  if (!prefer && status === "completed") {
-    // completed with talk time often means a human answered — skip unless flagged.
-    return { sent: false, reason: "completed_without_ivr_flag" }
-  }
-
-  // 45-minute cooldown (shared with press-1 path).
-  if (
-    await hasOutboundSmsToCustomerRecently({
-      ownerUserId: owner.id,
-      customerPhone: from,
-      withinHours: 0.75,
-    })
-  ) {
-    return { sent: false, reason: "sms_within_cooldown" }
-  }
-
-  // First webhook wins so a second hangup/status cannot send another follow-up.
-  if (!(await claimIvrActionForRescue(params.callSid))) {
-    return { sent: false, reason: "ivr_action_completed" }
-  }
-
-  const result = await sendMissedCallRescueBookingLink({
-    ownerUserId: owner.id,
-    customerPhone: from,
-    businessLine: to,
-    source: "missed_call_textback",
-  })
-  return result.ok
-    ? { sent: true, reason: "sent" }
-    : { sent: false, reason: result.error || "sms_failed" }
-}
-
-/**
- * Operator-triggered (or auto) booking-link SMS — creates a /book/[id] invite when possible.
- * Skips the 2h anti-spam window so "Re-send SMS Link" always fires.
- */
-export async function sendMissedCallRescueBookingLink(params: {
-  ownerUserId: string
-  customerPhone: string
-  businessLine?: string | null
-  source?: string
-}): Promise<{ ok: boolean; error?: string }> {
-  const customer =
-    normalizePhoneNumberE164(params.customerPhone) || toE164(params.customerPhone)
-  if (!customer) return { ok: false, error: "invalid_customer_phone" }
-
-  const source = params.source || "missed_call_rescue_resend"
-  const tone = bookingLinkSmsToneFromSource(source)
-  // Auto paths (missed call, return call, press-1) skip a second follow-up in 45 min.
-  // Manual “Re-send SMS Link” still goes through.
-  if (source !== "missed_call_rescue_resend") {
-    if (
-      await hasOutboundSmsToCustomerRecently({
-        ownerUserId: params.ownerUserId,
-        customerPhone: customer,
-        withinHours: 0.75,
-      })
-    ) {
-      return { ok: false, error: "sms_within_cooldown" }
-    }
-  }
-
-  // Prefer the DID from the call; otherwise use the owner's first active business line.
-  const lineRaw = params.businessLine?.trim() || ""
-  let line = lineRaw
-    ? normalizePhoneNumberE164(lineRaw) || toE164(lineRaw) || lineRaw
-    : ""
-  if (!line) {
-    try {
-      const owned = await getPhoneNumbers(params.ownerUserId)
-      const active = owned.find((p) => p.status === "active" && p.number?.trim())
-      const fallback = active?.number || owned[0]?.number || ""
-      line = fallback
-        ? normalizePhoneNumberE164(fallback) || toE164(fallback) || fallback
-        : ""
-    } catch (e) {
-      console.warn("[missed-call-rescue] owner line lookup failed:", e)
-    }
-  }
-  if (!line) {
-    return { ok: false, error: "missing_business_line" }
-  }
-
-  // Operator re-send skips reuse so they can force a fresh link if needed.
-  const forceNew = source === "missed_call_rescue_resend"
-  let bookUrl = ""
-  const created = await createBookingInvite({
-    ownerUserId: params.ownerUserId,
-    businessLine: line,
-    callerPhone: customer,
-    source,
-    reuseOpen: !forceNew,
-  })
-  bookUrl = created?.url || ""
-  if (!bookUrl) {
-    // Table missing / insert failed — query-string /book with callback mode for missed path.
-    bookUrl = buildBookQueryUrl({
-      callerPhone: customer,
-      businessLine: line,
-      // Missed SMS → form collects availability (not slot pick).
-      callbackMode: tone === "missed_call",
-    })
-  }
-
-  const text = buildTelnyxMenuBookingSms(customer, bookUrl, line, tone)
-
-  try {
-    // Log outbound textback into sms_messages so Messages inbox shows the thread.
-    const sent = await sendAndLogWorkspaceCustomerSms({
-      ownerUserId: params.ownerUserId,
-      toE164: customer,
-      text,
-      fromE164: line || null,
-    })
-    if (!sent.ok) {
-      console.warn("[missed-call-rescue] booking link SMS failed:", sent.error)
-      return { ok: false, error: sent.error || "sms_failed" }
-    }
-    return { ok: true }
-  } catch (e) {
-    console.warn("[missed-call-rescue] booking link SMS threw:", e)
-    return { ok: false, error: e instanceof Error ? e.message : "error" }
-  }
-}
