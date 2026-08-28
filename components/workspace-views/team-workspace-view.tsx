@@ -23,6 +23,10 @@ import {
   usePayPlans,
   type PayPlanTarget,
 } from "@/components/compensation/pay-plan-editor"
+import {
+  ReceptionistAccessEditor,
+  type ReceptionistAccessTarget,
+} from "@/components/team/receptionist-access-editor"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { TeamInvite } from "@/lib/types"
@@ -222,6 +226,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   // Pay plans for the roster, and the row currently open in the editor.
   const { plans, reload: reloadPlans } = usePayPlans()
   const [payTarget, setPayTarget] = useState<PayPlanTarget | null>(null)
+  const [accessTarget, setAccessTarget] = useState<ReceptionistAccessTarget | null>(null)
 
   // Only the true first load shows the spinner — a reload triggered by
   // TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not blank
@@ -674,19 +679,45 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         </div>
                       </div>
                       <div className="mt-2 flex items-end justify-between gap-3">
-                        <PayPlanButton
-                          plan={plans[member.id]}
-                          label={member.name}
-                          onEdit={() =>
-                            setPayTarget({
-                              kind: "receptionist",
-                              id: member.id,
-                              name: member.name,
-                              employmentType: plans[member.id]?.employment_type ?? "UNSPECIFIED",
-                              components: plans[member.id]?.components ?? [],
-                            })
-                          }
-                        />
+                        <div className="flex items-end gap-4">
+                          <PayPlanButton
+                            plan={plans[member.id]}
+                            label={member.name}
+                            onEdit={() =>
+                              setPayTarget({
+                                kind: "receptionist",
+                                id: member.id,
+                                name: member.name,
+                                employmentType: plans[member.id]?.employment_type ?? "UNSPECIFIED",
+                                components: plans[member.id]?.components ?? [],
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAccessTarget({
+                                id: member.id,
+                                name: member.name,
+                                capabilities: member.capabilities,
+                              })
+                            }
+                            aria-label={`Console access for ${member.name}`}
+                            className="min-w-0 max-w-full text-left"
+                          >
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                              Access
+                            </span>
+                            <span className="block truncate text-[11px] text-zinc-300 underline-offset-2 hover:underline">
+                              {[
+                                member.capabilities.full_vehicle_key_catalog ? "Full key lookup" : null,
+                                member.capabilities.dispatching ? "Dispatching" : null,
+                              ]
+                                .filter(Boolean)
+                                .join(", ") || "Default"}
+                            </span>
+                          </button>
+                        </div>
                         {payout ? (
                           <p className="shrink-0 text-right text-[11px] text-zinc-400">
                             {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
@@ -714,6 +745,19 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         onSaved={(summary) => {
           void reloadPlans()
           toast({ title: "Pay updated", description: summary })
+        }}
+      />
+
+      <ReceptionistAccessEditor
+        target={accessTarget}
+        onClose={() => setAccessTarget(null)}
+        onSaved={(capabilities) => {
+          if (accessTarget) {
+            setMembers((prev) =>
+              prev.map((m) => (m.id === accessTarget.id ? { ...m, capabilities } : m))
+            )
+          }
+          toast({ title: "Access updated" })
         }}
       />
 

@@ -957,7 +957,20 @@ export interface Receptionist {
   assigned_workspaces?: OperatorAssignedWorkspace[]
   /** Industry/specialty tags for skill-pool routing (`042-skill-routing-pool.sql`). */
   skills: string[]
+  /** Owner-configurable per-receptionist feature flags (`150-receptionist-capabilities.sql`). */
+  capabilities: ReceptionistCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this receptionist into beyond the default intake — grows one
+ * flag at a time as new capabilities are added. See lib/receptionist-capabilities.ts.
+ */
+export interface ReceptionistCapabilities {
+  /** Full FCC/chipset/programming-method key catalog vs. the plain vehicle picker. */
+  full_vehicle_key_catalog: boolean
+  /** Job board + tech assignment — the same JobDetailDrawer/TechAssignmentSelect owners use. */
+  dispatching: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */
@@ -1024,7 +1037,14 @@ export type ReceptionistLiveStatus =
 export interface ReceptionistPortalDashboard {
   receptionist: Pick<
     Receptionist,
-    "id" | "name" | "is_active" | "pay_mode" | "rate_per_minute" | "flat_rate_usd" | "routing_endpoint"
+    | "id"
+    | "name"
+    | "is_active"
+    | "pay_mode"
+    | "rate_per_minute"
+    | "flat_rate_usd"
+    | "routing_endpoint"
+    | "capabilities"
   >
   /**
    * What this receptionist is paid, in words, from their live compensation plan

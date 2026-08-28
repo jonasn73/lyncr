@@ -8,7 +8,7 @@ import { Loader2, PhoneCall, Check, X, Clock, AlertTriangle, Minus, ChevronLeft,
 import { cn } from "@/lib/utils"
 import { WorkspacePanel } from "@/components/dashboard-workspace-ui"
 import type { FieldServiceFieldDef } from "@/lib/field-service-intake"
-import type { ReceptionistCallerLookup } from "@/lib/types"
+import type { ReceptionistCallerLookup, ReceptionistCapabilities } from "@/lib/types"
 import {
   IndustryIntakeFormFields,
   intakeValuesComplete,
@@ -23,6 +23,8 @@ import {
 } from "@/lib/field-service-intake"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
 import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
+import { VehicleKeyInfoPanel } from "@/components/vehicle-key-info-panel"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
 
 export type LiveCallSession = {
   callLogId: string
@@ -271,10 +273,13 @@ export function ReceptionistLiveIntake({
   session,
   callerNameFallback,
   onDismiss,
+  capabilities = DEFAULT_RECEPTIONIST_CAPABILITIES,
 }: {
   session: LiveCallSession
   callerNameFallback?: string | null
   onDismiss: (reason: "saved" | "dismissed") => void
+  /** Owner-configurable — what this receptionist's console can do. */
+  capabilities?: ReceptionistCapabilities
 }) {
   const config = intakeConfigFor(session)
   const [values, setValues] = useState<IntakeFormValues>({})
@@ -301,6 +306,10 @@ export function ReceptionistLiveIntake({
   const steps = useMemo(() => buildSteps(effectiveFields), [effectiveFields])
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLastStep = stepIndex >= steps.length - 1
+  // Owner has opted this receptionist into the same key-lookup catalog owners use — it
+  // replaces VIN lookup on the vehicle step (VehiclePickerCascade stays; VIN entry is not
+  // part of that catalog on the owner side either).
+  const showKeyCatalog = capabilities.full_vehicle_key_catalog && step?.id === "vehicle"
   // Address is "the single field most worth getting right" (see buildSteps above) — shrink
   // the header chrome on that screen so the autocomplete gets more room, same idea as the
   // owner console's compact-on-deep-step header.
@@ -651,11 +660,54 @@ export function ReceptionistLiveIntake({
 
         <div className="mt-4">
           <IndustryIntakeFormFields
-            fields={step ? step.fields : effectiveFields}
+            fields={
+              showKeyCatalog
+                ? step!.fields.filter((f) => f.type !== "vin_lookup")
+                : step
+                  ? step.fields
+                  : effectiveFields
+            }
             values={values}
             onChange={setField}
           />
         </div>
+
+        {showKeyCatalog ? (
+          <div className="mt-4">
+            <VehicleKeyInfoPanel
+              year={String(values.vehicle_year ?? "")}
+              make={String(values.vehicle_make ?? "")}
+              model={String(values.vehicle_model ?? "")}
+              disabled={saving}
+              value={
+                values.key_fcc_id || values.key_style
+                  ? {
+                      profileId: String(values.key_profile_id ?? ""),
+                      fccId: String(values.key_fcc_id ?? ""),
+                      frequency: values.key_frequency ? String(values.key_frequency) : null,
+                      chipset: values.key_chipset ? String(values.key_chipset) : null,
+                      keyStyle: values.key_style ? String(values.key_style) : "Not sure yet",
+                      variantId: values.key_variant_id ? String(values.key_variant_id) : null,
+                      programmingMethod: values.programming_method
+                        ? String(values.programming_method)
+                        : null,
+                      tiSku: values.ti_sku ? String(values.ti_sku) : null,
+                    }
+                  : null
+              }
+              onChange={(selection) => {
+                setField("key_profile_id", selection?.profileId ?? null)
+                setField("key_fcc_id", selection?.fccId ?? null)
+                setField("key_frequency", selection?.frequency ?? null)
+                setField("key_chipset", selection?.chipset ?? null)
+                setField("key_style", selection?.keyStyle ?? null)
+                setField("key_variant_id", selection?.variantId ?? null)
+                setField("programming_method", selection?.programmingMethod ?? null)
+                setField("ti_sku", selection?.tiSku ?? null)
+              }}
+            />
+          </div>
+        ) : null}
 
         {error ? (
           <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

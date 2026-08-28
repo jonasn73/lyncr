@@ -256,6 +256,7 @@ export async function buildReceptionistPortalDashboard(
       rate_per_minute: ctx.receptionist.rate_per_minute,
       flat_rate_usd: ctx.receptionist.flat_rate_usd,
       routing_endpoint: ctx.receptionist.routing_endpoint ?? "CELL",
+      capabilities: ctx.receptionist.capabilities,
     },
     pay_summary,
     // WEB media can register once a SIP username is provisioned.

@@ -19,6 +19,7 @@ import { calculateServiceQuote } from "@/lib/service-quote-calculator"
 import { buildIntakePricingMetadata, getOwnerServiceRateCard, type ServiceQuoteTypeId } from "@/lib/service-rate-card"
 import { localDayRangeIso } from "@/lib/scheduler-utils"
 import { parseAdminNotificationPreferences } from "@/lib/admin-notification-preferences"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES, parseReceptionistCapabilities } from "@/lib/receptionist-capabilities"
 import { sanitizeIanaTimezone } from "@/lib/telemetry-timezone"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { formatAdminRoutingOverridePhoneForTelnyx, resolveScopedAdminRoutingOverrideE164 } from "@/lib/phone-e164"
@@ -34,6 +35,7 @@ import type {
   RoutingConfig,
   RoutingStrategy,
   Receptionist,
+  ReceptionistCapabilities,
   User,
   AdminNotificationPreferences,
   MasterToggleMode,
@@ -1173,6 +1175,7 @@ function parseReceptionistRow(row: Record<string, unknown>): Receptionist {
     sip_username: row.sip_username ? String(row.sip_username) : null,
     sip_credential_id: row.sip_credential_id ? String(row.sip_credential_id) : null,
     skills: parseSkillsArray(row.skills),
+    capabilities: parseReceptionistCapabilities(row.capabilities),
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
 }
@@ -1244,7 +1247,9 @@ export async function getReceptionist(receptionistId: string): Promise<Reception
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
+        -- 150 column read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists WHERE id = ${receptionistId} LIMIT 1
     `
     return rows[0] ? parseReceptionistRow(rows[0]) : null
@@ -1263,7 +1268,8 @@ export async function getReceptionists(userId: string): Promise<Receptionist[]> 
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists WHERE user_id = ${userId} ORDER BY created_at ASC
     `
     return rows.map(parseReceptionistRow)
@@ -1647,6 +1653,7 @@ export async function insertReceptionist(params: {
     flat_rate_usd: 2.5,
     is_active: true,
     skills: [],
+    capabilities: DEFAULT_RECEPTIONIST_CAPABILITIES,
     created_at: new Date().toISOString(),
   }
 }
@@ -1841,7 +1848,7 @@ export async function updateReceptionist(
   userId: string,
   updates: Partial<
     Pick<Receptionist, "name" | "phone" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd" | "routing_endpoint">
-  >
+  > & { capabilities?: Partial<ReceptionistCapabilities> }
 ): Promise<void> {
   const sql = getSql()
   if (updates.name !== undefined) {
@@ -1878,6 +1885,19 @@ export async function updateReceptionist(
     const endpoint = updates.routing_endpoint === "WEB" ? "WEB" : "CELL"
     try {
       await sql`UPDATE receptionists SET routing_endpoint = ${endpoint} WHERE id = ${receptionistId} AND user_id = ${userId}`
+    } catch (e) {
+      if (pgErrorCode(e) !== "42703") throw e
+    }
+  }
+  if (updates.capabilities !== undefined) {
+    // Merge into the existing JSONB atomically (jsonb || jsonb) so patching one flag can
+    // never clobber another. 150 column — tolerate it not existing yet (42703).
+    try {
+      await sql`
+        UPDATE receptionists
+        SET capabilities = coalesce(capabilities, '{}'::jsonb) || ${JSON.stringify(updates.capabilities)}::jsonb
+        WHERE id = ${receptionistId} AND user_id = ${userId}
+      `
     } catch (e) {
       if (pgErrorCode(e) !== "42703") throw e
     }
@@ -16825,10 +16845,11 @@ export async function getReceptionistByPortalUserId(portalUserId: string): Promi
   try {
     const rows = await sql`
       SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, portal_user_id, created_at,
-        -- 050/051 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
+        -- 050/051/150 columns read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
         to_jsonb(receptionists) ->> 'routing_endpoint' AS routing_endpoint,
         to_jsonb(receptionists) ->> 'sip_username' AS sip_username,
-        to_jsonb(receptionists) ->> 'sip_credential_id' AS sip_credential_id
+        to_jsonb(receptionists) ->> 'sip_credential_id' AS sip_credential_id,
+        to_jsonb(receptionists) -> 'capabilities' AS capabilities
       FROM receptionists
       WHERE portal_user_id = ${portalUserId}
       LIMIT 1

@@ -1,7 +1,6 @@
 // GET /api/owner/jobs/pool — hopper (unassigned) or active day pipeline (map dispatch)
 
 import { after, NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
 import {
   listOwnerActivePipelineJobsForDay,
   listOwnerUnassignedPoolJobs,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/map-pin-spread"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
 import { TIMEZONE_COOKIE, parseTimezoneCookie } from "@/lib/browser-timezone-cookie"
+import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -59,8 +59,9 @@ async function enrichPoolJobsWithGeocode(jobs: PoolJobRow[]): Promise<void> {
 }
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveCapabilityActor(req.headers.get("cookie"), "dispatching")
+  if (!actor) return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+  const userId = actor.ownerUserId
 
   const organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() || null
   const orgId = organizationId && !organizationId.startsWith("legacy-") ? organizationId : null

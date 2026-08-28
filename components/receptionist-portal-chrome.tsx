@@ -5,12 +5,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { DollarSign, Home, LogOut, Phone } from "lucide-react"
+import { DollarSign, Home, LogOut, Phone, Truck } from "lucide-react"
 import { ReceptionistImpersonationBar } from "@/components/receptionist-impersonation-bar"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-const NAV = [
+const BASE_NAV = [
   { href: "/receptionist", label: "Home", icon: Home, match: (p: string) => p === "/receptionist" },
   {
     href: "/receptionist/calls",
@@ -26,16 +26,27 @@ const NAV = [
   },
 ] as const
 
+const DISPATCH_NAV_ITEM = {
+  href: "/receptionist/dispatch",
+  label: "Dispatch",
+  icon: Truck,
+  match: (p: string) => p.startsWith("/receptionist/dispatch"),
+} as const
+
 export function ReceptionistPortalChrome({
   userName,
   businessName,
+  dispatching = false,
   children,
 }: {
   userName: string
   businessName?: string | null
+  /** Owner-configurable — shows the Dispatch tab when true. */
+  dispatching?: boolean
   children: React.ReactNode
 }) {
   const pathname = usePathname() || "/receptionist"
+  const NAV = dispatching ? [...BASE_NAV, DISPATCH_NAV_ITEM] : BASE_NAV
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" })

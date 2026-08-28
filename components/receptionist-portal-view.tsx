@@ -574,6 +574,7 @@ export function ReceptionistPortalView() {
         <ReceptionistLiveIntake
           session={activeCall}
           callerNameFallback={dashboard.live_status.mode === "on_call" ? dashboard.live_status.caller_name : null}
+          capabilities={dashboard.receptionist.capabilities}
           onDismiss={() => {
             setActiveCall(null)
             load({ silent: true })
