@@ -27,7 +27,7 @@ import {
   isOwnerWhoAnswersLabel,
   writeLinesChromeCache,
 } from "@/lib/lines-chrome-cache"
-import { customerFacingPhoneLines } from "@/lib/amber-control-line"
+import { customerFacingPhoneLines } from "@/lib/control-line"
 import { LYNCR_ROUTING_MODE_CHANGED } from "@/lib/active-routing-mode"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"

@@ -20,7 +20,7 @@ import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
 import { HoldQueueWaitingCard } from "@/components/dashboard/hold-queue-waiting-card"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
-import { customerFacingPhoneLines } from "@/lib/amber-control-line"
+import { customerFacingPhoneLines } from "@/lib/control-line"
 import {
   LYNCR_ROUTING_MODE_CHANGED,
   normalizeActiveRoutingMode,

@@ -185,13 +185,6 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Sparkles className="h-5 w-5 text-warning" aria-hidden />}
-            title="Amber · Lyncr"
-            subtitle="Business assistant by text — Busy / Available from your phone"
-            onClick={modals.openAmber}
-          />
-          <SettingsMenuRow
-            grouped
             icon={<ShieldCheck className="h-5 w-5 text-operator" aria-hidden />}
             title="Carrier registration"
             subtitle="10DLC for US lead-alert SMS"

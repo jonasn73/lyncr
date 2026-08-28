@@ -10,8 +10,9 @@ import { Switch } from "@/components/ui/switch"
 import {
   isBusyPresenceStatus,
   PRESENCE_BUSY_WRITE_STATUS,
+  formatPresenceUntilLabel,
 } from "@/lib/account-presence"
-import { formatAmberUntilLabel } from "@/lib/amber-commands"
+
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 export function PresenceStatusBar({ className }: { className?: string }) {
@@ -34,7 +35,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
   if (isBusy && presenceAvailableAt) {
     const at = new Date(presenceAvailableAt)
     if (!Number.isNaN(at.getTime()) && at.getTime() > Date.now()) {
-      untilLabel = formatAmberUntilLabel(at, presenceTimezone || "America/New_York")
+      untilLabel = formatPresenceUntilLabel(at, presenceTimezone || "America/New_York")
     }
   }
 

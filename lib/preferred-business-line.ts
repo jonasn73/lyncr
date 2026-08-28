@@ -1,6 +1,6 @@
 // Pick the customer-facing business DID — ported main lines beat temporary placeholder DIDs.
 
-import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/amber-control-line"
+import { customerFacingPhoneLines, isAmberControlLine } from "@/lib/control-line"
 import {
   businessNumbersMatch,
   isDashboardVisibleLineStatus,

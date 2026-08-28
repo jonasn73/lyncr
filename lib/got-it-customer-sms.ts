@@ -1,15 +1,15 @@
 /**
- * Safe “we got your request” SMS from the shop line (never Amber).
+ * Safe “we got your request” SMS from the shop line (never a control DID).
  * Used on ASAP submit and when a leftover ping sits unanswered.
  */
 
 import { SITE_NAME } from "@/lib/brand"
 import { getOwnerSmsSettings, getUser, updateAiLeadSmsOutcome } from "@/lib/db"
 import {
-  amberCustomerFirstName,
+  customerFirstName,
   buildGotItHoldingCustomerSms,
   formatVehicleForSms,
-} from "@/lib/amber-coworker-commands"
+} from "@/lib/customer-sms-phrases"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { resolveWorkspaceSmsSender } from "@/lib/workspace-sms-sender"
 
@@ -20,7 +20,7 @@ export async function sendGotItHoldingCustomerSms(params: {
   leadId?: string | null
   customerPhone: string
   customerName: string | null
-  amberNumber?: string | null
+  controlNumber?: string | null
   jobLabel?: string | null
   vehicleYear?: string | null
   vehicleMake?: string | null
@@ -37,7 +37,7 @@ export async function sendGotItHoldingCustomerSms(params: {
     String(owner?.name ?? "").trim() ||
     SITE_NAME
   // First name only — do not put address or full phone in the customer text.
-  const first = amberCustomerFirstName(params.customerName)
+  const first = customerFirstName(params.customerName)
   const vehicle =
     String(params.vehicle || "").trim() ||
     formatVehicleForSms({
@@ -58,7 +58,7 @@ export async function sendGotItHoldingCustomerSms(params: {
     template: settings?.sms_booking_template,
   })
 
-  // Always From the business line, never the Amber control number.
+  // Always From the business line, never a control DID.
   const sender = await resolveWorkspaceSmsSender(
     params.ownerUserId,
     params.organizationId ?? null
@@ -66,9 +66,9 @@ export async function sendGotItHoldingCustomerSms(params: {
   if (!sender.ok) {
     return { sent: false, error: sender.message || "No business line for customer SMS." }
   }
-  const amber = params.amberNumber?.trim() || ""
-  if (amber && sender.from_e164 === amber) {
-    return { sent: false, error: "Customer SMS cannot send from the Amber number." }
+  const control = params.controlNumber?.trim() || ""
+  if (control && sender.from_e164 === control) {
+    return { sent: false, error: "Customer SMS cannot send from a control number." }
   }
 
   // Don't send the same booked / we-got-it note twice in 45 minutes.

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   customerFacingPhoneLines,
   isAmberControlLine,
-} from "@/lib/amber-control-line"
+} from "@/lib/control-line"
 import { pickPreferredCustomerLine } from "@/lib/preferred-business-line"
 
 describe("amber control line", () => {

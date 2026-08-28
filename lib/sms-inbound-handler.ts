@@ -72,20 +72,6 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
   const telnyxMessageId =
     body.data?.payload?.id?.trim() || body.data?.id?.trim() || null
 
-  // Amber control DID — owner assistant commands (never treat as customer SMS).
-  try {
-    const { tryHandleAmberInboundSms } = await import("@/lib/amber-handler")
-    const amberHandled = await tryHandleAmberInboundSms({
-      fromE164,
-      toE164,
-      text,
-      telnyxMessageId,
-    })
-    if (amberHandled) return
-  } catch (e) {
-    console.warn("[sms-inbound] amber handler error:", e)
-  }
-
   const disposition = parseDispositionCode(text)
   if (disposition) {
     const pending = await findOpenPendingSmsDispositionByPhone(fromE164)

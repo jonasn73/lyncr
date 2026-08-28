@@ -11,7 +11,7 @@ import {
   phoneDigits10,
   type DashboardBusinessNumber,
 } from "@/lib/dashboard-routing-utils"
-import { isAmberControlLine } from "@/lib/amber-control-line"
+import { isAmberControlLine } from "@/lib/control-line"
 import type { PortingOrder, RoutingStrategy } from "@/lib/types"
 
 export type PhoneLinesListContentProps = {

@@ -53,7 +53,7 @@ import {
   type SmsReplyChip,
   type SmsReplyIntent,
 } from "@/lib/sms-reply-suggestions"
-import { formatVehicleForSms, formatCustomerNeedPhrase } from "@/lib/amber-coworker-commands"
+import { formatVehicleForSms, formatCustomerNeedPhrase } from "@/lib/customer-sms-phrases"
 import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
 import type { OwnerSmsSnippet, OwnerSmsStatusTemplates } from "@/lib/types"
