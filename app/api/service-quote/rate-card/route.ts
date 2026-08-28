@@ -1,14 +1,17 @@
 // GET /api/service-quote/rate-card — owner quote profile from onboarding_profiles.service_rules.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { getOwnerServiceRateCard } from "@/lib/service-rate-card"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "owner_intake_form",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   try {
     const { rateCard, source } = await getOwnerServiceRateCard(userId)

@@ -32,7 +32,7 @@ interface ReceptionistAccessEditorProps {
   onSaved: (capabilities: ReceptionistCapabilities) => void
 }
 
-const CAPABILITY_TOGGLES: {
+export const CAPABILITY_TOGGLES: {
   key: keyof ReceptionistCapabilities
   description: string
 }[] = [
@@ -67,6 +67,11 @@ const CAPABILITY_TOGGLES: {
     key: "invoicing_send",
     description:
       "Lets them send or revise an invoice to a customer. This one leaves the building — turn it on deliberately.",
+  },
+  {
+    key: "owner_intake_form",
+    description:
+      "Runs your own answered-call intake at their desk instead of the simplified version — same questions, same quoting, key lookup and scheduling. Off means they keep the short form.",
   },
 ]
 

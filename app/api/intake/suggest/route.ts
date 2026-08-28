@@ -1,7 +1,7 @@
 // POST /api/intake/suggest — confirm-only AI prefill for intake (never creates a job).
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   generateIntakeAiSuggestion,
   type IntakeAiSuggestInput,
@@ -11,8 +11,9 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   let body: Record<string, unknown> = {}
   try {

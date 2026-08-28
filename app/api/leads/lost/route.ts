@@ -1,7 +1,7 @@
 // POST /api/leads/lost — log a price-shopper / hang-up lead from the intake sheet.
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { insertLostLead } from "@/lib/lost-leads"
 import { markAiLeadAsCrmLost } from "@/lib/db"
 import { publishOwnerEvent } from "@/lib/realtime/pusher-server"
@@ -24,8 +24,9 @@ type LostLeadBody = {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   try {
     const body = (await req.json().catch(() => ({}))) as LostLeadBody

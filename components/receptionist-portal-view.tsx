@@ -4,6 +4,7 @@
 // Home is a live ops desk: duty band + answer channel + live strip (not a stack of marketing cards).
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { Loader2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -12,6 +13,19 @@ import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+
+// The owner's answered-call intake, mounted at the receptionist's desk when the owner has
+// granted `owner_intake_form`. Same component the dashboard shell renders — it resolves the
+// live call itself from /api/calls/ringing-recent + answered-recent, which now return the
+// owner's calls for a linked receptionist, so it needs nothing wired to her HUD.
+//
+// Kept dynamic for the same reason the owner shell does it: ~4k LOC plus Leaflet has no
+// business in the portal's first chunk when most desks will not have this turned on.
+const CallAnsweredModal = dynamic(
+  () => import("@/components/dashboard/CallAnsweredModal").then((m) => m.CallAnsweredModal),
+  { ssr: false }
+)
 import type { CallConnectedPayload } from "@/app/actions/call-events"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
@@ -317,6 +331,9 @@ export function ReceptionistPortalView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeCall, setActiveCall] = useState<LiveCallSession | null>(null)
+  // Owner's id, seeded server-side by the portal layout — the shared views all read the
+  // business account, not hers.
+  const workspaceSession = useDashboardSessionOptional()
 
   const load = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -570,7 +587,11 @@ export function ReceptionistPortalView() {
         />
       ) : null}
 
-      {activeCall ? (
+      {dashboard.receptionist.capabilities.owner_intake_form ? (
+        // One intake, two chromes: her desk runs the owner's form rather than a lookalike.
+        // Her own HUD intake stays out of the way so a call cannot open two forms at once.
+        <CallAnsweredModal enabled ownerUserId={workspaceSession?.companyUserId ?? null} />
+      ) : activeCall ? (
         <ReceptionistLiveIntake
           session={activeCall}
           callerNameFallback={dashboard.live_status.mode === "on_call" ? dashboard.live_status.caller_name : null}

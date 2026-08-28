@@ -981,6 +981,11 @@ export interface ReceptionistCapabilities {
   invoicing: boolean
   /** Send an invoice, receipt, or pay link to a customer — money leaving the building. */
   invoicing_send: boolean
+  /**
+   * Run the OWNER's answered-call intake instead of the simplified receptionist form —
+   * the same component, so quoting, key selection, photos and scheduling all match.
+   */
+  owner_intake_form: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */

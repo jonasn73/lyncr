@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { requireReceptionistCapability } from "@/lib/receptionist-route-guard"
 import { RECEPTIONIST_NAV_ITEMS } from "@/components/receptionist-portal-chrome"
+import { CAPABILITY_TOGGLES } from "@/components/team/receptionist-access-editor"
+import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
 import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
 import type { ReceptionistCapabilities } from "@/lib/types"
 
@@ -97,5 +99,29 @@ describe("requireReceptionistCapability", () => {
     const ctx = await requireReceptionistCapability("crm_access", "/receptionist/customers")
     expect(ctx.owner_user_id).toBe("owner-1")
     expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe("capability registry stays whole", () => {
+  // The roster's Access line once listed two flags by hand, so newly granted capabilities
+  // saved correctly and displayed as "Default". A capability the owner cannot see is a
+  // capability the owner cannot reason about — every key must reach the surface.
+  const keys = Object.keys(DEFAULT_RECEPTIONIST_CAPABILITIES) as (keyof ReceptionistCapabilities)[]
+
+  it("names every capability", () => {
+    expect(keys.filter((k) => !RECEPTIONIST_CAPABILITY_LABELS[k])).toEqual([])
+  })
+
+  it("gives the owner a toggle for every capability", () => {
+    const toggled = new Set(CAPABILITY_TOGGLES.map((t) => t.key))
+    expect(keys.filter((k) => !toggled.has(k))).toEqual([])
+  })
+
+  it("explains every toggle — a switch with no consequence stated is a trap", () => {
+    expect(CAPABILITY_TOGGLES.filter((t) => !t.description?.trim())).toEqual([])
+  })
+
+  it("starts every capability off, so a grant is always a deliberate act", () => {
+    expect(keys.filter((k) => DEFAULT_RECEPTIONIST_CAPABILITIES[k] !== false)).toEqual([])
   })
 })
