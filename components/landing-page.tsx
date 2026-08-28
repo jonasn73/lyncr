@@ -314,15 +314,15 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               {/* End nodes */}
               <div className="absolute bottom-[18%] left-[8%] flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-2 backdrop-blur-md sm:left-[12%]">
                 <Users className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Receptionist</span>
+                <span className="text-2xs font-medium text-foreground">Receptionist</span>
               </div>
               <div className="absolute bottom-[18%] right-[8%] flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-2 backdrop-blur-md sm:right-[12%]">
                 <MapPinned className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Field tech</span>
+                <span className="text-2xs font-medium text-foreground">Field tech</span>
               </div>
               <div className="absolute bottom-[4%] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 backdrop-blur-md">
                 <CreditCard className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-semibold text-primary">Collect · Tap to Pay · Pay link</span>
+                <span className="text-2xs font-semibold text-primary">Collect · Tap to Pay · Pay link</span>
               </div>
             </div>
           </div>
@@ -433,7 +433,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 )}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-micro font-bold uppercase tracking-wider text-primary-foreground">
                     Most Popular
                   </div>
                 )}

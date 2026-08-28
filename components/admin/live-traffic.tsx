@@ -106,7 +106,7 @@ export function LiveTrafficPulse() {
                 <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      "rounded-full px-2 py-0.5 text-micro font-medium",
                       c.connected
                         ? "bg-emerald-500/15 text-emerald-300"
                         : "bg-amber-500/15 text-amber-300"

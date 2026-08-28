@@ -744,7 +744,7 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
             <MapPinned className="mr-1 inline h-3.5 w-3.5" aria-hidden />
             Route — {selectedDayLabel}
           </p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-micro text-muted-foreground">
             {routeStops.length} scheduled · {mappedPoolCount}/{hopperSource.length} pipeline on map
             {techLocations.length > 0 ? ` · ${techLocations.length} tech live` : ""}
             {unmappedPoolCount > 0 ? ` · ${unmappedPoolCount} geocoding` : ""}

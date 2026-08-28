@@ -170,7 +170,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
           </CommandItem>
         </CommandGroup>
       </CommandList>
-      <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
+      <div className="border-t border-border px-3 py-2 text-micro text-muted-foreground">
         Press <kbd className="rounded border border-border bg-muted px-1 font-mono">⌘K</kbd> or{" "}
         <kbd className="rounded border border-border bg-muted px-1 font-mono">Ctrl+K</kbd> to toggle
       </div>

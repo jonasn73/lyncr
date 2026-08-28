@@ -298,7 +298,7 @@ function LiveChatQueue() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {row.owner_name} · {row.owner_email} · {row.status}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-micro font-medium text-violet-300">
                       {row.admin_unread_count} unread
                     </span>
                   ) : null}
@@ -384,7 +384,7 @@ function LiveChatQueue() {
                     )}
                   >
                     {!isSystem ? (
-                      <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide opacity-70">
+                      <p className="mb-0.5 text-micro font-medium uppercase tracking-wide opacity-70">
                         {isAdmin ? "You (Lyncr)" : "Tenant"}
                       </p>
                     ) : null}
@@ -414,7 +414,7 @@ function LiveChatQueue() {
                       </div>
                     ))}
                     {!isSystem ? (
-                      <p className="mt-1 text-[10px] opacity-60">{formatChatTime(m.created_at)}</p>
+                      <p className="mt-1 text-micro opacity-60">{formatChatTime(m.created_at)}</p>
                     ) : null}
                   </div>
                 </div>
@@ -428,7 +428,7 @@ function LiveChatQueue() {
               {pending.map((p) => (
                 <span
                   key={p.url}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-[11px]"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-2xs"
                 >
                   <span className="max-w-[140px] truncate">{p.filename}</span>
                   <button
@@ -617,7 +617,7 @@ function FeedbackQueue() {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-medium uppercase text-muted-foreground">{row.category}</span>
-                <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-300">
+                <span className="rounded-full border border-slate-600 px-2 py-0.5 text-micro font-medium capitalize text-slate-300">
                   {row.status}
                 </span>
               </div>
@@ -644,7 +644,7 @@ function FeedbackQueue() {
               </SheetHeader>
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Status</span>
+                  <span className="text-micro font-medium uppercase text-muted-foreground">Status</span>
                   <Select
                     value={sheet.status}
                     onValueChange={(v) => void setStatus(sheet.id, v as FeedbackStatus)}
@@ -810,7 +810,7 @@ function EmailInbox() {
                 <p className={cn("mt-1 text-sm", unread ? "font-medium text-slate-100" : "text-slate-300")}>
                   {row.subject || "(no subject)"}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-micro font-medium text-violet-300">
                       Unread
                     </span>
                   ) : null}

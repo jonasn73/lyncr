@@ -31,7 +31,7 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex max-w-full min-w-0 items-center gap-2 text-[11px] font-semibold text-amber-200/95",
+          "inline-flex max-w-full min-w-0 items-center gap-2 text-2xs font-semibold text-amber-200/95",
           "break-words [overflow-wrap:anywhere]",
           className
         )}
@@ -50,7 +50,7 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-2 text-[11px] font-semibold text-violet-300",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-violet-300",
           className
         )}
       >
@@ -66,7 +66,7 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-2 text-[11px] font-semibold text-emerald-300/95",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-emerald-300/95",
           className
         )}
       >
@@ -83,7 +83,7 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-2 text-[11px] font-semibold text-amber-200/90",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-amber-200/90",
           className
         )}
       >
@@ -94,7 +94,7 @@ export function LineRoutingStatus({
   }
   return (
     <span
-      className={cn("inline-flex items-center gap-2 text-[11px] font-semibold text-[#71717a]", className)}
+      className={cn("inline-flex items-center gap-2 text-2xs font-semibold text-[#71717a]", className)}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d97706]" aria-hidden />
       • Inactive (Pending Payment)

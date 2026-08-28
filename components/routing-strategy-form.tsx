@@ -167,7 +167,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
     <div className="space-y-6">
       {lines.length > 1 ? (
         <label className="block">
-          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Which line
           </span>
           <Select value={activeNumber} onValueChange={(v) => void onChangeLine(v)} disabled={saving}>
@@ -232,7 +232,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
 
       {showRingTimeout ? (
         <label className="block">
-          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Ring my team for (seconds) before falling back
           </span>
           <input

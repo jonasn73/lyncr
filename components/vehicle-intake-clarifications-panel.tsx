@@ -168,7 +168,7 @@ export function VehicleIntakeClarificationsPanel({
         <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden />
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-100">Ask the customer</p>
-          <p className="mt-0.5 text-[11px] text-amber-100/80">
+          <p className="mt-0.5 text-2xs text-amber-100/80">
             {keyGatePending
               ? "Answer this before we show a key blank — push-start and turn-key use different parts."
               : "Answer these to lock the correct vehicle / key before ordering."}
@@ -184,7 +184,7 @@ export function VehicleIntakeClarificationsPanel({
         return (
           <section key={prompt.id} className="grid gap-2 rounded-md border border-amber-500/25 bg-background/40 p-3">
             <p className="text-xs font-medium text-foreground">{prompt.question}</p>
-            <p className="text-[11px] italic text-muted-foreground">&ldquo;{prompt.askScript}&rdquo;</p>
+            <p className="text-2xs italic text-muted-foreground">&ldquo;{prompt.askScript}&rdquo;</p>
 
             {canAutoSelect && bestOption ? (
               <button
@@ -236,7 +236,7 @@ export function VehicleIntakeClarificationsPanel({
                   >
                     <span className="block">{option.label}</span>
                     {option.keyStyle && !option.label.toLowerCase().includes(option.keyStyle.toLowerCase()) ? (
-                      <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                      <span className="mt-0.5 block text-micro font-normal text-muted-foreground">
                         {option.keyStyle}
                       </span>
                     ) : null}

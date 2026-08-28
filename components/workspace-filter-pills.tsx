@@ -88,7 +88,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               "relative inline-flex shrink-0 items-center gap-2 rounded-full border font-semibold touch-manipulation",
               "motion-safe:active:scale-[0.98]",
               size === "sm"
-                ? "min-h-8 rounded-lg px-3 py-2 text-[11px]"
+                ? "min-h-8 rounded-lg px-3 py-2 text-2xs"
                 : "min-h-10 px-4 py-2 text-xs",
               active
                 ? TONE_ACTIVE[tone]
@@ -113,7 +113,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               {chip.badge != null && chip.badge > 0 ? (
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                    "rounded-full px-2 py-0.5 text-micro font-bold tabular-nums",
                     active ? TONE_BADGE_ACTIVE[tone] : "bg-amber-500/15 text-amber-300"
                   )}
                 >

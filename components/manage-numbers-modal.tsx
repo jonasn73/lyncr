@@ -132,7 +132,7 @@ function PortPinCorrectionForm({
       <p className="text-xs leading-snug text-red-200/90">
         {order.carrier_rejection_reason?.trim() || "Carrier rejected this transfer and needs a correction."}
       </p>
-      <label className="block text-[11px] font-medium text-red-100/80">
+      <label className="block text-2xs font-medium text-red-100/80">
         Enter Correct Account PIN/Passcode:
         <input
           type="text"
@@ -268,7 +268,7 @@ function EditableLineLabel({
           className="w-full rounded-md border border-primary/40 bg-zinc-900/80 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
           aria-label="Line label whisper name"
         />
-        <p className="text-[10px] leading-snug text-muted-foreground">
+        <p className="text-micro leading-snug text-muted-foreground">
           Line label (whisper name) — what your team hears when a call comes in.
         </p>
       </div>
@@ -481,7 +481,7 @@ export function ManageNumbersModal({
                         onRevert={applyLineLabel}
                       />
                       {showWorkspacePicker ? (
-                        <label className="mt-2 block text-[10px] text-muted-foreground">
+                        <label className="mt-2 block text-micro text-muted-foreground">
                           Business
                           <select
                             value={line.organization_id ?? ""}
@@ -503,14 +503,14 @@ export function ManageNumbersModal({
                       ) : null}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-primary">
                         Active
                       </span>
                       <button
                         type="button"
                         disabled={!canReleaseAny || releasingId != null}
                         onClick={() => setReleaseTarget(line)}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                         title={
                           canReleaseAny
                             ? "Return this number to the carrier"
@@ -580,7 +580,7 @@ export function ManageNumbersModal({
                           </div>
                           <span
                             className={cn(
-                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                              "shrink-0 rounded-full border px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
                               rejected
                                 ? "border-red-500/50 bg-red-500/15 text-red-300"
                                 : "border-amber-500/40 bg-amber-500/10 text-amber-300"

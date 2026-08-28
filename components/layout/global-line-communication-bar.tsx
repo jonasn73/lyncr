@@ -82,7 +82,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              "block text-[10px] font-bold uppercase tracking-wider",
+              "block text-micro font-bold uppercase tracking-wider",
               ringing ? "text-amber-300/90" : "text-cyan-300/90"
             )}
           >
@@ -92,9 +92,9 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
             {phone}
           </span>
           {contextMeta ? (
-            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{contextMeta}</span>
+            <span className="mt-0.5 block truncate text-2xs text-muted-foreground">{contextMeta}</span>
           ) : call.lookupLoading ? (
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">Looking up caller…</span>
+            <span className="mt-0.5 block text-2xs text-muted-foreground">Looking up caller…</span>
           ) : null}
         </span>
 

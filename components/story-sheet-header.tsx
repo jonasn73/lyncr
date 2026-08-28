@@ -40,7 +40,7 @@ export function StorySheetHeader({
       />
       <p
         className={cn(
-          "text-[10px] font-semibold uppercase tracking-[0.14em]",
+          "text-micro font-semibold uppercase tracking-[0.14em]",
           variant === "member" ? "text-primary" : "text-violet-300"
         )}
       >
@@ -48,7 +48,7 @@ export function StorySheetHeader({
       </p>
       <p
         className={cn(
-          "mt-0.5 text-[11px] leading-snug",
+          "mt-0.5 text-2xs leading-snug",
           variant === "member" ? "text-muted-foreground" : "text-muted-foreground"
         )}
       >

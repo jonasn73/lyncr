@@ -510,7 +510,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700/80 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-slate-700/80 text-2xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3 font-medium">When</th>
                     <th className="px-4 py-3 font-medium">Caller</th>
                     <th className="px-4 py-3 font-medium">Intent</th>
@@ -525,7 +525,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                       <td className="px-4 py-3 font-mono text-xs text-slate-300">{row.caller_e164 ?? "—"}</td>
                       <td className="px-4 py-3 text-slate-300">{row.intent_slug ?? "—"}</td>
                       <td className="max-w-md px-4 py-3">
-                        <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/80 p-2 font-mono text-[11px] leading-relaxed text-emerald-100/90">
+                        <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/80 p-2 font-mono text-2xs leading-relaxed text-emerald-100/90">
                           {JSON.stringify(row.intake_payload, null, 2)}
                         </pre>
                         {row.summary ? (
@@ -583,7 +583,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex justify-between gap-3">
       <span>{label}</span>
-      <span className={cn("text-right text-slate-300", mono && "font-mono text-[11px]")}>{value}</span>
+      <span className={cn("text-right text-slate-300", mono && "font-mono text-2xs")}>{value}</span>
     </div>
   )
 }

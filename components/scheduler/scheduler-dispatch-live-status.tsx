@@ -107,7 +107,7 @@ function UpcomingJobChip({
             e.stopPropagation()
             onMarkComplete(job.id)
           }}
-          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
+          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
         >
           {isCompleting ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
           Mark done
@@ -136,10 +136,10 @@ function UpcomingJobsList({
   pending?: boolean
 }) {
   if (pending) {
-    return <p className="min-h-[1.25rem] text-[11px] text-muted-foreground">{"\u00a0"}</p>
+    return <p className="min-h-[1.25rem] text-2xs text-muted-foreground">{"\u00a0"}</p>
   }
   if (upcoming.length === 0) {
-    return <p className="text-[11px] text-muted-foreground">Nothing scheduled yet</p>
+    return <p className="text-2xs text-muted-foreground">Nothing scheduled yet</p>
   }
 
   return (
@@ -230,7 +230,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   if (upcomingOnly) {
     return (
       <div className={cn(className)} aria-label="Upcoming jobs">
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Coming up next</p>
+        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-muted-foreground">Coming up next</p>
         <UpcomingJobsList
           upcoming={upcoming}
           now={now}

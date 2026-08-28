@@ -361,7 +361,7 @@ export const JobAddressAutocomplete = forwardRef<
       ) : null}
       {validationError && query.trim() ? <p className="text-xs text-destructive">{validationError}</p> : null}
       {validated && value ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           {value.street_number} {value.route}, {value.locality} {value.postal_code}
         </p>
       ) : null}

@@ -88,7 +88,7 @@ const DockNavItems = memo(function DockNavItems({
                   <span
                     className={cn(
                       "absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full",
-                      "bg-amber-400 px-1 text-[9px] font-bold leading-none text-amber-950",
+                      "bg-amber-400 px-1 text-micro font-bold leading-none text-amber-950",
                       "shadow-[0_0_8px_rgba(251,191,36,0.7)]"
                     )}
                     aria-label={`${badge} new missed calls`}
@@ -102,7 +102,7 @@ const DockNavItems = memo(function DockNavItems({
               ) : (
                 <span
                   className={cn(
-                    "max-w-full truncate text-[10px] font-medium leading-none",
+                    "max-w-full truncate text-micro font-medium leading-none",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}
                 >

@@ -256,7 +256,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             data-flicker-probe="lines-sticky-blank"
           >
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/70">
                 Main line
               </p>
               <p className="truncate text-sm font-semibold text-muted-foreground/80">—</p>
@@ -309,7 +309,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-foreground">1 · Business number</span>
                             {hasBusinessNumbers ? (
-                              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-micro font-semibold text-primary">
                                 Done
                               </span>
                             ) : null}
@@ -326,7 +326,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                             <button
                               type="button"
                               onClick={openManageModal}
-                              className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                              className="inline-flex w-fit items-center gap-1 text-2xs font-semibold text-primary hover:underline"
                             >
                               Manage numbers
                               <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -343,13 +343,13 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-foreground">2 · Who answers</span>
                             {hasBusinessNumbers ? (
-                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-micro font-semibold text-primary">
                                 Next
                               </span>
                             ) : null}
                           </div>
                           {hasBusinessNumbers ? (
-                            <a href="#dash-call-flow" className="w-fit text-[11px] font-semibold text-primary hover:underline">
+                            <a href="#dash-call-flow" className="w-fit text-2xs font-semibold text-primary hover:underline">
                               Call flow
                             </a>
                           ) : null}
@@ -363,11 +363,11 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
                         >
                           <span className="text-xs font-medium text-foreground">3 · Team</span>
                           {hasReceptionists ? (
-                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-micro font-semibold text-primary">
                               Added
                             </span>
                           ) : hasBusinessNumbers ? (
-                            <Link href="/dashboard/contacts" className="text-[11px] font-semibold text-primary hover:underline">
+                            <Link href="/dashboard/contacts" className="text-2xs font-semibold text-primary hover:underline">
                               Team
                             </Link>
                           ) : null}

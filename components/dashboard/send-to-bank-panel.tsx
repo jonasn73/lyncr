@@ -69,7 +69,7 @@ export function SendToBankPanel({
 
   return (
     <div className="mt-3 space-y-2 border-t border-emerald-500/20 pt-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+      <p className="text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
         Send to bank
       </p>
       <button
@@ -99,7 +99,7 @@ export function SendToBankPanel({
           Send
         </button>
       </div>
-      {error ? <p className="text-[11px] text-rose-200">{error}</p> : null}
+      {error ? <p className="text-2xs text-rose-200">{error}</p> : null}
     </div>
   )
 }

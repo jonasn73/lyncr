@@ -211,7 +211,7 @@ function RegisterForm() {
                 </div>
 
                 <div className="rounded-lg border border-primary/30 bg-violet-950/30 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-300">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-violet-300">
                     You will be paid
                   </p>
                   <p className="mt-0.5 text-sm text-slate-100">{agreement.pay_summary}</p>

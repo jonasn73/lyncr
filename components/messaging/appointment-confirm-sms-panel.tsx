@@ -139,7 +139,7 @@ export function AppointmentConfirmSmsPanel({
             disabled={sending}
             onClick={() => applyPreset(chip.id)}
             className={cn(
-              "rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
+              "rounded-full border px-3 py-1 text-2xs font-semibold transition-colors disabled:opacity-50",
               preset === chip.id
                 ? "border-amber-400/60 bg-amber-500/25 text-amber-50"
                 : "border-amber-500/25 bg-slate-950/40 text-amber-100/80 hover:bg-amber-500/15"

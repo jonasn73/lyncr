@@ -87,7 +87,7 @@ function StatusBadge({ status }: { status: string }) {
           : s === "in-progress" || s === "answered"
             ? "bg-sky-500/15 text-sky-300"
             : "bg-slate-700/50 text-muted-foreground"
-  return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", className)}>{label}</span>
+  return <span className={cn("rounded-full px-2 py-0.5 text-2xs font-medium", className)}>{label}</span>
 }
 
 function shortUuid(uuid: string): string {

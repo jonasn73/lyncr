@@ -107,7 +107,7 @@ function InventoryRow({
         <div>
           <p className="text-base font-semibold tabular-nums text-foreground">{line.display}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-primary">
               <Zap className="h-3 w-3" aria-hidden />
               Live line inventory
             </span>
@@ -338,7 +338,7 @@ export function BuyNumberMarketplaceModal({
           ) : null}
           <div className="shrink-0 space-y-6 px-6 py-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Line label (whisper)
               </label>
               <input
@@ -359,7 +359,7 @@ export function BuyNumberMarketplaceModal({
               }}
             >
               <label className="min-w-0 flex-1">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Area code
                 </span>
                 <div className="relative">
@@ -385,7 +385,7 @@ export function BuyNumberMarketplaceModal({
             </form>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Last 4 digits (optional)
               </label>
               <input

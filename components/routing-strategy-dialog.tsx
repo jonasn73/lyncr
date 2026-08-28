@@ -223,7 +223,7 @@ export function RoutingStrategyDialog({
 
             {showRingTimeout && (
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Ring my team for (seconds) before falling back
                 </span>
                 <input

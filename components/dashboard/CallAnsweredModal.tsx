@@ -218,7 +218,7 @@ function RepeatCustomerCrmChips({
     <div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-1" : "mt-1.5")}>
       {hasOpenQuote ? (
         <span
-          className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100"
+          className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-micro font-semibold text-amber-100"
           title="Booking upgrades this open quote lead — no duplicate"
         >
           {crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
@@ -238,7 +238,7 @@ function RepeatCustomerCrmChips({
             type="button"
             onClick={() => onPickVehicle(v)}
             className={cn(
-              "inline-flex max-w-[11rem] truncate rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors",
+              "inline-flex max-w-[11rem] truncate rounded-md border px-2 py-0.5 text-micro font-medium transition-colors",
               selected
                 ? "border-sky-500/50 bg-sky-500/20 text-sky-100"
                 : "border-zinc-700 bg-zinc-900/80 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
@@ -335,16 +335,16 @@ function ReturningCallerDecisionCard({
   if (!hasCrmHistory) {
     return (
       <div className="mx-3 mt-1 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3 sm:mx-4">
-        <p className="text-[11px] font-semibold text-amber-100">Saved draft</p>
+        <p className="text-2xs font-semibold text-amber-100">Saved draft</p>
         <p className="mt-0.5 text-base font-semibold text-foreground">{customerName}</p>
         {pendingDraft ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-2xs text-muted-foreground">
             Saved {formatDraftSavedAgo(pendingDraft.savedAt)}
             {draftStepLabel ? ` · stopped on ${draftStepLabel}` : ""}
             <button
               type="button"
               onClick={onDismissDraft}
-              className="ml-2 text-[10px] font-medium text-amber-200/70 underline-offset-2 hover:text-amber-100 hover:underline"
+              className="ml-2 text-micro font-medium text-amber-200/70 underline-offset-2 hover:text-amber-100 hover:underline"
             >
               Dismiss
             </button>
@@ -376,7 +376,7 @@ function ReturningCallerDecisionCard({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 sm:px-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/90">
+          <p className="text-micro font-semibold uppercase tracking-wider text-sky-300/90">
             Customer profile
           </p>
           <p className="mt-0.5 text-lg font-semibold leading-tight text-foreground">{customerName}</p>
@@ -385,46 +385,46 @@ function ReturningCallerDecisionCard({
           ) : null}
 
           {vehicleLabels.length > 0 ? (
-            <p className="mt-2 text-[12px] leading-snug text-zinc-200">
+            <p className="mt-2 text-xs leading-snug text-zinc-200">
               <span className="text-muted-foreground">Vehicle · </span>
               {vehicleLabels.join(" · ")}
             </p>
           ) : null}
           {addressLine ? (
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            <p className="mt-1 text-2xs leading-snug text-muted-foreground">
               <span className="text-muted-foreground">Address · </span>
               {addressLine}
             </p>
           ) : null}
           {(lastPaidLine || lifetimePaidLine) && (
-            <p className="mt-1 text-[11px] leading-snug text-emerald-200/90">
+            <p className="mt-1 text-2xs leading-snug text-emerald-200/90">
               {lastPaidLine}
               {lastPaidLine && lifetimePaidLine ? " · " : null}
               {lifetimePaidLine}
             </p>
           )}
           {recentCallLine ? (
-            <p className="mt-1 text-[11px] font-medium text-amber-400/90">{recentCallLine}</p>
+            <p className="mt-1 text-2xs font-medium text-amber-400/90">{recentCallLine}</p>
           ) : null}
         </div>
 
         <div className="mt-2 space-y-2">
           {activeJobId ? (
             <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-200">
+              <p className="text-micro font-semibold uppercase tracking-wider text-amber-200">
                 Active job
               </p>
-              <p className="mt-0.5 text-[12px] font-medium text-amber-50">
+              <p className="mt-0.5 text-xs font-medium text-amber-50">
                 {activeJobMeta || "In progress"}
               </p>
             </div>
           ) : null}
           {hasOpenLead ? (
             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-200">
+              <p className="text-micro font-semibold uppercase tracking-wider text-sky-200">
                 {bookFormSubmitted ? "Book form submitted" : "Open quote"}
               </p>
-              <p className="mt-0.5 text-[12px] font-medium text-sky-50">
+              <p className="mt-0.5 text-xs font-medium text-sky-50">
                 {openQuoteCents != null && openQuoteCents > 0
                   ? formatCrmQuoteChip(openQuoteCents)
                   : bookFormSubmitted
@@ -436,24 +436,24 @@ function ReturningCallerDecisionCard({
           ) : null}
           {lastJobLine ? (
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
                 Last job
               </p>
-              <p className="mt-0.5 text-[12px] leading-snug text-zinc-100">{lastJobLine}</p>
+              <p className="mt-0.5 text-xs leading-snug text-zinc-100">{lastJobLine}</p>
               {lastJobAddress ? (
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{lastJobAddress}</p>
+                <p className="mt-0.5 text-2xs text-muted-foreground">{lastJobAddress}</p>
               ) : null}
             </div>
           ) : null}
           {pendingDraft ? (
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
-              <p className="text-[11px] text-amber-100/90">
+              <p className="text-2xs text-amber-100/90">
                 Draft · {formatDraftSavedAgo(pendingDraft.savedAt)}
                 {draftStepLabel ? ` · ${draftStepLabel}` : ""}
                 <button
                   type="button"
                   onClick={onDismissDraft}
-                  className="ml-2 text-[10px] font-medium text-amber-200/70 underline-offset-2 hover:underline"
+                  className="ml-2 text-micro font-medium text-amber-200/70 underline-offset-2 hover:underline"
                 >
                   Dismiss
                 </button>
@@ -464,14 +464,14 @@ function ReturningCallerDecisionCard({
 
         {recentHistoryLines.length > 0 ? (
           <div className="mt-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
               Recent history
             </p>
             <ul className="mt-1 space-y-1">
               {recentHistoryLines.map((line) => (
                 <li
                   key={line}
-                  className="truncate text-[11px] leading-snug text-zinc-300"
+                  className="truncate text-2xs leading-snug text-zinc-300"
                   title={line}
                 >
                   {line}
@@ -483,7 +483,7 @@ function ReturningCallerDecisionCard({
 
         {notesPreview ? (
           <div className="mt-2 border-t border-zinc-800 pt-2">
-            <p className="text-[11px] leading-snug text-muted-foreground">
+            <p className="text-2xs leading-snug text-muted-foreground">
               <span className="text-muted-foreground">Notes · </span>
               {notesPreview}
             </p>
@@ -491,7 +491,7 @@ function ReturningCallerDecisionCard({
               <button
                 type="button"
                 onClick={onToggleNotes}
-                className="mt-1 text-[10px] font-medium text-sky-300/80 underline-offset-2 hover:underline"
+                className="mt-1 text-micro font-medium text-sky-300/80 underline-offset-2 hover:underline"
               >
                 {notesExpanded ? "Hide notes" : "View notes"}
               </button>
@@ -530,7 +530,7 @@ function ReturningCallerDecisionCard({
               <button
                 type="button"
                 onClick={onRestoreDraft}
-                className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-[11px] font-medium text-zinc-300 touch-manipulation hover:border-zinc-500 hover:text-foreground"
+                className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-2xs font-medium text-zinc-300 touch-manipulation hover:border-zinc-500 hover:text-foreground"
               >
                 Restore draft
               </button>
@@ -538,7 +538,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onNewJob}
-              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-[11px] font-medium text-muted-foreground touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-2xs font-medium text-muted-foreground touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
             >
               Start new job
             </button>
@@ -612,7 +612,7 @@ function IntakeStepProgress({ path, currentStep }: { path: WorkflowStep[]; curre
           />
         )
       })}
-      <span className="truncate text-[10px] font-semibold text-foreground">
+      <span className="truncate text-micro font-semibold text-foreground">
         {WORKFLOW_STEP_LABELS[currentStep]}
       </span>
     </div>
@@ -674,7 +674,7 @@ function ManualIntakeToolbar({
               />
             )
           })}
-          <span className="truncate text-[10px] font-semibold text-foreground">
+          <span className="truncate text-micro font-semibold text-foreground">
             {WORKFLOW_STEP_LABELS[currentStep]}
           </span>
         </div>
@@ -682,7 +682,7 @@ function ManualIntakeToolbar({
           <SelectTrigger
             id="manual-call-status"
             aria-label="Line state"
-            className="h-7 w-[6.75rem] shrink-0 border-border/60 px-2 text-[10px]"
+            className="h-7 w-[6.75rem] shrink-0 border-border/60 px-2 text-micro"
           >
             <SelectValue />
           </SelectTrigger>
@@ -695,7 +695,7 @@ function ManualIntakeToolbar({
         </Select>
       </div>
       {phoneDisplay ? (
-        <p className="mt-1 mb-0.5 flex items-center gap-2 truncate text-[11px] text-muted-foreground">
+        <p className="mt-1 mb-0.5 flex items-center gap-2 truncate text-2xs text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0 text-primary/80" aria-hidden />
           {phoneDisplay}
         </p>
@@ -728,7 +728,7 @@ function IntakeAutoSaveStatus({
   return (
     <motion.span
       layout
-      className="inline-flex items-center gap-2 text-[10px] text-muted-foreground"
+      className="inline-flex items-center gap-2 text-micro text-muted-foreground"
       animate={
         draftPulse
           ? { scale: [1, 1.08, 1], color: "rgb(52 211 153 / 0.95)" }
@@ -794,14 +794,14 @@ function IntakeDraftRestoreBanner({
         <button
           type="button"
           onClick={onRestore}
-          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-3 text-[11px] font-semibold text-zinc-950 hover:bg-amber-300"
+          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-3 text-2xs font-semibold text-zinc-950 hover:bg-amber-300"
         >
           Restore draft
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex h-8 items-center rounded-lg px-2 text-[11px] font-semibold text-amber-100/80 hover:bg-amber-500/20 hover:text-amber-50"
+          className="inline-flex h-8 items-center rounded-lg px-2 text-2xs font-semibold text-amber-100/80 hover:bg-amber-500/20 hover:text-amber-50"
         >
           Dismiss
         </button>
@@ -3985,7 +3985,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-rose-300">
                     Missed call note
                   </p>
                   <p className="truncate text-sm font-medium text-foreground">
@@ -4055,7 +4055,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               <p
                 className={cn(
                   "font-semibold uppercase tracking-wide",
-                  compactIntakeChrome ? "text-[9px] leading-tight" : "text-[10px]",
+                  compactIntakeChrome ? "text-micro leading-tight" : "text-micro",
                   headerToneClass
                 )}
               >
@@ -4187,7 +4187,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 className="sticky top-0 z-20 shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1"
                 role="status"
               >
-                <p className="truncate text-[11px] font-medium text-amber-50/95">
+                <p className="truncate text-2xs font-medium text-amber-50/95">
                   Continuing draft for{" "}
                   <span className="font-semibold text-amber-50">
                     {matchedCustomer?.display_name?.trim() ||
@@ -4242,7 +4242,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {currentStep === "SERVICE_SELECT" && !showReturningCallerCard ? (
                             <div className="space-y-3">
                               {callbackForceNewJob && matchedCustomer ? (
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-2xs text-muted-foreground">
                                   New job for{" "}
                                   <span className="font-medium text-foreground">
                                     {matchedCustomer.display_name?.trim() || "this customer"}
@@ -4252,7 +4252,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               ) : null}
                               {/* Prefill / Suggest-from-call strip removed — not needed for live intake. */}
                               {continuingDraft ? (
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-2xs text-muted-foreground">
                                   Pick the service for this draft — Lockout is not assumed.
                                 </p>
                               ) : null}
@@ -4292,10 +4292,10 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2"
                               )}
                             >
-                              <legend className="shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              <legend className="shrink-0 px-1 text-micro font-semibold uppercase tracking-wide text-primary">
                                 Vehicle year · make · model
                               </legend>
-                              <p className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">
+                              <p className="hidden shrink-0 text-2xs text-muted-foreground sm:block">
                                 {vehicleLockoutIntake
                                   ? "Optional — helps the tech. Skip if they are in a hurry."
                                   : "Look the key up outside Lyncr while they hold."}
@@ -4343,7 +4343,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                       {service.id === "key_generation"
                                         ? "All keys lost (AKL)"
                                         : "Need a copy / spare"}
-                                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                                      <span className="mt-0.5 block text-2xs font-normal text-muted-foreground">
                                         {service.label}
                                       </span>
                                     </button>
@@ -4489,12 +4489,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 Location
                               </legend>
                               {requiresVehicle && serviceTypeId === "key_generation" ? (
-                                <p className="text-[11px] text-amber-200/90">
+                                <p className="text-2xs text-amber-200/90">
                                   AKL: get the address before you quote.
                                 </p>
                               ) : null}
                               {requiresVehicle ? (
-                                <details className="text-[11px] text-muted-foreground">
+                                <details className="text-2xs text-muted-foreground">
                                   <summary className="cursor-pointer font-medium">
                                     Key lookup notes (optional)
                                   </summary>
@@ -4533,7 +4533,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     type="button"
                                     onClick={() => void requestLiveGps()}
                                     disabled={gpsRequestState === "sending"}
-                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-2xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
                                     title="Text customer a live GPS share link"
                                   >
                                     {gpsRequestState === "sending" ? (
@@ -4545,7 +4545,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   </button>
                                 </div>
                                 {gpsRequestState === "sent" ? (
-                                  <p className="text-[10px] text-emerald-400">
+                                  <p className="text-micro text-emerald-400">
                                     Locate link texted — waiting for customer GPS…
                                   </p>
                                 ) : null}
@@ -4566,7 +4566,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   <button
                                     type="button"
                                     onClick={viewOnMapLayout}
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-300/90 underline-offset-2 hover:underline"
+                                    className="inline-flex items-center gap-1 text-2xs font-medium text-sky-300/90 underline-offset-2 hover:underline"
                                   >
                                     <MapPin className="h-3 w-3" aria-hidden />
                                     View on map
@@ -4683,7 +4683,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {currentStep === "BOOKING_COMPLETE" ? (
                             <div className="flex flex-col items-stretch gap-4 py-2">
                               <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-4 text-center">
-                                <p className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-200">
+                                <p className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 py-1 text-2xs font-bold uppercase tracking-wider text-emerald-200">
                                   Booking secured
                                 </p>
                                 <p className="mt-3 text-lg font-semibold text-foreground">
@@ -4723,7 +4723,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   }}
                                 />
                               ) : confirmSmsResolved ? (
-                                <p className="text-center text-[11px] font-medium text-emerald-200/90">
+                                <p className="text-center text-2xs font-medium text-emerald-200/90">
                                   {confirmSmsDraft
                                     ? "Confirmation SMS handled — you can open the scheduler or close."
                                     : "Booking saved."}
@@ -4765,7 +4765,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-primary">
                       Vehicle metadata
                     </legend>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-2xs text-muted-foreground">
                       Look the key up outside Lyncr while they hold.
                     </p>
                     <VehiclePickerCascade
@@ -4882,7 +4882,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     <button
                       type="button"
                       onClick={viewOnMapLayout}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-2xs font-semibold text-sky-200 transition-colors hover:bg-sky-500/20"
                     >
                       <MapPin className="h-3.5 w-3.5" aria-hidden />
                       View on Map Layout
@@ -4891,7 +4891,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       jobLat={form.serviceAddress?.lat ?? null}
                       jobLng={form.serviceAddress?.lng ?? null}
                     />
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-micro text-muted-foreground">
                       {addressReady
                         ? "Address ready — tap Send to dispatch map."
                         : "Type street + city, tap a suggestion, or tap out of the field when done."}
@@ -4967,7 +4967,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         type="button"
                         onClick={() => void requestLiveGps()}
                         disabled={gpsRequestState === "sending"}
-                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-2xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
                       >
                         {gpsRequestState === "sending" ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -4980,14 +4980,14 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   </div>
                   {matchedCustomer ? (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                      <p className="text-[11px] font-semibold text-amber-200">Returning caller</p>
+                      <p className="text-2xs font-semibold text-amber-200">Returning caller</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
                         {matchedCustomer.display_name?.trim() || "Returning caller"}
                       </p>
                       {(() => {
                         const noteSummary = summarizeReturningCallerNotes(matchedCustomer.notes)
                         return noteSummary ? (
-                          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                          <p className="mt-1 text-2xs leading-snug text-muted-foreground">
                             Notes · {noteSummary.preview}
                           </p>
                         ) : null
@@ -5180,7 +5180,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           </Button>
                         </div>
                         {lostLeadError ? (
-                          <p className="text-center text-[11px] text-red-300">{lostLeadError}</p>
+                          <p className="text-center text-2xs text-red-300">{lostLeadError}</p>
                         ) : null}
 
                         <button
@@ -5192,11 +5192,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                         </button>
                         {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                          <p className="text-center text-[10px] text-amber-200/90">
+                          <p className="text-center text-micro text-amber-200/90">
                             Still needed: {dispatchBlockers.join(" · ")}
                           </p>
                         ) : null}
-                        {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
+                        {jobError ? <p className="text-2xs text-red-300">{jobError}</p> : null}
                       </>
                     ) : null}
                     {currentStep === "SCHEDULE_TIME" ? (
@@ -5269,7 +5269,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           Done
                         </Button>
                         {confirmSmsDraft && !confirmSmsResolved ? (
-                          <p className="text-center text-[10px] text-amber-200/90">
+                          <p className="text-center text-micro text-amber-200/90">
                             Send or skip the confirmation SMS to continue
                           </p>
                         ) : null}
@@ -5401,22 +5401,22 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   Send to dispatch map &amp; schedule
                 </Button>
                 {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                  <p className="text-center text-[10px] text-amber-200/90">
+                  <p className="text-center text-micro text-amber-200/90">
                     Still needed: {dispatchBlockers.join(" · ")}
                   </p>
                 ) : null}
                 {jobState === "created" ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-[11px] text-emerald-100">
+                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-100">
                     Job added to the hopper — assign when ready.
                   </p>
                 ) : null}
-                {jobError ? <p className="text-[11px] text-red-300">{jobError}</p> : null}
+                {jobError ? <p className="text-2xs text-red-300">{jobError}</p> : null}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <span className="inline-flex items-center gap-2">
                     <IntakeAutoSaveStatus saveState={saveState} draftPulse={draftPulse} />
                     <Link
                       href="/dashboard/customers"
-                      className="text-[10px] font-semibold text-primary underline-offset-2 hover:underline"
+                      className="text-micro font-semibold text-primary underline-offset-2 hover:underline"
                     >
                       Customers
                     </Link>

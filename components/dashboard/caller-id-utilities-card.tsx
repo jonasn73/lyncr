@@ -21,12 +21,12 @@ function ComingSoonRow({
     >
       <div className="min-w-0 flex-1">
         <p className="block text-xs font-semibold text-slate-200">{title}</p>
-        <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">{description}</p>
-        <p className="mt-1 hidden text-[10px] font-normal leading-snug text-muted-foreground md:block">
+        <p className="mt-0.5 text-2xs font-normal text-muted-foreground">{description}</p>
+        <p className="mt-1 hidden text-micro font-normal leading-snug text-muted-foreground md:block">
           Not wired to live inbound yet — toggle coming later.
         </p>
       </div>
-      <span className="shrink-0 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="shrink-0 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
         Coming soon
       </span>
     </div>

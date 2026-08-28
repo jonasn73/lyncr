@@ -287,7 +287,7 @@ export function AdminImprovementsBoard({
               <div className="flex items-baseline justify-between px-1">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-200">{col.label}</h2>
-                  <p className="text-[11px] text-muted-foreground">{col.hint}</p>
+                  <p className="text-2xs text-muted-foreground">{col.hint}</p>
                 </div>
                 <Badge variant="outline" className="border-slate-700 text-muted-foreground">
                   {rows.length}
@@ -318,15 +318,15 @@ export function AdminImprovementsBoard({
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             variant="outline"
-                            className={cn("text-[10px]", PRIORITY_BADGE_CLASS[item.priority])}
+                            className={cn("text-micro", PRIORITY_BADGE_CLASS[item.priority])}
                           >
                             {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="border-slate-700 text-[10px] text-muted-foreground">
+                          <Badge variant="outline" className="border-slate-700 text-micro text-muted-foreground">
                             {item.category}
                           </Badge>
                           {item.source ? (
-                            <Badge variant="outline" className="border-sky-700/50 text-[10px] text-sky-400">
+                            <Badge variant="outline" className="border-sky-700/50 text-micro text-sky-400">
                               {item.source}
                             </Badge>
                           ) : null}

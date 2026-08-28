@@ -279,7 +279,7 @@ function SwimlaneAppointmentBlock({
       )}
       style={{ top: topPx, height: heightPx, minHeight: 36 }}
     >
-      <p className="truncate text-[11px] font-semibold">
+      <p className="truncate text-2xs font-semibold">
         {ev.customer_name || "Customer"}
         <span className={cn("ml-1", SCHEDULER_METADATA_LABEL, "normal-case")}>
           · {SCHEDULER_STATUS_LABEL[phase]}
@@ -332,7 +332,7 @@ function TimelineAppointmentBlock({
       )}
       style={{ left: leftPx, width: widthPx, minWidth: 56 }}
     >
-      <p className="truncate text-[10px] font-semibold text-slate-100">{ev.customer_name || "Job"}</p>
+      <p className="truncate text-micro font-semibold text-slate-100">{ev.customer_name || "Job"}</p>
       <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>{SCHEDULER_STATUS_LABEL[phase]}</p>
     </button>
   )
@@ -386,7 +386,7 @@ function MobileTimelineBoard({
                 {hourSlots.map((hour) => (
                   <div
                     key={hour}
-                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-[9px] font-medium text-muted-foreground"
+                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-micro font-medium text-muted-foreground"
                     style={{ width: SCHEDULER_HOUR_COL_PX }}
                   >
                     {formatHourLabel(hour)}
@@ -407,7 +407,7 @@ function MobileTimelineBoard({
                   style={{ width: techColWidth, minHeight: SCHEDULER_TECH_ROW_PX }}
                 >
                   <p className="truncate text-xs font-semibold">{tech.name}</p>
-                  <p className="text-[9px] text-muted-foreground">{laneEvents.length} today</p>
+                  <p className="text-micro text-muted-foreground">{laneEvents.length} today</p>
                 </div>
                 <div
                   className="relative shrink-0 bg-muted/10"
@@ -575,7 +575,7 @@ export function TechnicianSwimlaneBoard({
             {hourSlots.map((hour) => (
               <div
                 key={hour}
-                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-muted-foreground"
+                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-micro font-medium text-muted-foreground"
                 style={{ height: SCHEDULER_HOUR_ROW_PX }}
               >
                 {formatHourLabel(hour)}
@@ -595,7 +595,7 @@ export function TechnicianSwimlaneBoard({
                 >
                   <div className="sticky top-0 z-10 flex h-16 flex-col justify-center border-b border-border/40 bg-card/95 px-3 backdrop-blur-sm">
                     <p className="truncate text-sm font-semibold text-foreground">{tech.name}</p>
-                    <p className="truncate text-[10px] text-muted-foreground">
+                    <p className="truncate text-micro text-muted-foreground">
                       {laneEvents.length} job{laneEvents.length === 1 ? "" : "s"} today
                     </p>
                   </div>
@@ -661,7 +661,7 @@ export function TechnicianSwimlaneBoard({
 
                     {laneEvents.length === 0 && !loading ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
-                        <p className="text-center text-[10px] text-muted-foreground">Drop a pool job here</p>
+                        <p className="text-center text-micro text-muted-foreground">Drop a pool job here</p>
                       </div>
                     ) : null}
                   </div>

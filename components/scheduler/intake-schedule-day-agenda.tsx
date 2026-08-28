@@ -93,7 +93,7 @@ export function IntakeScheduleDayAgenda({
                         {formatSchedulerEventWindow(ev)}
                       </span>
                       {isConflict ? (
-                        <span className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-300">
+                        <span className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-micro font-semibold uppercase text-amber-300">
                           Overlap
                         </span>
                       ) : null}
@@ -105,7 +105,7 @@ export function IntakeScheduleDayAgenda({
                       {ev.assigned_tech_name ? ev.assigned_tech_name : "Unassigned"}
                       {ev.job_type ? ` · ${ev.job_type}` : ""}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground/80">Tap to start after this job</p>
+                    <p className="mt-1 text-2xs text-muted-foreground/80">Tap to start after this job</p>
                   </button>
                 </li>
               )

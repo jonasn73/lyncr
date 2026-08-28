@@ -176,7 +176,7 @@ export function UiComponentGallery() {
   return (
     <div className="flex flex-col gap-8 bg-slate-950 p-4">
       <header className="border-b border-slate-850 pb-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Internal</p>
+        <p className="text-micro font-semibold uppercase tracking-widest text-emerald-400">Internal</p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-100">UI component gallery</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Visual audit bed for job cards, selection grids, and drawer typography. Resize the viewport to

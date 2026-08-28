@@ -58,7 +58,7 @@ export function PaymentReceiptPanel({
 
       {showSend ? (
         <div className="space-y-3 border-t border-zinc-800/80 pt-3">
-          <p className="text-center text-[11px] font-medium text-muted-foreground">
+          <p className="text-center text-2xs font-medium text-muted-foreground">
             Send a receipt?
           </p>
 

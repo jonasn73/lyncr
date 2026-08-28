@@ -254,15 +254,15 @@ function MissedLeadCard({
     <li className="rounded-xl border border-slate-850 bg-slate-900/40 p-3">
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate text-sm font-semibold text-slate-100">{label}</p>
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-amber-200/90">
+        <span className="shrink-0 text-micro font-semibold tabular-nums text-amber-200/90">
           {formatMissedTime(item.latestAt)}
         </span>
       </div>
       {item.displayName ? (
-        <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{item.displayName}</p>
+        <p className="mt-0.5 truncate text-2xs font-medium text-muted-foreground">{item.displayName}</p>
       ) : null}
       {item.latestStatus ? (
-        <p className="mt-1 text-[10px] font-medium text-muted-foreground">{item.latestStatus}</p>
+        <p className="mt-1 text-micro font-medium text-muted-foreground">{item.latestStatus}</p>
       ) : null}
       {href ? (
         <div className="mt-3 flex flex-col gap-2">
@@ -296,7 +296,7 @@ function MissedLeadCard({
         <p className="mt-2 text-xs text-muted-foreground">No dialable number on this log.</p>
       )}
       {item.count > 1 && item.times.length > 0 ? (
-        <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-medium leading-snug text-amber-100/90">
+        <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-micro font-medium leading-snug text-amber-100/90">
           Called today at {item.times.join(" · ")}
         </p>
       ) : null}

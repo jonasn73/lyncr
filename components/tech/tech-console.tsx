@@ -215,7 +215,7 @@ export function TechConsole(props: {
       {/* Header */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800/80 bg-[#0b0b12]/95 px-6 py-4 backdrop-blur">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-400">{props.businessName}</p>
+          <p className="text-2xs font-medium uppercase tracking-wider text-indigo-400">{props.businessName}</p>
           <h1 className="text-lg font-bold leading-tight">Hi, {props.techName.split(" ")[0]}</h1>
         </div>
         <div className="flex items-center gap-1">
@@ -291,7 +291,7 @@ export function TechConsole(props: {
                     <span className="truncate text-sm text-zinc-300">
                       {job.customer_name || job.customer_phone || "Job"}
                     </span>
-                    <span className="rounded-full bg-emerald-500/20 px-3 py-0.5 text-[11px] font-medium text-emerald-300">
+                    <span className="rounded-full bg-emerald-500/20 px-3 py-0.5 text-2xs font-medium text-emerald-300">
                       Completed
                     </span>
                   </div>
@@ -331,7 +331,7 @@ function HopperPoolSection(props: {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Unassigned pool</p>
-          <p className="text-[11px] text-muted-foreground">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
+          <p className="text-2xs text-muted-foreground">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
         </div>
       </div>
       <ul className="space-y-2">
@@ -349,19 +349,19 @@ function HopperPoolSection(props: {
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{job.job_type || "Service call"}</p>
                 {job.field_verification_required ? (
-                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-300">
+                  <p className="mt-1.5 flex items-center gap-1 text-2xs font-semibold text-amber-300">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     Verify key style on vehicle before cutting
                   </p>
                 ) : null}
                 {vehicle ? (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 flex items-center gap-1 text-2xs text-muted-foreground">
                     <Car className="h-3 w-3 shrink-0" aria-hidden />
                     {vehicle}
                   </p>
                 ) : null}
                 {job.neighborhood || job.location ? (
-                  <p className="mt-1 flex items-start gap-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 flex items-start gap-1 text-2xs text-muted-foreground">
                     <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
                     <span className="line-clamp-2">{job.neighborhood || job.location}</span>
                   </p>
@@ -390,7 +390,7 @@ function BadgesStrip({ badges }: { badges: TechBadge[] }) {
     <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Performance badges</p>
-        <span className="text-[11px] font-medium text-muted-foreground">
+        <span className="text-2xs font-medium text-muted-foreground">
           {earnedCount}/{badges.length} earned
         </span>
       </div>
@@ -408,7 +408,7 @@ function BadgesStrip({ badges }: { badges: TechBadge[] }) {
             <span className="text-2xl leading-none" aria-hidden>
               {b.emoji}
             </span>
-            <span className="text-[10px] font-semibold leading-tight text-zinc-300">{b.label}</span>
+            <span className="text-micro font-semibold leading-tight text-zinc-300">{b.label}</span>
           </div>
         ))}
       </div>
@@ -495,7 +495,7 @@ function JobCard(props: {
 
       {/* Balance collect entry — tech payment path already exists; no full Money rail */}
       {summary.billingBalanceDollars > 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-[11px] text-emerald-300/90">
+        <p className="mt-2 flex items-center gap-2 text-2xs text-emerald-300/90">
           <CreditCard className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Booked balance {summary.billingLabel}
           {workComplete ? " — ready to collect" : ""}
@@ -551,7 +551,7 @@ function JobCard(props: {
         </div>
       ) : null}
       {canMarkWorkComplete && !workComplete ? (
-        <p className="mt-2 text-center text-[10px] text-muted-foreground">
+        <p className="mt-2 text-center text-micro text-muted-foreground">
           Mark work complete on the left, then Proceed to Payment unlocks.
         </p>
       ) : null}

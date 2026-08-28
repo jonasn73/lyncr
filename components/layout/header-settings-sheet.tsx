@@ -511,7 +511,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <Avatar className="h-7 w-7 shrink-0">
             <AvatarFallback
               className={cn(
-                "bg-primary/15 text-[11px] font-semibold text-primary",
+                "bg-primary/15 text-2xs font-semibold text-primary",
                 "group-hover:bg-primary/20 group-hover:text-primary",
                 "group-focus-visible:bg-primary/20 group-focus-visible:text-primary",
                 "group-active:text-primary"
@@ -552,13 +552,13 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 const heroIsReady = ready >= 100
                 return (
                   <>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+                    <p className="text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
                       {heroIsReady ? "Ready to send" : clearing > 0 ? "Still clearing" : "In Stripe"}
                     </p>
                     <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-50">
                       {formatMoneyCents(heroIsReady ? ready : clearing)}
                     </p>
-                    <p className="mt-1 text-[11px] leading-snug text-emerald-100/65">
+                    <p className="mt-1 text-2xs leading-snug text-emerald-100/65">
                       {heroIsReady
                         ? "Tap Send all when you want this in your bank. Lyncr will not auto-transfer."
                         : clearing > 0
@@ -568,12 +568,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                             : "Set up your bank once, then card money can land here."}
                     </p>
                     {heroIsReady && clearing > 0 ? (
-                      <p className="mt-2 text-[11px] text-emerald-200/60">
+                      <p className="mt-2 text-2xs text-emerald-200/60">
                         Also still clearing: {formatMoneyCents(clearing)}
                       </p>
                     ) : null}
                     {!heroIsReady && clearing > 0 && ready > 0 ? (
-                      <p className="mt-2 text-[11px] text-emerald-200/60">
+                      <p className="mt-2 text-2xs text-emerald-200/60">
                         Ready to send: {formatMoneyCents(ready)} (under $1 — wait for more to clear)
                       </p>
                     ) : null}
@@ -603,7 +603,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               ) : null}
               {bankTransfers.length > 0 ? (
                 <div className="mt-3 space-y-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-sky-200/70">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-sky-200/70">
                     Sent to bank
                   </p>
                   {bankTransfers.slice(0, 3).map((p, i) => (
@@ -613,11 +613,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     >
                       <p className="text-sm font-bold tabular-nums text-sky-50">
                         {formatMoneyCents(p.amountCents)}
-                        <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200/70">
+                        <span className="ml-1.5 text-micro font-semibold uppercase tracking-wide text-sky-200/70">
                           {p.status.replace(/_/g, " ")}
                         </span>
                       </p>
-                      <p className="mt-0.5 text-[10px] text-sky-100/60">
+                      <p className="mt-0.5 text-micro text-sky-100/60">
                         {p.createdLabel}
                         {p.arrivalDateLabel !== "—" ? ` · arrives ${p.arrivalDateLabel}` : ""}
                       </p>
@@ -632,7 +632,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     setMoneyOpen(false)
                     openGetPaidModal()
                   }}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 text-[11px] font-semibold text-emerald-200/80 hover:text-emerald-100"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 text-2xs font-semibold text-emerald-200/80 hover:text-emerald-100"
                 >
                   <Landmark className="h-3.5 w-3.5" aria-hidden />
                   Bank &amp; payouts
@@ -655,7 +655,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   onClick={() => openPayments(opt.id)}
                   className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-zinc-900/70"
                 >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     {opt.label}
                   </p>
                   <p className="mt-1 text-sm font-bold tabular-nums text-emerald-200">
@@ -665,7 +665,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               ))}
             </div>
             {todayNetCents != null ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">
+              <p className="text-2xs leading-snug text-muted-foreground">
                 Today after Lyncr fees ~{formatMoneyCents(todayNetCents)} (2.9% + $0.30 per card).
               </p>
             ) : null}
@@ -689,7 +689,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-3 text-white hover:bg-emerald-500"
             >
               <span className="text-sm font-semibold">Collect from customer</span>
-              <span className="text-[11px] font-medium text-emerald-50/85">
+              <span className="text-2xs font-medium text-emerald-50/85">
                 Charge a job — card, tap, or pay link
               </span>
             </Button>
@@ -701,7 +701,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-950/50 px-4 py-2 text-slate-100 hover:bg-zinc-900 hover:text-white"
             >
               <span className="text-sm font-semibold">Outside payments</span>
-              <span className="text-[11px] font-medium text-muted-foreground">
+              <span className="text-2xs font-medium text-muted-foreground">
                 Record Venmo / cash already paid
               </span>
             </Button>
@@ -711,7 +711,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-center hover:border-zinc-600 hover:bg-zinc-900/70"
             >
               <span className="text-sm font-semibold text-slate-200">Lyncr bill</span>
-              <span className="text-[11px] font-medium text-muted-foreground">
+              <span className="text-2xs font-medium text-muted-foreground">
                 Your app subscription — not customer charges
               </span>
             </Link>
@@ -806,7 +806,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   setOpen(false)
                   openOwnerHelpSheet("chat")
                 }}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 px-3 py-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 px-3 py-2 text-2xs font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
               >
                 <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
                 Help

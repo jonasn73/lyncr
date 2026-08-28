@@ -60,7 +60,7 @@ export function WhoRingsConsole({
             <h2 className="text-sm font-semibold tracking-tight text-foreground sm:text-base">
               Who rings next
             </h2>
-            <p className="hidden text-[11px] text-muted-foreground md:block">
+            <p className="hidden text-2xs text-muted-foreground md:block">
               Same rules as live inbound routing
             </p>
           </div>
@@ -72,7 +72,7 @@ export function WhoRingsConsole({
 
       <dl className="space-y-3" role="status" aria-live="polite">
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Rings now
           </dt>
           <dd className="min-w-0 text-right text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
@@ -80,7 +80,7 @@ export function WhoRingsConsole({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {fallbackDt}
           </dt>
           <dd className="min-w-0 text-right text-sm font-medium text-foreground [overflow-wrap:anywhere]">
@@ -88,7 +88,7 @@ export function WhoRingsConsole({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Your status
           </dt>
           <dd className="min-w-0 text-right text-sm font-semibold">
@@ -98,7 +98,7 @@ export function WhoRingsConsole({
       </dl>
 
       {detailHint?.trim() ? (
-        <p className="mt-2.5 hidden text-[11px] leading-snug text-muted-foreground md:block">
+        <p className="mt-2.5 hidden text-2xs leading-snug text-muted-foreground md:block">
           {detailHint.trim()}
         </p>
       ) : null}

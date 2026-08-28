@@ -428,7 +428,7 @@ export function OrganizationSwitcher({
                 >
                   <span className="truncate font-medium">{org.name}</span>
                   {org.is_default ? (
-                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">Default</span>
+                    <span className="ml-auto shrink-0 text-micro text-muted-foreground">Default</span>
                   ) : null}
                 </button>
                 {editable ? (

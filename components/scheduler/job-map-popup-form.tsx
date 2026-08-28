@@ -208,7 +208,7 @@ export function JobMapPopupForm({
                   "rounded-lg font-semibold uppercase tracking-wide transition-colors",
                   isSheet
                     ? "min-h-12 px-3 py-3 text-sm"
-                    : "flex-1 rounded px-2 py-1 text-[9px]",
+                    : "flex-1 rounded px-2 py-1 text-micro",
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
@@ -243,7 +243,7 @@ export function JobMapPopupForm({
         </label>
       </div>
 
-      {error ? <p className={cn("text-red-400", isSheet ? "text-sm" : "text-[11px]")}>{error}</p> : null}
+      {error ? <p className={cn("text-red-400", isSheet ? "text-sm" : "text-2xs")}>{error}</p> : null}
 
       <div className={cn("flex gap-2", isSheet && "flex-col sm:flex-row")}>
         <button
@@ -271,7 +271,7 @@ export function JobMapPopupForm({
         </button>
       </div>
 
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-micro text-muted-foreground">
         {SCHEDULER_STATUS_LABEL[schedulerLifecyclePhase({
           job_status: pendingStatus,
           dispatch_status: job.dispatch_status,

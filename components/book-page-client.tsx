@@ -343,7 +343,7 @@ export default function BookPageClient({
         <div className="space-y-3">
           {/* Mini step chips only when scheduling (shell already shows Book/Pay/Done). */}
           {urgency === "window" || wizardStep === "availability" ? (
-            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
@@ -482,7 +482,7 @@ export default function BookPageClient({
                   <div>
                     <p className="mb-1 text-xs text-muted-foreground">Vehicle</p>
                     <div className="grid grid-cols-3 gap-2">
-                      <label className="block text-[10px] text-muted-foreground">
+                      <label className="block text-micro text-muted-foreground">
                         Year
                         <input
                           value={vehicleYear}
@@ -492,7 +492,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-[10px] text-muted-foreground">
+                      <label className="block text-micro text-muted-foreground">
                         Make
                         <input
                           value={vehicleMake}
@@ -501,7 +501,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-[10px] text-muted-foreground">
+                      <label className="block text-micro text-muted-foreground">
                         Model
                         <input
                           value={vehicleModel}
@@ -551,7 +551,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-xs font-semibold">ASAP</span>
-                      <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
+                      <span className="mt-0.5 block text-micro leading-tight text-muted-foreground">
                         Need help now
                       </span>
                     </button>
@@ -566,7 +566,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-xs font-semibold">Schedule</span>
-                      <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
+                      <span className="mt-0.5 block text-micro leading-tight text-muted-foreground">
                         Pick a window
                       </span>
                     </button>
@@ -597,7 +597,7 @@ export default function BookPageClient({
                       : "Continue — pick a window"}
                   </button>
                   {!detailsReady ? (
-                    <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                    <p className="mt-1 text-center text-micro text-muted-foreground">
                       Name, phone, address, job type, and urgency are required.
                     </p>
                   ) : null}
@@ -636,7 +636,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-sm font-semibold">{day.shortLabel}</span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      <span className="mt-0.5 block text-2xs text-muted-foreground">
                         {day.label.replace(/^Today · |^Next day · /, "")}
                       </span>
                     </button>
@@ -681,7 +681,7 @@ export default function BookPageClient({
                   <span className="font-semibold text-teal-100">{availabilityLabel}</span>
                 </p>
               ) : (
-                <p className="text-center text-[11px] text-rose-300/90">
+                <p className="text-center text-2xs text-rose-300/90">
                   Choose an end time after the start time.
                 </p>
               )}

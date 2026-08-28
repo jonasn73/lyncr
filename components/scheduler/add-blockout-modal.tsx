@@ -135,7 +135,7 @@ function AddBlockoutModalForm({
           <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Block Out Entire Day</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 When on, no booking or IVR slots are offered for this date.
               </p>
             </div>

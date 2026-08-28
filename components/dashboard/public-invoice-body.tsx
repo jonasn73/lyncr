@@ -56,7 +56,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
       <header className="border-b border-slate-200 bg-slate-900 px-6 py-6 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="text-2xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
               Invoice
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{invoice.businessName}</h1>
@@ -64,7 +64,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
               <p className="mt-1 text-sm text-slate-300">{invoice.businessPhone}</p>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-full bg-emerald-500 px-3 py-2 text-[11px] font-extrabold tracking-wide text-white">
+          <span className="shrink-0 rounded-full bg-emerald-500 px-3 py-2 text-2xs font-extrabold tracking-wide text-white">
             PAID
           </span>
         </div>
@@ -138,7 +138,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         <table className="w-full border-t-2 border-slate-900 text-sm">
           <thead>
-            <tr className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <tr className="text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               <th className="py-3 text-left">Description</th>
               <th className="py-3 text-right">Amount</th>
             </tr>
@@ -165,7 +165,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         {invoice.signaturePng ? (
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <p className="text-2xs font-bold uppercase tracking-wide text-muted-foreground">
               Customer signature
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -177,7 +177,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           </div>
         ) : null}
 
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-2xs leading-relaxed text-muted-foreground">
           Keep this for your records.
         </p>
       </div>

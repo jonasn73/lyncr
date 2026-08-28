@@ -67,7 +67,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               ) : null}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+          <p className="mt-0.5 text-2xs font-normal text-muted-foreground">
             {isBusy
               ? untilLabel
                 ? `Busy until ${untilLabel} · skip your phone`
@@ -76,13 +76,13 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           </p>
           {/* Desktop-only notes — hide long copy on mobile. */}
           {isAvailable ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-muted-foreground md:block">
+            <p className="mt-1 hidden text-micro leading-snug text-muted-foreground md:block">
               If you&apos;re already on a call, new callers go to hold / team instead of
               interrupting. Text Amber BUSY / AVAILABLE anytime.
             </p>
           ) : null}
           {isBusy && untilLabel ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-muted-foreground md:block">
+            <p className="mt-1 hidden text-micro leading-snug text-muted-foreground md:block">
               Set by Amber text — flips Available at that time (or turn Available on here).
             </p>
           ) : null}
@@ -95,16 +95,16 @@ export function PresenceStatusBar({ className }: { className?: string }) {
         >
           {presenceReady ? (
             isAvailable ? (
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              <span className="text-2xs font-bold uppercase tracking-wider text-emerald-300">
                 Active
               </span>
             ) : (
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-200">
+              <span className="text-2xs font-bold uppercase tracking-wider text-amber-200">
                 Busy
               </span>
             )
           ) : (
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Available
             </span>
           )}

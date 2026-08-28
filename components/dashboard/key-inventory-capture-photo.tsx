@@ -173,7 +173,7 @@ export function KeyInventoryCapturePhotoButton({
           }}
         />
       </div>
-      {error ? <p className="text-[11px] text-rose-300">{error}</p> : null}
+      {error ? <p className="text-2xs text-rose-300">{error}</p> : null}
     </div>
   )
 }

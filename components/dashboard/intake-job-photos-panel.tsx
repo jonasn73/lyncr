@@ -49,11 +49,11 @@ function PhotoGrid({
 }) {
   return (
     <div className="min-w-0 flex-1">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-[10px] text-muted-foreground">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-micro text-muted-foreground">
           Waiting…
         </div>
       ) : (
@@ -201,13 +201,13 @@ export function IntakeJobPhotosPanel({
       {infoReceived ? (
         <div className="space-y-2">
           <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
-            <p className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
+            <p className="text-2xs font-black uppercase tracking-wider text-emerald-200">
               [ INFO RECEIVED - READY TO DISPATCH ]
             </p>
           </div>
           {rescueMeta?.verify_on_arrival ? (
             <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-3 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
-              <p className="text-[12px] font-black uppercase tracking-wide text-amber-100">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-100">
                 ⚠️ VERIFY ID ON SITE BEFORE UNLOCKING
               </p>
             </div>
@@ -221,7 +221,7 @@ export function IntakeJobPhotosPanel({
         onClick={() => setExpanded((open) => !open)}
         className={cn(
           "inline-flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground",
-          compact ? "text-[11px]" : "text-xs"
+          compact ? "text-2xs" : "text-xs"
         )}
         aria-expanded={expanded}
       >
@@ -261,7 +261,7 @@ export function IntakeJobPhotosPanel({
                 disabled={requestState === "sending"}
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/70 bg-muted/30 font-semibold text-foreground transition-colors hover:bg-muted/50 disabled:opacity-50",
-                  compact ? "px-3 py-2 text-[11px]" : "px-3 py-3 text-xs"
+                  compact ? "px-3 py-2 text-2xs" : "px-3 py-3 text-xs"
                 )}
                 title="Text customer a Pending Info Intake link"
               >
@@ -276,7 +276,7 @@ export function IntakeJobPhotosPanel({
               {hint ? (
                 <p
                   className={cn(
-                    "text-[10px]",
+                    "text-micro",
                     requestState === "error" ? "text-red-400" : "text-sky-300/90"
                   )}
                 >
@@ -297,29 +297,29 @@ export function IntakeJobPhotosPanel({
                         <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
                       ) : null}
                       {rescueMeta?.vehicle_vin ? (
-                        <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                        <p className="mt-0.5 font-mono text-micro text-muted-foreground">
                           VIN {rescueMeta.vehicle_vin}
                         </p>
                       ) : null}
                       {rescueMeta?.special_notes ? (
-                        <p className="mt-1 text-[11px] text-slate-300">
+                        <p className="mt-1 text-2xs text-slate-300">
                           {rescueMeta.special_notes}
                         </p>
                       ) : null}
                     </div>
                   ) : null}
 
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-300">
                     Job Attachments ({photos.length})
                   </p>
                   <div className="flex gap-2">
                     <PhotoGrid title="Damage" photos={damagePhotos} />
                     {rescueMeta?.verify_on_arrival ? (
                       <div className="min-w-0 flex-1">
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300/90">
+                        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-amber-300/90">
                           ID / Registration
                         </p>
-                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-2 text-center text-[10px] font-semibold text-amber-100">
+                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-2 text-center text-micro font-semibold text-amber-100">
                           Verify ID on site
                         </div>
                       </div>
@@ -329,7 +329,7 @@ export function IntakeJobPhotosPanel({
                   </div>
                 </div>
               ) : (
-                <p className="px-0.5 text-[10px] text-muted-foreground">
+                <p className="px-0.5 text-micro text-muted-foreground">
                   Texts a link so the customer can send damage / ID photos. Skip unless you need them.
                 </p>
               )}

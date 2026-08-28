@@ -299,7 +299,7 @@ export function HelpPage() {
               <>
                 <StorySheetHeader {...story} />
                 <div className="border-t border-border/60 px-4 py-3">
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  <p className="text-2xs leading-relaxed text-muted-foreground">
                     Routing and call flow live on{" "}
                     <Link href="/dashboard" className="font-medium text-primary underline-offset-4 hover:underline">
                       the Call console
@@ -308,7 +308,7 @@ export function HelpPage() {
                   </p>
                 </div>
                 <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Submit the form above after you read this — include enough detail for a one-pass reply.
                   </p>
                 </SheetFooter>

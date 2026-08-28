@@ -597,13 +597,13 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
               className={
                 compact
                   ? LINES_MOBILE_SECTION_LABEL
-                  : "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                  : "text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground"
               }
             >
               Alerts
             </p>
             <span
-              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500/25 px-2 text-[10px] font-bold tabular-nums text-orange-100 ring-1 ring-orange-400/40"
+              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500/25 px-2 text-micro font-bold tabular-nums text-orange-100 ring-1 ring-orange-400/40"
               aria-label={`${items.length} alert${items.length === 1 ? "" : "s"}`}
             >
               {items.length}
@@ -672,7 +672,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           <p className="truncate text-sm font-semibold text-foreground">
                             {item.headline}
                           </p>
-                          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                          <span className="shrink-0 text-micro tabular-nums text-muted-foreground">
                             {formatTimeAgo(item.at)}
                           </span>
                         </div>
@@ -693,7 +693,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           {item.statusLine}
                         </p>
                         {item.preview ? (
-                          <p className="mt-1 truncate text-[11px] text-muted-foreground">{item.preview}</p>
+                          <p className="mt-1 truncate text-2xs text-muted-foreground">{item.preview}</p>
                         ) : null}
                       </div>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -705,7 +705,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           e.stopPropagation()
                           openInMessages(item.customerPhone)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-[11px] font-bold text-sky-100 hover:bg-sky-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-2xs font-bold text-sky-100 hover:bg-sky-500/25"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                         Reply
@@ -719,7 +719,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           // Same as tapping the row — open booking details (not new intake).
                           openDetail(item)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-3 py-2 text-[11px] font-bold text-orange-100 hover:bg-orange-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-orange-500/45 bg-orange-500/15 px-3 py-2 text-2xs font-bold text-orange-100 hover:bg-orange-500/25"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View booking
@@ -735,7 +735,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           void sendThanksReview(item.completedJobId!)
                         }}
                         className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-bold disabled:opacity-50",
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
                             ? "bg-rose-500/90 text-white hover:bg-rose-400"
                             : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
@@ -756,7 +756,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           // Payment already received — open read-only detail, not Collect.
                           openDetail(item)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-3 py-2 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-3 py-2 text-2xs font-bold text-emerald-100 hover:bg-emerald-500/25"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View
@@ -771,7 +771,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           void sendThanksReview(item.completedJobId!)
                         }}
                         className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-bold disabled:opacity-50",
+                          "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
                             ? "bg-rose-500/90 text-white hover:bg-rose-400"
                             : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
@@ -1406,39 +1406,39 @@ function LatestActionDetail({
         {isBookEvent ? (
           // Submitted fields front and center — not buried in “Continue intake”.
           <section className="rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-200/90">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-orange-200/90">
               Customer booked
             </p>
             <dl className="mt-2 space-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Name</dt>
+                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Name</dt>
                 <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Phone</dt>
+                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Phone</dt>
                 <dd className="min-w-0 text-zinc-200">{phoneLabel}</dd>
               </div>
               {bookService ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Service</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Service</dt>
                   <dd className="min-w-0 font-medium text-slate-100">{bookService}</dd>
                 </div>
               ) : null}
               {bookVehicle ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Vehicle</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Vehicle</dt>
                   <dd className="min-w-0 text-zinc-200">{bookVehicle}</dd>
                 </div>
               ) : null}
               {bookAddress ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Address</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Address</dt>
                   <dd className="min-w-0 text-zinc-200">{bookAddress}</dd>
                 </div>
               ) : null}
               {bookWhen ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">When</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">When</dt>
                   <dd className="min-w-0 text-zinc-200">{bookWhen}</dd>
                 </div>
               ) : null}
@@ -1446,7 +1446,7 @@ function LatestActionDetail({
           </section>
         ) : (
           <section>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Status
             </p>
             <ul className="mt-1.5 space-y-2">
@@ -1486,7 +1486,7 @@ function LatestActionDetail({
 
         {showSmsThread ? (
           <section>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Conversation
             </p>
             {threadLoading ? (
@@ -1501,7 +1501,7 @@ function LatestActionDetail({
               <div className="mt-2 space-y-2">
                 {item.lastOutbound ? (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Your text
                     </p>
                     <p className="mt-1 whitespace-pre-wrap rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-sm text-foreground">
@@ -1511,7 +1511,7 @@ function LatestActionDetail({
                 ) : null}
                 {item.lastInbound ? (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                       Their reply
                     </p>
                     <p className="mt-1 whitespace-pre-wrap rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm font-medium text-foreground">
@@ -1543,7 +1543,7 @@ function LatestActionDetail({
                         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                         <p
                           className={cn(
-                            "mt-1 text-[10px] tabular-nums",
+                            "mt-1 text-micro tabular-nums",
                             outbound ? "text-emerald-100/80" : "text-muted-foreground",
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
@@ -1552,7 +1552,7 @@ function LatestActionDetail({
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (
-                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                          <p className="mt-0.5 text-micro leading-snug text-rose-100/80">
                             {msg.delivery_error}
                           </p>
                         ) : null}
@@ -1591,13 +1591,13 @@ function LatestActionDetail({
                 <a
                   href={telHref}
                   onClick={() => onCallBookForm(item)}
-                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40"
+                  className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-2xs font-semibold text-zinc-200 hover:bg-muted/40"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </a>
               ) : (
-                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-[11px] font-semibold text-muted-foreground">
+                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-2xs font-semibold text-muted-foreground">
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </span>
@@ -1610,7 +1610,7 @@ function LatestActionDetail({
                   !item.bookFormLeadId ||
                   busyJobId === item.bookFormLeadId
                 }
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-2 text-2xs font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-40"
               >
                 {busyJobId === item.bookFormLeadId ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1625,7 +1625,7 @@ function LatestActionDetail({
                 type="button"
                 onClick={() => item.customerPhone && onOpenCrm(item.customerPhone)}
                 disabled={!item.customerPhone}
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-[11px] font-semibold text-zinc-200 hover:bg-muted/40 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/60 bg-muted/20 px-2 py-2 text-2xs font-semibold text-zinc-200 hover:bg-muted/40 disabled:opacity-40"
               >
                 <UserRound className="h-3.5 w-3.5" />
                 CRM
@@ -1636,7 +1636,7 @@ function LatestActionDetail({
                   item.customerPhone && onOpenMessages(item.customerPhone, item)
                 }
                 disabled={!item.customerPhone}
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2 py-2 text-[11px] font-semibold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2 py-2 text-2xs font-semibold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 Messages
@@ -1654,7 +1654,7 @@ function LatestActionDetail({
                     key={chip.id}
                     type="button"
                     onClick={() => setReplyDraft(chip.body)}
-                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                    className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-2xs font-semibold text-sky-100 hover:bg-sky-500/20"
                   >
                     {chip.label}
                   </button>
@@ -1685,7 +1685,7 @@ function LatestActionDetail({
                     key={`ai-draft-${idx}`}
                     type="button"
                     onClick={() => setReplyDraft(draft)}
-                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-[11px] leading-snug text-zinc-200 hover:bg-muted/40"
+                    className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-2xs leading-snug text-zinc-200 hover:bg-muted/40"
                   >
                     {draft}
                   </button>
@@ -1754,7 +1754,7 @@ function LatestActionDetail({
                 key={chip.id}
                 type="button"
                 onClick={() => onOpenMessages(item.customerPhone!, undefined, chip.body)}
-                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-2xs font-semibold text-sky-100 hover:bg-sky-500/20"
               >
                 {chip.label}
               </button>

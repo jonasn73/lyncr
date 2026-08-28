@@ -25,7 +25,7 @@ function MoneyLine({
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium text-slate-200">{label}</p>
           {badge ? (
-            <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="rounded-md bg-slate-800 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
               {badge}
             </span>
           ) : null}
@@ -131,7 +131,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         <p className="mt-1 text-xs text-muted-foreground">
           Net for Lyncr · {row.month_label}
         </p>
-        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-1 text-2xs leading-snug text-muted-foreground">
           Actual plan cash + card fees + credit packs − phone cost
         </p>
       </div>
@@ -181,7 +181,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       <MoneyLine label="Net for Lyncr" value={row.net_label} tone="net" />
 
       {(row.saas_last_paid_label || row.saas_next_bill_label) && (
-        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-2 text-2xs leading-snug text-muted-foreground">
           Last SaaS payment: {row.saas_last_paid_label ?? "never"}
           {" · "}
           Next bill: {row.saas_next_bill_label ?? "none"}
@@ -191,7 +191,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       {row.breakdown_notes.length > 0 ? (
         <ul className="mt-3 space-y-2 px-0.5">
           {row.breakdown_notes.map((n) => (
-            <li key={n} className="text-[11px] leading-snug text-muted-foreground">
+            <li key={n} className="text-2xs leading-snug text-muted-foreground">
               {n}
             </li>
           ))}
@@ -221,7 +221,7 @@ export function BusinessMoneyChip({
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-slate-100">{row.business_name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">
+        <p className="truncate text-2xs text-muted-foreground">
           {row.call_count_mtd} calls · {row.talk_minutes_mtd} min · {row.period_chip_label}
         </p>
       </div>
@@ -234,7 +234,7 @@ export function BusinessMoneyChip({
         >
           {row.net_abs_label}
         </p>
-        <p className={cn("text-[10px] font-medium", row.ahead ? "text-emerald-500/80" : "text-amber-500/80")}>
+        <p className={cn("text-micro font-medium", row.ahead ? "text-emerald-500/80" : "text-amber-500/80")}>
           {row.verdict_label}
         </p>
       </div>

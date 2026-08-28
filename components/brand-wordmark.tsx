@@ -4,7 +4,7 @@ import { SITE_NAME, SITE_WORDMARK } from "@/lib/brand"
 import { cn } from "@/lib/utils"
 
 const SIZE_CLASS = {
-  xs: "text-[10px] font-semibold tracking-tight leading-none",
+  xs: "text-micro font-semibold tracking-tight leading-none",
   sm: "text-sm font-semibold tracking-tight",
   md: "text-base font-semibold tracking-tight",
   lg: "text-2xl font-semibold tracking-tight md:text-3xl",

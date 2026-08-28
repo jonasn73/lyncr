@@ -160,7 +160,7 @@ export function ReceptionistEndpointToggle({
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Answer on
           </p>
           {/* Longer hint only on desktop — mobile stays action-first */}
@@ -179,7 +179,7 @@ export function ReceptionistEndpointToggle({
     <WorkspacePanel density="default">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Answer calls on</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Answer calls on</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Pick where calls routed to you ring. Browser is instant; cell forwards to your phone.
           </p>

@@ -373,7 +373,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
           className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3"
           role="status"
         >
-          <p className="mx-auto max-w-lg text-center text-[11px] leading-relaxed text-amber-200/90">
+          <p className="mx-auto max-w-lg text-center text-2xs leading-relaxed text-amber-200/90">
             {devModeNotice}
           </p>
         </div>
@@ -408,7 +408,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   <span className={cn("text-sm font-medium", numberMethod === "buy" ? "text-primary" : "text-foreground")}>
                     Buy New
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Get a fresh number</span>
+                  <span className="text-2xs text-muted-foreground">Get a fresh number</span>
                 </button>
                 <button
                   onClick={() => { setNumberMethod("port"); setShowResults(false); setSelectedNumber("") }}
@@ -423,7 +423,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   <span className={cn("text-sm font-medium", numberMethod === "port" ? "text-primary" : "text-foreground")}>
                     Port Existing
                   </span>
-                  <span className="text-[11px] text-muted-foreground">Keep your number</span>
+                  <span className="text-2xs text-muted-foreground">Keep your number</span>
                 </button>
               </div>
 
@@ -525,16 +525,16 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             )}
                           >
                             {isSelected ? (
-                              <span className="absolute right-3 top-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              <span className="absolute right-3 top-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-primary">
                                 <Check className="h-3 w-3" aria-hidden />
                                 Selected
                               </span>
                             ) : null}
                             <div>
                               <p className="text-sm font-medium tabular-nums text-foreground">{num.number}</p>
-                              <p className="text-[11px] text-muted-foreground">{num.type}</p>
-                              <p className="text-[10px] font-medium text-primary">{num.trialNote}</p>
-                              <p className="text-[10px] text-muted-foreground">{num.afterTrialPrice}</p>
+                              <p className="text-2xs text-muted-foreground">{num.type}</p>
+                              <p className="text-micro font-medium text-primary">{num.trialNote}</p>
+                              <p className="text-micro text-muted-foreground">{num.afterTrialPrice}</p>
                             </div>
                           </button>
                         )
@@ -760,7 +760,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-foreground">{option.title}</p>
-                        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{option.subtext}</p>
+                        <p className="mt-0.5 text-micro leading-snug text-muted-foreground">{option.subtext}</p>
                       </div>
                     </button>
                   )
@@ -814,7 +814,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       ].map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-medium text-primary"
+                          className="rounded-full bg-primary/10 px-3 py-1 text-micro font-medium text-primary"
                         >
                           {tag}
                         </span>
@@ -872,7 +872,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               <>
                 <StorySheetHeader {...story} />
                 <div className="border-t border-border/60 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     When you finish, open{" "}
                     <Link href="/dashboard" className="font-medium text-primary underline-offset-4 hover:underline">
                       Call console
@@ -881,7 +881,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   </p>
                 </div>
                 <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">Demo steps here may not purchase real lines until you add numbers in Settings.</p>
+                  <p className="text-2xs text-muted-foreground">Demo steps here may not purchase real lines until you add numbers in Settings.</p>
                 </SheetFooter>
               </>
             )

@@ -209,13 +209,13 @@ export function CallTimeInventoryIntake({
           <p className="min-w-0 flex-1 text-xs font-medium text-emerald-200">
             <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
             {van1Qty} in van
-            <span className="ml-1.5 font-mono text-[10px] text-emerald-300/80">{displaySku}</span>
+            <span className="ml-1.5 font-mono text-micro text-emerald-300/80">{displaySku}</span>
           </p>
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="h-7 border border-emerald-500/30 bg-emerald-950/40 px-2 text-[11px] text-emerald-100 hover:bg-emerald-900/50"
+            className="h-7 border border-emerald-500/30 bg-emerald-950/40 px-2 text-2xs text-emerald-100 hover:bg-emerald-900/50"
             onClick={() => setAdjustOpen((v) => !v)}
           >
             Adjust
@@ -302,12 +302,12 @@ export function CallTimeInventoryIntake({
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           Not in van
-          <span className="ml-1.5 font-mono text-[10px] text-foreground/80">{displaySku}</span>
+          <span className="ml-1.5 font-mono text-micro text-foreground/80">{displaySku}</span>
         </p>
         <Button
           type="button"
           size="sm"
-          className="h-7 gap-1 bg-emerald-600 px-3 text-[11px] text-white hover:bg-emerald-500"
+          className="h-7 gap-1 bg-emerald-600 px-3 text-2xs text-white hover:bg-emerald-500"
           disabled={saveBusy}
           onClick={() => {
             setAddOpen(true)
@@ -320,7 +320,7 @@ export function CallTimeInventoryIntake({
         </Button>
         <button
           type="button"
-          className="text-[11px] font-medium text-rose-300/90 underline-offset-2 hover:underline disabled:opacity-50"
+          className="text-2xs font-medium text-rose-300/90 underline-offset-2 hover:underline disabled:opacity-50"
           disabled={saveBusy}
           onClick={() => void markOutOfStock()}
         >
@@ -330,7 +330,7 @@ export function CallTimeInventoryIntake({
 
       {addOpen ? (
         <div className="mt-2 space-y-2 rounded-md border border-emerald-500/25 bg-emerald-950/25 p-2">
-          <p className="text-[11px] font-medium text-emerald-100">How many on hand?</p>
+          <p className="text-2xs font-medium text-emerald-100">How many on hand?</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -359,7 +359,7 @@ export function CallTimeInventoryIntake({
             </Button>
             <Button
               type="button"
-              className="h-8 flex-1 bg-emerald-600 text-[11px] hover:bg-emerald-500 sm:flex-none"
+              className="h-8 flex-1 bg-emerald-600 text-2xs hover:bg-emerald-500 sm:flex-none"
               disabled={saveBusy}
               onClick={() => void saveYesIHaveIt()}
             >
@@ -368,7 +368,7 @@ export function CallTimeInventoryIntake({
             </Button>
             <button
               type="button"
-              className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+              className="text-2xs text-muted-foreground underline-offset-2 hover:underline"
               onClick={() => setAddOpen(false)}
             >
               Cancel
@@ -376,7 +376,7 @@ export function CallTimeInventoryIntake({
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 text-2xs font-medium text-muted-foreground hover:text-foreground"
             onClick={() => setShowCapture((v) => !v)}
           >
             <Camera className="h-3 w-3" aria-hidden />

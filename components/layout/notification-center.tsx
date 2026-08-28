@@ -570,7 +570,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
           title="Alerts"
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-micro font-bold text-primary-foreground">
             {items.length > 9 ? "9+" : items.length}
           </span>
         </Button>
@@ -619,7 +619,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                             type="button"
                             disabled={item.id === "impersonation" && exitingImpersonation}
                             onClick={item.onAction}
-                            className="rounded-md bg-background/60 px-3 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
+                            className="rounded-md bg-background/60 px-3 py-1 text-2xs font-semibold text-foreground hover:bg-background/90"
                           >
                             {item.actionLabel}
                           </button>
@@ -627,7 +627,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                             <button
                               type="button"
                               onClick={dismissSmsPending}
-                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                              className="text-2xs font-medium text-muted-foreground hover:text-foreground"
                             >
                               Dismiss
                             </button>

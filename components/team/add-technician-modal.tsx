@@ -165,7 +165,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
 
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
           <label className="block space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -178,7 +178,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
 
           {mode === "invite" ? (
             <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Email <span className="font-normal normal-case text-muted-foreground">(optional)</span>
               </span>
               <input
@@ -192,7 +192,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
           ) : null}
 
           <label className="block space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phone number</span>
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Phone number</span>
             <input
               type="tel"
               inputMode="tel"

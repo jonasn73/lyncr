@@ -400,7 +400,7 @@ export function GetPaidSheet({
                 <div className="flex items-center justify-between gap-2">
                   <span
                     className={cn(
-                      "inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold",
+                      "inline-flex rounded-full border px-3 py-1 text-2xs font-semibold",
                       chip.className
                     )}
                   >
@@ -410,7 +410,7 @@ export function GetPaidSheet({
                     type="button"
                     disabled={loading}
                     onClick={() => void refreshStatus()}
-                    className="text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                    className="text-2xs font-semibold text-sky-300 disabled:opacity-50"
                   >
                     Refresh
                   </button>
@@ -422,7 +422,7 @@ export function GetPaidSheet({
                       <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
                       <p className="text-sm font-semibold">Bank is connected</p>
                     </div>
-                    <p className="mt-1.5 text-[11px] leading-snug text-emerald-200/70">
+                    <p className="mt-1.5 text-2xs leading-snug text-emerald-200/70">
                       Wallet and Send to bank live on Money. This page is only for bank details and
                       past transfers.
                     </p>
@@ -450,7 +450,7 @@ export function GetPaidSheet({
                 {!status?.ready ? (
                   <>
                     <div>
-                      <p className="mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="mb-1.5 px-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Business type
                       </p>
                       <div className="grid gap-2">
@@ -472,7 +472,7 @@ export function GetPaidSheet({
                                 <span className="block text-sm font-semibold text-zinc-100">
                                   {k.title}
                                 </span>
-                                <span className="block text-[11px] text-muted-foreground">{k.subtitle}</span>
+                                <span className="block text-2xs text-muted-foreground">{k.subtitle}</span>
                               </span>
                               <span
                                 className={cn(
@@ -506,7 +506,7 @@ export function GetPaidSheet({
                   <>
                     {/* Manual bank transfer — only when something is actually ready */}
                     <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Send to bank
                       </p>
                       {!status.payoutsEnabled ? (
@@ -522,7 +522,7 @@ export function GetPaidSheet({
                       ) : (
                         <>
                           <label className="block">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Amount (USD)
                             </span>
                             <input
@@ -555,7 +555,7 @@ export function GetPaidSheet({
                           >
                             Send all available ({fmtCents(status.availableCents, status.currency)})
                           </button>
-                          <p className="text-[11px] leading-snug text-muted-foreground">
+                          <p className="text-2xs leading-snug text-muted-foreground">
                             Standard transfer — usually arrives in 1–2 business days.
                           </p>
                         </>
@@ -566,10 +566,10 @@ export function GetPaidSheet({
                     <section className="space-y-2">
                       <div className="flex items-center justify-between gap-2 px-0.5">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Bank transfers (net to bank)
                           </p>
-                          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                          <p className="mt-0.5 text-micro leading-snug text-muted-foreground">
                             Recent payouts only — amount after fees, not the Collected total.
                           </p>
                         </div>
@@ -577,7 +577,7 @@ export function GetPaidSheet({
                           type="button"
                           disabled={payoutsLoading}
                           onClick={() => void refreshPayouts()}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-sky-300 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-sky-300 disabled:opacity-50"
                         >
                           <RefreshCw
                             className={cn("h-3.5 w-3.5", payoutsLoading && "animate-spin")}
@@ -605,21 +605,21 @@ export function GetPaidSheet({
                                   <p className="text-sm font-semibold tabular-nums text-slate-100">
                                     {fmtCents(p.amountCents, p.currency)}
                                   </p>
-                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                  <p className="mt-0.5 text-2xs text-muted-foreground">
                                     {p.createdLabel}
                                     {p.arrivalDateLabel !== "—"
                                       ? ` · arrives ${p.arrivalDateLabel}`
                                       : ""}
                                   </p>
                                   {p.failureMessage ? (
-                                    <p className="mt-1 text-[11px] text-rose-300">
+                                    <p className="mt-1 text-2xs text-rose-300">
                                       {p.failureMessage}
                                     </p>
                                   ) : null}
                                 </div>
                                 <span
                                   className={cn(
-                                    "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                    "shrink-0 rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                                     payoutStatusClass(p.status)
                                   )}
                                 >

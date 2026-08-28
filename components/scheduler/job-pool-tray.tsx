@@ -81,7 +81,7 @@ export function JobPoolTray({
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Job pool</h2>
-            <p className="text-[11px] leading-snug text-muted-foreground">
+            <p className="text-2xs leading-snug text-muted-foreground">
               {poolLooksEmpty
                 ? "Unassigned bookings land here"
                 : mobileTimeline || sidebar || embedded
@@ -92,7 +92,7 @@ export function JobPoolTray({
         </div>
         <span
           className={cn(
-            "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-[10px] font-semibold uppercase tracking-wide",
+            "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-micro font-semibold uppercase tracking-wide",
             loading
               ? "text-muted-foreground"
               : poolIsEmpty
@@ -122,7 +122,7 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("all")}
           className={cn(
-            "flex-1 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "flex-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "all"
               ? "bg-slate-800 text-slate-100"
               : "text-muted-foreground hover:text-slate-300"
@@ -134,7 +134,7 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("rescue")}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "rescue"
               ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
               : "text-rose-300/80 hover:text-rose-100"

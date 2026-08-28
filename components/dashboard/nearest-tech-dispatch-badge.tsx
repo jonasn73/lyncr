@@ -22,7 +22,7 @@ export function NearestTechDispatchBadge({ jobLat, jobLng, className }: NearestT
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border border-border/50 bg-muted/15 px-3 py-2 text-[11px] text-muted-foreground",
+          "flex items-center gap-2 rounded-lg border border-border/50 bg-muted/15 px-3 py-2 text-2xs text-muted-foreground",
           className
         )}
         aria-live="polite"
@@ -38,7 +38,7 @@ export function NearestTechDispatchBadge({ jobLat, jobLng, className }: NearestT
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-100",
+        "flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-2xs text-emerald-100",
         className
       )}
       role="status"

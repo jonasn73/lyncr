@@ -917,7 +917,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
         <div className="min-w-0">
           <p
             className={cn(
-              "hidden min-h-[1rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block",
+              "hidden min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block",
               threadOpen && "invisible"
             )}
           >
@@ -1024,7 +1024,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       <span className="truncate text-sm font-semibold text-foreground">
                         {formatPhoneDisplay(thread.customerPhone)}
                       </span>
-                      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      <span className="shrink-0 text-micro tabular-nums text-muted-foreground">
                         {threadTimeLabel(
                           thread.customerPhone,
                           thread.lastMessage.id,
@@ -1098,7 +1098,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       ? threadPhoneLabel || "\u00a0"
                       : customerName?.trim() || threadPhoneLabel || "\u00a0"}
                   </p>
-                  <p className="min-h-5 truncate text-[11px] text-muted-foreground">
+                  <p className="min-h-5 truncate text-2xs text-muted-foreground">
                     {customerLookupDone && customerName?.trim() && threadTelHref ? (
                       <a
                         href={threadTelHref}
@@ -1122,7 +1122,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                 <div className="flex h-9 min-w-[5.5rem] shrink-0 items-center justify-end gap-2">
                   <div
                     className={cn(
-                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-3 text-[11px] font-semibold text-foreground",
+                      "inline-flex h-9 items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-3 text-2xs font-semibold text-foreground",
                       !showCrmChip && "invisible pointer-events-none"
                     )}
                     aria-hidden={!showCrmChip}
@@ -1147,7 +1147,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openCollectForThread}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/25"
                       aria-label="Collect payment"
                     >
                       <CreditCard className="h-3.5 w-3.5" aria-hidden />
@@ -1161,7 +1161,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
               <div className="min-h-[4.5rem] shrink-0 border-b border-border/60">
                 {showBookingDetailsBanner ? (
                   <div className="border-b border-orange-500/30 bg-orange-500/10 px-3 py-3 md:px-4">
-                    <p className="truncate text-[11px] font-medium text-orange-100/90">
+                    <p className="truncate text-2xs font-medium text-orange-100/90">
                       {threadBookForm?.customerName
                         ? `${threadBookForm.customerName} submitted a booking`
                         : "Customer submitted a booking"}
@@ -1180,7 +1180,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                   </div>
                 ) : showNoFormYetCue ? (
                   <div className="bg-muted/20 px-3 py-3 md:px-4">
-                    <p className="text-[11px] font-medium text-muted-foreground">
+                    <p className="text-2xs font-medium text-muted-foreground">
                       No booking form yet. Reply here — or they can use the book link you sent.
                     </p>
                   </div>
@@ -1219,7 +1219,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                         <p
                           className={cn(
-                            "mt-1 text-[10px] tabular-nums",
+                            "mt-1 text-micro tabular-nums",
                             outbound ? "text-emerald-100/80" : "text-muted-foreground",
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
@@ -1228,7 +1228,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                           {deliveryLabel ? ` · ${deliveryLabel}` : ""}
                         </p>
                         {outbound && msg.status === "failed" && msg.delivery_error ? (
-                          <p className="mt-0.5 text-[10px] leading-snug text-rose-100/80">
+                          <p className="mt-0.5 text-micro leading-snug text-rose-100/80">
                             {msg.delivery_error}
                           </p>
                         ) : null}
@@ -1253,7 +1253,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         key={chip.id}
                         type="button"
                         onClick={() => setDraft(chip.body)}
-                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/20"
+                        className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-2xs font-semibold text-sky-100 hover:bg-sky-500/20"
                       >
                         {chip.label}
                       </button>
@@ -1285,7 +1285,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         key={`ai-draft-${idx}`}
                         type="button"
                         onClick={() => setDraft(option)}
-                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-[11px] leading-snug text-foreground/90 hover:bg-muted/40"
+                        className="w-full rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left text-2xs leading-snug text-foreground/90 hover:bg-muted/40"
                       >
                         {option}
                       </button>

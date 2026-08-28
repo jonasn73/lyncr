@@ -181,7 +181,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   return (
     <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-emerald-200">
           Returning customer
         </span>
         {lookup.display_name ? (
@@ -189,7 +189,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
         ) : null}
         {lookup.job_status_label ? (
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+            className={`rounded-full border px-2 py-0.5 text-micro font-medium ${
               TONE_CLASS[lookup.job_status_tone ?? "neutral"] ?? TONE_CLASS.neutral
             }`}
           >
@@ -198,7 +198,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
         ) : null}
       </div>
       {chips.length > 0 ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">{chips.join(" · ")}</p>
+        <p className="mt-1 text-2xs text-muted-foreground">{chips.join(" · ")}</p>
       ) : null}
     </div>
   )
@@ -408,7 +408,7 @@ export function ReceptionistLiveIntake({
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{callerLabel}</p>
-              <p className="text-[11px] text-emerald-200/70">
+              <p className="text-2xs text-emerald-200/70">
                 {session.answeredAt ? "Intake in progress · " : "Ringing · "}
                 <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
               </p>
@@ -446,7 +446,7 @@ export function ReceptionistLiveIntake({
             <PhoneCall className={cn("relative", denseStep ? "h-4 w-4" : "h-5 w-5")} aria-hidden />
           </span>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/80">Call notepad / lead dispatcher</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-emerald-300/80">Call notepad / lead dispatcher</p>
             <p className="text-lg font-semibold text-foreground">
               {callerName || (callerNumber ? formatPhoneDisplay(callerNumber) : "Incoming caller")}
             </p>
@@ -471,7 +471,7 @@ export function ReceptionistLiveIntake({
                 session.answeredAt ? "bg-emerald-400" : "bg-amber-400"
               }`}
             />
-            {session.answeredAt ? null : <span className="text-[11px] uppercase tracking-wide">Ringing</span>}
+            {session.answeredAt ? null : <span className="text-2xs uppercase tracking-wide">Ringing</span>}
             <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
           </div>
           <button
@@ -515,7 +515,7 @@ export function ReceptionistLiveIntake({
                 setStepIndex(i)
               }}
               aria-current={i === stepIndex}
-              className={`flex-1 rounded-full py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+              className={`flex-1 rounded-full py-1 text-micro font-semibold uppercase tracking-wide transition ${
                 i === stepIndex
                   ? "bg-emerald-500/25 text-emerald-100"
                   : i < stepIndex
@@ -563,7 +563,7 @@ export function ReceptionistLiveIntake({
           {/* How the call ended is the last question, not the first — asking it beside
               the vehicle year invites logging an outcome before there is one. */}
           <div className={`flex flex-wrap items-center gap-2 ${isLastStep ? "" : "hidden"}`}>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Disposition:</span>
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Disposition:</span>
             <button
               type="button"
               onClick={() => void logJob("BOOKED")}

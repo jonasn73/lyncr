@@ -294,7 +294,7 @@ export function CustomerSignaturePad({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           {optional ? "Customer signature (optional)" : "Customer signature"}
         </span>
         <div className="flex items-center gap-1">
@@ -302,7 +302,7 @@ export function CustomerSignaturePad({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/10"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-emerald-300 hover:bg-emerald-500/10"
             >
               <Maximize2 className="h-3.5 w-3.5" aria-hidden />
               Larger / landscape
@@ -317,7 +317,7 @@ export function CustomerSignaturePad({
               onChange(null)
             }}
             disabled={!hasInk && !previewUrl}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-muted-foreground hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden />
             Clear
@@ -333,7 +333,7 @@ export function CustomerSignaturePad({
             alt="Customer signature"
             className="h-36 w-full object-contain sm:h-40"
           />
-          <p className="absolute bottom-2 left-2 rounded bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+          <p className="absolute bottom-2 left-2 rounded bg-emerald-600/90 px-2 py-0.5 text-micro font-semibold text-white">
             Signed
           </p>
         </div>

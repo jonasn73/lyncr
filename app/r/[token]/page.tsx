@@ -137,7 +137,7 @@ export default function PublicReceiptPage() {
           >
             Done
           </button>
-          <p className="text-center text-[11px] text-muted-foreground">
+          <p className="text-center text-2xs text-muted-foreground">
             You can close this tab · Sent by {invoice.businessName} · Powered by Lyncr
           </p>
         </div>

@@ -196,7 +196,7 @@ export function DevErrorLogDrawer() {
       >
         <Bug className="h-5 w-5" aria-hidden />
         {count > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-micro font-bold text-white">
             {count > 99 ? "99+" : count}
           </span>
         ) : null}
@@ -257,13 +257,13 @@ export function DevErrorLogDrawer() {
                     <div className="flex items-start justify-between gap-2">
                       <span
                         className={cn(
-                          "rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          "rounded-md border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                           kindColor(entry.kind)
                         )}
                       >
                         {kindLabel(entry.kind)}
                       </span>
-                      <time className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      <time className="shrink-0 text-micro tabular-nums text-muted-foreground">
                         {new Date(entry.at).toLocaleTimeString()}
                       </time>
                     </div>
@@ -271,23 +271,23 @@ export function DevErrorLogDrawer() {
                       {entry.message}
                     </p>
                     {entry.source ? (
-                      <p className="mt-2 rounded-md bg-zinc-950/80 px-2 py-1 font-mono text-[11px] leading-relaxed text-emerald-300/90">
+                      <p className="mt-2 rounded-md bg-zinc-950/80 px-2 py-1 font-mono text-2xs leading-relaxed text-emerald-300/90">
                         {entry.source}
                       </p>
                     ) : (
-                      <p className="mt-2 text-[11px] text-muted-foreground">No file:line parsed from stack</p>
+                      <p className="mt-2 text-2xs text-muted-foreground">No file:line parsed from stack</p>
                     )}
                     {entry.componentStack ? (
-                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-micro leading-relaxed text-muted-foreground">
                         {entry.componentStack.trim()}
                       </pre>
                     ) : null}
                     {entry.stack ? (
                       <details className="mt-2">
-                        <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-zinc-300">
+                        <summary className="cursor-pointer text-2xs text-muted-foreground hover:text-zinc-300">
                           Stack trace
                         </summary>
-                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-micro leading-relaxed text-muted-foreground">
                           {entry.stack}
                         </pre>
                       </details>

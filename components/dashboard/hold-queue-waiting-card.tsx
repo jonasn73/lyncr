@@ -211,7 +211,7 @@ export function HoldQueueWaitingCard({
             )}
             aria-label="Hold queue stats"
           >
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-2xs text-muted-foreground">
               Today · Answer {stats.answered} · Press 1 {stats.press1} · Left{" "}
               {stats.abandoned}
               {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}
@@ -230,7 +230,7 @@ export function HoldQueueWaitingCard({
       if (queueSettled || seededStats != null) return null
       return (
         <section className={cn("px-3 py-2 sm:px-4", className)} aria-hidden>
-          <p className="invisible text-[11px]">Today · Answer 0 · Press 1 0 · Left 0</p>
+          <p className="invisible text-2xs">Today · Answer 0 · Press 1 0 · Left 0</p>
         </section>
       )
     }
@@ -245,7 +245,7 @@ export function HoldQueueWaitingCard({
         <p className="text-xs font-medium text-muted-foreground">
           Hold queue · nobody waiting
         </p>
-        <p className="hidden text-[11px] text-muted-foreground/80 md:block">
+        <p className="hidden text-2xs text-muted-foreground/80 md:block">
           Stay-on-the-line callers appear here with Answer
         </p>
       </section>
@@ -286,7 +286,7 @@ export function HoldQueueWaitingCard({
               return `${callers.length} waiting`
             })()}
           </h3>
-          <p className="hidden text-[11px] text-muted-foreground md:block">
+          <p className="hidden text-2xs text-muted-foreground md:block">
             Answer unlocks a few seconds after the Busy greeting, then while they wait on hold
           </p>
         </div>
@@ -319,7 +319,7 @@ export function HoldQueueWaitingCard({
                   {!inBusyMenu && idx === 0 ? "Next · " : ""}
                   {formatCallerPreview(c.callerE164)}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   {inBusyMenu
                     ? `In Busy menu · ${waitHint(c.enqueuedAt)}`
                     : `Waiting ${waitHint(c.enqueuedAt)}`}
@@ -338,7 +338,7 @@ export function HoldQueueWaitingCard({
                 </p>
                 {/* Plain guidance while Answer is locked so owners know what to do. */}
                 {answerLockedBriefly ? (
-                  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                  <p className="mt-1 text-2xs leading-snug text-muted-foreground">
                     Greeting playing — Answer unlocks in a few seconds, or send a book link
                     now.
                   </p>
@@ -350,13 +350,13 @@ export function HoldQueueWaitingCard({
                     phone={c.callerE164}
                     businessLine={c.businessLineE164}
                     compact
-                    className="!h-9 !min-h-0 px-2 text-[10px]"
+                    className="!h-9 !min-h-0 px-2 text-micro"
                   />
                 ) : null}
                 {answerLockedBriefly ? (
                   // Short lock only while the Busy greeting speaks (~8s).
                   <span
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-micro font-semibold text-amber-800 dark:text-amber-200"
                     title={`Answer unlocks after ~${Math.round(busyMenuAnswerUnlockMs() / 1000)}s while the Busy greeting plays.`}
                   >
                     Can’t answer yet
@@ -386,7 +386,7 @@ export function HoldQueueWaitingCard({
       </ul>
 
       {holdQueueStatsHaveTodayActivity(stats) ? (
-        <p className="mt-2.5 hidden text-[10px] text-muted-foreground md:block">
+        <p className="mt-2.5 hidden text-micro text-muted-foreground md:block">
           Today · Answer {stats.answered} · Press 1 {stats.press1} · Left {stats.abandoned}
           {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}
         </p>

@@ -72,7 +72,7 @@ export function IntakeSchedulePreferenceFields({
 
   return (
     <div className={cn("grid gap-3", className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+      <p className="text-micro font-semibold uppercase tracking-wide text-primary">
         Schedule
       </p>
       {subtitle ? (
@@ -97,7 +97,7 @@ export function IntakeSchedulePreferenceFields({
             )}
           >
             <span className="block text-sm font-semibold">ASAP</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block text-2xs text-muted-foreground">
               Need help now
             </span>
           </button>
@@ -112,7 +112,7 @@ export function IntakeSchedulePreferenceFields({
             )}
           >
             <span className="block text-sm font-semibold">Schedule</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block text-2xs text-muted-foreground">
               Pick a window
             </span>
           </button>
@@ -142,7 +142,7 @@ export function IntakeSchedulePreferenceFields({
                   )}
                 >
                   <span className="block text-sm font-semibold">{day.shortLabel}</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">
                     {day.label.replace(/^Today · |^Next day · /, "")}
                   </span>
                 </button>
@@ -198,7 +198,7 @@ export function IntakeSchedulePreferenceFields({
               Free: <span className="font-semibold text-teal-200">{availabilityLabel}</span>
             </p>
           ) : (
-            <p className="text-center text-[11px] text-rose-300/90">
+            <p className="text-center text-2xs text-rose-300/90">
               Choose an end time after the start time.
             </p>
           )}

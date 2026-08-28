@@ -43,7 +43,7 @@ export function ScheduleBlockoutsPanel({
           type="button"
           onClick={onAdd}
           className={cn(
-            "shrink-0 rounded-lg bg-amber-600 px-3 text-[11px] font-semibold text-white hover:bg-amber-500",
+            "shrink-0 rounded-lg bg-amber-600 px-3 text-2xs font-semibold text-white hover:bg-amber-500",
             MOBILE_TAP_TARGET
           )}
         >
@@ -52,7 +52,7 @@ export function ScheduleBlockoutsPanel({
       </div>
 
       {dayRows.length === 0 ? (
-        <p className="mt-1.5 text-[11px] text-muted-foreground">None today</p>
+        <p className="mt-1.5 text-2xs text-muted-foreground">None today</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {dayRows.map((b) => (
@@ -70,7 +70,7 @@ export function ScheduleBlockoutsPanel({
                 <span className="min-w-0 truncate text-xs font-medium text-amber-100">
                   {formatBlockoutLabel(b)}
                 </span>
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-red-300/90">
+                <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-red-300/90">
                   {deletingId === b.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                   ) : (

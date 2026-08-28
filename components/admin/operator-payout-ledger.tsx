@@ -144,16 +144,16 @@ export function OperatorPayoutLedger() {
                         <span className="font-medium text-slate-100">{r.name}</span>
                         <div className="flex flex-wrap items-center gap-1">
                           {r.is_network_agent ? (
-                            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-[10px] text-violet-200">
+                            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-micro text-violet-200">
                               Network
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="border-slate-600 bg-slate-800/60 text-[10px] text-slate-300">
+                            <Badge variant="outline" className="border-slate-600 bg-slate-800/60 text-micro text-slate-300">
                               Business
                             </Badge>
                           )}
                           {!r.is_active && (
-                            <Badge variant="outline" className="border-slate-700 bg-slate-900 text-[10px] text-muted-foreground">
+                            <Badge variant="outline" className="border-slate-700 bg-slate-900 text-micro text-muted-foreground">
                               Inactive
                             </Badge>
                           )}

@@ -84,7 +84,7 @@ export function BookingDepositSettings({ className }: { className?: string }) {
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-zinc-100">Require deposit on /book</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
           Customers pay a Stripe deposit before the slot is confirmed.
         </p>
       </div>

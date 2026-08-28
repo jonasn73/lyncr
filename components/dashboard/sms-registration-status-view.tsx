@@ -40,7 +40,7 @@ function stepState(
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="text-sm text-foreground sm:text-right">{value}</dd>
     </div>
   )
@@ -115,7 +115,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Carrier lifecycle</p>
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier lifecycle</p>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {STEPS.map((step, index) => {
             const state = stepState(step.key, summary.lifecycle_stage)
@@ -162,7 +162,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Submission summary</p>
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Submission summary</p>
         <dl className="mt-4 space-y-3">
           <SummaryRow label="Business profile" value={summary.legal_business_name?.trim() || "—"} />
           {summary.entity_type ? <SummaryRow label="Entity type" value={summary.entity_type} /> : null}
@@ -184,7 +184,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
 
       {summary.rejection_reason ? (
         <div role="alert" className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-red-300">Carrier rejection reason</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-red-300">Carrier rejection reason</p>
           <p className="mt-2 text-sm leading-relaxed text-red-100/90">{summary.rejection_reason}</p>
           {isRejected ? (
             <div className="mt-3 space-y-2 text-xs leading-relaxed text-red-200/80">
@@ -213,7 +213,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
 
       {!isRejected && summary.status_detail && isReview ? (
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-400/90">Latest carrier update</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-amber-400/90">Latest carrier update</p>
           <p className="mt-2 text-sm text-muted-foreground">{summary.status_detail}</p>
         </div>
       ) : null}

@@ -121,7 +121,7 @@ export function ActivePipelinePanel({
             className={cn(
               SCHEDULER_METADATA_LABEL,
               "mb-2 font-bold",
-              isMobileSheet ? "text-xs" : "text-[10px]"
+              isMobileSheet ? "text-xs" : "text-micro"
             )}
           >
             {group.title}
@@ -233,7 +233,7 @@ export function ActivePipelinePanel({
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            "rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide",
+                            "rounded-full border px-3 py-1 text-micro font-bold uppercase tracking-wide",
                             SCHEDULER_BADGE_STYLE[phase]
                           )}
                         >
@@ -287,7 +287,7 @@ export function ActivePipelinePanel({
                       className={cn(
                         "absolute right-3 top-3 z-20",
                         SCHEDULER_ACTION_BUTTON,
-                        "px-2 py-0.5 text-[10px] shadow-sm",
+                        "px-2 py-0.5 text-micro shadow-sm",
                         highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                       )}
                     >
@@ -354,7 +354,7 @@ export function ActivePipelinePanel({
 
                       <span
                         className={cn(
-                          "rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                          "rounded-full border px-3 py-0.5 text-micro font-bold uppercase tracking-wide",
                           SCHEDULER_BADGE_STYLE[phase],
                           isMobileSheet ? "mt-3 inline-flex" : "absolute bottom-2.5 right-2.5"
                         )}
@@ -373,7 +373,7 @@ export function ActivePipelinePanel({
                           onMarkComplete(job.id)
                         }}
                         className={cn(
-                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 transition-colors hover:bg-emerald-500/25",
+                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-emerald-200 transition-colors hover:bg-emerald-500/25",
                           isMobileSheet && "static mt-3"
                         )}
                       >

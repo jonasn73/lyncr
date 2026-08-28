@@ -36,7 +36,7 @@ export function ActivityPaneFallback() {
         {["All activity", "Missed today", "Hold", "Press 1"].map((label) => (
           <span
             key={label}
-            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-[11px] font-semibold text-muted-foreground"
+            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-2xs font-semibold text-muted-foreground"
           >
             {label}
           </span>
@@ -56,7 +56,7 @@ export function CrmPaneFallback() {
       aria-label="Loading CRM"
     >
       <header className="flex flex-col gap-1">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:block">
+        <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
           CRM
         </p>
         <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -71,7 +71,7 @@ export function CrmPaneFallback() {
               {["All", "Leads", "Book forms", "Clients"].map((label) => (
                 <span
                   key={label}
-                  className="rounded-lg bg-zinc-900 px-3 py-2 text-[11px] font-semibold text-muted-foreground ring-1 ring-zinc-800"
+                  className="rounded-lg bg-zinc-900 px-3 py-2 text-2xs font-semibold text-muted-foreground ring-1 ring-zinc-800"
                 >
                   {label}
                 </span>
@@ -115,13 +115,13 @@ export function MapPaneFallback() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1" aria-hidden>
-          <span className="pr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="pr-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Layers
           </span>
           {["Jobs", "Techs", "Leads", "You"].map((label) => (
             <span
               key={label}
-              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[11px] text-muted-foreground"
+              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-2xs text-muted-foreground"
             >
               {label}
             </span>
@@ -150,7 +150,7 @@ export function MessagesPaneFallback() {
       aria-label="Loading Messages"
     >
       <div className="min-w-0">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-primary md:block">
+        <p className="hidden text-micro font-semibold uppercase tracking-[0.14em] text-primary md:block">
           SMS
         </p>
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:mt-1 md:text-3xl">
@@ -265,17 +265,17 @@ export function SchedulerPaneFallback() {
 export function PayPaneFallback() {
   return (
     <div className="min-h-[32rem] w-full" aria-busy="true" aria-label="Loading Pay">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
+      <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
       <p className="mt-1 text-lg font-semibold text-foreground">Pay</p>
       <div className="mt-6 grid min-h-[5.75rem] gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Lyncr Talk-Time Balance
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-card/80 px-4 py-3 opacity-60">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             Talk-time used (recent)
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">—</p>

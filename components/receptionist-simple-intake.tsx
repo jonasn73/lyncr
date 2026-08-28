@@ -64,7 +64,7 @@ export function ReceptionistSimpleIntake({
     <div className="space-y-3 rounded-lg border border-border/60 bg-zinc-950/40 p-4">
       <p className="text-xs font-medium text-muted-foreground">Quick intake — name + why they called</p>
       <label className="block space-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Caller name</span>
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Caller name</span>
         <input
           type="text"
           value={callerName}
@@ -74,7 +74,7 @@ export function ReceptionistSimpleIntake({
         />
       </label>
       <label className="block space-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Notes / reason</span>
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Notes / reason</span>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

@@ -390,7 +390,7 @@ export function DashboardCallFlowConfigureDrawer({
                 aria-selected={active}
                 onClick={() => setCurrentTab(tab.id)}
                 className={cn(
-                  "min-h-9 flex-1 rounded-lg px-2 py-2 text-[11px] font-semibold transition-colors sm:text-xs",
+                  "min-h-9 flex-1 rounded-lg px-2 py-2 text-2xs font-semibold transition-colors sm:text-xs",
                   active
                     ? "bg-zinc-800 text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-zinc-900 hover:text-zinc-200"
@@ -451,7 +451,7 @@ export function DashboardCallFlowConfigureDrawer({
                               <span className="block text-sm font-semibold text-foreground">
                                 {opt.label}
                               </span>
-                              <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                              <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
                                 {opt.description}
                               </span>
                             </span>
@@ -466,7 +466,7 @@ export function DashboardCallFlowConfigureDrawer({
                                 Who on your Team answers first
                               </label>
                               {teamMembers.length === 0 ? (
-                                <p className="text-[11px] text-amber-200/90">
+                                <p className="text-2xs text-amber-200/90">
                                   Add a receptionist on the Team page first, then come back here.
                                 </p>
                               ) : (
@@ -489,7 +489,7 @@ export function DashboardCallFlowConfigureDrawer({
                                   ))}
                                 </select>
                               )}
-                              <p className="text-[10px] text-muted-foreground">
+                              <p className="text-micro text-muted-foreground">
                                 Available → rings them first. Unavailable → your phone if Available,
                                 otherwise the busy voice menu (press 1 for booking form).
                               </p>
@@ -521,7 +521,7 @@ export function DashboardCallFlowConfigureDrawer({
                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Ring delay before fallback
                               </p>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-2xs text-muted-foreground">
                                 How long to ring your cell before emergency / missed handling.
                                 Tip: with Hold queue, prefer 15–20s so carrier voicemail does not
                                 pick up first (we also detect machines automatically).
@@ -602,7 +602,7 @@ export function DashboardCallFlowConfigureDrawer({
                                     <span className="block text-sm font-semibold text-foreground">
                                       {opt.label}
                                     </span>
-                                    <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                                    <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground">
                                       {opt.description}
                                     </span>
                                   </span>
@@ -630,14 +630,14 @@ export function DashboardCallFlowConfigureDrawer({
                                       }
                                       className={cn(fieldClass, "h-11")}
                                     />
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-micro text-muted-foreground">
                                       Every inbound call to this business line forwards to this number.
                                     </p>
                                   </section>
                                 ) : null}
 
                                 {opt.value === "lyncr_pool" && active ? (
-                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-3 text-[11px] text-violet-200/90">
+                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-3 text-2xs text-violet-200/90">
                                     Lyncr Pool is active — certified shared agents answer in-browser.
                                   </p>
                                 ) : null}
@@ -670,7 +670,7 @@ export function DashboardCallFlowConfigureDrawer({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-micro text-muted-foreground">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                       "Tone callers hear on greetings and hold prompts."}
                   </p>
@@ -680,7 +680,7 @@ export function DashboardCallFlowConfigureDrawer({
                   <label htmlFor="configure-busy" className="text-xs font-semibold text-zinc-300">
                     Busy greeting
                   </label>
-                  <p className="hidden text-[10px] text-muted-foreground md:block">
+                  <p className="hidden text-micro text-muted-foreground md:block">
                     Played when Presence is Busy — press 1 texts a booking link; stay on the line
                     enters the hold queue (music + Lines Answer).
                   </p>
@@ -720,7 +720,7 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.repromptSecs)}
                     />
-                    <p className="hidden text-[10px] text-muted-foreground md:block">
+                    <p className="hidden text-micro text-muted-foreground md:block">
                       Music length before we re-speak Busy (20–90). Blank = {holdDefaults.repromptSecs}s.
                     </p>
                   </div>
@@ -744,7 +744,7 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.maxWaitSecs)}
                     />
-                    <p className="hidden text-[10px] text-muted-foreground md:block">
+                    <p className="hidden text-micro text-muted-foreground md:block">
                       Then one booking SMS + hangup (120–900). Blank = {holdDefaults.maxWaitSecs}s.
                     </p>
                   </div>
@@ -772,7 +772,7 @@ export function DashboardCallFlowConfigureDrawer({
                     <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-2">
-                          <label htmlFor="configure-holiday-start" className="text-[11px] font-medium text-muted-foreground">
+                          <label htmlFor="configure-holiday-start" className="text-2xs font-medium text-muted-foreground">
                             Starts
                           </label>
                           <input
@@ -786,7 +786,7 @@ export function DashboardCallFlowConfigureDrawer({
                           />
                         </div>
                         <div className="space-y-2">
-                          <label htmlFor="configure-holiday-end" className="text-[11px] font-medium text-muted-foreground">
+                          <label htmlFor="configure-holiday-end" className="text-2xs font-medium text-muted-foreground">
                             Ends
                           </label>
                           <input
@@ -801,7 +801,7 @@ export function DashboardCallFlowConfigureDrawer({
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label htmlFor="configure-holiday-text" className="text-[11px] font-medium text-muted-foreground">
+                        <label htmlFor="configure-holiday-text" className="text-2xs font-medium text-muted-foreground">
                           Holiday greeting (text-to-speech)
                         </label>
                         <textarea
@@ -825,7 +825,7 @@ export function DashboardCallFlowConfigureDrawer({
                             holidayText: "",
                           }))
                         }
-                        className="text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                        className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
                       >
                         Clear holiday window
                       </button>
@@ -857,7 +857,7 @@ export function DashboardCallFlowConfigureDrawer({
                     className={cn(fieldClass, "min-h-11")}
                     placeholder="e.g. 9 or 1234"
                   />
-                  <p className="text-[10px] leading-relaxed text-muted-foreground">
+                  <p className="text-micro leading-relaxed text-muted-foreground">
                     Digits dialed during the automation greeting ring your cell and skip presence
                     blocks. Avoid &quot;1&quot; (booking key).
                   </p>
@@ -867,7 +867,7 @@ export function DashboardCallFlowConfigureDrawer({
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Emergency / missed-call handling
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     When the primary path does not connect, where should the caller go next?
                   </p>
                   <div role="radiogroup" aria-label="Emergency fallback" className="space-y-2">
@@ -928,7 +928,7 @@ export function DashboardCallFlowConfigureDrawer({
                             <span className="block text-sm font-semibold text-foreground">
                               {opt.label}
                             </span>
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            <span className="mt-0.5 block text-2xs text-muted-foreground">
                               {opt.description}
                             </span>
                           </span>
@@ -942,14 +942,14 @@ export function DashboardCallFlowConfigureDrawer({
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Hold queue tips
                   </p>
-                  <p className="hidden text-[11px] leading-relaxed text-muted-foreground md:block">
+                  <p className="hidden text-2xs leading-relaxed text-muted-foreground md:block">
                     Pick Hold queue above when you want a missed Available ring to wait with music.
                     We hang up if your cell carrier voicemail answers, then start hold music so you
                     can Answer from Lines. Prefer a 20s ring delay (25s max with Hold — longer often
                     hits personal VM first). Position hints play on re-prompts. Concurrent wait cap is platform-wide
                     (default 3). Music and max wait live under Greetings.
                   </p>
-                  <p className="text-[11px] text-muted-foreground md:hidden">
+                  <p className="text-2xs text-muted-foreground md:hidden">
                     Prefer 20s ring delay with Hold queue (capped ~25s). Concurrent wait cap is platform-wide
                     (default 3). Music + max wait live under Greetings.
                   </p>

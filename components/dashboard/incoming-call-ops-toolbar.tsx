@@ -72,7 +72,7 @@ export function RepeatCallerUrgencyBadge({
   return (
     <span
       className={cn(
-        "bg-rose-500/20 border border-rose-500 text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
+        "bg-rose-500/20 border border-rose-500 text-rose-400 text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
         className
       )}
     >
@@ -297,7 +297,7 @@ export function IncomingCallOpsToolbar({
           </button>
           <span
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-wider",
+              "text-micro font-semibold uppercase tracking-wider",
               intakeCallBadgeClassName(linePhase)
             )}
           >
@@ -308,7 +308,7 @@ export function IncomingCallOpsToolbar({
             <button
               type="button"
               onClick={() => onOpenActiveJob(context.jobId)}
-              className="ml-auto truncate text-[10px] font-bold uppercase tracking-wide text-amber-200"
+              className="ml-auto truncate text-micro font-bold uppercase tracking-wide text-amber-200"
               title="Open this job on Scheduler"
             >
               Job active
@@ -414,7 +414,7 @@ export function IncomingCallOpsToolbar({
       {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
         {showLookupSpinner ? (
-          <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <p className="flex items-center gap-2 text-2xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             Looking up caller…
           </p>
@@ -424,24 +424,24 @@ export function IncomingCallOpsToolbar({
               <button
                 type="button"
                 onClick={() => onOpenActiveJob(context.jobId)}
-                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
+                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
                 title="Open this job on Scheduler"
                 aria-label={`Open recent job for ${context.metaLine}`}
               >
                 ⚠️ Recent Job Active
               </button>
             ) : (
-              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-amber-200">
                 ⚠️ Recent Job Active
               </span>
             )}
-            <span className="text-[11px] font-medium text-slate-300">{context.metaLine}</span>
+            <span className="text-2xs font-medium text-slate-300">{context.metaLine}</span>
           </div>
         ) : (
-          <p className="text-[11px] font-medium text-muted-foreground">{context.cnamToken}</p>
+          <p className="text-2xs font-medium text-muted-foreground">{context.cnamToken}</p>
         )}
         {urgency.isHighUrgency && urgency.minutesSinceLastMissed != null ? (
-          <p className="mt-1 text-[11px] font-medium text-amber-500/90">
+          <p className="mt-1 text-2xs font-medium text-amber-500/90">
             {formatRepeatCallerHistoryLine(urgency.minutesSinceLastMissed)}
           </p>
         ) : null}
@@ -505,7 +505,7 @@ export function IncomingCallOpsToolbar({
 
         <span
           className={cn(
-            "text-[10px] font-semibold uppercase tracking-wider",
+            "text-micro font-semibold uppercase tracking-wider",
             intakeCallBadgeClassName(linePhase)
           )}
         >
@@ -521,7 +521,7 @@ export function IncomingCallOpsToolbar({
           className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-300/80">
+            <p className="text-micro font-semibold uppercase tracking-wider text-sky-300/80">
               One-tap texts
             </p>
             <button

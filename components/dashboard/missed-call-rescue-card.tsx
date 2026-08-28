@@ -200,7 +200,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const label = !known ? "Text after miss…" : isOn ? "Text after miss on" : "Text after miss off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
-    <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
+    <p className="mt-1.5 text-micro font-medium leading-snug text-amber-200/85">
       Rescued revenue: {formatRescueRevenueDollars(rescueTotalCents)} via textback links.
     </p>
   )
@@ -209,7 +209,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
       <label
         htmlFor="ivr-capacity-threshold"
-        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[11px] leading-snug text-zinc-300"
+        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-2xs leading-snug text-zinc-300"
       >
         <span className="min-w-0 flex-1 font-medium">
           Auto-Bypass to IVR when confirmed daily jobs reach:
@@ -231,7 +231,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
         />
       </label>
-      <p className="mt-1.5 text-[10px] text-muted-foreground">
+      <p className="mt-1.5 text-micro text-muted-foreground">
         Today: {confirmedJobsToday == null ? "—" : confirmedJobsToday} confirmed
         {capacitySaving ? " · Saving…" : ""}
       </p>
@@ -314,7 +314,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             <MessageSquareText className="h-5 w-5" aria-hidden />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Automation · Missed Call Rescue
             </p>
             <p className="mt-0.5 text-base font-semibold text-foreground">{label}</p>

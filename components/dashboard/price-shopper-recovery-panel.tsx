@@ -83,11 +83,11 @@ export function PriceShopperRecoveryPanel({
         className
       )}
     >
-      <legend className="px-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+      <legend className="px-1 text-micro font-semibold uppercase tracking-wide text-amber-300">
         Price-shopper recovery
       </legend>
       {negotiationDiscountApplied || quotedPriceOverridden ? (
-        <p className="text-[11px] text-amber-100/90">
+        <p className="text-2xs text-amber-100/90">
           Last pitched quote: ${parseQuoteDollars(customPrice, baselineTotalCents)}
           {negotiationDiscountApplied
             ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
@@ -121,7 +121,7 @@ export function PriceShopperRecoveryPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
               Save the deal — read verbatim
             </p>
-            <span className="shrink-0 text-[10px] font-medium text-orange-400/80">
+            <span className="shrink-0 text-micro font-medium text-orange-400/80">
               Step {negotiationStep} of 3
             </span>
           </div>
@@ -147,7 +147,7 @@ export function PriceShopperRecoveryPanel({
                 Customer declined this but is still negotiating →
               </button>
               {recoveredViaRouteDiscount ? (
-                <p className="text-[11px] text-emerald-300">
+                <p className="text-2xs text-emerald-300">
                   Route discount applied — confirm the job when the customer accepts.
                 </p>
               ) : null}

@@ -47,7 +47,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">Phone lines</p>
-          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+          <p className="text-2xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
           <span className="flex min-w-0 flex-1 items-center gap-2">
             <span>Buy / manage numbers</span>
             {hasLines && !linesLoading ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/5 px-2 py-0.5 text-2xs font-semibold text-primary">
                 <Plus className="h-3 w-3" aria-hidden />
                 Add
               </span>
@@ -126,7 +126,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">Phone lines</p>
-          <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
+          <p className="truncate text-2xs text-muted-foreground">{subtitle}</p>
         </div>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
       </summary>

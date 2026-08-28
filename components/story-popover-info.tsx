@@ -60,13 +60,13 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         >
           <p
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.12em]",
+              "text-micro font-semibold uppercase tracking-[0.12em]",
               op ? "text-violet-300" : "text-primary"
             )}
           >
             {story.eyebrow}
           </p>
-          <p className={cn("mt-0.5 text-[10px] leading-snug", op ? "text-muted-foreground" : "text-muted-foreground")}>
+          <p className={cn("mt-0.5 text-micro leading-snug", op ? "text-muted-foreground" : "text-muted-foreground")}>
             {story.storyline}
           </p>
           <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-slate-50" : "text-foreground")}>

@@ -141,7 +141,7 @@ function NetworkInstructionsPanel() {
             </p>
           </div>
         </div>
-        <span className="hidden shrink-0 items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-flex">
+        <span className="hidden shrink-0 items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-micro font-bold uppercase tracking-wide text-primary sm:inline-flex">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
           Live operators
         </span>
@@ -172,7 +172,7 @@ function NetworkInstructionsPanel() {
       ) : null}
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           {!loaded ? "Loading…" : `${text.length.toLocaleString()} characters`}
         </span>
         <div className="flex items-center gap-3">
@@ -527,14 +527,14 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           </div>
 
           {billingCycleLabel ? (
-            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-2xs text-muted-foreground">
               Payout totals · billing cycle {billingCycleLabel}
             </div>
           ) : null}
 
           {pendingInvites.length > 0 ? (
             <div className="mt-3 space-y-2 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-amber-200/90">
                 Waiting to accept ({pendingInvites.length})
               </p>
               {pendingInvites.slice(0, 5).map((inv) => {
@@ -551,7 +551,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         type="button"
                         onClick={() => void copyInviteLink(inv)}
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
                         aria-label={`Copy invite link for ${inviteLabel}`}
                       >
                         {busy && inviteBusyKind === "copy" ? (
@@ -568,7 +568,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           type="button"
                           onClick={() => void resendInvite(inv)}
                           disabled={busy}
-                          className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
                           aria-label={`Resend invite email to ${inviteLabel}`}
                         >
                           {busy && inviteBusyKind === "resend" ? (
@@ -587,7 +587,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
                         }
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
                         aria-label={`Cancel invite for ${inviteLabel}`}
                       >
                         <Trash2 className="h-3 w-3" aria-hidden />
@@ -595,7 +595,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                       </button>
                     </div>
                     {inviteActionError?.id === inv.id ? (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-[10px] leading-snug text-destructive">
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-micro leading-snug text-destructive">
                         {inviteActionError.message}
                       </p>
                     ) : null}
@@ -688,7 +688,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           }
                         />
                         {payout ? (
-                          <p className="shrink-0 text-right text-[11px] text-muted-foreground">
+                          <p className="shrink-0 text-right text-2xs text-muted-foreground">
                             {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
                             <span className="font-medium text-zinc-200">
                               {formatUsd(payout.total_earnings)} earned

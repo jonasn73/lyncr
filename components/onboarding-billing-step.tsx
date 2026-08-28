@@ -83,9 +83,9 @@ export function OnboardingBillingStep({
             <Phone className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Reserved for checkout</p>
+            <p className="text-micro font-semibold uppercase tracking-wide text-primary">Reserved for checkout</p>
             <p className="truncate text-sm font-semibold tabular-nums text-foreground">{reservedLine.display}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-2xs text-muted-foreground">
               {reservedLine.method === "port" ? "Port request" : reservedLine.lineType ?? "Local"} ·{" "}
               {reservedLine.trialNote}
             </p>
@@ -155,7 +155,7 @@ export function OnboardingBillingStep({
               />
             </div>
           </div>
-          <p className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
+          <p className="mt-3 flex items-center gap-2 text-micro text-muted-foreground">
             <Lock className="h-3 w-3 shrink-0" aria-hidden />
             Card details are handled by Stripe — we open checkout for your selected plan.
           </p>

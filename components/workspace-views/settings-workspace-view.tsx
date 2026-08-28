@@ -118,7 +118,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-xl" /> : null}
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -158,7 +158,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <SalesTaxSettingsSheet open={salesTaxOpen} onOpenChange={setSalesTaxOpen} />
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Calls & SMS</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Calls & SMS</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -227,7 +227,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       </section>
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">More</p>
+        <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">More</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped

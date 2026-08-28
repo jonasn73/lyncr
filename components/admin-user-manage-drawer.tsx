@@ -416,7 +416,7 @@ export function AdminUserManageDrawer({
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-slate-100">{shopName}</p>
                           <p className="truncate font-mono text-xs text-slate-300">{line.number}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">
+                          <p className="truncate text-2xs text-muted-foreground">
                             {line.label} · <span className="capitalize">{line.status}</span>
                           </p>
                         </div>
@@ -436,7 +436,7 @@ export function AdminUserManageDrawer({
                         </Button>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Admin override for this line</Label>
+                        <Label className="text-2xs text-muted-foreground">Admin override for this line</Label>
                         <Input
                           value={lineOverrideDrafts[line.id] ?? ""}
                           onChange={(e) =>
@@ -635,19 +635,19 @@ export function AdminUserManageDrawer({
                               <p className="truncate text-sm font-medium text-slate-200">
                                 {org.name}
                                 {org.is_default ? (
-                                  <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                                  <span className="ml-1.5 text-micro font-normal uppercase tracking-wide text-muted-foreground">
                                     default
                                   </span>
                                 ) : null}
                               </p>
                               {org.sms_registration?.legal_business_name || org.messaging_10dlc?.legal_company_name ? (
-                                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                <p className="mt-0.5 truncate text-2xs text-muted-foreground">
                                   {org.sms_registration?.legal_business_name ||
                                     org.messaging_10dlc?.legal_company_name}
                                 </p>
                               ) : null}
                               {org.messaging_10dlc?.brand_id || org.messaging_10dlc?.campaign_id ? (
-                                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+                                <p className="mt-1 truncate font-mono text-micro text-muted-foreground">
                                   {org.messaging_10dlc.brand_id ? `Brand ${org.messaging_10dlc.brand_id}` : null}
                                   {org.messaging_10dlc.brand_id && org.messaging_10dlc.campaign_id ? " · " : null}
                                   {org.messaging_10dlc.campaign_id
@@ -661,7 +661,7 @@ export function AdminUserManageDrawer({
                             </Badge>
                           </div>
                           {org.messaging_10dlc?.status ? (
-                            <p className="mt-1.5 text-[10px] capitalize text-muted-foreground">
+                            <p className="mt-1.5 text-micro capitalize text-muted-foreground">
                               Telnyx registration: {org.messaging_10dlc.status.replace(/_/g, " ")}
                             </p>
                           ) : null}
@@ -691,7 +691,7 @@ export function AdminUserManageDrawer({
                                   )}
                                   <div className="min-w-0">
                                     <p className="truncate font-mono text-xs text-slate-200">{inv.target}</p>
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-micro text-muted-foreground">
                                       {inv.channel} · expires{" "}
                                       {new Date(inv.expires_at).toLocaleDateString(undefined, {
                                         month: "short",

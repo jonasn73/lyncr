@@ -29,7 +29,7 @@ type Props = {
 function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_steps"] }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Transfer status</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer status</p>
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         {steps.map((step, i) => (
           <div key={step.key} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
@@ -49,7 +49,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
             </span>
             <span
               className={cn(
-                "text-[10px] font-medium leading-tight",
+                "text-micro font-medium leading-tight",
                 step.state === "current"
                   ? "text-sky-200"
                   : step.state === "complete"
@@ -88,7 +88,7 @@ function CarrierLookupGuideBanner({
   if (!banner) return null
   return (
     <div className="flex justify-center px-1">
-      <div className="flex max-w-[98%] items-start gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-[11px] leading-snug text-sky-50/95">
+      <div className="flex max-w-[98%] items-start gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-2xs leading-snug text-sky-50/95">
         <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
         <p>
           <span aria-hidden>💡 </span>
@@ -124,9 +124,9 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isSystem) {
           return (
             <div key={item.id} className="flex justify-center px-2">
-              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-center text-[11px] leading-snug text-muted-foreground">
+              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-center text-2xs leading-snug text-muted-foreground">
                 {displayPortingMessageBody(text)}
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatThreadTime(item.created_at)}</span>
+                <span className="mt-0.5 block text-micro text-muted-foreground">{formatThreadTime(item.created_at)}</span>
               </div>
             </div>
           )
@@ -136,9 +136,9 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
           return (
             <div key={item.id} className="flex justify-end">
               <div className="max-w-[88%] rounded-2xl rounded-br-md border border-sky-500/25 bg-sky-500/15 px-4 py-3 text-sm text-sky-50 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-200/80">You</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-sky-200/80">You</p>
                 <p className="mt-1 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
-                <time className="mt-2 block text-[10px] text-sky-200/60">{formatThreadTime(item.created_at)}</time>
+                <time className="mt-2 block text-micro text-sky-200/60">{formatThreadTime(item.created_at)}</time>
               </div>
             </div>
           )
@@ -155,17 +155,17 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
               )}
             >
               <div className="flex items-center gap-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+                <p className="text-micro font-semibold uppercase tracking-wide text-amber-200/90">
                   {isDesk ? "Carrier Core Desk" : "Carrier network"}
                 </p>
                 {item.is_new ? (
-                  <span className="rounded-full bg-amber-500/25 px-2 py-0.5 text-[9px] font-bold uppercase text-amber-100">
+                  <span className="rounded-full bg-amber-500/25 px-2 py-0.5 text-micro font-bold uppercase text-amber-100">
                     New
                   </span>
                 ) : null}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
-              <time className="mt-2 block text-[10px] text-muted-foreground">{formatThreadTime(item.created_at)}</time>
+              <time className="mt-2 block text-micro text-muted-foreground">{formatThreadTime(item.created_at)}</time>
             </div>
           </div>
         )

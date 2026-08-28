@@ -57,7 +57,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
 
   return (
     <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Transfer progress</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer progress</p>
       {order ? (
         <p className="mt-1 text-xs text-muted-foreground">{portingTimelineLabel(order.status)}</p>
       ) : (
@@ -86,7 +86,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
               </span>
               <span
                 className={cn(
-                  "text-[10px] font-medium leading-tight",
+                  "text-micro font-medium leading-tight",
                   current ? "text-violet-200" : done ? "text-zinc-300" : "text-muted-foreground"
                 )}
               >
@@ -97,7 +97,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
         })}
       </div>
       {order?.phone_number ? (
-        <p className="mt-3 text-center text-[11px] text-muted-foreground">
+        <p className="mt-3 text-center text-2xs text-muted-foreground">
           {formatPhoneDisplay(order.phone_number)} · {order.current_carrier}
         </p>
       ) : null}
@@ -201,7 +201,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
 
       {notifications.length > 0 && !showActionBanner ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Messages from support
           </p>
           <ul className="mt-2 space-y-2">
@@ -225,7 +225,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
         <MessageSquare className="h-4 w-4" aria-hidden />
         Transfer messages
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-amber-950">
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-micro font-bold text-amber-950">
             {unreadCount} new
           </span>
         ) : null}
@@ -427,7 +427,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Phone number to transfer
             </label>
             <input
@@ -441,7 +441,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Current carrier name
             </label>
             <input
@@ -453,7 +453,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Account number / SID
             </label>
             <input
@@ -465,7 +465,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Authorization PIN / password
             </label>
             <input
@@ -478,7 +478,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Line label (whisper name)
             </label>
             <input
@@ -492,7 +492,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <label className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Upload last customer invoice / bill (PDF / image)
             </label>
             <div

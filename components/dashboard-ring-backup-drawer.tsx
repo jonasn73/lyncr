@@ -277,7 +277,7 @@ export function DashboardRingBackupDrawer({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug text-foreground">{opt.label}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{opt.description}</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{opt.description}</p>
                   </div>
                   <RadioDot selected={active} />
                 </button>
@@ -293,7 +293,7 @@ export function DashboardRingBackupDrawer({
               <p className="text-sm font-semibold leading-snug text-foreground">
                 Show Customer&apos;s Number on Inbound Calls
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
                 When toggled OFF, inbound calls to your cell will display your Lyncr Business Number so you always know
                 it&apos;s a business lead.
               </p>
@@ -325,7 +325,7 @@ export function DashboardRingBackupDrawer({
                   )}
                 >
                   <span className="text-sm font-bold text-foreground">{preset.label}</span>
-                  <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{preset.hint}</span>
+                  <span className="mt-0.5 text-micro font-medium uppercase tracking-wide text-muted-foreground">{preset.hint}</span>
                 </button>
               )
             })}
@@ -340,7 +340,7 @@ export function DashboardRingBackupDrawer({
             className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-primary"
             aria-label="Ring duration in seconds"
           />
-          <div className="flex justify-between text-[10px] tabular-nums text-muted-foreground">
+          <div className="flex justify-between text-micro tabular-nums text-muted-foreground">
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[0]}s</span>
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[DASHBOARD_RING_TIMEOUT_CHOICES.length - 1]}s</span>
           </div>
@@ -369,7 +369,7 @@ export function DashboardRingBackupDrawer({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug text-foreground">{opt.label}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{opt.description}</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{opt.description}</p>
                   </div>
                   <RadioDot selected={active} />
                 </button>
@@ -377,7 +377,7 @@ export function DashboardRingBackupDrawer({
             })}
           </div>
           {draftStrategy === "blast_team" ? (
-            <p className="flex items-start gap-2 text-[11px] text-muted-foreground">
+            <p className="flex items-start gap-2 text-2xs text-muted-foreground">
               <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               Rings your Step 2 primary first, then escalates using team contacts you configure.
             </p>
@@ -407,7 +407,7 @@ export function DashboardRingBackupDrawer({
 function RingBudgetSummary({ physicalRings, draftSeconds }: { physicalRings: number; draftSeconds: number }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ring budget</p>
+      <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Ring budget</p>
       <p className="mt-1 text-lg font-semibold text-foreground">
         ~{physicalRings} physical rings{" "}
         <span className="text-base font-normal text-muted-foreground">({draftSeconds}s on the line)</span>

@@ -1565,7 +1565,7 @@ function SchedulerWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => setSelectedDay(() => new Date())}
-                        className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        className="rounded-md px-2 py-1 text-2xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       >
                         Today
                       </button>

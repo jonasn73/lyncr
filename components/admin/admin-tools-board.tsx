@@ -224,30 +224,30 @@ export function AdminToolsBoard({
             </Button>
             {amberResult ? (
               <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                <p className="text-2xs uppercase tracking-wide text-muted-foreground">
                   Owner mobile …{amberResult.ownerMobileLast4 ?? "????"} · {amberResult.timezone}
                 </p>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;How much did I make today?&quot;
                   </p>
                   <p className="text-slate-200">{amberResult.revenue}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;Any missed calls?&quot;
                   </p>
                   <p className="text-slate-200">{amberResult.missedCalls}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;What&apos;s my next job?&quot;
                   </p>
                   <p className="text-slate-200">{amberResult.nextJob}</p>
                 </div>
                 {amberResult.snapshot ? (
                   <div>
-                    <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                    <p className="text-2xs font-semibold uppercase text-muted-foreground">
                       Morning greeting snapshot
                     </p>
                     <p className="text-slate-200">{amberResult.snapshot}</p>

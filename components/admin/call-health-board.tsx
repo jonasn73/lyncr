@@ -88,33 +88,33 @@ export function CallHealthBoard() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Missed rate</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Missed rate</p>
                 <p className={cn("mt-1 text-xl font-semibold tabular-nums", missedRateTone(summary.missed_rate_percent))}>
                   {summary.missed_rate_percent}%
                 </p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   {summary.missed_calls} / {summary.total_calls} calls
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Avg setup</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Avg setup</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums text-slate-100">
                   {msLabel(summary.avg_setup_ms)}
                 </p>
-                <p className="text-[11px] text-muted-foreground">p95 {msLabel(summary.p95_setup_ms)}</p>
+                <p className="text-2xs text-muted-foreground">p95 {msLabel(summary.p95_setup_ms)}</p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Post-dial delay</p>
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Post-dial delay</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums text-slate-100">
                   {msLabel(summary.avg_post_dial_delay_ms)}
                 </p>
-                <p className="text-[11px] text-muted-foreground">avg across window</p>
+                <p className="text-2xs text-muted-foreground">avg across window</p>
               </div>
             </div>
 
             {summary.missed_by_route.length > 0 ? (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                   Where missed calls landed
                 </p>
                 <ul className="mt-1.5 space-y-1">

@@ -144,11 +144,11 @@ export function DeferredCardKeyInForm(props: {
   return (
     <div className="space-y-3 px-1 pb-2">
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+        <p className="text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
           Service (before tip)
         </p>
         <p className="text-lg font-bold tabular-nums text-emerald-100">{props.amountLabel}</p>
-        <p className="mt-1 text-[11px] leading-snug text-emerald-100/80">
+        <p className="mt-1 text-2xs leading-snug text-emerald-100/80">
           Key the card now — nothing is charged until the customer finishes tip.
         </p>
       </div>
@@ -234,7 +234,7 @@ export function DeferredCardKeyInForm(props: {
           )}
         </button>
       </div>
-      <p className="text-center text-[10px] leading-snug text-muted-foreground">
+      <p className="text-center text-micro leading-snug text-muted-foreground">
         Card saved — next the customer adds a tip. Nothing charged yet.
       </p>
     </div>

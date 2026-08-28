@@ -90,7 +90,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             </span>
             <div>
               <h2 className="text-sm font-semibold text-white">My Wallet</h2>
-              <p className="text-[11px] text-muted-foreground">Earnings dashboard</p>
+              <p className="text-2xs text-muted-foreground">Earnings dashboard</p>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             setLoading(true)
             void load()
           }}
-          className="rounded-lg px-2 py-1 text-[11px] font-medium text-indigo-300/90 transition hover:bg-indigo-500/10 hover:text-indigo-200"
+          className="rounded-lg px-2 py-1 text-2xs font-medium text-indigo-300/90 transition hover:bg-indigo-500/10 hover:text-indigo-200"
         >
           Refresh
         </button>
@@ -108,7 +108,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
 
       <div className="grid grid-cols-2 gap-2 px-4 py-3">
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/80">
+          <p className="text-micro font-medium uppercase tracking-wider text-emerald-400/80">
             Available Balance
           </p>
           <p className="mt-1 text-xl font-bold tracking-tight text-emerald-100">
@@ -116,7 +116,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
           </p>
         </div>
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400/80">
+          <p className="text-micro font-medium uppercase tracking-wider text-amber-400/80">
             Pending Clearance
           </p>
           <p className="mt-1 text-xl font-bold tracking-tight text-amber-100">
@@ -126,7 +126,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
       </div>
 
       <div className="px-4 pb-4">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Transactions
         </p>
 
@@ -149,19 +149,19 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
               <li key={tx.id} className="flex items-center gap-3 px-3 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-zinc-300">
+                    <span className="font-mono text-2xs text-zinc-300">
                       Job {shortJobId(tx.jobId)}
                     </span>
                     <span
                       className={cn(
-                        "rounded-md px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                        "rounded-md px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                         statusStyle(tx.status)
                       )}
                     >
                       {tx.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  <p className="mt-0.5 text-micro text-muted-foreground">
                     {formatTxDate(tx.createdAt)} · {methodLabel(tx.paymentMethod)}
                   </p>
                 </div>

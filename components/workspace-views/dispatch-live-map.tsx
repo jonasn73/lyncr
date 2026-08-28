@@ -1127,7 +1127,7 @@ export function DispatchLiveMap({
             </a>
           )}
 
-          <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <label className="mt-3 block text-2xs font-medium uppercase tracking-wide text-muted-foreground">
             Assign technician
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -1163,7 +1163,7 @@ export function DispatchLiveMap({
   )
 
   const legend = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted-foreground">
       <span className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />

@@ -66,7 +66,7 @@ export function CustomerPortalReview({
           Leave a review
           <ExternalLink className="h-4 w-4" aria-hidden />
         </a>
-        <p className="mt-3 text-[11px] text-muted-foreground">Same link from your text — powered by lyncr.</p>
+        <p className="mt-3 text-2xs text-muted-foreground">Same link from your text — powered by lyncr.</p>
       </div>
     </CustomerPortalShell>
   )

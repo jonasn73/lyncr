@@ -56,7 +56,7 @@ export function SmsTemplateInterceptorSheet({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-100">Choose a text</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-2xs text-muted-foreground">
               Sends to {recipientCount} prospect{recipientCount === 1 ? "" : "s"}
             </p>
           </div>
@@ -83,10 +83,10 @@ export function SmsTemplateInterceptorSheet({
                 "touch-manipulation disabled:cursor-wait disabled:opacity-60"
               )}
             >
-              <span className="inline-flex rounded-md border border-emerald-900/40 bg-emerald-950/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+              <span className="inline-flex rounded-md border border-emerald-900/40 bg-emerald-950/30 px-2 py-0.5 text-2xs font-semibold text-emerald-300">
                 {template.badge}
               </span>
-              <p className="mt-2 text-[12px] leading-snug text-muted-foreground italic line-clamp-3">
+              <p className="mt-2 text-xs leading-snug text-muted-foreground italic line-clamp-3">
                 {template.body}
               </p>
             </button>

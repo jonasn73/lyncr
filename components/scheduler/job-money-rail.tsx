@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 const SECTION_LABEL =
-  "text-[10px] uppercase font-bold tracking-widest text-muted-foreground"
+  "text-micro uppercase font-bold tracking-widest text-muted-foreground"
 
 type PayLinkRow = {
   token: string
@@ -233,7 +233,7 @@ export function JobMoneyRail({
           type="button"
           onClick={() => void refreshLinks(true)}
           disabled={busy === "refresh"}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-slate-900/50 hover:text-slate-200 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-semibold text-muted-foreground transition-colors hover:bg-slate-900/50 hover:text-slate-200 disabled:opacity-50"
           aria-label="Refresh pay link status"
         >
           {busy === "refresh" ? (
@@ -246,7 +246,7 @@ export function JobMoneyRail({
       </div>
 
       {/* One-line money status — balance + latest link state */}
-      <p className="text-[12px] leading-snug text-slate-300">
+      <p className="text-xs leading-snug text-slate-300">
         <span className="font-semibold text-emerald-500/80">Balance</span>
         <span className="text-muted-foreground"> · </span>
         <span className="font-semibold tabular-nums text-emerald-300">
@@ -401,7 +401,7 @@ export function JobMoneyRail({
             placeholder="Edit the deposit SMS…"
           />
           {lastSentUrl ? (
-            <p className="flex items-start gap-1 text-[10px] text-muted-foreground">
+            <p className="flex items-start gap-1 text-micro text-muted-foreground">
               <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400" aria-hidden />
               <span className="break-all font-mono text-muted-foreground">{lastSentUrl}</span>
             </p>

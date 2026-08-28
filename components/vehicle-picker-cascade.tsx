@@ -390,7 +390,7 @@ function VehiclePickerSequential({
                 )}
               />
               {filteredOptions.length === 0 ? (
-                <p className="px-1 py-3 text-center text-[11px] text-muted-foreground">
+                <p className="px-1 py-3 text-center text-2xs text-muted-foreground">
                   {emptyFilterMessage}
                 </p>
               ) : (

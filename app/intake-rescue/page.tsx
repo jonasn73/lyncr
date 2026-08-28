@@ -83,7 +83,7 @@ function PhotoCaptureBox({
         </span>
       )}
       <span className="mt-1 text-sm font-semibold text-emerald-900">{label}</span>
-      <span className="mt-0.5 text-[11px] text-emerald-800/80">{hint}</span>
+      <span className="mt-0.5 text-2xs text-emerald-800/80">{hint}</span>
       <input
         type="file"
         accept="image/*"
@@ -314,7 +314,7 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">Upload ID now for faster dispatch</span>
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">Default — speeds up quoting</span>
+                <span className="mt-0.5 block text-2xs text-muted-foreground">Default — speeds up quoting</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
@@ -328,7 +328,7 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">I will present physical ID to the technician on arrival</span>
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">No photo needed right now</span>
+                <span className="mt-0.5 block text-2xs text-muted-foreground">No photo needed right now</span>
               </span>
             </label>
             {!verifyOnArrival ? (
@@ -340,7 +340,7 @@ function IntakeRescueInner() {
                 onPicked={(f) => void assignSlot(f, "id")}
               />
             ) : (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-2xs text-amber-900">
                 Our technician will verify your ID on site before unlocking.
               </p>
             )}
@@ -399,7 +399,7 @@ function IntakeRescueInner() {
             </button>
             {vinUnavailable ? (
               <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   Type what you know — e.g. 2018 Kia Optima.
                 </p>
                 <select
@@ -433,7 +433,7 @@ function IntakeRescueInner() {
                 />
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 If provided, we decode Year / Make / Model / Trim automatically.
               </p>
             )}

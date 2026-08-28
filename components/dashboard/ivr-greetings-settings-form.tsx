@@ -141,7 +141,7 @@ export function IvrGreetingsSettingsForm({
         >
           Greetings · Traditional IVR
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
           Edit what the text-to-speech engine reads when Off-duty IVR answers. Keypress routes are
           fixed below.
         </p>
@@ -166,27 +166,27 @@ export function IvrGreetingsSettingsForm({
               className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-3")}
               placeholder={DEFAULT_IVR_GREETING_TEXT}
             />
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-micro text-muted-foreground">
               Spoken exactly as written when the keypad menu answers.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+              <p className="text-micro font-semibold uppercase tracking-wide text-emerald-300/90">
                 Digit 1 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+              <p className="mt-0.5 text-micro leading-snug text-muted-foreground">
                 Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
               </p>
             </div>
             <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+              <p className="text-micro font-semibold uppercase tracking-wide text-emerald-300/90">
                 Digit 2 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Ring Our Phone</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+              <p className="mt-0.5 text-micro leading-snug text-muted-foreground">
                 Dials your cell for 20 seconds. If no answer, offers an SMS booking link.
               </p>
             </div>

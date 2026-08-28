@@ -49,7 +49,7 @@ export function DrawerStepHeader({
   return (
     <header className="shrink-0 border-b border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-6 pt-6">
       {step?.trim() ? (
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
+        <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
       ) : null}
       <h2
         className={cn(
@@ -62,7 +62,7 @@ export function DrawerStepHeader({
       {subtitle.trim() ? (
         <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
       ) : null}
-      {lineLabel ? <p className="mt-2 text-[11px] text-muted-foreground">{lineLabel}</p> : null}
+      {lineLabel ? <p className="mt-2 text-2xs text-muted-foreground">{lineLabel}</p> : null}
     </header>
   )
 }

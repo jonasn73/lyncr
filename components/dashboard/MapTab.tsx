@@ -148,7 +148,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           <Briefcase className="h-3.5 w-3.5" aria-hidden />
           Job Pool
           {sortedPool.length > 0 ? (
-            <span className="tabular-nums text-[10px] text-muted-foreground">({sortedPool.length})</span>
+            <span className="tabular-nums text-micro text-muted-foreground">({sortedPool.length})</span>
           ) : null}
         </button>
         <button
@@ -169,7 +169,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {drawerTab === "pool" ? (
           <div className="p-2">
-            <p className="mb-2 hidden px-1 text-[11px] text-muted-foreground lg:block">
+            <p className="mb-2 hidden px-1 text-2xs text-muted-foreground lg:block">
               Tap a job to center its pin on the map.
             </p>
             {sortedPool.length === 0 ? (
@@ -231,7 +231,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                         </div>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">{place}</p>
                         {!hasPin ? (
-                          <p className="mt-1 text-[10px] text-amber-500/80">Needs address to pin</p>
+                          <p className="mt-1 text-micro text-amber-500/80">Needs address to pin</p>
                         ) : null}
                       </button>
                     </li>
@@ -291,7 +291,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 <ChevronUp className="h-3.5 w-3.5" aria-hidden />
                 Pool
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] tabular-nums text-rose-300">
+                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-micro tabular-nums text-rose-300">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -309,7 +309,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               <>
                 Job Pool &amp; Roster
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] tabular-nums text-rose-300">
+                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-micro tabular-nums text-rose-300">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -325,7 +325,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           role="group"
           aria-label="Map layers"
         >
-          <span className="inline-flex items-center gap-1 pr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="inline-flex items-center gap-1 pr-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
             <Layers className="h-3 w-3" aria-hidden />
             Layers
           </span>
@@ -339,7 +339,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 aria-pressed={on}
                 aria-label={long}
                 className={cn(
-                  "rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors",
+                  "rounded-lg px-3 py-2 text-2xs font-semibold transition-colors",
                   on
                     ? "bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40"
                     : "bg-zinc-900/80 text-muted-foreground ring-1 ring-zinc-800 hover:text-slate-300"
@@ -397,7 +397,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               <button
                 type="button"
                 onClick={() => setMobilePoolOpen(false)}
-                className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold text-muted-foreground hover:bg-zinc-900 hover:text-slate-200"
+                className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-2 text-2xs font-semibold text-muted-foreground hover:bg-zinc-900 hover:text-slate-200"
                 aria-label="Close job pool panel"
               >
                 <ChevronDown className="h-3.5 w-3.5" aria-hidden />

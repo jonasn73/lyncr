@@ -254,7 +254,7 @@ function CallRows({
     <WorkspaceTableWrap>
       {/* No <table> here — WorkspaceTableWrap renders it. Nesting one trips hydration. */}
       <thead>
-          <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b border-border/60 text-left text-2xs uppercase tracking-wide text-muted-foreground">
             <WorkspaceTh>When</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
@@ -557,7 +557,7 @@ export function ReceptionistPortalView() {
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    "text-micro font-semibold uppercase tracking-[0.16em]",
                     onCall ? "text-emerald-400" : available ? "text-primary" : "text-muted-foreground"
                   )}
                 >

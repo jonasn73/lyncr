@@ -64,7 +64,7 @@ export function SettingsMenuRow({
             {title}
           </span>
           {badge ? (
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-amber-200">
               {badge}
             </span>
           ) : null}

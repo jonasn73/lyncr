@@ -1870,7 +1870,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 </DropdownMenu>
               </div>
               {hasJobPrimary ? (
-                <p className="px-0.5 text-[11px] text-muted-foreground">
+                <p className="px-0.5 text-2xs text-muted-foreground">
                   Next job step is in the card below
                   {headerJobAction ? ` (${crmJobNavButtonLabel(headerJobAction, { poolReady: headerPoolReady })})` : ""}.
                 </p>
@@ -1906,7 +1906,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </h3>
               <span
                 className={cn(
-                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-micro font-semibold",
                   headerJobTarget.filled_by_customer
                     ? "bg-orange-500/20 text-orange-100"
                     : "bg-zinc-800 text-zinc-300"
@@ -1915,14 +1915,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 {crmIntakeFilledByLabel(headerJobTarget.intake_source)}
               </span>
               {crmUrgencyLabel(headerJobTarget) === "ASAP" ? (
-                <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-100">
+                <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-micro font-semibold text-rose-100">
                   ASAP
                 </span>
               ) : null}
               {/* Current lifecycle badge — Needs call → Booked · time → Cancelled / Complete. */}
               <span
                 className={cn(
-                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-micro font-semibold",
                   headerJobTarget.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
                   headerJobTarget.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
                   headerJobTarget.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
@@ -1939,38 +1939,38 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             </div>
             <dl className="space-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Service</dt>
+                <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Service</dt>
                 <dd className="min-w-0 font-medium text-slate-100">
                   {crmServiceLabel(headerJobTarget)}
                 </dd>
               </div>
               {headerJobTarget.vehicle_label ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Vehicle</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Vehicle</dt>
                   <dd className="min-w-0 text-zinc-200">{headerJobTarget.vehicle_label}</dd>
                 </div>
               ) : null}
               {vehicles[0]?.vin ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">VIN</dt>
-                  <dd className="min-w-0 font-mono text-[12px] text-zinc-300">{vehicles[0].vin}</dd>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">VIN</dt>
+                  <dd className="min-w-0 font-mono text-xs text-zinc-300">{vehicles[0].vin}</dd>
                 </div>
               ) : null}
               {headerJobTarget.address_line1 ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Address</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Address</dt>
                   <dd className="min-w-0 text-zinc-200">{headerJobTarget.address_line1}</dd>
                 </div>
               ) : null}
               {crmUrgencyLabel(headerJobTarget) && crmUrgencyLabel(headerJobTarget) !== "ASAP" ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">When</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">When</dt>
                   <dd className="min-w-0 text-zinc-200">{crmUrgencyLabel(headerJobTarget)}</dd>
                 </div>
               ) : null}
               {headerJobTarget.amount_cents != null && headerJobTarget.amount_cents > 0 ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Quote</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Quote</dt>
                   <dd className="min-w-0 tabular-nums text-emerald-200">
                     {formatMoney(headerJobTarget.amount_cents)}
                   </dd>
@@ -1978,7 +1978,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               ) : null}
               {(headerJobTarget.customer_notes || headerJobTarget.job_notes) && (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Notes</dt>
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Notes</dt>
                   <dd className="min-w-0 whitespace-pre-wrap text-zinc-300">
                     {headerJobTarget.customer_notes || headerJobTarget.job_notes}
                   </dd>
@@ -1986,8 +1986,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               )}
               {headerJobTarget.at ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Submitted</dt>
-                  <dd className="min-w-0 text-[11px] text-muted-foreground">
+                  <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Submitted</dt>
+                  <dd className="min-w-0 text-2xs text-muted-foreground">
                     {new Date(headerJobTarget.at).toLocaleString()}
                   </dd>
                 </div>
@@ -2052,7 +2052,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_no_answer")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · no answer"
                           ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
                           : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
@@ -2074,7 +2074,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         void markCallbackOutcome(headerJobTarget, "called_answered")
                       }
                       className={cn(
-                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
+                        "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · answered"
                           ? "border-sky-500/40 bg-sky-500/20 text-sky-100"
                           : "border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
@@ -2094,7 +2094,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   disabled={unreachableBusy || headerJobTarget.status_label === "Cancelled"}
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "cancelled")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Cancelled"
                       ? "border-zinc-500/50 bg-zinc-700/40 text-zinc-100"
                       : "border-zinc-600 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800"
@@ -2117,7 +2117,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   }
                   onClick={() => void markJobLifecycleStatus(headerJobTarget, "completed")}
                   className={cn(
-                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold disabled:opacity-50",
+                    "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                     headerJobTarget.status_label === "Complete" ||
                       headerJobTarget.status_label === "Done" ||
                       headerJobTarget.status_label === "Completed"
@@ -2165,7 +2165,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     ["fcc_id", "FCC ID"],
                   ] as const
                 ).map(([key, label]) => (
-                  <label key={key} className="block text-[11px] text-muted-foreground">
+                  <label key={key} className="block text-2xs text-muted-foreground">
                     {label}
                     <Input
                       value={vehicleForm[key]}
@@ -2213,7 +2213,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             ["vin", "VIN"],
                           ] as const
                         ).map(([key, label]) => (
-                          <label key={key} className="block text-[11px] text-muted-foreground">
+                          <label key={key} className="block text-2xs text-muted-foreground">
                             {label}
                             <Input
                               value={editVehicleForm[key]}
@@ -2254,12 +2254,12 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             {[v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
                           </p>
                           {v.vin ? (
-                            <p className="truncate text-[11px] text-muted-foreground">VIN {v.vin}</p>
+                            <p className="truncate text-2xs text-muted-foreground">VIN {v.vin}</p>
                           ) : (
-                            <p className="text-[11px] text-amber-200/80">No VIN yet</p>
+                            <p className="text-2xs text-amber-200/80">No VIN yet</p>
                           )}
                           {v.fcc_id ? (
-                            <p className="truncate text-[11px] text-muted-foreground">FCC {v.fcc_id}</p>
+                            <p className="truncate text-2xs text-muted-foreground">FCC {v.fcc_id}</p>
                           ) : null}
                         </div>
                         <button
@@ -2297,7 +2297,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <button
                 type="button"
                 onClick={() => openRecordInvoice(headerJobTarget)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
+                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Send paid invoice
@@ -2323,7 +2323,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <button
                 type="button"
                 onClick={() => void openCollectForCustomer()}
-                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10"
+                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {isFullyPaidCustomer ? "Charge again" : "New charge"}
@@ -2344,7 +2344,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         <p className="text-sm font-semibold tabular-nums text-emerald-200">
                           {formatCollectedDollars(amountCents)}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-2xs text-muted-foreground">
                           {formatPaymentWhen(tx.createdAt)}
                           {" · "}
                           {paymentMethodLabel(tx.paymentMethod)}
@@ -2353,7 +2353,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       </div>
                       <span
                         className={cn(
-                          "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                          "shrink-0 rounded-md px-2 py-0.5 text-micro font-semibold",
                           tx.status === "COMPLETED" && "bg-emerald-500/15 text-emerald-300",
                           tx.status === "FAILED" && "bg-rose-500/15 text-rose-300",
                           tx.status === "PENDING" && "bg-amber-500/15 text-amber-200"
@@ -2366,13 +2366,13 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => openSendReceipt(tx)}
-                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20"
+                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/20"
                       >
                         <Mail className="h-3.5 w-3.5" />
                         Send invoice / receipt
                       </button>
                     ) : tx.paymentMethod === "CASH" && tx.status === "COMPLETED" ? (
-                      <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      <p className="mt-1.5 text-micro text-muted-foreground">
                         Cash — no digital card receipt link.
                       </p>
                     ) : null}
@@ -2426,7 +2426,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         ) : null}
                       </p>
                       {/* Flattened book-form / quote metadata — not just “Lockout · Needs call · $49”. */}
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                         {detailBits.slice(item.vehicle_label ? 2 : 1).join(" · ") ||
                           (item.summary?.trim() && item.summary.trim() !== serviceLabel
                             ? item.summary.trim()
@@ -2435,7 +2435,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     </div>
                     <span
                       className={cn(
-                        "shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                        "shrink-0 rounded-md px-2 py-0.5 text-micro font-semibold",
                         item.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
                         item.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
                         item.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
@@ -2447,11 +2447,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     </span>
                   </div>
                   {(item.customer_notes || item.job_notes) && item.is_open_lead ? (
-                    <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+                    <p className="mt-1 line-clamp-2 text-2xs text-muted-foreground">
                       {item.customer_notes || item.job_notes}
                     </p>
                   ) : null}
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                     {/* Call / lead timestamp — not the future appointment */}
                     <span className="min-w-0 truncate">
                       {item.at ? new Date(item.at).toLocaleString() : ""}
@@ -2460,14 +2460,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     {/* Compact future-appointment control (distinct from call time) */}
                     {!isWalkUpHistoryId(item.id) && editingApptId === item.id ? (
                       <span className="inline-flex max-w-full flex-wrap items-center gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                           Appt
                         </span>
                         <Input
                           type="datetime-local"
                           value={editApptLocal}
                           onChange={(e) => setEditApptLocal(e.target.value)}
-                          className="h-7 w-[11.5rem] border-zinc-800 bg-zinc-950 px-2 text-[11px]"
+                          className="h-7 w-[11.5rem] border-zinc-800 bg-zinc-950 px-2 text-2xs"
                           aria-label="Appointment date and time"
                         />
                         <button
@@ -2499,7 +2499,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             type="button"
                             disabled={saveBusy}
                             onClick={() => void clearAppointment(item.id)}
-                            className="h-6 rounded px-1 text-[10px] text-muted-foreground hover:bg-zinc-800 hover:text-zinc-300"
+                            className="h-6 rounded px-1 text-micro text-muted-foreground hover:bg-zinc-800 hover:text-zinc-300"
                             title="Clear appointment"
                           >
                             Clear
@@ -2522,11 +2522,11 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             : "Set scheduled appointment"
                         }
                       >
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                           Appt
                         </span>
                         {item.scheduled_at ? (
-                          <span className="truncate text-[10px] text-sky-300/90">
+                          <span className="truncate text-micro text-sky-300/90">
                             {new Date(item.scheduled_at).toLocaleString(undefined, {
                               month: "numeric",
                               day: "numeric",
@@ -2556,7 +2556,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           type="button"
                           onClick={() => openJobOnScheduler(item)}
                           className={cn(
-                            "inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold hover:bg-zinc-800",
+                            "inline-flex h-5 items-center gap-1 rounded px-0.5 text-micro font-semibold hover:bg-zinc-800",
                             action === "Recover"
                               ? "text-rose-300/95 hover:text-rose-200"
                               : "text-emerald-300/90 hover:text-emerald-200"
@@ -2573,7 +2573,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         type="button"
                         disabled={reviewBusyId === item.id}
                         onClick={() => void sendReviewSms(item.id)}
-                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-[10px] font-semibold text-amber-300/95 hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-50"
+                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-micro font-semibold text-amber-300/95 hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-50"
                         title="Send thanks + Google review SMS"
                       >
                         {reviewBusyId === item.id ? (
@@ -2622,7 +2622,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   return (
     <div className="mx-auto flex w-full max-w-workspace flex-col gap-3 px-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 sm:px-4 md:pb-8">
       <header className="flex flex-col gap-1">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:block">
+        <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
           CRM
         </p>
         <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -2751,14 +2751,14 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
-                          <span className="shrink-0 rounded-md bg-zinc-950/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          <span className="shrink-0 rounded-md bg-zinc-950/80 px-2 py-0.5 text-micro font-medium text-muted-foreground">
                             {BADGE_LABEL[row.lead_badge]}
                           </span>
                         </div>
                         <p className="mt-0.5 truncate text-xs tabular-nums text-muted-foreground">
                           {formatPhoneDisplay(row.phone_e164)}
                         </p>
-                        <p className="mt-1 break-words text-[11px] leading-snug text-muted-foreground">
+                        <p className="mt-1 break-words text-2xs leading-snug text-muted-foreground">
                           {(() => {
                             // Prefer latest open job status over booking source (“From book link”).
                             const status = String(row.job_status_label ?? "").trim()
@@ -3024,7 +3024,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               </div>
 
               <label className="block space-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Customer name
                 </span>
                 <Input
@@ -3037,7 +3037,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
               {receiptChannel === "email" ? (
                 <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Email
                   </span>
                   <Input
@@ -3051,7 +3051,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 </label>
               ) : (
                 <label className="block space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Phone
                   </span>
                   <Input
@@ -3123,7 +3123,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
             <label className="block space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Amount ($)
               </span>
               <Input
@@ -3157,7 +3157,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     else setRecordPayNote("Paid outside the app")
                   }}
                   className={cn(
-                    "rounded-lg py-2 text-[11px] font-semibold",
+                    "rounded-lg py-2 text-2xs font-semibold",
                     recordPayMethod === id
                       ? "bg-teal-500/20 text-teal-100"
                       : "text-muted-foreground hover:text-slate-200"
@@ -3169,7 +3169,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             </div>
 
             <label className="block space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Paid note
               </span>
               <Input
@@ -3181,7 +3181,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             </label>
 
             <label className="block space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 VIN
               </span>
               <Input
@@ -3217,7 +3217,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             </div>
 
             <label className="block space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Customer name
               </span>
               <Input
@@ -3229,7 +3229,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
             {(recordChannel === "email" || recordChannel === "both") && (
               <label className="block space-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Email
                 </span>
                 <Input
@@ -3244,7 +3244,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
             {(recordChannel === "sms" || recordChannel === "both") && (
               <label className="block space-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Phone
                 </span>
                 <Input

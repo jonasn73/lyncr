@@ -195,7 +195,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Add a tip
             </p>
             <div className="mt-1.5 grid grid-cols-4 gap-2">
@@ -220,7 +220,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                 >
                   {opt.label}
                   {opt.id !== "none" && baseCents > 0 ? (
-                    <span className="mt-0.5 block text-[10px] font-normal tabular-nums opacity-80">
+                    <span className="mt-0.5 block text-micro font-normal tabular-nums opacity-80">
                       {fmtUsd(tipCentsFromChoice(opt.id, baseCents, customTipDollars))}
                     </span>
                   ) : null}
@@ -285,7 +285,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
               `Continue · ${fmtUsd(totalWithTip)}`
             )}
           </button>
-          <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+          <p className="text-center text-2xs leading-relaxed text-muted-foreground">
             Next you&apos;ll enter card or wallet details. Nothing is charged until you finish
             payment.
           </p>
@@ -317,7 +317,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             </EmbeddedCheckoutProvider>
           </div>
 
-          <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-6 text-center text-2xs leading-relaxed text-muted-foreground">
             Pay with card, Apple Pay, Google Pay, Cash App, or Link when those methods are on for
             this shop. On iPhone Safari, Apple Pay shows when available. You&apos;ll stay on this
             site when payment is complete. A receipt is sent automatically by email and text.

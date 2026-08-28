@@ -204,7 +204,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         >
           🤖 Automation Voice Greetings
         </p>
-        <p className="hidden mt-0.5 text-[11px] leading-snug text-muted-foreground md:block">
+        <p className="hidden mt-0.5 text-2xs leading-snug text-muted-foreground md:block">
           Edit the Busy greeting callers hear when Presence is Busy — press 1 texts a booking link;
           stay on the line enters the hold queue — plus voice, bypass, and holiday closures.
         </p>
@@ -234,7 +234,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-micro text-muted-foreground">
                 {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                   "Tone callers hear on Busy gather and hold re-prompts."}
               </p>
@@ -257,7 +257,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 className={cn(fieldClass, "min-h-11 px-3 py-2")}
                 placeholder="e.g. 9 or 1234"
               />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-micro text-muted-foreground">
                 Digits dialed during the greeting ring your cell (+1 502-260-2716) and skip
                 presence blocks. Avoid &quot;1&quot; (booking key).
               </p>
@@ -268,7 +268,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-zinc-300">
               Busy greeting
             </label>
-            <p className="hidden text-[10px] text-muted-foreground md:block">
+            <p className="hidden text-micro text-muted-foreground md:block">
               Played when Presence is Busy — press 1 texts a booking link; stay on the line enters
               the hold queue (music + Lines Answer).
             </p>
@@ -353,13 +353,13 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </button>
             {holidayOpen ? (
               <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
-                <p className="text-[10px] leading-relaxed text-muted-foreground">
+                <p className="text-micro leading-relaxed text-muted-foreground">
                   When the current time falls in this window, callers hear the holiday greeting
                   instead of the Busy greeting.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label htmlFor="holiday-start" className="text-[11px] font-medium text-muted-foreground">
+                    <label htmlFor="holiday-start" className="text-2xs font-medium text-muted-foreground">
                       Starts
                     </label>
                     <input
@@ -373,7 +373,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="holiday-end" className="text-[11px] font-medium text-muted-foreground">
+                    <label htmlFor="holiday-end" className="text-2xs font-medium text-muted-foreground">
                       Ends
                     </label>
                     <input
@@ -388,7 +388,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 <div className="space-y-2">
                   <label
                     htmlFor="holiday-greeting-text"
-                    className="text-[11px] font-medium text-muted-foreground"
+                    className="text-2xs font-medium text-muted-foreground"
                   >
                     Holiday greeting (text-to-speech)
                   </label>
@@ -411,7 +411,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                       holidayText: "",
                     }))
                   }
-                  className="text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                  className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
                 >
                   Clear holiday window
                 </button>
@@ -421,7 +421,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
 
           <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
             <p className="text-xs font-semibold text-zinc-300">Text after missed call</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-micro leading-relaxed text-muted-foreground">
               Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call
               Rescue can text “Sorry we missed your call — book here…” Turn it on/off under Lines →
               Missed Call Rescue (default on). Hanging up on Busy without pressing 1 does not text.

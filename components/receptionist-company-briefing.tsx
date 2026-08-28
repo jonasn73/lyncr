@@ -101,7 +101,7 @@ function CallerIdentityStrip({
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           <UserRound className="h-3.5 w-3.5" aria-hidden />
           {known ? "Returning customer" : "Caller"}
         </span>
@@ -115,7 +115,7 @@ function CallerIdentityStrip({
         {caller?.job_status_label ? (
           <span
             className={cn(
-              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              "rounded-full border px-2 py-0.5 text-2xs font-medium",
               STATUS_TONE[caller.job_status_tone ?? "neutral"] ?? STATUS_TONE.neutral
             )}
           >
@@ -160,7 +160,7 @@ function CheatSheetTile({
   const has = Boolean(value && value.trim())
   return (
     <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <p className={cn("flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide", accent)}>
+      <p className={cn("flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide", accent)}>
         {icon}
         {label}
       </p>
@@ -258,7 +258,7 @@ export function CompanyBriefingCard({
           )}
         >
           <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
@@ -282,7 +282,7 @@ export function CompanyBriefingCard({
           </p>
 
           <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
             <p className="mt-1 text-sm leading-relaxed text-zinc-100">&ldquo;{script}&rdquo;</p>
           </div>
 

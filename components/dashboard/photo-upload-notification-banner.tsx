@@ -177,7 +177,7 @@ export function PhotoUploadNotificationBanner() {
             </p>
             <Link
               href={notice.viewIntakeUrl}
-              className="mt-1 inline-block text-[11px] text-muted-foreground hover:text-slate-200"
+              className="mt-1 inline-block text-2xs text-muted-foreground hover:text-slate-200"
               onClick={() => dismiss(notice.id)}
             >
               Open dashboard ticket

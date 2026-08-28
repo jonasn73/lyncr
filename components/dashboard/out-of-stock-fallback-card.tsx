@@ -256,7 +256,7 @@ export function OutOfStockFallbackCard({
             $50 non-refundable retainer · booking status becomes Pending Deposit.
           </p>
           <div className="mt-2.5 space-y-2">
-            <Label htmlFor="oos-service-date" className="text-[11px] text-muted-foreground">
+            <Label htmlFor="oos-service-date" className="text-2xs text-muted-foreground">
               <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden />
               Earliest service date (shipping +2 days)
             </Label>
@@ -284,8 +284,8 @@ export function OutOfStockFallbackCard({
           </Button>
           {checkoutUrl ? (
             <div className="mt-2 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
-              <p className="text-[11px] font-medium text-emerald-200">Checkout ready · Pending Deposit</p>
-              <p className="break-all font-mono text-[10px] text-emerald-100/90">{checkoutUrl}</p>
+              <p className="text-2xs font-medium text-emerald-200">Checkout ready · Pending Deposit</p>
+              <p className="break-all font-mono text-micro text-emerald-100/90">{checkoutUrl}</p>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -327,7 +327,7 @@ export function OutOfStockFallbackCard({
           ) : affiliates.length === 0 ? (
             <p className="mt-3 text-xs text-muted-foreground">
               No affiliate locksmiths yet. Add rows to{" "}
-              <span className="font-mono text-[10px]">affiliate_locksmiths</span> in Neon (see
+              <span className="font-mono text-micro">affiliate_locksmiths</span> in Neon (see
               migration 106).
             </p>
           ) : (
@@ -375,7 +375,7 @@ export function OutOfStockFallbackCard({
 
       {error ? <p className="mt-2 text-center text-xs text-rose-300">{error}</p> : null}
       {!intake.customer_name.trim() || !intake.caller_e164.trim() ? (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-2xs text-muted-foreground">
           Enter customer name and phone before generating a link or sending a lead.
         </p>
       ) : null}

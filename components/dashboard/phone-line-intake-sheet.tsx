@@ -78,7 +78,7 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
 
               {line.routing_summary ? (
                 <div className="rounded-xl border border-white/8 bg-neutral-950/50 p-4 text-sm text-muted-foreground">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Routing snapshot</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Routing snapshot</p>
                   <ul className="mt-2 space-y-2">
                     <li>
                       Fallback:{" "}

@@ -211,7 +211,7 @@ export function BusinessProfileModal({
             }}
           >
             <label className="block">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Business name
               </span>
               <input
@@ -235,7 +235,7 @@ export function BusinessProfileModal({
             </label>
 
             <div className="space-y-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Shop address
               </span>
               <JobAddressAutocomplete
@@ -254,7 +254,7 @@ export function BusinessProfileModal({
             </div>
 
             <div className="space-y-3 border-t border-border/60 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">SMS alerts</p>
+              <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">SMS alerts</p>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
                 <div className="flex items-start gap-3">
                   <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
@@ -282,7 +282,7 @@ export function BusinessProfileModal({
                 />
               </div>
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Dedicated dispatch SMS number
                 </span>
                 <input

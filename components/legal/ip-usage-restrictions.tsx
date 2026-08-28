@@ -121,7 +121,7 @@ export function IpUsageRestrictions({
       </div>
 
       {/* Closing acknowledgement line — useful when embedded above a signup "I agree" checkbox. */}
-      <p className={compact ? "text-[11px] text-muted-foreground" : "text-xs text-muted-foreground"}>
+      <p className={compact ? "text-2xs text-muted-foreground" : "text-xs text-muted-foreground"}>
         By creating an account or accessing the {SITE_NAME} dashboard, you acknowledge that you have
         read, understood, and agree to be bound by these Intellectual Property &amp; Usage Restrictions.
       </p>

@@ -49,7 +49,7 @@ export function TechInviteSmsAlert({
           </p>
         ) : null}
         {expiresHint ? (
-          <p className="mt-2 text-[11px] text-emerald-100/60">Link expires in 48 hours.</p>
+          <p className="mt-2 text-2xs text-emerald-100/60">Link expires in 48 hours.</p>
         ) : null}
       </div>
     )
@@ -90,14 +90,14 @@ export function TechInviteSmsAlert({
         <span className="mt-1 block">{detail}</span>
       </p>
       <p
-        className={`mt-2 break-all rounded-lg p-2 font-mono text-[11px] ${
+        className={`mt-2 break-all rounded-lg p-2 font-mono text-2xs ${
           is10Dlc ? "bg-black/40 text-red-100/90" : "bg-black/30 text-amber-100"
         }`}
       >
         {setupUrl}
       </p>
       {expiresHint ? (
-        <p className={`mt-2 text-[11px] ${is10Dlc ? "text-red-200/60" : "text-amber-100/60"}`}>
+        <p className={`mt-2 text-2xs ${is10Dlc ? "text-red-200/60" : "text-amber-100/60"}`}>
           Link expires in 48 hours.
         </p>
       ) : null}

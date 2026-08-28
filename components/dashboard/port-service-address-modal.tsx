@@ -113,7 +113,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Legal business name
               </span>
               <input
@@ -124,16 +124,16 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Street</span>
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Street</span>
               <input required value={street} onChange={(e) => setStreet(e.target.value)} className={workspaceFieldClass} />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block space-y-2 sm:col-span-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">City</span>
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">City</span>
                 <input required value={city} onChange={(e) => setCity(e.target.value)} className={workspaceFieldClass} />
               </label>
               <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">State</span>
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">State</span>
                 <input
                   required
                   maxLength={2}
@@ -144,7 +144,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">ZIP</span>
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">ZIP</span>
                 <input
                   required
                   value={postal}

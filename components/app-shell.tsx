@@ -195,7 +195,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
               <span className="text-xs font-bold tabular-nums text-emerald-200">
                 {cachedChip.amount}
               </span>
-              <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-emerald-200/70">
+              <span className="mt-0.5 text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
                 {cachedChip.label}
               </span>
             </>

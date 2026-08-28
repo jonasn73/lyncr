@@ -243,7 +243,7 @@ export function AdminNetworkAgentsBoard() {
                             <Badge
                               key={s}
                               variant="outline"
-                              className="border-slate-600 bg-slate-950/60 text-[10px] text-slate-300"
+                              className="border-slate-600 bg-slate-950/60 text-micro text-slate-300"
                             >
                               {formatRoutingPoolSkillLabel(s)}
                             </Badge>
@@ -254,7 +254,7 @@ export function AdminNetworkAgentsBoard() {
                     <TableCell>
                       <span
                         className={cn(
-                          "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          "rounded-full border px-2 py-0.5 text-micro font-medium",
                           a.is_active
                             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                             : "border-slate-600 bg-slate-950/60 text-muted-foreground"

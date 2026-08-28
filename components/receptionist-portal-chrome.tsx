@@ -54,7 +54,7 @@ export function ReceptionistPortalChrome({
               <Phone className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">
                 Receptionist console
               </p>
               <p className="truncate text-sm font-semibold leading-tight text-foreground">
@@ -122,7 +122,7 @@ export function ReceptionistPortalChrome({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium",
+                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-2xs font-medium",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >
@@ -134,7 +134,7 @@ export function ReceptionistPortalChrome({
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium text-muted-foreground"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-2xs font-medium text-muted-foreground"
           >
             <LogOut className="h-5 w-5" aria-hidden />
             Sign out

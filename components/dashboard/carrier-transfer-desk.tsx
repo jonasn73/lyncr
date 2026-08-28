@@ -106,14 +106,14 @@ export function CarrierTransferDesk({
           <p className="text-xs font-medium text-emerald-100">
             PIN on file — carrier is re-reviewing your transfer
           </p>
-          <p className="text-[11px] leading-snug text-emerald-200/80">
+          <p className="text-2xs leading-snug text-emerald-200/80">
             Status may still show as pending for a few minutes while the carrier processes your correction.
             You do not need to submit again unless the carrier rejects a different PIN.
           </p>
           <button
             type="button"
             onClick={() => setShowPinEditor(true)}
-            className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline"
+            className="text-2xs font-semibold text-sky-300 underline-offset-2 hover:underline"
           >
             Use a different PIN
           </button>
@@ -145,7 +145,7 @@ export function CarrierTransferDesk({
                   : "border-red-500/40"
             )}
           />
-          <span className="mt-1 block text-[10px] text-red-200/70">{pinHint}</span>
+          <span className="mt-1 block text-micro text-red-200/70">{pinHint}</span>
         </label>
       ) : null}
 
@@ -170,7 +170,7 @@ export function CarrierTransferDesk({
           />
         </label>
       ) : (
-        <p className="text-[11px] leading-snug text-amber-200/90">
+        <p className="text-2xs leading-snug text-amber-200/90">
           Submit Correction sends your PIN directly to the carrier network — not as a chat comment — so the
           exception clears.
         </p>

@@ -131,7 +131,7 @@ export function SupportChatPanel() {
             </p>
           </div>
           {data?.thread.user_unread_count ? (
-            <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+            <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-micro font-medium text-primary">
               {data.thread.user_unread_count} new
             </span>
           ) : null}
@@ -175,7 +175,7 @@ export function SupportChatPanel() {
                 )}
               >
                 {!isSystem ? (
-                  <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide opacity-70">
+                  <p className="mb-0.5 text-micro font-medium uppercase tracking-wide opacity-70">
                     {isUser ? "You" : "Lyncr Support"}
                   </p>
                 ) : null}
@@ -212,7 +212,7 @@ export function SupportChatPanel() {
                   </ul>
                 ) : null}
                 {!isSystem ? (
-                  <p className="mt-1 text-[10px] opacity-60">{formatTime(m.created_at)}</p>
+                  <p className="mt-1 text-micro opacity-60">{formatTime(m.created_at)}</p>
                 ) : null}
               </div>
             </div>
@@ -226,7 +226,7 @@ export function SupportChatPanel() {
           {pending.map((p) => (
             <span
               key={p.url}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground"
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-2xs text-foreground"
             >
               {isImageType(p.content_type) ? (
                 <ImageIcon className="h-3 w-3 shrink-0" />

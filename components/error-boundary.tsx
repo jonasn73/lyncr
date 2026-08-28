@@ -77,7 +77,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <p className="max-w-md text-center text-xs text-muted-foreground">{this.state.message}</p>
           ) : null}
           {dumpText ? (
-            <pre className="max-h-56 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-[10px] leading-snug text-muted-foreground whitespace-pre-wrap">
+            <pre className="max-h-56 max-w-lg overflow-auto rounded-lg border border-border bg-card p-3 text-left text-micro leading-snug text-muted-foreground whitespace-pre-wrap">
               {dumpText}
             </pre>
           ) : null}

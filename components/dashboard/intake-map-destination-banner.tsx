@@ -58,13 +58,13 @@ export function IntakeMapDestinationBanner({
       onPointerDown={variant === "overlay" ? (e) => e.stopPropagation() : undefined}
       onClick={variant === "overlay" ? (e) => e.stopPropagation() : undefined}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wider text-rose-300">Intake target</p>
+      <p className="text-micro font-bold uppercase tracking-wider text-rose-300">Intake target</p>
       <p className="truncate text-xs font-semibold text-slate-100">
         {destination.label?.trim() || "Customer location"}
       </p>
       {destination.address ? (
         <div className="mt-0.5 flex items-start gap-2">
-          <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-muted-foreground">
+          <p className="min-w-0 flex-1 line-clamp-2 text-2xs text-muted-foreground">
             {destination.address}
           </p>
           {mapsHref ? (
@@ -84,7 +84,7 @@ export function IntakeMapDestinationBanner({
       ) : null}
 
       {travelMetrics ? (
-        <div className="mt-2 space-y-0.5 border-t border-slate-800/80 pt-2 text-[10px] leading-relaxed text-slate-300">
+        <div className="mt-2 space-y-0.5 border-t border-slate-800/80 pt-2 text-micro leading-relaxed text-slate-300">
           <p>
             🚗 Distance from current spot:{" "}
             <span className="font-semibold tabular-nums text-slate-100">
@@ -112,7 +112,7 @@ export function IntakeMapDestinationBanner({
           ) : null}
         </div>
       ) : nearestTech ? (
-        <p className="mt-2 border-t border-slate-800/80 pt-2 text-[10px] text-amber-200/90">
+        <p className="mt-2 border-t border-slate-800/80 pt-2 text-micro text-amber-200/90">
           ⚡ Nearest available tech: {nearestTech.name} ({formatMiles(nearestTech.miles)} mi away)
         </p>
       ) : null}
@@ -124,7 +124,7 @@ export function IntakeMapDestinationBanner({
           e.stopPropagation()
           onClear()
         }}
-        className="mt-1.5 text-[10px] font-semibold text-rose-300/90 underline-offset-2 hover:underline"
+        className="mt-1.5 text-micro font-semibold text-rose-300/90 underline-offset-2 hover:underline"
       >
         Clear pin
       </button>

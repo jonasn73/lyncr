@@ -45,7 +45,7 @@ function MetricCell({
           className
         )}
       >
-        <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+        <span className="text-micro font-medium text-muted-foreground">{label}</span>
         <span
           className={cn(
             "min-w-[0.75rem] text-xs font-bold tabular-nums",
@@ -74,7 +74,7 @@ function MetricCell({
       >
         {display}
       </span>
-      <span className="truncate text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="truncate text-micro font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
     </div>
@@ -173,7 +173,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           <Button
             type="button"
             size="sm"
-            className="h-7 shrink-0 snap-start gap-2 rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
+            className="h-7 shrink-0 snap-start gap-2 rounded-full bg-primary px-3 text-2xs font-semibold text-primary-foreground"
             onClick={() => inboundCallPanel.openManualCallPanel()}
           >
             <Plus className="h-3 w-3" aria-hidden />

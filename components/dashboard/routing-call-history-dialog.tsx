@@ -341,7 +341,7 @@ function WeeklyDayBreakdownChart({
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">By day</p>
         {hasActivity ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             Busiest:{" "}
             <span className="font-medium text-teal-400">
               {busiest.displayLabel === "Today" || busiest.displayLabel === "Yesterday"
@@ -387,7 +387,7 @@ function WeeklyDayBreakdownChart({
                   >
                     {day.displayLabel}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{day.dateLabel}</p>
+                  <p className="text-micro text-muted-foreground">{day.dateLabel}</p>
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -411,7 +411,7 @@ function WeeklyDayBreakdownChart({
                   >
                     {day.callCount} call{day.callCount === 1 ? "" : "s"}
                   </p>
-                  <p className="text-[10px] tabular-nums text-muted-foreground">
+                  <p className="text-micro tabular-nums text-muted-foreground">
                     {day.talkSeconds > 0 ? formatTalkDuration(day.talkSeconds) : "—"}
                   </p>
                 </div>
@@ -422,7 +422,7 @@ function WeeklyDayBreakdownChart({
       </ul>
 
       {selectedDayKey ? (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-2xs text-muted-foreground">
           Showing{" "}
           {days.find((d) => d.key === selectedDayKey)?.displayLabel ?? "day"} only ·{" "}
           <button
@@ -434,7 +434,7 @@ function WeeklyDayBreakdownChart({
           </button>
         </p>
       ) : (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-2xs text-muted-foreground">
           Tap a day to see that day&apos;s calls below
         </p>
       )}
@@ -468,7 +468,7 @@ function SummaryStat({
         highlight ? "border-teal-500/30 bg-teal-950/30" : "border-zinc-800/80 bg-zinc-900/40"
       )}
     >
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />
         {label}
       </div>
@@ -714,7 +714,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">{formatTimestamp(call.created_at)}</p>
-                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
                           {call.routed_to_name ? (
                             <span>
                               Answered by{" "}
@@ -750,7 +750,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
           )}
         </div>
 
-        <div className="border-t border-zinc-800 px-6 py-2 text-center text-[11px] text-muted-foreground">
+        <div className="border-t border-zinc-800 px-6 py-2 text-center text-2xs text-muted-foreground">
           {listRows.length} call{listRows.length === 1 ? "" : "s"}
           {selectedWeekDayKey && filter === "weekly_talk"
             ? ` on ${weeklyDayBreakdown.find((d) => d.key === selectedWeekDayKey)?.displayLabel ?? "this day"}`

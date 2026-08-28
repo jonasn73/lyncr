@@ -361,7 +361,7 @@ export function OperatorOnboardingDashboard() {
                   autoComplete="tel"
                   className="border-slate-700 bg-slate-950/80"
                 />
-                <p className="text-[11px] text-muted-foreground">We text a one-tap setup link to this number.</p>
+                <p className="text-2xs text-muted-foreground">We text a one-tap setup link to this number.</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -400,7 +400,7 @@ export function OperatorOnboardingDashboard() {
                             />
                             <span className="min-w-0">
                               <span className="block text-xs font-medium text-slate-200">{w.business_name}</span>
-                              <span className="block truncate text-[10px] text-muted-foreground">
+                              <span className="block truncate text-micro text-muted-foreground">
                                 {lineLabel} · {w.owner_email}
                               </span>
                             </span>
@@ -411,7 +411,7 @@ export function OperatorOnboardingDashboard() {
                   </ul>
                 )}
                 {selectedWorkspaces.length > 0 ? (
-                  <p className="text-[10px] text-emerald-300/90">
+                  <p className="text-micro text-emerald-300/90">
                     {selectedWorkspaces.length} workspace{selectedWorkspaces.length === 1 ? "" : "s"} selected
                   </p>
                 ) : null}
@@ -475,12 +475,12 @@ export function OperatorOnboardingDashboard() {
                               {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-[10px] text-muted-foreground">Tap for details</p>
+                          <p className="mt-1 text-micro text-muted-foreground">Tap for details</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span
                             className={cn(
-                              "inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                              "inline-flex rounded-full px-3 py-1 text-micro font-semibold uppercase tracking-wide ring-1",
                               badge.className
                             )}
                           >
@@ -517,7 +517,7 @@ export function OperatorOnboardingDashboard() {
                   {detailBadge ? (
                     <span
                       className={cn(
-                        "inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                        "inline-flex rounded-full px-3 py-1 text-micro font-semibold uppercase tracking-wide ring-1",
                         detailBadge.className
                       )}
                     >
@@ -559,7 +559,7 @@ export function OperatorOnboardingDashboard() {
                   {detailNotice}
                   {detailManualLink ? (
                     <span className="mt-3 block space-y-2">
-                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-[10px]">
+                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-micro">
                         {detailManualLink}
                       </span>
                       <Button

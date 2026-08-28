@@ -43,7 +43,7 @@ export function WorkspacePageHeader({
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="min-h-[1rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary">
             {eyebrow}
           </p>
         ) : null}
@@ -126,17 +126,17 @@ export function WorkspaceStatCard({
   if (dense) {
     return (
       <div className={cn("rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4", accent && accentClass)}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <p className="text-micro font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl">
           {value}
         </p>
-        {hint ? <p className="mt-0.5 hidden text-[11px] text-muted-foreground sm:block">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 hidden text-2xs text-muted-foreground sm:block">{hint}</p> : null}
       </div>
     )
   }
   return (
     <div className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5", accent && accentClass)}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
@@ -157,7 +157,7 @@ export function WorkspaceUsageStatCard({
   const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
   return (
     <div className="min-h-[5.75rem] rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {used.toLocaleString()} / {included.toLocaleString()} mins used
       </p>
@@ -187,7 +187,7 @@ export function WorkspaceTokenStatCard({
 }) {
   return (
     <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
         {tokens.toLocaleString()}
         <span className="ml-1.5 text-base font-medium text-muted-foreground">tokens</span>
@@ -210,7 +210,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-0.5 text-micro font-bold uppercase tracking-wide",
         toneClass[tone]
       )}
     >
@@ -235,7 +235,7 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-1 text-micro font-semibold tracking-wide",
         styles[variant]
       )}
     >
@@ -346,8 +346,8 @@ export function ActivityStatusPill({
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-md border font-bold uppercase tracking-wide",
         dense
-          ? "px-2 py-0.5 text-[9px] shadow-none"
-          : "px-2 py-0.5 text-[10px]",
+          ? "px-2 py-0.5 text-micro shadow-none"
+          : "px-2 py-0.5 text-micro",
         styles[status],
         dense && "shadow-none"
       )}
@@ -528,7 +528,7 @@ export function WorkspaceTh({
   return (
     <th
       className={cn(
-        "border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
+        "border-b border-zinc-800/80 px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground",
         className
       )}
     >

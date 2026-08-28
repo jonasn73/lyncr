@@ -11,7 +11,7 @@ export function PhoneLinesSkeleton() {
           key={i}
           className="relative w-full overflow-hidden rounded-xl border border-white/8 bg-neutral-950/30 px-3 py-3"
         >
-          <p className="text-[11px] font-medium text-muted-foreground/70">Line</p>
+          <p className="text-2xs font-medium text-muted-foreground/70">Line</p>
           <p className="mt-1 text-sm font-semibold text-muted-foreground/80">—</p>
         </div>
       ))}

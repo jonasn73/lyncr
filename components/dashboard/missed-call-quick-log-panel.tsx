@@ -111,7 +111,7 @@ export function MissedCallQuickLogPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
+          <p className="text-micro font-semibold uppercase tracking-wide text-rose-300">
             Missed call
           </p>
           <p className="mt-1 flex items-center gap-2 text-lg font-semibold tabular-nums text-foreground">
@@ -124,7 +124,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             What was it about?
           </p>
           <div className="flex flex-wrap gap-2">
@@ -151,7 +151,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Notes
           </label>
           <Textarea
@@ -165,7 +165,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <label htmlFor="missed-quick-name" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <label htmlFor="missed-quick-name" className="mb-1.5 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Caller name <span className="font-normal normal-case text-muted-foreground">(optional)</span>
           </label>
           <Input

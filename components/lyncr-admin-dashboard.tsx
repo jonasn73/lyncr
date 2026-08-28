@@ -138,13 +138,13 @@ function MoneyStripCell({
           : "border-slate-800 bg-slate-900/60"
       )}
     >
-      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span className="truncate text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span className="truncate text-lg font-bold tabular-nums tracking-tight text-slate-50 sm:text-xl">
         {value}
       </span>
-      {hint ? <span className="truncate text-[11px] text-muted-foreground">{hint}</span> : null}
+      {hint ? <span className="truncate text-2xs text-muted-foreground">{hint}</span> : null}
     </button>
   )
 }
@@ -673,7 +673,7 @@ export function LyncrAdminDashboard({
                         <span className="block truncate font-medium text-slate-50">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-muted-foreground">{row.email}</span>
+                        <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
                         <AccountStatusBadge status={row.account_status} />
@@ -890,7 +890,7 @@ export function LyncrAdminDashboard({
                         <span className="block truncate font-medium text-slate-50">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-muted-foreground">{row.email}</span>
+                        <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
                       </span>
                       <AccountStatusBadge status={row.account_status} />
                     </button>
@@ -949,7 +949,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 All
-                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-2xs tabular-nums text-slate-300">
                   {roleCounts.all}
                 </span>
               </TabsTrigger>
@@ -958,7 +958,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 Owners
-                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-2xs tabular-nums text-slate-300">
                   {roleCounts.owner}
                 </span>
               </TabsTrigger>
@@ -967,7 +967,7 @@ export function LyncrAdminDashboard({
                 className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
               >
                 Receptionists
-                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-slate-700/70 px-2 text-2xs tabular-nums text-slate-300">
                   {roleCounts.receptionist}
                 </span>
               </TabsTrigger>
@@ -1017,7 +1017,7 @@ export function LyncrAdminDashboard({
                           <p className="truncate font-medium text-slate-50" title={row.business_name || row.email}>
                             {row.business_name.trim() || "—"}
                           </p>
-                          <p className="truncate text-[11px] text-muted-foreground">{row.email}</p>
+                          <p className="truncate text-2xs text-muted-foreground">{row.email}</p>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -277,7 +277,7 @@ export function MoneyPaymentsSheet({
                 <button
                   type="button"
                   onClick={() => setView(view === "invoice" ? "detail" : "list")}
-                  className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-300/90 hover:text-teal-200"
+                  className="mb-1 inline-flex items-center gap-1 text-2xs font-semibold text-teal-300/90 hover:text-teal-200"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -359,7 +359,7 @@ export function MoneyPaymentsSheet({
                     type="button"
                     onClick={() => setDayFilter(opt.id)}
                     className={cn(
-                      "rounded-lg py-2 text-[11px] font-semibold",
+                      "rounded-lg py-2 text-2xs font-semibold",
                       dayFilter === opt.id
                         ? "bg-teal-500/20 text-teal-100"
                         : "text-muted-foreground hover:text-slate-200"
@@ -371,7 +371,7 @@ export function MoneyPaymentsSheet({
               </div>
 
               <div className="flex items-center justify-between gap-2 px-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {listTab === "invoices"
                     ? debouncedQ
                       ? "Matching invoices"
@@ -399,7 +399,7 @@ export function MoneyPaymentsSheet({
                     else void load()
                   }}
                   disabled={listTab === "payments" && loading}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
                 >
                   <RefreshCw
                     className={cn(
@@ -481,26 +481,26 @@ export function MoneyPaymentsSheet({
                                 {formatCollectedDollars(Math.round(tx.amount * 100))}
                               </span>
                             </span>
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            <span className="mt-0.5 block text-2xs text-muted-foreground">
                               {formatWhen(tx.createdAt)}
                               {subtitleParts ? ` · ${subtitleParts}` : ""}
                             </span>
                             <span className="mt-1.5 flex flex-wrap items-center gap-2">
                               <span
                                 className={cn(
-                                  "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                  "inline-flex rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                                   walletStatusClass(walletStatus)
                                 )}
                               >
                                 {collectedChargeWalletLabel(walletStatus)}
                               </span>
                               {!tx.jobId ? (
-                                <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-micro font-medium text-muted-foreground">
                                   Quick
                                 </span>
                               ) : null}
                               {tx.customerPhone ? (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-micro text-muted-foreground">
                                   {formatPhoneDisplay(tx.customerPhone)}
                                 </span>
                               ) : null}
@@ -526,13 +526,13 @@ export function MoneyPaymentsSheet({
           {view === "invoice" && selected ? (
             <div className="space-y-4">
               <div className="rounded-xl border border-teal-500/25 bg-teal-500/10 px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-200/70">
+                <p className="text-micro font-semibold uppercase tracking-wide text-teal-200/70">
                   Already paid
                 </p>
                 <p className="mt-0.5 text-2xl font-bold tabular-nums text-teal-50">
                   {formatCollectedDollars(Math.round(selected.amount * 100))}
                 </p>
-                <p className="mt-1 text-[11px] leading-snug text-teal-200/60">
+                <p className="mt-1 text-2xs leading-snug text-teal-200/60">
                   Sending an invoice here emails or texts a paid receipt (statement of payment) —
                   not a new bill to collect.
                 </p>
@@ -576,7 +576,7 @@ export function MoneyPaymentsSheet({
                   </div>
 
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Customer name
                     </span>
                     <input
@@ -590,7 +590,7 @@ export function MoneyPaymentsSheet({
 
                   {receiptChannel === "email" ? (
                     <label className="block space-y-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Email
                       </span>
                       <input
@@ -604,7 +604,7 @@ export function MoneyPaymentsSheet({
                     </label>
                   ) : (
                     <label className="block space-y-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Phone
                       </span>
                       <input
@@ -662,7 +662,7 @@ function PaymentDetail({
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Amount</p>
+        <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Amount</p>
         <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-200">
           {formatCollectedDollars(amountCents)}
         </p>
@@ -706,7 +706,7 @@ function PaymentDetail({
           Open related job
         </Link>
       ) : (
-        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3 text-[11px] leading-snug text-muted-foreground">
+        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3 text-2xs leading-snug text-muted-foreground">
           Walk-up / quick charge — not tied to a schedule job. Add the customer name when you send
           the invoice so you can find them later.
         </p>
@@ -726,7 +726,7 @@ function PaymentDetail({
             : "Invoice unavailable"}
       </button>
       {canInvoice ? (
-        <p className="text-center text-[11px] leading-snug text-muted-foreground">
+        <p className="text-center text-2xs leading-snug text-muted-foreground">
           Emails or texts a paid invoice page the customer can open.
         </p>
       ) : null}
@@ -737,7 +737,7 @@ function PaymentDetail({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex items-start justify-between gap-3 px-4 py-3">
-      <span className="shrink-0 text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="shrink-0 text-2xs font-medium text-muted-foreground">{label}</span>
       <span className="text-right text-sm font-medium text-slate-200">{value}</span>
     </li>
   )

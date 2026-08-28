@@ -136,7 +136,7 @@ export function JobEditWorkflow({
           <button
             type="button"
             onClick={onBackToOverview}
-            className="mr-8 shrink-0 text-[11px] font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
+            className="mr-8 shrink-0 text-2xs font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
           >
             Back to overview
           </button>

@@ -130,7 +130,7 @@ export function SalesTaxSettingsSheet({
               <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-100">Add sales tax by default</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Recommended on so you don’t forget tax on pay links.
                   </p>
                 </div>
@@ -142,7 +142,7 @@ export function SalesTaxSettingsSheet({
               </div>
 
               <label className="block rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                   Default tax %
                 </span>
                 <div className="mt-1.5 flex items-center gap-2">

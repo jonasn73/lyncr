@@ -119,7 +119,7 @@ function SupportCountBadge({ count, className }: { count: number; className?: st
   return (
     <span
       className={cn(
-        "min-w-[1.25rem] rounded-full bg-violet-600 px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-white",
+        "min-w-[1.25rem] rounded-full bg-violet-600 px-2 py-0.5 text-center text-micro font-semibold leading-none text-white",
         className
       )}
     >
@@ -153,7 +153,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
           </Link>
         )
       })}
-      <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">More</p>
+      <p className="mt-3 px-3 text-micro font-semibold uppercase tracking-wide text-muted-foreground">More</p>
       {MORE_LINKS.map((item) => {
         const Icon = item.icon
         const active = item.match(pathname)
@@ -217,7 +217,7 @@ function MobileBottomTabs({
                   <SupportCountBadge count={supportCount} className="absolute -right-3 -top-1" />
                 ) : null}
               </span>
-              <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">
+              <span className="w-full truncate text-micro font-semibold leading-tight tracking-tight">
                 {item.label}
               </span>
             </Link>
@@ -236,7 +236,7 @@ function MobileBottomTabs({
           )}
         >
           <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="w-full truncate text-[9px] font-semibold leading-tight tracking-tight">More</span>
+          <span className="w-full truncate text-micro font-semibold leading-tight tracking-tight">More</span>
         </button>
       </div>
     </nav>
@@ -306,7 +306,7 @@ function MoreSheet({
                 <span className="flex min-w-0 flex-col">
                   <span>{item.label}</span>
                   {item.href === "/admin/businesses" ? (
-                    <span className="text-[11px] font-normal text-muted-foreground">Full shop list</span>
+                    <span className="text-2xs font-normal text-muted-foreground">Full shop list</span>
                   ) : null}
                 </span>
                 {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
@@ -362,13 +362,13 @@ export function AdminChrome({
           <div className="min-w-0">
             <div className="flex items-baseline gap-1">
               <BrandWordmark size="xs" variant="onDark" />
-              <span className="text-[9px] font-bold uppercase tracking-wider text-violet-300/90">Admin</span>
+              <span className="text-micro font-bold uppercase tracking-wider text-violet-300/90">Admin</span>
             </div>
           </div>
         </div>
         <NavLinks supportCount={supportCount} />
         <div className="mt-auto space-y-2 border-t border-slate-800 p-3">
-          <p className="truncate text-[11px] text-muted-foreground">{userEmail}</p>
+          <p className="truncate text-2xs text-muted-foreground">{userEmail}</p>
           {/* Desktop has no More sheet — keep Logout reachable in the sidebar footer */}
           <Button
             type="button"
@@ -394,7 +394,7 @@ export function AdminChrome({
             <div className="min-w-0">
               {/* Page name lives in the big heading below — don’t repeat “Home” here. */}
               <p className="truncate text-sm font-semibold text-slate-100">Lyncr Admin</p>
-              <p className="truncate text-[11px] text-muted-foreground sm:hidden">{userName}</p>
+              <p className="truncate text-2xs text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}

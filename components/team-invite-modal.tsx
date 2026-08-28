@@ -175,7 +175,7 @@ export function TeamInviteModal({
 
             <form className="mt-3 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
               <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
                 <input
                   type="text"
                   required
@@ -188,7 +188,7 @@ export function TeamInviteModal({
 
               {mode === "phone" ? (
                 <label className="block space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Mobile number
                   </span>
                   <input
@@ -203,7 +203,7 @@ export function TeamInviteModal({
               ) : (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Email</span>
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Email</span>
                     <input
                       type="email"
                       required
@@ -214,7 +214,7 @@ export function TeamInviteModal({
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Cell (optional)
                     </span>
                     <input

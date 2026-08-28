@@ -70,7 +70,7 @@ export function JobCardSummary({
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-micro font-semibold",
               pillClass
             )}
           >
@@ -95,7 +95,7 @@ export function JobCardSummary({
           {showCallChip && model.phoneHref ? (
             <a
               href={model.phoneHref}
-              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100"
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-micro font-semibold text-emerald-100"
             >
               <Phone className="h-3 w-3" aria-hidden />
               Call
@@ -105,7 +105,7 @@ export function JobCardSummary({
       ) : null}
 
       {model.fieldVerificationRequired && showHeader ? (
-        <p className="mt-1.5 text-[11px] font-medium text-amber-300">
+        <p className="mt-1.5 text-2xs font-medium text-amber-300">
           Field verification required — confirm dashboard / door lock config before programming.
         </p>
       ) : null}
@@ -113,7 +113,7 @@ export function JobCardSummary({
       {/* Same Attribute · Detail rows as owner Active Job overview */}
       <section
         className={cn(
-          "space-y-1 text-[12px] leading-snug text-slate-300",
+          "space-y-1 text-xs leading-snug text-slate-300",
           showHeader && "mt-2.5 border-t border-border/40 pt-3"
         )}
       >
@@ -135,7 +135,7 @@ export function JobCardSummary({
                   href={model.mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
+                  className="ml-1.5 inline-flex items-center gap-0.5 text-2xs font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
                 >
                   Maps
                   <ExternalLink className="h-3 w-3" aria-hidden />
@@ -176,7 +176,7 @@ export function JobCardSummary({
           </p>
         ) : null}
         {!hideSummaryLine && model.summaryLine ? (
-          <p className="line-clamp-2 text-[11px] text-muted-foreground">{model.summaryLine}</p>
+          <p className="line-clamp-2 text-2xs text-muted-foreground">{model.summaryLine}</p>
         ) : null}
       </section>
     </div>

@@ -57,7 +57,7 @@ export function PayLinkSentPanel({
             <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
           </div>
 
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+          <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
             Link sent
           </p>
 
@@ -69,7 +69,7 @@ export function PayLinkSentPanel({
             Texted {phoneLabel}
           </p>
 
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-2xs text-muted-foreground">
             They open the link and pay — you’ll see it when it clears.
           </p>
         </div>
@@ -77,10 +77,10 @@ export function PayLinkSentPanel({
 
       {linkUrl ? (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-          <p className="break-all text-[10px] text-muted-foreground">{linkUrl}</p>
+          <p className="break-all text-micro text-muted-foreground">{linkUrl}</p>
           <button
             type="button"
-            className="mt-1.5 text-[11px] font-semibold text-emerald-300 underline"
+            className="mt-1.5 text-2xs font-semibold text-emerald-300 underline"
             onClick={() => {
               void navigator.clipboard?.writeText(linkUrl)
             }}

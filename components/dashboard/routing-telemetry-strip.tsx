@@ -66,7 +66,7 @@ function TelemetryPill({
       <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
       <span
         className={cn(
-          "truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+          "truncate text-micro font-semibold uppercase tracking-wide text-muted-foreground",
           labelClassName
         )}
       >
@@ -135,7 +135,7 @@ function TelemetryTickerItem({
       </span>
       <span
         className={cn(
-          "max-w-full text-center text-[9px] font-semibold uppercase leading-none tracking-wider text-muted-foreground",
+          "max-w-full text-center text-micro font-semibold uppercase leading-none tracking-wider text-muted-foreground",
           labelClassName
         )}
       >
@@ -144,7 +144,7 @@ function TelemetryTickerItem({
       {/* Always reserve third line so Missed/Booked sublabels do not grow cells after settle. */}
       <span
         className={cn(
-          "max-w-full truncate text-center text-[8px] font-medium leading-none",
+          "max-w-full truncate text-center text-micro font-medium leading-none",
           sublabel ? "text-amber-400/90" : "invisible text-transparent",
           sublabelClassName
         )}
@@ -369,7 +369,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
-        <p className="px-1 text-[10px] leading-snug text-muted-foreground">
+        <p className="px-1 text-micro leading-snug text-muted-foreground">
           <span className="font-medium text-muted-foreground">Missed</span> = true unanswered (hold / press-1
           excluded). <span className="font-medium text-muted-foreground">Booked jobs</span> = real BOOKED jobs
           today ÷ unique callers (not pending time or press-1 alone).{" "}

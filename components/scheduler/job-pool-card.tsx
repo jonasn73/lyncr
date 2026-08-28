@@ -157,7 +157,7 @@ export function JobPoolCard({
             <div className="flex flex-wrap items-center gap-2">
               <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
               {isRescueJob ? (
-                <span className="text-[10px] font-medium tracking-wide text-rose-300">
+                <span className="text-micro font-medium tracking-wide text-rose-300">
                   Price Denied
                 </span>
               ) : null}
@@ -213,7 +213,7 @@ export function JobPoolCard({
             </p>
           )}
           {programmingMethod ? (
-            <p className={cn("text-[11px] text-muted-foreground", wrapText ? "break-words" : "truncate")}>
+            <p className={cn("text-2xs text-muted-foreground", wrapText ? "break-words" : "truncate")}>
               {programmingMethod}
             </p>
           ) : null}
@@ -224,7 +224,7 @@ export function JobPoolCard({
               <span
                 className={cn(
                   sidebar
-                    ? "min-w-0 text-[11px] tabular-nums leading-snug text-muted-foreground"
+                    ? "min-w-0 text-2xs tabular-nums leading-snug text-muted-foreground"
                     : cn(detailTextClass, !wrapText && "text-xs text-muted-foreground"),
                   !job.customer_phone && "invisible"
                 )}
@@ -276,7 +276,7 @@ export function JobPoolCard({
         {(touchInteraction && onMobileAssign) || onSelect ? (
           <span
             className={cn(
-              "inline-flex items-center rounded-lg px-3 py-1 text-[11px] font-bold uppercase tracking-wide",
+              "inline-flex items-center rounded-lg px-3 py-1 text-2xs font-bold uppercase tracking-wide",
               "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
             )}
           >
@@ -287,7 +287,7 @@ export function JobPoolCard({
         )}
         <span
           className={cn(
-            "rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            "rounded-full border px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
             SCHEDULER_BADGE_STYLE.unassigned
           )}
         >

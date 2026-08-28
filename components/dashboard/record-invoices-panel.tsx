@@ -290,14 +290,14 @@ export function RecordInvoicesPanel({
 
       {showToolbar ? (
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {loading ? "Loading…" : `${rows.length} invoice${rows.length === 1 ? "" : "s"}`}
           </p>
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
@@ -348,7 +348,7 @@ export function RecordInvoicesPanel({
                       {formatMoney(inv.amountCents)}
                     </p>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <p className="mt-0.5 text-2xs text-muted-foreground">
                     {formatWhen(inv.createdAt)}
                     {" · "}
                     {inv.paymentMethodLabel}
@@ -359,18 +359,18 @@ export function RecordInvoicesPanel({
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
-                        "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        "inline-flex rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
                         invoiceStatusClass(inv.deliveryStatus)
                       )}
                     >
                       {inv.deliveryStatusLabel}
                     </span>
                     {deliveryBits(inv) ? (
-                      <span className="text-[10px] text-muted-foreground">{deliveryBits(inv)}</span>
+                      <span className="text-micro text-muted-foreground">{deliveryBits(inv)}</span>
                     ) : null}
                   </div>
                   {inv.deliveryStatus === "failed" || inv.deliveryStatus === "partial" ? (
-                    <p className="mt-1 text-[10px] text-rose-300/90">
+                    <p className="mt-1 text-micro text-rose-300/90">
                       {[inv.emailError, inv.smsError].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
@@ -381,7 +381,7 @@ export function RecordInvoicesPanel({
                 <button
                   type="button"
                   onClick={() => setPreviewInv(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View
@@ -389,7 +389,7 @@ export function RecordInvoicesPanel({
                 <a
                   href={inv.pdfUrl}
                   download
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900"
                 >
                   <Download className="h-3.5 w-3.5" />
                   PDF
@@ -398,7 +398,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void resend(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
                 >
                   {busy && !isRevise ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -413,7 +413,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => (isRevise ? setReviseId(null) : openRevise(inv))}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-[11px] font-semibold text-slate-200 hover:bg-zinc-900 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900 disabled:opacity-50"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   {isRevise ? "Cancel" : "Revise"}
@@ -422,12 +422,12 @@ export function RecordInvoicesPanel({
 
               {isRevise ? (
                 <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Edits create a <span className="text-zinc-300">new revision</span> — the old
                     invoice stays in history.
                   </p>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                       Amount ($)
                     </span>
                     <Input
@@ -439,7 +439,7 @@ export function RecordInvoicesPanel({
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                       Paid note
                     </span>
                     <Input
@@ -449,7 +449,7 @@ export function RecordInvoicesPanel({
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                       VIN
                     </span>
                     <Input

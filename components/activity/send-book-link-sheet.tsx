@@ -147,7 +147,7 @@ export function SendBookLinkSheet({
         </SheetHeader>
 
         <div className="mt-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Fee
           </p>
           {(
@@ -177,7 +177,7 @@ export function SendBookLinkSheet({
               )}
             >
               <span className="text-sm font-semibold text-zinc-100">{opt.label}</span>
-              <span className="text-[11px] text-muted-foreground">{opt.hint}</span>
+              <span className="text-2xs text-muted-foreground">{opt.hint}</span>
             </button>
           ))}
 
@@ -269,7 +269,7 @@ export function SendBookLinkButton({
         title={accessibleLabel}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
-          compact ? "h-8 px-3 text-[11px]" : "min-h-11 w-full px-4 py-3 text-sm",
+          compact ? "h-8 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
           !visibleLabel && compact && "w-8 px-0",
           className
         )}

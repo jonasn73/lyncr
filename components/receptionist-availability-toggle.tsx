@@ -100,7 +100,7 @@ export function ReceptionistAvailabilityToggle({
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Your status</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Your status</p>
           <p className="mt-1 text-lg font-semibold text-foreground">
             {current ? "Available" : "Unavailable"}
           </p>

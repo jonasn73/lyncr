@@ -185,7 +185,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     required
                     className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     After signup, open Settings → Business numbers first. Your cell is where we ring you by default.
                   </p>
                 </div>
@@ -206,7 +206,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Used to tailor your AI phone assistant when nobody answers (questions match your trade).
                   </p>
                 </div>
@@ -240,7 +240,7 @@ export function AuthPage({ mode, onNavigate, onAuth, invite, inviteToken, invite
                     required
                     className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     This is the number we dial when routing calls to you.
                   </p>
                 </div>
