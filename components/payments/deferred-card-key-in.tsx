@@ -218,7 +218,7 @@ export function DeferredCardKeyInForm(props: {
             }
             void saveCardNoCharge()
           }}
-          className="flex flex-[1.4] items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+          className="flex flex-[1.4] items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
         >
           {busy ? (
             <>

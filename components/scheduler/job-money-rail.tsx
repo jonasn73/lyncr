@@ -308,7 +308,7 @@ export function JobMoneyRail({
           <Button
             type="button"
             size="sm"
-            className="bg-success px-2 text-white hover:bg-success/90"
+            className="bg-success px-2 text-success-foreground hover:bg-success/90"
             disabled={saving || balanceCents < 50}
             onClick={onCollect}
             title="Collect remaining balance"

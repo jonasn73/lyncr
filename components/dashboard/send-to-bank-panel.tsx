@@ -76,7 +76,7 @@ export function SendToBankPanel({
         type="button"
         disabled={busy}
         onClick={() => void send({ fullAvailable: true })}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Banknote className="h-4 w-4" aria-hidden />}
         Send all {fmtCents(availableCents)}

@@ -167,7 +167,7 @@ export function AppointmentConfirmSmsPanel({
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button
           type="button"
-          className="h-11 flex-1 bg-success font-semibold text-white hover:bg-success"
+          className="h-11 flex-1 bg-success font-semibold text-success-foreground hover:bg-success"
           disabled={sending || !text.trim()}
           onClick={() => void sendConfirmation()}
         >

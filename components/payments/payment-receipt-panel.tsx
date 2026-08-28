@@ -131,7 +131,7 @@ export function PaymentReceiptPanel({
             type="button"
             disabled={receiptBusy}
             onClick={onSend}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
           >
             {receiptBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

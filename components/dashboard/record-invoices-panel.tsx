@@ -503,7 +503,7 @@ export function RecordInvoicesPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => void submitRevise()}
-                    className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
+                    className="h-11 w-full gap-2 bg-success text-success-foreground hover:bg-success"
                   >
                     {busy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

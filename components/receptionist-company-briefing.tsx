@@ -295,7 +295,7 @@ export function CompanyBriefingCard({
             <button
               type="button"
               onClick={onAnswer}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-success sm:flex-none sm:px-8"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success sm:flex-none sm:px-8"
             >
               <PhoneCall className="h-4 w-4" aria-hidden />
               Answer

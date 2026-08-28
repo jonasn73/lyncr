@@ -61,7 +61,7 @@ export function CustomerPortalReview({
         </p>
         <a
           href={destinationUrl}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-warning px-6 text-sm font-semibold text-white hover:bg-warning sm:w-auto"
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-warning px-6 text-sm font-semibold text-warning-foreground hover:bg-warning sm:w-auto"
         >
           Leave a review
           <ExternalLink className="h-4 w-4" aria-hidden />

@@ -492,7 +492,7 @@ export function GetPaidSheet({
                       type="button"
                       disabled={sessionBusy || status?.status === "not_configured"}
                       onClick={() => void startEmbedded("onboarding")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                     >
                       {sessionBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -538,7 +538,7 @@ export function GetPaidSheet({
                             type="button"
                             disabled={transferBusy}
                             onClick={() => void sendToBank()}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                           >
                             {transferBusy ? (
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

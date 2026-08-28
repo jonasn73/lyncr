@@ -2937,7 +2937,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               type="button"
               disabled={smsPreviewSending || !smsPreviewDraft.trim()}
               onClick={() => void sendSmsPreview()}
-              className="bg-success text-white hover:bg-success"
+              className="bg-success text-success-foreground hover:bg-success"
             >
               {smsPreviewSending ? (
                 <>
@@ -3069,7 +3069,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 type="button"
                 disabled={receiptBusy}
                 onClick={() => void sendReceiptFromCrm()}
-                className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
+                className="h-11 w-full gap-2 bg-success text-success-foreground hover:bg-success"
               >
                 {receiptBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -3260,7 +3260,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               type="button"
               disabled={recordBusy}
               onClick={() => void sendRecordInvoiceFromCrm()}
-              className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
+              className="h-11 w-full gap-2 bg-success text-success-foreground hover:bg-success"
             >
               {recordBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

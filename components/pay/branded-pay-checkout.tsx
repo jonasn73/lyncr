@@ -172,7 +172,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </p>
           <Link
             href="/pay/thanks"
-            className="mt-6 inline-flex rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-white hover:bg-warning"
+            className="mt-6 inline-flex rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning"
           >
             Done
           </Link>

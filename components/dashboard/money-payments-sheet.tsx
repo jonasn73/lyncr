@@ -622,7 +622,7 @@ export function MoneyPaymentsSheet({
                     type="button"
                     disabled={receiptBusy}
                     onClick={() => void sendInvoice()}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                   >
                     {receiptBusy ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -716,7 +716,7 @@ function PaymentDetail({
         type="button"
         disabled={!canInvoice}
         onClick={onSendInvoice}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Mail className="h-4 w-4" aria-hidden />
         {canInvoice

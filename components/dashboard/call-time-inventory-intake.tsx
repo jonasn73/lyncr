@@ -307,7 +307,7 @@ export function CallTimeInventoryIntake({
         <Button
           type="button"
           size="sm"
-          className="h-7 gap-1 bg-success px-3 text-2xs text-white hover:bg-success"
+          className="h-7 gap-1 bg-success px-3 text-2xs text-success-foreground hover:bg-success"
           disabled={saveBusy}
           onClick={() => {
             setAddOpen(true)

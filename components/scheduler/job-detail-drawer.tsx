@@ -968,7 +968,7 @@ export function JobDetailDrawer({
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <AlertDialogAction
-              className="bg-success text-white hover:bg-success/90"
+              className="bg-success text-success-foreground hover:bg-success/90"
               disabled={saving}
               onClick={(e) => {
                 e.preventDefault()

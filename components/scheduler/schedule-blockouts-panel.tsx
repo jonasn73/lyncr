@@ -43,7 +43,7 @@ export function ScheduleBlockoutsPanel({
           type="button"
           onClick={onAdd}
           className={cn(
-            "shrink-0 rounded-lg bg-warning px-3 text-2xs font-semibold text-white hover:bg-warning",
+            "shrink-0 rounded-lg bg-warning px-3 text-2xs font-semibold text-warning-foreground hover:bg-warning",
             MOBILE_TAP_TARGET
           )}
         >

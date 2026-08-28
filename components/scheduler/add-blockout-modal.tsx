@@ -223,7 +223,7 @@ function AddBlockoutModalForm({
             disabled={saving}
             onClick={() => void handleSave()}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-lg bg-warning text-sm font-semibold text-white hover:bg-warning disabled:opacity-50",
+              "flex flex-1 items-center justify-center gap-2 rounded-lg bg-warning text-sm font-semibold text-warning-foreground hover:bg-warning disabled:opacity-50",
               MOBILE_TAP_TARGET
             )}
           >

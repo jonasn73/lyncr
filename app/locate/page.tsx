@@ -102,7 +102,7 @@ function LocateInner() {
           type="button"
           onClick={shareLocation}
           disabled={status === "sharing"}
-          className="rounded-xl bg-success px-4 py-3 text-base font-semibold text-white disabled:opacity-60"
+          className="rounded-xl bg-success px-4 py-3 text-base font-semibold text-success-foreground disabled:opacity-60"
         >
           {status === "sharing" ? "Sharing…" : "Allow live GPS"}
         </button>

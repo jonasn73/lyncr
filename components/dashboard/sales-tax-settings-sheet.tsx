@@ -165,7 +165,7 @@ export function SalesTaxSettingsSheet({
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="h-11 w-full bg-success text-sm font-semibold text-white hover:bg-success"
+                className="h-11 w-full bg-success text-sm font-semibold text-success-foreground hover:bg-success"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Save"}
               </Button>

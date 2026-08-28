@@ -23,15 +23,15 @@ export const MOBILE_SNAP_ROW =
 
 /** Uppercase section eyebrow used across Lines mobile blocks. */
 export const LINES_MOBILE_SECTION_LABEL =
-  "text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
+  "text-micro font-semibold uppercase tracking-wider text-muted-foreground"
 
 /** Default inactive / resting card surface on Lines mobile. */
 export const LINES_MOBILE_CARD =
-  "rounded-xl border border-zinc-800/90 bg-zinc-900/40"
+  "rounded-xl border border-border/90 bg-card/40"
 
 /** Emerald “on / live / enabled” card tint (Presence Available, Rescue on). */
 export const LINES_MOBILE_CARD_ACTIVE =
-  "rounded-xl border border-emerald-500/40 bg-emerald-500/10"
+  "rounded-xl border border-success/40 bg-success/10"
 
 /** Horizontal padding shared by sticky chrome + scroll body on phones. */
 export const LINES_MOBILE_PAGE_X = "px-3"

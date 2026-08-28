@@ -421,7 +421,7 @@ export function IntakeScheduleDialog({
           </Button>
           <Button
             type="button"
-            className="bg-success text-white hover:bg-success"
+            className="bg-success text-success-foreground hover:bg-success"
             onClick={() => void handleSchedule()}
             disabled={saving || loading || notFound || !canSave}
           >

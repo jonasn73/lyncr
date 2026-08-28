@@ -1421,7 +1421,7 @@ export function TechPaymentModal(props: {
                 (method === "card" && !savedPaymentMethodId)
               }
               onClick={() => confirmTipAndCharge()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
             >
               {busy || tapListening ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -1472,7 +1472,7 @@ export function TechPaymentModal(props: {
               type="button"
               disabled={slipBusy}
               onClick={() => void continueFromSign()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
             >
               {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               {postPaySignPrimaryCta(Boolean(signaturePng))}
@@ -1531,7 +1531,7 @@ export function TechPaymentModal(props: {
                   type="button"
                   disabled={finishBusy}
                   onClick={() => void finishJobAfterPay("thanks")}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-success py-4 text-base font-semibold text-white shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success disabled:opacity-50"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-success py-4 text-base font-semibold text-success-foreground shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success disabled:opacity-50"
                 >
                   {finishBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                   Complete &amp; send thanks
@@ -1544,7 +1544,7 @@ export function TechPaymentModal(props: {
                 className={cn(
                   "flex min-h-11 w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
                   props.job.review_sms_sent_at
-                    ? "bg-success text-white shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success"
+                    ? "bg-success text-success-foreground shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success"
                     : "border border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card/70 hover:text-foreground"
                 )}
               >
@@ -1628,7 +1628,7 @@ export function TechPaymentModal(props: {
             <button
               type="button"
               onClick={() => props.onCompleted()}
-              className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success"
+              className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success"
             >
               Done
             </button>
@@ -2024,7 +2024,7 @@ export function TechPaymentModal(props: {
             type="button"
             disabled={busy || !hasUsableSmsPhone(linkPhone)}
             onClick={sendPayLink}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

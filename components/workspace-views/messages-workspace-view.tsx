@@ -1212,7 +1212,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-success text-white"
+                              : "rounded-br-md bg-success text-success-foreground"
                             : "rounded-bl-md border border-border/60 bg-muted/50 text-foreground"
                         )}
                       >

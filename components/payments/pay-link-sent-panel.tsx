@@ -104,7 +104,7 @@ export function PayLinkSentPanel({
       <button
         type="button"
         onClick={onDone}
-        className="flex w-full items-center justify-center rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success"
+        className="flex w-full items-center justify-center rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success"
       >
         Done
       </button>

@@ -1536,7 +1536,7 @@ function LatestActionDetail({
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-success text-white"
+                              : "rounded-br-md bg-success text-success-foreground"
                             : "rounded-bl-md border border-sky-500/35 bg-sky-500/10 text-foreground"
                         )}
                       >
@@ -1821,7 +1821,7 @@ function LatestActionDetail({
               "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold",
               // Paid detail: Open job is primary only when thanks already handled.
               isPaidEvent && !item.thanksReviewPending
-                ? "bg-success text-white hover:bg-success"
+                ? "bg-success text-success-foreground hover:bg-success"
                 : "border border-border/60 text-foreground hover:bg-muted/40"
             )}
           >

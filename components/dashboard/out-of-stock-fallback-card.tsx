@@ -271,7 +271,7 @@ export function OutOfStockFallbackCard({
           </div>
           <Button
             type="button"
-            className="mt-2.5 h-11 w-full bg-warning text-white hover:bg-warning"
+            className="mt-2.5 h-11 w-full bg-warning text-warning-foreground hover:bg-warning"
             disabled={specialBusy || !intake.customer_name.trim() || !intake.caller_e164.trim()}
             onClick={() => void generateSpecialOrder()}
           >

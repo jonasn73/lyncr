@@ -622,7 +622,7 @@ export function KeySelectionCard({
       >
         {selected ? (
           <span
-            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-success text-white shadow-resting"
+            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-success text-success-foreground shadow-resting"
             aria-hidden
           >
             <Check className="h-3 w-3" strokeWidth={3} />

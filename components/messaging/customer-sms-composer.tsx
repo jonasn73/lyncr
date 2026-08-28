@@ -266,7 +266,7 @@ export function CustomerSmsComposer({
               size="sm"
               disabled={busy}
               onClick={sendRunningLate}
-              className="shrink-0 bg-warning text-white hover:bg-warning"
+              className="shrink-0 bg-warning text-warning-foreground hover:bg-warning"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Send late text"}
             </Button>

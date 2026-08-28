@@ -458,7 +458,7 @@ function AdhocCardForm({
             }
             void pay()
           }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
         >
           {busy ? (
             <>
@@ -1934,7 +1934,7 @@ export function OwnerCollectPaymentSheet({
                         // Let Collect close, then open bank setup above anything else.
                         window.setTimeout(() => openGetPaidModal(), 50)
                       }}
-                      className="mt-2.5 w-full rounded-lg bg-success py-3 text-sm font-semibold text-white hover:bg-success"
+                      className="mt-2.5 w-full rounded-lg bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success"
                     >
                       Open bank setup
                     </button>
@@ -2181,7 +2181,7 @@ export function OwnerCollectPaymentSheet({
                     type="button"
                     disabled={adhocBusy || !hasUsableSmsPhone(payLinkPhone)}
                     onClick={() => void sendAdhocPayLink()}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-success py-3 text-xs font-semibold text-white disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-success py-3 text-xs font-semibold text-success-foreground disabled:opacity-50"
                   >
                     {adhocBusy ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -2358,7 +2358,7 @@ export function OwnerCollectPaymentSheet({
                       (pendingMethod === "card" && !savedPaymentMethodId)
                     }
                     onClick={() => confirmTipAndCharge()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                   >
                     {adhocBusy ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -2388,7 +2388,7 @@ export function OwnerCollectPaymentSheet({
                   type="button"
                   disabled={slipBusy}
                   onClick={() => void continueFromSign()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
                 >
                   {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                   {postPaySignPrimaryCta(Boolean(signaturePng))}

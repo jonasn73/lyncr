@@ -173,7 +173,7 @@ export function OperatorPayoutLedger() {
                       <Button
                         type="button"
                         size="sm"
-                        className="bg-success text-white hover:bg-success disabled:opacity-40"
+                        className="bg-success text-success-foreground hover:bg-success disabled:opacity-40"
                         disabled={payingId === r.receptionist_id || r.accrued_usd <= 0}
                         onClick={() => void markPaid(r)}
                       >

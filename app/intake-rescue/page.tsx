@@ -457,7 +457,7 @@ function IntakeRescueInner() {
             type="button"
             disabled={busy}
             onClick={() => void submit()}
-            className="h-11 w-full rounded-xl bg-success text-base font-semibold text-white disabled:opacity-60"
+            className="h-11 w-full rounded-xl bg-success text-base font-semibold text-success-foreground disabled:opacity-60"
           >
             {status === "submitting" ? "Submitting…" : "Submit intake info"}
           </button>

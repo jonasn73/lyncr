@@ -64,7 +64,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
               <p className="mt-1 text-sm text-foreground">{invoice.businessPhone}</p>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-full bg-success px-3 py-2 text-2xs font-extrabold tracking-wide text-white">
+          <span className="shrink-0 rounded-full bg-success px-3 py-2 text-2xs font-extrabold tracking-wide text-success-foreground">
             PAID
           </span>
         </div>

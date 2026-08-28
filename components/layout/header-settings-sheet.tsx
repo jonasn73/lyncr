@@ -596,7 +596,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     setMoneyOpen(false)
                     openGetPaidModal()
                   }}
-                  className="mt-3 h-11 w-full bg-success text-sm font-semibold text-white hover:bg-success"
+                  className="mt-3 h-11 w-full bg-success text-sm font-semibold text-success-foreground hover:bg-success"
                 >
                   Set up bank for payouts
                 </Button>
@@ -686,7 +686,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <Button
               type="button"
               onClick={openCollect}
-              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-success px-4 py-3 text-white hover:bg-success"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-success px-4 py-3 text-success-foreground hover:bg-success"
             >
               <span className="text-sm font-semibold">Collect from customer</span>
               <span className="text-2xs font-medium text-success/85">
