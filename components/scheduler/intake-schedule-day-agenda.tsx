@@ -84,7 +84,7 @@ export function IntakeScheduleDayAgenda({
                     className={cn(
                       "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                       isConflict
-                        ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15"
+                        ? "border-warning/40 bg-warning/10 hover:bg-warning/15"
                         : "border-border/60 bg-background/60 hover:bg-background"
                     )}
                   >
@@ -93,7 +93,7 @@ export function IntakeScheduleDayAgenda({
                         {formatSchedulerEventWindow(ev)}
                       </span>
                       {isConflict ? (
-                        <span className="shrink-0 rounded bg-amber-500/20 px-2 py-0.5 text-micro font-semibold uppercase text-amber-300">
+                        <span className="shrink-0 rounded bg-warning/20 px-2 py-0.5 text-micro font-semibold uppercase text-warning">
                           Overlap
                         </span>
                       ) : null}
@@ -114,8 +114,8 @@ export function IntakeScheduleDayAgenda({
         )}
 
         {timeValue && conflicts.length > 0 ? (
-          <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden />
+          <div className="mt-3 flex gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
             <p>
               {customerName ?? "This job"} overlaps {conflicts.length} existing booking
               {conflicts.length === 1 ? "" : "s"}. You can still schedule it — adjust time if needed.

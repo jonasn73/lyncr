@@ -136,7 +136,7 @@ export function JobEditWorkflow({
           <button
             type="button"
             onClick={onBackToOverview}
-            className="mr-8 shrink-0 text-2xs font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-emerald-300 hover:underline"
+            className="mr-8 shrink-0 text-2xs font-semibold text-muted-foreground underline-offset-2 transition-all duration-150 hover:text-success hover:underline"
           >
             Back to overview
           </button>
@@ -385,7 +385,7 @@ export function JobEditWorkflow({
           </div>
         </section>
 
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </div>
 
       {/* Sticky footer — always visible; body scrolls above it. */}
@@ -412,7 +412,7 @@ export function JobEditWorkflow({
         </Button>
         <button
           type="button"
-          className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-red-950/55 transition-colors hover:text-red-900/80 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 flex w-full items-center justify-center gap-2 py-1 text-xs font-semibold text-destructive/55 transition-colors hover:text-destructive/80 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={onDeleteRequest}
           disabled={saving || deleting}
         >

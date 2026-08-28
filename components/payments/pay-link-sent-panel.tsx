@@ -53,11 +53,11 @@ export function PayLinkSentPanel({
 
         <div className="relative flex flex-col items-center pt-1">
           {/* Big check as the visual star. */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 shadow-[0_0_28px_-4px] shadow-emerald-500/40 ring-1 ring-emerald-400/40">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_28px_-4px] shadow-success/40 ring-1 ring-success/40">
             <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
           </div>
 
-          <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+          <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.14em] text-success/80">
             Link sent
           </p>
 
@@ -80,7 +80,7 @@ export function PayLinkSentPanel({
           <p className="break-all text-micro text-muted-foreground">{linkUrl}</p>
           <button
             type="button"
-            className="mt-1.5 text-2xs font-semibold text-emerald-300 underline"
+            className="mt-1.5 text-2xs font-semibold text-success underline"
             onClick={() => {
               void navigator.clipboard?.writeText(linkUrl)
             }}
@@ -104,7 +104,7 @@ export function PayLinkSentPanel({
       <button
         type="button"
         onClick={onDone}
-        className="flex w-full items-center justify-center rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+        className="flex w-full items-center justify-center rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success"
       >
         Done
       </button>

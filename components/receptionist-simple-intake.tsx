@@ -83,15 +83,15 @@ export function ReceptionistSimpleIntake({
           className="w-full resize-y rounded-lg border border-border/70 bg-card/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
         />
       </label>
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
-      {saved ? <p className="text-xs text-emerald-300">Saved — owner can see this lead.</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {saved ? <p className="text-xs text-success">Saved — owner can see this lead.</p> : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => void submit()}
           disabled={saving || saved || (!callerName.trim() && !notes.trim())}
           className={cn(
-            "inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400",
+            "inline-flex items-center gap-2 rounded-lg bg-success px-3 py-2 text-sm font-semibold text-success transition hover:bg-success",
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >

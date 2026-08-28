@@ -40,21 +40,21 @@ function webStatusLabel(
 ): { text: string; dot: string } {
   switch (status) {
     case "connecting":
-      return { text: "Connecting your browser…", dot: "bg-amber-400" }
+      return { text: "Connecting your browser…", dot: "bg-warning" }
     case "registered":
       return browserInboundLive
-        ? { text: "Browser ready for calls", dot: "bg-emerald-400" }
-        : { text: "Browser registered — inbound still rings Cell", dot: "bg-amber-400" }
+        ? { text: "Browser ready for calls", dot: "bg-success" }
+        : { text: "Browser registered — inbound still rings Cell", dot: "bg-warning" }
     case "ringing":
-      return { text: "Incoming call ringing your browser", dot: "bg-emerald-400 animate-pulse" }
+      return { text: "Incoming call ringing your browser", dot: "bg-success animate-pulse" }
     case "active":
-      return { text: "On a browser call", dot: "bg-emerald-400" }
+      return { text: "On a browser call", dot: "bg-success" }
     case "reconnecting":
-      return { text: "Reconnecting your browser…", dot: "bg-amber-400 animate-pulse" }
+      return { text: "Reconnecting your browser…", dot: "bg-warning animate-pulse" }
     case "not_provisioned":
       return { text: "Browser calling not set up yet — using your cell", dot: "bg-zinc-500" }
     case "error":
-      return { text: "Browser calling error — using your cell", dot: "bg-red-400" }
+      return { text: "Browser calling error — using your cell", dot: "bg-destructive" }
     default:
       return { text: "", dot: "bg-zinc-600" }
   }
@@ -141,17 +141,17 @@ export function ReceptionistEndpointToggle({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className={cn("inline-block h-1.5 w-1.5 rounded-full", status.dot)} aria-hidden />
           <span>{status.text}</span>
-          {webStatus === "error" && webError ? <span className="text-red-400">· {webError}</span> : null}
+          {webStatus === "error" && webError ? <span className="text-destructive">· {webError}</span> : null}
         </div>
       ) : null}
 
       {showBrowserNotLive ? (
-        <p className="rounded-md border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
+        <p className="rounded-md border border-warning/25 bg-warning/20 px-3 py-2 text-xs text-warning">
           Browser ringing not live yet — use Cell. Inbound Call Control still dials your phone.
         </p>
       ) : null}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </>
   )
 

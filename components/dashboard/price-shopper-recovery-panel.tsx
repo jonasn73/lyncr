@@ -78,16 +78,16 @@ export function PriceShopperRecoveryPanel({
   return (
     <fieldset
       className={cn(
-        "grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5",
+        "grid gap-2 rounded-lg border border-warning/30 bg-warning/5",
         compact ? "p-3" : "p-3",
         className
       )}
     >
-      <legend className="px-1 text-micro font-semibold uppercase tracking-wide text-amber-300">
+      <legend className="px-1 text-micro font-semibold uppercase tracking-wide text-warning">
         Price-shopper recovery
       </legend>
       {negotiationDiscountApplied || quotedPriceOverridden ? (
-        <p className="text-2xs text-amber-100/90">
+        <p className="text-2xs text-warning/90">
           Last pitched quote: ${parseQuoteDollars(customPrice, baselineTotalCents)}
           {negotiationDiscountApplied
             ? ` (${negotiationDiscountLabel(negotiationDiscountApplied)})`
@@ -147,7 +147,7 @@ export function PriceShopperRecoveryPanel({
                 Customer declined this but is still negotiating →
               </button>
               {recoveredViaRouteDiscount ? (
-                <p className="text-2xs text-emerald-300">
+                <p className="text-2xs text-success">
                   Route discount applied — confirm the job when the customer accepts.
                 </p>
               ) : null}
@@ -214,7 +214,7 @@ export function PriceShopperRecoveryPanel({
         type="button"
         variant="outline"
         size="lg"
-        className="w-full gap-2 border-amber-500/40 text-amber-100 hover:bg-amber-500/10"
+        className="w-full gap-2 border-warning/40 text-warning hover:bg-warning/10"
         disabled={lostLeadState === "saving" || !canLogLostLead}
         onClick={onLogLostLead}
       >
@@ -226,11 +226,11 @@ export function PriceShopperRecoveryPanel({
         Customer declined price / hang up
       </Button>
       {lostLeadState === "saved" ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Lost lead logged — recovery SMS will queue after 20 minutes.
         </p>
       ) : null}
-      {lostLeadError ? <p className="text-xs text-red-300">{lostLeadError}</p> : null}
+      {lostLeadError ? <p className="text-xs text-destructive">{lostLeadError}</p> : null}
     </fieldset>
   )
 }

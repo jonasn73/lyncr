@@ -84,18 +84,18 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         className={cn(
           "flex items-start gap-3 rounded-xl border px-4 py-4",
           isRejected
-            ? "border-red-500/30 bg-red-500/10"
+            ? "border-destructive/30 bg-destructive/10"
             : isApproved
-              ? "border-emerald-500/30 bg-emerald-500/10"
-              : "border-amber-500/30 bg-amber-500/10"
+              ? "border-success/30 bg-success/10"
+              : "border-warning/30 bg-warning/10"
         )}
       >
         {isRejected ? (
-          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" aria-hidden />
+          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
         ) : isApproved ? (
-          <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" aria-hidden />
+          <Check className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden />
         ) : (
-          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden />
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{headline}</p>
@@ -126,9 +126,9 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                   <span
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
-                      state === "done" && "border-emerald-500/50 bg-emerald-500/15 text-emerald-300",
-                      state === "current" && "border-amber-500/50 bg-amber-500/15 text-amber-200",
-                      state === "failed" && "border-red-500/50 bg-red-500/15 text-red-300",
+                      state === "done" && "border-success/50 bg-success/15 text-success",
+                      state === "current" && "border-warning/50 bg-warning/15 text-warning",
+                      state === "failed" && "border-destructive/50 bg-destructive/15 text-destructive",
                       state === "upcoming" && "border-border bg-card text-muted-foreground"
                     )}
                   >
@@ -138,7 +138,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                     <span
                       className={cn(
                         "hidden h-px flex-1 sm:block sm:h-8 sm:w-px sm:flex-none",
-                        state === "done" ? "bg-emerald-500/40" : "bg-muted"
+                        state === "done" ? "bg-success/40" : "bg-muted"
                       )}
                       aria-hidden
                     />
@@ -147,9 +147,9 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                 <span
                   className={cn(
                     "text-xs font-medium leading-snug",
-                    state === "current" && isReview && "text-amber-200",
-                    state === "failed" && "text-red-200",
-                    state === "done" && "text-emerald-200/90",
+                    state === "current" && isReview && "text-warning",
+                    state === "failed" && "text-destructive",
+                    state === "done" && "text-success/90",
                     state === "upcoming" && "text-muted-foreground"
                   )}
                 >
@@ -183,11 +183,11 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       {summary.rejection_reason ? (
-        <div role="alert" className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-red-300">Carrier rejection reason</p>
-          <p className="mt-2 text-sm leading-relaxed text-red-100/90">{summary.rejection_reason}</p>
+        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/40 px-4 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-destructive">Carrier rejection reason</p>
+          <p className="mt-2 text-sm leading-relaxed text-destructive/90">{summary.rejection_reason}</p>
           {isRejected ? (
-            <div className="mt-3 space-y-2 text-xs leading-relaxed text-red-200/80">
+            <div className="mt-3 space-y-2 text-xs leading-relaxed text-destructive/80">
               {/710|agency|reseller|non-compliant kyc/i.test(summary.rejection_reason) ? (
                 <p>
                   Fix for error <strong>710</strong>: register <em>your</em> brand (legal EIN name + your own
@@ -200,7 +200,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                   href="/sms-opt-in"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-red-100 underline underline-offset-2 hover:text-white"
+                  className="font-medium text-destructive underline underline-offset-2 hover:text-white"
                 >
                   /sms-opt-in
                 </a>
@@ -212,8 +212,8 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       ) : null}
 
       {!isRejected && summary.status_detail && isReview ? (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-amber-400/90">Latest carrier update</p>
+        <div className="rounded-xl border border-warning/25 bg-warning/5 px-4 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-warning/90">Latest carrier update</p>
           <p className="mt-2 text-sm text-muted-foreground">{summary.status_detail}</p>
         </div>
       ) : null}

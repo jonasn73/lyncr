@@ -166,14 +166,14 @@ export function OperatorPayoutLedger() {
                     <TableCell className="text-right tabular-nums text-foreground">{formatUsd(r.rate_per_minute)}</TableCell>
                     <TableCell className="text-right tabular-nums text-foreground">{formatUsd(r.earned_usd)}</TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{formatUsd(r.paid_usd)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-emerald-300">
+                    <TableCell className="text-right font-semibold tabular-nums text-success">
                       {formatUsd(r.accrued_usd)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
                         size="sm"
-                        className="bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40"
+                        className="bg-success text-white hover:bg-success disabled:opacity-40"
                         disabled={payingId === r.receptionist_id || r.accrued_usd <= 0}
                         onClick={() => void markPaid(r)}
                       >

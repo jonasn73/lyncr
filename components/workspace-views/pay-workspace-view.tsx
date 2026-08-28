@@ -305,7 +305,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       ) : null}
 
       {needsCarrierCredit ? (
-        <p className="rounded-xl border border-amber-500/35 bg-amber-950/35 px-4 py-3 text-sm text-foreground/90">
+        <p className="rounded-xl border border-warning/35 bg-warning/35 px-4 py-3 text-sm text-foreground/90">
           Your subscription is active, but your line is not live yet. Add at least{" "}
           {billing?.telnyx_number_purchase_label ?? "$2.00"} carrier credit below — then we will purchase and wire
           your number automatically.

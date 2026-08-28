@@ -74,9 +74,9 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold",
                   isRejected
-                    ? "border-red-500/50 bg-red-950/60 text-red-300"
+                    ? "border-destructive/50 bg-destructive/60 text-destructive"
                     : done || (current && order?.status === "completed")
-                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                      ? "border-success/50 bg-success/15 text-success"
                       : current
                         ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
                         : "border-border bg-card text-muted-foreground"
@@ -173,15 +173,15 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       {showActionBanner ? (
         <div
           role="alert"
-          className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3"
+          className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-3"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-amber-100">
+              <p className="text-sm font-semibold text-warning">
                 Action needed: the porting team left an update on this transfer
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+              <p className="mt-1 text-xs leading-relaxed text-warning/80">
                 {actionAlert?.body
                   ? displayPortingMessageBody(actionAlert.body).slice(0, 220)
                   : "Open Messages to read carrier questions (PIN, bill copy, LOA fixes) and reply."}
@@ -189,7 +189,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
               <button
                 type="button"
                 onClick={() => void openMessages()}
-                className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-amber-200 underline underline-offset-2 hover:text-amber-100"
+                className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-warning underline underline-offset-2 hover:text-warning"
               >
                 <MessageSquare className="h-3.5 w-3.5" aria-hidden />
                 Open messages & reply
@@ -225,7 +225,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
         <MessageSquare className="h-4 w-4" aria-hidden />
         Transfer messages
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-micro font-bold text-amber-950">
+          <span className="rounded-full bg-warning px-2 py-0.5 text-micro font-bold text-warning">
             {unreadCount} new
           </span>
         ) : null}

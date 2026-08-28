@@ -144,7 +144,7 @@ export function InvoicePreviewSheet({
             <a
               href={pdfHref}
               download
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success"
             >
               <Download className="h-4 w-4" aria-hidden />
               Download PDF

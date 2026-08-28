@@ -314,7 +314,7 @@ export default function BookPageClient({
           Loading…
         </div>
       ) : error && !data ? (
-        <p className="rounded-xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+        <p className="rounded-xl border border-destructive/50 bg-destructive/40 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : payHandoffUrl || wizardStep === "pay" ? (
@@ -334,9 +334,9 @@ export default function BookPageClient({
           ) : null}
         </div>
       ) : submitted || wizardStep === "done" ? (
-        <div className="rounded-2xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-6 text-center">
-          <p className="text-base font-semibold text-emerald-100">{successCopy.title}</p>
-          <p className="mt-2 text-sm text-emerald-200/90">{successCopy.body}</p>
+        <div className="rounded-2xl border border-success/50 bg-success/40 px-4 py-6 text-center">
+          <p className="text-base font-semibold text-success">{successCopy.title}</p>
+          <p className="mt-2 text-sm text-success/90">{successCopy.body}</p>
           <p className="mt-3 text-xs text-muted-foreground">{successCopy.nextHint}</p>
         </div>
       ) : (
@@ -574,7 +574,7 @@ export default function BookPageClient({
                 </fieldset>
 
                 {error ? (
-                  <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                  <p className="rounded-lg border border-destructive/50 bg-destructive/40 px-3 py-2 text-xs text-destructive">
                     {error}
                   </p>
                 ) : null}
@@ -687,7 +687,7 @@ export default function BookPageClient({
               )}
 
               {error ? (
-                <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                <p className="rounded-lg border border-destructive/50 bg-destructive/40 px-3 py-2 text-xs text-destructive">
                   {error}
                 </p>
               ) : null}

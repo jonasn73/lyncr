@@ -218,7 +218,7 @@ function RepeatCustomerCrmChips({
     <div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-1" : "mt-1.5")}>
       {hasOpenQuote ? (
         <span
-          className="inline-flex items-center rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-micro font-semibold text-amber-100"
+          className="inline-flex items-center rounded-md border border-warning/35 bg-warning/10 px-2 py-0.5 text-micro font-semibold text-warning"
           title="Booking upgrades this open quote lead — no duplicate"
         >
           {crmOpenLeadQuoteCents != null && crmOpenLeadQuoteCents > 0
@@ -334,8 +334,8 @@ function ReturningCallerDecisionCard({
   // Draft-only (no CRM) — keep a compact chooser, not a fake profile.
   if (!hasCrmHistory) {
     return (
-      <div className="mx-3 mt-1 rounded-xl border border-amber-500/35 bg-amber-500/5 px-3 py-3 sm:mx-4">
-        <p className="text-2xs font-semibold text-amber-100">Saved draft</p>
+      <div className="mx-3 mt-1 rounded-xl border border-warning/35 bg-warning/5 px-3 py-3 sm:mx-4">
+        <p className="text-2xs font-semibold text-warning">Saved draft</p>
         <p className="mt-0.5 text-base font-semibold text-foreground">{customerName}</p>
         {pendingDraft ? (
           <p className="mt-1 text-2xs text-muted-foreground">
@@ -344,7 +344,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onDismissDraft}
-              className="ml-2 text-micro font-medium text-amber-200/70 underline-offset-2 hover:text-amber-100 hover:underline"
+              className="ml-2 text-micro font-medium text-warning/70 underline-offset-2 hover:text-warning hover:underline"
             >
               Dismiss
             </button>
@@ -355,7 +355,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onRestoreDraft}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-amber-400/50 bg-amber-400/90 px-3 py-2 text-xs font-semibold text-zinc-950 touch-manipulation hover:bg-amber-300 active:scale-[0.98]"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-warning/50 bg-warning/90 px-3 py-2 text-xs font-semibold text-zinc-950 touch-manipulation hover:bg-warning active:scale-[0.98]"
             >
               Restore draft
             </button>
@@ -397,24 +397,24 @@ function ReturningCallerDecisionCard({
             </p>
           ) : null}
           {(lastPaidLine || lifetimePaidLine) && (
-            <p className="mt-1 text-2xs leading-snug text-emerald-200/90">
+            <p className="mt-1 text-2xs leading-snug text-success/90">
               {lastPaidLine}
               {lastPaidLine && lifetimePaidLine ? " · " : null}
               {lifetimePaidLine}
             </p>
           )}
           {recentCallLine ? (
-            <p className="mt-1 text-2xs font-medium text-amber-400/90">{recentCallLine}</p>
+            <p className="mt-1 text-2xs font-medium text-warning/90">{recentCallLine}</p>
           ) : null}
         </div>
 
         <div className="mt-2 space-y-2">
           {activeJobId ? (
-            <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
-              <p className="text-micro font-semibold uppercase tracking-wider text-amber-200">
+            <div className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wider text-warning">
                 Active job
               </p>
-              <p className="mt-0.5 text-xs font-medium text-amber-50">
+              <p className="mt-0.5 text-xs font-medium text-warning">
                 {activeJobMeta || "In progress"}
               </p>
             </div>
@@ -446,14 +446,14 @@ function ReturningCallerDecisionCard({
             </div>
           ) : null}
           {pendingDraft ? (
-            <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
-              <p className="text-2xs text-amber-100/90">
+            <div className="rounded-lg border border-warning/25 bg-warning/5 px-3 py-2">
+              <p className="text-2xs text-warning/90">
                 Draft · {formatDraftSavedAgo(pendingDraft.savedAt)}
                 {draftStepLabel ? ` · ${draftStepLabel}` : ""}
                 <button
                   type="button"
                   onClick={onDismissDraft}
-                  className="ml-2 text-micro font-medium text-amber-200/70 underline-offset-2 hover:underline"
+                  className="ml-2 text-micro font-medium text-warning/70 underline-offset-2 hover:underline"
                 >
                   Dismiss
                 </button>
@@ -509,7 +509,7 @@ function ReturningCallerDecisionCard({
               className={cn(
                 "inline-flex w-full items-center justify-center rounded-lg border px-3 py-3 text-sm font-semibold touch-manipulation transition-colors active:scale-[0.98]",
                 emphasizeJob
-                  ? "border-amber-400/60 bg-amber-500/25 text-amber-50 hover:bg-amber-500/35"
+                  ? "border-warning/60 bg-warning/25 text-warning hover:bg-warning/35"
                   : "border-sky-400/60 bg-sky-500/25 text-sky-50 hover:bg-sky-500/35"
               )}
             >
@@ -743,7 +743,7 @@ function IntakeAutoSaveStatus({
         <>
           <motion.span
             layout
-            className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"
+            className="inline-block h-1.5 w-1.5 rounded-full bg-success"
             animate={
               draftPulse
                 ? { scale: [1, 1.5, 1], opacity: [0.45, 1, 0.65], boxShadow: "0 0 8px rgba(52,211,153,0.9)" }
@@ -783,25 +783,25 @@ function IntakeDraftRestoreBanner({
 }) {
   return (
     <div
-      className="mx-3 mt-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 sm:mx-4"
+      className="mx-3 mt-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-warning/35 bg-warning/10 px-3 py-2 sm:mx-4"
       role="status"
       aria-live="polite"
     >
-      <p className="min-w-0 flex-1 text-xs font-medium text-amber-50">
+      <p className="min-w-0 flex-1 text-xs font-medium text-warning">
         Saved draft from {formatDraftSavedAgo(draft.savedAt)}
       </p>
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
           onClick={onRestore}
-          className="inline-flex h-8 items-center rounded-lg bg-amber-400/90 px-3 text-2xs font-semibold text-zinc-950 hover:bg-amber-300"
+          className="inline-flex h-8 items-center rounded-lg bg-warning/90 px-3 text-2xs font-semibold text-zinc-950 hover:bg-warning"
         >
           Restore draft
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex h-8 items-center rounded-lg px-2 text-2xs font-semibold text-amber-100/80 hover:bg-amber-500/20 hover:text-amber-50"
+          className="inline-flex h-8 items-center rounded-lg px-2 text-2xs font-semibold text-warning/80 hover:bg-warning/20 hover:text-warning"
         >
           Dismiss
         </button>
@@ -824,7 +824,7 @@ function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
           role="status"
           aria-live="polite"
         >
-          <p className="rounded-full border border-emerald-500/40 bg-background/95 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
+          <p className="rounded-full border border-success/40 bg-background/95 px-4 py-2 text-xs font-medium text-success shadow-lg backdrop-blur">
             Draft restored.
           </p>
         </motion.div>
@@ -4184,12 +4184,12 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
             {/* Compact sticky banner after Restore — hide on Vehicle so the year grid wins. */}
             {continuingDraft && !showReturningCallerCard && currentStep !== "VEHICLE_INFO" ? (
               <div
-                className="sticky top-0 z-20 shrink-0 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1"
+                className="sticky top-0 z-20 shrink-0 border-b border-warning/25 bg-warning/10 px-4 py-1"
                 role="status"
               >
-                <p className="truncate text-2xs font-medium text-amber-50/95">
+                <p className="truncate text-2xs font-medium text-warning/95">
                   Continuing draft for{" "}
-                  <span className="font-semibold text-amber-50">
+                  <span className="font-semibold text-warning">
                     {matchedCustomer?.display_name?.trim() ||
                       form.displayName.trim() ||
                       "this caller"}
@@ -4395,7 +4395,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 3rd-party sites, then type anything useful here.
                               </p>
                               {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                                <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                                <div className="text-xs font-medium uppercase tracking-wide text-success">
                                   {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
                                     .filter(Boolean)
                                     .join(" ")}
@@ -4447,7 +4447,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   className={cn(
                                     "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "mobile"
-                                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                                      ? "border-success/50 bg-success/15 text-success"
                                       : "border-border bg-card text-foreground"
                                   )}
                                 >
@@ -4465,7 +4465,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   className={cn(
                                     "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "shop"
-                                      ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
+                                      ? "border-warning/50 bg-warning/15 text-warning"
                                       : "border-border bg-card text-foreground"
                                   )}
                                 >
@@ -4489,7 +4489,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                 Location
                               </legend>
                               {requiresVehicle && serviceTypeId === "key_generation" ? (
-                                <p className="text-2xs text-amber-200/90">
+                                <p className="text-2xs text-warning/90">
                                   AKL: get the address before you quote.
                                 </p>
                               ) : null}
@@ -4533,7 +4533,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     type="button"
                                     onClick={() => void requestLiveGps()}
                                     disabled={gpsRequestState === "sending"}
-                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-2xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                                    className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-success/50 bg-success/15 px-3 text-2xs font-bold text-success transition-colors hover:bg-success/25 disabled:opacity-50"
                                     title="Text customer a live GPS share link"
                                   >
                                     {gpsRequestState === "sending" ? (
@@ -4545,7 +4545,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   </button>
                                 </div>
                                 {gpsRequestState === "sent" ? (
-                                  <p className="text-micro text-emerald-400">
+                                  <p className="text-micro text-success">
                                     Locate link texted — waiting for customer GPS…
                                   </p>
                                 ) : null}
@@ -4682,8 +4682,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
 
                           {currentStep === "BOOKING_COMPLETE" ? (
                             <div className="flex flex-col items-stretch gap-4 py-2">
-                              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-4 text-center">
-                                <p className="inline-flex items-center rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 py-1 text-2xs font-bold uppercase tracking-wider text-emerald-200">
+                              <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-4 text-center">
+                                <p className="inline-flex items-center rounded-full border border-success/50 bg-success/20 px-3 py-1 text-2xs font-bold uppercase tracking-wider text-success">
                                   Booking secured
                                 </p>
                                 <p className="mt-3 text-lg font-semibold text-foreground">
@@ -4723,7 +4723,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   }}
                                 />
                               ) : confirmSmsResolved ? (
-                                <p className="text-center text-2xs font-medium text-emerald-200/90">
+                                <p className="text-center text-2xs font-medium text-success/90">
                                   {confirmSmsDraft
                                     ? "Confirmation SMS handled — you can open the scheduler or close."
                                     : "Booking saved."}
@@ -4777,7 +4777,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                       onChange={setVehicle}
                     />
                     {(form.vehicleYear || form.vehicleMake || form.vehicleModel) ? (
-                      <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+                      <div className="text-xs font-medium uppercase tracking-wide text-success">
                         Selected Vehicle: {[form.vehicleYear, form.vehicleMake, form.vehicleModel]
                           .filter(Boolean)
                           .join(" ")}
@@ -4967,7 +4967,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         type="button"
                         onClick={() => void requestLiveGps()}
                         disabled={gpsRequestState === "sending"}
-                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-2xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                        className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-success/50 bg-success/15 px-3 text-2xs font-bold text-success transition-colors hover:bg-success/25 disabled:opacity-50"
                       >
                         {gpsRequestState === "sending" ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -4979,8 +4979,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     </div>
                   </div>
                   {matchedCustomer ? (
-                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                      <p className="text-2xs font-semibold text-amber-200">Returning caller</p>
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2">
+                      <p className="text-2xs font-semibold text-warning">Returning caller</p>
                       <p className="mt-0.5 text-sm font-semibold text-foreground">
                         {matchedCustomer.display_name?.trim() || "Returning caller"}
                       </p>
@@ -5074,7 +5074,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           variant="secondary"
                           size="lg"
-                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          className="h-11 w-full border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                           disabled={jobState === "creating" || !canSaveQuoteLead}
                           onClick={() => void saveQuoteLead()}
                         >
@@ -5095,7 +5095,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                         </Button>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center space-x-2 rounded-lg border border-border bg-muted px-3 py-2">
-                            <span className="font-bold text-emerald-400">$</span>
+                            <span className="font-bold text-success">$</span>
                             <input
                               id="manual-ac-quote-price"
                               type="number"
@@ -5118,7 +5118,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
                                 }
                               }}
-                              className="w-16 border-none bg-transparent p-0 text-xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                              className="w-16 border-none bg-transparent p-0 text-xl font-bold text-success focus:outline-none focus:ring-0"
                               aria-label="Quote before dispatch"
                             />
                           </div>
@@ -5129,7 +5129,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               "min-w-0 flex-1 gap-2 font-semibold",
                               (!canFinalizeBooking || !canDispatch) && "opacity-50",
                               highlightConfirmBook &&
-                                "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                                "animate-pulse border-success ring-2 ring-success/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
                             )}
                             disabled={
                               jobState === "creating" || !canFinalizeBooking || !canDispatch
@@ -5150,7 +5150,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                             type="button"
                             variant="secondary"
                             size="lg"
-                            className="h-11 border border-amber-500/40 bg-amber-500/10 font-semibold text-amber-50 hover:bg-amber-500/20"
+                            className="h-11 border border-warning/40 bg-warning/10 font-semibold text-warning hover:bg-warning/20"
                             disabled={lostLeadState === "saving"}
                             onClick={() => void markPriceShopping()}
                           >
@@ -5180,7 +5180,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           </Button>
                         </div>
                         {lostLeadError ? (
-                          <p className="text-center text-2xs text-red-300">{lostLeadError}</p>
+                          <p className="text-center text-2xs text-destructive">{lostLeadError}</p>
                         ) : null}
 
                         <button
@@ -5192,11 +5192,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                         </button>
                         {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                          <p className="text-center text-micro text-amber-200/90">
+                          <p className="text-center text-micro text-warning/90">
                             Still needed: {dispatchBlockers.join(" · ")}
                           </p>
                         ) : null}
-                        {jobError ? <p className="text-2xs text-red-300">{jobError}</p> : null}
+                        {jobError ? <p className="text-2xs text-destructive">{jobError}</p> : null}
                       </>
                     ) : null}
                     {currentStep === "SCHEDULE_TIME" ? (
@@ -5218,7 +5218,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                               "h-11 min-w-0 flex-1 gap-2 font-semibold",
                               (!canConfirmSchedule || !canDispatch) && "opacity-50",
                               highlightConfirmBook &&
-                                "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                                "animate-pulse border-success ring-2 ring-success/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
                             )}
                             disabled={
                               jobState === "creating" || !canConfirmSchedule || !canDispatch
@@ -5239,7 +5239,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           variant="secondary"
                           size="lg"
-                          className="h-11 w-full border border-amber-500/40 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                          className="h-11 w-full border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                           disabled={jobState === "creating" || !canSaveQuoteLead}
                           onClick={() => void saveQuoteLead()}
                         >
@@ -5269,7 +5269,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           Done
                         </Button>
                         {confirmSmsDraft && !confirmSmsResolved ? (
-                          <p className="text-center text-micro text-amber-200/90">
+                          <p className="text-center text-micro text-warning/90">
                             Send or skip the confirmation SMS to continue
                           </p>
                         ) : null}
@@ -5336,7 +5336,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   <>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center space-x-2 rounded-lg border border-border bg-muted px-3 py-2">
-                    <span className="font-bold text-emerald-400">$</span>
+                    <span className="font-bold text-success">$</span>
                     <input
                       id="ac-quote-price"
                       type="number"
@@ -5359,7 +5359,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           setCustomPrice(autoTotalDollars > 0 ? String(autoTotalDollars) : "")
                         }
                       }}
-                      className="w-16 border-none bg-transparent p-0 text-xl font-bold text-emerald-400 focus:outline-none focus:ring-0"
+                      className="w-16 border-none bg-transparent p-0 text-xl font-bold text-success focus:outline-none focus:ring-0"
                       aria-label="Quote before dispatch"
                     />
                   </div>
@@ -5369,7 +5369,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                     className={cn(
                       "min-w-0 flex-1 gap-2",
                       highlightConfirmBook &&
-                        "animate-pulse border-emerald-400 ring-2 ring-emerald-400/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
+                        "animate-pulse border-success ring-2 ring-success/80 ring-offset-2 ring-offset-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.35)]"
                     )}
                     disabled={jobState === "creating" || !canDispatch}
                     onClick={() => void confirmAndBook()}
@@ -5401,16 +5401,16 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   Send to dispatch map &amp; schedule
                 </Button>
                 {!canDispatch && jobState !== "creating" && dispatchBlockers.length > 0 ? (
-                  <p className="text-center text-micro text-amber-200/90">
+                  <p className="text-center text-micro text-warning/90">
                     Still needed: {dispatchBlockers.join(" · ")}
                   </p>
                 ) : null}
                 {jobState === "created" ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-100">
+                  <p className="rounded-lg border border-success/30 bg-success/10 px-2 py-2 text-2xs text-success">
                     Job added to the hopper — assign when ready.
                   </p>
                 ) : null}
-                {jobError ? <p className="text-2xs text-red-300">{jobError}</p> : null}
+                {jobError ? <p className="text-2xs text-destructive">{jobError}</p> : null}
                 <div className="flex items-center justify-between gap-2 pt-0.5">
                   <span className="inline-flex items-center gap-2">
                     <IntakeAutoSaveStatus saveState={saveState} draftPulse={draftPulse} />

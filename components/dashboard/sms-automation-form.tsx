@@ -498,7 +498,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
             />
             <label className="block rounded-xl border border-border/70 bg-muted/20 p-3">
               <span className="mb-2 flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Star className="h-3.5 w-3.5 text-amber-300" aria-hidden /> Google review link
+                <Star className="h-3.5 w-3.5 text-warning" aria-hidden /> Google review link
               </span>
               <input
                 type="url"
@@ -517,7 +517,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
         ) : null}
 
         {tab === "status" ? (
-          <section className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+          <section className="space-y-3 rounded-xl border border-warning/25 bg-warning/5 p-3">
             <p className="text-xs text-muted-foreground">
               These fill the chips in Messages. Tap a chip, then Send — nothing goes out by itself.
             </p>
@@ -528,10 +528,10 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 key={meta.key}
                 className={cn(
                   "space-y-2 rounded-lg p-2",
-                  activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
+                  activeStatusKey === meta.key && "ring-1 ring-warning/40"
                 )}
               >
-                <p className="text-xs font-semibold text-amber-100/90">{meta.title}</p>
+                <p className="text-xs font-semibold text-warning/90">{meta.title}</p>
                 <p className="text-2xs text-muted-foreground">{meta.description}</p>
                 <textarea
                   ref={(el) => {
@@ -575,10 +575,10 @@ export function SmsAutomationForm({ onSaved }: Props) {
                     key={meta.key}
                     className={cn(
                       "space-y-2 rounded-lg p-2",
-                      activeStatusKey === meta.key && "ring-1 ring-amber-400/40"
+                      activeStatusKey === meta.key && "ring-1 ring-warning/40"
                     )}
                   >
-                    <p className="text-xs font-semibold text-amber-100/90">{meta.title}</p>
+                    <p className="text-xs font-semibold text-warning/90">{meta.title}</p>
                     <p className="text-2xs text-muted-foreground">{meta.description}</p>
                     <textarea
                       ref={(el) => {

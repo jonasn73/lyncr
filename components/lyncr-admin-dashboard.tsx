@@ -88,7 +88,7 @@ function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd:
   return (
     <div
       role="alert"
-      className="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-950/70 via-red-950/50 to-amber-950/70 px-4 py-3 text-sm leading-relaxed text-amber-100 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/30"
+      className="rounded-xl border border-warning/50 bg-gradient-to-r from-warning/70 via-destructive/50 to-warning/70 px-4 py-3 text-sm leading-relaxed text-warning shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)] ring-1 ring-warning/30"
     >
       ⚠️ CRITICAL: Platform wholesale routing pool is running low ({display}). Top up via Telnyx immediately to
       prevent call drops.
@@ -99,10 +99,10 @@ function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd:
 function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
   const color =
     status === "ok"
-      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+      ? "bg-success shadow-[0_0_8px_rgba(52,211,153,0.8)]"
       : status === "unconfigured"
-        ? "bg-amber-400"
-        : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+        ? "bg-warning"
+        : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.7)]"
   const label = status === "ok" ? "Connected" : status === "unconfigured" ? "Not configured" : "Error"
   return (
     <span className="inline-flex items-center gap-2">
@@ -168,11 +168,11 @@ function AccountStatusBadge({ status }: { status: string }) {
       variant="outline"
       className={cn(
         "border-0 capitalize",
-        normalized === "active" && "bg-emerald-500/15 text-emerald-300",
-        normalized === "pending" && "bg-amber-500/20 text-amber-200",
+        normalized === "active" && "bg-success/15 text-success",
+        normalized === "pending" && "bg-warning/20 text-warning",
         normalized === "denied" && "bg-zinc-500/20 text-foreground",
-        normalized === "suspended" && "bg-red-500/15 text-red-300",
-        normalized === "flagged" && "bg-amber-500/15 text-amber-300",
+        normalized === "suspended" && "bg-destructive/15 text-destructive",
+        normalized === "flagged" && "bg-warning/15 text-warning",
         normalized !== "active" &&
           normalized !== "suspended" &&
           normalized !== "flagged" &&
@@ -197,7 +197,7 @@ function TierBadge({ tier }: { tier: string }) {
       variant="outline"
       className={cn(
         "border-0 capitalize",
-        isPaid && "bg-emerald-900/50 text-emerald-300",
+        isPaid && "bg-success/50 text-success",
         isTrial && "bg-sky-950/60 text-sky-300",
         !isPaid && !isTrial && "bg-accent/40 text-foreground"
       )}
@@ -214,7 +214,7 @@ function SubscriptionStatusBadge({ active }: { active: boolean }) {
       variant="outline"
       className={cn(
         "border-0",
-        active ? "bg-emerald-500/20 text-emerald-300" : "bg-red-950/50 text-red-400"
+        active ? "bg-success/20 text-success" : "bg-destructive/50 text-destructive"
       )}
     >
       {active ? "Active" : "Inactive"}
@@ -375,7 +375,7 @@ function UserRowActions({
           {row.account_status === "pending" ? (
             <>
               <DropdownMenuItem
-                className="focus:bg-emerald-950/40 focus:text-emerald-200"
+                className="focus:bg-success/40 focus:text-success"
                 disabled={toggleBusy}
                 onSelect={(e) => {
                   e.preventDefault()
@@ -387,7 +387,7 @@ function UserRowActions({
               <DropdownMenuItem
                 variant="destructive"
                 disabled={toggleBusy}
-                className="focus:bg-red-950/40 focus:text-red-300"
+                className="focus:bg-destructive/40 focus:text-destructive"
                 onSelect={(e) => {
                   e.preventDefault()
                   void handleStatusChange("denied")
@@ -401,7 +401,7 @@ function UserRowActions({
           <DropdownMenuItem
             variant="destructive"
             disabled={toggleBusy}
-            className="focus:bg-red-950/40 focus:text-red-300"
+            className="focus:bg-destructive/40 focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault()
               void handleSubscriptionToggle(!row.has_active_subscription)

@@ -1177,7 +1177,7 @@ export function TechPaymentModal(props: {
           <p className="mt-2 max-w-xs text-sm text-muted-foreground">
             Keep the contactless card or wallet still until the charge completes.
           </p>
-          <p className="mt-4 font-mono text-xl font-bold text-emerald-300">{fmt(chargeWithTipCents())}</p>
+          <p className="mt-4 font-mono text-xl font-bold text-success">{fmt(chargeWithTipCents())}</p>
         </div>
       ) : null}
 
@@ -1258,7 +1258,7 @@ export function TechPaymentModal(props: {
 
         {postPayStep === "card_entry" ? (
           <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
             {publishableKey && stripeConnectAccountId ? (
               <Elements
                 key={`deferred-card:${stripeConnectAccountId}:${paidTotalCents}`}
@@ -1313,10 +1313,10 @@ export function TechPaymentModal(props: {
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back to amount
             </button>
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/10 px-3 py-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-emerald-100">Service</p>
-                <p className="text-micro text-emerald-200/70">
+                <p className="text-sm font-semibold text-success">Service</p>
+                <p className="text-micro text-success/70">
                   Job + tax · pay with{" "}
                   {method === "tap"
                     ? "Tap to Pay"
@@ -1330,7 +1330,7 @@ export function TechPaymentModal(props: {
                   {method === "card" && savedPaymentMethodId ? " · card ready" : ""}
                 </p>
               </div>
-              <p className="text-base font-bold tabular-nums text-emerald-300">
+              <p className="text-base font-bold tabular-nums text-success">
                 {fmt(paidTotalCents)}
               </p>
             </div>
@@ -1359,7 +1359,7 @@ export function TechPaymentModal(props: {
                     className={cn(
                       "rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === opt.id
-                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                        ? "border-success/50 bg-success/15 text-success"
                         : "border-border bg-card text-muted-foreground"
                     )}
                   >
@@ -1378,7 +1378,7 @@ export function TechPaymentModal(props: {
                 className={cn(
                   "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                   tipChoice === "custom"
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                    ? "border-success/50 bg-success/15 text-success"
                     : "border-border bg-card text-muted-foreground"
                 )}
               >
@@ -1399,7 +1399,7 @@ export function TechPaymentModal(props: {
                   />
                 </div>
               ) : null}
-              <p className="mt-1.5 text-xs leading-snug text-emerald-200/90">
+              <p className="mt-1.5 text-xs leading-snug text-success/90">
                 {tipLastTotalNote({
                   totalAmountLabel: fmt(chargeWithTipCents()),
                   tipCents: selectedTipCents(),
@@ -1409,7 +1409,7 @@ export function TechPaymentModal(props: {
               </p>
             </div>
             {error && !activePopup ? (
-              <p className="text-sm text-red-300">{error}</p>
+              <p className="text-sm text-destructive">{error}</p>
             ) : null}
             <button
               type="button"
@@ -1421,7 +1421,7 @@ export function TechPaymentModal(props: {
                 (method === "card" && !savedPaymentMethodId)
               }
               onClick={() => confirmTipAndCharge()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
             >
               {busy || tapListening ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -1439,14 +1439,14 @@ export function TechPaymentModal(props: {
           </div>
         ) : postPayStep === "sign" ? (
           <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/10 px-3 py-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-emerald-100">Payment received</p>
-                <p className="text-micro text-emerald-200/70">
+                <p className="text-sm font-semibold text-success">Payment received</p>
+                <p className="text-micro text-success/70">
                   Optional signature — not required by card networks
                 </p>
               </div>
-              <p className="text-base font-bold tabular-nums text-emerald-300">
+              <p className="text-base font-bold tabular-nums text-success">
                 {fmt(
                   paidTotalCents + (tipResult.kind === "charged" ? tipResult.cents : 0)
                 )}
@@ -1467,12 +1467,12 @@ export function TechPaymentModal(props: {
                 </p>
               </>
             ) : null}
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <button
               type="button"
               disabled={slipBusy}
               onClick={() => void continueFromSign()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
             >
               {slipBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               {postPaySignPrimaryCta(Boolean(signaturePng))}
@@ -1507,23 +1507,23 @@ export function TechPaymentModal(props: {
           </div>
         ) : postPayStep === "finish_job" ? (
           <div className="overflow-y-auto px-4 py-3 pb-6">
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-6 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
-              <p className="mt-2 text-base font-semibold text-emerald-50">Payment recorded</p>
-              <p className="mt-1.5 text-sm text-emerald-100/90">
+            <div className="rounded-xl border border-success/40 bg-success/15 px-4 py-6 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-success" aria-hidden />
+              <p className="mt-2 text-base font-semibold text-success">Payment recorded</p>
+              <p className="mt-1.5 text-sm text-success/90">
                 Close the job now so it doesn’t sit half-finished.
               </p>
               {!props.job.review_sms_sent_at ? (
-                <p className="mt-2 text-2xs leading-snug text-emerald-200/75">
+                <p className="mt-2 text-2xs leading-snug text-success/75">
                   Thanks texts the customer a short thank-you (and review link when set up).
                 </p>
               ) : (
-                <p className="mt-2 text-2xs leading-snug text-emerald-200/75">
+                <p className="mt-2 text-2xs leading-snug text-success/75">
                   Thanks already sent — you can complete the job.
                 </p>
               )}
             </div>
-            {error ? <p className="mt-3 text-center text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="mt-3 text-center text-sm text-destructive">{error}</p> : null}
             <div className="mt-4 space-y-3">
               {/* Loud primary — owner Collect: paid → done + thanks. */}
               {!props.job.review_sms_sent_at ? (
@@ -1531,7 +1531,7 @@ export function TechPaymentModal(props: {
                   type="button"
                   disabled={finishBusy}
                   onClick={() => void finishJobAfterPay("thanks")}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-4 text-base font-semibold text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/50 hover:bg-emerald-500 disabled:opacity-50"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-success py-4 text-base font-semibold text-white shadow-lg shadow-success/40 ring-2 ring-success/50 hover:bg-success disabled:opacity-50"
                 >
                   {finishBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                   Complete &amp; send thanks
@@ -1544,7 +1544,7 @@ export function TechPaymentModal(props: {
                 className={cn(
                   "flex min-h-11 w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
                   props.job.review_sms_sent_at
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/50 hover:bg-emerald-500"
+                    ? "bg-success text-white shadow-lg shadow-success/40 ring-2 ring-success/50 hover:bg-success"
                     : "border border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card/70 hover:text-foreground"
                 )}
               >
@@ -1586,15 +1586,15 @@ export function TechPaymentModal(props: {
           </div>
         ) : showPaidSummary && paidLink ? (
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-            <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-6 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
-              <p className="mt-2 text-sm font-semibold text-emerald-100">
+            <div className="rounded-xl border border-success/35 bg-success/10 px-4 py-6 text-center">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-success" aria-hidden />
+              <p className="mt-2 text-sm font-semibold text-success">
                 This job is already paid
               </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-300">
+              <p className="mt-1 text-2xl font-bold tabular-nums text-success">
                 {fmt(paidLink.chargeCents)}
               </p>
-              <p className="mt-1 text-xs text-emerald-200/80">
+              <p className="mt-1 text-xs text-success/80">
                 {paidLink.walletSettled
                   ? "Included in your balance (header total)."
                   : "Marked paid — Refresh if the header still looks low."}
@@ -1628,7 +1628,7 @@ export function TechPaymentModal(props: {
             <button
               type="button"
               onClick={() => props.onCompleted()}
-              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+              className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success"
             >
               Done
             </button>
@@ -1642,7 +1642,7 @@ export function TechPaymentModal(props: {
           </div>
         ) : awaitingLinkStatus ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
+            <Loader2 className="h-6 w-6 animate-spin text-success" aria-hidden />
             <p className="text-sm">Checking payment status…</p>
           </div>
         ) : (
@@ -1660,14 +1660,14 @@ export function TechPaymentModal(props: {
                 </button>
               ) : null}
               {forceNewCharge && paidLink ? (
-                <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2">
-                  <p className="text-xs font-medium text-amber-100">
+                <div className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2">
+                  <p className="text-xs font-medium text-warning">
                     Already paid {fmt(paidLink.chargeCents)}. Starting a new charge.
                   </p>
                   <button
                     type="button"
                     onClick={() => setForceNewCharge(false)}
-                    className="mt-1 text-2xs font-semibold text-amber-200 underline"
+                    className="mt-1 text-2xs font-semibold text-warning underline"
                   >
                     Back to paid status
                   </button>
@@ -1708,10 +1708,10 @@ export function TechPaymentModal(props: {
                                 className={cn(
                                   "ml-1.5 font-semibold",
                                   paid
-                                    ? "text-emerald-300"
+                                    ? "text-success"
                                     : expired
                                       ? "text-muted-foreground"
-                                      : "text-amber-200/90"
+                                      : "text-warning/90"
                                 )}
                               >
                                 {paid ? "Paid" : expired ? "Canceled" : "Waiting"}
@@ -1722,7 +1722,7 @@ export function TechPaymentModal(props: {
                                 type="button"
                                 disabled={linkCancelBusy === link.token || busy}
                                 onClick={() => void cancelPayLink(link)}
-                                className="shrink-0 rounded border border-amber-500/40 px-2 py-0.5 text-micro font-semibold text-amber-100 disabled:opacity-50"
+                                className="shrink-0 rounded border border-warning/40 px-2 py-0.5 text-micro font-semibold text-warning disabled:opacity-50"
                               >
                                 {linkCancelBusy === link.token ? "…" : "Cancel"}
                               </button>
@@ -1765,8 +1765,8 @@ export function TechPaymentModal(props: {
                         disabled={busy || activePopup !== null}
                         aria-label="Amount before tax"
                         className={cn(
-                          "w-full rounded-lg border bg-background py-2 pr-3 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
-                          totalCents < 50 ? "border-amber-500/60" : "border-border"
+                          "w-full rounded-lg border bg-background py-2 pr-3 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-success disabled:opacity-60",
+                          totalCents < 50 ? "border-warning/60" : "border-border"
                         )}
                       />
                     </div>
@@ -1775,7 +1775,7 @@ export function TechPaymentModal(props: {
                     <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                       Total
                     </p>
-                    <p className="text-lg font-bold tabular-nums text-emerald-300">{fmt(totalCents)}</p>
+                    <p className="text-lg font-bold tabular-nums text-success">{fmt(totalCents)}</p>
                   </div>
                 </div>
 
@@ -1791,7 +1791,7 @@ export function TechPaymentModal(props: {
                     <span
                       className={cn(
                         "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                        taxEnabled ? "bg-emerald-500" : "bg-accent"
+                        taxEnabled ? "bg-success" : "bg-accent"
                       )}
                     >
                       <span
@@ -1842,7 +1842,7 @@ export function TechPaymentModal(props: {
                           }
                           placeholder="Description"
                           disabled={busy || activePopup !== null}
-                          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-2 text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-2 text-xs text-white outline-none focus:border-success disabled:opacity-60"
                         />
                         <div className="relative w-20 shrink-0">
                           <span className="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-xs text-muted-foreground">
@@ -1863,7 +1863,7 @@ export function TechPaymentModal(props: {
                             inputMode="decimal"
                             placeholder="0.00"
                             disabled={busy || activePopup !== null}
-                            className="w-full rounded-md border border-border bg-background py-2 pr-2 pl-6 text-right text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                            className="w-full rounded-md border border-border bg-background py-2 pr-2 pl-6 text-right text-xs text-white outline-none focus:border-success disabled:opacity-60"
                           />
                         </div>
                         <button
@@ -1882,7 +1882,7 @@ export function TechPaymentModal(props: {
                           title="Parts are excluded when a tech is paid commission on labor"
                           className={`shrink-0 rounded-md border px-2 py-1 text-micro font-medium transition-colors disabled:opacity-40 ${
                             line.kind === "part"
-                              ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
+                              ? "border-warning/50 bg-warning/15 text-warning"
                               : "border-border text-muted-foreground hover:text-foreground"
                           }`}
                         >
@@ -1897,7 +1897,7 @@ export function TechPaymentModal(props: {
                             )
                           }}
                           disabled={lines.length === 1 || busy || activePopup !== null}
-                          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-red-400 disabled:opacity-30"
+                          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-destructive disabled:opacity-30"
                           aria-label="Remove line"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1908,7 +1908,7 @@ export function TechPaymentModal(props: {
                       type="button"
                       disabled={busy || activePopup !== null}
                       onClick={() => setLines((prev) => [...prev, newLine()])}
-                      className="inline-flex items-center gap-1 text-2xs font-medium text-emerald-300 disabled:opacity-40"
+                      className="inline-flex items-center gap-1 text-2xs font-medium text-success disabled:opacity-40"
                     >
                       <Plus className="h-3 w-3" /> Add line
                     </button>
@@ -1921,8 +1921,8 @@ export function TechPaymentModal(props: {
                   How to pay
                 </p>
                 {error && !postPayStep && !activePopup ? (
-                  <div className="mb-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2">
-                    <p className="text-xs leading-snug text-red-300">{error}</p>
+                  <div className="mb-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+                    <p className="text-xs leading-snug text-destructive">{error}</p>
                   </div>
                 ) : null}
                 <div className="grid grid-cols-2 gap-2">
@@ -1975,10 +1975,10 @@ export function TechPaymentModal(props: {
       {/* Pay link contact popup — overlays amount screen (SMS only, no tip). */}
       {activePopup === "link" ? (
         <NestedPayPopup title="Text pay link" onClose={closePayPopup}>
-          <p className="text-xs text-emerald-100/90">
+          <p className="text-xs text-success/90">
             They open the link and pay {fmt(totalCents)}
           </p>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <label className="block">
             <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Name (optional)
@@ -2024,7 +2024,7 @@ export function TechPaymentModal(props: {
             type="button"
             disabled={busy || !hasUsableSmsPhone(linkPhone)}
             onClick={sendPayLink}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -2034,14 +2034,14 @@ export function TechPaymentModal(props: {
             Text link
           </button>
           {linkSentUrl ? (
-            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
-              <p className="text-sm font-semibold text-emerald-200">
+            <div className="rounded-lg border border-success/40 bg-success/10 px-3 py-2">
+              <p className="text-sm font-semibold text-success">
                 {linkDelivered ? "Link texted" : "Link ready (text didn’t go through)"}
               </p>
-              <p className="mt-1 break-all text-2xs text-emerald-100/80">{linkSentUrl}</p>
+              <p className="mt-1 break-all text-2xs text-success/80">{linkSentUrl}</p>
               <button
                 type="button"
-                className="mt-2 text-xs font-semibold text-emerald-300 underline"
+                className="mt-2 text-xs font-semibold text-success underline"
                 onClick={() => {
                   void navigator.clipboard?.writeText(linkSentUrl)
                 }}
@@ -2136,12 +2136,12 @@ function PayOptionButton(props: {
         className={cn(
           "flex flex-col items-start gap-1 rounded-xl border px-3 py-3 text-left transition active:scale-[0.99] disabled:opacity-50",
           props.active
-            ? "border-emerald-500/50 bg-emerald-500/15"
+            ? "border-success/50 bg-success/15"
             : "border-border bg-muted/40 hover:border-border",
           props.dimmed && !props.disabled && "opacity-70"
         )}
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/60 text-emerald-300">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/60 text-success">
           {props.icon}
         </span>
         <span className="min-w-0">
@@ -2358,11 +2358,11 @@ function ManualCardForm(props: {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
-        <p className="text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
+      <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-3">
+        <p className="text-micro font-semibold uppercase tracking-wide text-success/70">
           Charging
         </p>
-        <p className="text-lg font-bold tabular-nums text-emerald-100">{props.totalLabel}</p>
+        <p className="text-lg font-bold tabular-nums text-success">{props.totalLabel}</p>
       </div>
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Card details</p>
       <div className="min-h-[12rem] rounded-xl border border-border bg-card/80 p-3">
@@ -2406,7 +2406,7 @@ function ManualCardForm(props: {
         <button
           type="button"
           onClick={forceCancelCharge}
-          className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm font-semibold text-amber-100"
+          className="w-full rounded-xl border border-warning/40 bg-warning/10 px-3 py-3 text-sm font-semibold text-warning"
         >
           Cancel charge — unlock form
         </button>
@@ -2423,7 +2423,7 @@ function ManualCardForm(props: {
           type={loadFailed ? "button" : "submit"}
           disabled={!loadFailed && (!stripe || !elements || !elementReady || submitting)}
           onClick={loadFailed ? forceCancelCharge : undefined}
-          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 px-3 py-3 text-sm font-semibold text-white disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-success to-green-600 px-3 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {submitting ? (
             <>

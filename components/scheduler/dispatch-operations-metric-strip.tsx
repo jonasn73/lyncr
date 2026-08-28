@@ -153,14 +153,14 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           pending={metricsPending}
           label={useShortLabels ? "Pool" : "Unassigned Pool"}
           value={metrics.unassignedPool}
-          valueClassName="text-amber-300"
+          valueClassName="text-warning"
         />
         <MetricCell
           compact={showPillRow}
           pending={metricsPending}
           label={useShortLabels ? "On-site" : "On-Site"}
           value={metrics.onSite}
-          valueClassName="text-emerald-300"
+          valueClassName="text-success"
         />
         <MetricCell
           compact={showPillRow}

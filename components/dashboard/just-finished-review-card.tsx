@@ -623,11 +623,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-xl border px-3 py-3 text-left transition-colors transition-shadow duration-700",
                       isPaid
-                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        ? "border-success/40 bg-success/10"
                         : isBook
                           ? "border-orange-500/45 bg-orange-500/10"
                           : isJob
-                            ? "border-amber-500/40 bg-amber-500/10"
+                            ? "border-warning/40 bg-warning/10"
                             : unread
                               ? "border-sky-400/45 bg-sky-500/15 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
                               : "border-sky-500/25 bg-sky-500/5",
@@ -653,7 +653,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         />
                       ) : isPaid ? (
                         <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400"
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-success"
                           aria-hidden
                         />
                       ) : isBook ? (
@@ -663,7 +663,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                         />
                       ) : (
                         <span
-                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+                          className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-warning"
                           aria-hidden
                         />
                       )}
@@ -680,11 +680,11 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           className={cn(
                             "mt-0.5 truncate text-xs font-semibold",
                             isPaid
-                              ? "text-emerald-200"
+                              ? "text-success"
                               : isBook
                                 ? "text-orange-200"
                                 : isJob
-                                  ? "text-amber-200"
+                                  ? "text-warning"
                                   : unread
                                     ? "text-sky-200"
                                     : "text-sky-300/80"
@@ -738,7 +738,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
                             ? "bg-rose-500/90 text-white hover:bg-rose-400"
-                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                            : "bg-warning/90 text-zinc-950 hover:bg-warning"
                         )}
                       >
                         {busyJobId === item.completedJobId ? (
@@ -756,7 +756,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           // Payment already received — open read-only detail, not Collect.
                           openDetail(item)
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-3 py-2 text-2xs font-bold text-emerald-100 hover:bg-emerald-500/25"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-success/45 bg-success/15 px-3 py-2 text-2xs font-bold text-success hover:bg-success/25"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View
@@ -774,7 +774,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           "inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-2xs font-bold disabled:opacity-50",
                           failedReviewJobIds.has(item.completedJobId)
                             ? "bg-rose-500/90 text-white hover:bg-rose-400"
-                            : "bg-amber-500/90 text-zinc-950 hover:bg-amber-400"
+                            : "bg-warning/90 text-zinc-950 hover:bg-warning"
                         )}
                       >
                         {busyJobId === item.completedJobId ? (
@@ -1388,7 +1388,7 @@ function LatestActionDetail({
           <p className="mt-1 text-xs font-semibold text-sky-300">Needs reply</p>
         ) : null}
         {item.reviewLinkOpened ? (
-          <p className="mt-1 text-xs font-semibold text-emerald-300">Opened</p>
+          <p className="mt-1 text-xs font-semibold text-success">Opened</p>
         ) : reviewDeliveryLabel ? (
           <p
             className={cn(
@@ -1456,7 +1456,7 @@ function LatestActionDetail({
                   className={cn(
                     "rounded-xl border px-3 py-2",
                     step.done
-                      ? "border-emerald-500/25 bg-emerald-500/5"
+                      ? "border-success/25 bg-success/5"
                       : step.label === "Needs reply"
                         ? "border-sky-500/35 bg-sky-500/10"
                         : "border-border/60 bg-muted/20"
@@ -1466,7 +1466,7 @@ function LatestActionDetail({
                     className={cn(
                       "text-sm font-medium",
                       step.done
-                        ? "text-emerald-200"
+                        ? "text-success"
                         : step.label === "Needs reply"
                           ? "text-sky-200"
                           : "text-muted-foreground"
@@ -1536,7 +1536,7 @@ function LatestActionDetail({
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-emerald-600 text-white"
+                              : "rounded-br-md bg-success text-white"
                             : "rounded-bl-md border border-sky-500/35 bg-sky-500/10 text-foreground"
                         )}
                       >
@@ -1544,7 +1544,7 @@ function LatestActionDetail({
                         <p
                           className={cn(
                             "mt-1 text-micro tabular-nums",
-                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
+                            outbound ? "text-success/80" : "text-muted-foreground",
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
                         >
@@ -1570,7 +1570,7 @@ function LatestActionDetail({
       <div className="shrink-0 space-y-2 border-t border-border/80 px-4 pt-3">
         {/* Payment-received alerts are informational — no Collect CTA. */}
         {isPaidEvent ? (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
+          <p className="rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-center text-sm font-semibold text-success">
             Paid · no balance to collect
           </p>
         ) : null}
@@ -1610,7 +1610,7 @@ function LatestActionDetail({
                   !item.bookFormLeadId ||
                   busyJobId === item.bookFormLeadId
                 }
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-2 text-2xs font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-warning/35 bg-warning/10 px-2 py-2 text-2xs font-semibold text-warning hover:bg-warning/20 disabled:opacity-40"
               >
                 {busyJobId === item.bookFormLeadId ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1774,8 +1774,8 @@ function LatestActionDetail({
               sendFailed
                 ? "bg-rose-500 text-white hover:bg-rose-400"
                 : needsReviewSend
-                  ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
-                  : "border border-amber-500/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                  ? "bg-warning text-zinc-950 hover:bg-warning"
+                  : "border border-warning/35 bg-warning/10 text-warning hover:bg-warning/20"
             )}
           >
             {busyJobId === item.completedJobId ? (
@@ -1802,7 +1802,7 @@ function LatestActionDetail({
             type="button"
             disabled={markingOpened}
             onClick={() => onMarkReviewOpened(item.completedJobId!)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-warning/35 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning hover:bg-warning/20 disabled:opacity-50"
           >
             {markingOpened ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1821,7 +1821,7 @@ function LatestActionDetail({
               "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold",
               // Paid detail: Open job is primary only when thanks already handled.
               isPaidEvent && !item.thanksReviewPending
-                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                ? "bg-success text-white hover:bg-success"
                 : "border border-border/60 text-foreground hover:bg-muted/40"
             )}
           >

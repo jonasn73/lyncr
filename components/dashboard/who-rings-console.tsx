@@ -37,9 +37,9 @@ export function WhoRingsConsole({
     ringsNow === "Hold queue" ? "Press 1" : "If no answer"
   const statusTone =
     statusLabel === "Busy"
-      ? "text-amber-700 dark:text-amber-400"
+      ? "text-warning dark:text-warning"
       : statusLabel === "Available"
-        ? "text-emerald-700 dark:text-emerald-400"
+        ? "text-success dark:text-success"
         : "text-muted-foreground"
 
   return (

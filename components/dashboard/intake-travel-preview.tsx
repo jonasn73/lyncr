@@ -186,7 +186,7 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
           ) : locationStatus === "requesting" ? (
             <span>Finding your location…</span>
           ) : locationStatus === "denied" || locationStatus === "unsupported" ? (
-            <span className="text-amber-200/90">{locationError ?? "Enable location to see distance from you."}</span>
+            <span className="text-warning/90">{locationError ?? "Enable location to see distance from you."}</span>
           ) : (
             <span>Waiting for your location…</span>
           )}
@@ -197,7 +197,7 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
               {formatDistanceMiles(distanceMiles)}
             </span>
             {travelMinutes != null ? (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-semibold tabular-nums text-emerald-200">
+              <span className="rounded-full border border-success/25 bg-success/10 px-2 py-0.5 font-semibold tabular-nums text-success">
                 {formatTravelMinutes(travelMinutes)}
               </span>
             ) : null}

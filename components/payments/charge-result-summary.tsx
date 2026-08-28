@@ -68,8 +68,8 @@ export function ChargeResultSummary({
           className={cn(
             "flex h-14 w-14 items-center justify-center rounded-full shadow-[0_0_28px_-4px]",
             tipFailed
-              ? "bg-amber-500/20 text-amber-300 shadow-amber-500/30 ring-1 ring-amber-400/35"
-              : "bg-emerald-500/20 text-emerald-300 shadow-emerald-500/40 ring-1 ring-emerald-400/40"
+              ? "bg-warning/20 text-warning shadow-warning/30 ring-1 ring-warning/35"
+              : "bg-success/20 text-success shadow-success/40 ring-1 ring-success/40"
           )}
         >
           {tipFailed ? (
@@ -82,7 +82,7 @@ export function ChargeResultSummary({
         <p
           className={cn(
             "mt-3 text-2xs font-semibold uppercase tracking-[0.14em]",
-            tipFailed ? "text-amber-200/80" : "text-emerald-300/80"
+            tipFailed ? "text-warning/80" : "text-success/80"
           )}
         >
           {tipFailed ? (isCash ? "Cash recorded" : "Partially paid") : "Paid"}
@@ -91,7 +91,7 @@ export function ChargeResultSummary({
         <p
           className={cn(
             "mt-1 text-4xl font-bold tabular-nums tracking-tight",
-            tipFailed ? "text-amber-100" : "text-white"
+            tipFailed ? "text-warning" : "text-white"
           )}
         >
           {fmtCents(totalChargedCents)}
@@ -101,7 +101,7 @@ export function ChargeResultSummary({
           <p
             className={cn(
               "mt-1.5 text-xs tabular-nums",
-              tipFailed ? "text-amber-200/70" : "text-muted-foreground"
+              tipFailed ? "text-warning/70" : "text-muted-foreground"
             )}
           >
             {detailParts.join(" · ")}

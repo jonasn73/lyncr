@@ -108,7 +108,7 @@ export function PhoneLinesListContent({
                       onOpenCarrierDesk(line)
                     }}
                     aria-label={`Open carrier transfer desk for ${formatPhoneDisplay(line.number)}`}
-                    className="w-full px-3 pb-3 text-left text-micro font-medium text-amber-400/90 underline-offset-2 transition-colors hover:text-amber-300 hover:underline"
+                    className="w-full px-3 pb-3 text-left text-micro font-medium text-warning/90 underline-offset-2 transition-colors hover:text-warning hover:underline"
                   >
                     Transfer in progress — tap for carrier desk
                   </button>

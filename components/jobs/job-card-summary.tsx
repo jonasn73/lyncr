@@ -79,7 +79,7 @@ export function JobCardSummary({
           {model.fieldVerificationRequired ? (
             <span
               title="Verify key style on vehicle before cutting a blank"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-warning/20 text-warning"
             >
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
             </span>
@@ -95,7 +95,7 @@ export function JobCardSummary({
           {showCallChip && model.phoneHref ? (
             <a
               href={model.phoneHref}
-              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 text-micro font-semibold text-emerald-100"
+              className="inline-flex items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-0.5 text-micro font-semibold text-success"
             >
               <Phone className="h-3 w-3" aria-hidden />
               Call
@@ -105,7 +105,7 @@ export function JobCardSummary({
       ) : null}
 
       {model.fieldVerificationRequired && showHeader ? (
-        <p className="mt-1.5 text-2xs font-medium text-amber-300">
+        <p className="mt-1.5 text-2xs font-medium text-warning">
           Field verification required — confirm dashboard / door lock config before programming.
         </p>
       ) : null}
@@ -135,7 +135,7 @@ export function JobCardSummary({
                   href={model.mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1.5 inline-flex items-center gap-0.5 text-2xs font-semibold text-emerald-300/90 underline-offset-2 hover:underline"
+                  className="ml-1.5 inline-flex items-center gap-0.5 text-2xs font-semibold text-success/90 underline-offset-2 hover:underline"
                 >
                   Maps
                   <ExternalLink className="h-3 w-3" aria-hidden />
@@ -149,9 +149,9 @@ export function JobCardSummary({
         <p className="min-w-0">
           {!hideBalance ? (
             <>
-              <span className="font-semibold text-emerald-500/80">Balance</span>
+              <span className="font-semibold text-success/80">Balance</span>
               <span className="text-muted-foreground"> · </span>
-              <span className="font-semibold tabular-nums text-emerald-300">
+              <span className="font-semibold tabular-nums text-success">
                 {model.billingLabel}
               </span>
               <span className="text-muted-foreground"> · </span>

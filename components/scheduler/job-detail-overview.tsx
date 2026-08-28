@@ -251,7 +251,7 @@ export function JobDetailOverview({
           <button
             type="button"
             onClick={onEdit}
-            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-micro font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-1 text-micro font-semibold text-success transition-colors hover:bg-success/20"
           >
             <Pencil className="h-3 w-3" aria-hidden />
             {/* Shorter label on narrow screens */}
@@ -270,7 +270,7 @@ export function JobDetailOverview({
               href={phoneHref}
               className={cn(
                 CONTACT_BTN,
-                "max-w-[5.5rem] flex-none border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                "max-w-[5.5rem] flex-none border-success/35 bg-success/10 text-success hover:bg-success/20"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -465,7 +465,7 @@ export function JobDetailOverview({
                     <span
                       className={cn(
                         "font-medium text-foreground",
-                        block.label === "TI SKU" && "font-mono text-emerald-300"
+                        block.label === "TI SKU" && "font-mono text-success"
                       )}
                     >
                       {block.value}
@@ -529,7 +529,7 @@ export function JobDetailOverview({
                   onClick={() => onQuickLifecycleAction("completed")}
                   className={cn(
                     ACTION_BTN,
-                    "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                    "border-success/40 bg-success/15 text-success hover:bg-success/25"
                   )}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
@@ -543,7 +543,7 @@ export function JobDetailOverview({
                     ACTION_BTN,
                     reviewSmsFailed
                       ? "border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
-                      : "border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                      : "border-warning/40 bg-warning/15 text-warning hover:bg-warning/25"
                   )}
                 >
                   <Star className="h-3.5 w-3.5 opacity-90" aria-hidden />

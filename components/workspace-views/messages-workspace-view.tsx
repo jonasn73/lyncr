@@ -951,7 +951,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
       </p>
 
       {error ? (
-        <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : null}
@@ -1015,9 +1015,9 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       "flex w-full flex-col gap-0.5 border-b border-border/40 px-4 py-3 text-left",
                       "transition-colors duration-150 ease-out",
                       active
-                        ? "bg-emerald-500/10"
+                        ? "bg-success/10"
                         : "hover:bg-muted/40",
-                      thread.needsReply && !active && "bg-amber-500/5"
+                      thread.needsReply && !active && "bg-warning/5"
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1036,7 +1036,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                       className={cn(
                         "truncate text-xs",
                         thread.needsReply
-                          ? "font-medium text-amber-100/90"
+                          ? "font-medium text-warning/90"
                           : "text-muted-foreground"
                       )}
                     >
@@ -1147,7 +1147,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     <button
                       type="button"
                       onClick={openCollectForThread}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/25"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-success/40 bg-success/15 px-3 text-2xs font-semibold text-success hover:bg-success/25"
                       aria-label="Collect payment"
                     >
                       <CreditCard className="h-3.5 w-3.5" aria-hidden />
@@ -1212,7 +1212,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                           outbound
                             ? msg.status === "failed"
                               ? "rounded-br-md bg-rose-700 text-white"
-                              : "rounded-br-md bg-emerald-600 text-white"
+                              : "rounded-br-md bg-success text-white"
                             : "rounded-bl-md border border-border/60 bg-muted/50 text-foreground"
                         )}
                       >
@@ -1220,7 +1220,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                         <p
                           className={cn(
                             "mt-1 text-micro tabular-nums",
-                            outbound ? "text-emerald-100/80" : "text-muted-foreground",
+                            outbound ? "text-success/80" : "text-muted-foreground",
                             outbound && msg.status === "failed" && "text-rose-100/90"
                           )}
                         >
@@ -1242,7 +1242,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
 
               <div className="shrink-0 border-t border-border/60 px-3 py-3 md:px-4">
                 {sendError ? (
-                  <p className="mb-2 text-xs text-red-300">{sendError}</p>
+                  <p className="mb-2 text-xs text-destructive">{sendError}</p>
                 ) : null}
 
                 {/* Quick reply chips — tap fills the box. You still tap Send. */}
@@ -1312,7 +1312,7 @@ const MessagesWorkspaceViewInner = memo(function MessagesWorkspaceViewInner({
                     type="button"
                     disabled={sending || !draft.trim()}
                     onClick={() => void sendReply()}
-                    className="shrink-0 bg-emerald-600 hover:bg-emerald-500"
+                    className="shrink-0 bg-success hover:bg-success"
                     aria-label="Send reply"
                   >
                     {sending ? (

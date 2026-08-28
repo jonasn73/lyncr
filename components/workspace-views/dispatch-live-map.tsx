@@ -1147,7 +1147,7 @@ export function DispatchLiveMap({
             {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
           </div>
           {selectedJob.assigned_tech_name && (
-            <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
+            <p className="mt-2 text-xs text-success">Dispatched to {selectedJob.assigned_tech_name}</p>
           )}
           {/* Same JobDetailDrawer as Scheduler Coming Up Next / CRM Open job. */}
           <button
@@ -1172,7 +1172,7 @@ export function DispatchLiveMap({
         You
       </span>
       <span className="flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Assigned
+        <span className="h-2.5 w-2.5 rounded-full bg-success" /> Assigned
       </span>
       <span className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unassigned
@@ -1188,7 +1188,7 @@ export function DispatchLiveMap({
 
   const locationHint =
     dispatcherLocation.status === "denied" ? (
-      <p className="mt-2 text-center text-xs text-amber-400/90">
+      <p className="mt-2 text-center text-xs text-warning/90">
         Location permission blocked — allow GPS to see proximity miles on job pins.
       </p>
     ) : dispatcherLocation.status === "requesting" && !userLocation ? (

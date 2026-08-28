@@ -146,10 +146,10 @@ const BADGE_LABEL: Record<CrmLeadBadge, string> = {
 function crmListStatusToneClass(
   tone: CrmCustomerListItem["job_status_tone"] | undefined
 ): string {
-  if (tone === "amber") return "text-amber-300/90"
+  if (tone === "amber") return "text-warning/90"
   if (tone === "rose") return "text-rose-300/90"
   if (tone === "sky") return "text-sky-300/90"
-  if (tone === "emerald") return "text-emerald-300/90"
+  if (tone === "emerald") return "text-success/90"
   return "text-muted-foreground"
 }
 
@@ -1715,7 +1715,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
             type="button"
             disabled={saveBusy}
             onClick={() => void saveName()}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-success/40 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"
             aria-label="Save name"
           >
             {saveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -1923,10 +1923,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               <span
                 className={cn(
                   "rounded-md px-2 py-0.5 text-micro font-semibold",
-                  headerJobTarget.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
+                  headerJobTarget.status_tone === "amber" && "bg-warning/15 text-warning",
                   headerJobTarget.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
                   headerJobTarget.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
-                  headerJobTarget.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
+                  headerJobTarget.status_tone === "emerald" && "bg-success/15 text-success",
                   headerJobTarget.status_tone === "neutral" && "bg-muted text-muted-foreground"
                 )}
               >
@@ -1971,7 +1971,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               {headerJobTarget.amount_cents != null && headerJobTarget.amount_cents > 0 ? (
                 <div className="flex gap-2">
                   <dt className="w-16 shrink-0 text-2xs font-medium text-muted-foreground">Quote</dt>
-                  <dd className="min-w-0 tabular-nums text-emerald-200">
+                  <dd className="min-w-0 tabular-nums text-success">
                     {formatMoney(headerJobTarget.amount_cents)}
                   </dd>
                 </div>
@@ -2003,7 +2003,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     "inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold",
                     headerJobAction === "Recover"
                       ? "border border-rose-500/45 bg-rose-500/20 text-rose-100"
-                      : "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+                      : "border border-success/50 bg-success/20 text-success"
                   )}
                   title={crmJobNavTitle(headerJobAction)}
                 >
@@ -2030,7 +2030,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 <button
                   type="button"
                   onClick={() => openRecordInvoice(headerJobTarget)}
-                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-100"
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-success/40 bg-success/10 px-3 text-xs font-semibold text-success"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   Send invoice
@@ -2054,8 +2054,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       className={cn(
                         "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-2xs font-semibold disabled:opacity-50",
                         headerJobTarget.status_label === "Called · no answer"
-                          ? "border-amber-500/40 bg-amber-500/20 text-amber-100"
-                          : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                          ? "border-warning/40 bg-warning/20 text-warning"
+                          : "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                       )}
                     >
                       {unreachableBusy ? (
@@ -2121,8 +2121,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     headerJobTarget.status_label === "Complete" ||
                       headerJobTarget.status_label === "Done" ||
                       headerJobTarget.status_label === "Completed"
-                      ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-100"
-                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+                      ? "border-success/40 bg-success/20 text-success"
+                      : "border-success/40 bg-success/10 text-success hover:bg-success/20"
                   )}
                 >
                   {unreachableBusy ? (
@@ -2256,7 +2256,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           {v.vin ? (
                             <p className="truncate text-2xs text-muted-foreground">VIN {v.vin}</p>
                           ) : (
-                            <p className="text-2xs text-amber-200/80">No VIN yet</p>
+                            <p className="text-2xs text-warning/80">No VIN yet</p>
                           )}
                           {v.fcc_id ? (
                             <p className="truncate text-2xs text-muted-foreground">FCC {v.fcc_id}</p>
@@ -2341,7 +2341,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold tabular-nums text-emerald-200">
+                        <p className="text-sm font-semibold tabular-nums text-success">
                           {formatCollectedDollars(amountCents)}
                         </p>
                         <p className="mt-0.5 text-2xs text-muted-foreground">
@@ -2354,9 +2354,9 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       <span
                         className={cn(
                           "shrink-0 rounded-md px-2 py-0.5 text-micro font-semibold",
-                          tx.status === "COMPLETED" && "bg-emerald-500/15 text-emerald-300",
+                          tx.status === "COMPLETED" && "bg-success/15 text-success",
                           tx.status === "FAILED" && "bg-rose-500/15 text-rose-300",
-                          tx.status === "PENDING" && "bg-amber-500/15 text-amber-200"
+                          tx.status === "PENDING" && "bg-warning/15 text-warning"
                         )}
                       >
                         {paymentStatusLabel(tx.status)}
@@ -2366,7 +2366,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => openSendReceipt(tx)}
-                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/20"
+                        className="mt-2 inline-flex h-8 items-center gap-2 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20"
                       >
                         <Mail className="h-3.5 w-3.5" />
                         Send invoice / receipt
@@ -2436,8 +2436,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                     <span
                       className={cn(
                         "shrink-0 rounded-md px-2 py-0.5 text-micro font-semibold",
-                        item.status_tone === "emerald" && "bg-emerald-500/15 text-emerald-300",
-                        item.status_tone === "amber" && "bg-amber-500/15 text-amber-200",
+                        item.status_tone === "emerald" && "bg-success/15 text-success",
+                        item.status_tone === "amber" && "bg-warning/15 text-warning",
                         item.status_tone === "rose" && "bg-rose-500/15 text-rose-300",
                         item.status_tone === "sky" && "bg-sky-500/15 text-sky-200",
                         item.status_tone === "neutral" && "bg-muted text-muted-foreground"
@@ -2474,7 +2474,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           type="button"
                           disabled={saveBusy || !editApptLocal.trim()}
                           onClick={() => void saveAppointment(item.id, editApptLocal)}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-emerald-300 hover:bg-muted disabled:opacity-40"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-success hover:bg-muted disabled:opacity-40"
                           aria-label="Save appointment"
                           title="Save appointment"
                         >
@@ -2559,7 +2559,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                             "inline-flex h-5 items-center gap-1 rounded px-0.5 text-micro font-semibold hover:bg-muted",
                             action === "Recover"
                               ? "text-rose-300/95 hover:text-rose-200"
-                              : "text-emerald-300/90 hover:text-emerald-200"
+                              : "text-success/90 hover:text-success"
                           )}
                           title={crmJobNavTitle(action)}
                         >
@@ -2573,7 +2573,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                         type="button"
                         disabled={reviewBusyId === item.id}
                         onClick={() => void sendReviewSms(item.id)}
-                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-micro font-semibold text-amber-300/95 hover:bg-muted hover:text-amber-200 disabled:opacity-50"
+                        className="inline-flex h-5 items-center gap-1 rounded px-0.5 text-micro font-semibold text-warning/95 hover:bg-muted hover:text-warning disabled:opacity-50"
                         title="Send thanks + Google review SMS"
                       >
                         {reviewBusyId === item.id ? (
@@ -2937,7 +2937,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               type="button"
               disabled={smsPreviewSending || !smsPreviewDraft.trim()}
               onClick={() => void sendSmsPreview()}
-              className="bg-emerald-600 text-white hover:bg-emerald-500"
+              className="bg-success text-white hover:bg-success"
             >
               {smsPreviewSending ? (
                 <>
@@ -3069,7 +3069,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                 type="button"
                 disabled={receiptBusy}
                 onClick={() => void sendReceiptFromCrm()}
-                className="h-11 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
               >
                 {receiptBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -3260,7 +3260,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
               type="button"
               disabled={recordBusy}
               onClick={() => void sendRecordInvoiceFromCrm()}
-              className="h-11 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+              className="h-11 w-full gap-2 bg-success text-white hover:bg-success"
             >
               {recordBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

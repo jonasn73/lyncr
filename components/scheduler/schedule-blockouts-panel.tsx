@@ -29,13 +29,13 @@ export function ScheduleBlockoutsPanel({
   return (
     <div
       className={cn(
-        embedded ? "p-0" : "rounded-xl border border-amber-500/20 bg-amber-500/5 p-3"
+        embedded ? "p-0" : "rounded-xl border border-warning/20 bg-warning/5 p-3"
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Ban className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-300">
+          <Ban className="h-4 w-4 shrink-0 text-warning" aria-hidden />
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning">
             {embedded ? "Blockouts" : `Blockouts · ${dateKey}`}
           </p>
         </div>
@@ -43,7 +43,7 @@ export function ScheduleBlockoutsPanel({
           type="button"
           onClick={onAdd}
           className={cn(
-            "shrink-0 rounded-lg bg-amber-600 px-3 text-2xs font-semibold text-white hover:bg-amber-500",
+            "shrink-0 rounded-lg bg-warning px-3 text-2xs font-semibold text-white hover:bg-warning",
             MOBILE_TAP_TARGET
           )}
         >
@@ -62,15 +62,15 @@ export function ScheduleBlockoutsPanel({
                 disabled={deletingId === b.id}
                 onClick={() => onDelete(b.id)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg border border-amber-900/50 bg-background/60 px-3 py-2 text-left transition-colors hover:border-red-500/40 hover:bg-red-950/20",
+                  "flex w-full items-center justify-between gap-2 rounded-lg border border-warning/50 bg-background/60 px-3 py-2 text-left transition-colors hover:border-destructive/40 hover:bg-destructive/20",
                   MOBILE_TAP_TARGET
                 )}
                 title="Tap to delete and reopen slots"
               >
-                <span className="min-w-0 truncate text-xs font-medium text-amber-100">
+                <span className="min-w-0 truncate text-xs font-medium text-warning">
                   {formatBlockoutLabel(b)}
                 </span>
-                <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-red-300/90">
+                <span className="shrink-0 text-micro font-semibold uppercase tracking-wide text-destructive/90">
                   {deletingId === b.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                   ) : (

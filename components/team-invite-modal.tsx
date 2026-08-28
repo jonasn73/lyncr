@@ -254,7 +254,7 @@ export function TeamInviteModal({
 
         {phoneDone ? (
           <div className="mt-2 space-y-4">
-            <p className="rounded-lg border border-emerald-600/30 bg-emerald-950/30 px-3 py-3 text-sm text-emerald-100">
+            <p className="rounded-lg border border-success/30 bg-success/30 px-3 py-3 text-sm text-success">
               Saved. Next: open <span className="font-semibold">Who answers</span> on Routing and pick them so calls
               forward to their phone.
             </p>
@@ -284,7 +284,7 @@ export function TeamInviteModal({
                 : " Email was not sent — copy the link below and share it yourself."}
             </p>
             {!inviteDone.email_sent && inviteDone.email_error ? (
-              <p className="rounded-lg border border-amber-600/30 bg-amber-950/25 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+              <p className="rounded-lg border border-warning/30 bg-warning/25 px-3 py-2 text-xs leading-relaxed text-warning/90">
                 {inviteDone.email_error}
               </p>
             ) : null}

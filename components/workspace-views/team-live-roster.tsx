@@ -136,8 +136,8 @@ function buildRosterRows(
 
 const PRESENCE_DOT: Record<RosterPresence, string> = {
   on_job: "bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]",
-  standby: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.65)]",
-  away: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]",
+  standby: "bg-success shadow-[0_0_8px_rgba(52,211,153,0.65)]",
+  away: "bg-warning shadow-[0_0_8px_rgba(251,191,36,0.65)]",
 }
 
 const PRESENCE_LABEL: Record<RosterPresence, string> = {

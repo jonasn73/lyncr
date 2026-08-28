@@ -54,14 +54,14 @@ export function CustomerPortalReview({
       subtitle="Thanks for choosing us — a quick review helps a lot."
       centered
     >
-      <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-6 text-center">
+      <div className="rounded-xl border border-success/40 bg-success/30 px-4 py-6 text-center">
         <p className="text-sm text-foreground">
           You&apos;ll open Google (or the business review page) next. Continues in{" "}
-          <span className="font-semibold tabular-nums text-emerald-200">{seconds}s</span>.
+          <span className="font-semibold tabular-nums text-success">{seconds}s</span>.
         </p>
         <a
           href={destinationUrl}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-sm font-semibold text-white hover:bg-amber-500 sm:w-auto"
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-warning px-6 text-sm font-semibold text-white hover:bg-warning sm:w-auto"
         >
           Leave a review
           <ExternalLink className="h-4 w-4" aria-hidden />

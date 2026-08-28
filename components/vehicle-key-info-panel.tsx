@@ -612,7 +612,7 @@ export function KeySelectionCard({
           "relative w-full touch-manipulation rounded-xl border p-3 text-left transition-colors",
           disabled && "cursor-not-allowed opacity-40",
           !disabled && selected
-            ? "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/45"
+            ? "border-success bg-success/40 ring-2 ring-success/45"
             : !disabled
               ? "border-border bg-background/50 hover:border-border"
               : "border-border bg-background/40"
@@ -622,7 +622,7 @@ export function KeySelectionCard({
       >
         {selected ? (
           <span
-            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm"
+            className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-success text-white shadow-sm"
             aria-hidden
           >
             <Check className="h-3 w-3" strokeWidth={3} />
@@ -638,11 +638,11 @@ export function KeySelectionCard({
         />
         <div className="mt-2.5 min-w-0 space-y-2">
           {card.tiSku ? (
-            <span className="inline-flex max-w-full truncate text-emerald-400 font-mono text-sm tracking-wider bg-emerald-950/40 border border-emerald-900/50 px-2 py-1 rounded-md">
+            <span className="inline-flex max-w-full truncate text-success font-mono text-sm tracking-wider bg-success/40 border border-success/50 px-2 py-1 rounded-md">
               {card.tiSku}
             </span>
           ) : (
-            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-emerald-100" : "text-foreground")}>
+            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-success" : "text-foreground")}>
               {card.label}
             </span>
           )}
@@ -672,7 +672,7 @@ export function KeySelectionCard({
           ) : null}
         </div>
         {disabledReason ? (
-          <span className="mt-2 block rounded bg-amber-950/90 px-1 py-0.5 text-center text-micro font-semibold leading-tight text-amber-200">
+          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-micro font-semibold leading-tight text-warning">
             {disabledReason}
           </span>
         ) : null}
@@ -813,7 +813,7 @@ function VariantFilmstrip({
         })}
       </div>
     {showAklBanner ? (
-      <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-2xs font-medium leading-snug text-amber-100">
+      <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-2xs font-medium leading-snug text-warning">
         🚨 Verification Alert: Ensure the vehicle is equipped with factory remote start before
         cutting/programming this variant to prevent blank waste.
       </p>
@@ -924,7 +924,7 @@ function FccProfileSection({
     <section
       className={cn(
         "grid gap-2 rounded-lg border p-2 transition-colors",
-        selected ? "border-emerald-500/40 bg-emerald-950/20" : "border-border/60 bg-background/40"
+        selected ? "border-success/40 bg-success/20" : "border-border/60 bg-background/40"
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -953,7 +953,7 @@ function FccProfileSection({
       <p className="font-mono text-micro tracking-wide text-muted-foreground">FCC {p.fcc_id}</p>
 
       {relatedFcc.length > 0 ? (
-        <p className="text-micro text-amber-100/80">
+        <p className="text-micro text-warning/80">
           Related sticker: <span className="font-mono">{relatedFcc.join(", ")}</span>
         </p>
       ) : null}
@@ -1641,7 +1641,7 @@ export function VehicleKeyInfoPanel({
     !value?.keyStyle?.trim()
   if (waitingOnClarification) {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs leading-relaxed text-amber-50/95">
+      <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-3 text-xs leading-relaxed text-warning/95">
         Answer <span className="font-semibold">push-button vs turn-key</span> above first. We’ll show
         the matching order blank after you choose — so we don’t pick the wrong key type for you.
       </div>
@@ -1656,7 +1656,7 @@ export function VehicleKeyInfoPanel({
           onManualBypass={() => setManualBypassMode(true)}
           onReturnToLookup={handleReturnToLookup}
         />
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           Could not load key reference — choose a manual key type below to keep the call moving.
         </p>
         <p className="text-2xs text-muted-foreground">
@@ -1830,21 +1830,21 @@ export function VehicleKeyInfoPanel({
       ) : null}
 
       {lookupSource === "ymm_fallback" && activeFccQuery ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-2xs text-amber-100">
+        <p className="rounded-md border border-warning/30 bg-warning/10 px-2 py-2 text-2xs text-warning">
           No exact FCC match for <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span>
           — showing all remotes registered to this {year} {make} {info.model}.
         </p>
       ) : null}
 
       {lookupSource === "fcc" && activeFccQuery ? (
-        <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-100">
+        <p className="rounded-md border border-success/30 bg-success/10 px-2 py-2 text-2xs text-success">
           Matched FCC <span className="font-mono font-medium">{sanitizeFccIdInput(activeFccQuery)}</span> — confirm the
           photo on the customer&apos;s key.
         </p>
       ) : null}
 
       {info.match_type === "family" && info.matched_model !== info.model ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-2xs text-amber-100">
+        <p className="rounded-md border border-warning/30 bg-warning/10 px-2 py-2 text-2xs text-warning">
           No exact match for <span className="font-medium">{info.model}</span> — showing closest reference:{" "}
           <span className="font-medium">{info.matched_model}</span>. Confirm on the vehicle before ordering keys.
         </p>
@@ -1880,7 +1880,7 @@ export function VehicleKeyInfoPanel({
       </div>
 
       {trimHelperMessage ? (
-        <p className="text-2xs italic leading-snug text-amber-200">{trimHelperMessage}</p>
+        <p className="text-2xs italic leading-snug text-warning">{trimHelperMessage}</p>
       ) : null}
 
       <div className="grid gap-2">

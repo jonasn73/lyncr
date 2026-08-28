@@ -192,7 +192,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
   return (
     <section
       className={cn(
-        "space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:space-y-4 sm:p-4",
+        "space-y-3 rounded-xl border border-warning/20 bg-warning/5 p-3 sm:space-y-4 sm:p-4",
         className
       )}
       aria-labelledby="automation-voice-greetings-heading"
@@ -200,7 +200,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
       <div>
         <p
           id="automation-voice-greetings-heading"
-          className="text-xs font-semibold uppercase tracking-wide text-amber-300"
+          className="text-xs font-semibold uppercase tracking-wide text-warning"
         >
           🤖 Automation Voice Greetings
         </p>

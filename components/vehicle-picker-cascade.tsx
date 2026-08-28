@@ -159,8 +159,8 @@ function SelectionChip({
         active
           ? WS_OPTION_ROW_ACTIVE
           : selected
-            ? "border-emerald-500/40 bg-card/80"
-            : "border-border bg-card/40 hover:border-emerald-500/30",
+            ? "border-success/40 bg-card/80"
+            : "border-border bg-card/40 hover:border-success/30",
         disabled && "cursor-not-allowed opacity-40"
       )}
       aria-pressed={active}

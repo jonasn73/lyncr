@@ -50,7 +50,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
         "pointer-events-auto fixed left-0 right-0 z-[45] border-b px-3 py-2 backdrop-blur-md md:left-[4.25rem]",
         "top-[var(--shell-header-h)]",
         ringing
-          ? "border-amber-500/30 bg-amber-950/80"
+          ? "border-warning/30 bg-warning/80"
           : "border-cyan-500/30 bg-cyan-950/70"
       )}
     >
@@ -61,7 +61,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           "flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-left transition-all",
           "active:scale-[0.99] touch-manipulation",
           ringing
-            ? "bg-amber-500/10 hover:bg-amber-500/15"
+            ? "bg-warning/10 hover:bg-warning/15"
             : "bg-cyan-500/10 hover:bg-cyan-500/15"
         )}
         aria-label={ringing ? "Open ringing call intake" : "Open connected call intake"}
@@ -69,7 +69,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
         <span
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            ringing ? "bg-amber-500/20 text-amber-200" : "bg-cyan-500/20 text-cyan-200"
+            ringing ? "bg-warning/20 text-warning" : "bg-cyan-500/20 text-cyan-200"
           )}
         >
           {ringing ? (
@@ -83,7 +83,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           <span
             className={cn(
               "block text-micro font-bold uppercase tracking-wider",
-              ringing ? "text-amber-300/90" : "text-cyan-300/90"
+              ringing ? "text-warning/90" : "text-cyan-300/90"
             )}
           >
             {ringing ? "Incoming · Ringing" : `Live · ${mm}:${ss}`}
@@ -102,7 +102,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           className={cn(
             "h-2 w-2 shrink-0 rounded-full",
             ringing
-              ? "animate-pulse bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.95)]"
+              ? "animate-pulse bg-warning shadow-[0_0_10px_rgba(251,191,36,0.95)]"
               : "bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.9)]"
           )}
           aria-hidden

@@ -533,8 +533,8 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           ) : null}
 
           {pendingInvites.length > 0 ? (
-            <div className="mt-3 space-y-2 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
-              <p className="text-2xs font-semibold uppercase tracking-wide text-amber-200/90">
+            <div className="mt-3 space-y-2 rounded-lg border border-warning/20 bg-warning/20 px-3 py-2">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-warning/90">
                 Waiting to accept ({pendingInvites.length})
               </p>
               {pendingInvites.slice(0, 5).map((inv) => {
@@ -542,7 +542,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 const hasEmail = Boolean(inv.email?.includes("@"))
                 const busy = inviteBusyId === inv.id
                 return (
-                  <div key={inv.id} className="space-y-2 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
+                  <div key={inv.id} className="space-y-2 border-t border-warning/10 pt-2 first:border-t-0 first:pt-0">
                     <p className="min-w-0 truncate text-xs text-muted-foreground">
                       {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
                     </p>

@@ -308,7 +308,7 @@ export function IncomingCallOpsToolbar({
             <button
               type="button"
               onClick={() => onOpenActiveJob(context.jobId)}
-              className="ml-auto truncate text-micro font-bold uppercase tracking-wide text-amber-200"
+              className="ml-auto truncate text-micro font-bold uppercase tracking-wide text-warning"
               title="Open this job on Scheduler"
             >
               Job active
@@ -364,7 +364,7 @@ export function IncomingCallOpsToolbar({
                 onClick={openBookLinkSheet}
                 className={cn(
                   BTN,
-                  "min-h-8 border-emerald-500/40 bg-emerald-500/10 py-1 text-emerald-100 hover:bg-emerald-500/20"
+                  "min-h-8 border-success/40 bg-success/10 py-1 text-success hover:bg-success/20"
                 )}
                 aria-label="Text booking link"
               >
@@ -424,14 +424,14 @@ export function IncomingCallOpsToolbar({
               <button
                 type="button"
                 onClick={() => onOpenActiveJob(context.jobId)}
-                className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-amber-200 transition-colors hover:border-amber-400/60 hover:bg-amber-500/20"
+                className="inline-flex items-center rounded-md border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-warning transition-colors hover:border-warning/60 hover:bg-warning/20"
                 title="Open this job on Scheduler"
                 aria-label={`Open recent job for ${context.metaLine}`}
               >
                 ⚠️ Recent Job Active
               </button>
             ) : (
-              <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-amber-200">
+              <span className="inline-flex items-center rounded-md border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-warning">
                 ⚠️ Recent Job Active
               </span>
             )}
@@ -441,7 +441,7 @@ export function IncomingCallOpsToolbar({
           <p className="text-2xs font-medium text-muted-foreground">{context.cnamToken}</p>
         )}
         {urgency.isHighUrgency && urgency.minutesSinceLastMissed != null ? (
-          <p className="mt-1 text-2xs font-medium text-amber-500/90">
+          <p className="mt-1 text-2xs font-medium text-warning/90">
             {formatRepeatCallerHistoryLine(urgency.minutesSinceLastMissed)}
           </p>
         ) : null}
@@ -495,7 +495,7 @@ export function IncomingCallOpsToolbar({
           onClick={openBookLinkSheet}
           className={cn(
             BTN,
-            "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20"
+            "border-success/40 bg-success/10 text-success hover:bg-success/20"
           )}
           aria-label="Text booking link"
         >

@@ -169,7 +169,7 @@ export function SecondaryCallInterceptBanner({
           onClick={() => void handleHoldAndSms()}
           className={cn(
             "inline-flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2",
-            "border-amber-500/40 bg-amber-500/10 text-amber-100",
+            "border-warning/40 bg-warning/10 text-warning",
             "text-2xs font-semibold touch-manipulation disabled:opacity-50"
           )}
         >

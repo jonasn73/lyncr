@@ -40,9 +40,9 @@ const STATUS_LABEL: Record<OperatorOnboardingStatus, string> = {
 }
 
 const STATUS_CLASS: Record<OperatorOnboardingStatus, string> = {
-  PENDING_INVITE: "bg-amber-500/15 text-amber-200 ring-amber-500/30",
+  PENDING_INVITE: "bg-warning/15 text-warning ring-warning/30",
   DEVICE_TESTING: "bg-sky-500/15 text-sky-200 ring-sky-500/30",
-  ACTIVE_READY: "bg-emerald-500/15 text-emerald-200 ring-emerald-500/30",
+  ACTIVE_READY: "bg-success/15 text-success ring-success/30",
 }
 
 function formatStatus(raw: OperatorOnboardingStatus | null): OperatorOnboardingStatus {
@@ -388,7 +388,7 @@ export function OperatorOnboardingDashboard() {
                             className={cn(
                               "flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                               checked
-                                ? "border-emerald-500/40 bg-emerald-500/10"
+                                ? "border-success/40 bg-success/10"
                                 : "border-border bg-card/40 hover:border-border"
                             )}
                           >
@@ -396,7 +396,7 @@ export function OperatorOnboardingDashboard() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleWorkspace(key)}
-                              className="mt-0.5 accent-emerald-500"
+                              className="mt-0.5 accent-success"
                             />
                             <span className="min-w-0">
                               <span className="block text-xs font-medium text-foreground">{w.business_name}</span>
@@ -411,19 +411,19 @@ export function OperatorOnboardingDashboard() {
                   </ul>
                 )}
                 {selectedWorkspaces.length > 0 ? (
-                  <p className="text-micro text-emerald-300/90">
+                  <p className="text-micro text-success/90">
                     {selectedWorkspaces.length} workspace{selectedWorkspaces.length === 1 ? "" : "s"} selected
                   </p>
                 ) : null}
               </div>
-              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
               {manualLink ? (
-                <p className="break-all rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+                <p className="break-all rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                   Setup link (text manually): {manualLink}
                 </p>
               ) : null}
               {lastSentTo ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                <p className="rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
                   Text sent to {lastSentTo}. They can tap the link to finish setup.
                 </p>
               ) : null}
@@ -442,7 +442,7 @@ export function OperatorOnboardingDashboard() {
         <Card className="border-border bg-card/60 shadow-lg">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base text-foreground">
-              <Radio className="h-4 w-4 text-emerald-300" aria-hidden />
+              <Radio className="h-4 w-4 text-success" aria-hidden />
               Provisioning queue
             </CardTitle>
             <Button type="button" variant="ghost" size="sm" onClick={() => void load()} className="text-muted-foreground">
@@ -552,8 +552,8 @@ export function OperatorOnboardingDashboard() {
                   className={cn(
                     "rounded-lg border p-3 text-xs",
                     detailManualLink
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                      ? "border-warning/30 bg-warning/10 text-warning"
+                      : "border-success/30 bg-success/10 text-success"
                   )}
                 >
                   {detailNotice}
@@ -566,7 +566,7 @@ export function OperatorOnboardingDashboard() {
                         type="button"
                         size="sm"
                         variant="secondary"
-                        className="h-8 border-amber-500/30 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                        className="h-8 border-warning/30 bg-warning/10 text-warning hover:bg-warning/20"
                         onClick={() => void copySetupLink(detailManualLink)}
                       >
                         {copiedLink ? "Copied!" : "Copy setup link"}
@@ -592,7 +592,7 @@ export function OperatorOnboardingDashboard() {
                     Resend setup text
                   </Button>
                 ) : formatStatus(selectedOperator.operator_onboarding_status) === "ACTIVE_READY" ? (
-                  <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-200/90">
+                  <p className="rounded-lg border border-success/20 bg-success/5 px-3 py-2 text-xs text-success/90">
                     This operator finished setup and is active. Disable them to pause routing.
                   </p>
                 ) : !selectedOperator.is_active ? (

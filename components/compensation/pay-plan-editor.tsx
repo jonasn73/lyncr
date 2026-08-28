@@ -249,7 +249,7 @@ function ComponentRow({
                 </label>
               ) : null}
               {component.event === "BOOKED_JOB" || component.event === "COMPLETED_JOB" ? (
-                <p className="text-2xs text-amber-200/80">
+                <p className="text-2xs text-warning/80">
                   For receptionists this needs booking attribution, which is not built yet.
                 </p>
               ) : null}
@@ -436,7 +436,7 @@ export function PayPlanButton({
       <span
         className={cn(
           "block truncate text-2xs underline-offset-2 group-hover:underline",
-          plan ? "text-foreground" : "text-amber-300/90"
+          plan ? "text-foreground" : "text-warning/90"
         )}
       >
         {plan?.summary ?? "Not set — tap to set"}
@@ -577,7 +577,7 @@ function PlanCostPanel({
               <p>No calls or jobs in the last 30 days to price this against.</p>
             ) : null}
             {preview.floor.available && preview.floor.topUpCents > 0 ? (
-              <p className="text-amber-200/90">
+              <p className="text-warning/90">
                 + {usd(preview.floor.topUpCents)} to reach the wage floor across{" "}
                 {preview.floor.weeks} week{preview.floor.weeks === 1 ? "" : "s"}
               </p>
@@ -809,7 +809,7 @@ function PayPlanForm({
           {validation.warnings.map((message) => (
             <p
               key={message}
-              className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90"
+              className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/20 px-3 py-2 text-xs text-warning/90"
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               {message}

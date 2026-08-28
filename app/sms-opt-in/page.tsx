@@ -69,9 +69,9 @@ function SmsOptInForm() {
         </div>
 
         {submitted ? (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-6">
+          <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-6">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" aria-hidden />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden />
               <div>
                 <p className="text-sm font-semibold text-foreground">You are opted in</p>
                 <p className="mt-1 text-sm text-muted-foreground">

@@ -35,8 +35,8 @@ function MoneyLine({
       <p
         className={cn(
           "shrink-0 text-sm font-semibold tabular-nums",
-          tone === "in" && "text-emerald-300",
-          tone === "out" && "text-amber-300",
+          tone === "in" && "text-success",
+          tone === "out" && "text-warning",
           tone === "net" && "text-foreground",
           !tone && "text-foreground"
         )}
@@ -115,14 +115,14 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         className={cn(
           "mb-3 rounded-xl border px-3 py-3",
           row.ahead
-            ? "border-emerald-500/35 bg-emerald-950/40"
-            : "border-amber-500/35 bg-amber-950/40"
+            ? "border-success/35 bg-success/40"
+            : "border-warning/35 bg-warning/40"
         )}
       >
         <p
           className={cn(
             "text-xs font-semibold uppercase tracking-wide",
-            row.ahead ? "text-emerald-400/90" : "text-amber-400/90"
+            row.ahead ? "text-success/90" : "text-warning/90"
           )}
         >
           {row.verdict_label}
@@ -137,7 +137,7 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       </div>
 
       {row.prior_period_note ? (
-        <p className="mb-2 rounded-lg border border-amber-500/25 bg-amber-950/30 px-3 py-2 text-xs leading-snug text-amber-100/90">
+        <p className="mb-2 rounded-lg border border-warning/25 bg-warning/30 px-3 py-2 text-xs leading-snug text-warning/90">
           {row.prior_period_note}
         </p>
       ) : null}
@@ -229,12 +229,12 @@ export function BusinessMoneyChip({
         <p
           className={cn(
             "text-sm font-bold tabular-nums",
-            row.ahead ? "text-emerald-300" : "text-amber-300"
+            row.ahead ? "text-success" : "text-warning"
           )}
         >
           {row.net_abs_label}
         </p>
-        <p className={cn("text-micro font-medium", row.ahead ? "text-emerald-500/80" : "text-amber-500/80")}>
+        <p className={cn("text-micro font-medium", row.ahead ? "text-success/80" : "text-warning/80")}>
           {row.verdict_label}
         </p>
       </div>

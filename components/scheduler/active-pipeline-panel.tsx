@@ -170,7 +170,7 @@ export function ActivePipelinePanel({
                           onClick={() => onEditJob(job)}
                           className={cn(
                             SCHEDULER_ACTION_BUTTON,
-                            highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                            highlighted && "border-success/40 bg-success/10 text-success"
                           )}
                         >
                           <Pencil className="h-3.5 w-3.5" aria-hidden />
@@ -253,7 +253,7 @@ export function ActivePipelinePanel({
                             disabled={isCompleting}
                             aria-label={`Mark ${displayName} as done`}
                             onClick={() => onMarkComplete(job.id)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-500/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200"
+                            className="inline-flex items-center gap-2 rounded-lg border border-success/50 bg-success/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-success"
                           >
                             {isCompleting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -288,7 +288,7 @@ export function ActivePipelinePanel({
                         "absolute right-3 top-3 z-20",
                         SCHEDULER_ACTION_BUTTON,
                         "px-2 py-0.5 text-micro shadow-sm",
-                        highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        highlighted && "border-success/40 bg-success/10 text-success"
                       )}
                     >
                       <Pencil className="h-3 w-3" aria-hidden />
@@ -373,7 +373,7 @@ export function ActivePipelinePanel({
                           onMarkComplete(job.id)
                         }}
                         className={cn(
-                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-emerald-200 transition-colors hover:bg-emerald-500/25",
+                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-success/50 bg-success/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-success transition-colors hover:bg-success/25",
                           isMobileSheet && "static mt-3"
                         )}
                       >

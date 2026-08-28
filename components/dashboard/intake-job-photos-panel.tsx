@@ -200,14 +200,14 @@ export function IntakeJobPhotosPanel({
       {/* Critical dispatch banners stay visible even when the tools stay collapsed. */}
       {infoReceived ? (
         <div className="space-y-2">
-          <div className="rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-3 py-2 text-center">
-            <p className="text-2xs font-black uppercase tracking-wider text-emerald-200">
+          <div className="rounded-xl border border-success/50 bg-success/15 px-3 py-2 text-center">
+            <p className="text-2xs font-black uppercase tracking-wider text-success">
               [ INFO RECEIVED - READY TO DISPATCH ]
             </p>
           </div>
           {rescueMeta?.verify_on_arrival ? (
-            <div className="rounded-xl border-2 border-amber-400 bg-amber-500/20 px-3 py-3 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-100">
+            <div className="rounded-xl border-2 border-warning bg-warning/20 px-3 py-3 text-center shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+              <p className="text-xs font-black uppercase tracking-wide text-warning">
                 ⚠️ VERIFY ID ON SITE BEFORE UNLOCKING
               </p>
             </div>
@@ -277,7 +277,7 @@ export function IntakeJobPhotosPanel({
                 <p
                   className={cn(
                     "text-micro",
-                    requestState === "error" ? "text-red-400" : "text-sky-300/90"
+                    requestState === "error" ? "text-destructive" : "text-sky-300/90"
                   )}
                 >
                   {hint}
@@ -287,14 +287,14 @@ export function IntakeJobPhotosPanel({
               {hasActivity ? (
                 <div className="space-y-2 rounded-xl border border-border/80 bg-card/40 p-3">
                   {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
-                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                    <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
                       {rescueMeta?.customer_name ? (
-                        <p className="text-xs font-semibold text-emerald-100">
+                        <p className="text-xs font-semibold text-success">
                           {rescueMeta.customer_name}
                         </p>
                       ) : null}
                       {vehicleLine ? (
-                        <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
+                        <p className="text-xs text-success/90">{vehicleLine}</p>
                       ) : null}
                       {rescueMeta?.vehicle_vin ? (
                         <p className="mt-0.5 font-mono text-micro text-muted-foreground">
@@ -316,10 +316,10 @@ export function IntakeJobPhotosPanel({
                     <PhotoGrid title="Damage" photos={damagePhotos} />
                     {rescueMeta?.verify_on_arrival ? (
                       <div className="min-w-0 flex-1">
-                        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-amber-300/90">
+                        <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-warning/90">
                           ID / Registration
                         </p>
-                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-2 text-center text-micro font-semibold text-amber-100">
+                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-warning/50 bg-warning/10 px-2 py-2 text-center text-micro font-semibold text-warning">
                           Verify ID on site
                         </div>
                       </div>

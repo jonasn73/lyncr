@@ -495,7 +495,7 @@ function CallBackButton({
         missed
           ? "border-rose-500/45 bg-rose-500/15 text-rose-100 hover:border-rose-400/60 hover:bg-rose-500/25"
           : hold
-            ? "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:border-amber-400/55 hover:bg-amber-500/20"
+            ? "border-warning/40 bg-warning/10 text-warning hover:border-warning/55 hover:bg-warning/20"
             : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:border-teal-400/50 hover:bg-muted hover:text-teal-300",
         compact ? "h-8 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
         className
@@ -675,13 +675,13 @@ function buildCallSummary(call: UiCallRecord): string {
 
 function intakeActionTone(action: string): string {
   if (action === "Sent to dispatch" || action === "Booked") {
-    return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+    return "border-success/35 bg-success/10 text-success"
   }
   if (action === "Contact saved" || action === "Pending time") {
-    return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+    return "border-warning/35 bg-warning/10 text-warning"
   }
   if (action === "Price rejected" || action === "Failed") {
-    return "border-red-500/35 bg-red-500/10 text-red-300"
+    return "border-destructive/35 bg-destructive/10 text-destructive"
   }
   if (action === "No intake recorded") {
     return "border-border/70 bg-muted/40 text-muted-foreground"
@@ -750,7 +750,7 @@ function ActivityIntakeSummary({
         </p>
       ) : null}
       {activity.scheduleLabel ? (
-        <p className={cn("flex items-center gap-1 text-emerald-300/90", compact ? "text-2xs" : "text-xs")}>
+        <p className={cn("flex items-center gap-1 text-success/90", compact ? "text-2xs" : "text-xs")}>
           <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
           <span>{activity.scheduleLabel}</span>
         </p>
@@ -941,8 +941,8 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
 
           {/* Missed + no intake: skip the long Answered panel — summary covers it. */}
           {!isMissedLog || hasIntake ? (
-            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-4">
-              <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-emerald-300">
+            <div className="rounded-2xl border border-success/25 bg-success/[0.06] p-4">
+              <p className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide text-success">
                 <ClipboardList className="h-3.5 w-3.5" aria-hidden />
                 {isMissedLog ? "Intake & scheduling" : "Answered panel & scheduling"}
               </p>
@@ -956,7 +956,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               {schedulerHref ? (
                 <Link
                   href={schedulerHref}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-muted hover:text-teal-300"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success transition-[color,background-color,border-color] duration-150 hover:border-teal-400/40 hover:bg-muted hover:text-teal-300"
                 >
                   <CalendarDays className="h-4 w-4" aria-hidden />
                   {activity.scheduleAt ? "View on scheduler map" : "Schedule this job"}
@@ -1057,7 +1057,7 @@ function ActivityGroupActionBar({
           hold={hold && !missed}
           className={cn(
             "h-10 w-full",
-            missed ? "shadow-sm shadow-rose-950/30" : "shadow-sm shadow-amber-950/30"
+            missed ? "shadow-sm shadow-rose-950/30" : "shadow-sm shadow-warning/30"
           )}
         />
       ) : crmHref ? (
@@ -1332,7 +1332,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                     missed
                       ? "text-rose-300/90"
                       : isHoldActivityStatus(st)
-                        ? "text-amber-300/90"
+                        ? "text-warning/90"
                         : "text-cyan-400/90"
                   )}
                 >
@@ -1371,7 +1371,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                   <>
                     <ActivityGroupActionBar call={call} />
                     {jobCall?.activity ? (
-                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2">
+                      <div className="rounded-lg border border-success/20 bg-success/[0.05] px-3 py-2">
                         <ActivityIntakeSummary
                           activity={jobCall.activity}
                           compact
@@ -1834,7 +1834,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
         <div key={filter} className="lyncr-content-swap">
           {showMissedEmpty ? (
             <div className="rounded-2xl border border-border/80 bg-background/40 px-4 py-10 text-center">
-              <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
+              <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-warning/80" aria-hidden />
               <p className="text-sm font-medium text-foreground">No missed calls today</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 This list resets at midnight. Yesterday’s missed calls stay in All calls.

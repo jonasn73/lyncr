@@ -46,7 +46,7 @@ function DirectionCell({ direction }: { direction: string }) {
   const map: Record<string, { label: string; icon: typeof PhoneIncoming; className: string }> = {
     incoming: { label: "Inbound", icon: PhoneIncoming, className: "text-sky-300" },
     outgoing: { label: "Outbound Forwarded", icon: PhoneForwarded, className: "text-violet-300" },
-    missed: { label: "Missed", icon: PhoneMissed, className: "text-amber-300" },
+    missed: { label: "Missed", icon: PhoneMissed, className: "text-warning" },
     voicemail: { label: "Voicemail", icon: Voicemail, className: "text-foreground" },
   }
   const entry = map[d] ?? { label: direction || "—", icon: PhoneIncoming, className: "text-foreground" }
@@ -79,11 +79,11 @@ function StatusBadge({ status }: { status: string }) {
                   : status || "—"
   const className =
     s === "completed"
-      ? "bg-emerald-500/15 text-emerald-300"
+      ? "bg-success/15 text-success"
       : s === "no-answer" || s === "busy" || s === "missed"
-        ? "bg-amber-500/15 text-amber-300"
+        ? "bg-warning/15 text-warning"
         : s === "failed" || s === "canceled" || s === "cancelled"
-          ? "bg-red-500/15 text-red-300"
+          ? "bg-destructive/15 text-destructive"
           : s === "in-progress" || s === "answered"
             ? "bg-sky-500/15 text-sky-300"
             : "bg-accent/50 text-muted-foreground"
@@ -124,7 +124,7 @@ function UuidCell({ uuid }: { uuid: string }) {
           className={cn(
             "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-background/60 text-muted-foreground transition-colors",
             "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
-            copied && "border-emerald-500/40 text-emerald-300"
+            copied && "border-success/40 text-success"
           )}
           aria-label="Copy call UUID"
           title="Copy full call UUID"

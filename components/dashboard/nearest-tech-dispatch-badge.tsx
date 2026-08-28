@@ -38,17 +38,17 @@ export function NearestTechDispatchBadge({ jobLat, jobLng, className }: NearestT
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-2xs text-emerald-100",
+        "flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-2xs text-success",
         className
       )}
       role="status"
       aria-live="polite"
     >
-      <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden />
+      <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
       <p>
-        <span className="font-semibold text-emerald-50">Quick dispatch matching:</span>{" "}
-        <span className="font-medium text-emerald-50">{match.name}</span> is currently{" "}
-        <span className="font-semibold tabular-nums text-emerald-200">{formatDistanceMiles(match.miles)}</span> away.
+        <span className="font-semibold text-success">Quick dispatch matching:</span>{" "}
+        <span className="font-medium text-success">{match.name}</span> is currently{" "}
+        <span className="font-semibold tabular-nums text-success">{formatDistanceMiles(match.miles)}</span> away.
       </p>
     </div>
   )

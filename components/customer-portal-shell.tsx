@@ -122,7 +122,7 @@ export function CustomerPortalShell({
                     className={cn(
                       "rounded-full px-3 py-1 text-2xs font-semibold uppercase tracking-wide",
                       active && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/40",
-                      done && !active && "text-emerald-300/90",
+                      done && !active && "text-success/90",
                       !active && !done && "text-muted-foreground"
                     )}
                     aria-current={active ? "step" : undefined}

@@ -224,7 +224,7 @@ export function FieldTechniciansPanel() {
     <WorkspacePanel density="default">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-warning/15 text-warning">
             <HardHat className="h-5 w-5" />
           </span>
           <div>
@@ -258,8 +258,8 @@ export function FieldTechniciansPanel() {
       ) : null}
 
       {resendError && !invite ? (
-        <div className="mb-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4">
-          <p className="text-sm font-semibold text-red-200">
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/50 p-4">
+          <p className="text-sm font-semibold text-destructive">
             ⚠️ {resendError.message.includes("10DLC") ? resendError.message : `Resend failed: ${resendError.message}`}
           </p>
         </div>
@@ -287,11 +287,11 @@ export function FieldTechniciansPanel() {
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{tech.name}</p>
                   {tech.invite_pending ? (
-                    <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-micro font-medium text-amber-300">
+                    <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-micro font-medium text-warning">
                       Setup pending
                     </span>
                   ) : tech.is_active ? (
-                    <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-micro font-medium text-emerald-300">
+                    <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-micro font-medium text-success">
                       Active
                     </span>
                   ) : null}

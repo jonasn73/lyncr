@@ -144,9 +144,9 @@ function clipAlertBody(body: string, max = 160): string {
 }
 
 function toneClasses(tone: NotificationTone): string {
-  if (tone === "critical") return "border-red-500/35 bg-red-500/10"
-  if (tone === "warning") return "border-amber-500/35 bg-amber-500/10"
-  if (tone === "success") return "border-emerald-500/35 bg-emerald-500/10"
+  if (tone === "critical") return "border-destructive/35 bg-destructive/10"
+  if (tone === "warning") return "border-warning/35 bg-warning/10"
+  if (tone === "success") return "border-success/35 bg-success/10"
   return "border-sky-500/35 bg-sky-500/10"
 }
 

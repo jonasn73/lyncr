@@ -223,23 +223,23 @@ export function OutOfStockFallbackCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 shadow-sm shadow-amber-950/20",
+        "rounded-xl border border-warning/40 bg-warning/10 p-4 shadow-sm shadow-warning/20",
         className
       )}
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-200">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-warning/40 bg-warning/15 text-warning">
           <PackageX className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-amber-100">
+          <p className="text-sm font-semibold text-warning">
             Alternative solutions
           </p>
-          <p className="text-xs leading-relaxed text-amber-100/80">
-            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-300" aria-hidden />
+          <p className="text-xs leading-relaxed text-warning/80">
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-warning" aria-hidden />
             {reasonLabel}
             {skuHint ? (
-              <span className="font-mono text-amber-50/90"> · {skuHint}</span>
+              <span className="font-mono text-warning/90"> · {skuHint}</span>
             ) : null}
             . Van stock: {decision.vanQuantity}. Choose special order or partner dispatch.
           </p>
@@ -271,7 +271,7 @@ export function OutOfStockFallbackCard({
           </div>
           <Button
             type="button"
-            className="mt-2.5 h-10 w-full bg-amber-600 text-white hover:bg-amber-500"
+            className="mt-2.5 h-10 w-full bg-warning text-white hover:bg-warning"
             disabled={specialBusy || !intake.customer_name.trim() || !intake.caller_e164.trim()}
             onClick={() => void generateSpecialOrder()}
           >
@@ -283,9 +283,9 @@ export function OutOfStockFallbackCard({
             Generate Special Order Link
           </Button>
           {checkoutUrl ? (
-            <div className="mt-2 space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
-              <p className="text-2xs font-medium text-emerald-200">Checkout ready · Pending Deposit</p>
-              <p className="break-all font-mono text-micro text-emerald-100/90">{checkoutUrl}</p>
+            <div className="mt-2 space-y-2 rounded-md border border-success/30 bg-success/10 p-2">
+              <p className="text-2xs font-medium text-success">Checkout ready · Pending Deposit</p>
+              <p className="break-all font-mono text-micro text-success/90">{checkoutUrl}</p>
               <div className="flex gap-2">
                 <Button
                   type="button"

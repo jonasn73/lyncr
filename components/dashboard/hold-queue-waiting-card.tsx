@@ -257,15 +257,15 @@ export function HoldQueueWaitingCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-amber-500/35 bg-amber-500/5 px-4 py-4 sm:px-6",
+        "rounded-2xl border border-warning/35 bg-warning/5 px-4 py-4 sm:px-6",
         className
       )}
       aria-label="Hold queue waiting"
       aria-live="polite"
     >
       <div className="mb-2.5 flex items-center gap-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
-          <PhoneIncoming className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-warning/30 bg-warning/10">
+          <PhoneIncoming className="h-4 w-4 text-warning dark:text-warning" aria-hidden />
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">
@@ -356,7 +356,7 @@ export function HoldQueueWaitingCard({
                 {answerLockedBriefly ? (
                   // Short lock only while the Busy greeting speaks (~8s).
                   <span
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-micro font-semibold text-amber-800 dark:text-amber-200"
+                    className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-micro font-semibold text-warning dark:text-warning"
                     title={`Answer unlocks after ~${Math.round(busyMenuAnswerUnlockMs() / 1000)}s while the Busy greeting plays.`}
                   >
                     Can’t answer yet

@@ -147,7 +147,7 @@ export function ServiceCallFormClient() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400/90">
+      <p className="text-xs font-semibold uppercase tracking-wide text-success/90">
         {businessLabel}
       </p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
@@ -165,7 +165,7 @@ export function ServiceCallFormClient() {
             required
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="name"
           />
         </label>
@@ -177,7 +177,7 @@ export function ServiceCallFormClient() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="tel"
           />
         </label>
@@ -189,7 +189,7 @@ export function ServiceCallFormClient() {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="Street, city, ZIP"
-            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="street-address"
           />
         </label>
@@ -201,7 +201,7 @@ export function ServiceCallFormClient() {
               value={year}
               onChange={(e) => setYear(e.target.value)}
               inputMode="numeric"
-              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
           <label className="col-span-1 block space-y-2">
@@ -209,7 +209,7 @@ export function ServiceCallFormClient() {
             <input
               value={make}
               onChange={(e) => setMake(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
           <label className="block space-y-2">
@@ -217,7 +217,7 @@ export function ServiceCallFormClient() {
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
         </div>
@@ -232,7 +232,7 @@ export function ServiceCallFormClient() {
                 onClick={() => setJobKind(opt.id)}
                 className={
                   jobKind === opt.id
-                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm font-medium text-emerald-50"
+                    ? "rounded-lg border border-success/50 bg-success/15 px-3 py-3 text-left text-sm font-medium text-success"
                     : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
@@ -248,17 +248,17 @@ export function ServiceCallFormClient() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             placeholder="Gate code, parking, key details…"
           />
         </label>
 
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <button
           type="submit"
           disabled={submitting}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           Continue to pay ${amountDollars}

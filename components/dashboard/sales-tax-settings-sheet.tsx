@@ -111,7 +111,7 @@ export function SalesTaxSettingsSheet({
       >
         <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-foreground">
-            <Percent className="h-4 w-4 text-emerald-400" aria-hidden />
+            <Percent className="h-4 w-4 text-success" aria-hidden />
             Sales tax default
           </SheetTitle>
           <p className="text-xs text-muted-foreground">
@@ -165,7 +165,7 @@ export function SalesTaxSettingsSheet({
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
+                className="h-11 w-full bg-success text-sm font-semibold text-white hover:bg-success"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Save"}
               </Button>

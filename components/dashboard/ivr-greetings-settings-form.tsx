@@ -172,8 +172,8 @@ export function IvrGreetingsSettingsForm({
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-micro font-semibold uppercase tracking-wide text-emerald-300/90">
+            <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wide text-success/90">
                 Digit 1 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
@@ -181,8 +181,8 @@ export function IvrGreetingsSettingsForm({
                 Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
               </p>
             </div>
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-              <p className="text-micro font-semibold uppercase tracking-wide text-emerald-300/90">
+            <div className="rounded-lg border border-success/20 bg-success/5 px-3 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wide text-success/90">
                 Digit 2 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Ring Our Phone</p>

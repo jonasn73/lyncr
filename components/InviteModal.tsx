@@ -110,11 +110,11 @@ export function InviteModal() {
 
             {success ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3">
-                  <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
-                  <div className="text-sm text-emerald-100">
+                <div className="flex items-center gap-3 rounded-lg border border-success/40 bg-success/40 px-4 py-3">
+                  <CheckCircle2 className="h-6 w-6 shrink-0 text-success" aria-hidden />
+                  <div className="text-sm text-success">
                     Invitation created for <span className="font-medium">{success.target}</span>.
-                    <div className="mt-0.5 text-emerald-300/80">
+                    <div className="mt-0.5 text-success/80">
                       {success.sent
                         ? `Sent via ${success.type === "EMAIL" ? "email" : "SMS"}.`
                         : `Link created, but auto-send is off${success.send_error ? ` (${success.send_error})` : ""}. Copy it below.`}
@@ -194,7 +194,7 @@ export function InviteModal() {
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+                  <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-3 py-2 text-sm text-destructive">
                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                     {error}
                   </div>

@@ -188,7 +188,7 @@ export function JobPoolCard({
                   e.stopPropagation()
                   setRescueOfferOpen((open) => !open)
                 }}
-                className="text-xs font-bold uppercase tracking-wide text-amber-300 underline decoration-amber-500/60 underline-offset-2 transition-colors hover:text-amber-100"
+                className="text-xs font-bold uppercase tracking-wide text-warning underline decoration-amber-500/60 underline-offset-2 transition-colors hover:text-warning"
               >
                 Offer Lower Price
               </button>
@@ -277,7 +277,7 @@ export function JobPoolCard({
           <span
             className={cn(
               "inline-flex items-center rounded-lg px-3 py-1 text-2xs font-bold uppercase tracking-wide",
-              "border border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
+              "border border-success/50 bg-success/20 text-success"
             )}
           >
             Assign →

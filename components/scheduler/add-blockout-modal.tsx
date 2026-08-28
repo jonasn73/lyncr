@@ -143,7 +143,7 @@ function AddBlockoutModalForm({
               checked={isFullDay}
               onCheckedChange={setIsFullDay}
               aria-label="Block out entire day"
-              className="shrink-0 data-[state=checked]:bg-amber-500"
+              className="shrink-0 data-[state=checked]:bg-warning"
             />
           </div>
 
@@ -201,7 +201,7 @@ function AddBlockoutModalForm({
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+            <p className="rounded-lg border border-destructive/60 bg-destructive/40 px-3 py-2 text-xs text-destructive">
               {error}
             </p>
           ) : null}
@@ -223,7 +223,7 @@ function AddBlockoutModalForm({
             disabled={saving}
             onClick={() => void handleSave()}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50",
+              "flex flex-1 items-center justify-center gap-2 rounded-lg bg-warning text-sm font-semibold text-white hover:bg-warning disabled:opacity-50",
               MOBILE_TAP_TARGET
             )}
           >

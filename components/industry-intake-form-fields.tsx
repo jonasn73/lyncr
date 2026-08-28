@@ -97,7 +97,7 @@ export function IndustryIntakeFormFields({
             {field.type !== "checkbox" ? (
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 {field.label}
-                {field.required ? <span className="text-emerald-400"> *</span> : null}
+                {field.required ? <span className="text-success"> *</span> : null}
               </label>
             ) : null}
 
@@ -144,7 +144,7 @@ export function IndustryIntakeFormFields({
                       className={cn(
                         "rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
                         active
-                          ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
+                          ? "border-success/60 bg-success/15 text-success"
                           : "border-border/70 bg-background text-foreground hover:bg-muted/40"
                       )}
                     >
@@ -165,7 +165,7 @@ export function IndustryIntakeFormFields({
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
                   values[field.name] === true
-                    ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
+                    ? "border-success/60 bg-success/15 text-success"
                     : "border-border/70 bg-background text-foreground hover:bg-muted/40"
                 )}
               >
@@ -180,7 +180,7 @@ export function IndustryIntakeFormFields({
                 className={cn(
                   "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
                   values[field.name] === true
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
+                    ? "border-success/50 bg-success/15 text-success"
                     : "border-border/70 bg-background text-muted-foreground"
                 )}
               >

@@ -53,9 +53,9 @@ function smsRegistrationStatusLabel(status: SmsRegistrationOrgStatus): string {
 
 /** Tailwind classes for org-level 10DLC / SMS registration badges. */
 function smsRegistrationBadgeClass(status: SmsRegistrationOrgStatus): string {
-  if (status === "PENDING_APPROVAL") return "border-amber-700/60 bg-amber-950/40 text-amber-200"
-  if (status === "APPROVED") return "border-emerald-700/60 bg-emerald-950/40 text-emerald-200"
-  if (status === "REJECTED") return "border-red-800/60 bg-red-950/40 text-red-200"
+  if (status === "PENDING_APPROVAL") return "border-warning/60 bg-warning/40 text-warning"
+  if (status === "APPROVED") return "border-success/60 bg-success/40 text-success"
+  if (status === "REJECTED") return "border-destructive/60 bg-destructive/40 text-destructive"
   return "border-border bg-card/60 text-muted-foreground"
 }
 
@@ -329,7 +329,7 @@ export function AdminUserManageDrawer({
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
-                  className="bg-emerald-600 hover:bg-emerald-500"
+                  className="bg-success hover:bg-success"
                   disabled={statusBusy}
                   onClick={() => void setAccountStatusQuick("active")}
                 >
@@ -392,7 +392,7 @@ export function AdminUserManageDrawer({
             {/* Per-line override — this is what shows the purple bar on a shop dashboard. */}
             <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-emerald-300" aria-hidden />
+                <Phone className="h-4 w-4 text-success" aria-hidden />
                 <Label className="text-foreground">Active phone lines</Label>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -424,7 +424,7 @@ export function AdminUserManageDrawer({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="shrink-0 border-red-900/60 bg-red-950/30 text-red-200 hover:bg-red-900/40"
+                          className="shrink-0 border-destructive/60 bg-destructive/30 text-destructive hover:bg-destructive/40"
                           disabled={releaseBusy === line.id || line.status !== "active"}
                           onClick={() => void releaseLine(line.id)}
                         >
@@ -507,11 +507,11 @@ export function AdminUserManageDrawer({
                       aria-pressed={selected}
                       className={cn(
                         "border-border",
-                        selected && s === "active" && "border-emerald-600 bg-emerald-600/20 text-emerald-200",
-                        selected && s === "pending" && "border-amber-500 bg-amber-600/20 text-amber-100",
+                        selected && s === "active" && "border-success bg-success/20 text-success",
+                        selected && s === "pending" && "border-warning bg-warning/20 text-warning",
                         selected && s === "denied" && "border-border bg-zinc-600/20 text-foreground",
-                        selected && s === "suspended" && "border-red-600 bg-red-600/20 text-red-200",
-                        selected && s === "flagged" && "border-amber-600 bg-amber-600/20 text-amber-200",
+                        selected && s === "suspended" && "border-destructive bg-destructive/20 text-destructive",
+                        selected && s === "flagged" && "border-warning bg-warning/20 text-warning",
                         !selected && "bg-background text-foreground hover:bg-card"
                       )}
                       onClick={() => setTargetStatus(s)}
@@ -539,7 +539,7 @@ export function AdminUserManageDrawer({
             {/* Feature controls */}
             <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-amber-300" aria-hidden />
+                <Zap className="h-4 w-4 text-warning" aria-hidden />
                 <Label className="text-foreground">Feature controls</Label>
               </div>
               {controlsLoading && !controls ? (
@@ -685,7 +685,7 @@ export function AdminUserManageDrawer({
                               >
                                 <div className="flex min-w-0 items-center gap-2">
                                   {inv.channel === "SMS" ? (
-                                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden />
+                                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
                                   ) : (
                                     <Mail className="h-3.5 w-3.5 shrink-0 text-sky-400" aria-hidden />
                                   )}
@@ -700,7 +700,7 @@ export function AdminUserManageDrawer({
                                     </p>
                                   </div>
                                 </div>
-                                <Badge className="border-amber-700/60 bg-amber-950/40 text-amber-200">
+                                <Badge className="border-warning/60 bg-warning/40 text-warning">
                                   {inv.status}
                                 </Badge>
                               </li>
@@ -716,9 +716,9 @@ export function AdminUserManageDrawer({
 
             {row ? <PortingControlDesk ownerUserId={row.user_id} /> : null}
 
-            <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-4">
-              <p className="text-sm font-medium text-red-200">Danger zone</p>
-              <p className="mt-1 text-xs text-red-200/70">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/20 p-4">
+              <p className="text-sm font-medium text-destructive">Danger zone</p>
+              <p className="mt-1 text-xs text-destructive/70">
                 Removes all active phone numbers and sets carrier credit to $0.00.
               </p>
               <AlertDialog>
@@ -744,7 +744,7 @@ export function AdminUserManageDrawer({
                   <AlertDialogFooter>
                     <AlertDialogCancel className="border-border bg-background">Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-destructive hover:bg-destructive"
                       onClick={(e) => {
                         e.preventDefault()
                         void resetActiveLines()

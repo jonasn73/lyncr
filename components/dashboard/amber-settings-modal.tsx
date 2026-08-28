@@ -304,14 +304,14 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   : ""}
               </p>
               {verified ? (
-                <p className="mt-1 text-2xs text-emerald-400">
+                <p className="mt-1 text-2xs text-success">
                   Personal mobile verified
                   {status?.owner_mobile_e164
                     ? ` · ${formatPhoneDisplay(status.owner_mobile_e164)}`
                     : ""}
                 </p>
               ) : status?.enabled ? (
-                <p className="mt-1 text-2xs text-amber-400">
+                <p className="mt-1 text-2xs text-warning">
                   Verify your personal mobile before Amber will take commands.
                 </p>
               ) : null}
@@ -423,9 +423,9 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
                   className={cn(
                     "text-2xs font-medium",
                     sms?.state === "ready"
-                      ? "text-emerald-400"
+                      ? "text-success"
                       : sms?.state === "pending"
-                        ? "text-amber-400"
+                        ? "text-warning"
                         : "text-muted-foreground"
                   )}
                 >
@@ -464,9 +464,9 @@ export function AmberSettingsModal({ open, onOpenChange }: Props) {
 
             {/* After verify: success + next steps (no leftover code form). */}
             {status?.enabled && verified && !changeNumberOpen && status.amber_number ? (
-              <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-3">
+              <div className="space-y-3 rounded-xl border border-success/30 bg-success/5 px-3 py-3">
                 <div>
-                  <p className="text-xs font-semibold text-emerald-400">You’re set</p>
+                  <p className="text-xs font-semibold text-success">You’re set</p>
                   <p className="mt-1 text-2xs text-muted-foreground">
                     Amber will only take commands from{" "}
                     {status.owner_mobile_e164

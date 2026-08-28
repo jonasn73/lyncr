@@ -140,14 +140,14 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Banknote className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Banknote className="h-5 w-5 text-success" aria-hidden />}
             title="Bank account"
             subtitle="Set up or change the bank that receives card money"
             onClick={modals.openGetPaid}
           />
           <SettingsMenuRow
             grouped
-            icon={<Percent className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Percent className="h-5 w-5 text-success" aria-hidden />}
             title="Sales tax default"
             subtitle="Charge opens with tax on (unless you turn this off)"
             onClick={() => setSalesTaxOpen(true)}
@@ -203,7 +203,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Sparkles className="h-5 w-5 text-amber-300" aria-hidden />}
+            icon={<Sparkles className="h-5 w-5 text-warning" aria-hidden />}
             title="Amber · Lyncr"
             subtitle="Business assistant by text — Busy / Available from your phone"
             onClick={modals.openAmber}
@@ -231,7 +231,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
-            icon={<Package className="h-5 w-5 text-emerald-400" aria-hidden />}
+            icon={<Package className="h-5 w-5 text-success" aria-hidden />}
             title="Key inventory"
             subtitle="Stock hub and barcode scanner"
             onClick={() => {

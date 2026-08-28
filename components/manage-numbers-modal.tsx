@@ -128,11 +128,11 @@ function PortPinCorrectionForm({
   }
 
   return (
-    <div className="mt-2 space-y-2 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-3">
-      <p className="text-xs leading-snug text-red-200/90">
+    <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/20 px-3 py-3">
+      <p className="text-xs leading-snug text-destructive/90">
         {order.carrier_rejection_reason?.trim() || "Carrier rejected this transfer and needs a correction."}
       </p>
-      <label className="block text-2xs font-medium text-red-100/80">
+      <label className="block text-2xs font-medium text-destructive/80">
         Enter Correct Account PIN/Passcode:
         <input
           type="text"
@@ -140,14 +140,14 @@ function PortPinCorrectionForm({
           autoComplete="off"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          className="mt-1 w-full rounded-md border border-red-500/40 bg-background/80 px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
+          className="mt-1 w-full rounded-md border border-destructive/40 bg-background/80 px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-destructive focus:outline-none focus:ring-1 focus:ring-destructive/40"
         />
       </label>
       <button
         type="button"
         disabled={submitting}
         onClick={() => void resubmit()}
-        className="inline-flex w-full items-center justify-center rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-destructive disabled:opacity-60"
       >
         {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Submit Correction to Carrier"}
       </button>
@@ -533,8 +533,8 @@ export function ManageNumbersModal({
             {pendingPorts.length > 0 ? (
               <div className="mt-5 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Hourglass className="h-3.5 w-3.5 text-amber-400" aria-hidden />
-                  <h3 className="text-xs font-bold uppercase tracking-wide text-amber-300/90">
+                  <Hourglass className="h-3.5 w-3.5 text-warning" aria-hidden />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-warning/90">
                     Pending Number Transfers
                   </h3>
                 </div>
@@ -547,20 +547,20 @@ export function ManageNumbersModal({
                           className={cn(
                             "flex items-center gap-3 rounded-xl border px-4 py-3",
                             rejected
-                              ? "border-red-700/40 bg-red-950/20"
-                              : "border-amber-700/40 bg-amber-950/20"
+                              ? "border-destructive/40 bg-destructive/20"
+                              : "border-warning/40 bg-warning/20"
                           )}
                         >
                           <div
                             className={cn(
                               "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
                               rejected
-                                ? "border-red-500/30 bg-red-500/10"
-                                : "border-amber-500/30 bg-amber-500/10"
+                                ? "border-destructive/30 bg-destructive/10"
+                                : "border-warning/30 bg-warning/10"
                             )}
                           >
                             <ArrowRightLeft
-                              className={cn("h-4 w-4", rejected ? "text-red-400" : "text-amber-400")}
+                              className={cn("h-4 w-4", rejected ? "text-destructive" : "text-warning")}
                               aria-hidden
                             />
                           </div>
@@ -571,7 +571,7 @@ export function ManageNumbersModal({
                             <p
                               className={cn(
                                 "mt-0.5 text-xs",
-                                rejected ? "text-red-200/60" : "text-amber-200/60"
+                                rejected ? "text-destructive/60" : "text-warning/60"
                               )}
                             >
                               Transferring from {order.current_carrier?.trim() || "your current carrier"}
@@ -582,8 +582,8 @@ export function ManageNumbersModal({
                             className={cn(
                               "shrink-0 rounded-full border px-2 py-0.5 text-micro font-bold uppercase tracking-wide",
                               rejected
-                                ? "border-red-500/50 bg-red-500/15 text-red-300"
-                                : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                                ? "border-destructive/50 bg-destructive/15 text-destructive"
+                                : "border-warning/40 bg-warning/10 text-warning"
                             )}
                           >
                             {rejected ? "Rejection: Need Correction" : pendingPortStageLabel(order)}

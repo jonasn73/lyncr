@@ -32,8 +32,8 @@ function formatPhoneDisplay(phone: string | null): string {
 /** Tone classes for the CRM job-status label, matching the owner-side CRM list rows. */
 const STATUS_TONE: Record<string, string> = {
   neutral: "border-border/50 bg-accent/30 text-foreground",
-  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
+  amber: "border-warning/40 bg-warning/10 text-warning",
+  emerald: "border-success/40 bg-success/10 text-success",
   rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
   sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
 }
@@ -254,7 +254,7 @@ export function CompanyBriefingCard({
         <div
           className={cn(
             "rounded-t-2xl border-b border-border p-6",
-            ringing ? "bg-emerald-950/30" : "bg-primary/10"
+            ringing ? "bg-success/30" : "bg-primary/10"
           )}
         >
           <div className="flex items-center justify-between gap-3">
@@ -262,7 +262,7 @@ export function CompanyBriefingCard({
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
-                  ringing ? "animate-pulse bg-emerald-400" : "bg-primary"
+                  ringing ? "animate-pulse bg-success" : "bg-primary"
                 )}
                 aria-hidden
               />
@@ -276,13 +276,13 @@ export function CompanyBriefingCard({
 
           <p className="mt-3 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
             ANSWER AS:{" "}
-            <span className="text-emerald-300">
+            <span className="text-success">
               {loading && !briefing ? "…" : businessName}
             </span>
           </p>
 
-          <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
+          <div className="mt-3 rounded-xl border border-success/25 bg-success/[0.06] px-4 py-3">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-success">Opening script</p>
             <p className="mt-1 text-sm leading-relaxed text-foreground">&ldquo;{script}&rdquo;</p>
           </div>
 
@@ -295,7 +295,7 @@ export function CompanyBriefingCard({
             <button
               type="button"
               onClick={onAnswer}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-400 sm:flex-none sm:px-8"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-success px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-success sm:flex-none sm:px-8"
             >
               <PhoneCall className="h-4 w-4" aria-hidden />
               Answer
@@ -304,7 +304,7 @@ export function CompanyBriefingCard({
           <button
             type="button"
             onClick={onHangup}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/90 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 sm:flex-none sm:px-8"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive/90 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-destructive sm:flex-none sm:px-8"
           >
             <PhoneOff className="h-4 w-4" aria-hidden />
             {ringing ? "Decline" : "Hang up"}
@@ -332,7 +332,7 @@ export function CompanyBriefingCard({
             label="Live Owner Dispatch Notes"
             value={briefing?.business_instructions ?? null}
             emptyHint={loading ? "Loading…" : "No live dispatch notes from the owner right now."}
-            accent="text-amber-300"
+            accent="text-warning"
           />
         </div>
 

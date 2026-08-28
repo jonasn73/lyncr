@@ -93,20 +93,20 @@ export function CarrierTransferDesk({
     <div className="space-y-3 rounded-xl border border-border bg-background/50 p-4">
       {submitSuccessMessage ? (
         <div
-          className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-3 text-xs text-emerald-100"
+          className="flex items-start gap-2 rounded-lg border border-success/40 bg-success/40 px-3 py-3 text-xs text-success"
           role="status"
         >
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
           <p>{submitSuccessMessage}</p>
         </div>
       ) : null}
 
       {pinPendingReview && !showPinForm ? (
-        <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-3 py-3">
-          <p className="text-xs font-medium text-emerald-100">
+        <div className="space-y-2 rounded-lg border border-success/30 bg-success/20 px-3 py-3">
+          <p className="text-xs font-medium text-success">
             PIN on file — carrier is re-reviewing your transfer
           </p>
-          <p className="text-2xs leading-snug text-emerald-200/80">
+          <p className="text-2xs leading-snug text-success/80">
             Status may still show as pending for a few minutes while the carrier processes your correction.
             You do not need to submit again unless the carrier rejects a different PIN.
           </p>
@@ -121,7 +121,7 @@ export function CarrierTransferDesk({
       ) : null}
 
       {showPinForm || order.status === "rejected" ? (
-        <label className="block text-xs font-medium text-red-200/90">
+        <label className="block text-xs font-medium text-destructive/90">
           Correct Account PIN/Passcode
           <input
             type="text"
@@ -139,13 +139,13 @@ export function CarrierTransferDesk({
             className={cn(
               "mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground",
               pinInvalid || fieldError?.toLowerCase().includes("pin")
-                ? "border-red-500 ring-1 ring-red-500/40"
+                ? "border-destructive ring-1 ring-destructive/40"
                 : pinPendingReview
-                  ? "border-emerald-500/40"
-                  : "border-red-500/40"
+                  ? "border-success/40"
+                  : "border-destructive/40"
             )}
           />
-          <span className="mt-1 block text-micro text-red-200/70">{pinHint}</span>
+          <span className="mt-1 block text-micro text-destructive/70">{pinHint}</span>
         </label>
       ) : null}
 
@@ -164,13 +164,13 @@ export function CarrierTransferDesk({
             className={cn(
               "mt-1 w-full resize-y rounded-lg border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
               fieldError && !fieldError.toLowerCase().includes("pin")
-                ? "border-red-500 ring-1 ring-red-500/40"
+                ? "border-destructive ring-1 ring-destructive/40"
                 : "border-border"
             )}
           />
         </label>
       ) : (
-        <p className="text-2xs leading-snug text-amber-200/90">
+        <p className="text-2xs leading-snug text-warning/90">
           Submit Correction sends your PIN directly to the carrier network — not as a chat comment — so the
           exception clears.
         </p>
@@ -178,7 +178,7 @@ export function CarrierTransferDesk({
 
       {fieldError ? (
         <p
-          className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-xs text-red-200"
+          className="rounded-lg border border-destructive/40 bg-destructive/40 px-3 py-2 text-xs text-destructive"
           role="alert"
         >
           {fieldError}

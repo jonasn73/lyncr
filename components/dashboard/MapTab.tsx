@@ -231,7 +231,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                         </div>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">{place}</p>
                         {!hasPin ? (
-                          <p className="mt-1 text-micro text-amber-500/80">Needs address to pin</p>
+                          <p className="mt-1 text-micro text-warning/80">Needs address to pin</p>
                         ) : null}
                       </button>
                     </li>

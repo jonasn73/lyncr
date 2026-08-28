@@ -215,9 +215,9 @@ export function IntakeScheduleDialog({
           if (saving) e.preventDefault()
         }}
       >
-        <div className="border-b border-border/60 bg-emerald-500/10 px-6 py-4">
+        <div className="border-b border-border/60 bg-success/10 px-6 py-4">
           <DialogHeader className="gap-2 text-left">
-            <div className="flex items-center gap-2 text-emerald-400">
+            <div className="flex items-center gap-2 text-success">
               <CalendarClock className="h-5 w-5 shrink-0" aria-hidden />
               <span className="text-xs font-semibold uppercase tracking-wider">Sent to dispatch</span>
             </div>
@@ -334,7 +334,7 @@ export function IntakeScheduleDialog({
                 {suggestedOpenTime && suggestedOpenTime !== timeValue ? (
                   <button
                     type="button"
-                    className="w-full rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-left text-xs text-emerald-100 transition-colors hover:bg-emerald-500/15"
+                    className="w-full rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-left text-xs text-success transition-colors hover:bg-success/15"
                     onClick={() => setTimeValue(suggestedOpenTime)}
                     disabled={saving}
                   >
@@ -421,7 +421,7 @@ export function IntakeScheduleDialog({
           </Button>
           <Button
             type="button"
-            className="bg-emerald-600 text-white hover:bg-emerald-500"
+            className="bg-success text-white hover:bg-success"
             onClick={() => void handleSchedule()}
             disabled={saving || loading || notFound || !canSave}
           >

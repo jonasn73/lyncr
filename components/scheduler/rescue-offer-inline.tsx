@@ -85,9 +85,9 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
         disabled={smsState === "sending" || parsedDollars <= 0}
         onClick={mockSendSms}
         className={cn(
-          "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/50",
-          "bg-emerald-500/15 px-3 py-2 text-xs font-bold uppercase tracking-wide text-emerald-200",
-          "transition-all duration-200 hover:border-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]",
+          "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-success/50",
+          "bg-success/15 px-3 py-2 text-xs font-bold uppercase tracking-wide text-success",
+          "transition-all duration-200 hover:border-success hover:bg-success/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]",
           "disabled:cursor-not-allowed disabled:opacity-50"
         )}
       >
@@ -100,7 +100,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
       </button>
 
       {smsMessage ? (
-        <p className="flex items-center gap-2 text-micro font-semibold text-emerald-300">
+        <p className="flex items-center gap-2 text-micro font-semibold text-success">
           <Sparkles className="h-3 w-3" aria-hidden />
           {smsMessage}
         </p>

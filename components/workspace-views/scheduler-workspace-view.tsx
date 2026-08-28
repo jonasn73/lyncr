@@ -1457,7 +1457,7 @@ function SchedulerWorkspaceViewInner({
           {/* Main workspace — pipeline + swimlanes */}
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-3 lg:gap-3">
             {markCompleteError ? (
-              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {markCompleteError}
               </p>
             ) : null}

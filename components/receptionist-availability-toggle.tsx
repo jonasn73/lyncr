@@ -73,7 +73,7 @@ export function ReceptionistAvailabilityToggle({
             value={current ? "On" : "Off"}
             className={cn(
               "text-xs font-semibold uppercase tracking-wide",
-              current ? "text-emerald-300" : "text-muted-foreground"
+              current ? "text-success" : "text-muted-foreground"
             )}
           />
           {saving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
@@ -85,7 +85,7 @@ export function ReceptionistAvailabilityToggle({
             className="transition-transform duration-200 data-[state=checked]:scale-105"
           />
         </div>
-        {error ? <p className="max-w-[12rem] text-right text-xs text-red-400">{error}</p> : null}
+        {error ? <p className="max-w-[12rem] text-right text-xs text-destructive">{error}</p> : null}
       </div>
     )
   }
@@ -95,7 +95,7 @@ export function ReceptionistAvailabilityToggle({
     <WorkspacePanel
       density="default"
       className={cn(
-        current ? "border-emerald-500/35 bg-emerald-950/15" : "border-border/80 bg-card/40"
+        current ? "border-success/35 bg-success/15" : "border-border/80 bg-card/40"
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -129,7 +129,7 @@ export function ReceptionistAvailabilityToggle({
           />
         </div>
       </div>
-      {error ? <p className="mt-3 text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="mt-3 text-xs text-destructive">{error}</p> : null}
     </WorkspacePanel>
   )
 }

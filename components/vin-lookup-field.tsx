@@ -75,7 +75,7 @@ export function VinLookupField({
         <ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <input
           type="text"
-          className={cn(inputClass, matched && "border-emerald-500/50")}
+          className={cn(inputClass, matched && "border-success/50")}
           value={value}
           disabled={disabled}
           placeholder={placeholder}
@@ -90,11 +90,11 @@ export function VinLookupField({
         {loading ? (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
         ) : matched ? (
-          <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" aria-hidden />
+          <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-success" aria-hidden />
         ) : null}
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      {matched ? <p className="text-xs text-emerald-400">Year, make, and model locked from VIN.</p> : null}
+      {matched ? <p className="text-xs text-success">Year, make, and model locked from VIN.</p> : null}
     </div>
   )
 }

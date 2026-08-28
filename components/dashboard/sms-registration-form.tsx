@@ -470,7 +470,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
       </div>
 
       {submitError ? (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300" role="alert">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
           {submitError}
         </p>
       ) : null}

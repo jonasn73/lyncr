@@ -186,16 +186,16 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-2 border-emerald-500/40 bg-emerald-500/10 px-3 shadow-sm"
+        className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 shadow-sm"
       >
-        <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
+        <CreditCard className="h-4 w-4 shrink-0 text-success/70" aria-hidden />
         <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none" aria-hidden>
           {cachedChip ? (
             <>
-              <span className="text-xs font-bold tabular-nums text-emerald-200">
+              <span className="text-xs font-bold tabular-nums text-success">
                 {cachedChip.amount}
               </span>
-              <span className="mt-0.5 text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
+              <span className="mt-0.5 text-micro font-semibold uppercase tracking-wide text-success/70">
                 {cachedChip.label}
               </span>
             </>

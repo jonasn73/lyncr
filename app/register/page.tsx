@@ -139,7 +139,7 @@ function RegisterForm() {
         )}
 
         {validation.status === "invalid" && (
-          <div className="mt-6 flex items-start gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          <div className="mt-6 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-4 py-3 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>{validation.message}</span>
           </div>
@@ -252,7 +252,7 @@ function RegisterForm() {
             )}
 
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/40 px-3 py-2 text-sm text-destructive">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                 {error}
               </div>
@@ -275,8 +275,8 @@ function RegisterForm() {
         )}
 
         {done && (
-          <div className="mt-6 flex items-center gap-3 rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
-            <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
+          <div className="mt-6 flex items-center gap-3 rounded-lg border border-success/40 bg-success/40 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="h-6 w-6 shrink-0 text-success" aria-hidden />
             Account created — taking you in…
           </div>
         )}

@@ -430,7 +430,7 @@ export function DashboardCallFlowConfigureDrawer({
                             className={cn(
                               "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                               active
-                                ? "border-emerald-500/40 bg-emerald-500/10"
+                                ? "border-success/40 bg-success/10"
                                 : "border-border bg-background/40 hover:border-border"
                             )}
                           >
@@ -439,12 +439,12 @@ export function DashboardCallFlowConfigureDrawer({
                               className={cn(
                                 "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                 active
-                                  ? "border-emerald-400 bg-emerald-500/20"
+                                  ? "border-success bg-success/20"
                                   : "border-border bg-transparent"
                               )}
                             >
                               {active ? (
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                <span className="h-2 w-2 rounded-full bg-success" />
                               ) : null}
                             </span>
                             <span className="min-w-0">
@@ -466,7 +466,7 @@ export function DashboardCallFlowConfigureDrawer({
                                 Who on your Team answers first
                               </label>
                               {teamMembers.length === 0 ? (
-                                <p className="text-2xs text-amber-200/90">
+                                <p className="text-2xs text-warning/90">
                                   Add a receptionist on the Team page first, then come back here.
                                 </p>
                               ) : (
@@ -581,7 +581,7 @@ export function DashboardCallFlowConfigureDrawer({
                                   className={cn(
                                     "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                                     active
-                                      ? "border-emerald-500/40 bg-emerald-500/10"
+                                      ? "border-success/40 bg-success/10"
                                       : "border-border bg-background/40 hover:border-border"
                                   )}
                                 >
@@ -590,12 +590,12 @@ export function DashboardCallFlowConfigureDrawer({
                                     className={cn(
                                       "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                       active
-                                        ? "border-emerald-400 bg-emerald-500/20"
+                                        ? "border-success bg-success/20"
                                         : "border-border bg-transparent"
                                     )}
                                   >
                                     {active ? (
-                                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                      <span className="h-2 w-2 rounded-full bg-success" />
                                     ) : null}
                                   </span>
                                   <span className="min-w-0">
@@ -837,8 +837,8 @@ export function DashboardCallFlowConfigureDrawer({
 
             {currentTab === "security" ? (
               <div className="space-y-6">
-                <section className="space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                  <label htmlFor="configure-bypass" className="text-xs font-semibold text-amber-200">
+                <section className="space-y-2 rounded-xl border border-warning/20 bg-warning/5 p-4">
+                  <label htmlFor="configure-bypass" className="text-xs font-semibold text-warning">
                     Secret technician bypass
                   </label>
                   <input

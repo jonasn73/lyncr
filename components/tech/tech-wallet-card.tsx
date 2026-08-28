@@ -42,9 +42,9 @@ function formatTxDate(iso: string): string {
 }
 
 function statusStyle(status: WalletTx["status"]): string {
-  if (status === "COMPLETED") return "bg-emerald-500/15 text-emerald-300"
+  if (status === "COMPLETED") return "bg-success/15 text-success"
   if (status === "FAILED") return "bg-rose-500/15 text-rose-300"
-  return "bg-amber-500/15 text-amber-200"
+  return "bg-warning/15 text-warning"
 }
 
 function methodLabel(method: WalletTx["paymentMethod"]): string {
@@ -107,19 +107,19 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
       </div>
 
       <div className="grid grid-cols-2 gap-2 px-4 py-3">
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3">
-          <p className="text-micro font-medium uppercase tracking-wider text-emerald-400/80">
+        <div className="rounded-xl border border-success/20 bg-success/10 px-3 py-3">
+          <p className="text-micro font-medium uppercase tracking-wider text-success/80">
             Available Balance
           </p>
-          <p className="mt-1 text-xl font-bold tracking-tight text-emerald-100">
+          <p className="mt-1 text-xl font-bold tracking-tight text-success">
             {loading && !data ? "—" : formatUsd(data?.availableBalance ?? 0)}
           </p>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-3">
-          <p className="text-micro font-medium uppercase tracking-wider text-amber-400/80">
+        <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-3">
+          <p className="text-micro font-medium uppercase tracking-wider text-warning/80">
             Pending Clearance
           </p>
-          <p className="mt-1 text-xl font-bold tracking-tight text-amber-100">
+          <p className="mt-1 text-xl font-bold tracking-tight text-warning">
             {loading && !data ? "—" : formatUsd(data?.pendingClearance ?? 0)}
           </p>
         </div>

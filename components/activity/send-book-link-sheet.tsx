@@ -136,7 +136,7 @@ export function SendBookLinkSheet({
       >
         <SheetHeader className="text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-white">
-            <Link2 className="h-4 w-4 text-emerald-400" aria-hidden />
+            <Link2 className="h-4 w-4 text-success" aria-hidden />
             Send book link
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
@@ -172,7 +172,7 @@ export function SendBookLinkSheet({
               className={cn(
                 "flex w-full flex-col items-start rounded-xl border px-3 py-3 text-left transition-colors",
                 feeMode === opt.id
-                  ? "border-emerald-500/50 bg-emerald-500/15"
+                  ? "border-success/50 bg-success/15"
                   : "border-border bg-card/60 hover:border-border"
               )}
             >
@@ -189,7 +189,7 @@ export function SendBookLinkSheet({
                 value={quoteDollars}
                 onChange={(e) => setQuoteDollars(e.target.value)}
                 placeholder="e.g. 185"
-                className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
               />
             </label>
           ) : null}
@@ -201,17 +201,17 @@ export function SendBookLinkSheet({
               onChange={(e) => setNote(e.target.value)}
               maxLength={280}
               placeholder="We’ll call when we’re close…"
-              className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={sending || (feeMode === "full_quote" && !quoteDollars.trim())}
             onClick={() => void onSend()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Send SMS
@@ -268,7 +268,7 @@ export function SendBookLinkButton({
         aria-label={accessibleLabel}
         title={accessibleLabel}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
+          "inline-flex items-center justify-center gap-2 rounded-lg border border-success/40 bg-success/10 font-semibold text-success transition-[color,background-color,border-color,transform] duration-150 hover:border-success/55 hover:bg-success/20 active:scale-[0.98]",
           compact ? "h-8 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
           !visibleLabel && compact && "w-8 px-0",
           className

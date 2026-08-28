@@ -254,7 +254,7 @@ function MissedLeadCard({
     <li className="rounded-xl border border-border bg-card/40 p-3">
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate text-sm font-semibold text-foreground">{label}</p>
-        <span className="shrink-0 text-micro font-semibold tabular-nums text-amber-200/90">
+        <span className="shrink-0 text-micro font-semibold tabular-nums text-warning/90">
           {formatMissedTime(item.latestAt)}
         </span>
       </div>
@@ -271,9 +271,9 @@ function MissedLeadCard({
             onClick={handleCallBack}
             className={cn(
               "inline-flex w-full items-center justify-center gap-2 rounded-xl",
-              "border border-emerald-500/40 bg-emerald-500/15 px-4 py-3",
-              "text-sm font-semibold text-emerald-200 transition-all",
-              "hover:bg-emerald-500/25 active:scale-95",
+              "border border-success/40 bg-success/15 px-4 py-3",
+              "text-sm font-semibold text-success transition-all",
+              "hover:bg-success/25 active:scale-95",
               MOBILE_TAP_TARGET
             )}
           >
@@ -285,7 +285,7 @@ function MissedLeadCard({
             onClick={() => onSendBookLink(item)}
             className={cn(
               "inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
-              "border-emerald-500/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20",
+              "border-success/35 bg-success/10 text-success hover:bg-success/20",
               MOBILE_TAP_TARGET
             )}
           >
@@ -296,7 +296,7 @@ function MissedLeadCard({
         <p className="mt-2 text-xs text-muted-foreground">No dialable number on this log.</p>
       )}
       {item.count > 1 && item.times.length > 0 ? (
-        <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-micro font-medium leading-snug text-amber-100/90">
+        <p className="mt-2 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2 text-micro font-medium leading-snug text-warning/90">
           Called today at {item.times.join(" · ")}
         </p>
       ) : null}
@@ -448,7 +448,7 @@ export function MissedCallRescueSheet({
       >
         <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-foreground">
-            <PhoneMissed className="h-4 w-4 shrink-0 text-amber-300" aria-hidden />
+            <PhoneMissed className="h-4 w-4 shrink-0 text-warning" aria-hidden />
             <span className="min-w-0 leading-snug">{headerTitle}</span>
           </SheetTitle>
           {/* Non-actionable copy — hide on the smallest phones per global UI standards. */}
@@ -469,7 +469,7 @@ export function MissedCallRescueSheet({
               Loading hotlist…
             </div>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-red-400">{error}</p>
+            <p className="py-8 text-center text-sm text-destructive">{error}</p>
           ) : hotlist.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No missed calls today — nice work.</p>
           ) : (

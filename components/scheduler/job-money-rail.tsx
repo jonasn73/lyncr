@@ -226,7 +226,7 @@ export function JobMoneyRail({
         : null
 
   return (
-    <section className="mt-2.5 space-y-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-3 py-2">
+    <section className="mt-2.5 space-y-2 rounded-xl border border-success/25 bg-success/[0.07] px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <p className={SECTION_LABEL}>Money</p>
         <button
@@ -247,22 +247,22 @@ export function JobMoneyRail({
 
       {/* One-line money status — balance + latest link state */}
       <p className="text-xs leading-snug text-foreground">
-        <span className="font-semibold text-emerald-500/80">Balance</span>
+        <span className="font-semibold text-success/80">Balance</span>
         <span className="text-muted-foreground"> · </span>
-        <span className="font-semibold tabular-nums text-emerald-300">
+        <span className="font-semibold tabular-nums text-success">
           {balanceLabel}
         </span>
         {paidLink ? (
           <>
             <span className="text-muted-foreground"> · </span>
-            <span className="font-semibold text-emerald-200">
+            <span className="font-semibold text-success">
               Paid {formatJobMoneyCents(paidLink.chargeCents)}
             </span>
           </>
         ) : openLink ? (
           <>
             <span className="text-muted-foreground"> · </span>
-            <span className="font-semibold text-amber-200/90">
+            <span className="font-semibold text-warning/90">
               Link open {formatJobMoneyCents(openLink.chargeCents)}
             </span>
           </>
@@ -276,8 +276,8 @@ export function JobMoneyRail({
                 reviewStatusLabel === "Failed"
                   ? "text-rose-300"
                   : reviewStatusLabel === "Opened"
-                    ? "text-emerald-300"
-                    : "text-amber-200/90"
+                    ? "text-success"
+                    : "text-warning/90"
               )}
             >
               Review {reviewStatusLabel}
@@ -308,7 +308,7 @@ export function JobMoneyRail({
           <Button
             type="button"
             size="sm"
-            className="bg-emerald-600 px-2 text-white hover:bg-emerald-600/90"
+            className="bg-success px-2 text-white hover:bg-success/90"
             disabled={saving || balanceCents < 50}
             onClick={onCollect}
             title="Collect remaining balance"
@@ -321,7 +321,7 @@ export function JobMoneyRail({
               type="button"
               size="sm"
               variant="outline"
-              className="border-emerald-500/40 bg-emerald-500/15 px-2 text-emerald-50 hover:bg-emerald-500/25"
+              className="border-success/40 bg-success/15 px-2 text-success hover:bg-success/25"
               disabled={saving}
               onClick={onComplete}
               title="Complete job — works from In pool; no tech required"
@@ -339,7 +339,7 @@ export function JobMoneyRail({
             className={cn(
               reviewSmsFailed
                 ? "border border-rose-500/40 bg-rose-500/20 text-rose-50 hover:bg-rose-500/30"
-                : "border border-amber-500/35 bg-amber-500/15 text-amber-50 hover:bg-amber-500/25"
+                : "border border-warning/35 bg-warning/15 text-warning hover:bg-warning/25"
             )}
             disabled={saving || !customerPhone.trim()}
             onClick={onSendReviewSms}
@@ -356,7 +356,7 @@ export function JobMoneyRail({
               type="button"
               size="sm"
               variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-emerald-50 hover:bg-emerald-500/20"
+              className="border-success/35 bg-success/10 text-success hover:bg-success/20"
               disabled={saving}
               onClick={onCollect}
             >
@@ -368,7 +368,7 @@ export function JobMoneyRail({
               type="button"
               size="sm"
               variant="outline"
-              className="border-emerald-500/25 text-emerald-100/70"
+              className="border-success/25 text-success/70"
               disabled
             >
               Paid up
@@ -402,7 +402,7 @@ export function JobMoneyRail({
           />
           {lastSentUrl ? (
             <p className="flex items-start gap-1 text-micro text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400" aria-hidden />
+              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-success" aria-hidden />
               <span className="break-all font-mono text-muted-foreground">{lastSentUrl}</span>
             </p>
           ) : null}

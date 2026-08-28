@@ -52,15 +52,15 @@ function CertificationCard({
   const cardInner = (
     <>
       {certified ? (
-        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-400/10 blur-2xl" />
+        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-warning/10 blur-2xl" />
       ) : null}
       <CardHeader className="space-y-3 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            {certified ? <CheckCircle2 className="h-5 w-5 text-amber-300" aria-hidden /> : <Lock className="h-5 w-5" aria-hidden />}
+            {certified ? <CheckCircle2 className="h-5 w-5 text-warning" aria-hidden /> : <Lock className="h-5 w-5" aria-hidden />}
           </div>
           {certified ? (
-            <Badge className="border-0 bg-amber-500/20 text-amber-100">
+            <Badge className="border-0 bg-warning/20 text-warning">
               <Sparkles className="mr-1 h-3 w-3" aria-hidden />
               Certified
             </Badge>
@@ -93,11 +93,11 @@ function CertificationCard({
 
         {certified ? (
           <div
-            className="flex items-center justify-between rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-3"
+            className="flex items-center justify-between rounded-lg border border-warning/25 bg-warning/5 px-3 py-3"
             onClick={(e) => e.preventDefault()}
           >
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">Live routing</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-warning/90">Live routing</p>
               <p className="text-sm text-muted-foreground">
                 {fieldActive ? "Receiving matched calls" : "Field paused — hidden from queue"}
               </p>
@@ -121,7 +121,7 @@ function CertificationCard({
       <Card
         className={cn(
           "relative overflow-hidden border transition-all duration-200",
-          "cursor-default border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-card to-violet-950/30 shadow-[0_0_40px_-12px_rgba(251,191,36,0.35)]"
+          "cursor-default border-warning/40 bg-gradient-to-br from-warning/40 via-card to-violet-950/30 shadow-[0_0_40px_-12px_rgba(251,191,36,0.35)]"
         )}
       >
         {cardInner}
@@ -186,7 +186,7 @@ export function ReceptionistTrainingView({ userId, initialCatalog }: Props) {
       </p>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+        <Badge variant="outline" className="border-success/30 bg-success/10 text-success">
           {certifiedCount} certified
         </Badge>
         <Badge variant="outline" className="border-border text-muted-foreground">

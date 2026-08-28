@@ -256,7 +256,7 @@ export function AdminNetworkAgentsBoard() {
                         className={cn(
                           "rounded-full border px-2 py-0.5 text-micro font-medium",
                           a.is_active
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                            ? "border-success/40 bg-success/10 text-success"
                             : "border-border bg-background/60 text-muted-foreground"
                         )}
                       >

@@ -96,11 +96,11 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
     <div
       className={cn(
         "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-300",
-        onCall ? "border-emerald-500/35 bg-emerald-950/25" : "border-primary/25 bg-primary/5"
+        onCall ? "border-success/35 bg-success/25" : "border-primary/25 bg-primary/5"
       )}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
-        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-emerald-400" : "bg-primary")} />
+        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-success" : "bg-primary")} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
@@ -547,7 +547,7 @@ export function ReceptionistPortalView() {
             className={cn(
               "overflow-hidden rounded-2xl border transition-colors duration-300",
               onCall
-                ? "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card/90 to-card/90"
+                ? "border-success/40 bg-gradient-to-br from-success/40 via-card/90 to-card/90"
                 : available
                   ? "border-primary/35 bg-gradient-to-br from-primary/10 via-card/90 to-card/90"
                   : "border-border/50 bg-card/80"
@@ -558,7 +558,7 @@ export function ReceptionistPortalView() {
                 <p
                   className={cn(
                     "text-micro font-semibold uppercase tracking-[0.16em]",
-                    onCall ? "text-emerald-400" : available ? "text-primary" : "text-muted-foreground"
+                    onCall ? "text-success" : available ? "text-primary" : "text-muted-foreground"
                   )}
                 >
                   Duty status
@@ -566,7 +566,7 @@ export function ReceptionistPortalView() {
                 <h1
                   className={cn(
                     "mt-1 text-2xl font-semibold tracking-tight sm:text-3xl",
-                    onCall ? "text-emerald-200" : available ? "text-foreground" : "text-muted-foreground"
+                    onCall ? "text-success" : available ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {onCall ? "ON CALL" : ringingNow ? "RINGING" : available ? "ON DUTY" : "OFF DUTY"}

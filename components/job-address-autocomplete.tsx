@@ -328,7 +328,7 @@ export const JobAddressAutocomplete = forwardRef<
           data-intake-primary-search=""
           className={cn(
             "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
-            validated && "border-emerald-500/50",
+            validated && "border-success/50",
             className
           )}
           placeholder={placeholder}
@@ -357,7 +357,7 @@ export const JobAddressAutocomplete = forwardRef<
         ? createPortal(dropdown, resolvePortalTarget())
         : null}
       {!validated && query.trim().length >= minLen && !loading && !resolving && suggestions.length === 0 ? (
-        <p className="text-xs text-amber-400">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
+        <p className="text-xs text-warning">Keep typing — pick a suggested address with street number, city, and ZIP.</p>
       ) : null}
       {validationError && query.trim() ? <p className="text-xs text-destructive">{validationError}</p> : null}
       {validated && value ? (

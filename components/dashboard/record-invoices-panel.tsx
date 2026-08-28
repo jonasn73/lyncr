@@ -58,9 +58,9 @@ function deliveryBits(inv: JobRecordInvoiceApi): string {
 }
 
 function invoiceStatusClass(status: string): string {
-  if (status === "sent") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (status === "sent") return "border-success/35 bg-success/10 text-success"
   if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
-  if (status === "partial") return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+  if (status === "partial") return "border-warning/35 bg-warning/10 text-warning"
   return "border-border/50 bg-muted/60 text-foreground"
 }
 
@@ -329,7 +329,7 @@ export function RecordInvoicesPanel({
               className={cn(
                 "rounded-xl border px-3 py-3",
                 isHighlight
-                  ? "border-emerald-500/50 bg-emerald-500/10"
+                  ? "border-success/50 bg-success/10"
                   : "border-border bg-card/50"
               )}
             >
@@ -344,7 +344,7 @@ export function RecordInvoicesPanel({
                         (inv.customerPhone ? formatPhoneDisplay(inv.customerPhone) : null) ||
                         inv.invoiceNumber}
                     </p>
-                    <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">
+                    <p className="shrink-0 text-sm font-bold tabular-nums text-success">
                       {formatMoney(inv.amountCents)}
                     </p>
                   </div>
@@ -398,7 +398,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void resend(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 text-2xs font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-success/35 bg-success/10 px-3 text-2xs font-semibold text-success hover:bg-success/20 disabled:opacity-50"
                 >
                   {busy && !isRevise ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -503,7 +503,7 @@ export function RecordInvoicesPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => void submitRevise()}
-                    className="h-10 w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-500"
+                    className="h-10 w-full gap-2 bg-success text-white hover:bg-success"
                   >
                     {busy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

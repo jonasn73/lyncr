@@ -53,9 +53,9 @@ function methodLabel(method: OwnerCollectedTransaction["paymentMethod"]): string
 }
 
 function walletStatusClass(status: CollectedChargeWalletStatus): string {
-  if (status === "paid") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (status === "paid") return "border-success/35 bg-success/10 text-success"
   if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
-  return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+  return "border-warning/35 bg-warning/10 text-warning"
 }
 
 function rowTitle(tx: OwnerCollectedTransaction): string {
@@ -464,10 +464,10 @@ export function MoneyPaymentsSheet({
                             className={cn(
                               "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                               walletStatus === "paid"
-                                ? "bg-emerald-500/15 text-emerald-400"
+                                ? "bg-success/15 text-success"
                                 : walletStatus === "failed"
                                   ? "bg-rose-500/15 text-rose-300"
-                                  : "bg-amber-500/15 text-amber-200"
+                                  : "bg-warning/15 text-warning"
                             )}
                           >
                             <CreditCard className="h-4 w-4" aria-hidden />
@@ -477,7 +477,7 @@ export function MoneyPaymentsSheet({
                               <span className="truncate text-sm font-semibold text-foreground">
                                 {rowTitle(tx)}
                               </span>
-                              <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">
+                              <span className="shrink-0 text-sm font-bold tabular-nums text-success">
                                 {formatCollectedDollars(Math.round(tx.amount * 100))}
                               </span>
                             </span>
@@ -539,7 +539,7 @@ export function MoneyPaymentsSheet({
               </div>
 
               {!selected.stripePaymentIntentId || selected.status !== "COMPLETED" ? (
-                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+                <p className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-warning">
                   {selected.paymentMethod === "CASH"
                     ? "Cash charges do not have a card receipt link. Note the amount for your records."
                     : "This charge cannot send a digital invoice yet (missing card payment id or not settled)."}
@@ -622,7 +622,7 @@ export function MoneyPaymentsSheet({
                     type="button"
                     disabled={receiptBusy}
                     onClick={() => void sendInvoice()}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
                   >
                     {receiptBusy ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -663,7 +663,7 @@ function PaymentDetail({
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-background/60 px-4 py-4">
         <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">Amount</p>
-        <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-200">
+        <p className="mt-0.5 text-3xl font-bold tabular-nums text-success">
           {formatCollectedDollars(amountCents)}
         </p>
         <p className="mt-1 text-sm font-semibold text-foreground">{rowTitle(tx)}</p>
@@ -716,7 +716,7 @@ function PaymentDetail({
         type="button"
         disabled={!canInvoice}
         onClick={onSendInvoice}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white hover:bg-success disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Mail className="h-4 w-4" aria-hidden />
         {canInvoice

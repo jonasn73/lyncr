@@ -121,7 +121,7 @@ export function WorkspaceStatCard({
     accent === "success"
       ? "border-success/30 bg-success/5"
       : accent === "warning"
-        ? "border-amber-500/30 bg-amber-500/5"
+        ? "border-warning/30 bg-warning/5"
         : "border-primary/30 bg-primary/5"
   if (dense) {
     return (
@@ -156,14 +156,14 @@ export function WorkspaceUsageStatCard({
 }) {
   const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
   return (
-    <div className="min-h-[5.75rem] rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+    <div className="min-h-[5.75rem] rounded-2xl border border-warning/30 bg-warning/5 p-5">
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {used.toLocaleString()} / {included.toLocaleString()} mins used
       </p>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-amber-500/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-warning/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}
           role="progressbar"
           aria-valuenow={used}
@@ -204,7 +204,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
     success: "border-success/40 bg-success/15 text-success",
     primary: "border-primary/40 bg-primary/15 text-primary",
     destructive: "border-destructive/40 bg-destructive/15 text-destructive",
-    warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+    warning: "border-warning/40 bg-warning/10 text-warning",
     muted: "border-border bg-card/80 text-muted-foreground",
   }
   return (
@@ -228,7 +228,7 @@ export type LeadIntentVariant = "amber" | "blue" | "muted"
 export function LeadIntentPill({ label, variant }: { label: string; variant: LeadIntentVariant }) {
   const styles: Record<LeadIntentVariant, string> = {
     amber:
-      "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
+      "border-warning/50 bg-warning/10 text-warning shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
     blue: "border-sky-500/45 bg-sky-500/10 text-sky-300 shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
     muted: "border-border/80 bg-card/60 text-muted-foreground",
   }
@@ -288,11 +288,11 @@ export function ActivityStatusPill({
 }) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     answered_from_queue:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     emergency:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     ai_handled:
       "border-violet-500/45 bg-violet-500/12 text-violet-300 shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
     voicemail:
@@ -308,11 +308,11 @@ export function ActivityStatusPill({
     busy_link:
       "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     hold_queue:
-      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     hold_press1:
-      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     busy_menu:
-      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
+      "border-warning/45 bg-warning/12 text-warning shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
       "border-rose-500/60 bg-rose-500/20 text-rose-50 shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
   }

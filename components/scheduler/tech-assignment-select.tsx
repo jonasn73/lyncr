@@ -127,7 +127,7 @@ export function TechAssignmentSelect({
                       </span>
                     ) : null}
                     {isBestMatch ? (
-                      <span className="text-2xs font-semibold tracking-wider text-emerald-400">
+                      <span className="text-2xs font-semibold tracking-wider text-success">
                         ★ Closest
                       </span>
                     ) : null}

@@ -449,7 +449,7 @@ export function OrganizationSwitcher({
                       aria-label={`Delete ${org.name}`}
                       disabled={!canDeleteWorkspace}
                       className={cn(
-                        "rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500",
+                        "rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
                         !canDeleteWorkspace && "cursor-not-allowed opacity-40"
                       )}
                       onClick={(e) => {

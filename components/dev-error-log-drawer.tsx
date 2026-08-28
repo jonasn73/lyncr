@@ -44,7 +44,7 @@ function kindLabel(kind: DevLogEntry["kind"]): string {
 function kindColor(kind: DevLogEntry["kind"]): string {
   switch (kind) {
     case "react":
-      return "bg-amber-500/20 text-amber-200 border-amber-500/40"
+      return "bg-warning/20 text-warning border-warning/40"
     case "resource":
       return "bg-sky-500/20 text-sky-200 border-sky-500/40"
     case "unhandledrejection":
@@ -271,7 +271,7 @@ export function DevErrorLogDrawer() {
                       {entry.message}
                     </p>
                     {entry.source ? (
-                      <p className="mt-2 rounded-md bg-background/80 px-2 py-1 font-mono text-2xs leading-relaxed text-emerald-300/90">
+                      <p className="mt-2 rounded-md bg-background/80 px-2 py-1 font-mono text-2xs leading-relaxed text-success/90">
                         {entry.source}
                       </p>
                     ) : (

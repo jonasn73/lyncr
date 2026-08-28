@@ -65,8 +65,8 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="flex items-center gap-2 text-emerald-200">
+              <div className="rounded-xl border border-success/20 bg-success/5 p-4">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
                   <p className="text-xs font-semibold uppercase tracking-wide">Carrier status</p>
                 </div>

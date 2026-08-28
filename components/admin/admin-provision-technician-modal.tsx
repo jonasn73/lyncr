@@ -124,7 +124,7 @@ export function AdminProvisionTechnicianModal({
             />
           </div>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button
             type="submit"

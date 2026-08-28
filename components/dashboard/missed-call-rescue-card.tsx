@@ -200,7 +200,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const label = !known ? "Text after miss…" : isOn ? "Text after miss on" : "Text after miss off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
-    <p className="mt-1.5 text-micro font-medium leading-snug text-amber-200/85">
+    <p className="mt-1.5 text-micro font-medium leading-snug text-warning/85">
       Rescued revenue: {formatRescueRevenueDollars(rescueTotalCents)} via textback links.
     </p>
   )
@@ -228,7 +228,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               e.currentTarget.blur()
             }
           }}
-          className="h-9 w-14 shrink-0 rounded-md border border-border bg-card px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+          className="h-9 w-14 shrink-0 rounded-md border border-border bg-card px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-success/50 focus:outline-none focus:ring-1 focus:ring-success/40"
         />
       </label>
       <p className="mt-1.5 text-micro text-muted-foreground">
@@ -239,7 +239,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   ) : null
 
   const switchClass = cn(
-    "shrink-0 data-[state=checked]:bg-emerald-500",
+    "shrink-0 data-[state=checked]:bg-success",
     !known && "duration-0 [&_[data-slot=switch-thumb]]:duration-0"
   )
 
@@ -259,7 +259,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               !known
                 ? "bg-zinc-500/15 text-muted-foreground"
                 : isOn
-                  ? "bg-emerald-500/15 text-emerald-300"
+                  ? "bg-success/15 text-success"
                   : "bg-primary/12 text-primary"
             )}
           >
@@ -294,7 +294,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         !known
           ? "border-border/70 bg-card/80"
           : isOn
-            ? "border-emerald-500/30 bg-emerald-950/10"
+            ? "border-success/30 bg-success/10"
             : "border-border/70 bg-card/80 hover:border-border",
         busy && "opacity-60"
       )}
@@ -307,7 +307,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               !known
                 ? "border-border/60 bg-muted/40 text-muted-foreground"
                 : isOn
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                  ? "border-success/30 bg-success/15 text-success"
                   : "border-primary/25 bg-primary/10 text-primary"
             )}
           >

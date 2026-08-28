@@ -93,7 +93,7 @@ function LocateInner() {
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center gap-6 px-6 py-12">
       <div>
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Key Squad</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-success">Key Squad</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">Share your location</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
       </div>
@@ -102,13 +102,13 @@ function LocateInner() {
           type="button"
           onClick={shareLocation}
           disabled={status === "sharing"}
-          className="rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white disabled:opacity-60"
+          className="rounded-xl bg-success px-4 py-3 text-base font-semibold text-white disabled:opacity-60"
         >
           {status === "sharing" ? "Sharing…" : "Allow live GPS"}
         </button>
       ) : null}
       {status === "done" ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success">
           Location shared successfully.
         </p>
       ) : null}

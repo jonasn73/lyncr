@@ -48,7 +48,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
       {/* Soft PAID stamp — visible but not covering content. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute right-4 top-28 rotate-[-12deg] select-none rounded-lg border-[3px] border-emerald-500/70 px-3 py-1 text-sm font-extrabold tracking-[0.2em] text-emerald-600/80"
+        className="pointer-events-none absolute right-4 top-28 rotate-[-12deg] select-none rounded-lg border-[3px] border-success/70 px-3 py-1 text-sm font-extrabold tracking-[0.2em] text-success/80"
       >
         PAID
       </div>
@@ -64,7 +64,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
               <p className="mt-1 text-sm text-foreground">{invoice.businessPhone}</p>
             ) : null}
           </div>
-          <span className="shrink-0 rounded-full bg-emerald-500 px-3 py-2 text-2xs font-extrabold tracking-wide text-white">
+          <span className="shrink-0 rounded-full bg-success px-3 py-2 text-2xs font-extrabold tracking-wide text-white">
             PAID
           </span>
         </div>
@@ -76,7 +76,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total paid
             </p>
-            <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-600">
+            <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-success">
               {formatInvoiceUsd(invoice.totalCents)}
             </p>
             <p className="mt-1 text-sm font-medium text-slate-700">{paidHow}</p>
@@ -156,7 +156,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           <tfoot>
             <tr className="border-t-2 border-border">
               <td className="pt-4 text-base font-extrabold">Total paid</td>
-              <td className="pt-4 text-right text-base font-extrabold tabular-nums text-emerald-600">
+              <td className="pt-4 text-right text-base font-extrabold tabular-nums text-success">
                 {formatInvoiceUsd(invoice.totalCents)}
               </td>
             </tr>

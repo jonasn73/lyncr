@@ -370,10 +370,10 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
       {simulationMode && devModeNotice ? (
         <div
-          className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3"
+          className="border-b border-warning/30 bg-warning/10 px-4 py-3"
           role="status"
         >
-          <p className="mx-auto max-w-lg text-center text-2xs leading-relaxed text-amber-200/90">
+          <p className="mx-auto max-w-lg text-center text-2xs leading-relaxed text-warning/90">
             {devModeNotice}
           </p>
         </div>
@@ -550,7 +550,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         ) : null}
                       </div>
                       {inventorySource === "demo" ? (
-                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+                        <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning/90">
                           Live inventory unavailable — showing previews only. Search again or contact support if this persists.
                         </p>
                       ) : null}

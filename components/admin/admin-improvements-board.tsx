@@ -66,7 +66,7 @@ const CATEGORY_SUGGESTIONS = [
 
 const PRIORITY_BADGE_CLASS: Record<AppImprovementPriority, string> = {
   high: "border-rose-500/40 bg-rose-500/10 text-rose-300",
-  medium: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  medium: "border-warning/40 bg-warning/10 text-warning",
   low: "border-border bg-muted/60 text-muted-foreground",
 }
 

@@ -38,9 +38,9 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 function pipelineDotClass(state: AdminPortingPipelineStep["state"]): string {
-  if (state === "complete") return "bg-emerald-500 ring-emerald-500/30"
+  if (state === "complete") return "bg-success ring-success/30"
   if (state === "current") return "bg-sky-400 ring-sky-400/40 animate-pulse"
-  if (state === "failed") return "bg-red-500 ring-red-500/40"
+  if (state === "failed") return "bg-destructive ring-destructive/40"
   return "bg-slate-600 ring-border/30"
 }
 
@@ -258,17 +258,17 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   {detail.action_alerts.map((alert) => (
                     <div
                       key={alert.id}
-                      className="rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100"
+                      className="rounded-md border border-warning/50 bg-warning/30 px-3 py-2 text-xs text-warning"
                       role="alert"
                     >
                       <div className="flex items-start gap-2">
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" aria-hidden />
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
                         <div>
                           <p className="font-medium">{alert.title}</p>
-                          <p className="mt-0.5 whitespace-pre-wrap text-amber-100/90">
+                          <p className="mt-0.5 whitespace-pre-wrap text-warning/90">
                             {displayPortingMessageBody(alert.body)}
                           </p>
-                          <p className="mt-1 text-micro text-amber-200/60">
+                          <p className="mt-1 text-micro text-warning/60">
                             {new Date(alert.created_at).toLocaleString()}
                           </p>
                         </div>
@@ -294,8 +294,8 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                         className={cn(
                           "text-xs font-medium",
                           step.state === "current" && "text-sky-300",
-                          step.state === "complete" && "text-emerald-300/90",
-                          step.state === "failed" && "text-red-300",
+                          step.state === "complete" && "text-success/90",
+                          step.state === "failed" && "text-destructive",
                           step.state === "upcoming" && "text-muted-foreground"
                         )}
                       >

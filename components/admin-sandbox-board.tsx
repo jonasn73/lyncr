@@ -281,15 +281,15 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       </div>
 
       {lastAction ? (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+        <p className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
           {lastAction}
         </p>
       ) : null}
 
       {seedWarnings.length > 0 ? (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          <p className="font-medium text-amber-50">Seed notes</p>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-amber-100/90">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <p className="font-medium text-warning">Seed notes</p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-warning/90">
             {seedWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -369,7 +369,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </Button>
         </div>
         {quickSwitchError ? (
-          <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          <p className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {quickSwitchError}
           </p>
         ) : null}
@@ -401,16 +401,16 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/30 bg-card/60">
+        <Card className="border-warning/30 bg-card/60">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-warning/20 text-warning">
               <PhoneIncoming className="h-5 w-5" aria-hidden />
             </div>
             <CardTitle className="text-lg text-foreground">Fire Simulated Inbound Call</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Writes in-progress <code className="text-amber-200">call_logs</code> for every online receptionist matched
+              Writes in-progress <code className="text-warning">call_logs</code> for every online receptionist matched
               to the sandbox line — opens the live HUD on{" "}
-              <Link href="/receptionist" className="text-amber-200 underline-offset-2 hover:underline">
+              <Link href="/receptionist" className="text-warning underline-offset-2 hover:underline">
                 /receptionist
               </Link>
               .
@@ -420,7 +420,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             <Button
               type="button"
               variant="outline"
-              className="w-full border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+              className="w-full border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
               disabled={pending || !environment?.business_line_id}
               onClick={handleMockCall}
             >
@@ -480,7 +480,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               type="button"
               variant="outline"
               size="sm"
-              className="border-emerald-500/40 text-emerald-200"
+              className="border-success/40 text-success"
               disabled={pending}
               onClick={handleRepairSms}
             >
@@ -525,7 +525,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{row.caller_e164 ?? "—"}</td>
                       <td className="px-4 py-3 text-foreground">{row.intent_slug ?? "—"}</td>
                       <td className="max-w-md px-4 py-3">
-                        <pre className="max-h-32 overflow-auto rounded-md bg-background/80 p-2 font-mono text-2xs leading-relaxed text-emerald-100/90">
+                        <pre className="max-h-32 overflow-auto rounded-md bg-background/80 p-2 font-mono text-2xs leading-relaxed text-success/90">
                           {JSON.stringify(row.intake_payload, null, 2)}
                         </pre>
                         {row.summary ? (
@@ -535,14 +535,14 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                       <td className="px-4 py-3">
                         {row.sms_sent ? (
                           row.sms_error ? (
-                            <Badge variant="outline" className="border-amber-500/40 text-amber-200">
+                            <Badge variant="outline" className="border-warning/40 text-warning">
                               Queued — {row.sms_error}
                             </Badge>
                           ) : (
-                            <Badge className="border-0 bg-emerald-500/20 text-emerald-200">Queued</Badge>
+                            <Badge className="border-0 bg-success/20 text-success">Queued</Badge>
                           )
                         ) : row.sms_error ? (
-                          <Badge variant="outline" className="border-amber-500/40 text-amber-200">
+                          <Badge variant="outline" className="border-warning/40 text-warning">
                             {row.sms_error}
                           </Badge>
                         ) : (

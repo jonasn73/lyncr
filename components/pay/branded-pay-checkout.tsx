@@ -154,17 +154,17 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           <p className="text-sm">Loading secure payment…</p>
         </div>
       ) : error && payload?.status !== "tip" ? (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-6 py-6 text-center">
-          <h2 className="text-lg font-semibold text-red-100">Link unavailable</h2>
-          <p className="mt-2 text-sm text-red-200/90">{error}</p>
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-6 py-6 text-center">
+          <h2 className="text-lg font-semibold text-destructive">Link unavailable</h2>
+          <p className="mt-2 text-sm text-destructive/90">{error}</p>
           <p className="mt-4 text-xs text-muted-foreground">
             Ask the business to send a new payment link.
           </p>
         </div>
       ) : payload?.status === "paid" ? (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-8 text-center">
+        <div className="rounded-2xl border border-success/30 bg-success/10 px-6 py-8 text-center">
           <p className="text-2xl font-bold text-white">Payment received</p>
-          <p className="mt-2 text-sm text-emerald-100/90">
+          <p className="mt-2 text-sm text-success/90">
             Thanks — {payload.business_label} received {fmtUsd(payload.charge_cents)}.
           </p>
           <p className="mt-3 text-xs text-muted-foreground">
@@ -172,7 +172,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </p>
           <Link
             href="/pay/thanks"
-            className="mt-6 inline-flex rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500"
+            className="mt-6 inline-flex rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-white hover:bg-warning"
           >
             Done
           </Link>
@@ -181,7 +181,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
         <div className="space-y-6">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Service total</p>
-            <p className="mt-1 text-4xl font-bold tabular-nums text-amber-300">
+            <p className="mt-1 text-4xl font-bold tabular-nums text-warning">
               {fmtUsd(baseCents)}
             </p>
             {payload.customer_name ? (
@@ -214,7 +214,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                   className={cn(
                     "rounded-xl border py-2 text-xs font-semibold transition-colors",
                     tipChoice === opt.id
-                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                      ? "border-success/50 bg-success/15 text-success"
                       : "border-border bg-card text-muted-foreground"
                   )}
                 >
@@ -233,7 +233,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
               className={cn(
                 "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                 tipChoice === "custom"
-                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
+                  ? "border-success/50 bg-success/15 text-success"
                   : "border-border bg-card text-muted-foreground"
               )}
             >
@@ -254,7 +254,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                 />
               </div>
             ) : null}
-            <p className="mt-2 text-xs leading-snug text-emerald-200/90">
+            <p className="mt-2 text-xs leading-snug text-success/90">
               {tipLastTotalNote({
                 totalAmountLabel: fmtUsd(totalWithTip),
                 tipCents: selectedTipCents,
@@ -265,7 +265,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-center text-sm text-red-100">
+            <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
               {error}
             </p>
           ) : null}
@@ -274,7 +274,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             type="button"
             disabled={tipBusy}
             onClick={() => void confirmTip()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-400 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success px-4 py-3 text-sm font-bold text-success hover:bg-success disabled:opacity-60"
           >
             {tipBusy ? (
               <>
@@ -293,11 +293,11 @@ export function BrandedPayCheckout({ token }: { token: string }) {
       ) : payload?.status === "open" && stripePromise ? (
         <>
           <div className="text-center">
-            <p className="text-4xl font-bold tabular-nums text-amber-300">
+            <p className="text-4xl font-bold tabular-nums text-warning">
               {fmtUsd(payload.charge_cents)}
             </p>
             {typeof payload.tip_cents === "number" && payload.tip_cents > 0 ? (
-              <p className="mt-1 text-xs text-emerald-200/90">
+              <p className="mt-1 text-xs text-success/90">
                 Includes {fmtUsd(payload.tip_cents)} tip
               </p>
             ) : null}

@@ -445,7 +445,7 @@ function WeeklyDayBreakdownChart({
 function DirectionIcon({ callType }: { callType: string }) {
   const t = callType.toLowerCase()
   if (t === "outgoing") return <PhoneOutgoing className="h-4 w-4 shrink-0 text-teal-400" aria-hidden />
-  if (t === "missed") return <PhoneMissed className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
+  if (t === "missed") return <PhoneMissed className="h-4 w-4 shrink-0 text-warning" aria-hidden />
   if (t === "voicemail") return <Voicemail className="h-4 w-4 shrink-0 text-violet-400" aria-hidden />
   return <PhoneIncoming className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden />
 }
@@ -672,7 +672,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
               Loading calls…
             </div>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-red-400">{error}</p>
+            <p className="py-8 text-center text-sm text-destructive">{error}</p>
           ) : filtered.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{meta.emptyMessage}</p>
           ) : listRows.length === 0 ? (

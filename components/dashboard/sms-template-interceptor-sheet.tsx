@@ -79,11 +79,11 @@ export function SmsTemplateInterceptorSheet({
               disabled={sending}
               onClick={() => onSelect(template)}
               className={cn(
-                "w-full text-left p-4 bg-card/40 border border-border/60 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer",
+                "w-full text-left p-4 bg-card/40 border border-border/60 hover:border-success/40 rounded-xl transition-all cursor-pointer",
                 "touch-manipulation disabled:cursor-wait disabled:opacity-60"
               )}
             >
-              <span className="inline-flex rounded-md border border-emerald-900/40 bg-emerald-950/30 px-2 py-0.5 text-2xs font-semibold text-emerald-300">
+              <span className="inline-flex rounded-md border border-success/40 bg-success/30 px-2 py-0.5 text-2xs font-semibold text-success">
                 {template.badge}
               </span>
               <p className="mt-2 text-xs leading-snug text-muted-foreground italic line-clamp-3">

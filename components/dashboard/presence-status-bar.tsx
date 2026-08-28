@@ -45,7 +45,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
         // Fixed min height covers Available + Busy subtitle + one desktop note line.
         "min-h-[5.75rem] md:min-h-[6.75rem]",
         isBusy
-          ? "border-amber-400/80 bg-amber-500/10"
+          ? "border-warning/80 bg-warning/10"
           : "border-border/60 bg-muted/15",
         className
       )}
@@ -90,16 +90,16 @@ export function PresenceStatusBar({ className }: { className?: string }) {
         <div
           className={cn(
             "flex shrink-0 items-center gap-2 rounded-full px-2 py-2",
-            isBusy && "bg-amber-500/25 ring-2 ring-amber-300"
+            isBusy && "bg-warning/25 ring-2 ring-warning"
           )}
         >
           {presenceReady ? (
             isAvailable ? (
-              <span className="text-2xs font-bold uppercase tracking-wider text-emerald-300">
+              <span className="text-2xs font-bold uppercase tracking-wider text-success">
                 Active
               </span>
             ) : (
-              <span className="text-2xs font-bold uppercase tracking-wider text-amber-200">
+              <span className="text-2xs font-bold uppercase tracking-wider text-warning">
                 Busy
               </span>
             )
@@ -120,8 +120,8 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               // Bigger than the default switch so you can see it outside.
               "h-7 w-11 border-2",
               isBusy
-                ? "data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:border-amber-100 dark:data-[state=unchecked]:bg-amber-400 data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
-                : "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-200 dark:data-[state=checked]:bg-emerald-500",
+                ? "data-[state=unchecked]:bg-warning data-[state=unchecked]:border-warning dark:data-[state=unchecked]:bg-warning data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
+                : "data-[state=checked]:bg-success data-[state=checked]:border-success dark:data-[state=checked]:bg-success",
               "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-md dark:[&_[data-slot=switch-thumb]]:bg-white",
               "[&_[data-slot=switch-thumb][data-state=checked]]:translate-x-[1.35rem]"
             )}

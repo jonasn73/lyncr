@@ -36,7 +36,7 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(52,211,153,0.12),transparent)]" />
       <header className="relative z-10 border-b border-white/5 px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-lg font-black text-slate-950 shadow-lg shadow-emerald-900/40">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-success to-teal-600 text-lg font-black text-slate-950 shadow-lg shadow-success/40">
             L
           </span>
           <div>
@@ -48,7 +48,7 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
       <div className="relative z-10 mx-auto w-full max-w-lg flex-1 px-6 py-10">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+            <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
             Validating your invite…
           </div>
         ) : (
@@ -68,7 +68,7 @@ function StepDots({ step, smsInvite }: { step: number; smsInvite?: boolean }) {
           <span
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors",
-              i <= step ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : "bg-muted text-muted-foreground"
+              i <= step ? "bg-success/20 text-success ring-1 ring-success/40" : "bg-muted text-muted-foreground"
             )}
           >
             {i < step ? <Check className="h-4 w-4" /> : i + 1}
@@ -236,9 +236,9 @@ function OperatorOnboardWizard() {
   if (invalid) {
     return (
       <OnboardShell>
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center">
-          <p className="font-semibold text-red-100">This invite link is invalid or has expired.</p>
-          <p className="mt-2 text-sm text-red-200/80">Ask Lyncr platform admin to send a fresh invite.</p>
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-center">
+          <p className="font-semibold text-destructive">This invite link is invalid or has expired.</p>
+          <p className="mt-2 text-sm text-destructive/80">Ask Lyncr platform admin to send a fresh invite.</p>
         </div>
       </OnboardShell>
     )
@@ -257,7 +257,7 @@ function OperatorOnboardWizard() {
           Welcome, <span className="font-medium text-foreground">{preview.name.split(" ")[0] || "operator"}</span>
         </p>
         {preview.assigned_workspaces.length > 0 ? (
-          <p className="mt-2 text-center text-xs text-emerald-300/90">
+          <p className="mt-2 text-center text-xs text-success/90">
             Cleared for: {preview.assigned_workspaces.map((w) => w.business_name).join(", ")}
           </p>
         ) : null}
@@ -265,18 +265,18 @@ function OperatorOnboardWizard() {
         {step === 0 ? (
           <div className="mt-6 space-y-4">
             <div className="flex flex-col items-center gap-3 text-center">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-500/30">
-                <Mic className="h-7 w-7 text-emerald-300" aria-hidden />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/15 ring-1 ring-success/30">
+                <Mic className="h-7 w-7 text-success" aria-hidden />
               </span>
               <h1 className="text-xl font-semibold">Step 1 · Hardware check</h1>
               <p className="text-sm text-muted-foreground">
                 Allow microphone access so we can verify your browser is ready for WebRTC call answering.
               </p>
             </div>
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <Button
               type="button"
-              className="w-full bg-emerald-600 hover:bg-emerald-500"
+              className="w-full bg-success hover:bg-success"
               disabled={busy}
               onClick={() => void runMicTest()}
             >
@@ -317,10 +317,10 @@ function OperatorOnboardWizard() {
                   className="border-border bg-card/80"
                 />
               </div>
-              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
               <Button
                 type="button"
-                className="w-full bg-emerald-600 hover:bg-emerald-500"
+                className="w-full bg-success hover:bg-success"
                 disabled={busy || password.length < 8}
                 onClick={() => void activateFromSmsInvite()}
               >
@@ -359,7 +359,7 @@ function OperatorOnboardWizard() {
               ) : (
                 <>
                   {devCode ? (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-center text-xs text-amber-100">
+                    <p className="rounded-lg border border-warning/30 bg-warning/10 p-2 text-center text-xs text-warning">
                       Dev code: <strong>{devCode}</strong>
                     </p>
                   ) : null}
@@ -390,7 +390,7 @@ function OperatorOnboardWizard() {
                   </div>
                   <Button
                     type="button"
-                    className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    className="w-full bg-success hover:bg-success"
                     disabled={busy}
                     onClick={() => void verifyAndFinish()}
                   >
@@ -399,17 +399,17 @@ function OperatorOnboardWizard() {
                   </Button>
                 </>
               )}
-              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
             </div>
           )
         ) : null}
 
         {step === 2 ? (
           <div className="mt-6 space-y-6 text-center">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 ring-2 ring-emerald-400/50">
-              <Sparkles className="h-8 w-8 text-emerald-300" aria-hidden />
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/20 ring-2 ring-success/50">
+              <Sparkles className="h-8 w-8 text-success" aria-hidden />
             </span>
-            <h1 className="text-xl font-semibold text-emerald-100">You&apos;re active & ready</h1>
+            <h1 className="text-xl font-semibold text-success">You&apos;re active & ready</h1>
             <p className="text-sm text-muted-foreground">
               WebRTC status:{" "}
               <span className="font-medium text-foreground">
@@ -423,7 +423,7 @@ function OperatorOnboardWizard() {
               </span>
             </p>
             <audio id={WEBRTC_REMOTE_AUDIO_ID} autoPlay playsInline className="sr-only" />
-            <Button type="button" className="w-full bg-emerald-600 hover:bg-emerald-500" onClick={() => router.replace("/receptionist")}>
+            <Button type="button" className="w-full bg-success hover:bg-success" onClick={() => router.replace("/receptionist")}>
               Open operator console
             </Button>
           </div>

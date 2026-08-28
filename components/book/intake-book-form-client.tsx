@@ -50,7 +50,7 @@ type WizardStep = "details" | "availability" | "pay" | "done"
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 const fieldClass =
-  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
+  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-success/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -293,7 +293,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400/90">
+      <p className="text-xs font-semibold uppercase tracking-wide text-success/90">
         {invite?.business_label || "Your locksmith"}
       </p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
@@ -324,7 +324,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           <span
             className={cn(
               "rounded-full px-3 py-1",
-              wizardStep === "details" && "bg-emerald-500/20 text-emerald-200"
+              wizardStep === "details" && "bg-success/20 text-success"
             )}
           >
             1 · Details
@@ -335,7 +335,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <span
                 className={cn(
                   "rounded-full px-3 py-1",
-                  wizardStep === "availability" && "bg-emerald-500/20 text-emerald-200"
+                  wizardStep === "availability" && "bg-success/20 text-success"
                 )}
               >
                 2 · When
@@ -425,7 +425,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     onClick={() => setJobKind(opt.id)}
                     className={
                       jobKind === opt.id
-                        ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs font-medium text-emerald-50"
+                        ? "rounded-lg border border-success/50 bg-success/15 px-2 py-2 text-center text-xs font-medium text-success"
                         : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                     }
                   >
@@ -519,7 +519,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   onClick={() => setUrgency("window")}
                   className={
                     urgency === "window"
-                      ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-50"
+                      ? "rounded-lg border border-success/50 bg-success/15 px-2 py-2 text-center text-xs text-success"
                       : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                   }
                 >
@@ -529,7 +529,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               </div>
             </fieldset>
 
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
 
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
@@ -538,7 +538,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 type="button"
                 disabled={!detailsReady || submitting}
                 onClick={() => onDetailsContinue()}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {urgency === "asap"
@@ -573,7 +573,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 onClick={() => setDayKey(day.dateKey)}
                 className={
                   dayKey === day.dateKey
-                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm text-emerald-50"
+                    ? "rounded-lg border border-success/50 bg-success/15 px-3 py-3 text-left text-sm text-success"
                     : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
@@ -615,19 +615,19 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
           {windowReady ? (
             <p className="text-center text-sm text-foreground">
-              Free: <span className="font-semibold text-emerald-200">{availabilityLabel}</span>
+              Free: <span className="font-semibold text-success">{availabilityLabel}</span>
             </p>
           ) : (
             <p className="text-center text-2xs text-rose-300">End time must be after start.</p>
           )}
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={!windowReady || submitting}
             onClick={() => void submitForm()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {invite?.fee_mode === "none" ? "Submit" : `Continue to pay ${amountLabel}`}

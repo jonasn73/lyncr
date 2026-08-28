@@ -291,7 +291,7 @@ export function TechConsole(props: {
                     <span className="truncate text-sm text-foreground">
                       {job.customer_name || job.customer_phone || "Job"}
                     </span>
-                    <span className="rounded-full bg-emerald-500/20 px-3 py-0.5 text-2xs font-medium text-emerald-300">
+                    <span className="rounded-full bg-success/20 px-3 py-0.5 text-2xs font-medium text-success">
                       Completed
                     </span>
                   </div>
@@ -324,13 +324,13 @@ function HopperPoolSection(props: {
   onClaim: (jobId: string) => void
 }) {
   return (
-    <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 to-zinc-900/40 p-4">
+    <section className="rounded-2xl border border-warning/30 bg-gradient-to-b from-warning/10 to-zinc-900/40 p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-amber-200">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-warning/20 text-warning">
           <Inbox className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Unassigned pool</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-warning">Unassigned pool</p>
           <p className="text-2xs text-muted-foreground">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
         </div>
       </div>
@@ -349,7 +349,7 @@ function HopperPoolSection(props: {
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{job.job_type || "Service call"}</p>
                 {job.field_verification_required ? (
-                  <p className="mt-1.5 flex items-center gap-1 text-2xs font-semibold text-amber-300">
+                  <p className="mt-1.5 flex items-center gap-1 text-2xs font-semibold text-warning">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     Verify key style on vehicle before cutting
                   </p>
@@ -371,7 +371,7 @@ function HopperPoolSection(props: {
                 type="button"
                 disabled={busy || Boolean(props.claimBusyId)}
                 onClick={() => props.onClaim(job.id)}
-                className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-zinc-950 transition active:scale-[0.98] disabled:opacity-50"
+                className="shrink-0 rounded-xl bg-warning px-3 py-2 text-xs font-semibold text-zinc-950 transition active:scale-[0.98] disabled:opacity-50"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Claim"}
               </button>
@@ -495,7 +495,7 @@ function JobCard(props: {
 
       {/* Balance collect entry — tech payment path already exists; no full Money rail */}
       {summary.billingBalanceDollars > 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-2xs text-emerald-300/90">
+        <p className="mt-2 flex items-center gap-2 text-2xs text-success/90">
           <CreditCard className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Booked balance {summary.billingLabel}
           {workComplete ? " — ready to collect" : ""}
@@ -518,7 +518,7 @@ function JobCard(props: {
           className={cn(
             "rounded-xl px-3 py-3 text-sm font-semibold shadow-lg transition active:scale-[0.98]",
             workComplete
-              ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-900/30"
+              ? "bg-gradient-to-br from-success to-green-600 text-white shadow-success/30"
               : "cursor-not-allowed bg-muted text-muted-foreground shadow-none"
           )}
           title={

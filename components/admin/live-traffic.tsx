@@ -62,19 +62,19 @@ export function LiveTrafficPulse() {
         <CardTitle className="flex items-center gap-2 text-base text-foreground">
           <span className="relative flex h-2.5 w-2.5">
             {calls.length > 0 && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
             )}
             <span
               className={cn(
                 "relative inline-flex h-2.5 w-2.5 rounded-full",
-                calls.length > 0 ? "bg-emerald-400" : "bg-slate-600"
+                calls.length > 0 ? "bg-success" : "bg-slate-600"
               )}
             />
           </span>
           Live Traffic Pulse
         </CardTitle>
         <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-          <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
+          <Radio className="h-3.5 w-3.5 text-success" aria-hidden />
           {calls.length} active {calls.length === 1 ? "call" : "calls"}
         </span>
       </CardHeader>
@@ -108,8 +108,8 @@ export function LiveTrafficPulse() {
                     className={cn(
                       "rounded-full px-2 py-0.5 text-micro font-medium",
                       c.connected
-                        ? "bg-emerald-500/15 text-emerald-300"
-                        : "bg-amber-500/15 text-amber-300"
+                        ? "bg-success/15 text-success"
+                        : "bg-warning/15 text-warning"
                     )}
                   >
                     {c.connected ? "Connected" : "Ringing"}

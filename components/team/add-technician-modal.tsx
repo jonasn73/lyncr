@@ -204,7 +204,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
             />
           </label>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="submit"

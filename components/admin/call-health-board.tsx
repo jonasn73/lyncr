@@ -31,8 +31,8 @@ function msLabel(ms: number | null): string {
 
 /** Green under 5%, amber under 15%, red above — rough triage bands, not a contractual SLA. */
 function missedRateTone(pct: number): string {
-  if (pct <= 5) return "text-emerald-300"
-  if (pct <= 15) return "text-amber-300"
+  if (pct <= 5) return "text-success"
+  if (pct <= 15) return "text-warning"
   return "text-rose-300"
 }
 

@@ -54,9 +54,9 @@ function TelemetryPill({
   const sharedClasses = cn(
     "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-3 py-2",
     "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
-    tone === "amber" && "border-amber-500/25 text-amber-100/90",
+    tone === "amber" && "border-warning/25 text-warning/90",
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
-    tone === "emerald" && "border-emerald-500/25 text-emerald-100/90",
+    tone === "emerald" && "border-success/25 text-success/90",
     tone === "default" && "border-white/8 text-foreground/90",
     onClick && "cursor-pointer hover:bg-card/50"
   )
@@ -145,7 +145,7 @@ function TelemetryTickerItem({
       <span
         className={cn(
           "max-w-full truncate text-center text-micro font-medium leading-none",
-          sublabel ? "text-amber-400/90" : "invisible text-transparent",
+          sublabel ? "text-warning/90" : "invisible text-transparent",
           sublabelClassName
         )}
         aria-hidden={!sublabel}
@@ -281,8 +281,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             value={missedDisplay}
             animatedValue={missedAnimated}
             sublabel={baselineReady ? missedTickerSublabel : null}
-            valueClassName={baselineReady && missedCalls > 0 ? "text-amber-300" : undefined}
-            labelClassName={missedLeadCollapse ? "text-amber-400/90" : undefined}
+            valueClassName={baselineReady && missedCalls > 0 ? "text-warning" : undefined}
+            labelClassName={missedLeadCollapse ? "text-warning/90" : undefined}
             onClick={openMissedRescue}
           />
           <TelemetryTickerItem
@@ -305,7 +305,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             value={rescueDisplay}
             animatedValue={rescueAnimated}
             animatedFormatter={formatRescueRevenueDollars}
-            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+            valueClassName={rescueHot ? "text-warning" : "text-success"}
           />
         </div>
       </section>
@@ -334,8 +334,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             animatedValue={missedAnimated}
             icon={PhoneMissed}
             tone={baselineReady && missedCalls > 0 ? "amber" : "default"}
-            valueClassName={baselineReady && missedCalls > 0 ? "text-amber-400" : undefined}
-            labelClassName={missedLeadCollapse ? "text-amber-400 font-semibold" : undefined}
+            valueClassName={baselineReady && missedCalls > 0 ? "text-warning" : undefined}
+            labelClassName={missedLeadCollapse ? "text-warning font-semibold" : undefined}
             onClick={openMissedRescue}
           />
           <TelemetryPill
@@ -366,7 +366,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             animatedFormatter={formatRescueRevenueDollars}
             icon={DollarSign}
             tone={rescueHot ? "amber" : "emerald"}
-            valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
+            valueClassName={rescueHot ? "text-warning" : "text-success"}
           />
         </div>
         <p className="px-1 text-micro leading-snug text-muted-foreground">

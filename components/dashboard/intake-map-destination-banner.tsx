@@ -95,7 +95,7 @@ export function IntakeMapDestinationBanner({
             ) : !travelMetrics.fromGps ? (
               // No GPS and no saved shop address — say it is a rough city estimate rather
               // than implying it was measured from the shop.
-              <span className="text-amber-300/80"> · rough city estimate — set your shop address</span>
+              <span className="text-warning/80"> · rough city estimate — set your shop address</span>
             ) : null}
           </p>
           <p>
@@ -105,14 +105,14 @@ export function IntakeMapDestinationBanner({
             </span>
           </p>
           {nearestTech ? (
-            <p className="text-amber-200/90">
+            <p className="text-warning/90">
               ⚡ Nearest available tech: {nearestTech.name} ({formatMiles(nearestTech.miles)} mi
               away)
             </p>
           ) : null}
         </div>
       ) : nearestTech ? (
-        <p className="mt-2 border-t border-border/80 pt-2 text-micro text-amber-200/90">
+        <p className="mt-2 border-t border-border/80 pt-2 text-micro text-warning/90">
           ⚡ Nearest available tech: {nearestTech.name} ({formatMiles(nearestTech.miles)} mi away)
         </p>
       ) : null}
@@ -139,7 +139,7 @@ export function IntakeMapDestinationBanner({
           e.stopPropagation()
           onReturn()
         }}
-        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-emerald-400/60 bg-emerald-500 px-3 py-3 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-emerald-400 active:scale-[0.98]"
+        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-success/60 bg-success px-3 py-3 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-success active:scale-[0.98]"
       >
         ← Return to Intake Form
       </button>

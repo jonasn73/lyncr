@@ -243,7 +243,7 @@ export function JobMapPopupForm({
         </label>
       </div>
 
-      {error ? <p className={cn("text-red-400", isSheet ? "text-sm" : "text-2xs")}>{error}</p> : null}
+      {error ? <p className={cn("text-destructive", isSheet ? "text-sm" : "text-2xs")}>{error}</p> : null}
 
       <div className={cn("flex gap-2", isSheet && "flex-col sm:flex-row")}>
         <button

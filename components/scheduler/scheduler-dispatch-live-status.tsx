@@ -107,7 +107,7 @@ function UpcomingJobChip({
             e.stopPropagation()
             onMarkComplete(job.id)
           }}
-          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-emerald-200 hover:bg-emerald-500/20"
+          className="inline-flex cursor-pointer items-center justify-center gap-1 rounded-md border border-success/40 bg-success/10 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-success hover:bg-success/20"
         >
           {isCompleting ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
           Mark done

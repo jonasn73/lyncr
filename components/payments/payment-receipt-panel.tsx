@@ -99,7 +99,7 @@ export function PaymentReceiptPanel({
               value={receiptName}
               onChange={(e) => onReceiptNameChange(e.target.value)}
               placeholder="Customer name (optional)"
-              className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
+              className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
             />
             {receiptChannel === "email" ? (
               <input
@@ -110,7 +110,7 @@ export function PaymentReceiptPanel({
                 value={receiptEmail}
                 onChange={(e) => onReceiptEmailChange(e.target.value)}
                 placeholder="customer@email.com"
-                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
               />
             ) : (
               <input
@@ -120,18 +120,18 @@ export function PaymentReceiptPanel({
                 value={receiptPhone}
                 onChange={(e) => onReceiptPhoneChange(e.target.value)}
                 placeholder="(502) 555-0100"
-                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-success/40"
               />
             )}
           </div>
 
-          {error ? <p className="text-center text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-center text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={receiptBusy}
             onClick={onSend}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
           >
             {receiptBusy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

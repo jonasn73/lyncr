@@ -37,9 +37,9 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                 step.state === "failed"
-                  ? "border-red-500/50 bg-red-950/60 text-red-300"
+                  ? "border-destructive/50 bg-destructive/60 text-destructive"
                   : step.state === "complete"
-                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                    ? "border-success/50 bg-success/15 text-success"
                     : step.state === "current"
                       ? "border-sky-500/50 bg-sky-500/15 text-sky-200"
                       : "border-border bg-card text-muted-foreground"
@@ -55,7 +55,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
                   : step.state === "complete"
                     ? "text-foreground"
                     : step.state === "failed"
-                      ? "text-red-300"
+                      ? "text-destructive"
                       : "text-muted-foreground"
               )}
             >
@@ -150,16 +150,16 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
               className={cn(
                 "max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 text-sm shadow-sm",
                 isDesk
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-50"
+                  ? "border-warning/30 bg-warning/10 text-warning"
                   : "border-border/80 bg-card/80 text-foreground"
               )}
             >
               <div className="flex items-center gap-2">
-                <p className="text-micro font-semibold uppercase tracking-wide text-amber-200/90">
+                <p className="text-micro font-semibold uppercase tracking-wide text-warning/90">
                   {isDesk ? "Carrier Core Desk" : "Carrier network"}
                 </p>
                 {item.is_new ? (
-                  <span className="rounded-full bg-amber-500/25 px-2 py-0.5 text-micro font-bold uppercase text-amber-100">
+                  <span className="rounded-full bg-warning/25 px-2 py-0.5 text-micro font-bold uppercase text-warning">
                     New
                   </span>
                 ) : null}
@@ -277,7 +277,7 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
 
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-amber-400" aria-hidden />
+                  <MessageSquare className="h-4 w-4 text-warning" aria-hidden />
                   <h3 className="text-sm font-semibold text-foreground">Carrier Correspondence Log</h3>
                 </div>
                 <ConversationFeed items={detail.conversation} />

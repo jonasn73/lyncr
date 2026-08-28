@@ -469,7 +469,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           size="sm"
           onClick={openMoneyPicker}
           onPointerEnter={() => prefetchCollectJobs()}
-          className="h-9 shrink-0 gap-2 border-emerald-500/40 bg-emerald-500/10 px-3 text-emerald-200 shadow-sm hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:text-emerald-100"
+          className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 text-success shadow-sm hover:bg-success/20 hover:text-success focus-visible:text-success"
           aria-label={
             chipAmountLabel && chipDisplay
               ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money — Collect, bank, or Lyncr bill.`
@@ -545,20 +545,20 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
             {/* One hero number: ready-to-send if any, else still-clearing */}
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
+            <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-4">
               {(() => {
                 const ready = availableCents ?? 0
                 const clearing = pendingCents
                 const heroIsReady = ready >= 100
                 return (
                   <>
-                    <p className="text-micro font-semibold uppercase tracking-wide text-emerald-200/70">
+                    <p className="text-micro font-semibold uppercase tracking-wide text-success/70">
                       {heroIsReady ? "Ready to send" : clearing > 0 ? "Still clearing" : "In Stripe"}
                     </p>
-                    <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-50">
+                    <p className="mt-0.5 text-3xl font-bold tabular-nums text-success">
                       {formatMoneyCents(heroIsReady ? ready : clearing)}
                     </p>
-                    <p className="mt-1 text-2xs leading-snug text-emerald-100/65">
+                    <p className="mt-1 text-2xs leading-snug text-success/65">
                       {heroIsReady
                         ? "Tap Send all when you want this in your bank. Lyncr will not auto-transfer."
                         : clearing > 0
@@ -568,12 +568,12 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                             : "Set up your bank once, then card money can land here."}
                     </p>
                     {heroIsReady && clearing > 0 ? (
-                      <p className="mt-2 text-2xs text-emerald-200/60">
+                      <p className="mt-2 text-2xs text-success/60">
                         Also still clearing: {formatMoneyCents(clearing)}
                       </p>
                     ) : null}
                     {!heroIsReady && clearing > 0 && ready > 0 ? (
-                      <p className="mt-2 text-2xs text-emerald-200/60">
+                      <p className="mt-2 text-2xs text-success/60">
                         Ready to send: {formatMoneyCents(ready)} (under $1 — wait for more to clear)
                       </p>
                     ) : null}
@@ -596,7 +596,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     setMoneyOpen(false)
                     openGetPaidModal()
                   }}
-                  className="mt-3 h-11 w-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500"
+                  className="mt-3 h-11 w-full bg-success text-sm font-semibold text-white hover:bg-success"
                 >
                   Set up bank for payouts
                 </Button>
@@ -632,7 +632,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                     setMoneyOpen(false)
                     openGetPaidModal()
                   }}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 text-2xs font-semibold text-emerald-200/80 hover:text-emerald-100"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 text-2xs font-semibold text-success/80 hover:text-success"
                 >
                   <Landmark className="h-3.5 w-3.5" aria-hidden />
                   Bank &amp; payouts
@@ -658,7 +658,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     {opt.label}
                   </p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-emerald-200">
+                  <p className="mt-1 text-sm font-bold tabular-nums text-success">
                     {periodCents(opt.id) != null ? formatMoneyCents(periodCents(opt.id)!) : "—"}
                   </p>
                 </button>
@@ -686,10 +686,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <Button
               type="button"
               onClick={openCollect}
-              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-emerald-600 px-4 py-3 text-white hover:bg-emerald-500"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 bg-success px-4 py-3 text-white hover:bg-success"
             >
               <span className="text-sm font-semibold">Collect from customer</span>
-              <span className="text-2xs font-medium text-emerald-50/85">
+              <span className="text-2xs font-medium text-success/85">
                 Charge a job — card, tap, or pay link
               </span>
             </Button>
@@ -725,7 +725,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             collectOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 p-0 sm:items-center">
                 <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
                   Opening Collect…
                 </div>
               </div>
@@ -750,7 +750,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             getPaidOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
                 <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
                   Opening bank setup…
                 </div>
               </div>
@@ -767,7 +767,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             paymentsOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
                 <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                  <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
                   Opening payments…
                 </div>
               </div>

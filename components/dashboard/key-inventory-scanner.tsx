@@ -386,7 +386,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                   variant="secondary"
                   className={cn(
                     "h-11 w-11 rounded-full border border-border bg-card",
-                    torchOn && "border-amber-400/60 bg-amber-500/20 text-amber-200"
+                    torchOn && "border-warning/60 bg-warning/20 text-warning"
                   )}
                   aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
                   onClick={() => void applyTorch(!torchOn)}
@@ -419,17 +419,17 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
               {/* Green target box overlay (centered) */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="relative h-[22%] w-[78%] max-h-[140px] max-w-[320px]">
-                  <span className="absolute left-0 top-0 h-6 w-6 rounded-tl-md border-l-[3px] border-t-[3px] border-emerald-400" />
-                  <span className="absolute right-0 top-0 h-6 w-6 rounded-tr-md border-r-[3px] border-t-[3px] border-emerald-400" />
-                  <span className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-md border-b-[3px] border-l-[3px] border-emerald-400" />
-                  <span className="absolute bottom-0 right-0 h-6 w-6 rounded-br-md border-b-[3px] border-r-[3px] border-emerald-400" />
-                  <span className="absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-emerald-400/50" />
+                  <span className="absolute left-0 top-0 h-6 w-6 rounded-tl-md border-l-[3px] border-t-[3px] border-success" />
+                  <span className="absolute right-0 top-0 h-6 w-6 rounded-tr-md border-r-[3px] border-t-[3px] border-success" />
+                  <span className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-md border-b-[3px] border-l-[3px] border-success" />
+                  <span className="absolute bottom-0 right-0 h-6 w-6 rounded-br-md border-b-[3px] border-r-[3px] border-success" />
+                  <span className="absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-success/50" />
                 </div>
               </div>
 
               {!cameraReady && !cameraError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-sm text-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
+                  <Loader2 className="h-6 w-6 animate-spin text-success" aria-hidden />
                   Starting camera…
                 </div>
               ) : null}
@@ -445,7 +445,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           {/* Manual SKU fallback + status */}
           <div className="safe-area-pb mx-auto w-full max-w-md space-y-3 px-4 pb-6 pt-4">
             {phase === "looking_up" ? (
-              <p className="flex items-center justify-center gap-2 text-sm text-emerald-300">
+              <p className="flex items-center justify-center gap-2 text-sm text-success">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 {statusMsg}
               </p>
@@ -476,7 +476,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
               />
               <Button
                 type="button"
-                className="h-11 shrink-0 bg-emerald-600 hover:bg-emerald-500"
+                className="h-11 shrink-0 bg-success hover:bg-success"
                 disabled={!manualSku.trim() || phase === "looking_up"}
                 onClick={() => {
                   handlingScanRef.current = true
@@ -503,9 +503,9 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             <DialogTitle className="text-lg">SKU Found: {item?.sku ?? scannedSku}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Current stock:{" "}
-              <span className="font-semibold text-emerald-300">{item?.totalQuantity ?? 0}</span>
+              <span className="font-semibold text-success">{item?.totalQuantity ?? 0}</span>
               {item?.lowStock ? (
-                <span className="ml-2 text-amber-300">· reorder soon</span>
+                <span className="ml-2 text-warning">· reorder soon</span>
               ) : null}
             </DialogDescription>
           </DialogHeader>
@@ -544,7 +544,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                   className={cn(
                     "rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
                     location === value
-                      ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200"
+                      ? "border-success/70 bg-success/15 text-success"
                       : "border-border bg-card text-muted-foreground"
                   )}
                 >
@@ -571,7 +571,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             </Button>
             <Button
               type="button"
-              className="h-12 bg-emerald-600 hover:bg-emerald-500"
+              className="h-12 bg-success hover:bg-success"
               disabled={adjusting}
               onClick={() => void adjustStock(1)}
             >
@@ -635,7 +635,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           <DialogHeader>
             <DialogTitle className="text-lg">New key SKU</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              <span className="font-mono text-emerald-300">{scannedSku}</span> is not in your
+              <span className="font-mono text-success">{scannedSku}</span> is not in your
               inventory yet. Add FCC ID and brand to register it.
             </DialogDescription>
           </DialogHeader>
@@ -696,7 +696,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             </Button>
             <Button
               type="button"
-              className="h-11 bg-emerald-600 hover:bg-emerald-500"
+              className="h-11 bg-success hover:bg-success"
               disabled={savingNew || !newForm.sku.trim()}
               onClick={() => void saveNewKey()}
             >
@@ -725,7 +725,7 @@ export function KeyInventoryScannerLaunchButton({
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className={cn("h-11 gap-2 bg-emerald-600 hover:bg-emerald-500", className)}
+        className={cn("h-11 gap-2 bg-success hover:bg-success", className)}
       >
         <ScanBarcode className="h-4 w-4" aria-hidden />
         Scan inventory

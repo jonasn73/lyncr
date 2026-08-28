@@ -14,7 +14,7 @@ import {
 } from "@/lib/hold-music-presets"
 
 const fieldClass =
-  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-warning/50 focus:outline-none focus:ring-1 focus:ring-warning/40"
 
 export type HoldMusicPresetPickerProps = {
   /** Stored hold_music_url (https://… or /audio/…). */

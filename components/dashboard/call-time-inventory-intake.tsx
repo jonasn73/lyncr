@@ -201,28 +201,28 @@ export function CallTimeInventoryIntake({
     return (
       <div
         className={cn(
-          "rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-2",
+          "rounded-lg border border-success/35 bg-success/10 px-3 py-2",
           className
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <p className="min-w-0 flex-1 text-xs font-medium text-emerald-200">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+          <p className="min-w-0 flex-1 text-xs font-medium text-success">
+            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
             {van1Qty} in van
-            <span className="ml-1.5 font-mono text-micro text-emerald-300/80">{displaySku}</span>
+            <span className="ml-1.5 font-mono text-micro text-success/80">{displaySku}</span>
           </p>
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="h-7 border border-emerald-500/30 bg-emerald-950/40 px-2 text-2xs text-emerald-100 hover:bg-emerald-900/50"
+            className="h-7 border border-success/30 bg-success/40 px-2 text-2xs text-success hover:bg-success/50"
             onClick={() => setAdjustOpen((v) => !v)}
           >
             Adjust
           </Button>
           <button
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-emerald-200/80 hover:bg-emerald-500/15 hover:text-emerald-100"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-success/80 hover:bg-success/15 hover:text-success"
             aria-label="Capture key image"
             onClick={() => setShowCapture((v) => !v)}
           >
@@ -236,7 +236,7 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-emerald-500/30"
+              className="h-8 w-8 border border-success/30"
               disabled={stepperBusy || van1Qty <= 0}
               aria-label="Subtract one key from Van 1"
               onClick={() => void adjustByDelta(-1)}
@@ -247,14 +247,14 @@ export function CallTimeInventoryIntake({
                 <Minus className="h-3.5 w-3.5" aria-hidden />
               )}
             </Button>
-            <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums text-emerald-100">
+            <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums text-success">
               {van1Qty}
             </span>
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-emerald-500/30"
+              className="h-8 w-8 border border-success/30"
               disabled={stepperBusy}
               aria-label="Add one key to Van 1"
               onClick={() => void adjustByDelta(1)}
@@ -269,7 +269,7 @@ export function CallTimeInventoryIntake({
         ) : null}
 
         {showCapture ? (
-          <div className="mt-2 border-t border-emerald-500/20 pt-2">
+          <div className="mt-2 border-t border-success/20 pt-2">
             <KeyInventoryCapturePhotoButton
               inventoryId={primary.id}
               sku={sku}
@@ -307,7 +307,7 @@ export function CallTimeInventoryIntake({
         <Button
           type="button"
           size="sm"
-          className="h-7 gap-1 bg-emerald-600 px-3 text-2xs text-white hover:bg-emerald-500"
+          className="h-7 gap-1 bg-success px-3 text-2xs text-white hover:bg-success"
           disabled={saveBusy}
           onClick={() => {
             setAddOpen(true)
@@ -329,28 +329,28 @@ export function CallTimeInventoryIntake({
       </div>
 
       {addOpen ? (
-        <div className="mt-2 space-y-2 rounded-md border border-emerald-500/25 bg-emerald-950/25 p-2">
-          <p className="text-2xs font-medium text-emerald-100">How many on hand?</p>
+        <div className="mt-2 space-y-2 rounded-md border border-success/25 bg-success/25 p-2">
+          <p className="text-2xs font-medium text-success">How many on hand?</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-emerald-500/30"
+              className="h-8 w-8 border border-success/30"
               disabled={saveBusy || qtyDraft <= 1}
               aria-label="Decrease quantity"
               onClick={() => setQtyDraft((n) => Math.max(1, n - 1))}
             >
               <Minus className="h-3.5 w-3.5" aria-hidden />
             </Button>
-            <span className="min-w-[2rem] text-center text-base font-semibold tabular-nums text-emerald-50">
+            <span className="min-w-[2rem] text-center text-base font-semibold tabular-nums text-success">
               {qtyDraft}
             </span>
             <Button
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-emerald-500/30"
+              className="h-8 w-8 border border-success/30"
               disabled={saveBusy}
               aria-label="Increase quantity"
               onClick={() => setQtyDraft((n) => n + 1)}
@@ -359,7 +359,7 @@ export function CallTimeInventoryIntake({
             </Button>
             <Button
               type="button"
-              className="h-8 flex-1 bg-emerald-600 text-2xs hover:bg-emerald-500 sm:flex-none"
+              className="h-8 flex-1 bg-success text-2xs hover:bg-success sm:flex-none"
               disabled={saveBusy}
               onClick={() => void saveYesIHaveIt()}
             >

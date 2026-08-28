@@ -62,10 +62,10 @@ function fmtCents(cents: number, currency = "usd"): string {
 
 function statusChip(status: ConnectStatus["status"]): { label: string; className: string } {
   if (status === "ready") {
-    return { label: "Ready", className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-200" }
+    return { label: "Ready", className: "border-success/40 bg-success/15 text-success" }
   }
   if (status === "under_review") {
-    return { label: "Under review", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" }
+    return { label: "Under review", className: "border-warning/40 bg-warning/15 text-warning" }
   }
   if (status === "not_configured") {
     return { label: "Unavailable", className: "border-border bg-muted text-muted-foreground" }
@@ -75,9 +75,9 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
 
 function payoutStatusClass(status: string): string {
   const s = status.toLowerCase()
-  if (s === "paid") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+  if (s === "paid") return "border-success/35 bg-success/10 text-success"
   if (s === "pending" || s === "in_transit") {
-    return "border-amber-500/35 bg-amber-500/10 text-amber-200"
+    return "border-warning/35 bg-warning/10 text-warning"
   }
   if (s === "failed" || s === "canceled") {
     return "border-rose-500/35 bg-rose-500/10 text-rose-300"
@@ -360,7 +360,7 @@ export function GetPaidSheet({
           <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1">
             {!formReady ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#101018]/90">
-                <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
+                <Loader2 className="h-5 w-5 animate-spin text-success" aria-hidden />
               </div>
             ) : null}
             <ConnectComponentsProvider connectInstance={connectInstance!}>
@@ -417,12 +417,12 @@ export function GetPaidSheet({
                 </div>
 
                 {status?.ready ? (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                    <div className="flex items-center gap-2 text-emerald-100">
+                  <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-3">
+                    <div className="flex items-center gap-2 text-success">
                       <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
                       <p className="text-sm font-semibold">Bank is connected</p>
                     </div>
-                    <p className="mt-1.5 text-2xs leading-snug text-emerald-200/70">
+                    <p className="mt-1.5 text-2xs leading-snug text-success/70">
                       Wallet and Send to bank live on Money. This page is only for bank details and
                       past transfers.
                     </p>
@@ -436,7 +436,7 @@ export function GetPaidSheet({
                       statement.
                     </p>
                     {status?.message ? (
-                      <p className="mt-2 text-xs text-amber-100/90">{status.message}</p>
+                      <p className="mt-2 text-xs text-warning/90">{status.message}</p>
                     ) : null}
                   </div>
                 )}
@@ -464,7 +464,7 @@ export function GetPaidSheet({
                               className={cn(
                                 "flex items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left transition-colors",
                                 selected
-                                  ? "border-emerald-500/60 bg-emerald-500/10"
+                                  ? "border-success/60 bg-success/10"
                                   : "border-border bg-background/40 hover:border-border"
                               )}
                             >
@@ -478,7 +478,7 @@ export function GetPaidSheet({
                                 className={cn(
                                   "h-4 w-4 shrink-0 rounded-full border-2",
                                   selected
-                                    ? "border-emerald-400 bg-emerald-500"
+                                    ? "border-success bg-success"
                                     : "border-border"
                                 )}
                                 aria-hidden
@@ -492,7 +492,7 @@ export function GetPaidSheet({
                       type="button"
                       disabled={sessionBusy || status?.status === "not_configured"}
                       onClick={() => void startEmbedded("onboarding")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
                     >
                       {sessionBusy ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -510,7 +510,7 @@ export function GetPaidSheet({
                         Send to bank
                       </p>
                       {!status.payoutsEnabled ? (
-                        <p className="text-xs text-amber-100/90">
+                        <p className="text-xs text-warning/90">
                           Stripe has not enabled bank payouts yet. Open Manage bank below, or wait
                           for approval.
                         </p>
@@ -538,7 +538,7 @@ export function GetPaidSheet({
                             type="button"
                             disabled={transferBusy}
                             onClick={() => void sendToBank()}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success py-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
                           >
                             {transferBusy ? (
                               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

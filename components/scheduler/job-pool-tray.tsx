@@ -73,7 +73,7 @@ export function JobPoolTray({
               "flex shrink-0 items-center justify-center rounded-lg",
               poolLooksEmpty
                 ? "bg-muted/80 text-muted-foreground"
-                : "bg-amber-500/15 text-amber-200",
+                : "bg-warning/15 text-warning",
               sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
             )}
           >
@@ -97,7 +97,7 @@ export function JobPoolTray({
               ? "text-muted-foreground"
               : poolIsEmpty
                 ? "border border-border bg-background/50 text-muted-foreground"
-                : "bg-amber-500/15 text-amber-200"
+                : "bg-warning/15 text-warning"
           )}
         >
           {loading ? (
@@ -156,10 +156,10 @@ export function JobPoolTray({
               if (onMobileAssignJob) onMobileAssignJob(next)
               else onSelectJob?.(next)
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-3 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-success/40 bg-success/15 px-3 py-3 text-sm font-semibold text-success transition-colors hover:bg-success/25"
           >
             Assign next waiting job
-            <span className="truncate text-xs font-normal text-emerald-200/80">
+            <span className="truncate text-xs font-normal text-success/80">
               {(visibleJobs[0].customer_name || visibleJobs[0].job_type || "Job").trim()}
             </span>
           </button>
