@@ -6,6 +6,7 @@ import {
   FIELD_TECH_CAPABILITY_TOGGLES,
 } from "@/components/team/receptionist-access-editor"
 import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
+import { ALL_CAPABILITY_KEYS } from "@/lib/platform-account-grants"
 import {
   DEFAULT_FIELD_TECH_CAPABILITIES,
   FIELD_TECH_CAPABILITY_LABELS,
@@ -159,5 +160,21 @@ describe("field tech capability registry stays whole", () => {
   it("keeps the two vocabularies disjoint — one word, one meaning", () => {
     const front = new Set(Object.keys(RECEPTIONIST_CAPABILITY_LABELS))
     expect(keys.filter((k) => front.has(k))).toEqual([])
+  })
+})
+
+describe("the platform ceiling covers the whole product", () => {
+  const named = { ...RECEPTIONIST_CAPABILITY_LABELS, ...FIELD_TECH_CAPABILITY_LABELS }
+
+  it("can revoke every capability either console can hold", () => {
+    // A capability the admin cannot reach is one the platform does not actually govern —
+    // the hierarchy would have a hole exactly where a new feature was added.
+    const front = Object.keys(RECEPTIONIST_CAPABILITY_LABELS)
+    const field = Object.keys(FIELD_TECH_CAPABILITY_LABELS)
+    expect([...front, ...field].filter((k) => !ALL_CAPABILITY_KEYS.includes(k as never))).toEqual([])
+  })
+
+  it("names every key it offers, so the admin screen never shows a raw slug", () => {
+    expect(ALL_CAPABILITY_KEYS.filter((k) => !named[k])).toEqual([])
   })
 })

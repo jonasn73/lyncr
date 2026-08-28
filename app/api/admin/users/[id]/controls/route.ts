@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireLyncrAdmin } from "@/lib/admin-api-guard"
+import { ALL_CAPABILITY_KEYS } from "@/lib/platform-account-grants"
 import {
   ADMIN_FEATURE_FLAGS,
   countActiveFieldTechniciansForOwner,
@@ -21,6 +22,8 @@ import {
   listOrganizationsForOwner,
   listTeamInvitesForInviter,
   markPhoneNumberReleasedForUser,
+  getPlatformAccountGrantsRaw,
+  setPlatformAccountGrant,
   setProfileFeatureFlag,
 } from "@/lib/db"
 import type {
@@ -76,9 +79,18 @@ async function mapOrganizationControls(
 }
 
 async function loadControls(userId: string): Promise<AdminTenantControls> {
-  const [feature_flags, lines, organizations, activeReceptionists, activeFieldTechnicians, teamInvites] =
+  const [
+    feature_flags,
+    platformGrantsRaw,
+    lines,
+    organizations,
+    activeReceptionists,
+    activeFieldTechnicians,
+    teamInvites,
+  ] =
     await Promise.all([
       getProfileFeatureFlags(userId),
+      getPlatformAccountGrantsRaw(userId),
       getPhoneNumbers(userId),
       listOrganizationsForOwner(userId),
       countActiveReceptionistsForOwner(userId),
@@ -103,6 +115,8 @@ async function loadControls(userId: string): Promise<AdminTenantControls> {
 
   const realOrgCount = organizations.filter((o) => !o.id.startsWith("legacy-")).length
   const is_multi_workspace = realOrgCount > 1
+  // Only the explicit denials are stored, so the drawer renders "granted" for anything absent.
+  const platform_grants = (platformGrantsRaw ?? {}) as Record<string, boolean>
 
   const pending_invites: AdminTenantControlPendingInvite[] = teamInvites
     .filter((inv) => inv.status === "PENDING")
@@ -117,6 +131,7 @@ async function loadControls(userId: string): Promise<AdminTenantControls> {
 
   return {
     feature_flags,
+    platform_grants,
     phone_lines,
     is_multi_workspace,
     team_roster: {
@@ -146,7 +161,32 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (guard instanceof NextResponse) return guard
   const { id } = await ctx.params
 
-  const body = (await req.json().catch(() => ({}))) as { flag?: string; enabled?: boolean }
+  const body = (await req.json().catch(() => ({}))) as {
+    flag?: string
+    enabled?: boolean
+    capability?: string
+    allowed?: boolean
+  }
+
+  // Account ceiling — what this business may do at all, whatever its owner grants staff.
+  if (body.capability !== undefined) {
+    const capability = String(body.capability || "").trim()
+    if (!(ALL_CAPABILITY_KEYS as readonly string[]).includes(capability)) {
+      return NextResponse.json({ error: "Unknown capability" }, { status: 400 })
+    }
+    if (typeof body.allowed !== "boolean") {
+      return NextResponse.json({ error: "allowed must be a boolean" }, { status: 400 })
+    }
+    try {
+      const platform_grants = await setPlatformAccountGrant(id, capability, body.allowed)
+      return NextResponse.json({ data: { platform_grants } })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not update account access"
+      console.error("[admin/controls] PATCH capability:", e)
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+  }
+
   const flag = String(body.flag || "").trim()
   if (!(ADMIN_FEATURE_FLAGS as readonly string[]).includes(flag)) {
     return NextResponse.json({ error: "Unknown feature flag" }, { status: 400 })

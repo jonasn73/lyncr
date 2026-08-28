@@ -14981,6 +14981,48 @@ export async function getProfileFeatureFlags(userId: string): Promise<Record<str
 }
 
 /** Toggle a single tenant feature override. Returns the full flag map. */
+/**
+ * Set one platform ceiling flag on an account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately a different store from onboarding_profiles.feature_flags, which it sits
+ * next to in the admin drawer. Those are opt-IN features where an absent key means OFF;
+ * this is an opt-OUT ceiling where an absent key means GRANTED. Putting opposite defaults
+ * in one bag is the kind of subtlety that reads fine and fails later, so they stay apart
+ * and the drawer labels which is which.
+ *
+ * Only ever writes explicit `false`, and deletes the key when re-granting, so the column
+ * holds a denial list rather than a mirror of every capability.
+ */
+export async function setPlatformAccountGrant(
+  userId: string,
+  capability: string,
+  allowed: boolean
+): Promise<Record<string, boolean>> {
+  const sql = getSql()
+  try {
+    const rows = allowed
+      ? await sql`
+          UPDATE users
+          SET platform_grants = coalesce(platform_grants, '{}'::jsonb) - ${capability}
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+      : await sql`
+          UPDATE users
+          SET platform_grants =
+            coalesce(platform_grants, '{}'::jsonb) || jsonb_build_object(${capability}::text, false)
+          WHERE id = ${userId}
+          RETURNING platform_grants
+        `
+    return (rows[0]?.platform_grants ?? {}) as Record<string, boolean>
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      throw new Error("platform_grants column missing — run scripts/151-platform-account-grants.sql in Neon.")
+    }
+    throw e
+  }
+}
+
 export async function setProfileFeatureFlag(
   userId: string,
   flag: string,

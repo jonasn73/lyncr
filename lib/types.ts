@@ -782,7 +782,13 @@ export interface AdminTenantControlPendingInvite {
 
 /** Tenant feature overrides + provisioned lines shown in the admin tenant drawer. */
 export interface AdminTenantControls {
+  /** Opt-IN platform features — an absent key means off. */
   feature_flags: Record<string, boolean>
+  /**
+   * Opt-OUT ceiling on what this account may do — an absent key means GRANTED.
+   * Opposite default from feature_flags on purpose; see lib/platform-account-grants.ts.
+   */
+  platform_grants: Record<string, boolean>
   phone_lines: AdminTenantControlPhoneLine[]
   /** True when the owner has more than one workspace in `organizations`. */
   is_multi_workspace: boolean

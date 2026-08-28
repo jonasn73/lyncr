@@ -2,6 +2,9 @@
 
 // Advanced operator drawer — status, notes, manual DID, hard reset.
 
+import { ALL_CAPABILITY_KEYS } from "@/lib/platform-account-grants"
+import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
+import { FIELD_TECH_CAPABILITY_LABELS } from "@/lib/field-technician-capabilities"
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Loader2, Phone, Wallet, Zap, Building2, Users, Mail, MessageSquare, HardHat } from "lucide-react"
@@ -60,9 +63,16 @@ function smsRegistrationBadgeClass(status: SmsRegistrationOrgStatus): string {
 }
 
 /** Default empty control hub payload when the API fails. */
+/** Same words the owner sees in their own access dialogs — front desk and field alike. */
+const CAPABILITY_LABEL: Record<string, string> = {
+  ...RECEPTIONIST_CAPABILITY_LABELS,
+  ...FIELD_TECH_CAPABILITY_LABELS,
+}
+
 function emptyAdminControls(): AdminTenantControls {
   return {
     feature_flags: {},
+    platform_grants: {},
     phone_lines: [],
     is_multi_workspace: false,
     team_roster: { active_receptionists: 0, active_field_technicians: 0 },
@@ -121,6 +131,7 @@ export function AdminUserManageDrawer({
   const [controls, setControls] = useState<AdminTenantControls | null>(null)
   const [controlsLoading, setControlsLoading] = useState(false)
   const [flagBusy, setFlagBusy] = useState<string | null>(null)
+  const [capabilityBusy, setCapabilityBusy] = useState<string | null>(null)
   const [releaseBusy, setReleaseBusy] = useState<string | null>(null)
   const [provisionTechOpen, setProvisionTechOpen] = useState(false)
   const [lineOverrideDrafts, setLineOverrideDrafts] = useState<Record<string, string>>({})
@@ -223,6 +234,38 @@ export function AdminUserManageDrawer({
       toast.error(e instanceof Error ? e.message : "Could not update feature")
     } finally {
       setFlagBusy(null)
+    }
+  }
+
+  async function toggleCapability(capability: string, allowed: boolean) {
+    if (!row) return
+    setCapabilityBusy(capability)
+    setControls((prev) =>
+      prev ? { ...prev, platform_grants: { ...prev.platform_grants, [capability]: allowed } } : prev
+    )
+    try {
+      const res = await fetch(`/api/admin/users/${row.user_id}/controls`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ capability, allowed }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: { platform_grants: Record<string, boolean> }
+        error?: string
+      }
+      if (!res.ok) throw new Error(json.error ?? "Update failed")
+      if (json.data) {
+        setControls((prev) => (prev ? { ...prev, platform_grants: json.data!.platform_grants } : prev))
+      }
+      toast.success(`${allowed ? "Restored" : "Revoked"} ${capability.replace(/_/g, " ")}`)
+    } catch (e) {
+      setControls((prev) =>
+        prev ? { ...prev, platform_grants: { ...prev.platform_grants, [capability]: !allowed } } : prev
+      )
+      toast.error(e instanceof Error ? e.message : "Could not update account access")
+    } finally {
+      setCapabilityBusy(null)
     }
   }
 
@@ -561,6 +604,46 @@ export function AdminUserManageDrawer({
                     />
                   </div>
                 ))
+              )}
+            </div>
+
+            {/* Account ceiling — what this business may do at all, above whatever its
+                owner grants staff. Note the inverted default vs feature flags above:
+                everything is ON until it is explicitly revoked here. */}
+            <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-foreground">Account access</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Everything is on unless you turn it off here. Revoking one caps the whole account —
+                the owner loses it too, and no receptionist or tech can be granted it.
+              </p>
+              {controlsLoading && !controls ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
+                </div>
+              ) : (
+                ALL_CAPABILITY_KEYS.map((key) => {
+                  const allowed = controls?.platform_grants?.[key] !== false
+                  return (
+                    <div key={key} className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {CAPABILITY_LABEL[key] ?? key}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {allowed ? "Allowed on this account" : "Revoked — nobody on this account has it"}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={allowed}
+                        disabled={capabilityBusy === key || controlsLoading}
+                        onCheckedChange={(v) => void toggleCapability(key, v)}
+                        aria-label={`${CAPABILITY_LABEL[key] ?? key} for this account`}
+                      />
+                    </div>
+                  )
+                })
               )}
             </div>
 
