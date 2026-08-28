@@ -119,25 +119,25 @@ export function AdminToolsBoard({
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-3 sm:p-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-50">Finance tools</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-xl font-bold text-foreground">Finance tools</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Fix phone routing and move stuck card payments. Everyday money totals stay on Home.
         </p>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone system</h2>
-        <Card className="border-slate-800 bg-slate-900/50">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone system</h2>
+        <Card className="border-border bg-card/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-slate-100">Update call routing</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-base text-foreground">Update call routing</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Point Lyncr phone numbers at this live app (after a deploy or URL change).
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={texmlBusy}
               onClick={() => void syncTexml()}
             >
@@ -149,36 +149,36 @@ export function AdminToolsBoard({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Card payments</h2>
-        <Card className="border-slate-800 bg-slate-900/50">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Card payments</h2>
+        <Card className="border-border bg-card/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-slate-100">Send stuck payment to a business</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-base text-foreground">Send stuck payment to a business</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Use when a customer paid Lyncr but the business never received their share.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-slate-400">Stripe charge ID</Label>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Stripe charge ID</Label>
               <Input
                 value={chargeId}
                 onChange={(e) => setChargeId(e.target.value)}
                 placeholder="ch_…"
-                className="border-slate-700 bg-slate-950 text-slate-100"
+                className="border-border bg-background text-foreground"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-400">Business Stripe account</Label>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Business Stripe account</Label>
               <Input
                 value={destinationAccountId}
                 onChange={(e) => setDestinationAccountId(e.target.value)}
                 placeholder="acct_…"
-                className="border-slate-700 bg-slate-950 text-slate-100"
+                className="border-border bg-background text-foreground"
               />
             </div>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={remediateBusy || !chargeId.trim() || !destinationAccountId.trim()}
               onClick={() => void remediate(false)}
             >
@@ -190,24 +190,24 @@ export function AdminToolsBoard({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amber</h2>
-        <Card className="border-slate-800 bg-slate-900/50">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amber</h2>
+        <Card className="border-border bg-card/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-slate-100">Preview Amber&apos;s replies</CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardTitle className="text-base text-foreground">Preview Amber&apos;s replies</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Read-only — pulls the exact text Amber would send for a business&apos;s Q&amp;A and
               morning-greeting snapshot. Never sends a real SMS, so it&apos;s safe to run against any
               live business.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-slate-400">Business owner email</Label>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Business owner email</Label>
               <Input
                 value={amberEmail}
                 onChange={(e) => setAmberEmail(e.target.value)}
                 placeholder="owner@business.com"
-                className="border-slate-700 bg-slate-950 text-slate-100"
+                className="border-border bg-background text-foreground"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void previewAmber()
                 }}
@@ -215,7 +215,7 @@ export function AdminToolsBoard({
             </div>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={amberBusy || !amberEmail.trim()}
               onClick={() => void previewAmber()}
             >
@@ -223,34 +223,34 @@ export function AdminToolsBoard({
               Preview
             </Button>
             {amberResult ? (
-              <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="space-y-2 rounded-lg border border-border bg-background/60 p-3 text-sm">
+                <p className="text-2xs uppercase tracking-wide text-muted-foreground">
                   Owner mobile …{amberResult.ownerMobileLast4 ?? "????"} · {amberResult.timezone}
                 </p>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;How much did I make today?&quot;
                   </p>
-                  <p className="text-slate-200">{amberResult.revenue}</p>
+                  <p className="text-foreground">{amberResult.revenue}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;Any missed calls?&quot;
                   </p>
-                  <p className="text-slate-200">{amberResult.missedCalls}</p>
+                  <p className="text-foreground">{amberResult.missedCalls}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase text-slate-500">
+                  <p className="text-2xs font-semibold uppercase text-muted-foreground">
                     &quot;What&apos;s my next job?&quot;
                   </p>
-                  <p className="text-slate-200">{amberResult.nextJob}</p>
+                  <p className="text-foreground">{amberResult.nextJob}</p>
                 </div>
                 {amberResult.snapshot ? (
                   <div>
-                    <p className="text-[11px] font-semibold uppercase text-slate-500">
+                    <p className="text-2xs font-semibold uppercase text-muted-foreground">
                       Morning greeting snapshot
                     </p>
-                    <p className="text-slate-200">{amberResult.snapshot}</p>
+                    <p className="text-foreground">{amberResult.snapshot}</p>
                   </div>
                 ) : null}
               </div>
@@ -259,16 +259,16 @@ export function AdminToolsBoard({
         </Card>
       </section>
 
-      <section className="border-t border-slate-800 pt-4">
+      <section className="border-t border-border pt-4">
         <button
           type="button"
-          className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm text-slate-400 hover:text-slate-200"
+          className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
           aria-expanded={sandboxOpen}
           onClick={() => setSandboxOpen((o) => !o)}
         >
           <span>
-            <span className="font-medium text-slate-300">Dev sandbox</span>
-            <span className="ml-2 text-xs text-slate-500">Optional — test data only</span>
+            <span className="font-medium text-foreground">Dev sandbox</span>
+            <span className="ml-2 text-xs text-muted-foreground">Optional — test data only</span>
           </span>
           <ChevronDown
             className={cn("h-4 w-4 shrink-0 transition-transform", sandboxOpen && "rotate-180")}

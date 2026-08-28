@@ -89,7 +89,7 @@ const ADD_CHOICES: { kind: PayComponentKind; label: string; blurb: string }[] = 
 ]
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
 const selectClass = cn(inputClass, "appearance-none")
 
 /** Rate entry in dollars, kept as micros. Allows the sub-cent values a per-second rate needs. */
@@ -119,7 +119,7 @@ function MoneyInput({
 
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
       <input
         type="text"
         inputMode="decimal"
@@ -155,7 +155,7 @@ function ComponentRow({
   onRemove: () => void
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+    <div className="rounded-xl border border-border bg-background/40 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           {component.kind === "TIME" ? (
@@ -168,7 +168,7 @@ function ComponentRow({
                     label="Rate"
                   />
                 </div>
-                <span className="text-sm text-zinc-500">per</span>
+                <span className="text-sm text-muted-foreground">per</span>
                 <select
                   value={component.unit}
                   aria-label="Time unit"
@@ -181,7 +181,7 @@ function ComponentRow({
                     </option>
                   ))}
                 </select>
-                <span className="text-sm text-zinc-500">of</span>
+                <span className="text-sm text-muted-foreground">of</span>
                 <select
                   value={component.basis}
                   aria-label="Time basis"
@@ -194,7 +194,7 @@ function ComponentRow({
                   <option value="ON_SHIFT">shift time</option>
                 </select>
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-2xs text-muted-foreground">
                 Works out to {hourlyEquivalent(component.rate_micros, component.unit)} per hour
                 {component.basis === "TALK" ? " of actual talking" : " on shift"}.
                 {component.basis === "ON_SHIFT" ? " Needs the shift clock, which is not live yet." : null}
@@ -212,7 +212,7 @@ function ComponentRow({
                     label="Amount"
                   />
                 </div>
-                <span className="text-sm text-zinc-500">per</span>
+                <span className="text-sm text-muted-foreground">per</span>
                 <select
                   value={component.event}
                   aria-label="Paid event"
@@ -230,7 +230,7 @@ function ComponentRow({
                 </select>
               </div>
               {component.event === "ANSWERED_CALL" ? (
-                <label className="flex items-center gap-2 text-[11px] text-zinc-500">
+                <label className="flex items-center gap-2 text-2xs text-muted-foreground">
                   Only calls lasting at least
                   <input
                     type="number"
@@ -249,7 +249,7 @@ function ComponentRow({
                 </label>
               ) : null}
               {component.event === "BOOKED_JOB" || component.event === "COMPLETED_JOB" ? (
-                <p className="text-[11px] text-amber-200/80">
+                <p className="text-2xs text-warning/80">
                   For receptionists this needs booking attribution, which is not built yet.
                 </p>
               ) : null}
@@ -275,11 +275,11 @@ function ComponentRow({
                     }
                     className={cn(inputClass, "pr-6 tabular-nums")}
                   />
-                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-zinc-500">
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                     %
                   </span>
                 </div>
-                <span className="text-sm text-zinc-500">of</span>
+                <span className="text-sm text-muted-foreground">of</span>
                 <select
                   value={component.basis}
                   aria-label="Commission basis"
@@ -293,7 +293,7 @@ function ComponentRow({
                   <option value="COLLECTED_TOTAL">everything collected</option>
                 </select>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+              <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
                 <span>Only when the job is</span>
                 {CONDITIONS.map((condition) => {  
                   const on = component.require.includes(condition)
@@ -314,7 +314,7 @@ function ComponentRow({
                         "rounded-md border px-2 py-0.5 font-medium transition-colors",
                         on
                           ? "border-primary/50 bg-primary/15 text-foreground"
-                          : "border-zinc-700 text-zinc-500 hover:text-zinc-300"
+                          : "border-border text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {condition.toLowerCase()}
@@ -335,9 +335,9 @@ function ComponentRow({
                     label="Hourly floor"
                   />
                 </div>
-                <span className="text-sm text-zinc-500">per hour worked, at minimum</span>
+                <span className="text-sm text-muted-foreground">per hour worked, at minimum</span>
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-2xs text-muted-foreground">
                 Tops a slow shift up to this rate — it pays nothing extra on a busy one. Use whichever
                 floor is highest where they work: federal, state, or city.
               </p>
@@ -349,7 +349,7 @@ function ComponentRow({
           type="button"
           onClick={onRemove}
           aria-label="Remove this pay rule"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 text-zinc-500 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -430,13 +430,13 @@ export function PayPlanButton({
       aria-label={`Set pay for ${label}`}
       className="group min-w-0 max-w-full text-left"
     >
-      <span className="block text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+      <span className="block text-micro font-medium uppercase tracking-wide text-muted-foreground">
         Pay
       </span>
       <span
         className={cn(
-          "block truncate text-[11px] underline-offset-2 group-hover:underline",
-          plan ? "text-zinc-300" : "text-amber-300/90"
+          "block truncate text-2xs underline-offset-2 group-hover:underline",
+          plan ? "text-foreground" : "text-warning/90"
         )}
       >
         {plan?.summary ?? "Not set — tap to set"}
@@ -542,60 +542,60 @@ function PlanCostPanel({
     employmentType === "W2_EMPLOYEE" && components.some((c) => c.kind === "MINIMUM_WAGE_TOPUP")
 
   return (
-    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
+    <div className="space-y-2 rounded-lg border border-border bg-background/60 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Last 30 days, this plan would have cost
         </p>
-        {loading ? <Loader2 className="h-3 w-3 animate-spin text-zinc-600" aria-hidden /> : null}
+        {loading ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden /> : null}
       </div>
 
       {failed ? (
-        <p className="text-xs text-zinc-500">Couldn&apos;t price this plan right now.</p>
+        <p className="text-xs text-muted-foreground">Couldn&apos;t price this plan right now.</p>
       ) : preview ? (
         <>
           <p className="text-2xl font-semibold tabular-nums text-foreground">
             {usd(preview.totalCents)}
           </p>
 
-          <div className="space-y-0.5 text-[11px] text-zinc-400">
+          <div className="space-y-0.5 text-2xs text-muted-foreground">
             {preview.calls.count > 0 ? (
               <p>
                 {preview.calls.count} answered call{preview.calls.count === 1 ? "" : "s"} ·{" "}
                 {talkTime(preview.calls.talkSeconds)} ·{" "}
-                <span className="tabular-nums text-zinc-300">{usd(preview.calls.cents)}</span>
+                <span className="tabular-nums text-foreground">{usd(preview.calls.cents)}</span>
               </p>
             ) : null}
             {preview.jobs.count > 0 ? (
               <p>
                 {preview.jobs.count} completed job{preview.jobs.count === 1 ? "" : "s"}
                 {preview.jobs.capped ? "+" : ""} ·{" "}
-                <span className="tabular-nums text-zinc-300">{usd(preview.jobs.cents)}</span>
+                <span className="tabular-nums text-foreground">{usd(preview.jobs.cents)}</span>
               </p>
             ) : null}
             {preview.calls.count === 0 && preview.jobs.count === 0 ? (
               <p>No calls or jobs in the last 30 days to price this against.</p>
             ) : null}
             {preview.floor.available && preview.floor.topUpCents > 0 ? (
-              <p className="text-amber-200/90">
+              <p className="text-warning/90">
                 + {usd(preview.floor.topUpCents)} to reach the wage floor across{" "}
                 {preview.floor.weeks} week{preview.floor.weeks === 1 ? "" : "s"}
               </p>
             ) : null}
             {preview.floor.available && preview.floor.topUpCents === 0 ? (
-              <p className="text-zinc-500">
+              <p className="text-muted-foreground">
                 Production clears the wage floor — no top-up at {preview.floor.weeklyHours} h/week.
               </p>
             ) : null}
             {preview.effectiveHourlyCents !== null ? (
-              <p className="text-zinc-500">
+              <p className="text-muted-foreground">
                 Works out to {usd(preview.effectiveHourlyCents)} per hour on duty.
               </p>
             ) : null}
           </div>
 
           {showHoursInput ? (
-            <label className="flex items-center gap-2 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
+            <label className="flex items-center gap-2 border-t border-border pt-2 text-2xs text-muted-foreground">
               {preview.floor.hoursSource === "tracked" ? (
                 <span>
                   Using {preview.floor.weeklyHours} tracked hours a week.
@@ -622,14 +622,14 @@ function PlanCostPanel({
           ) : null}
 
           {showHoursInput && preview.floor.hoursSource === "assumed" ? (
-            <p className="text-[10px] leading-relaxed text-zinc-600">
+            <p className="text-2xs leading-relaxed text-muted-foreground">
               An estimate, not a measurement — nobody&apos;s hours are tracked yet. The real floor
               is worked out per week from what they actually earned that week.
             </p>
           ) : null}
         </>
       ) : (
-        <p className="text-xs text-zinc-500">Pricing…</p>
+        <p className="text-xs text-muted-foreground">Pricing…</p>
       )}
     </div>
   )
@@ -693,26 +693,26 @@ function PayPlanForm({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-foreground sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto border-border bg-background text-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Pay for {target.name}</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Changing pay starts a new version. What they have already earned keeps the rate it was
             earned at.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               How they work for you
             </p>
-            <p className="text-[11px] leading-relaxed text-zinc-500">
+            <p className="text-2xs leading-relaxed text-muted-foreground">
               This isn&apos;t decided by how you pay them — every pay rule below works for
               either. It&apos;s about how the work happens: how much you direct it, and whether
               they carry their own costs and risk. Your call to make, not ours.
             </p>
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               {EMPLOYMENT_CHOICES.map((choice) => (
                 <button
                   key={choice.value}
@@ -723,20 +723,20 @@ function PayPlanForm({
                     "rounded-lg border px-3 py-2 text-left transition-colors",
                     employmentType === choice.value
                       ? "border-primary/50 bg-primary/10"
-                      : "border-zinc-800 hover:border-zinc-700"
+                      : "border-border hover:border-border"
                   )}
                 >
                   <span className="block text-sm font-medium text-foreground">{choice.label}</span>
-                  <span className="block text-[11px] text-zinc-500">{choice.hint}</span>
+                  <span className="block text-2xs text-muted-foreground">{choice.hint}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Pay rules</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pay rules</p>
             {components.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-zinc-500">
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
                 No pay rules yet. Add one below.
               </p>
             ) : (
@@ -753,7 +753,7 @@ function PayPlanForm({
             )}
 
             {adding ? (
-              <div className="grid gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2">
+              <div className="grid gap-2 rounded-xl border border-border bg-background/40 p-2">
                 {ADD_CHOICES.map((choice) => (
                   <button
                     key={choice.kind}
@@ -762,10 +762,10 @@ function PayPlanForm({
                       setComponents((prev) => [...prev, blankComponent(choice.kind)])
                       setAdding(false)
                     }}
-                    className="rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-zinc-900"
+                    className="rounded-lg px-3 py-2 text-left transition-colors hover:bg-card"
                   >
                     <span className="block text-sm text-foreground">{choice.label}</span>
-                    <span className="block text-[11px] text-zinc-500">{choice.blurb}</span>
+                    <span className="block text-2xs text-muted-foreground">{choice.blurb}</span>
                   </button>
                 ))}
               </div>
@@ -773,7 +773,7 @@ function PayPlanForm({
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-card"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden /> Add a pay rule
               </button>
@@ -781,8 +781,8 @@ function PayPlanForm({
           </div>
 
           {components.length > 0 ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <div className="rounded-lg border border-border bg-card/40 px-3 py-2">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 They will be paid
               </p>
               <p className="mt-1 text-sm text-foreground">{summary}</p>
@@ -809,7 +809,7 @@ function PayPlanForm({
           {validation.warnings.map((message) => (
             <p
               key={message}
-              className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90"
+              className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/20 px-3 py-2 text-xs text-warning/90"
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               {message}
@@ -827,7 +827,7 @@ function PayPlanForm({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-60"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-card disabled:opacity-60"
           >
             Cancel
           </button>
@@ -835,7 +835,7 @@ function PayPlanForm({
             type="button"
             onClick={() => void save()}
             disabled={saving || validation.errors.length > 0 || components.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             {saving ? "Saving…" : "Save pay"}

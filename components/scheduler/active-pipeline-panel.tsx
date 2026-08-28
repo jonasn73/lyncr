@@ -121,11 +121,11 @@ export function ActivePipelinePanel({
             className={cn(
               SCHEDULER_METADATA_LABEL,
               "mb-2 font-bold",
-              isMobileSheet ? "text-xs" : "text-[10px]"
+              isMobileSheet ? "text-xs" : "text-2xs"
             )}
           >
             {group.title}
-            <span className="ml-2 font-normal text-slate-600">({group.jobs.length})</span>
+            <span className="ml-2 font-normal text-muted-foreground">({group.jobs.length})</span>
           </h3>
           <ul className={cn("flex flex-col", isMobileSheet ? "gap-3" : "gap-2")}>
             {group.jobs.map((job) => {
@@ -159,7 +159,7 @@ export function ActivePipelinePanel({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-lg font-semibold leading-tight text-zinc-50">{displayName}</p>
+                          <p className="text-lg font-semibold leading-tight text-foreground">{displayName}</p>
                           {job.job_type ? (
                             <p className="mt-1 text-sm font-medium text-primary">{job.job_type}</p>
                           ) : null}
@@ -170,7 +170,7 @@ export function ActivePipelinePanel({
                           onClick={() => onEditJob(job)}
                           className={cn(
                             SCHEDULER_ACTION_BUTTON,
-                            highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                            highlighted && "border-success/40 bg-success/10 text-success"
                           )}
                         >
                           <Pencil className="h-3.5 w-3.5" aria-hidden />
@@ -178,9 +178,9 @@ export function ActivePipelinePanel({
                         </button>
                       </div>
 
-                      <div className="mt-3 space-y-2.5 text-sm text-slate-300">
+                      <div className="mt-3 space-y-3 text-sm text-foreground">
                         <p className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                          <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {telHref ? (
                             <a
                               href={telHref}
@@ -194,7 +194,7 @@ export function ActivePipelinePanel({
                           )}
                         </p>
                         <p className="flex items-start gap-2">
-                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           <span className={cn(SCHEDULER_METADATA_LABEL, SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
@@ -202,7 +202,7 @@ export function ActivePipelinePanel({
                         </p>
                         {vehicle ? (
                           <p className="flex items-center gap-2">
-                            <Car className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                            <Car className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={SCHEDULER_METADATA_LABEL}>{vehicle}</span>
                           </p>
                         ) : null}
@@ -211,20 +211,20 @@ export function ActivePipelinePanel({
                         ) : null}
                         {job.assigned_tech_name ? (
                           <p className="flex items-center gap-2">
-                            <User className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                            <User className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                             <span>{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         <p className="flex items-start gap-2">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {addressLine ? (
-                            <span className="break-words text-zinc-100">{addressLine}</span>
+                            <span className="break-words text-foreground">{addressLine}</span>
                           ) : (
-                            <span className="text-zinc-500">No address on file — tap Edit to add one</span>
+                            <span className="text-muted-foreground">No address on file — tap Edit to add one</span>
                           )}
                         </p>
                         {notesLine ? (
-                          <p className={cn(SCHEDULER_GLASS_CARD, "px-3 py-2 text-xs leading-relaxed text-slate-400")}>
+                          <p className={cn(SCHEDULER_GLASS_CARD, "px-3 py-2 text-xs leading-relaxed text-muted-foreground")}>
                             {notesLine}
                           </p>
                         ) : null}
@@ -233,7 +233,7 @@ export function ActivePipelinePanel({
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            "rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
+                            "rounded-full border px-3 py-1 text-micro font-bold uppercase tracking-wide",
                             SCHEDULER_BADGE_STYLE[phase]
                           )}
                         >
@@ -253,7 +253,7 @@ export function ActivePipelinePanel({
                             disabled={isCompleting}
                             aria-label={`Mark ${displayName} as done`}
                             onClick={() => onMarkComplete(job.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-500/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200"
+                            className="inline-flex items-center gap-2 rounded-lg border border-success/50 bg-success/15 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-success"
                           >
                             {isCompleting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -287,8 +287,8 @@ export function ActivePipelinePanel({
                       className={cn(
                         "absolute right-3 top-3 z-20",
                         SCHEDULER_ACTION_BUTTON,
-                        "px-2 py-0.5 text-[10px] shadow-sm",
-                        highlighted && "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        "px-2 py-0.5 text-2xs shadow-resting",
+                        highlighted && "border-success/40 bg-success/10 text-success"
                       )}
                     >
                       <Pencil className="h-3 w-3" aria-hidden />
@@ -303,7 +303,7 @@ export function ActivePipelinePanel({
                       <div className="flex items-start justify-between gap-2 pr-14">
                         <p
                           className={cn(
-                            "font-medium text-zinc-100",
+                            "font-medium text-foreground",
                             isMobileSheet ? "text-base" : "truncate text-sm"
                           )}
                         >
@@ -311,13 +311,13 @@ export function ActivePipelinePanel({
                         </p>
                       </div>
 
-                      <div className="mt-2 space-y-1.5">
-                        <p className="flex items-center gap-1.5 text-xs text-slate-400">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                      <div className="mt-2 space-y-2">
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                           <span className="truncate">{phone}</span>
                         </p>
-                        <p className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                        <p className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                           <span className={cn(SCHEDULER_METADATA_LABEL, "truncate", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
@@ -330,8 +330,8 @@ export function ActivePipelinePanel({
                           </p>
                         ) : null}
                         {vehicle ? (
-                          <p className="flex items-center gap-1.5">
-                            <Car className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                          <p className="flex items-center gap-2">
+                            <Car className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{vehicle}</span>
                           </p>
                         ) : null}
@@ -339,14 +339,14 @@ export function ActivePipelinePanel({
                           <p className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{programmingMethod}</p>
                         ) : null}
                         {job.assigned_tech_name ? (
-                          <p className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <User className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className="truncate">{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         {job.location ? (
-                          <p className="flex items-start gap-1.5 text-xs text-slate-500">
-                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
+                          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={isMobileSheet ? "break-words" : "line-clamp-2"}>{job.location}</span>
                           </p>
                         ) : null}
@@ -354,7 +354,7 @@ export function ActivePipelinePanel({
 
                       <span
                         className={cn(
-                          "rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                          "rounded-full border px-3 py-0.5 text-micro font-bold uppercase tracking-wide",
                           SCHEDULER_BADGE_STYLE[phase],
                           isMobileSheet ? "mt-3 inline-flex" : "absolute bottom-2.5 right-2.5"
                         )}
@@ -373,7 +373,7 @@ export function ActivePipelinePanel({
                           onMarkComplete(job.id)
                         }}
                         className={cn(
-                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-emerald-600/50 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 transition-colors hover:bg-emerald-500/25",
+                          "absolute bottom-2.5 left-3 z-20 inline-flex items-center gap-1 rounded-md border border-success/50 bg-success/15 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-success transition-colors hover:bg-success/25",
                           isMobileSheet && "static mt-3"
                         )}
                       >

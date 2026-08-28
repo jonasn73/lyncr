@@ -131,14 +131,14 @@ export function KeyInventoryCapturePhotoButton({
   }
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- operator capture / API image
           <img
             src={previewUrl}
             alt="Captured key"
-            className="h-12 w-12 shrink-0 rounded-md border border-border/60 object-cover bg-black/40"
+            className="h-11 w-11 shrink-0 rounded-md border border-border/60 object-cover bg-black/40"
           />
         ) : null}
         <Button
@@ -146,7 +146,7 @@ export function KeyInventoryCapturePhotoButton({
           size={compact ? "icon" : "sm"}
           variant="secondary"
           className={cn(
-            "border border-sky-500/40 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20",
+            "border border-info/40 bg-info/10 text-info hover:bg-info/20",
             compact ? "h-9 w-9" : "h-9"
           )}
           disabled={busy || !sku.trim()}
@@ -173,7 +173,7 @@ export function KeyInventoryCapturePhotoButton({
           }}
         />
       </div>
-      {error ? <p className="text-[11px] text-rose-300">{error}</p> : null}
+      {error ? <p className="text-2xs text-destructive">{error}</p> : null}
     </div>
   )
 }

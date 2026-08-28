@@ -42,7 +42,7 @@ export default function AccountDeniedPage() {
   }, [router])
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-10">
+    <div className="flex min-h-dvh flex-col bg-background px-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-10">
       <BrandWordmark className="text-lg" />
       <h1 className="mt-10 text-2xl font-semibold text-foreground">This shop was not approved</h1>
       <p className="mt-3 max-w-md text-sm text-muted-foreground">

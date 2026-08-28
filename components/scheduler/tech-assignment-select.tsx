@@ -85,7 +85,7 @@ export function TechAssignmentSelect({
   const selectedTech = assignableTechs.find((t) => t.portal_user_id === value)
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <Select
         value={value || "__unassigned__"}
         disabled={disabled}
@@ -94,7 +94,7 @@ export function TechAssignmentSelect({
         <SelectTrigger
           className={cn(
             SCHEDULER_INPUT,
-            "h-10 w-full",
+            "h-11 w-full",
             disabled && "opacity-55"
           )}
         >
@@ -106,7 +106,7 @@ export function TechAssignmentSelect({
                 : "Select a tech"}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="border-slate-800/80 bg-slate-900/95 backdrop-blur-md">
+        <SelectContent className="border-border/80 bg-card/95 backdrop-blur-md">
           <SelectItem value="__unassigned__">Unassigned</SelectItem>
           {techsByProximity.map((tech) => {
             const techUserId = tech.portal_user_id!
@@ -117,17 +117,17 @@ export function TechAssignmentSelect({
               loc ? { lat: loc.latitude, lng: loc.longitude } : null
             )
             return (
-              <SelectItem key={techUserId} value={techUserId} className="py-2.5">
+              <SelectItem key={techUserId} value={techUserId} className="py-3">
                 <span className="flex w-full items-center justify-between gap-2">
                   <span>{tech.name}</span>
                   <span className="flex shrink-0 items-center gap-2">
                     {eta ? (
-                      <span className="text-[10px] font-medium tabular-nums text-slate-400">
+                      <span className="text-2xs font-medium tabular-nums text-muted-foreground">
                         {eta.label}
                       </span>
                     ) : null}
                     {isBestMatch ? (
-                      <span className="text-[11px] font-semibold tracking-wider text-emerald-400">
+                      <span className="text-2xs font-semibold tracking-wider text-success">
                         ★ Closest
                       </span>
                     ) : null}

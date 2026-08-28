@@ -72,7 +72,7 @@ export function IntakeSchedulePreferenceFields({
 
   return (
     <div className={cn("grid gap-3", className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+      <p className="text-micro font-semibold uppercase tracking-wide text-primary">
         Schedule
       </p>
       {subtitle ? (
@@ -90,14 +90,14 @@ export function IntakeSchedulePreferenceFields({
             type="button"
             onClick={pickAsap}
             className={cn(
-              "rounded-xl border px-3 py-2.5 text-left transition-colors",
+              "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "asap"
-                ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
+                ? "border-destructive/50 bg-destructive/15 text-destructive"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
             )}
           >
             <span className="block text-sm font-semibold">ASAP</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block text-2xs text-muted-foreground">
               Need help now
             </span>
           </button>
@@ -105,14 +105,14 @@ export function IntakeSchedulePreferenceFields({
             type="button"
             onClick={pickWindow}
             className={cn(
-              "rounded-xl border px-3 py-2.5 text-left transition-colors",
+              "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "window"
-                ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                ? "border-primary/60 bg-primary/15 text-primary"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
             )}
           >
             <span className="block text-sm font-semibold">Schedule</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            <span className="mt-0.5 block text-2xs text-muted-foreground">
               Pick a window
             </span>
           </button>
@@ -135,14 +135,14 @@ export function IntakeSchedulePreferenceFields({
                     })
                   }
                   className={cn(
-                    "rounded-xl border px-3 py-2.5 text-left transition-colors",
+                    "rounded-xl border px-3 py-3 text-left transition-colors",
                     value.scheduledDate === day.dateKey
-                      ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                      ? "border-primary/60 bg-primary/15 text-primary"
                       : "border-border bg-card/40 text-foreground hover:border-primary/40"
                   )}
                 >
                   <span className="block text-sm font-semibold">{day.shortLabel}</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">
                     {day.label.replace(/^Today · |^Next day · /, "")}
                   </span>
                 </button>
@@ -151,7 +151,7 @@ export function IntakeSchedulePreferenceFields({
           </fieldset>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="intake-availability-from" className="text-xs">
                 From
               </Label>
@@ -165,7 +165,7 @@ export function IntakeSchedulePreferenceFields({
                     scheduledTime: from,
                   })
                 }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {TIME_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -174,7 +174,7 @@ export function IntakeSchedulePreferenceFields({
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="intake-availability-to" className="text-xs">
                 To
               </Label>
@@ -182,7 +182,7 @@ export function IntakeSchedulePreferenceFields({
                 id="intake-availability-to"
                 value={value.availabilityTo}
                 onChange={(e) => onChange({ availabilityTo: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {TIME_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -195,10 +195,10 @@ export function IntakeSchedulePreferenceFields({
 
           {windowReady && availabilityLabel ? (
             <p className="rounded-lg border border-border/70 bg-card/40 px-3 py-2 text-center text-sm text-foreground">
-              Free: <span className="font-semibold text-teal-200">{availabilityLabel}</span>
+              Free: <span className="font-semibold text-primary">{availabilityLabel}</span>
             </p>
           ) : (
-            <p className="text-center text-[11px] text-rose-300/90">
+            <p className="text-center text-2xs text-destructive/90">
               Choose an end time after the start time.
             </p>
           )}
@@ -206,7 +206,7 @@ export function IntakeSchedulePreferenceFields({
       ) : null}
 
       {value.scheduleUrgency === "asap" ? (
-        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-center text-sm text-rose-100">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
           Marked ASAP — soft request until you pin a time in Scheduler.
         </p>
       ) : null}

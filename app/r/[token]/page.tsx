@@ -70,7 +70,7 @@ export default function PublicReceiptPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4 text-slate-500">
+      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4 text-muted-foreground">
         Loading invoice…
       </main>
     )
@@ -82,23 +82,23 @@ export default function PublicReceiptPage() {
         <button
           type="button"
           onClick={exitReceiptPage}
-          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-muted-foreground shadow-resting ring-1 ring-slate-200 hover:bg-slate-50"
           aria-label="Close"
         >
           <X className="h-5 w-5" aria-hidden />
         </button>
         <p className="text-lg font-semibold text-slate-800">Invoice unavailable</p>
-        <p className="mt-2 max-w-sm text-sm text-slate-500">
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           {error || "This link may be invalid or expired."}
         </p>
         <button
           type="button"
           onClick={exitReceiptPage}
-          className="mt-6 inline-flex h-11 min-w-[8rem] items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white"
+          className="mt-6 inline-flex h-11 min-w-[8rem] items-center justify-center rounded-xl bg-card px-6 text-sm font-semibold text-white"
         >
           Done
         </button>
-        <p className="mt-3 text-xs text-slate-400">You can close this tab</p>
+        <p className="mt-3 text-xs text-muted-foreground">You can close this tab</p>
       </main>
     )
   }
@@ -111,7 +111,7 @@ export default function PublicReceiptPage() {
       <button
         type="button"
         onClick={exitReceiptPage}
-        className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white"
+        className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-resting ring-1 ring-slate-200 backdrop-blur hover:bg-white"
         aria-label="Close"
       >
         <X className="h-5 w-5" aria-hidden />
@@ -125,7 +125,7 @@ export default function PublicReceiptPage() {
           <a
             href={pdfHref}
             download
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground shadow-resting hover:bg-success"
           >
             <Download className="h-4 w-4" aria-hidden />
             Download PDF
@@ -133,11 +133,11 @@ export default function PublicReceiptPage() {
           <button
             type="button"
             onClick={exitReceiptPage}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 shadow-resting hover:bg-slate-50"
           >
             Done
           </button>
-          <p className="text-center text-[11px] text-slate-400">
+          <p className="text-center text-2xs text-muted-foreground">
             You can close this tab · Sent by {invoice.businessName} · Powered by Lyncr
           </p>
         </div>

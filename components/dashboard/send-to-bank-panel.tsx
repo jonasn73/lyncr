@@ -68,15 +68,15 @@ export function SendToBankPanel({
   if (availableCents < 100) return null
 
   return (
-    <div className="mt-3 space-y-2 border-t border-emerald-500/20 pt-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/70">
+    <div className="mt-3 space-y-2 border-t border-success/20 pt-3">
+      <p className="text-micro font-semibold uppercase tracking-wide text-success/70">
         Send to bank
       </p>
       <button
         type="button"
         disabled={busy}
         onClick={() => void send({ fullAvailable: true })}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Banknote className="h-4 w-4" aria-hidden />}
         Send all {fmtCents(availableCents)}
@@ -88,18 +88,18 @@ export function SendToBankPanel({
           value={customDollars}
           onChange={(e) => setCustomDollars(e.target.value)}
           placeholder="Or enter amount"
-          className="h-10 min-w-0 flex-1 rounded-xl border border-emerald-500/25 bg-emerald-950/40 px-3 text-sm text-emerald-50 outline-none placeholder:text-emerald-200/40"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-success/25 bg-success/40 px-3 text-sm text-success outline-none placeholder:text-success/40"
         />
         <button
           type="button"
           disabled={busy}
           onClick={() => void send()}
-          className="h-10 shrink-0 rounded-xl border border-emerald-500/35 px-3 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-50"
+          className="h-11 shrink-0 rounded-xl border border-success/35 px-3 text-xs font-semibold text-success hover:bg-success/15 disabled:opacity-50"
         >
           Send
         </button>
       </div>
-      {error ? <p className="text-[11px] text-rose-200">{error}</p> : null}
+      {error ? <p className="text-2xs text-destructive">{error}</p> : null}
     </div>
   )
 }

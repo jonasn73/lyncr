@@ -44,15 +44,15 @@ function formatDuration(seconds: number): string {
 function DirectionCell({ direction }: { direction: string }) {
   const d = direction.toLowerCase()
   const map: Record<string, { label: string; icon: typeof PhoneIncoming; className: string }> = {
-    incoming: { label: "Inbound", icon: PhoneIncoming, className: "text-sky-300" },
-    outgoing: { label: "Outbound Forwarded", icon: PhoneForwarded, className: "text-violet-300" },
-    missed: { label: "Missed", icon: PhoneMissed, className: "text-amber-300" },
-    voicemail: { label: "Voicemail", icon: Voicemail, className: "text-slate-300" },
+    incoming: { label: "Inbound", icon: PhoneIncoming, className: "text-info" },
+    outgoing: { label: "Outbound Forwarded", icon: PhoneForwarded, className: "text-operator" },
+    missed: { label: "Missed", icon: PhoneMissed, className: "text-warning" },
+    voicemail: { label: "Voicemail", icon: Voicemail, className: "text-foreground" },
   }
-  const entry = map[d] ?? { label: direction || "—", icon: PhoneIncoming, className: "text-slate-300" }
+  const entry = map[d] ?? { label: direction || "—", icon: PhoneIncoming, className: "text-foreground" }
   const Icon = entry.icon
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", entry.className)}>
+    <span className={cn("inline-flex items-center gap-2 text-xs font-medium", entry.className)}>
       <Icon className="h-3.5 w-3.5" aria-hidden />
       {entry.label}
     </span>
@@ -79,15 +79,15 @@ function StatusBadge({ status }: { status: string }) {
                   : status || "—"
   const className =
     s === "completed"
-      ? "bg-emerald-500/15 text-emerald-300"
+      ? "bg-success/15 text-success"
       : s === "no-answer" || s === "busy" || s === "missed"
-        ? "bg-amber-500/15 text-amber-300"
+        ? "bg-warning/15 text-warning"
         : s === "failed" || s === "canceled" || s === "cancelled"
-          ? "bg-red-500/15 text-red-300"
+          ? "bg-destructive/15 text-destructive"
           : s === "in-progress" || s === "answered"
-            ? "bg-sky-500/15 text-sky-300"
-            : "bg-slate-700/50 text-slate-400"
-  return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", className)}>{label}</span>
+            ? "bg-info/15 text-info"
+            : "bg-accent/50 text-muted-foreground"
+  return <span className={cn("rounded-full px-2 py-0.5 text-2xs font-medium", className)}>{label}</span>
 }
 
 function shortUuid(uuid: string): string {
@@ -113,8 +113,8 @@ function UuidCell({ uuid }: { uuid: string }) {
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <code className="truncate font-mono text-xs text-slate-400" title={uuid || undefined}>
+    <div className="flex min-w-0 items-center gap-2">
+      <code className="truncate font-mono text-xs text-muted-foreground" title={uuid || undefined}>
         {shortUuid(uuid)}
       </code>
       {uuid ? (
@@ -122,9 +122,9 @@ function UuidCell({ uuid }: { uuid: string }) {
           type="button"
           onClick={() => void handleCopy()}
           className={cn(
-            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/80 bg-slate-950/60 text-slate-400 transition-colors",
-            "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
-            copied && "border-emerald-500/40 text-emerald-300"
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-background/60 text-muted-foreground transition-colors",
+            "hover:border-operator/40 hover:bg-operator/40 hover:text-operator",
+            copied && "border-success/40 text-success"
           )}
           aria-label="Copy call UUID"
           title="Copy full call UUID"
@@ -169,18 +169,18 @@ export function CallHistoryTable() {
   }, [fetchHistory])
 
   return (
-    <Card className="border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+    <Card className="border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base text-slate-100">
-          <History className="h-4 w-4 text-violet-300" aria-hidden />
+        <CardTitle className="flex items-center gap-2 text-base text-foreground">
+          <History className="h-4 w-4 text-operator" aria-hidden />
           Call History
-          <span className="text-xs font-normal text-slate-500">last {calls.length}</span>
+          <span className="text-xs font-normal text-muted-foreground">last {calls.length}</span>
         </CardTitle>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="border-slate-700 text-slate-200 hover:bg-slate-800"
+          className="border-border text-foreground hover:bg-muted"
           disabled={refreshing}
           onClick={() => void fetchHistory(true)}
         >
@@ -190,42 +190,42 @@ export function CallHistoryTable() {
       </CardHeader>
       <CardContent className="pt-0">
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading call logs…
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Loading call logs…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <History className="h-7 w-7 text-slate-700" aria-hidden />
-            <p className="text-sm text-slate-500">No call records yet.</p>
+            <History className="h-7 w-7 text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">No call records yet.</p>
           </div>
         ) : (
-          <div className="max-h-[460px] overflow-auto rounded-lg border border-slate-800/60">
+          <div className="max-h-[460px] overflow-auto rounded-lg border border-border/60">
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Timestamp</TableHead>
-                  <TableHead className="text-slate-400">Direction</TableHead>
-                  <TableHead className="text-slate-400">Phone Routing</TableHead>
-                  <TableHead className="text-slate-400">Duration</TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Call UUID</TableHead>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">Timestamp</TableHead>
+                  <TableHead className="text-muted-foreground">Direction</TableHead>
+                  <TableHead className="text-muted-foreground">Phone Routing</TableHead>
+                  <TableHead className="text-muted-foreground">Duration</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Call UUID</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {calls.map((c) => (
-                  <TableRow key={c.id} className="border-slate-800 hover:bg-slate-800/30">
-                    <TableCell className="whitespace-nowrap text-sm text-slate-300">
+                  <TableRow key={c.id} className="border-border hover:bg-muted/30">
+                    <TableCell className="whitespace-nowrap text-sm text-foreground">
                       {formatTimestamp(c.created_at)}
                     </TableCell>
                     <TableCell>
                       <DirectionCell direction={c.direction} />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-slate-300">
-                      <span className="text-slate-200">{c.from_number || "Unknown"}</span>
-                      <span className="mx-1.5 text-slate-600">→</span>
-                      <span className="text-slate-400">{c.to_number || "Forwarded Leg"}</span>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-foreground">
+                      <span className="text-foreground">{c.from_number || "Unknown"}</span>
+                      <span className="mx-1.5 text-muted-foreground">→</span>
+                      <span className="text-muted-foreground">{c.to_number || "Forwarded Leg"}</span>
                     </TableCell>
-                    <TableCell className="font-mono text-sm tabular-nums text-slate-300">
+                    <TableCell className="font-mono text-sm tabular-nums text-foreground">
                       {formatDuration(c.duration_seconds)}
                     </TableCell>
                     <TableCell>

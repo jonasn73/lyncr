@@ -17,16 +17,16 @@ function ComingSoonRow({
   return (
     <div
       id={id}
-      className="flex items-center justify-between gap-3 border-b border-slate-900 py-2 last:border-b-0"
+      className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0"
     >
       <div className="min-w-0 flex-1">
-        <p className="block text-xs font-semibold text-slate-200">{title}</p>
-        <p className="mt-0.5 text-[11px] font-normal text-slate-500">{description}</p>
-        <p className="mt-1 hidden text-[10px] font-normal leading-snug text-slate-600 md:block">
+        <p className="block text-xs font-semibold text-foreground">{title}</p>
+        <p className="mt-0.5 text-2xs font-normal text-muted-foreground">{description}</p>
+        <p className="mt-1 hidden text-2xs font-normal leading-snug text-muted-foreground md:block">
           Not wired to live inbound yet — toggle coming later.
         </p>
       </div>
-      <span className="shrink-0 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <span className="shrink-0 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
         Coming soon
       </span>
     </div>
@@ -56,7 +56,7 @@ export function CallerIdUtilitiesCard({
         <SheetInfoTrigger
           onPress={onOpenTips}
           label="Caller ID"
-          className="h-8 w-8 shrink-0"
+          className="h-9 w-9 shrink-0"
         />
       </div>
 

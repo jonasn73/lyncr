@@ -80,7 +80,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
       title="Command center"
       description="Search commands or actions"
       showCloseButton
-      className="max-w-xl border border-slate-800/80 bg-slate-950/95 shadow-2xl backdrop-blur-xl"
+      className="max-w-xl border border-border/80 bg-background/95 shadow-overlay backdrop-blur-xl"
     >
       <CommandInput placeholder="Search commands or actions…" />
       <CommandList>
@@ -96,8 +96,8 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
                   onOpenChange(false)
                 }}
               >
-                <Radio className="size-4 shrink-0 text-emerald-400" aria-hidden />
-                <span className="font-mono text-emerald-300">{command.slash}</span>
+                <Radio className="size-4 shrink-0 text-success" aria-hidden />
+                <span className="font-mono text-success">{command.slash}</span>
                 <span>{command.label}</span>
               </CommandItem>
             ))}
@@ -119,7 +119,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
             }}
           >
             <UserCog className="size-4 shrink-0" aria-hidden />
-            <span className="font-mono text-emerald-300">/tech</span>
+            <span className="font-mono text-success">/tech</span>
             <span>Open team roster</span>
           </CommandItem>
           <CommandItem
@@ -129,7 +129,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
             }}
           >
             <Radio className="size-4 shrink-0" aria-hidden />
-            <span className="font-mono text-emerald-300">/status</span>
+            <span className="font-mono text-success">/status</span>
             <span>View dispatch status board</span>
           </CommandItem>
           <CommandItem
@@ -139,7 +139,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
             }}
           >
             <Pencil className="size-4 shrink-0" aria-hidden />
-            <span className="font-mono text-emerald-300">/edit</span>
+            <span className="font-mono text-success">/edit</span>
             <span>Edit job on scheduler</span>
           </CommandItem>
           <CommandItem
@@ -170,7 +170,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
           </CommandItem>
         </CommandGroup>
       </CommandList>
-      <div className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
+      <div className="border-t border-border px-3 py-2 text-2xs text-muted-foreground">
         Press <kbd className="rounded border border-border bg-muted px-1 font-mono">⌘K</kbd> or{" "}
         <kbd className="rounded border border-border bg-muted px-1 font-mono">Ctrl+K</kbd> to toggle
       </div>

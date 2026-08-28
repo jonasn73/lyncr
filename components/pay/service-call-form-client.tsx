@@ -129,7 +129,7 @@ export function ServiceCallFormClient() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-300">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         Loading…
       </div>
@@ -140,90 +140,90 @@ export function ServiceCallFormClient() {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <p className="text-lg font-semibold text-white">Link problem</p>
-        <p className="mt-2 text-sm text-slate-400">{error}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400/90">
+      <p className="text-xs font-semibold uppercase tracking-wide text-success/90">
         {businessLabel}
       </p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
         Service call — ${amountDollars}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Fill this in so a technician can be on the way. Then pay the ${amountDollars} service call
         fee securely.
       </p>
 
       <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4">
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-slate-300">Your name *</span>
+        <label className="block space-y-2">
+          <span className="text-xs font-medium text-foreground">Your name *</span>
           <input
             required
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="name"
           />
         </label>
 
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-slate-300">Phone *</span>
+        <label className="block space-y-2">
+          <span className="text-xs font-medium text-foreground">Phone *</span>
           <input
             required
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="tel"
           />
         </label>
 
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-slate-300">Service address *</span>
+        <label className="block space-y-2">
+          <span className="text-xs font-medium text-foreground">Service address *</span>
           <input
             required
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="Street, city, ZIP"
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             autoComplete="street-address"
           />
         </label>
 
         <div className="grid grid-cols-3 gap-2">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Year</span>
+          <label className="block space-y-2">
+            <span className="text-xs font-medium text-foreground">Year</span>
             <input
               value={year}
               onChange={(e) => setYear(e.target.value)}
               inputMode="numeric"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
-          <label className="col-span-1 block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Make</span>
+          <label className="col-span-1 block space-y-2">
+            <span className="text-xs font-medium text-foreground">Make</span>
             <input
               value={make}
               onChange={(e) => setMake(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Model</span>
+          <label className="block space-y-2">
+            <span className="text-xs font-medium text-foreground">Model</span>
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="text-xs font-medium text-slate-300">What do you need?</legend>
+          <legend className="text-xs font-medium text-foreground">What do you need?</legend>
           <div className="grid gap-2">
             {JOB_KIND_OPTIONS.map((opt) => (
               <button
@@ -232,8 +232,8 @@ export function ServiceCallFormClient() {
                 onClick={() => setJobKind(opt.id)}
                 className={
                   jobKind === opt.id
-                    ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-2.5 text-left text-sm font-medium text-emerald-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm text-slate-200"
+                    ? "rounded-lg border border-success/50 bg-success/15 px-3 py-3 text-left text-sm font-medium text-success"
+                    : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
                 {opt.label}
@@ -242,23 +242,23 @@ export function ServiceCallFormClient() {
           </div>
         </fieldset>
 
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-slate-300">Notes (optional)</span>
+        <label className="block space-y-2">
+          <span className="text-xs font-medium text-foreground">Notes (optional)</span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             placeholder="Gate code, parking, key details…"
           />
         </label>
 
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <button
           type="submit"
           disabled={submitting}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-slate-950 hover:bg-success disabled:opacity-60"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           Continue to pay ${amountDollars}

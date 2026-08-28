@@ -159,7 +159,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
   return (
     <Card
       className={cn(
-        isAdminChrome ? "border-slate-800 bg-slate-900/40 text-slate-100" : "border-border bg-card",
+        isAdminChrome ? "border-border bg-card/40 text-foreground" : "border-border bg-card",
         className
       )}
     >
@@ -171,7 +171,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
           </CardDescription>
         </CardHeader>
       ) : null}
-      <CardContent className={cn("space-y-5", !showCardChrome && "pt-4")}>
+      <CardContent className={cn("space-y-6", !showCardChrome && "pt-4")}>
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -183,7 +183,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
               <h3
                 className={cn(
                   "text-xs font-semibold uppercase tracking-wide",
-                  isAdminChrome ? "text-slate-400" : "text-muted-foreground"
+                  isAdminChrome ? "text-muted-foreground" : "text-muted-foreground"
                 )}
               >
                 {section.title}
@@ -196,14 +196,14 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
                       key={row.key}
                       className={cn(
                         "flex items-start justify-between gap-4 rounded-lg border px-3 py-3",
-                        isAdminChrome ? "border-slate-800 bg-slate-950/40" : "border-border/70 bg-muted/20"
+                        isAdminChrome ? "border-border bg-background/40" : "border-border/70 bg-muted/20"
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className={cn("text-sm font-medium", isAdminChrome && "text-slate-100")}>
+                        <p className={cn("text-sm font-medium", isAdminChrome && "text-foreground")}>
                           {row.label}
                         </p>
-                        <p className={cn("mt-0.5 text-xs leading-snug", isAdminChrome ? "text-slate-400" : "text-muted-foreground")}>
+                        <p className={cn("mt-0.5 text-xs leading-snug", isAdminChrome ? "text-muted-foreground" : "text-muted-foreground")}>
                           {row.description}
                         </p>
                       </div>

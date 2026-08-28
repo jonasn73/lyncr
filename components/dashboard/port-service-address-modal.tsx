@@ -96,7 +96,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
       <DialogContent className="border-border/80 bg-card sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-violet-400" aria-hidden />
+            <MapPin className="h-5 w-5 text-operator" aria-hidden />
             Business service address
           </DialogTitle>
           <DialogDescription>
@@ -112,8 +112,8 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <label className="block space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="block space-y-2">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Legal business name
               </span>
               <input
@@ -123,17 +123,17 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
                 className={workspaceFieldClass}
               />
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Street</span>
+            <label className="block space-y-2">
+              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Street</span>
               <input required value={street} onChange={(e) => setStreet(e.target.value)} className={workspaceFieldClass} />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5 sm:col-span-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">City</span>
+              <label className="block space-y-2 sm:col-span-1">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">City</span>
                 <input required value={city} onChange={(e) => setCity(e.target.value)} className={workspaceFieldClass} />
               </label>
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">State</span>
+              <label className="block space-y-2">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">State</span>
                 <input
                   required
                   maxLength={2}
@@ -143,8 +143,8 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
                   className={workspaceFieldClass}
                 />
               </label>
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">ZIP</span>
+              <label className="block space-y-2">
+                <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">ZIP</span>
                 <input
                   required
                   value={postal}
@@ -157,7 +157,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground hover:bg-operator disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Save address & continue port

@@ -58,16 +58,16 @@ function TechLoginForm() {
     <main className="flex min-h-[100dvh] flex-col justify-center px-6 py-12">
       <div className="mx-auto w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-black text-white shadow-lg shadow-indigo-900/40">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-operator to-operator text-2xl font-black text-white shadow-raised shadow-operator/40">
             L
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Lyncr Field Console</h1>
-          <p className="mt-1 text-sm text-zinc-400">Sign in to see your assigned jobs.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in to see your assigned jobs.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Mobile number</label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Mobile number</label>
             <input
               type="text"
               inputMode="tel"
@@ -75,25 +75,25 @@ function TechLoginForm() {
               required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3.5 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+              className="w-full rounded-xl border border-border bg-card/80 px-4 py-4 text-base text-white outline-none transition focus:border-operator focus:ring-2 focus:ring-operator/30"
               placeholder="(555) 123-4567"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Password</label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</label>
             <input
               type="password"
               autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3.5 text-base text-white outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
+              className="w-full rounded-xl border border-border bg-card/80 px-4 py-4 text-base text-white outline-none transition focus:border-operator focus:ring-2 focus:ring-operator/30"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           )}
@@ -101,13 +101,13 @@ function TechLoginForm() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-900/40 transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-xl bg-gradient-to-br from-operator to-operator px-4 py-4 text-base font-semibold text-white shadow-raised shadow-operator/40 transition active:scale-[0.99] disabled:opacity-60"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-zinc-500">
+        <p className="mt-8 text-center text-xs text-muted-foreground">
           Powered by Lyncr · Ask your dispatcher for login details
         </p>
       </div>

@@ -40,9 +40,9 @@ const STATUS_LABEL: Record<OperatorOnboardingStatus, string> = {
 }
 
 const STATUS_CLASS: Record<OperatorOnboardingStatus, string> = {
-  PENDING_INVITE: "bg-amber-500/15 text-amber-200 ring-amber-500/30",
-  DEVICE_TESTING: "bg-sky-500/15 text-sky-200 ring-sky-500/30",
-  ACTIVE_READY: "bg-emerald-500/15 text-emerald-200 ring-emerald-500/30",
+  PENDING_INVITE: "bg-warning/15 text-warning ring-warning/30",
+  DEVICE_TESTING: "bg-info/15 text-info ring-info/30",
+  ACTIVE_READY: "bg-success/15 text-success ring-success/30",
 }
 
 function formatStatus(raw: OperatorOnboardingStatus | null): OperatorOnboardingStatus {
@@ -73,7 +73,7 @@ function canResendInvite(op: OperatorAdminRow): boolean {
 
 function statusBadge(op: OperatorAdminRow) {
   if (!op.is_active) {
-    return { label: "Disabled", className: "bg-slate-500/15 text-slate-300 ring-slate-500/30" }
+    return { label: "Disabled", className: "bg-muted-foreground/15 text-foreground ring-border/30" }
   }
   const status = formatStatus(op.operator_onboarding_status)
   return { label: STATUS_LABEL[status], className: STATUS_CLASS[status] }
@@ -314,28 +314,28 @@ export function OperatorOnboardingDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-100">People</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">People</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Invite operators by SMS, track onboarding status, and resend setup links.
         </p>
-        <p className="mt-1 max-w-2xl text-sm text-slate-400">
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Text a setup link to each operator&apos;s cell. They tap the link, test their mic, set a password, and
           enter the live console — no email required.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
-        <Card className="border-slate-800 bg-slate-900/60 shadow-lg">
+        <Card className="border-border bg-card/60 shadow-raised">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base text-slate-100">
-              <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
+            <CardTitle className="flex items-center gap-2 text-base text-foreground">
+              <UserPlus className="h-4 w-4 text-operator" aria-hidden />
               Invite operator
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="op-name" className="text-slate-300">
+                <Label htmlFor="op-name" className="text-foreground">
                   Full name
                 </Label>
                 <Input
@@ -344,11 +344,11 @@ export function OperatorOnboardingDashboard() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Jordan Lee"
                   required
-                  className="border-slate-700 bg-slate-950/80"
+                  className="border-border bg-background/80"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="op-phone" className="text-slate-300">
+                <Label htmlFor="op-phone" className="text-foreground">
                   Cell phone
                 </Label>
                 <Input
@@ -359,21 +359,21 @@ export function OperatorOnboardingDashboard() {
                   placeholder="(502) 555-0100"
                   required
                   autoComplete="tel"
-                  className="border-slate-700 bg-slate-950/80"
+                  className="border-border bg-background/80"
                 />
-                <p className="text-[11px] text-slate-500">We text a one-tap setup link to this number.</p>
+                <p className="text-2xs text-muted-foreground">We text a one-tap setup link to this number.</p>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Workspace clearance
                 </p>
                 {workspacesLoading ? (
-                  <p className="flex items-center gap-2 py-2 text-xs text-slate-500">
+                  <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                     Loading businesses…
                   </p>
                 ) : workspaceOptions.length === 0 ? (
-                  <p className="text-xs text-slate-500">No workspaces found yet.</p>
+                  <p className="text-xs text-muted-foreground">No workspaces found yet.</p>
                 ) : (
                   <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {workspaceOptions.map((w) => {
@@ -386,21 +386,21 @@ export function OperatorOnboardingDashboard() {
                         <li key={key}>
                           <label
                             className={cn(
-                              "flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors",
+                              "flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
                               checked
-                                ? "border-emerald-500/40 bg-emerald-500/10"
-                                : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+                                ? "border-success/40 bg-success/10"
+                                : "border-border bg-card/40 hover:border-border"
                             )}
                           >
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleWorkspace(key)}
-                              className="mt-0.5 accent-emerald-500"
+                              className="mt-0.5 accent-success"
                             />
                             <span className="min-w-0">
-                              <span className="block text-xs font-medium text-slate-200">{w.business_name}</span>
-                              <span className="block truncate text-[10px] text-slate-500">
+                              <span className="block text-xs font-medium text-foreground">{w.business_name}</span>
+                              <span className="block truncate text-2xs text-muted-foreground">
                                 {lineLabel} · {w.owner_email}
                               </span>
                             </span>
@@ -411,23 +411,23 @@ export function OperatorOnboardingDashboard() {
                   </ul>
                 )}
                 {selectedWorkspaces.length > 0 ? (
-                  <p className="text-[10px] text-emerald-300/90">
+                  <p className="text-2xs text-success/90">
                     {selectedWorkspaces.length} workspace{selectedWorkspaces.length === 1 ? "" : "s"} selected
                   </p>
                 ) : null}
               </div>
-              {error ? <p className="text-sm text-red-300">{error}</p> : null}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
               {manualLink ? (
-                <p className="break-all rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+                <p className="break-all rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                   Setup link (text manually): {manualLink}
                 </p>
               ) : null}
               {lastSentTo ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                <p className="rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
                   Text sent to {lastSentTo}. They can tap the link to finish setup.
                 </p>
               ) : null}
-              <Button type="submit" disabled={busy} className="w-full bg-violet-600 hover:bg-violet-500">
+              <Button type="submit" disabled={busy} className="w-full bg-operator hover:bg-operator">
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 ) : (
@@ -439,25 +439,25 @@ export function OperatorOnboardingDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-800 bg-slate-900/60 shadow-lg">
+        <Card className="border-border bg-card/60 shadow-raised">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base text-slate-100">
-              <Radio className="h-4 w-4 text-emerald-300" aria-hidden />
+            <CardTitle className="flex items-center gap-2 text-base text-foreground">
+              <Radio className="h-4 w-4 text-success" aria-hidden />
               Provisioning queue
             </CardTitle>
-            <Button type="button" variant="ghost" size="sm" onClick={() => void load()} className="text-slate-400">
+            <Button type="button" variant="ghost" size="sm" onClick={() => void load()} className="text-muted-foreground">
               Refresh
             </Button>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading operators…
               </div>
             ) : operators.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500">No operators yet. Send your first invite.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No operators yet. Send your first invite.</p>
             ) : (
-              <ul className="divide-y divide-slate-800">
+              <ul className="divide-y divide-border">
                 {operators.map((op) => {
                   const badge = statusBadge(op)
                   return (
@@ -465,28 +465,28 @@ export function OperatorOnboardingDashboard() {
                       <button
                         type="button"
                         onClick={() => openOperatorDetail(op)}
-                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left transition-colors first:pt-0 hover:bg-slate-900/40"
+                        className="flex w-full flex-wrap items-start justify-between gap-3 py-4 text-left transition-colors first:pt-0 hover:bg-card/40"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
-                          <p className="text-xs text-slate-500">{formatPhoneDisplay(op.phone)}</p>
+                          <p className="font-medium text-foreground">{op.name || op.phone || op.email}</p>
+                          <p className="text-xs text-muted-foreground">{formatPhoneDisplay(op.phone)}</p>
                           {op.assigned_workspaces.length > 0 ? (
-                            <p className="mt-1 text-xs text-slate-400">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-[10px] text-slate-600">Tap for details</p>
+                          <p className="mt-1 text-2xs text-muted-foreground">Tap for details</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span
                             className={cn(
-                              "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                              "inline-flex rounded-full px-3 py-1 text-micro font-semibold uppercase tracking-wide ring-1",
                               badge.className
                             )}
                           >
                             {badge.label}
                           </span>
-                          <ChevronRight className="h-4 w-4 text-slate-600" aria-hidden />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
                         </div>
                       </button>
                     </li>
@@ -499,25 +499,25 @@ export function OperatorOnboardingDashboard() {
       </div>
 
       <Dialog open={Boolean(selectedOperator)} onOpenChange={(open) => !open && setSelectedOperator(null)}>
-        <DialogContent className="border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md">
+        <DialogContent className="border-border bg-background text-foreground sm:max-w-md">
           {selectedOperator ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-slate-100">
+                <DialogTitle className="text-foreground">
                   {selectedOperator.name || formatPhoneDisplay(selectedOperator.phone)}
                 </DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-muted-foreground">
                   Operator details and provisioning actions
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">Status</span>
+                  <span className="text-muted-foreground">Status</span>
                   {detailBadge ? (
                     <span
                       className={cn(
-                        "inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1",
+                        "inline-flex rounded-full px-3 py-1 text-micro font-semibold uppercase tracking-wide ring-1",
                         detailBadge.className
                       )}
                     >
@@ -526,21 +526,21 @@ export function OperatorOnboardingDashboard() {
                   ) : null}
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Cell</span>
-                  <span className="text-slate-200">{formatPhoneDisplay(selectedOperator.phone)}</span>
+                  <span className="text-muted-foreground">Cell</span>
+                  <span className="text-foreground">{formatPhoneDisplay(selectedOperator.phone)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Invited</span>
-                  <span className="text-slate-200">{formatWhen(selectedOperator.created_at)}</span>
+                  <span className="text-muted-foreground">Invited</span>
+                  <span className="text-foreground">{formatWhen(selectedOperator.created_at)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Link expires</span>
-                  <span className="text-slate-200">{formatWhen(selectedOperator.invitation_expires_at)}</span>
+                  <span className="text-muted-foreground">Link expires</span>
+                  <span className="text-foreground">{formatWhen(selectedOperator.invitation_expires_at)}</span>
                 </div>
                 {selectedOperator.assigned_workspaces.length > 0 ? (
                   <div>
-                    <span className="text-slate-500">Workspaces</span>
-                    <p className="mt-1 text-slate-200">
+                    <span className="text-muted-foreground">Workspaces</span>
+                    <p className="mt-1 text-foreground">
                       {selectedOperator.assigned_workspaces.map((w) => w.business_name).join(", ")}
                     </p>
                   </div>
@@ -552,21 +552,21 @@ export function OperatorOnboardingDashboard() {
                   className={cn(
                     "rounded-lg border p-3 text-xs",
                     detailManualLink
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                      ? "border-warning/30 bg-warning/10 text-warning"
+                      : "border-success/30 bg-success/10 text-success"
                   )}
                 >
                   {detailNotice}
                   {detailManualLink ? (
                     <span className="mt-3 block space-y-2">
-                      <span className="block break-all rounded-md bg-black/20 px-2 py-1.5 font-mono text-[10px]">
+                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-2xs">
                         {detailManualLink}
                       </span>
                       <Button
                         type="button"
                         size="sm"
                         variant="secondary"
-                        className="h-8 border-amber-500/30 bg-amber-500/10 text-amber-50 hover:bg-amber-500/20"
+                        className="h-9 border-warning/30 bg-warning/10 text-warning hover:bg-warning/20"
                         onClick={() => void copySetupLink(detailManualLink)}
                       >
                         {copiedLink ? "Copied!" : "Copy setup link"}
@@ -580,7 +580,7 @@ export function OperatorOnboardingDashboard() {
                 {canResendInvite(selectedOperator) ? (
                   <Button
                     type="button"
-                    className="w-full bg-violet-600 hover:bg-violet-500"
+                    className="w-full bg-operator hover:bg-operator"
                     disabled={Boolean(detailBusy)}
                     onClick={() => void resendInvite(selectedOperator)}
                   >
@@ -592,11 +592,11 @@ export function OperatorOnboardingDashboard() {
                     Resend setup text
                   </Button>
                 ) : formatStatus(selectedOperator.operator_onboarding_status) === "ACTIVE_READY" ? (
-                  <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-200/90">
+                  <p className="rounded-lg border border-success/20 bg-success/5 px-3 py-2 text-xs text-success/90">
                     This operator finished setup and is active. Disable them to pause routing.
                   </p>
                 ) : !selectedOperator.is_active ? (
-                  <p className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
+                  <p className="rounded-lg border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
                     Re-enable this operator, then use Resend setup text if they still need to finish onboarding.
                   </p>
                 ) : null}
@@ -605,7 +605,7 @@ export function OperatorOnboardingDashboard() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="w-full border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                    className="w-full border-border bg-card text-foreground hover:bg-muted"
                     disabled={Boolean(detailBusy)}
                     onClick={() => void patchOperator(selectedOperator, "disable")}
                   >
@@ -620,7 +620,7 @@ export function OperatorOnboardingDashboard() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="w-full border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                    className="w-full border-border bg-card text-foreground hover:bg-muted"
                     disabled={Boolean(detailBusy)}
                     onClick={() => void patchOperator(selectedOperator, "enable")}
                   >

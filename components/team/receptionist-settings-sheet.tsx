@@ -55,7 +55,7 @@ export function ReceptionistSettingsSheet({
 }) {
   return (
     <Sheet open={member != null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto border-zinc-800 bg-zinc-950 text-foreground sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {member ? (
           <>
             <SheetHeader className="text-left">
@@ -68,8 +68,8 @@ export function ReceptionistSettingsSheet({
                   </Avatar>
                   <span
                     className={cn(
-                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-zinc-950",
-                      online ? "bg-success" : "bg-zinc-600"
+                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                      online ? "bg-success" : "bg-muted-foreground"
                     )}
                     aria-hidden
                   />
@@ -83,10 +83,10 @@ export function ReceptionistSettingsSheet({
 
             <div className="mt-5 space-y-2">
               {/* Availability */}
-              <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Available</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">Can take calls when picked in Who answers.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Can take calls when picked in Who answers.</p>
                 </div>
                 <Switch checked={online} disabled={togglingActive} onCheckedChange={onToggleActive} />
               </div>
@@ -95,31 +95,31 @@ export function ReceptionistSettingsSheet({
               <button
                 type="button"
                 onClick={onEditPay}
-                className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-3 text-left transition-colors hover:border-zinc-700"
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3 text-left transition-colors hover:bg-muted"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Pay</p>
                   <p
                     className={cn(
                       "mt-0.5 truncate text-xs",
-                      plan ? "text-zinc-400" : "text-amber-300/90"
+                      plan ? "text-muted-foreground" : "text-warning"
                     )}
                   >
                     {plan?.summary ?? "Not set — tap to set"}
                   </p>
                 </div>
-                <Pencil className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </button>
 
               {/* Access */}
               <button
                 type="button"
                 onClick={onEditAccess}
-                className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-3 text-left transition-colors hover:border-zinc-700"
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3 text-left transition-colors hover:bg-muted"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Console access</p>
-                  <p className="mt-0.5 truncate text-xs text-zinc-400">
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {[
                       member.capabilities.full_vehicle_key_catalog ? "Full key lookup" : null,
                       member.capabilities.dispatching ? "Dispatching" : null,
@@ -128,16 +128,16 @@ export function ReceptionistSettingsSheet({
                       .join(", ") || "Default — intake only"}
                   </p>
                 </div>
-                <Pencil className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </button>
 
               {/* Payout, when there's something to show */}
               {payout ? (
-                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-3">
+                <div className="rounded-lg border border-border bg-background/40 px-3.5 py-3">
                   <p className="text-sm font-medium text-foreground">This billing cycle</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
-                    <span className="font-medium text-zinc-200">{formatUsd(payout.total_earnings)} earned</span>
+                    <span className="font-medium text-foreground">{formatUsd(payout.total_earnings)} earned</span>
                   </p>
                 </div>
               ) : null}
@@ -146,7 +146,7 @@ export function ReceptionistSettingsSheet({
             <button
               type="button"
               onClick={onRemove}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 px-3.5 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" aria-hidden />
               Remove from team

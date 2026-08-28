@@ -29,9 +29,9 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         <button
           type="button"
           className={cn(
-            "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
             op
-              ? "text-slate-400 hover:bg-violet-500/15 hover:text-violet-200"
+              ? "text-muted-foreground hover:bg-operator/15 hover:text-operator"
               : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
             triggerClassName
           )}
@@ -45,39 +45,39 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         align="end"
         sideOffset={6}
         className={cn(
-          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-xl",
-          op ? "border-slate-600 bg-slate-950 text-slate-200" : "border-border/80 bg-popover text-popover-foreground",
+          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-overlay",
+          op ? "border-border bg-background text-foreground" : "border-border/80 bg-popover text-popover-foreground",
           className
         )}
       >
         <div
           className={cn(
-            "border-b px-3 py-2.5",
+            "border-b px-3 py-3",
             op
-              ? "border-violet-500/35 bg-gradient-to-br from-violet-950/90 via-slate-900 to-slate-950"
+              ? "border-operator/35 bg-gradient-to-br from-operator/90 via-card to-background"
               : "border-primary/20 bg-gradient-to-br from-primary/[0.12] via-card to-card"
           )}
         >
           <p
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-[0.12em]",
-              op ? "text-violet-300" : "text-primary"
+              "text-micro font-semibold uppercase tracking-[0.12em]",
+              op ? "text-operator" : "text-primary"
             )}
           >
             {story.eyebrow}
           </p>
-          <p className={cn("mt-0.5 text-[10px] leading-snug", op ? "text-slate-400" : "text-muted-foreground")}>
+          <p className={cn("mt-0.5 text-2xs leading-snug", op ? "text-muted-foreground" : "text-muted-foreground")}>
             {story.storyline}
           </p>
-          <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-slate-50" : "text-foreground")}>
+          <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-foreground" : "text-foreground")}>
             {story.title}
           </p>
         </div>
         <div
           className={cn(
-            "space-y-2 px-3 py-2.5 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
+            "space-y-2 px-3 py-3 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
             op
-              ? "text-slate-400 [&_p]:text-slate-400 [&_strong]:text-slate-200 [&_code]:bg-slate-900 [&_code]:text-violet-200"
+              ? "text-muted-foreground [&_p]:text-muted-foreground [&_strong]:text-foreground [&_code]:bg-card [&_code]:text-operator"
               : "text-muted-foreground [&_code]:bg-muted"
           )}
         >

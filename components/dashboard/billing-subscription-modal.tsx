@@ -41,16 +41,16 @@ export function BillingSubscriptionModal({
                 {subscriptionActive ? "Core plan active" : "Trial mode"}
               </p>
               {subscriptionActive && billingCycleEnd ? (
-                <p className="mt-1 text-sm text-zinc-400">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Next billing date:{" "}
                   <span className="font-medium tabular-nums text-foreground">
                     {formatBillingCycleDate(billingCycleEnd)}
                   </span>
                 </p>
               ) : subscriptionActive ? (
-                <p className="mt-1 text-xs text-zinc-500">Renewal date will appear after Stripe syncs.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Renewal date will appear after Stripe syncs.</p>
               ) : (
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Activate your line from the dashboard banner to start billing.
                 </p>
               )}

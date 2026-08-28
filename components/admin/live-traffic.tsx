@@ -57,64 +57,64 @@ export function LiveTrafficPulse() {
   }, [])
 
   return (
-    <Card className="flex h-full flex-col border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+    <Card className="flex h-full flex-col border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base text-slate-100">
+        <CardTitle className="flex items-center gap-2 text-base text-foreground">
           <span className="relative flex h-2.5 w-2.5">
             {calls.length > 0 && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
             )}
             <span
               className={cn(
                 "relative inline-flex h-2.5 w-2.5 rounded-full",
-                calls.length > 0 ? "bg-emerald-400" : "bg-slate-600"
+                calls.length > 0 ? "bg-success" : "bg-muted-foreground"
               )}
             />
           </span>
           Live Traffic Pulse
         </CardTitle>
-        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
-          <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
+        <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+          <Radio className="h-3.5 w-3.5 text-success" aria-hidden />
           {calls.length} active {calls.length === 1 ? "call" : "calls"}
         </span>
       </CardHeader>
       <CardContent className="pt-0">
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Listening for live calls…
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Listening for live calls…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <PhoneCall className="h-7 w-7 text-slate-700" aria-hidden />
-            <p className="text-sm text-slate-500">No active calls on the network right now.</p>
+            <PhoneCall className="h-7 w-7 text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">No active calls on the network right now.</p>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-800/70">
+          <ul className="divide-y divide-border/70">
             {calls.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
+              <li key={c.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-100">{c.business_name}</p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-sm font-medium text-foreground">{c.business_name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
                     {maskNumber(c.from_number)} ·{" "}
                     {c.operator ? (
-                      <span className="text-slate-400">{c.operator}</span>
+                      <span className="text-muted-foreground">{c.operator}</span>
                     ) : (
-                      <span className="text-slate-600">Connecting…</span>
+                      <span className="text-muted-foreground">Connecting…</span>
                     )}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      "rounded-full px-2 py-0.5 text-2xs font-medium",
                       c.connected
-                        ? "bg-emerald-500/15 text-emerald-300"
-                        : "bg-amber-500/15 text-amber-300"
+                        ? "bg-success/15 text-success"
+                        : "bg-warning/15 text-warning"
                     )}
                   >
                     {c.connected ? "Connected" : "Ringing"}
                   </span>
-                  <span className="min-w-[3rem] text-right font-mono text-sm tabular-nums text-slate-200">
+                  <span className="min-w-[3rem] text-right font-mono text-sm tabular-nums text-foreground">
                     {elapsedLabel(c.started_at, now)}
                   </span>
                 </div>

@@ -21,8 +21,11 @@
      made outline/ghost buttons and menus unreadable (teal-on-teal / dark-on-dark). */
   --accent: oklch(0.26 0.022 268);
   --accent-foreground: oklch(0.96 0.01 275);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.95 0 0);
+  /* L .66 clears AA in both roles: 5.51:1 as text-destructive on --card, and
+     5.66:1 under --destructive-foreground. Was .58, which failed as text (3.97:1).
+     Foreground is dark, matching --success / --warning rather than white-on-red. */
+  --destructive: oklch(0.66 0.22 27);
+  --destructive-foreground: oklch(0.16 0.03 27);
   --border: oklch(0.30 0.022 268);
   --input: oklch(0.23 0.022 268);
   --ring: oklch(0.87 0.14 181);
@@ -40,12 +43,26 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 275);
   --sidebar-border: oklch(0.30 0.022 268);
   --sidebar-ring: oklch(0.87 0.14 181);
+  /* Primary-emphasis glow. Every use pairs it with bg-primary or border-primary
+     (selected tier, active CTA, checked switch) — it is not a live-call signal,
+     so do not repurpose it as one without changing all 14 call sites. */
   --electric-glow: 0 0 18px -4px oklch(0.87 0.14 181 / 0.75);
-  --success: oklch(0.72 0.19 155);
+  /* Hue 145, not 155: --primary is hue 181, and 26 degrees was too close to
+     tell brand chrome from an all-clear state in a product about live status. */
+  --success: oklch(0.72 0.19 145);
   --success-foreground: oklch(0.14 0.03 155);
   --warning: oklch(0.80 0.16 85);
   --warning-foreground: oklch(0.18 0.03 85);
   --surface: oklch(0.20 0.022 268);
+  /* Two accents the app was already using as raw palette, now named. Every
+     other stray hue folded into an existing token: cyan/teal duplicated the
+     brand (primary), rose was an error tone (destructive), orange was an
+     at-risk tone (warning). Hues are 27 / 85 / 145 / 181 / 236 / 293 — the
+     tightest gap is 36 degrees, so no two states read alike. */
+  --info: oklch(0.72 0.14 236);
+  --info-foreground: oklch(0.16 0.03 236);
+  --operator: oklch(0.70 0.16 293);
+  --operator-foreground: oklch(0.16 0.03 293);
   /* Mobile app shell — header + bottom dock footprint for fixed overlays */
   --shell-header-h: 3.25rem;
   --shell-dock-h: calc(4rem + env(safe-area-inset-bottom, 0px));
@@ -61,6 +78,18 @@
 @theme inline {
   --font-sans: 'Inter', 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  /* The two steps the named ramp was missing — 96% of the app's arbitrary
+     text-[Npx] values were just these. micro is for uppercase eyebrow labels;
+     2xs is the floor for anything a user actually reads. */
+  --text-micro: 0.625rem;
+  --text-micro--line-height: calc(1 / 0.625);
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: calc(1 / 0.6875);
+  /* Elevation: resting card, raised panel, overlay. Three steps only — depth
+     should say what floats above what, which 43 one-off shadows could not. */
+  --shadow-resting: 0 1px 2px 0 oklch(0.05 0.02 268 / 0.32);
+  --shadow-raised: 0 4px 12px -2px oklch(0.05 0.02 268 / 0.5);
+  --shadow-overlay: 0 16px 40px -8px oklch(0.05 0.02 268 / 0.7);
   /* Between slate-800 and slate-900 — premium card borders */
   --color-slate-850: oklch(0.24 0.018 265);
   /* Shared workspace content cap — every dashboard page (map included) aligns to this */
@@ -106,6 +135,10 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-surface: var(--surface);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-operator: var(--operator);
+  --color-operator-foreground: var(--operator-foreground);
 }
 
 @layer base {
@@ -115,6 +148,22 @@
   }
   * {
     @apply border-border outline-ring/50;
+  }
+  /* Keyboard focus for the ~585 hand-rolled <button>s that never got a
+     focus-visible rule. Anything using the shared Button primitive sets
+     outline-none and keeps its own ring, so this does not double up. */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [role='button']:focus-visible,
+  [role='tab']:focus-visible,
+  [role='menuitem']:focus-visible,
+  [tabindex]:not([tabindex='-1']):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
@@ -170,15 +219,15 @@
 
   /* Scheduler / workspace — glass cards aligned to WS_* tokens */
   .scheduler-glass-card {
-    @apply rounded-xl border border-slate-850 bg-slate-900/40 p-3 text-left backdrop-blur-md transition-all duration-150;
+    @apply rounded-xl border border-border bg-card/40 p-3 text-left backdrop-blur-md transition-all duration-150;
   }
 
   .scheduler-interactive-card {
-    @apply rounded-xl border border-slate-850 bg-slate-900/40 p-3 text-left backdrop-blur-md transition-all duration-150 hover:border-emerald-500/30 hover:bg-slate-900/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.05)];
+    @apply rounded-xl border border-slate-850 bg-slate-900/40 p-3 text-left backdrop-blur-md transition-all duration-150 hover:border-success/30 hover:bg-card/60 hover:shadow-raised;
   }
 
   .scheduler-metadata-label {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+    @apply text-2xs font-semibold uppercase tracking-wider text-muted-foreground;
   }
 
   .scheduler-field-stack {
@@ -186,7 +235,7 @@
   }
 
   .scheduler-input-focus {
-    @apply focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500;
+    @apply focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring;
   }
 
   .sigo-section-header {

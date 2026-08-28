@@ -200,16 +200,16 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const label = !known ? "Text after miss…" : isOn ? "Text after miss on" : "Text after miss off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
-    <p className="mt-1.5 text-[10px] font-medium leading-snug text-amber-200/85">
+    <p className="mt-1.5 text-2xs font-medium leading-snug text-warning/85">
       Rescued revenue: {formatRescueRevenueDollars(rescueTotalCents)} via textback links.
     </p>
   )
 
   const capacityField = showCapacity ? (
-    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
+    <div className="mt-3 rounded-lg border border-border bg-background/40 px-3 py-3">
       <label
         htmlFor="ivr-capacity-threshold"
-        className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px] leading-snug text-zinc-300"
+        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-2xs leading-snug text-foreground"
       >
         <span className="min-w-0 flex-1 font-medium">
           Auto-Bypass to IVR when confirmed daily jobs reach:
@@ -228,10 +228,10 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               e.currentTarget.blur()
             }
           }}
-          className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-1.5 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+          className="h-9 w-14 shrink-0 rounded-md border border-border bg-card px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-success/50 focus:outline-none focus:ring-1 focus:ring-success/40"
         />
       </label>
-      <p className="mt-1.5 text-[10px] text-zinc-500">
+      <p className="mt-1.5 text-2xs text-muted-foreground">
         Today: {confirmedJobsToday == null ? "—" : confirmedJobsToday} confirmed
         {capacitySaving ? " · Saving…" : ""}
       </p>
@@ -239,7 +239,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   ) : null
 
   const switchClass = cn(
-    "shrink-0 data-[state=checked]:bg-emerald-500",
+    "shrink-0 data-[state=checked]:bg-success",
     !known && "duration-0 [&_[data-slot=switch-thumb]]:duration-0"
   )
 
@@ -247,7 +247,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
     return (
       <div
         className={cn(
-          "w-full px-3 py-2.5 text-left",
+          "w-full px-3 py-3 text-left",
           !known ? LINES_MOBILE_CARD : isOn ? LINES_MOBILE_CARD_ACTIVE : LINES_MOBILE_CARD,
           busy && "opacity-60"
         )}
@@ -257,9 +257,9 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             className={cn(
               LINES_MOBILE_ICON_TILE,
               !known
-                ? "bg-zinc-500/15 text-zinc-400"
+                ? "bg-muted-foreground/15 text-muted-foreground"
                 : isOn
-                  ? "bg-emerald-500/15 text-emerald-300"
+                  ? "bg-success/15 text-success"
                   : "bg-primary/12 text-primary"
             )}
           >
@@ -268,7 +268,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           <div className="min-w-0 flex-1">
             <p className={LINES_MOBILE_SECTION_LABEL}>Automation · Missed Call Rescue</p>
             <p className="truncate text-sm font-semibold text-foreground">{label}</p>
-            <p className="text-xs leading-snug text-zinc-500">
+            <p className="text-xs leading-snug text-muted-foreground">
               Text after a true miss (team rang, no answer) — not when callers hang up on Busy without
               pressing 1.
             </p>
@@ -290,11 +290,11 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   return (
     <div
       className={cn(
-        "group relative flex w-full flex-1 flex-col rounded-2xl border p-4 text-left transition-colors sm:p-5",
+        "group relative flex w-full flex-1 flex-col rounded-2xl border p-4 text-left transition-colors sm:p-6",
         !known
           ? "border-border/70 bg-card/80"
           : isOn
-            ? "border-emerald-500/30 bg-emerald-950/10"
+            ? "border-success/30 bg-success/10"
             : "border-border/70 bg-card/80 hover:border-border",
         busy && "opacity-60"
       )}
@@ -303,18 +303,18 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border",
               !known
                 ? "border-border/60 bg-muted/40 text-muted-foreground"
                 : isOn
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                  ? "border-success/30 bg-success/15 text-success"
                   : "border-primary/25 bg-primary/10 text-primary"
             )}
           >
             <MessageSquareText className="h-5 w-5" aria-hidden />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-micro font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Automation · Missed Call Rescue
             </p>
             <p className="mt-0.5 text-base font-semibold text-foreground">{label}</p>
@@ -328,7 +328,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           className={switchClass}
         />
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         Texts “Sorry we missed your call — book here…” after a true miss (rang, no answer). Does not
         text when someone hangs up on Busy without pressing 1. Press 1 uses a different message.
       </p>

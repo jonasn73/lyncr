@@ -22,7 +22,7 @@ export default function PrivacyPage() {
       </header>
       <main className="mx-auto max-w-prose px-4 py-8">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
             <Shield className="h-6 w-6 text-primary" />
           </div>
           <div>

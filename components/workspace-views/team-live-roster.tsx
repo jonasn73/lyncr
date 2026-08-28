@@ -135,9 +135,9 @@ function buildRosterRows(
 }
 
 const PRESENCE_DOT: Record<RosterPresence, string> = {
-  on_job: "bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]",
-  standby: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.65)]",
-  away: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]",
+  on_job: "bg-success shadow-[0_0_8px_rgba(74,222,128,0.7)]",
+  standby: "bg-success shadow-[0_0_8px_rgba(52,211,153,0.65)]",
+  away: "bg-warning shadow-[0_0_8px_rgba(251,191,36,0.65)]",
 }
 
 const PRESENCE_LABEL: Record<RosterPresence, string> = {
@@ -226,57 +226,57 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-xl border border-slate-850/60 bg-slate-900/30",
+        "overflow-hidden rounded-xl border border-border/60 bg-card/30",
         className
       )}
       aria-label="Live technician availability"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-primary" aria-hidden />
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">
             Live roster
           </h2>
         </div>
-        <span className="text-[10px] font-medium tabular-nums text-slate-500">
+        <span className="text-2xs font-medium tabular-nums text-muted-foreground">
           {/* Match the list body's gate below — otherwise this blinks to "…" on every 30s poll. */}
           {loading && rows.length === 0 ? "…" : `${rows.length} tech${rows.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
       {loading && rows.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-500">
+        <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
           Loading roster…
         </div>
       ) : rows.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
           No field techs yet — invite from the directory below.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-900/60">
+        <ul className="divide-y divide-border/60">
           {rows.map((row) => (
             <li
               key={row.id}
               className="flex items-center justify-between gap-3 px-4 py-3"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn("h-2 w-2 shrink-0 rounded-full", PRESENCE_DOT[row.presence])}
                     title={PRESENCE_LABEL[row.presence]}
                     aria-label={PRESENCE_LABEL[row.presence]}
                   />
-                  <span className="truncate text-sm font-semibold text-slate-100">{row.shortName}</span>
+                  <span className="truncate text-sm font-semibold text-foreground">{row.shortName}</span>
                 </div>
                 {row.fieldDistanceLabel ? (
-                  <p className="text-slate-400 text-xs flex items-center gap-1 pl-[18px]">
+                  <p className="text-muted-foreground text-xs flex items-center gap-1 pl-[18px]">
                     <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
                     <span>{row.fieldDistanceLabel}</span>
                   </p>
                 ) : null}
               </div>
-              <span className="shrink-0 text-right text-[11px] font-medium text-slate-400">
+              <span className="shrink-0 text-right text-2xs font-medium text-muted-foreground">
                 {row.detail}
               </span>
             </li>

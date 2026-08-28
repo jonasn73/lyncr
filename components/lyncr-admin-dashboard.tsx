@@ -88,7 +88,7 @@ function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd:
   return (
     <div
       role="alert"
-      className="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-950/70 via-red-950/50 to-amber-950/70 px-4 py-3 text-sm leading-relaxed text-amber-100 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/30"
+      className="rounded-xl border border-warning/50 bg-gradient-to-r from-warning/70 via-destructive/50 to-warning/70 px-4 py-3 text-sm leading-relaxed text-warning shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)] ring-1 ring-warning/30"
     >
       ⚠️ CRITICAL: Platform wholesale routing pool is running low ({display}). Top up via Telnyx immediately to
       prevent call drops.
@@ -99,15 +99,15 @@ function RoutingPoolLowBalanceBanner({ balanceUsd, balanceLabel }: { balanceUsd:
 function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
   const color =
     status === "ok"
-      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+      ? "bg-success shadow-[0_0_8px_rgba(52,211,153,0.8)]"
       : status === "unconfigured"
-        ? "bg-amber-400"
-        : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+        ? "bg-warning"
+        : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.7)]"
   const label = status === "ok" ? "Connected" : status === "unconfigured" ? "Not configured" : "Error"
   return (
     <span className="inline-flex items-center gap-2">
       <span className={cn("h-2.5 w-2.5 rounded-full", color)} aria-hidden />
-      <span className="text-sm text-slate-300">{label}</span>
+      <span className="text-sm text-foreground">{label}</span>
     </span>
   )
 }
@@ -131,32 +131,32 @@ function MoneyStripCell({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
-        "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+        "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-3 text-left transition-colors",
+        "hover:border-operator/40 hover:bg-operator/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
         emphasize
-          ? "border-violet-500/35 bg-violet-950/40"
-          : "border-slate-800 bg-slate-900/60"
+          ? "border-operator/35 bg-operator/40"
+          : "border-border bg-card/60"
       )}
     >
-      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <span className="truncate text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="truncate text-lg font-bold tabular-nums tracking-tight text-slate-50 sm:text-xl">
+      <span className="truncate text-lg font-bold tabular-nums tracking-tight text-foreground sm:text-xl">
         {value}
       </span>
-      {hint ? <span className="truncate text-[11px] text-slate-500">{hint}</span> : null}
+      {hint ? <span className="truncate text-2xs text-muted-foreground">{hint}</span> : null}
     </button>
   )
 }
 
 function MoneyDetailRow({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-2.5 last:border-0">
+    <div className="flex items-start justify-between gap-3 border-b border-border/80 py-3 last:border-0">
       <div className="min-w-0">
-        <p className="text-sm font-medium text-slate-200">{label}</p>
-        {note ? <p className="mt-0.5 text-xs leading-snug text-slate-500">{note}</p> : null}
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {note ? <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{note}</p> : null}
       </div>
-      <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-50">{value}</p>
+      <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{value}</p>
     </div>
   )
 }
@@ -168,17 +168,17 @@ function AccountStatusBadge({ status }: { status: string }) {
       variant="outline"
       className={cn(
         "border-0 capitalize",
-        normalized === "active" && "bg-emerald-500/15 text-emerald-300",
-        normalized === "pending" && "bg-amber-500/20 text-amber-200",
-        normalized === "denied" && "bg-zinc-500/20 text-zinc-300",
-        normalized === "suspended" && "bg-red-500/15 text-red-300",
-        normalized === "flagged" && "bg-amber-500/15 text-amber-300",
+        normalized === "active" && "bg-success/15 text-success",
+        normalized === "pending" && "bg-warning/20 text-warning",
+        normalized === "denied" && "bg-muted-foreground/20 text-foreground",
+        normalized === "suspended" && "bg-destructive/15 text-destructive",
+        normalized === "flagged" && "bg-warning/15 text-warning",
         normalized !== "active" &&
           normalized !== "suspended" &&
           normalized !== "flagged" &&
           normalized !== "pending" &&
           normalized !== "denied" &&
-          "bg-slate-700/50 text-slate-400"
+          "bg-accent/50 text-muted-foreground"
       )}
     >
       {accountStatusLabel(status)}
@@ -197,9 +197,9 @@ function TierBadge({ tier }: { tier: string }) {
       variant="outline"
       className={cn(
         "border-0 capitalize",
-        isPaid && "bg-emerald-900/50 text-emerald-300",
-        isTrial && "bg-sky-950/60 text-sky-300",
-        !isPaid && !isTrial && "bg-slate-700/40 text-slate-300"
+        isPaid && "bg-success/50 text-success",
+        isTrial && "bg-info/60 text-info",
+        !isPaid && !isTrial && "bg-accent/40 text-foreground"
       )}
     >
       {label}
@@ -214,7 +214,7 @@ function SubscriptionStatusBadge({ active }: { active: boolean }) {
       variant="outline"
       className={cn(
         "border-0",
-        active ? "bg-emerald-500/20 text-emerald-300" : "bg-red-950/50 text-red-400"
+        active ? "bg-success/20 text-success" : "bg-destructive/50 text-destructive"
       )}
     >
       {active ? "Active" : "Inactive"}
@@ -326,7 +326,7 @@ function UserRowActions({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={`Actions for ${row.email}`}
           >
             <MoreVertical className="h-4 w-4" aria-hidden />
@@ -334,10 +334,10 @@ function UserRowActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 border-slate-700 bg-slate-900 text-slate-100"
+          className="w-56 border-border bg-card text-foreground"
         >
           <DropdownMenuItem
-            className="focus:bg-slate-800 focus:text-slate-50"
+            className="focus:bg-muted focus:text-foreground"
             disabled={impersonatePending}
             onSelect={(e) => {
               e.preventDefault()
@@ -354,7 +354,7 @@ function UserRowActions({
             )}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="focus:bg-slate-800 focus:text-slate-50"
+            className="focus:bg-muted focus:text-foreground"
             onSelect={(e) => {
               e.preventDefault()
               setMenuOpen(false)
@@ -364,7 +364,7 @@ function UserRowActions({
             Adjust credit balance
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="focus:bg-slate-800 focus:text-slate-50"
+            className="focus:bg-muted focus:text-foreground"
             onSelect={() => {
               setMenuOpen(false)
               onManageUser()
@@ -375,7 +375,7 @@ function UserRowActions({
           {row.account_status === "pending" ? (
             <>
               <DropdownMenuItem
-                className="focus:bg-emerald-950/40 focus:text-emerald-200"
+                className="focus:bg-success/40 focus:text-success"
                 disabled={toggleBusy}
                 onSelect={(e) => {
                   e.preventDefault()
@@ -387,7 +387,7 @@ function UserRowActions({
               <DropdownMenuItem
                 variant="destructive"
                 disabled={toggleBusy}
-                className="focus:bg-red-950/40 focus:text-red-300"
+                className="focus:bg-destructive/40 focus:text-destructive"
                 onSelect={(e) => {
                   e.preventDefault()
                   void handleStatusChange("denied")
@@ -397,11 +397,11 @@ function UserRowActions({
               </DropdownMenuItem>
             </>
           ) : null}
-          <DropdownMenuSeparator className="bg-slate-700" />
+          <DropdownMenuSeparator className="bg-accent" />
           <DropdownMenuItem
             variant="destructive"
             disabled={toggleBusy}
-            className="focus:bg-red-950/40 focus:text-red-300"
+            className="focus:bg-destructive/40 focus:text-destructive"
             onSelect={(e) => {
               e.preventDefault()
               void handleSubscriptionToggle(!row.has_active_subscription)
@@ -417,16 +417,16 @@ function UserRowActions({
       </DropdownMenu>
 
       <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
-        <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-sm">
+        <DialogContent className="border-border bg-card text-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Adjust credit balance</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               Apply a positive or negative USD adjustment for {row.email}. Current balance:{" "}
               {formatUsd(row.carrier_credit)}.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <label className="mb-2 block text-xs font-medium text-slate-400" htmlFor={`credit-${row.user_id}`}>
+            <label className="mb-2 block text-xs font-medium text-muted-foreground" htmlFor={`credit-${row.user_id}`}>
               Amount (± USD)
             </label>
             <Input
@@ -436,7 +436,7 @@ function UserRowActions({
               placeholder="e.g. 10 or -5"
               value={creditAmount}
               onChange={(e) => setCreditAmount(e.target.value)}
-              className="border-slate-700 bg-slate-950/80 text-slate-100"
+              className="border-border bg-background/80 text-foreground"
               disabled={creditBusy}
             />
           </div>
@@ -444,7 +444,7 @@ function UserRowActions({
             <Button
               type="button"
               variant="outline"
-              className="border-slate-600 text-slate-200 hover:bg-slate-800"
+              className="border-border text-foreground hover:bg-muted"
               disabled={creditBusy}
               onClick={() => setCreditDialogOpen(false)}
             >
@@ -452,7 +452,7 @@ function UserRowActions({
             </Button>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={creditBusy}
               onClick={() => void handleAdjustCreditClick()}
             >
@@ -574,17 +574,17 @@ export function LyncrAdminDashboard({
       : "Name, status, plan. Tap a row to manage."
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-5 sm:p-6">
+    <div className="mx-auto max-w-7xl space-y-4 p-3 sm:space-y-6 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
-          <p className="mt-0.5 hidden text-sm text-slate-500 md:block">{pageSubtitle}</p>
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">{pageTitle}</h1>
+          <p className="mt-0.5 hidden text-sm text-muted-foreground md:block">{pageSubtitle}</p>
         </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="shrink-0 border-slate-700 text-slate-200"
+          className="shrink-0 border-border text-foreground"
           disabled={refreshing}
           onClick={() => void fetchLatestAdminStats(true)}
           aria-label="Refresh"
@@ -601,8 +601,8 @@ export function LyncrAdminDashboard({
           {/* Compact money strip — tap a cell for the full explanation sheet */}
           <section className="space-y-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">At a glance</h2>
-              <p className="hidden text-xs text-slate-500 md:block">
+              <h2 className="text-sm font-semibold text-foreground">At a glance</h2>
+              <p className="hidden text-xs text-muted-foreground md:block">
                 Tap a number for the breakdown.
               </p>
             </div>
@@ -634,46 +634,46 @@ export function LyncrAdminDashboard({
           <section className="space-y-3">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-slate-100">Find a shop</h2>
-                <p className="hidden text-xs text-slate-500 md:block">Tap a name to open Manage.</p>
+                <h2 className="text-sm font-semibold text-foreground">Find a shop</h2>
+                <p className="hidden text-xs text-muted-foreground md:block">Tap a name to open Manage.</p>
               </div>
               <Link
                 href="/admin/businesses"
-                className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                className="shrink-0 rounded-lg bg-operator px-3 py-2 text-sm font-semibold text-operator-foreground hover:bg-operator"
               >
                 All businesses
               </Link>
             </div>
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
                 placeholder="Shop name or email…"
                 value={homeShopQuery}
                 onChange={(e) => setHomeShopQuery(e.target.value)}
-                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+                className="border-border bg-background/60 pl-9 text-foreground placeholder:text-muted-foreground"
               />
             </div>
             {loading && users.length === 0 ? (
-              <div className="h-48 rounded-xl border border-slate-800 bg-slate-950/40" aria-hidden />
+              <div className="h-48 rounded-xl border border-border bg-background/40" aria-hidden />
             ) : homeShopMatches.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-5 text-center text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
                 No shops match.
               </p>
             ) : (
-              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+              <ul className="divide-y divide-border rounded-xl border border-border">
                 {homeShopMatches.map((row) => (
                   <li key={row.user_id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40"
                       onClick={() => onManageUser(row)}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-slate-50">
+                        <span className="block truncate font-medium text-foreground">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                        <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
                         <AccountStatusBadge status={row.account_status} />
@@ -689,10 +689,10 @@ export function LyncrAdminDashboard({
           <Sheet open={moneySheet != null} onOpenChange={(open) => !open && setMoneySheet(null)}>
             <SheetContent
               side="right"
-              className="w-full border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md"
+              className="w-full border-border bg-background text-foreground sm:max-w-md"
             >
               <SheetHeader>
-                <SheetTitle className="text-slate-50">
+                <SheetTitle className="text-foreground">
                   {moneySheet === "telnyx"
                     ? "Telnyx phone balance"
                     : moneySheet === "saas"
@@ -709,7 +709,7 @@ export function LyncrAdminDashboard({
                                 ? "Paying businesses"
                                 : "Platform money"}
                 </SheetTitle>
-                <SheetDescription className="text-slate-400">
+                <SheetDescription className="text-muted-foreground">
                   {moneySheet === "telnyx"
                     ? "Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers."
                     : moneySheet === "saas"
@@ -851,17 +851,17 @@ export function LyncrAdminDashboard({
           </Sheet>
 
           {metrics ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
-            <span className="font-medium text-slate-300">System</span>
-            <span className="inline-flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/80 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">System</span>
+            <span className="inline-flex items-center gap-2">
               <Database className="h-3.5 w-3.5" aria-hidden /> Neon
               <HealthDot status={metrics.health.neon} />
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
               <HealthDot status={metrics.health.telnyx} />
             </span>
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Sentry
               <HealthDot status={metrics.health.sentry} />
             </span>
@@ -873,24 +873,24 @@ export function LyncrAdminDashboard({
           {pendingOwners.length > 0 ? (
           <section className="space-y-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">Pending shops</h2>
-              <p className="hidden text-xs text-slate-500 md:block">
+              <h2 className="text-sm font-semibold text-foreground">Pending shops</h2>
+              <p className="hidden text-xs text-muted-foreground md:block">
                 New signups waiting for Approve or Deny.
               </p>
             </div>
-              <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
+              <ul className="divide-y divide-border rounded-xl border border-border">
                 {pendingOwners.map((row) => (
                   <li key={row.user_id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-slate-800/40"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40"
                       onClick={() => onManageUser(row)}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-slate-50">
+                        <span className="block truncate font-medium text-foreground">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                        <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
                       </span>
                       <AccountStatusBadge status={row.account_status} />
                     </button>
@@ -903,21 +903,21 @@ export function LyncrAdminDashboard({
       ) : null}
 
       {view === "businesses" ? (
-          <Card className="border-slate-800 bg-slate-900/40">
-            <CardHeader className="space-y-3 border-b border-slate-800/80 pb-4">
+          <Card className="border-border bg-card/40">
+            <CardHeader className="space-y-3 border-b border-border/80 pb-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative max-w-md flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
                 placeholder="Search shop name, email, or phone…"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+                className="border-border bg-background/60 pl-9 text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[160px]">
+              <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[160px]">
                 <SelectValue placeholder="Plan" />
               </SelectTrigger>
               <SelectContent>
@@ -929,7 +929,7 @@ export function LyncrAdminDashboard({
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-full border-slate-700 bg-slate-950 text-slate-100 sm:w-[160px]">
+              <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[160px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -943,31 +943,31 @@ export function LyncrAdminDashboard({
             </Select>
           </div>
           <Tabs value={roleTab} onValueChange={setRoleTab}>
-            <TabsList className="h-auto w-full flex-wrap justify-start bg-slate-800/60 sm:w-auto">
+            <TabsList className="h-auto w-full flex-wrap justify-start bg-muted/60 sm:w-auto">
               <TabsTrigger
                 value="all"
-                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                className="text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground"
               >
                 All
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-accent/70 px-2 text-2xs tabular-nums text-foreground">
                   {roleCounts.all}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="OWNER"
-                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                className="text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground"
               >
                 Owners
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-accent/70 px-2 text-2xs tabular-nums text-foreground">
                   {roleCounts.owner}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="RECEPTIONIST"
-                className="text-slate-300 data-[state=active]:bg-slate-950 data-[state=active]:text-slate-50"
+                className="text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground"
               >
                 Receptionists
-                <span className="ml-1.5 rounded bg-slate-700/70 px-1.5 text-[11px] tabular-nums text-slate-300">
+                <span className="ml-1.5 rounded bg-accent/70 px-2 text-2xs tabular-nums text-foreground">
                   {roleCounts.receptionist}
                 </span>
               </TabsTrigger>
@@ -978,19 +978,19 @@ export function LyncrAdminDashboard({
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="sticky left-0 z-10 min-w-[11rem] bg-slate-900 text-slate-400">
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="sticky left-0 z-10 min-w-[11rem] bg-card text-muted-foreground">
                     Business
                   </TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Plan</TableHead>
-                  <TableHead className="w-[4.5rem] text-slate-400">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Plan</TableHead>
+                  <TableHead className="w-[4.5rem] text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
-                  <TableRow className="border-slate-800">
-                    <TableCell colSpan={4} className="py-10 text-center text-slate-500">
+                  <TableRow className="border-border">
+                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
                       No users match your filter.
                     </TableCell>
                   </TableRow>
@@ -1000,7 +1000,7 @@ export function LyncrAdminDashboard({
                     return (
                     <TableRow
                       key={row.user_id}
-                      className="cursor-pointer border-slate-800 transition-colors hover:bg-slate-800/40"
+                      className="cursor-pointer border-border transition-colors hover:bg-muted/40"
                       onClick={
                         isOwner
                           ? (e) => {
@@ -1012,19 +1012,19 @@ export function LyncrAdminDashboard({
                       }
                       title={isOwner ? "Open tenant management" : undefined}
                     >
-                      <TableCell className="sticky left-0 z-10 min-w-[11rem] bg-slate-900/95">
+                      <TableCell className="sticky left-0 z-10 min-w-[11rem] bg-card/95">
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-50" title={row.business_name || row.email}>
+                          <p className="truncate font-medium text-foreground" title={row.business_name || row.email}>
                             {row.business_name.trim() || "—"}
                           </p>
-                          <p className="truncate text-[11px] text-slate-500">{row.email}</p>
+                          <p className="truncate text-2xs text-muted-foreground">{row.email}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <AccountStatusBadge status={row.account_status} />
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <SubscriptionStatusBadge active={row.has_active_subscription} />
                           <TierBadge tier={row.subscription_tier} />
                         </div>

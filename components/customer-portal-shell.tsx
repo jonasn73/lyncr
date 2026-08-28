@@ -50,7 +50,7 @@ export function CustomerPortalShell({
     <main
       className={cn(
         // Match Lyncr app chrome: dark slate + teal accents (not gold-only orphan).
-        "min-h-dvh bg-zinc-950 text-zinc-100",
+        "min-h-dvh bg-background text-foreground",
         centered && "flex flex-col",
         className
       )}
@@ -67,14 +67,14 @@ export function CustomerPortalShell({
         <header className="text-center">
           <div
             className={cn(
-              "inline-flex items-center gap-2 text-teal-300/90",
+              "inline-flex items-center gap-2 text-primary/90",
               compact && "scale-90 origin-center"
             )}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 ring-1 ring-teal-500/35">
-              <BrandMark className="h-4 w-4 text-teal-300" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/35">
+              <BrandMark className="h-4 w-4 text-primary" />
             </span>
-            <BrandWordmark size="sm" variant="onDark" className="text-teal-50/90" />
+            <BrandWordmark size="sm" variant="onDark" className="text-primary/90" />
           </div>
           <h1
             className={cn(
@@ -89,7 +89,7 @@ export function CustomerPortalShell({
           {subtitle ? (
             <p
               className={cn(
-                "text-sm text-zinc-400",
+                "text-sm text-muted-foreground",
                 compact ? "mt-1 hidden sm:block" : "mt-2"
               )}
             >
@@ -99,7 +99,7 @@ export function CustomerPortalShell({
 
           <ol
             className={cn(
-              "flex items-center justify-center gap-1.5",
+              "flex items-center justify-center gap-2",
               compact ? "mt-2.5 sm:mt-4" : "mt-5"
             )}
             aria-label="Progress"
@@ -108,22 +108,22 @@ export function CustomerPortalShell({
               const active = i === currentIndex
               const done = i < currentIndex
               return (
-                <li key={step} className="flex items-center gap-1.5">
+                <li key={step} className="flex items-center gap-2">
                   {i > 0 ? (
                     <span
                       className={cn(
                         "mx-0.5 h-px w-4 sm:w-6",
-                        done || active ? "bg-teal-500/60" : "bg-zinc-700"
+                        done || active ? "bg-primary/60" : "bg-accent"
                       )}
                       aria-hidden
                     />
                   ) : null}
                   <span
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
-                      active && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/40",
-                      done && !active && "text-emerald-300/90",
-                      !active && !done && "text-zinc-500"
+                      "rounded-full px-3 py-1 text-2xs font-semibold uppercase tracking-wide",
+                      active && "bg-primary/20 text-primary ring-1 ring-primary/40",
+                      done && !active && "text-success/90",
+                      !active && !done && "text-muted-foreground"
                     )}
                     aria-current={active ? "step" : undefined}
                   >

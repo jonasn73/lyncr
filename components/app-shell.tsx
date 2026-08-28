@@ -58,7 +58,7 @@ const AppShellHeader = memo(function AppShellHeader({
       className={cn(
         // Above map body / Leaflet chrome; notification popover portals at z-[9999].
         // Mobile + business name: two columns (name left, actions right). sm+: logo | name | actions.
-        "sticky top-0 z-50 grid shrink-0 items-center gap-2 border-b px-2.5 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:gap-3 sm:px-5 sm:py-3.5",
+        "sticky top-0 z-50 grid shrink-0 items-center gap-2 border-b px-3 py-3 pt-[max(0.625rem,env(safe-area-inset-top,0px))] sm:gap-3 sm:px-6 sm:py-4",
         headerCenter
           ? "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]"
           : "grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr]",
@@ -78,7 +78,7 @@ const AppShellHeader = memo(function AppShellHeader({
           className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to home"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" className="hidden sm:inline-flex" />
@@ -90,7 +90,7 @@ const AppShellHeader = memo(function AppShellHeader({
           className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to routing"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" className="hidden sm:inline-flex" />
@@ -118,7 +118,7 @@ const AppShellHeader = memo(function AppShellHeader({
             variant="outline"
             size="sm"
             asChild
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
           >
             <Link href={DASHBOARD_PAGE_HREF.messages} aria-label="Messages">
               <MessageSquare className="h-4 w-4" aria-hidden />
@@ -130,7 +130,7 @@ const AppShellHeader = memo(function AppShellHeader({
             variant="outline"
             size="sm"
             onClick={() => onNavigate("messages")}
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
             aria-label="Messages"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
@@ -180,22 +180,22 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   }, [])
 
   return (
-    <div className="flex items-center gap-1.5" aria-busy="true" aria-label="Loading account">
+    <div className="flex items-center gap-2" aria-busy="true" aria-label="Loading account">
       <Button
         type="button"
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 shadow-sm"
+        className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 shadow-resting"
       >
-        <CreditCard className="h-4 w-4 shrink-0 text-emerald-300/70" aria-hidden />
+        <CreditCard className="h-4 w-4 shrink-0 text-success/70" aria-hidden />
         <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none" aria-hidden>
           {cachedChip ? (
             <>
-              <span className="text-xs font-bold tabular-nums text-emerald-200">
+              <span className="text-xs font-bold tabular-nums text-success">
                 {cachedChip.amount}
               </span>
-              <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-emerald-200/70">
+              <span className="mt-0.5 text-micro font-semibold uppercase tracking-wide text-success/70">
                 {cachedChip.label}
               </span>
             </>
@@ -209,7 +209,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-1.5 border-border/80 bg-card/80 px-1.5 shadow-sm sm:px-2"
+        className="h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 shadow-resting"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />

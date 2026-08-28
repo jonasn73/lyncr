@@ -27,7 +27,7 @@ export function IpUsageRestrictions({
       {!compact && (
         <div className="flex items-center gap-3">
           {/* Icon chip in the brand's violet/indigo signal color. */}
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
             <Scale className="h-6 w-6 text-primary" aria-hidden />
           </div>
           <div>
@@ -121,7 +121,7 @@ export function IpUsageRestrictions({
       </div>
 
       {/* Closing acknowledgement line — useful when embedded above a signup "I agree" checkbox. */}
-      <p className={compact ? "text-[11px] text-muted-foreground" : "text-xs text-muted-foreground"}>
+      <p className={compact ? "text-2xs text-muted-foreground" : "text-xs text-muted-foreground"}>
         By creating an account or accessing the {SITE_NAME} dashboard, you acknowledge that you have
         read, understood, and agree to be bound by these Intellectual Property &amp; Usage Restrictions.
       </p>

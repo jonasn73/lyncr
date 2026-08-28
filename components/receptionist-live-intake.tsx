@@ -129,11 +129,11 @@ function buildSteps(fields: FieldServiceFieldDef[]): IntakeStep[] {
 }
 
 const TONE_CLASS: Record<string, string> = {
-  emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
-  amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
-  neutral: "border-zinc-600/50 bg-zinc-500/10 text-zinc-300",
+  emerald: "border-success/40 bg-success/10 text-success",
+  amber: "border-warning/40 bg-warning/10 text-warning",
+  rose: "border-destructive/40 bg-destructive/10 text-destructive",
+  sky: "border-info/40 bg-info/10 text-info",
+  neutral: "border-border/50 bg-muted-foreground/10 text-foreground",
 }
 
 function usdFromCents(cents: number): string {
@@ -217,9 +217,9 @@ function CallerContext({
   )
 
   return (
-    <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5">
+    <div className="border-b border-success/20 bg-success/40 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-200">
+        <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-success">
           Returning customer
         </span>
         {lookup.display_name ? (
@@ -227,7 +227,7 @@ function CallerContext({
         ) : null}
         {lookup.job_status_label ? (
           <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+            className={`rounded-full border px-2 py-0.5 text-micro font-medium ${
               TONE_CLASS[lookup.job_status_tone ?? "neutral"] ?? TONE_CLASS.neutral
             }`}
           >
@@ -236,11 +236,11 @@ function CallerContext({
         ) : null}
       </div>
       {chips.length > 0 ? (
-        <p className="mt-1 text-[11px] text-zinc-400">{chips.join(" · ")}</p>
+        <p className="mt-1 text-2xs text-muted-foreground">{chips.join(" · ")}</p>
       ) : null}
       {lastJobBits.length > 0 ? (
-        <p className="mt-1 text-[11px] text-zinc-400">
-          <span className="text-zinc-500">Last visit:</span> {lastJobBits.join(" · ")}
+        <p className="mt-1 text-2xs text-muted-foreground">
+          <span className="text-muted-foreground">Last visit:</span> {lastJobBits.join(" · ")}
         </p>
       ) : null}
       {hasLastVehicle && !vehicleAlreadySet ? (
@@ -254,14 +254,14 @@ function CallerContext({
               jobType: lookup.last_job_type,
             })
           }
-          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-success/40 bg-success/10 px-2 py-1 text-2xs font-semibold text-success hover:bg-success/20"
         >
           <Check className="h-3 w-3" aria-hidden />
           Same vehicle as last time — fill it in
         </button>
       ) : null}
       {lookup.notes ? (
-        <p className="mt-1 truncate text-[11px] italic text-zinc-500" title={lookup.notes}>
+        <p className="mt-1 truncate text-2xs italic text-muted-foreground" title={lookup.notes}>
           “{lookup.notes}”
         </p>
       ) : null}
@@ -476,7 +476,7 @@ export function ReceptionistLiveIntake({
     return (
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-[7020] border-t border-emerald-500/40 bg-emerald-950 px-4 py-2.5 shadow-2xl",
+          "fixed inset-x-0 bottom-0 z-[7020] border-t border-success/40 bg-success px-4 py-3 shadow-overlay",
           // The mobile bottom tab nav (ReceptionistPortalChrome) is also fixed to the
           // viewport edge below `sm`, so a flush bar here sat on top of it and blocked
           // Home / Calls / Earnings while a call was minimized. Float above the nav
@@ -486,13 +486,13 @@ export function ReceptionistLiveIntake({
         )}
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/20 text-success">
               <PhoneCall className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{callerLabel}</p>
-              <p className="text-[11px] text-emerald-200/70">
+              <p className="text-2xs text-success/70">
                 {session.answeredAt ? "Intake in progress · " : "Ringing · "}
                 <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
               </p>
@@ -501,7 +501,7 @@ export function ReceptionistLiveIntake({
           <button
             type="button"
             onClick={() => setMinimized(false)}
-            className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
+            className="shrink-0 rounded-lg bg-success px-3 py-2 text-xs font-semibold text-success transition hover:bg-success"
           >
             Resume intake
           </button>
@@ -511,30 +511,30 @@ export function ReceptionistLiveIntake({
   }
 
   return (
-    <WorkspacePanel className="overflow-hidden border-emerald-500/40 bg-emerald-950/10 p-0">
+    <WorkspacePanel className="overflow-hidden border-success/40 bg-success/10 p-0">
       {/* Live call header — sticky so Minimize and Close stay reachable mid-scroll. */}
       <div
         className={cn(
-          "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/30 bg-emerald-950/95 backdrop-blur",
-          denseStep ? "px-4 py-2.5" : "px-4 py-4"
+          "sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-success/30 bg-success/95 backdrop-blur",
+          denseStep ? "px-4 py-3" : "px-4 py-4"
         )}
       >
         <div className="flex items-center gap-3">
           <span
             className={cn(
-              "relative flex shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300",
-              denseStep ? "h-8 w-8" : "h-10 w-10"
+              "relative flex shrink-0 items-center justify-center rounded-full bg-success/20 text-success",
+              denseStep ? "h-9 w-9" : "h-11 w-11"
             )}
           >
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/30" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/30" />
             <PhoneCall className={cn("relative", denseStep ? "h-4 w-4" : "h-5 w-5")} aria-hidden />
           </span>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/80">Call notepad / lead dispatcher</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-success/80">Call notepad / lead dispatcher</p>
             <p className="text-lg font-semibold text-foreground">
               {callerName || (callerNumber ? formatPhoneDisplay(callerNumber) : "Incoming caller")}
             </p>
-            <p className="text-xs text-emerald-200/70">
+            <p className="text-xs text-success/70">
               {callerNumber ? formatPhoneDisplay(callerNumber) : "Unknown number"}
               {session.businessName ? ` · ${session.businessName}` : ""}
             </p>
@@ -546,16 +546,16 @@ export function ReceptionistLiveIntake({
           <div
             className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${
               session.answeredAt
-                ? "bg-emerald-500/15 text-emerald-200"
-                : "bg-amber-500/15 text-amber-200"
+                ? "bg-success/15 text-success"
+                : "bg-warning/15 text-warning"
             }`}
           >
             <span
               className={`h-2 w-2 animate-pulse rounded-full ${
-                session.answeredAt ? "bg-emerald-400" : "bg-amber-400"
+                session.answeredAt ? "bg-success" : "bg-warning"
               }`}
             />
-            {session.answeredAt ? null : <span className="text-[11px] uppercase tracking-wide">Ringing</span>}
+            {session.answeredAt ? null : <span className="text-2xs uppercase tracking-wide">Ringing</span>}
             <ElapsedTimer startedAt={session.answeredAt || session.startedAt} />
           </div>
           <button
@@ -564,8 +564,8 @@ export function ReceptionistLiveIntake({
             aria-label="Minimize intake"
             title="Minimize — keeps everything you have typed"
             className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-emerald-500/15",
-              denseStep ? "h-7 w-7" : "h-8 w-8"
+              "inline-flex shrink-0 items-center justify-center rounded-lg border border-success/30 text-success transition hover:bg-success/15",
+              denseStep ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <Minus className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
@@ -576,8 +576,8 @@ export function ReceptionistLiveIntake({
             disabled={saving}
             aria-label="Close intake"
             className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 text-emerald-200 transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50",
-              denseStep ? "h-7 w-7" : "h-8 w-8"
+              "inline-flex shrink-0 items-center justify-center rounded-lg border border-success/30 text-success transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50",
+              denseStep ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <X className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
@@ -597,11 +597,11 @@ export function ReceptionistLiveIntake({
       />
 
       {!quickMode ? (
-        <div className="border-b border-emerald-500/20 px-4 py-2">
+        <div className="border-b border-success/20 px-4 py-2">
           <button
             type="button"
             onClick={() => setQuickMode(true)}
-            className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+            className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             Not a booking? Log a quick note instead
           </button>
@@ -609,7 +609,7 @@ export function ReceptionistLiveIntake({
       ) : null}
 
       {quickMode ? (
-        <div className="px-4 py-5">
+        <div className="px-4 py-6">
           <ReceptionistSimpleIntake
             callLogId={session.callLogId}
             callerNumber={callerNumber ?? ""}
@@ -623,7 +623,7 @@ export function ReceptionistLiveIntake({
         <>
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
-        <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-4 py-2">
+        <div className="flex items-center gap-2 border-b border-success/20 px-4 py-2">
           {steps.map((s, i) => (
             <button
               key={s.id}
@@ -633,12 +633,12 @@ export function ReceptionistLiveIntake({
                 setStepIndex(i)
               }}
               aria-current={i === stepIndex}
-              className={`flex-1 rounded-full py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+              className={`flex-1 rounded-full py-1 text-micro font-semibold uppercase tracking-wide transition ${
                 i === stepIndex
-                  ? "bg-emerald-500/25 text-emerald-100"
+                  ? "bg-success/25 text-success"
                   : i < stepIndex
-                    ? "text-emerald-300/70 hover:bg-emerald-500/10"
-                    : "text-zinc-600 hover:bg-emerald-500/5"
+                    ? "text-success/70 hover:bg-success/10"
+                    : "text-muted-foreground hover:bg-success/5"
               }`}
             >
               {s.label}
@@ -648,11 +648,11 @@ export function ReceptionistLiveIntake({
       ) : null}
 
       {/* Intake form */}
-      <div className="px-4 py-5">
+      <div className="px-4 py-6">
         <h2 className="text-sm font-semibold text-foreground">
           {step ? step.label : config.title}
         </h2>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           {steps.length > 1
             ? `Step ${stepIndex + 1} of ${steps.length} — ask as you go, it saves as you type.`
             : "Fill this in while you talk — it texts the owner the moment you save."}
@@ -715,7 +715,7 @@ export function ReceptionistLiveIntake({
           </p>
         ) : null}
         {savedMsg ? (
-          <p className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+          <p className="mt-4 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
             {savedMsg}
           </p>
         ) : null}
@@ -724,12 +724,12 @@ export function ReceptionistLiveIntake({
           {/* How the call ended is the last question, not the first — asking it beside
               the vehicle year invites logging an outcome before there is one. */}
           <div className={`flex flex-wrap items-center gap-2 ${isLastStep ? "" : "hidden"}`}>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Disposition:</span>
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Disposition:</span>
             <button
               type="button"
               onClick={() => void logJob("BOOKED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-sm font-semibold text-success transition hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="h-4 w-4" aria-hidden />
               Booked
@@ -738,7 +738,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("PENDING_TIME")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-info/40 bg-info/10 px-3 py-2 text-sm font-semibold text-info transition hover:bg-info/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Clock className="h-4 w-4" aria-hidden />
               Pending time
@@ -747,7 +747,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("PRICE_REJECTED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-4 w-4" aria-hidden />
               Price rejected
@@ -756,7 +756,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("FAILED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-muted-foreground/10 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted-foreground/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <AlertTriangle className="h-4 w-4" aria-hidden />
               Failed
@@ -776,7 +776,7 @@ export function ReceptionistLiveIntake({
                   })
                 }
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 Back
@@ -787,7 +787,7 @@ export function ReceptionistLiveIntake({
                 type="button"
                 onClick={submit}
                 disabled={saving || missingRequired || Boolean(savedMsg)}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success transition hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
                 Save &amp; text owner
@@ -797,7 +797,7 @@ export function ReceptionistLiveIntake({
                 type="button"
                 onClick={() => setStepIndex((i) => Math.min(steps.length - 1, i + 1))}
                 disabled={saving || stepIncomplete}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success transition hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
                 <ChevronRight className="h-4 w-4" aria-hidden />

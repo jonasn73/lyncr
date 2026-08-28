@@ -18,9 +18,9 @@ export default async function TechDashboardPage() {
   if (!ctx) {
     return (
       <main className="flex min-h-[100dvh] flex-col items-center justify-center px-6 text-center">
-        <div className="max-w-sm rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
-          <h1 className="text-lg font-semibold text-amber-100">Account not linked yet</h1>
-          <p className="mt-2 text-sm text-amber-100/80">
+        <div className="max-w-sm rounded-2xl border border-warning/30 bg-warning/10 p-6">
+          <h1 className="text-lg font-semibold text-warning">Account not linked yet</h1>
+          <p className="mt-2 text-sm text-warning/80">
             Your Lyncr login is ready, but your dispatcher hasn&apos;t connected you to a team yet.
             Ask them to finish adding you as a field technician.
           </p>

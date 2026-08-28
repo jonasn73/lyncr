@@ -142,7 +142,7 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground",
+          "flex items-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-2xs text-muted-foreground",
           className
         )}
       >
@@ -154,17 +154,17 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <div className="relative overflow-hidden rounded-lg border border-border/60 bg-zinc-950">
+      <div className="relative overflow-hidden rounded-lg border border-border/60 bg-background">
         <div ref={containerRef} className="h-[11rem] w-full" aria-label="Travel map preview" />
         {!mapReady ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80">
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
           </div>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Navigation className="h-3.5 w-3.5 shrink-0 text-cyan-400" aria-hidden />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-2xs">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Navigation className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           {canDrawRoute && distanceMiles != null ? (
             <span>
               About{" "}
@@ -186,18 +186,18 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
           ) : locationStatus === "requesting" ? (
             <span>Finding your location…</span>
           ) : locationStatus === "denied" || locationStatus === "unsupported" ? (
-            <span className="text-amber-200/90">{locationError ?? "Enable location to see distance from you."}</span>
+            <span className="text-warning/90">{locationError ?? "Enable location to see distance from you."}</span>
           ) : (
             <span>Waiting for your location…</span>
           )}
         </div>
         {canDrawRoute && distanceMiles != null ? (
-          <span className="flex items-center gap-1.5">
-            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-semibold tabular-nums text-cyan-200">
+          <span className="flex items-center gap-2">
+            <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 font-semibold tabular-nums text-primary">
               {formatDistanceMiles(distanceMiles)}
             </span>
             {travelMinutes != null ? (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-semibold tabular-nums text-emerald-200">
+              <span className="rounded-full border border-success/25 bg-success/10 px-2 py-0.5 font-semibold tabular-nums text-success">
                 {formatTravelMinutes(travelMinutes)}
               </span>
             ) : null}

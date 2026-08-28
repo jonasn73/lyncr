@@ -59,21 +59,21 @@ export function ReceptionistPortalChrome({
 
       {/* Desk-style header: console label + name + company */}
       <header className="border-b border-border/50 bg-card/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <Phone className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">
                 Receptionist console
               </p>
               <p className="truncate text-sm font-semibold leading-tight text-foreground">
                 {userName}
                 {businessName ? (
-                  <span className="font-normal text-zinc-500">
+                  <span className="font-normal text-muted-foreground">
                     {" · "}
-                    <span className="text-zinc-300">{businessName}</span>
+                    <span className="text-foreground">{businessName}</span>
                   </span>
                 ) : null}
               </p>
@@ -92,7 +92,7 @@ export function ReceptionistPortalChrome({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-8 text-zinc-400 hover:text-foreground",
+                    "h-9 text-muted-foreground hover:text-foreground",
                     active && "bg-primary/10 text-primary hover:text-primary"
                   )}
                 >
@@ -108,7 +108,7 @@ export function ReceptionistPortalChrome({
               variant="ghost"
               size="sm"
               onClick={() => void handleLogout()}
-              className="h-8 text-zinc-400 hover:text-foreground"
+              className="h-9 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Sign out
@@ -117,7 +117,7 @@ export function ReceptionistPortalChrome({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
 
       {/* Mobile bottom tabs — safe-area padding keeps controls above the browser chrome */}
       <nav
@@ -133,8 +133,8 @@ export function ReceptionistPortalChrome({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium",
-                  active ? "text-primary" : "text-zinc-500"
+                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-2xs font-medium",
+                  active ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
@@ -145,7 +145,7 @@ export function ReceptionistPortalChrome({
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium text-zinc-500"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-2xs font-medium text-muted-foreground"
           >
             <LogOut className="h-5 w-5" aria-hidden />
             Sign out

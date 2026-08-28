@@ -223,23 +223,23 @@ export function OutOfStockFallbackCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 shadow-sm shadow-amber-950/20",
+        "rounded-xl border border-warning/40 bg-warning/10 p-4 shadow-resting shadow-warning/20",
         className
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-200">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-warning/40 bg-warning/15 text-warning">
           <PackageX className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-amber-100">
+          <p className="text-sm font-semibold text-warning">
             Alternative solutions
           </p>
-          <p className="text-xs leading-relaxed text-amber-100/80">
-            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-amber-300" aria-hidden />
+          <p className="text-xs leading-relaxed text-warning/80">
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-warning" aria-hidden />
             {reasonLabel}
             {skuHint ? (
-              <span className="font-mono text-amber-50/90"> · {skuHint}</span>
+              <span className="font-mono text-warning/90"> · {skuHint}</span>
             ) : null}
             . Van stock: {decision.vanQuantity}. Choose special order or partner dispatch.
           </p>
@@ -255,8 +255,8 @@ export function OutOfStockFallbackCard({
           <p className="mt-1 text-xs text-muted-foreground">
             $50 non-refundable retainer · booking status becomes Pending Deposit.
           </p>
-          <div className="mt-2.5 space-y-1.5">
-            <Label htmlFor="oos-service-date" className="text-[11px] text-muted-foreground">
+          <div className="mt-2.5 space-y-2">
+            <Label htmlFor="oos-service-date" className="text-2xs text-muted-foreground">
               <CalendarDays className="mr-1 inline h-3 w-3" aria-hidden />
               Earliest service date (shipping +2 days)
             </Label>
@@ -266,12 +266,12 @@ export function OutOfStockFallbackCard({
               min={minServiceDate()}
               value={serviceDate}
               onChange={(e) => setServiceDate(e.target.value)}
-              className="h-10"
+              className="h-11"
             />
           </div>
           <Button
             type="button"
-            className="mt-2.5 h-10 w-full bg-amber-600 text-white hover:bg-amber-500"
+            className="mt-2.5 h-11 w-full bg-warning text-warning-foreground hover:bg-warning"
             disabled={specialBusy || !intake.customer_name.trim() || !intake.caller_e164.trim()}
             onClick={() => void generateSpecialOrder()}
           >
@@ -283,15 +283,15 @@ export function OutOfStockFallbackCard({
             Generate Special Order Link
           </Button>
           {checkoutUrl ? (
-            <div className="mt-2 space-y-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2">
-              <p className="text-[11px] font-medium text-emerald-200">Checkout ready · Pending Deposit</p>
-              <p className="break-all font-mono text-[10px] text-emerald-100/90">{checkoutUrl}</p>
+            <div className="mt-2 space-y-2 rounded-md border border-success/30 bg-success/10 p-2">
+              <p className="text-2xs font-medium text-success">Checkout ready · Pending Deposit</p>
+              <p className="break-all font-mono text-2xs text-success/90">{checkoutUrl}</p>
               <div className="flex gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="h-8 flex-1"
+                  className="h-9 flex-1"
                   onClick={() => void copyCheckout()}
                 >
                   <Copy className="h-3.5 w-3.5" aria-hidden />
@@ -300,7 +300,7 @@ export function OutOfStockFallbackCard({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 flex-1"
+                  className="h-9 flex-1"
                   onClick={() => window.open(checkoutUrl, "_blank", "noopener,noreferrer")}
                 >
                   Open
@@ -327,7 +327,7 @@ export function OutOfStockFallbackCard({
           ) : affiliates.length === 0 ? (
             <p className="mt-3 text-xs text-muted-foreground">
               No affiliate locksmiths yet. Add rows to{" "}
-              <span className="font-mono text-[10px]">affiliate_locksmiths</span> in Neon (see
+              <span className="font-mono text-2xs">affiliate_locksmiths</span> in Neon (see
               migration 106).
             </p>
           ) : (
@@ -335,7 +335,7 @@ export function OutOfStockFallbackCard({
               {affiliates.map((a) => (
                 <li
                   key={a.id}
-                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/40 px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border border-border/40 bg-background/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{a.name}</p>
@@ -344,7 +344,7 @@ export function OutOfStockFallbackCard({
                       <a href={`tel:${a.phoneE164}`} className="hover:text-foreground">
                         {formatPhoneDisplay(a.phoneE164)}
                       </a>
-                      <span className="text-zinc-600">·</span>
+                      <span className="text-muted-foreground">·</span>
                       <span>{a.commissionLabel} commission</span>
                     </p>
                   </div>
@@ -373,9 +373,9 @@ export function OutOfStockFallbackCard({
         </div>
       </div>
 
-      {error ? <p className="mt-2 text-center text-xs text-rose-300">{error}</p> : null}
+      {error ? <p className="mt-2 text-center text-xs text-destructive">{error}</p> : null}
       {!intake.customer_name.trim() || !intake.caller_e164.trim() ? (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-2xs text-muted-foreground">
           Enter customer name and phone before generating a link or sending a lead.
         </p>
       ) : null}

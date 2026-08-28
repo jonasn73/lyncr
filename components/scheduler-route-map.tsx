@@ -740,11 +740,11 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
       ) : null}
       {!embedded ? (
         <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
-          <p className="text-xs font-medium text-zinc-400">
+          <p className="text-xs font-medium text-muted-foreground">
             <MapPinned className="mr-1 inline h-3.5 w-3.5" aria-hidden />
             Route — {selectedDayLabel}
           </p>
-          <p className="text-[10px] text-zinc-500">
+          <p className="text-2xs text-muted-foreground">
             {routeStops.length} scheduled · {mappedPoolCount}/{hopperSource.length} pipeline on map
             {techLocations.length > 0 ? ` · ${techLocations.length} tech live` : ""}
             {unmappedPoolCount > 0 ? ` · ${unmappedPoolCount} geocoding` : ""}
@@ -753,16 +753,16 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         </div>
       ) : null}
       <div ref={mapShellRef} className="relative min-h-0 flex-1">
-        <div ref={containerRef} className="absolute inset-0 z-0 bg-zinc-950" />
+        <div ref={containerRef} className="absolute inset-0 z-0 bg-background" />
       </div>
       {!ready ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/80">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" aria-hidden />
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/80">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
         </div>
       ) : null}
       {ready && routeStops.length === 0 && poolPins.length === 0 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-4">
-          <p className="rounded-lg border border-border/50 bg-card/90 px-3 py-2 text-center text-xs text-zinc-500">
+          <p className="rounded-lg border border-border/50 bg-card/90 px-3 py-2 text-center text-xs text-muted-foreground">
             Centered on Louisville — hover pins for job details, or select a job in the list.
           </p>
         </div>

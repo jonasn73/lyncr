@@ -130,21 +130,21 @@ function NetworkInstructionsPanel() {
   }
 
   return (
-    <WorkspacePanel className="flex h-full flex-col p-5">
+    <WorkspacePanel density="default" className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
             <Network className="h-5 w-5 text-primary" aria-hidden />
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Live Instruction Script</h2>
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
               Dispatch notes, active pricing scripts, and immediate alerts for the live operators on your
               line — business hours, how to greet callers, and what details to collect on every call.
             </p>
           </div>
         </div>
-        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary sm:inline-flex">
+        <span className="hidden shrink-0 items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-micro font-bold uppercase tracking-wide text-primary sm:inline-flex">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
           Live operators
         </span>
@@ -165,7 +165,7 @@ function NetworkInstructionsPanel() {
           "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
           "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
         }
-        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-border bg-background/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
       />
 
       {error ? (
@@ -175,7 +175,7 @@ function NetworkInstructionsPanel() {
       ) : null}
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[11px] text-zinc-600">
+        <span className="text-2xs text-muted-foreground">
           {!loaded ? "Loading…" : `${text.length.toLocaleString()} characters`}
         </span>
         <div className="flex items-center gap-3">
@@ -465,15 +465,15 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
     <WorkspacePage>
       <WorkspacePageHeader eyebrow="Dispatch" title="Team" />
 
-      <WorkspacePanel className="p-4 sm:p-5">
-        <p className="text-sm leading-relaxed text-zinc-300">
+      <WorkspacePanel density="compact">
+        <p className="text-sm leading-relaxed text-foreground">
           Add people who can answer your business calls.{" "}
           <span className="font-medium text-foreground">Phone contacts</span> ring their cell when you pick them under{" "}
           <span className="font-medium text-foreground">Who answers</span> (Custom Routing).{" "}
           <span className="font-medium text-foreground">App invites</span> let them create a receptionist login for your
           business.
         </p>
-        <p className="mt-2 hidden text-xs text-zinc-500 md:block">
+        <p className="mt-2 hidden text-xs text-muted-foreground md:block">
           Adding someone or flipping Available does not change Who answers. Open Lines → Who answers →{" "}
           <span className="font-medium text-foreground">Team receptionist</span> and pick them (or use Custom
           Routing for any one-off phone number).
@@ -488,14 +488,14 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Open Who answers
             </Link>
             <button
               type="button"
               onClick={() => setShowRoutingTip(false)}
-              className="text-xs text-zinc-400 hover:text-zinc-200"
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
               Dismiss
             </button>
@@ -512,15 +512,15 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <NetworkInstructionsPanel />
         </div>
 
-        <WorkspacePanel className="flex h-full flex-col p-5 lg:col-span-1">
+        <WorkspacePanel density="default" className="flex h-full flex-col lg:col-span-1">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+              <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
                 <Network className="h-5 w-5 text-primary" aria-hidden />
               </span>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-foreground sm:text-base">People who can answer</h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   Available means they can take calls when you pick them in Who answers — it does not select them.
                 </p>
               </div>
@@ -528,21 +528,21 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <button
               type="button"
               onClick={() => openTeamInviteModal()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" aria-hidden /> Add
             </button>
           </div>
 
           {billingCycleLabel ? (
-            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] text-zinc-500">
+            <div className="mt-3 rounded-lg border border-border bg-background/50 px-3 py-2 text-2xs text-muted-foreground">
               Payout totals · billing cycle {billingCycleLabel}
             </div>
           ) : null}
 
           {pendingInvites.length > 0 ? (
-            <div className="mt-3 space-y-2 rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/90">
+            <div className="mt-3 space-y-2 rounded-lg border border-warning/20 bg-warning/20 px-3 py-2">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-warning/90">
                 Waiting to accept ({pendingInvites.length})
               </p>
               {pendingInvites.slice(0, 5).map((inv) => {
@@ -550,16 +550,16 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 const hasEmail = Boolean(inv.email?.includes("@"))
                 const busy = inviteBusyId === inv.id
                 return (
-                  <div key={inv.id} className="space-y-1.5 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
-                    <p className="min-w-0 truncate text-xs text-zinc-400">
+                  <div key={inv.id} className="space-y-2 border-t border-warning/10 pt-2 first:border-t-0 first:pt-0">
+                    <p className="min-w-0 truncate text-xs text-muted-foreground">
                       {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
                     </p>
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => void copyInviteLink(inv)}
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                         aria-label={`Copy invite link for ${inviteLabel}`}
                       >
                         {busy && inviteBusyKind === "copy" ? (
@@ -576,7 +576,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           type="button"
                           onClick={() => void resendInvite(inv)}
                           disabled={busy}
-                          className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                           aria-label={`Resend invite email to ${inviteLabel}`}
                         >
                           {busy && inviteBusyKind === "resend" ? (
@@ -595,7 +595,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
                         }
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
                         aria-label={`Cancel invite for ${inviteLabel}`}
                       >
                         <Trash2 className="h-3 w-3" aria-hidden />
@@ -603,7 +603,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                       </button>
                     </div>
                     {inviteActionError?.id === inv.id ? (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[10px] leading-snug text-destructive">
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-2xs leading-snug text-destructive">
                         {inviteActionError.message}
                       </p>
                     ) : null}
@@ -620,16 +620,16 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               </p>
             ) : null}
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-500">
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" /> Loading…
               </div>
             ) : members.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-600">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
                   <Users className="h-5 w-5" aria-hidden />
                 </span>
-                <p className="text-sm text-zinc-500">No one added yet.</p>
-                <p className="max-w-[16rem] text-xs text-zinc-600">
+                <p className="text-sm text-muted-foreground">No one added yet.</p>
+                <p className="max-w-[16rem] text-xs text-muted-foreground">
                   Tap Add to save a phone contact or send an invite link.
                 </p>
               </div>
@@ -644,7 +644,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                       key={member.id}
                       type="button"
                       onClick={() => setSettingsTarget({ id: member.id, color })}
-                      className="flex w-full items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-left transition-colors hover:border-zinc-700"
+                      className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-background/40 px-3 py-2.5 text-left transition-colors hover:bg-muted"
                     >
                       <div className="relative shrink-0">
                         <Avatar className="h-9 w-9">
@@ -655,7 +655,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         <span
                           className={cn(
                             "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
-                            online ? "bg-success" : "bg-zinc-600"
+                            online ? "bg-success" : "bg-muted-foreground"
                           )}
                           aria-hidden
                         />
@@ -664,12 +664,12 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         <p className="truncate text-sm font-semibold text-foreground underline-offset-2 hover:underline">
                           {member.name}
                         </p>
-                        <p className="truncate text-xs text-zinc-500">{formatPhoneDisplay(member.phone)}</p>
+                        <p className="truncate text-xs text-muted-foreground">{formatPhoneDisplay(member.phone)}</p>
                       </div>
                       {payout ? (
-                        <p className="shrink-0 text-right text-[11px] text-zinc-400">
+                        <p className="shrink-0 text-right text-2xs text-muted-foreground">
                           {formatUsd(payout.total_earnings)}
-                          <span className="block text-zinc-600">this cycle</span>
+                          <span className="block text-muted-foreground">this cycle</span>
                         </p>
                       ) : null}
                     </button>
@@ -748,21 +748,21 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           if (!open && !removing) setPendingRemove(null)
         }}
       >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+        <AlertDialogContent className="border-border bg-background text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {pendingRemove?.kind === "invite"
                 ? `Cancel invite for ${pendingRemove.name}?`
                 : `Remove ${pendingRemove?.name ?? "this person"} from your team?`}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-muted-foreground">
               {pendingRemove?.kind === "invite"
                 ? "Their invite link will stop working. You can send a new invite later."
                 : "They will no longer appear under People who can answer. You can add them again anytime."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+            <AlertDialogCancel disabled={removing} className="border-border bg-card">
               Keep
             </AlertDialogCancel>
             <AlertDialogAction

@@ -305,7 +305,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       ) : null}
 
       {needsCarrierCredit ? (
-        <p className="rounded-xl border border-amber-500/35 bg-amber-950/35 px-4 py-3 text-sm text-foreground/90">
+        <p className="rounded-xl border border-warning/35 bg-warning/35 px-4 py-3 text-sm text-foreground/90">
           Your subscription is active, but your line is not live yet. Add at least{" "}
           {billing?.telnyx_number_purchase_label ?? "$2.00"} carrier credit below — then we will purchase and wire
           your number automatically.
@@ -313,7 +313,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       ) : null}
 
       {lowCarrierCreditWarning ? (
-        <p className="rounded-xl border border-rose-500/35 bg-rose-950/30 px-4 py-3 text-sm text-foreground/90">
+        <p className="rounded-xl border border-destructive/35 bg-destructive/30 px-4 py-3 text-sm text-foreground/90">
           Your carrier credit is below ${lowCreditThreshold.toFixed(2)} ({balanceLabel} remaining). Add credit below
           soon so calls keep routing without interruption.
         </p>
@@ -346,13 +346,13 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </div>
 
         <WorkspacePanel>
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-border px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Subscription plans</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Each plan maps to a Stripe price — Starter ($19), Professional ($49), or Business ($99) per month.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 p-6 md:grid-cols-3">
             {CHECKOUT_TIER_OPTIONS.map((plan) => {
               const isCurrentPlan =
                 subscriptionActive &&
@@ -396,7 +396,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </WorkspacePanel>
 
         <WorkspacePanel>
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-border px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Add carrier credit</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {needsCarrierCredit
@@ -406,7 +406,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
               balance updates automatically.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
             {(billing?.suggested_credit_packs_cents ?? [1000, 2500, 5000, 10000]).map((cents) => (
               <button
                 key={cents}
@@ -439,7 +439,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
         </WorkspacePanel>
 
         <WorkspacePanel className="min-h-[300px]">
-          <div className="border-b border-zinc-800 px-5 py-4">
+          <div className="border-b border-border px-6 py-4">
             <h2 className="text-sm font-semibold text-foreground">Talk-time consumption</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Live operator minutes deducted from your balance, billed at {rateLabel}/min.
@@ -463,10 +463,10 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
             {ledger.length > 0 ? (
               <tbody>
                 {ledger.map((row) => (
-                  <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
-                    <WorkspaceTd className="text-zinc-400">{row.date}</WorkspaceTd>
+                  <tr key={row.id} className={cn("hover:bg-card/40", WORKSPACE_TABLE_ROW_CLASS)}>
+                    <WorkspaceTd className="text-muted-foreground">{row.date}</WorkspaceTd>
                     <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
-                    <WorkspaceTd className="tabular-nums text-zinc-300">{row.minutes} min</WorkspaceTd>
+                    <WorkspaceTd className="tabular-nums text-foreground">{row.minutes} min</WorkspaceTd>
                     <WorkspaceTd className="font-medium tabular-nums text-foreground">
                       {meteredRate > 0 ? formatUsdFromCents(row.costCents) : "\u00a0"}
                     </WorkspaceTd>
@@ -476,7 +476,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
             ) : null}
           </WorkspaceTableWrap>
           {ledger.length === 0 ? (
-            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-5 py-12 text-center text-sm text-zinc-500">
+            <div className="flex min-h-[208px] items-center justify-center border-t border-border/50 px-6 py-12 text-center text-sm text-muted-foreground">
               {!callsLoaded ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />

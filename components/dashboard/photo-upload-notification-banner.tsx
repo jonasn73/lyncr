@@ -157,27 +157,27 @@ export function PhotoUploadNotificationBanner() {
         <div
           key={notice.id}
           className={cn(
-            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-sky-500/40",
-            "bg-slate-950/95 px-4 py-3 text-sm text-slate-100 shadow-xl backdrop-blur"
+            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-info/40",
+            "bg-background/95 px-4 py-3 text-sm text-foreground shadow-overlay backdrop-blur"
           )}
           role="status"
           aria-live="polite"
         >
-          <Camera className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" aria-hidden />
+          <Camera className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="font-medium leading-snug">
               {notice.headline}{" "}
               <button
                 type="button"
                 onClick={() => focusIntake(notice)}
-                className="font-bold text-sky-300 underline-offset-2 hover:underline"
+                className="font-bold text-info underline-offset-2 hover:underline"
               >
                 [View Intake]
               </button>
             </p>
             <Link
               href={notice.viewIntakeUrl}
-              className="mt-1 inline-block text-[11px] text-slate-400 hover:text-slate-200"
+              className="mt-1 inline-block text-2xs text-muted-foreground hover:text-foreground"
               onClick={() => dismiss(notice.id)}
             >
               Open dashboard ticket
@@ -186,7 +186,7 @@ export function PhotoUploadNotificationBanner() {
           <button
             type="button"
             onClick={() => dismiss(notice.id)}
-            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Dismiss photo notification"
           >
             <X className="h-4 w-4" />

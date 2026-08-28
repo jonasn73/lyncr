@@ -144,10 +144,10 @@ function clipAlertBody(body: string, max = 160): string {
 }
 
 function toneClasses(tone: NotificationTone): string {
-  if (tone === "critical") return "border-red-500/35 bg-red-500/10"
-  if (tone === "warning") return "border-amber-500/35 bg-amber-500/10"
-  if (tone === "success") return "border-emerald-500/35 bg-emerald-500/10"
-  return "border-sky-500/35 bg-sky-500/10"
+  if (tone === "critical") return "border-destructive/35 bg-destructive/10"
+  if (tone === "warning") return "border-warning/35 bg-warning/10"
+  if (tone === "success") return "border-success/35 bg-success/10"
+  return "border-info/35 bg-info/10"
 }
 
 export const NotificationCenter = memo(function NotificationCenter() {
@@ -570,7 +570,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
           title="Alerts"
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-2xs font-bold text-primary-foreground">
             {items.length > 9 ? "9+" : items.length}
           </span>
         </Button>
@@ -602,7 +602,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                   key={item.id}
                   className={cn("rounded-xl border px-3 py-3", toneClasses(item.tone))}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-start gap-3">
                     <Icon
                       className={cn(
                         "mt-0.5 h-4 w-4 shrink-0",
@@ -619,7 +619,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                             type="button"
                             disabled={item.id === "impersonation" && exitingImpersonation}
                             onClick={item.onAction}
-                            className="rounded-md bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-background/90"
+                            className="rounded-md bg-background/60 px-3 py-1 text-2xs font-semibold text-foreground hover:bg-background/90"
                           >
                             {item.actionLabel}
                           </button>
@@ -627,7 +627,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
                             <button
                               type="button"
                               onClick={dismissSmsPending}
-                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                              className="text-2xs font-medium text-muted-foreground hover:text-foreground"
                             >
                               Dismiss
                             </button>

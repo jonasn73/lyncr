@@ -17,7 +17,7 @@ import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 type GreetingsPayload = {
   onJobGreetingText?: string
@@ -192,7 +192,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
   return (
     <section
       className={cn(
-        "space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:space-y-4 sm:p-4",
+        "space-y-3 rounded-xl border border-warning/20 bg-warning/5 p-3 sm:space-y-4 sm:p-4",
         className
       )}
       aria-labelledby="automation-voice-greetings-heading"
@@ -200,18 +200,18 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
       <div>
         <p
           id="automation-voice-greetings-heading"
-          className="text-xs font-semibold uppercase tracking-wide text-amber-300"
+          className="text-xs font-semibold uppercase tracking-wide text-warning"
         >
           🤖 Automation Voice Greetings
         </p>
-        <p className="hidden mt-0.5 text-[11px] leading-snug text-zinc-500 md:block">
+        <p className="hidden mt-0.5 text-2xs leading-snug text-muted-foreground md:block">
           Edit the Busy greeting callers hear when Presence is Busy — press 1 texts a booking link;
           stay on the line enters the hold queue — plus voice, bypass, and holiday closures.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           Loading automation greetings…
         </div>
@@ -219,7 +219,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="ivr-voice-persona" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="ivr-voice-persona" className="text-xs font-semibold text-foreground">
                 AI Voice Persona
               </label>
               <select
@@ -234,14 +234,14 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-zinc-600">
+              <p className="text-2xs text-muted-foreground">
                 {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                   "Tone callers hear on Busy gather and hold re-prompts."}
               </p>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="ivr-bypass-code" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="ivr-bypass-code" className="text-xs font-semibold text-foreground">
                 🔑 Secret Bypass Code
               </label>
               <input
@@ -257,18 +257,18 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 className={cn(fieldClass, "min-h-11 px-3 py-2")}
                 placeholder="e.g. 9 or 1234"
               />
-              <p className="text-[10px] text-zinc-600">
+              <p className="text-2xs text-muted-foreground">
                 Digits dialed during the greeting ring your cell (+1 502-260-2716) and skip
                 presence blocks. Avoid &quot;1&quot; (booking key).
               </p>
             </div>
           </div>
 
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-            <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-zinc-300">
+          <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
+            <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-foreground">
               Busy greeting
             </label>
-            <p className="hidden text-[10px] text-zinc-600 md:block">
+            <p className="hidden text-2xs text-muted-foreground md:block">
               Played when Presence is Busy — press 1 texts a booking link; stay on the line enters
               the hold queue (music + Lines Answer).
             </p>
@@ -277,7 +277,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               rows={5}
               value={draft.busy}
               onChange={(e) => setDraft((d) => ({ ...d, busy: e.target.value }))}
-              className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-2.5")}
+              className={cn(fieldClass, "min-h-[7.5rem] resize-y px-3 py-3")}
               placeholder={DEFAULT_BUSY_GREETING_TEXT}
             />
           </div>
@@ -289,8 +289,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-zinc-300">
+            <div className="space-y-2">
+              <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-foreground">
                 Re-prompt every (sec)
               </label>
               <input
@@ -310,8 +310,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 placeholder={String(holdDefaults.repromptSecs)}
               />
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-zinc-300">
+            <div className="space-y-2">
+              <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-foreground">
                 Max wait (sec)
               </label>
               <input
@@ -333,33 +333,33 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
+          <div className="overflow-hidden rounded-lg border border-border bg-background/40">
             <button
               type="button"
               onClick={() => setHolidayOpen((o) => !o)}
-              className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+              className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
               aria-expanded={holidayOpen}
             >
-              <span className="text-xs font-semibold text-zinc-300">
+              <span className="text-xs font-semibold text-foreground">
                 📅 Scheduled Holiday Closures
               </span>
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-zinc-500 transition-transform",
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
                   holidayOpen && "rotate-180"
                 )}
                 aria-hidden
               />
             </button>
             {holidayOpen ? (
-              <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
-                <p className="text-[10px] leading-relaxed text-zinc-600">
+              <div className="space-y-3 border-t border-border px-3 pb-3 pt-3">
+                <p className="text-2xs leading-relaxed text-muted-foreground">
                   When the current time falls in this window, callers hear the holiday greeting
                   instead of the Busy greeting.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="holiday-start" className="text-[11px] font-medium text-zinc-400">
+                  <div className="space-y-2">
+                    <label htmlFor="holiday-start" className="text-2xs font-medium text-muted-foreground">
                       Starts
                     </label>
                     <input
@@ -372,8 +372,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                       className={cn(fieldClass, "min-h-10 px-3 py-2")}
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="holiday-end" className="text-[11px] font-medium text-zinc-400">
+                  <div className="space-y-2">
+                    <label htmlFor="holiday-end" className="text-2xs font-medium text-muted-foreground">
                       Ends
                     </label>
                     <input
@@ -385,10 +385,10 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label
                     htmlFor="holiday-greeting-text"
-                    className="text-[11px] font-medium text-zinc-400"
+                    className="text-2xs font-medium text-muted-foreground"
                   >
                     Holiday greeting (text-to-speech)
                   </label>
@@ -397,7 +397,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                     rows={4}
                     value={draft.holidayText}
                     onChange={(e) => setDraft((d) => ({ ...d, holidayText: e.target.value }))}
-                    className={cn(fieldClass, "min-h-[6rem] resize-y px-3 py-2.5")}
+                    className={cn(fieldClass, "min-h-[6rem] resize-y px-3 py-3")}
                     placeholder="Thanks for calling Key Squad. We are closed for the holiday…"
                   />
                 </div>
@@ -411,7 +411,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                       holidayText: "",
                     }))
                   }
-                  className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                  className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
                   Clear holiday window
                 </button>
@@ -419,9 +419,9 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             ) : null}
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5">
-            <p className="text-xs font-semibold text-zinc-300">Text after missed call</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+          <div className="rounded-lg border border-border bg-background/40 px-3 py-3">
+            <p className="text-xs font-semibold text-foreground">Text after missed call</p>
+            <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
               Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call
               Rescue can text “Sorry we missed your call — book here…” Turn it on/off under Lines →
               Missed Call Rescue (default on). Hanging up on Busy without pressing 1 does not text.
@@ -434,7 +434,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             onClick={() => void handleSave()}
             className={cn(
               "inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition-opacity",
-              "bg-teal-600 hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+              "bg-primary hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             {saving ? (

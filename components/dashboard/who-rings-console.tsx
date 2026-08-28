@@ -37,15 +37,15 @@ export function WhoRingsConsole({
     ringsNow === "Hold queue" ? "Press 1" : "If no answer"
   const statusTone =
     statusLabel === "Busy"
-      ? "text-amber-700 dark:text-amber-400"
+      ? "text-warning dark:text-warning"
       : statusLabel === "Available"
-        ? "text-emerald-700 dark:text-emerald-400"
+        ? "text-success dark:text-success"
         : "text-muted-foreground"
 
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/60 bg-muted/15 px-4 py-3.5 sm:px-5 sm:py-4",
+       "rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 sm:px-6",
         className
       )}
       aria-label="Who rings next"
@@ -60,19 +60,19 @@ export function WhoRingsConsole({
             <h2 className="text-sm font-semibold tracking-tight text-foreground sm:text-base">
               Who rings next
             </h2>
-            <p className="hidden text-[11px] text-muted-foreground md:block">
+            <p className="hidden text-2xs text-muted-foreground md:block">
               Same rules as live inbound routing
             </p>
           </div>
         </div>
         {onOpenAbout ? (
-          <SheetInfoTrigger onPress={onOpenAbout} label="About call flow" className="h-8 w-8 shrink-0" />
+          <SheetInfoTrigger onPress={onOpenAbout} label="About call flow" className="h-9 w-9 shrink-0" />
         ) : null}
       </div>
 
-      <dl className="space-y-2.5" role="status" aria-live="polite">
+      <dl className="space-y-3" role="status" aria-live="polite">
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Rings now
           </dt>
           <dd className="min-w-0 text-right text-sm font-semibold text-foreground [overflow-wrap:anywhere]">
@@ -80,7 +80,7 @@ export function WhoRingsConsole({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {fallbackDt}
           </dt>
           <dd className="min-w-0 text-right text-sm font-medium text-foreground [overflow-wrap:anywhere]">
@@ -88,7 +88,7 @@ export function WhoRingsConsole({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Your status
           </dt>
           <dd className="min-w-0 text-right text-sm font-semibold">
@@ -98,7 +98,7 @@ export function WhoRingsConsole({
       </dl>
 
       {detailHint?.trim() ? (
-        <p className="mt-2.5 hidden text-[11px] leading-snug text-muted-foreground md:block">
+        <p className="mt-2.5 hidden text-2xs leading-snug text-muted-foreground md:block">
           {detailHint.trim()}
         </p>
       ) : null}

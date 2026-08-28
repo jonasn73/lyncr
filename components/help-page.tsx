@@ -122,7 +122,7 @@ export function HelpPage() {
       <SupportChatPanel />
 
       {billing && (
-        <Card id="billing-account-balance" className="scroll-mt-28 border-border/80 bg-card/90 shadow-sm">
+        <Card id="billing-account-balance" className="scroll-mt-28 border-border/80 bg-card/90 shadow-resting">
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -170,7 +170,7 @@ export function HelpPage() {
         </Card>
       )}
 
-      <Card className="border-border/80 bg-card/90 shadow-sm">
+      <Card className="border-border/80 bg-card/90 shadow-resting">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -203,7 +203,7 @@ export function HelpPage() {
         </CardContent>
       </Card>
 
-      <Card id="help-contact-support" className="scroll-mt-28 border-border/80 bg-card/90 shadow-sm">
+      <Card id="help-contact-support" className="scroll-mt-28 border-border/80 bg-card/90 shadow-resting">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -299,7 +299,7 @@ export function HelpPage() {
               <>
                 <StorySheetHeader {...story} />
                 <div className="border-t border-border/60 px-4 py-3">
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  <p className="text-2xs leading-relaxed text-muted-foreground">
                     Routing and call flow live on{" "}
                     <Link href="/dashboard" className="font-medium text-primary underline-offset-4 hover:underline">
                       the Call console
@@ -308,7 +308,7 @@ export function HelpPage() {
                   </p>
                 </div>
                 <SheetFooter className="border-t border-border/70 bg-secondary/15 px-4 py-3">
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     Submit the form above after you read this — include enough detail for a one-pass reply.
                   </p>
                 </SheetFooter>

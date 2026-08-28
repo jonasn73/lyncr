@@ -43,7 +43,7 @@ export function WorkspacePageHeader({
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="min-h-[1rem] text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="min-h-[1rem] text-micro font-semibold uppercase tracking-[0.14em] text-primary">
             {eyebrow}
           </p>
         ) : null}
@@ -61,11 +61,33 @@ export function WorkspacePageHeader({
   )
 }
 
-export function WorkspacePanel({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * The three panel paddings. Call sites pick a density instead of spelling out
+ * `p-*`, so panel padding stays on the 16 / 24 / 32 scale everywhere.
+ */
+const WORKSPACE_PANEL_DENSITY = {
+  compact: "p-4",
+  default: "p-4 sm:p-6",
+  roomy: "p-6 sm:p-8",
+} as const
+
+export type WorkspacePanelDensity = keyof typeof WORKSPACE_PANEL_DENSITY
+
+export function WorkspacePanel({
+  children,
+  className,
+  density,
+}: {
+  children: ReactNode
+  className?: string
+  /** Panel padding. Omit for panels that pad their own body (scroll panes, tables, split layouts). */
+  density?: WorkspacePanelDensity
+}) {
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40",
+        "overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-raised ring-1 ring-border/40",
+        density && WORKSPACE_PANEL_DENSITY[density],
         className
       )}
     >
@@ -99,24 +121,25 @@ export function WorkspaceStatCard({
     accent === "success"
       ? "border-success/30 bg-success/5"
       : accent === "warning"
-        ? "border-amber-500/30 bg-amber-500/5"
+        ? "border-warning/30 bg-warning/5"
         : "border-primary/30 bg-primary/5"
   if (dense) {
     return (
       <div className={cn("rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4", accent && accentClass)}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+        <p className="text-micro font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl">
           {value}
         </p>
-        {hint ? <p className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 hidden text-2xs text-muted-foreground sm:block">{hint}</p> : null}
       </div>
     )
   }
   return (
-    <div className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5", accent && accentClass)}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
+    <div className={cn("min-h-[5.75rem] rounded-2xl border border-border bg-card/50 p-5", accent && accentClass)}>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -134,14 +157,15 @@ export function WorkspaceUsageStatCard({
 }) {
   const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
   return (
-    <div className="min-h-[5.75rem] rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
+    <div className="min-h-[5.75rem] rounded-2xl border border-warning/30 bg-warning/5 p-5">
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {used.toLocaleString()} / {included.toLocaleString()} mins used
       </p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-amber-500/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-warning/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}
           role="progressbar"
           aria-valuenow={used}
@@ -149,7 +173,7 @@ export function WorkspaceUsageStatCard({
           aria-valuemax={included}
         />
       </div>
-      {hint ? <p className="mt-2 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -164,13 +188,14 @@ export function WorkspaceTokenStatCard({
   hint?: string
 }) {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
     <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
         {tokens.toLocaleString()}
-        <span className="ml-1.5 text-base font-medium text-zinc-400">tokens</span>
+        <span className="ml-1.5 text-base font-medium text-muted-foreground">tokens</span>
       </p>
-      {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -182,13 +207,13 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
     success: "border-success/40 bg-success/15 text-success",
     primary: "border-primary/40 bg-primary/15 text-primary",
     destructive: "border-destructive/40 bg-destructive/15 text-destructive",
-    warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
-    muted: "border-zinc-700 bg-zinc-900/80 text-zinc-400",
+    warning: "border-warning/40 bg-warning/10 text-warning",
+    muted: "border-border bg-card/80 text-muted-foreground",
   }
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-0.5 text-micro font-bold uppercase tracking-wide",
         toneClass[tone]
       )}
     >
@@ -206,14 +231,14 @@ export type LeadIntentVariant = "amber" | "blue" | "muted"
 export function LeadIntentPill({ label, variant }: { label: string; variant: LeadIntentVariant }) {
   const styles: Record<LeadIntentVariant, string> = {
     amber:
-      "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
-    blue: "border-sky-500/45 bg-sky-500/10 text-sky-300 shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
-    muted: "border-zinc-600/80 bg-zinc-900/60 text-zinc-400",
+      "border-warning/50 bg-warning/10 text-warning shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
+    blue: "border-info/45 bg-info/10 text-info shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
+    muted: "border-border/80 bg-card/60 text-muted-foreground",
   }
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-1 text-2xs font-semibold tracking-wide",
         styles[variant]
       )}
     >
@@ -266,33 +291,33 @@ export function ActivityStatusPill({
 }) {
   const styles: Record<ActivityCallStatus, string> = {
     answered:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     answered_from_queue:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     emergency:
-      "border-emerald-500/55 bg-emerald-500/18 text-emerald-200 shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
+      "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     ai_handled:
-      "border-violet-500/45 bg-violet-500/12 text-violet-300 shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
+      "border-operator/45 bg-operator/12 text-operator shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
     voicemail:
-      "border-rose-500/50 bg-rose-500/15 text-rose-200 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     missed_ivr:
-      "border-rose-500/55 bg-rose-500/18 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.55)]",
+      "border-destructive/55 bg-destructive/18 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.55)]",
     night_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_off_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     busy_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     hold_queue:
-      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     hold_press1:
-      "border-amber-500/50 bg-amber-500/15 text-amber-100 shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     busy_menu:
-      "border-amber-500/45 bg-amber-500/12 text-amber-200 shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
+      "border-warning/45 bg-warning/12 text-warning shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
-      "border-rose-500/60 bg-rose-500/20 text-rose-50 shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
+      "border-destructive/60 bg-destructive/20 text-destructive shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
@@ -324,8 +349,8 @@ export function ActivityStatusPill({
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-md border font-bold uppercase tracking-wide",
         dense
-          ? "px-1.5 py-0.5 text-[9px] shadow-none"
-          : "px-2 py-0.5 text-[10px]",
+          ? "px-2 py-0.5 text-2xs shadow-none"
+          : "px-2 py-0.5 text-2xs",
         styles[status],
         dense && "shadow-none"
       )}
@@ -371,17 +396,17 @@ export function WorkspaceDisclosureRow({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left transition-colors",
+        "flex w-full items-center justify-between gap-3 rounded-2xl border px-6 py-4 text-left transition-colors",
         destructive
           ? "border-destructive/40 bg-destructive/5 hover:bg-destructive/10"
-          : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600 hover:bg-zinc-900/70"
+          : "border-border bg-card/40 hover:border-border hover:bg-card/70"
       )}
     >
       <span className="flex items-center gap-3">
         <span className={cn("text-muted-foreground", destructive && "text-destructive")}>{icon}</span>
         <span className={cn("text-sm font-medium", destructive ? "text-destructive" : "text-foreground")}>{label}</span>
       </span>
-      <span className="text-zinc-600">›</span>
+      <span className="text-muted-foreground">›</span>
     </button>
   )
 }
@@ -398,11 +423,11 @@ export function WorkspaceToggleCard({
   disabled?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3.5 transition-colors hover:border-zinc-700">
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-4 transition-colors hover:border-border">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <input
         type="checkbox"
-        className="h-4 w-4 rounded border-zinc-600 accent-primary"
+        className="h-4 w-4 rounded border-border accent-primary"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onCheckedChange(e.target.checked)}
@@ -412,7 +437,7 @@ export function WorkspaceToggleCard({
 }
 
 export const workspaceFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 /**
  * Tracks whether a horizontal scroller has more content off either edge.
@@ -506,7 +531,7 @@ export function WorkspaceTh({
   return (
     <th
       className={cn(
-        "border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500",
+        "border-b border-border/80 px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground",
         className
       )}
     >
@@ -525,7 +550,7 @@ export function WorkspaceTd({
   colSpan?: number
 }) {
   return (
-    <td colSpan={colSpan} className={cn("border-b border-zinc-800/50 px-4 py-3.5 text-foreground", className)}>
+    <td colSpan={colSpan} className={cn("border-b border-border/50 px-4 py-4 text-foreground", className)}>
       {children}
     </td>
   )
@@ -541,10 +566,10 @@ export function WorkspaceModule({
   children: ReactNode
 }) {
   return (
-    <section className="border-b border-zinc-800/80 px-5 py-6 last:border-b-0">
+    <section className="border-b border-border/80 px-6 py-6 last:border-b-0">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {description ? <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p> : null}
+        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
       </div>
       {children}
     </section>

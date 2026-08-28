@@ -155,15 +155,15 @@ export function JobMapPopupForm({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 text-slate-100",
+        "flex flex-col gap-3 text-foreground",
         isSheet ? "w-full gap-4 p-1" : SCHEDULER_MAP_POPUP_SHELL
       )}
     >
-      <div className={cn("space-y-2 border-b border-slate-800/80 pb-2", !isSheet && "pr-6")}>
-        <p className={cn("truncate font-bold text-slate-100", isSheet ? "text-lg" : "text-sm")}>
+      <div className={cn("space-y-2 border-b border-border/80 pb-2", !isSheet && "pr-6")}>
+        <p className={cn("truncate font-bold text-foreground", isSheet ? "text-lg" : "text-sm")}>
           {job.customer_name?.trim() || "Customer"}
         </p>
-        <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-slate-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
+        <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
           {phoneHref ? (
             <a href={phoneHref} className={cn(SCHEDULER_INTERACTIVE_TEXT_LINK, "inline-flex min-h-11 items-center")}>
               {formatPhoneDisplay(job.customer_phone)}
@@ -173,7 +173,7 @@ export function JobMapPopupForm({
           )}
           {!isSheet ? (
             <>
-              <span className="hidden text-slate-600 sm:inline" aria-hidden>
+              <span className="hidden text-muted-foreground sm:inline" aria-hidden>
                 ·
               </span>
               <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{profileLine}</span>
@@ -208,13 +208,13 @@ export function JobMapPopupForm({
                   "rounded-lg font-semibold uppercase tracking-wide transition-colors",
                   isSheet
                     ? "min-h-12 px-3 py-3 text-sm"
-                    : "flex-1 rounded px-1.5 py-1 text-[9px]",
+                    : "flex-1 rounded px-2 py-1 text-2xs",
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
-                        "border border-slate-800/80 bg-slate-900/60 text-slate-400",
+                        "border border-border/80 bg-card/60 text-muted-foreground",
                         SCHEDULER_INTERACTIVE_HOVER,
-                        "hover:text-slate-200"
+                        "hover:text-foreground"
                       ),
                   disabled && !active && "cursor-not-allowed opacity-40"
                 )}
@@ -231,7 +231,7 @@ export function JobMapPopupForm({
             value={assignedTechId}
             disabled={saving}
             onChange={(e) => setAssignedTechId(e.target.value)}
-            className={cn(SCHEDULER_INPUT, isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-1.5 text-xs")}
+            className={cn(SCHEDULER_INPUT, isSheet ? "min-h-12 px-3 py-3 text-base" : "px-2 py-2 text-xs")}
           >
             <option value="">Unassigned</option>
             {assignableTechs.map((t) => (
@@ -243,7 +243,7 @@ export function JobMapPopupForm({
         </label>
       </div>
 
-      {error ? <p className={cn("text-red-400", isSheet ? "text-sm" : "text-[11px]")}>{error}</p> : null}
+      {error ? <p className={cn("text-destructive", isSheet ? "text-sm" : "text-2xs")}>{error}</p> : null}
 
       <div className={cn("flex gap-2", isSheet && "flex-col sm:flex-row")}>
         <button
@@ -251,9 +251,9 @@ export function JobMapPopupForm({
           disabled={saving}
           onClick={onCancel}
           className={cn(
-            "flex-1 rounded-md border border-slate-800/80 font-medium text-slate-300",
+            "flex-1 rounded-md border border-border/80 font-medium text-foreground",
             SCHEDULER_INTERACTIVE_HOVER,
-            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-2 text-xs"
           )}
         >
           Cancel
@@ -264,14 +264,14 @@ export function JobMapPopupForm({
           onClick={() => void handleSave()}
           className={cn(
             "flex-1 rounded-md bg-primary font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60",
-            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-1.5 text-xs"
+            isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-2 text-xs"
           )}
         >
           {saving ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" aria-hidden /> : "Save changes"}
         </button>
       </div>
 
-      <p className="text-[10px] text-zinc-600">
+      <p className="text-2xs text-muted-foreground">
         {SCHEDULER_STATUS_LABEL[schedulerLifecyclePhase({
           job_status: pendingStatus,
           dispatch_status: job.dispatch_status,

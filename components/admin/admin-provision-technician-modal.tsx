@@ -85,13 +85,13 @@ export function AdminProvisionTechnicianModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-slate-800 bg-[#0b1120] text-slate-100 sm:max-w-md" showCloseButton>
+      <DialogContent className="border-border bg-[#0b1120] text-foreground sm:max-w-md" showCloseButton>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-slate-50">
-            <HardHat className="h-5 w-5 text-violet-300" aria-hidden />
+          <DialogTitle className="flex items-center gap-2 text-foreground">
+            <HardHat className="h-5 w-5 text-operator" aria-hidden />
             Provision field technician
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             {ownerEmail
               ? `Instantly add an active tech to ${ownerEmail}'s roster — no SMS invite required.`
               : "Instantly add an active tech to this business roster — no SMS invite required."}
@@ -100,19 +100,19 @@ export function AdminProvisionTechnicianModal({
 
         <form className="mt-2 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label className="text-slate-300">Name</Label>
+            <Label className="text-foreground">Name</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex Rivera"
               required
               minLength={2}
-              className="border-slate-700 bg-slate-950 text-slate-100"
+              className="border-border bg-background text-foreground"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-300">Phone number</Label>
+            <Label className="text-foreground">Phone number</Label>
             <Input
               type="tel"
               inputMode="tel"
@@ -120,16 +120,16 @@ export function AdminProvisionTechnicianModal({
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(502) 555-0100"
               required
-              className="border-slate-700 bg-slate-950 text-slate-100"
+              className="border-border bg-background text-foreground"
             />
           </div>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button
             type="submit"
             disabled={busy}
-            className="inline-flex w-full items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500"
+            className="inline-flex w-full items-center justify-center gap-2 bg-operator hover:bg-operator"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

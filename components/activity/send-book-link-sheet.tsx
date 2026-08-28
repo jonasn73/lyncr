@@ -132,14 +132,14 @@ export function SendBookLinkSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[88dvh] overflow-y-auto rounded-t-2xl border-zinc-800 bg-zinc-950 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 text-zinc-100"
+        className="max-h-[88dvh] overflow-y-auto rounded-t-2xl border-border bg-background px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 text-foreground"
       >
         <SheetHeader className="text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-white">
-            <Link2 className="h-4 w-4 text-emerald-400" aria-hidden />
+            <Link2 className="h-4 w-4 text-success" aria-hidden />
             Send book link
           </SheetTitle>
-          <SheetDescription className="text-sm text-zinc-400">
+          <SheetDescription className="text-sm text-muted-foreground">
             Text {callerName ? `${callerName} · ` : ""}
             {phone} a short form
             {feeMode !== "none" ? " + pay link" : ""}.
@@ -147,7 +147,7 @@ export function SendBookLinkSheet({
         </SheetHeader>
 
         <div className="mt-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Fee
           </p>
           {(
@@ -172,46 +172,46 @@ export function SendBookLinkSheet({
               className={cn(
                 "flex w-full flex-col items-start rounded-xl border px-3 py-3 text-left transition-colors",
                 feeMode === opt.id
-                  ? "border-emerald-500/50 bg-emerald-500/15"
-                  : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                  ? "border-success/50 bg-success/15"
+                  : "border-border bg-card/60 hover:border-border"
               )}
             >
-              <span className="text-sm font-semibold text-zinc-100">{opt.label}</span>
-              <span className="text-[11px] text-zinc-500">{opt.hint}</span>
+              <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+              <span className="text-2xs text-muted-foreground">{opt.hint}</span>
             </button>
           ))}
 
           {feeMode === "full_quote" ? (
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-zinc-300">Quote amount ($)</span>
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-foreground">Quote amount ($)</span>
               <input
                 inputMode="decimal"
                 value={quoteDollars}
                 onChange={(e) => setQuoteDollars(e.target.value)}
                 placeholder="e.g. 185"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
               />
             </label>
           ) : null}
 
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-zinc-300">Short note (optional)</span>
+          <label className="block space-y-2">
+            <span className="text-xs font-medium text-foreground">Short note (optional)</span>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={280}
               placeholder="We’ll call when we’re close…"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-success/60"
             />
           </label>
 
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <button
             type="button"
             disabled={sending || (feeMode === "full_quote" && !quoteDollars.trim())}
             onClick={() => void onSend()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 text-base font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-success-foreground hover:bg-success disabled:opacity-60"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Send SMS
@@ -268,8 +268,8 @@ export function SendBookLinkButton({
         aria-label={accessibleLabel}
         title={accessibleLabel}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-100 transition-[color,background-color,border-color,transform] duration-150 hover:border-emerald-400/55 hover:bg-emerald-500/20 active:scale-[0.98]",
-          compact ? "h-8 px-2.5 text-[11px]" : "min-h-11 w-full px-4 py-2.5 text-sm",
+          "inline-flex items-center justify-center gap-2 rounded-lg border border-success/40 bg-success/10 font-semibold text-success transition-[color,background-color,border-color,transform] duration-150 hover:border-success/55 hover:bg-success/20 active:scale-[0.98]",
+          compact ? "h-9 px-3 text-2xs" : "min-h-11 w-full px-4 py-3 text-sm",
           !visibleLabel && compact && "w-8 px-0",
           className
         )}

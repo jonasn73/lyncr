@@ -57,7 +57,7 @@ export function SchedulerJobSlideSheet({
             role="dialog"
             aria-modal="true"
             className={cn(
-              "scheduler-job-detail-sheet relative fixed z-[1410] flex flex-col overflow-hidden bg-card shadow-lg",
+              "scheduler-job-detail-sheet relative fixed z-[1410] flex flex-col overflow-hidden bg-card shadow-raised",
               // Phone: peek-style bottom sheet. Desktop: full-height right rail.
               isMobile
                 ? "inset-x-0 bottom-0 top-auto max-h-[min(88dvh,720px)] rounded-t-2xl border border-b-0 border-border/60"
@@ -73,8 +73,8 @@ export function SchedulerJobSlideSheet({
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
             {isMobile ? (
-              <div className="flex shrink-0 justify-center pt-2.5 pb-1" aria-hidden>
-                <span className="h-1 w-10 rounded-full bg-zinc-600/80" />
+              <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
+                <span className="h-1 w-10 rounded-full bg-muted-foreground/80" />
               </div>
             ) : null}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
@@ -92,7 +92,7 @@ export function SchedulerJobSheetCloseButton({ onClose }: { onClose: () => void 
       type="button"
       aria-label="Close"
       // Large thumb target + high z so Edit never steals the tap (clears mobile drag handle).
-      className="absolute right-2 top-1.5 z-30 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground md:right-3 md:top-3"
+      className="absolute right-2 top-1.5 z-30 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground md:right-3 md:top-3"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()

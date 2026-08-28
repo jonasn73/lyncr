@@ -134,16 +134,16 @@ export const OPERATOR_JOB_PHASE_LABEL: Record<OperatorJobPhase, string> = {
 }
 
 export const OPERATOR_JOB_PHASE_BADGE_STYLE: Record<OperatorJobPhase, string> = {
-  quote: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  in_pool: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  scheduled: "border-teal-500/40 bg-teal-500/10 text-teal-300",
-  en_route: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  quote: "border-warning/40 bg-warning/10 text-warning",
+  in_pool: "border-warning/40 bg-warning/10 text-warning",
+  scheduled: "border-primary/40 bg-primary/10 text-primary",
+  en_route: "border-info/40 bg-info/10 text-info",
   on_site: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-  paused: "border-orange-500/40 bg-orange-500/10 text-orange-300",
-  done: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-  cancelled: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
-  referred: "border-violet-500/40 bg-violet-500/10 text-violet-200",
-  unresolved: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
+  paused: "border-warning/40 bg-warning/10 text-warning",
+  done: "border-success/40 bg-success/10 text-success",
+  cancelled: "border-border/40 bg-accent/20 text-muted-foreground",
+  referred: "border-operator/40 bg-operator/10 text-operator",
+  unresolved: "border-border/40 bg-accent/20 text-muted-foreground",
 }
 
 /** Map operator phase → existing scheduler board phase (cards / map pins). */
@@ -199,22 +199,22 @@ export function isActivePipelineFeedJob(job: SchedulerJobPhaseInput): boolean {
 }
 
 export const SCHEDULER_BADGE_STYLE: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  scheduled: "border-teal-500/40 bg-teal-500/10 text-teal-300",
-  en_route: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  unassigned: "border-warning/40 bg-warning/10 text-warning",
+  scheduled: "border-primary/40 bg-primary/10 text-primary",
+  en_route: "border-info/40 bg-info/10 text-info",
   on_site: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-  paused: "border-orange-500/40 bg-orange-500/10 text-orange-300",
-  completed: "border-zinc-600/40 bg-zinc-700/20 text-zinc-400",
+  paused: "border-warning/40 bg-warning/10 text-warning",
+  completed: "border-border/40 bg-accent/20 text-muted-foreground",
 }
 
 /** Tailwind classes for hourly grid blocks + day summary chips (glass + phase accent). */
 export const SCHEDULER_CARD_STYLE: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-amber-500 text-amber-100`,
-  scheduled: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-teal-500 text-teal-50`,
-  en_route: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-sky-500 text-sky-100`,
+  unassigned: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-amber-500 text-warning`,
+  scheduled: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-teal-500 text-primary`,
+  en_route: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-sky-500 text-info`,
   on_site: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-yellow-500 text-yellow-100`,
-  paused: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-orange-500 text-orange-100`,
-  completed: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-zinc-600 text-zinc-400 opacity-70`,
+  paused: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-orange-500 text-warning`,
+  completed: `${SCHEDULER_GLASS_CARD} border-l-4 border-l-zinc-600 text-muted-foreground opacity-70`,
 }
 
 /** Hover for tappable swimlane / timeline appointment blocks. */

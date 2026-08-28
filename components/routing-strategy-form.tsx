@@ -156,7 +156,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8 text-sm text-zinc-500">
+      <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
         Loading…
       </div>
@@ -164,10 +164,10 @@ export function RoutingStrategyForm({ onSaved }: Props) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {lines.length > 1 ? (
         <label className="block">
-          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Which line
           </span>
           <Select value={activeNumber} onValueChange={(v) => void onChangeLine(v)} disabled={saving}>
@@ -196,17 +196,17 @@ export function RoutingStrategyForm({ onSaved }: Props) {
               htmlFor={`routing-strategy-${opt.value}`}
               className={cn(
                 "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors",
-                selected ? "border-violet-500/60 bg-violet-500/10" : "border-border/70 bg-muted/20 hover:border-border"
+                selected ? "border-operator/60 bg-operator/10" : "border-border/70 bg-muted/20 hover:border-border"
               )}
             >
               <RadioGroupItem id={`routing-strategy-${opt.value}`} value={opt.value} className="mt-1" />
               <Icon
-                className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-violet-300" : "text-zinc-500")}
+                className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-operator" : "text-muted-foreground")}
                 aria-hidden
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">{opt.title}</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">{opt.description}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{opt.description}</span>
               </span>
             </label>
           )
@@ -217,7 +217,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">Allow Lyncr network fallback</p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               If none of your team is available, let a shared Lyncr agent pick up instead of going to voicemail.
             </p>
           </div>
@@ -232,7 +232,7 @@ export function RoutingStrategyForm({ onSaved }: Props) {
 
       {showRingTimeout ? (
         <label className="block">
-          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <span className="mb-2 block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Ring my team for (seconds) before falling back
           </span>
           <input

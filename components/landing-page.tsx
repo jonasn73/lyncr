@@ -177,7 +177,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
       <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/75 backdrop-blur-xl">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <BrandMark className="h-4 w-4 text-primary-foreground" />
             </div>
             <BrandWordmark size="md" />
@@ -267,7 +267,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               </a>
               <a
                 href={signin}
-                className="inline-flex items-center justify-center rounded-xl border border-border/80 bg-background/30 px-6 py-3.5 text-sm font-semibold text-foreground backdrop-blur-sm transition-[border-color,background-color,transform] hover:border-primary/40 hover:bg-background/50 motion-safe:hover:scale-[1.01]"
+                className="inline-flex items-center justify-center rounded-xl border border-border/80 bg-background/30 px-6 py-4 text-sm font-semibold text-foreground backdrop-blur-sm transition-[border-color,background-color,transform] hover:border-primary/40 hover:bg-background/50 motion-safe:hover:scale-[1.01]"
               >
                 Log in
               </a>
@@ -287,7 +287,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               <div className="absolute left-1/2 top-[28%] h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 motion-safe:animate-landing-ring sm:h-32 sm:w-32" />
               <div className="absolute left-1/2 top-[28%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/25 motion-safe:animate-landing-ring-delay sm:h-24 sm:w-24" />
               <div className="absolute left-1/2 top-[28%] flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_48px_-8px_oklch(0.87_0.14_181_/0.85)] sm:h-20 sm:w-20">
-                <PhoneForwarded className="h-7 w-7 sm:h-8 sm:w-8" />
+                <PhoneForwarded className="h-7 w-7 sm:h-9 sm:w-9" />
               </div>
               {/* Link lines */}
               <svg
@@ -314,15 +314,15 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               {/* End nodes */}
               <div className="absolute bottom-[18%] left-[8%] flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-2 backdrop-blur-md sm:left-[12%]">
                 <Users className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Receptionist</span>
+                <span className="text-2xs font-medium text-foreground">Receptionist</span>
               </div>
               <div className="absolute bottom-[18%] right-[8%] flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-2 backdrop-blur-md sm:right-[12%]">
                 <MapPinned className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Field tech</span>
+                <span className="text-2xs font-medium text-foreground">Field tech</span>
               </div>
               <div className="absolute bottom-[4%] left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 backdrop-blur-md">
                 <CreditCard className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[11px] font-semibold text-primary">Collect · Tap to Pay · Pay link</span>
+                <span className="text-2xs font-semibold text-primary">Collect · Tap to Pay · Pay link</span>
               </div>
             </div>
           </div>
@@ -396,7 +396,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
             {steps.map((step, i) => (
               <div key={step.number} className="flex gap-6">
                 <div className="flex flex-col items-center">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
                     {step.number}
                   </div>
                   {i < steps.length - 1 && <div className="mt-2 h-full w-px bg-border" />}
@@ -428,12 +428,12 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 className={cn(
                   "relative flex flex-col rounded-2xl border p-6",
                   plan.highlighted
-                    ? "border-primary bg-primary/5 shadow-xl shadow-primary/10"
+                    ? "border-primary bg-primary/5 shadow-overlay shadow-primary/10"
                     : "border-border bg-card"
                 )}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-micro font-bold uppercase tracking-wider text-primary-foreground">
                     Most Popular
                   </div>
                 )}
@@ -447,7 +447,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 </div>
                 <ul className="mb-8 flex flex-1 flex-col gap-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5">
+                    <li key={feature} className="flex items-start gap-3">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <span className="text-sm text-muted-foreground">{feature}</span>
                     </li>
@@ -456,7 +456,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 <a
                   href={`${join}${join.includes("?") ? "&" : "?"}plan=${plan.tier}`}
                   className={cn(
-                    "block w-full rounded-lg py-2.5 text-center text-sm font-semibold transition-colors",
+                    "block w-full rounded-lg py-3 text-center text-sm font-semibold transition-colors",
                     plan.highlighted
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "border border-border bg-secondary text-foreground hover:bg-secondary/80"
@@ -483,7 +483,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="flex w-full items-center justify-between px-5 py-4 text-left"
+                  className="flex w-full items-center justify-between px-6 py-4 text-left"
                 >
                   <span className="pr-4 text-sm font-medium text-foreground">{faq.q}</span>
                   <ChevronDown
@@ -494,7 +494,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                   />
                 </button>
                 {openFaq === i && (
-                  <div className="border-t border-border px-5 pb-4 pt-3">
+                  <div className="border-t border-border px-6 pb-4 pt-3">
                     <p className="text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
                   </div>
                 )}
@@ -515,7 +515,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
           </p>
           <a
             href={join}
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02]"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 motion-safe:hover:scale-[1.02]"
           >
             Create your account
             <ArrowRight className="h-4 w-4" />

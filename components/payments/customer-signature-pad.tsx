@@ -147,7 +147,7 @@ const SignatureCanvas = forwardRef<CustomerSignaturePadHandle, PadProps>(
     useImperativeHandle(ref, () => ({ clear }), [clear])
 
     return (
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-zinc-600 bg-white">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-white">
         <canvas
           ref={canvasRef}
           className={cn("w-full touch-none cursor-crosshair", canvasClassName)}
@@ -183,7 +183,7 @@ const SignatureCanvas = forwardRef<CustomerSignaturePadHandle, PadProps>(
           }}
         />
         {!hasInk ? (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-base text-slate-400 sm:text-lg">
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-base text-muted-foreground sm:text-lg">
             Sign here
           </p>
         ) : null}
@@ -224,19 +224,19 @@ function FullscreenSignatureOverlay({
       aria-modal="true"
       aria-labelledby={titleId}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0">
           <p id={titleId} className="text-base font-bold">
             Customer signature
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Rotate sideways to sign, tap Done, then hand the phone back.
           </p>
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-card hover:text-white"
           aria-label="Close large signature"
         >
           <X className="h-5 w-5" aria-hidden />
@@ -249,7 +249,7 @@ function FullscreenSignatureOverlay({
             type="button"
             onClick={() => padRef.current?.clear()}
             disabled={!hasInk}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
           >
             <Eraser className="h-4 w-4" aria-hidden />
             Clear
@@ -267,7 +267,7 @@ function FullscreenSignatureOverlay({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white hover:bg-emerald-500"
+          className="w-full rounded-xl bg-success py-4 text-base font-semibold text-success-foreground hover:bg-success"
         >
           {hasInk ? "Done — hand phone back" : "Done"}
         </button>
@@ -294,7 +294,7 @@ export function CustomerSignaturePad({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           {optional ? "Customer signature (optional)" : "Customer signature"}
         </span>
         <div className="flex items-center gap-1">
@@ -302,7 +302,7 @@ export function CustomerSignaturePad({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/10"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-success hover:bg-success/10"
             >
               <Maximize2 className="h-3.5 w-3.5" aria-hidden />
               Larger / landscape
@@ -317,7 +317,7 @@ export function CustomerSignaturePad({
               onChange(null)
             }}
             disabled={!hasInk && !previewUrl}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-400 hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden />
             Clear
@@ -326,14 +326,14 @@ export function CustomerSignaturePad({
       </div>
 
       {previewUrl && !hasInk ? (
-        <div className="relative overflow-hidden rounded-xl border border-emerald-500/40 bg-white">
+        <div className="relative overflow-hidden rounded-xl border border-success/40 bg-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
             alt="Customer signature"
             className="h-36 w-full object-contain sm:h-40"
           />
-          <p className="absolute bottom-2 left-2 rounded bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+          <p className="absolute bottom-2 left-2 rounded bg-success/90 px-2 py-0.5 text-2xs font-semibold text-success-foreground">
             Signed
           </p>
         </div>

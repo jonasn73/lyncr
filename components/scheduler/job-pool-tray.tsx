@@ -63,25 +63,25 @@ export function JobPoolTray({
       className={cn(
         "w-full",
         embedded ? "px-0 py-0" : SCHEDULER_GLASS_CARD,
-        !embedded && (sidebar ? "px-3 py-2.5" : "px-4 py-3")
+        !embedded && (sidebar ? "px-3 py-3" : "px-4 py-3")
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-3">
           <span
             className={cn(
               "flex shrink-0 items-center justify-center rounded-lg",
               poolLooksEmpty
-                ? "bg-zinc-800/80 text-zinc-500"
-                : "bg-amber-500/15 text-amber-200",
-              sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
+                ? "bg-muted/80 text-muted-foreground"
+                : "bg-warning/15 text-warning",
+              sidebar || embedded ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <Inbox className="h-3.5 w-3.5" aria-hidden />
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Job pool</h2>
-            <p className="text-[11px] leading-snug text-slate-500">
+            <p className="text-2xs leading-snug text-muted-foreground">
               {poolLooksEmpty
                 ? "Unassigned bookings land here"
                 : mobileTimeline || sidebar || embedded
@@ -92,12 +92,12 @@ export function JobPoolTray({
         </div>
         <span
           className={cn(
-            "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-[10px] font-semibold uppercase tracking-wide",
+            "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-micro font-semibold uppercase tracking-wide",
             loading
-              ? "text-zinc-500"
+              ? "text-muted-foreground"
               : poolIsEmpty
-                ? "border border-zinc-800 bg-zinc-950/50 text-zinc-500"
-                : "bg-amber-500/15 text-amber-200"
+                ? "border border-border bg-background/50 text-muted-foreground"
+                : "bg-warning/15 text-warning"
           )}
         >
           {loading ? (
@@ -113,7 +113,7 @@ export function JobPoolTray({
       {/* Always mount filter tabs — hide when empty so height never pops in with first job. */}
       <div
         className={cn(
-          "mb-2 flex gap-1 rounded-lg border border-slate-800/80 bg-slate-900/40 p-0.5",
+          "mb-2 flex gap-1 rounded-lg border border-border/80 bg-card/40 p-0.5",
           poolIsEmpty && viewFilter === "all" && "invisible pointer-events-none"
         )}
         aria-hidden={poolIsEmpty && viewFilter === "all"}
@@ -122,10 +122,10 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("all")}
           className={cn(
-            "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "flex-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "all"
-              ? "bg-slate-800 text-slate-100"
-              : "text-slate-500 hover:text-slate-300"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           All pool ({jobs.length})
@@ -134,10 +134,10 @@ export function JobPoolTray({
           type="button"
           onClick={() => setViewFilter("rescue")}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+            "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "rescue"
-              ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
-              : "text-rose-300/80 hover:text-rose-100"
+              ? "bg-destructive/20 text-destructive ring-1 ring-destructive/40"
+              : "text-destructive/80 hover:text-destructive"
           )}
         >
           <LifeBuoy className="h-3 w-3" aria-hidden />
@@ -156,10 +156,10 @@ export function JobPoolTray({
               if (onMobileAssignJob) onMobileAssignJob(next)
               else onSelectJob?.(next)
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-success/40 bg-success/15 px-3 py-3 text-sm font-semibold text-success transition-colors hover:bg-success/25"
           >
             Assign next waiting job
-            <span className="truncate text-xs font-normal text-emerald-200/80">
+            <span className="truncate text-xs font-normal text-success/80">
               {(visibleJobs[0].customer_name || visibleJobs[0].job_type || "Job").trim()}
             </span>
           </button>
@@ -176,7 +176,7 @@ export function JobPoolTray({
         )}
       >
         {!loading && visibleJobs.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-800/90 bg-zinc-950/30 px-3 py-3 text-center text-xs leading-relaxed text-zinc-500">
+          <p className="rounded-lg border border-dashed border-border/90 bg-background/30 px-3 py-3 text-center text-xs leading-relaxed text-muted-foreground">
             {viewFilter === "rescue"
               ? "No Price Denied jobs — rejected quotes land here for outreach."
               : "Pool is empty. New intakes without a tech show up here."}

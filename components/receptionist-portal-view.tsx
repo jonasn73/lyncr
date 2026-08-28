@@ -86,7 +86,7 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   const detail = (
     <>
       {ringing ? "Ringing for " : "Answering for "}
-      <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+      <span className="font-medium text-foreground">{live_status.business_name}</span>
       {" · "}
       {formatPhoneDisplay(live_status.caller_number)}
       {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
@@ -96,18 +96,18 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors duration-300",
-        onCall ? "border-emerald-500/35 bg-emerald-950/25" : "border-primary/25 bg-primary/5"
+        "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-300",
+        onCall ? "border-success/35 bg-success/25" : "border-primary/25 bg-primary/5"
       )}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
-        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-emerald-400" : "bg-primary")} />
+        <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", onCall ? "bg-success" : "bg-primary")} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground">
           {headline}
-          <span className="text-zinc-500"> · </span>
-          <span className="font-normal text-zinc-400">{detail}</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-normal text-muted-foreground">{detail}</span>
         </p>
       </div>
     </div>
@@ -171,7 +171,7 @@ function RecentCallerList({
 
   if (recent.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-sm text-zinc-500">
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground">
         No calls yet. When one is routed to you it lands here, with whatever the business
         already knows about the caller.
       </p>
@@ -190,28 +190,28 @@ function RecentCallerList({
                 <p className="truncate text-sm font-semibold text-foreground">
                   {row.caller_name?.trim() || formatPhoneDisplay(row.from_number)}
                 </p>
-                <p className="mt-0.5 text-xs tabular-nums text-zinc-500">
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
                   {row.caller_name?.trim() ? `${formatPhoneDisplay(row.from_number)} · ` : ""}
                   {formatTimestamp(row.created_at)} · {formatDuration(row.duration_seconds)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <a
                   href={`tel:${dialable}`}
-                  className="rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                  className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 >
                   Call back
                 </a>
                 <a
                   href={`sms:${dialable}`}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
                 >
                   Text
                 </a>
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : row.id)}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
                 >
                   {open ? "Close" : "Notes"}
                 </button>
@@ -248,14 +248,14 @@ function CallRows({
   const [openId, setOpenId] = useState<string | null>(null)
 
   if (rows.length === 0) {
-    return <p className="px-4 py-8 text-center text-sm text-zinc-500">{emptyMessage}</p>
+    return <p className="px-4 py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
   }
 
   return (
     <WorkspaceTableWrap>
       {/* No <table> here — WorkspaceTableWrap renders it. Nesting one trips hydration. */}
       <thead>
-          <tr className="border-b border-border/60 text-left text-[11px] uppercase tracking-wide text-zinc-500">
+          <tr className="border-b border-border/60 text-left text-2xs uppercase tracking-wide text-muted-foreground">
             <WorkspaceTh>When</WorkspaceTh>
             <WorkspaceTh>Caller</WorkspaceTh>
             <WorkspaceTh>Duration</WorkspaceTh>
@@ -266,13 +266,13 @@ function CallRows({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={cn(WORKSPACE_TABLE_ROW_CLASS, "border-b border-border/40 last:border-0 align-top")}>
-              <WorkspaceTd className="text-zinc-400">{formatTimestamp(row.created_at)}</WorkspaceTd>
+              <WorkspaceTd className="text-muted-foreground">{formatTimestamp(row.created_at)}</WorkspaceTd>
               <WorkspaceTd>
                 <div className="font-medium text-foreground">{formatPhoneDisplay(row.from_number)}</div>
-                {row.caller_name ? <div className="text-xs text-zinc-500">{row.caller_name}</div> : null}
+                {row.caller_name ? <div className="text-xs text-muted-foreground">{row.caller_name}</div> : null}
               </WorkspaceTd>
               <WorkspaceTd>{formatDuration(row.duration_seconds)}</WorkspaceTd>
-              <WorkspaceTd className="capitalize text-zinc-400">{row.status.replace(/-/g, " ")}</WorkspaceTd>
+              <WorkspaceTd className="capitalize text-muted-foreground">{row.status.replace(/-/g, " ")}</WorkspaceTd>
               {showIntake ? (
                 <WorkspaceTd>
                   {openId === row.id ? (
@@ -500,7 +500,7 @@ export function ReceptionistPortalView() {
 
   if (loading && !dashboard) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-sm text-zinc-500">
+      <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
         Loading console…
       </div>
@@ -543,12 +543,12 @@ export function ReceptionistPortalView() {
           title={tab === "calls" ? "Calls" : "Earnings"}
           action={
             tab === "earnings" ? (
-              <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
+              <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                 <Wallet className="h-3.5 w-3.5" aria-hidden />
                 {rateLabel}
               </span>
             ) : (
-              <span className="text-xs text-zinc-500">{dashboard.business_name}</span>
+              <span className="text-xs text-muted-foreground">{dashboard.business_name}</span>
             )
           }
         />
@@ -589,18 +589,18 @@ export function ReceptionistPortalView() {
             className={cn(
               "overflow-hidden rounded-2xl border transition-colors duration-300",
               onCall
-                ? "border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card/90 to-card/90"
+                ? "border-success/40 bg-gradient-to-br from-success/40 via-card/90 to-card/90"
                 : available
                   ? "border-primary/35 bg-gradient-to-br from-primary/10 via-card/90 to-card/90"
                   : "border-border/50 bg-card/80"
             )}
           >
-            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-6">
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "text-[10px] font-semibold uppercase tracking-[0.16em]",
-                    onCall ? "text-emerald-400" : available ? "text-primary" : "text-zinc-500"
+                    "text-micro font-semibold uppercase tracking-[0.16em]",
+                    onCall ? "text-success" : available ? "text-primary" : "text-muted-foreground"
                   )}
                 >
                   Duty status
@@ -608,17 +608,17 @@ export function ReceptionistPortalView() {
                 <h1
                   className={cn(
                     "mt-1 text-2xl font-semibold tracking-tight sm:text-3xl",
-                    onCall ? "text-emerald-200" : available ? "text-foreground" : "text-zinc-400"
+                    onCall ? "text-success" : available ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {onCall ? "ON CALL" : ringingNow ? "RINGING" : available ? "ON DUTY" : "OFF DUTY"}
                 </h1>
-                <p className="mt-1.5 truncate text-sm text-zinc-300">
+                <p className="mt-1.5 truncate text-sm text-foreground">
                   <span className="font-medium text-foreground">{dashboard.business_name}</span>
-                  <span className="text-zinc-600"> · </span>
-                  <span className="text-zinc-400">{rateLabel}</span>
+                  <span className="text-muted-foreground"> · </span>
+                  <span className="text-muted-foreground">{rateLabel}</span>
                 </p>
-                <p className="mt-2 hidden max-w-md text-xs leading-relaxed text-zinc-500 md:block">
+                <p className="mt-2 hidden max-w-md text-xs leading-relaxed text-muted-foreground md:block">
                   {available
                     ? "You’re eligible when the owner has you under Who answers. This switch doesn’t pick you by itself."
                     : "You won’t get rings — calls use the owner’s backup. Who answers stays the owner’s choice."}
@@ -633,7 +633,7 @@ export function ReceptionistPortalView() {
               />
             </div>
 
-            <div className="border-t border-border/40 px-4 py-3 sm:px-5">
+            <div className="border-t border-border/40 px-4 py-3 sm:px-6">
               <ReceptionistEndpointToggle
                 endpoint={endpoint}
                 webCallingAvailable={webCallingAvailable}
@@ -674,7 +674,7 @@ export function ReceptionistPortalView() {
         <WorkspacePanel className="overflow-hidden shadow-none ring-0">
           <div className="border-b border-border/50 px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">Calls that rang your line</h2>
-            <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
+            <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
               Only calls routed to you for {dashboard.business_name} — not every company call.
             </p>
           </div>
@@ -711,7 +711,7 @@ export function ReceptionistPortalView() {
           <WorkspacePanel className="overflow-hidden shadow-none ring-0">
             <div className="border-b border-border/50 px-4 py-3">
               <h2 className="text-sm font-semibold text-foreground">Pay period ledger</h2>
-              <p className="mt-0.5 hidden text-xs text-zinc-500 md:block">
+              <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
                 Answered calls this pay period for {dashboard.business_name}. Payout per row.
               </p>
             </div>
