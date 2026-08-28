@@ -44,8 +44,8 @@ function formatDuration(seconds: number): string {
 function DirectionCell({ direction }: { direction: string }) {
   const d = direction.toLowerCase()
   const map: Record<string, { label: string; icon: typeof PhoneIncoming; className: string }> = {
-    incoming: { label: "Inbound", icon: PhoneIncoming, className: "text-sky-300" },
-    outgoing: { label: "Outbound Forwarded", icon: PhoneForwarded, className: "text-violet-300" },
+    incoming: { label: "Inbound", icon: PhoneIncoming, className: "text-info" },
+    outgoing: { label: "Outbound Forwarded", icon: PhoneForwarded, className: "text-operator" },
     missed: { label: "Missed", icon: PhoneMissed, className: "text-warning" },
     voicemail: { label: "Voicemail", icon: Voicemail, className: "text-foreground" },
   }
@@ -85,7 +85,7 @@ function StatusBadge({ status }: { status: string }) {
         : s === "failed" || s === "canceled" || s === "cancelled"
           ? "bg-destructive/15 text-destructive"
           : s === "in-progress" || s === "answered"
-            ? "bg-sky-500/15 text-sky-300"
+            ? "bg-info/15 text-info"
             : "bg-accent/50 text-muted-foreground"
   return <span className={cn("rounded-full px-2 py-0.5 text-2xs font-medium", className)}>{label}</span>
 }
@@ -123,7 +123,7 @@ function UuidCell({ uuid }: { uuid: string }) {
           onClick={() => void handleCopy()}
           className={cn(
             "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-background/60 text-muted-foreground transition-colors",
-            "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
+            "hover:border-operator/40 hover:bg-operator/40 hover:text-operator",
             copied && "border-success/40 text-success"
           )}
           aria-label="Copy call UUID"
@@ -172,7 +172,7 @@ export function CallHistoryTable() {
     <Card className="border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base text-foreground">
-          <History className="h-4 w-4 text-violet-300" aria-hidden />
+          <History className="h-4 w-4 text-operator" aria-hidden />
           Call History
           <span className="text-xs font-normal text-muted-foreground">last {calls.length}</span>
         </CardTitle>
@@ -191,11 +191,11 @@ export function CallHistoryTable() {
       <CardContent className="pt-0">
         {loading ? (
           <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading call logs…
+            <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Loading call logs…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <History className="h-7 w-7 text-slate-700" aria-hidden />
+            <History className="h-7 w-7 text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">No call records yet.</p>
           </div>
         ) : (

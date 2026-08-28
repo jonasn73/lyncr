@@ -52,11 +52,11 @@ function webStatusLabel(
     case "reconnecting":
       return { text: "Reconnecting your browser…", dot: "bg-warning animate-pulse" }
     case "not_provisioned":
-      return { text: "Browser calling not set up yet — using your cell", dot: "bg-zinc-500" }
+      return { text: "Browser calling not set up yet — using your cell", dot: "bg-muted-foreground" }
     case "error":
       return { text: "Browser calling error — using your cell", dot: "bg-destructive" }
     default:
-      return { text: "", dot: "bg-zinc-600" }
+      return { text: "", dot: "bg-muted-foreground" }
   }
 }
 

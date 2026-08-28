@@ -53,7 +53,7 @@ function PhotoGrid({
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-border/80 bg-background/40 px-2 py-2 text-center text-micro text-muted-foreground">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-border/80 bg-background/40 px-2 py-2 text-center text-2xs text-muted-foreground">
           Waiting…
         </div>
       ) : (
@@ -276,8 +276,8 @@ export function IntakeJobPhotosPanel({
               {hint ? (
                 <p
                   className={cn(
-                    "text-micro",
-                    requestState === "error" ? "text-destructive" : "text-sky-300/90"
+                    "text-2xs",
+                    requestState === "error" ? "text-destructive" : "text-info/90"
                   )}
                 >
                   {hint}
@@ -297,7 +297,7 @@ export function IntakeJobPhotosPanel({
                         <p className="text-xs text-success/90">{vehicleLine}</p>
                       ) : null}
                       {rescueMeta?.vehicle_vin ? (
-                        <p className="mt-0.5 font-mono text-micro text-muted-foreground">
+                        <p className="mt-0.5 font-mono text-2xs text-muted-foreground">
                           VIN {rescueMeta.vehicle_vin}
                         </p>
                       ) : null}
@@ -319,7 +319,7 @@ export function IntakeJobPhotosPanel({
                         <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-warning/90">
                           ID / Registration
                         </p>
-                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-warning/50 bg-warning/10 px-2 py-2 text-center text-micro font-semibold text-warning">
+                        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-warning/50 bg-warning/10 px-2 py-2 text-center text-2xs font-semibold text-warning">
                           Verify ID on site
                         </div>
                       </div>
@@ -329,7 +329,7 @@ export function IntakeJobPhotosPanel({
                   </div>
                 </div>
               ) : (
-                <p className="px-0.5 text-micro text-muted-foreground">
+                <p className="px-0.5 text-2xs text-muted-foreground">
                   Texts a link so the customer can send damage / ID photos. Skip unless you need them.
                 </p>
               )}

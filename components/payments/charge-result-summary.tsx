@@ -75,7 +75,7 @@ export function ChargeResultSummary({
           {tipFailed ? (
             <MinusCircle className="h-7 w-7" aria-hidden />
           ) : (
-            <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
+            <Check className="h-9 w-9 stroke-[2.5]" aria-hidden />
           )}
         </div>
 
@@ -109,12 +109,12 @@ export function ChargeResultSummary({
         ) : null}
 
         {tipFailed ? (
-          <div className="mt-3 w-full max-w-sm rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-left">
-            <p className="inline-flex items-center gap-2 text-2xs font-semibold text-rose-200">
+          <div className="mt-3 w-full max-w-sm rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-left">
+            <p className="inline-flex items-center gap-2 text-2xs font-semibold text-destructive">
               <XCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
               Tip failed · {fmtCents(tip.cents)}
             </p>
-            <p className="mt-1 text-2xs leading-snug text-rose-100/90">{tip.reason}</p>
+            <p className="mt-1 text-2xs leading-snug text-destructive/90">{tip.reason}</p>
           </div>
         ) : null}
       </div>

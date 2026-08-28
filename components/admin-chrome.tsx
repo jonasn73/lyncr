@@ -119,7 +119,7 @@ function SupportCountBadge({ count, className }: { count: number; className?: st
   return (
     <span
       className={cn(
-        "min-w-[1.25rem] rounded-full bg-violet-600 px-2 py-0.5 text-center text-micro font-semibold leading-none text-white",
+        "min-w-[1.25rem] rounded-full bg-operator px-2 py-0.5 text-center text-2xs font-semibold leading-none text-operator-foreground",
         className
       )}
     >
@@ -143,7 +143,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
             className={cn(
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
+                ? "bg-operator/25 text-operator ring-1 ring-operator/40"
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
@@ -165,7 +165,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
             className={cn(
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
+                ? "bg-operator/25 text-operator ring-1 ring-operator/40"
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
@@ -207,7 +207,7 @@ function MobileBottomTabs({
               className={cn(
                 "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
                 active
-                  ? "bg-violet-600/25 text-violet-100"
+                  ? "bg-operator/25 text-operator"
                   : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               )}
             >
@@ -217,7 +217,7 @@ function MobileBottomTabs({
                   <SupportCountBadge count={supportCount} className="absolute -right-3 -top-1" />
                 ) : null}
               </span>
-              <span className="w-full truncate text-micro font-semibold leading-tight tracking-tight">
+              <span className="w-full truncate text-2xs font-semibold leading-tight tracking-tight">
                 {item.label}
               </span>
             </Link>
@@ -231,12 +231,12 @@ function MobileBottomTabs({
           className={cn(
             "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
             moreActive
-              ? "bg-violet-600/25 text-violet-100"
+              ? "bg-operator/25 text-operator"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           )}
         >
           <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="w-full truncate text-micro font-semibold leading-tight tracking-tight">More</span>
+          <span className="w-full truncate text-2xs font-semibold leading-tight tracking-tight">More</span>
         </button>
       </div>
     </nav>
@@ -279,7 +279,7 @@ function MoreSheet({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+            className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
             aria-label="Close"
             onClick={onClose}
           >
@@ -298,7 +298,7 @@ function MoreSheet({
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
+                    ? "bg-operator/25 text-operator ring-1 ring-operator/40"
                     : "text-foreground hover:bg-muted/80 hover:text-foreground"
                 )}
               >
@@ -356,13 +356,13 @@ export function AdminChrome({
       {/* Desktop sidebar — full nav */}
       <aside className="hidden w-48 shrink-0 flex-col border-r border-border bg-[#060a12] lg:flex">
         <div className="flex items-center gap-2 border-b border-border px-3 py-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-operator">
             <Shield className="h-4 w-4 text-white" aria-hidden />
           </div>
           <div className="min-w-0">
             <div className="flex items-baseline gap-1">
               <BrandWordmark size="xs" variant="onDark" />
-              <span className="text-micro font-bold uppercase tracking-wider text-violet-300/90">Admin</span>
+              <span className="text-micro font-bold uppercase tracking-wider text-operator/90">Admin</span>
             </div>
           </div>
         </div>
@@ -390,7 +390,7 @@ export function AdminChrome({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-2 border-b border-border bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Headphones className="hidden h-4 w-4 text-violet-300 sm:block" aria-hidden />
+            <Headphones className="hidden h-4 w-4 text-operator sm:block" aria-hidden />
             <div className="min-w-0">
               {/* Page name lives in the big heading below — don’t repeat “Home” here. */}
               <p className="truncate text-sm font-semibold text-foreground">Lyncr Admin</p>

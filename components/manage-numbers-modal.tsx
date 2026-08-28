@@ -147,7 +147,7 @@ function PortPinCorrectionForm({
         type="button"
         disabled={submitting}
         onClick={() => void resubmit()}
-        className="inline-flex w-full items-center justify-center rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-destructive disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center rounded-md bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground transition-colors hover:bg-destructive disabled:opacity-60"
       >
         {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : "Submit Correction to Carrier"}
       </button>
@@ -268,7 +268,7 @@ function EditableLineLabel({
           className="w-full rounded-md border border-primary/40 bg-card/80 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
           aria-label="Line label whisper name"
         />
-        <p className="text-micro leading-snug text-muted-foreground">
+        <p className="text-2xs leading-snug text-muted-foreground">
           Line label (whisper name) — what your team hears when a call comes in.
         </p>
       </div>
@@ -468,7 +468,7 @@ export function ManageNumbersModal({
                     key={line.id}
                     className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
                       <Phone className="h-4 w-4 text-primary" aria-hidden />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -481,7 +481,7 @@ export function ManageNumbersModal({
                         onRevert={applyLineLabel}
                       />
                       {showWorkspacePicker ? (
-                        <label className="mt-2 block text-micro text-muted-foreground">
+                        <label className="mt-2 block text-2xs text-muted-foreground">
                           Business
                           <select
                             value={line.organization_id ?? ""}
@@ -553,7 +553,7 @@ export function ManageNumbersModal({
                         >
                           <div
                             className={cn(
-                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
+                              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border",
                               rejected
                                 ? "border-destructive/30 bg-destructive/10"
                                 : "border-warning/30 bg-warning/10"

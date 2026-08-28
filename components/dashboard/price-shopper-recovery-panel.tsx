@@ -116,32 +116,32 @@ export function PriceShopperRecoveryPanel({
         </Select>
       </div>
       {isPriceTooHigh ? (
-        <div className="mt-2 space-y-3 rounded-lg border border-orange-500/30 bg-background p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-warning/30 bg-background p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
+            <p className="text-xs font-semibold uppercase tracking-wide text-warning">
               Save the deal — read verbatim
             </p>
-            <span className="shrink-0 text-micro font-medium text-orange-400/80">
+            <span className="shrink-0 text-2xs font-medium text-warning/80">
               Step {negotiationStep} of 3
             </span>
           </div>
 
           {negotiationStep === 1 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{routeMatchRecoveryScript(step1Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyRouteMatch}
               >
                 Apply Router Match Discount (${step1Price})
               </Button>
               <button
                 type="button"
-                className="w-full text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                className="w-full text-left text-xs text-warning underline-offset-2 hover:text-warning hover:underline"
                 onClick={() => onNegotiationStepChange(2)}
               >
                 Customer declined this but is still negotiating →
@@ -156,13 +156,13 @@ export function PriceShopperRecoveryPanel({
 
           {negotiationStep === 2 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{aftermarketRecoveryScript(step2Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyAftermarket}
               >
                 Apply Aftermarket Hardware Swap (${step2Price})
@@ -177,7 +177,7 @@ export function PriceShopperRecoveryPanel({
                 </button>
                 <button
                   type="button"
-                  className="text-left text-xs text-orange-300 underline-offset-2 hover:text-orange-200 hover:underline"
+                  className="text-left text-xs text-warning underline-offset-2 hover:text-warning hover:underline"
                   onClick={() => onNegotiationStepChange(3)}
                 >
                   Still too high but wants to book →
@@ -188,13 +188,13 @@ export function PriceShopperRecoveryPanel({
 
           {negotiationStep === 3 ? (
             <>
-              <p className="rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-sm leading-relaxed text-orange-50">
+              <p className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-sm leading-relaxed text-warning">
                 &ldquo;{managementFloorRecoveryScript(customerName, step3Price)}&rdquo;
               </p>
               <Button
                 type="button"
                 size="lg"
-                className="w-full gap-2 bg-orange-600 text-white hover:bg-orange-500"
+                className="w-full gap-2 bg-warning text-warning-foreground hover:bg-warning"
                 onClick={onApplyManagementFloor}
               >
                 Apply Final Management Floor (${step3Price})

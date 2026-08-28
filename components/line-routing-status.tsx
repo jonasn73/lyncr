@@ -50,12 +50,12 @@ export function LineRoutingStatus({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-2 text-2xs font-semibold text-violet-300",
+          "inline-flex items-center gap-2 text-2xs font-semibold text-operator",
           className
         )}
       >
         <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.9)]"
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-operator shadow-[0_0_8px_rgba(167,139,250,0.9)]"
           aria-hidden
         />
         • Routing to Pool

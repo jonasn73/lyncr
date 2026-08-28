@@ -37,7 +37,7 @@ export function IntakePipTray({
         </span>
       </div>
       <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success"
         aria-hidden
       >
         <ChevronUp className="h-4 w-4" />

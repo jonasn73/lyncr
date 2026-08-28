@@ -440,7 +440,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 <p className="mb-1 text-xs font-medium text-muted-foreground">Vehicle</p>
                 <div className="grid grid-cols-3 gap-2">
                   <label className="block space-y-0.5">
-                    <span className="text-micro text-muted-foreground">Year</span>
+                    <span className="text-2xs text-muted-foreground">Year</span>
                     <input
                       value={year}
                       onChange={(e) => setYear(e.target.value)}
@@ -449,7 +449,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-micro text-muted-foreground">Make</span>
+                    <span className="text-2xs text-muted-foreground">Make</span>
                     <input
                       value={make}
                       onChange={(e) => setMake(e.target.value)}
@@ -457,7 +457,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-micro text-muted-foreground">Model</span>
+                    <span className="text-2xs text-muted-foreground">Model</span>
                     <input
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
@@ -466,7 +466,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   </label>
                 </div>
                 <label className="mt-1.5 block space-y-0.5">
-                  <span className="text-micro text-muted-foreground">Or describe</span>
+                  <span className="text-2xs text-muted-foreground">Or describe</span>
                   <input
                     value={vehicleText}
                     onChange={(e) => setVehicleText(e.target.value)}
@@ -512,7 +512,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   }
                 >
                   <span className="font-semibold">ASAP</span>
-                  <span className="mt-0.5 block text-micro text-muted-foreground">Need help now</span>
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">Need help now</span>
                 </button>
                 <button
                   type="button"
@@ -524,7 +524,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   }
                 >
                   <span className="font-semibold">Schedule</span>
-                  <span className="mt-0.5 block text-micro text-muted-foreground">Pick a window</span>
+                  <span className="mt-0.5 block text-2xs text-muted-foreground">Pick a window</span>
                 </button>
               </div>
             </fieldset>

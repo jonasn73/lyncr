@@ -113,7 +113,7 @@ export function CarrierTransferDesk({
           <button
             type="button"
             onClick={() => setShowPinEditor(true)}
-            className="text-2xs font-semibold text-sky-300 underline-offset-2 hover:underline"
+            className="text-2xs font-semibold text-info underline-offset-2 hover:underline"
           >
             Use a different PIN
           </button>
@@ -145,7 +145,7 @@ export function CarrierTransferDesk({
                   : "border-destructive/40"
             )}
           />
-          <span className="mt-1 block text-micro text-destructive/70">{pinHint}</span>
+          <span className="mt-1 block text-2xs text-destructive/70">{pinHint}</span>
         </label>
       ) : null}
 

@@ -1054,7 +1054,7 @@ export function DispatchLiveMap({
             disabled={!ready}
             title="See all jobs and where you are"
             aria-label="Zoom out to all jobs"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-raised backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-raised backdrop-blur hover:border-info/50 hover:text-info disabled:opacity-40"
           >
             <Maximize2 className="h-5 w-5" aria-hidden />
           </button>
@@ -1068,8 +1068,8 @@ export function DispatchLiveMap({
             className={cn(
               "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-raised backdrop-blur disabled:opacity-40",
               followUser
-                ? "border-sky-500/60 bg-sky-500/25 text-sky-100"
-                : "border-border bg-background/95 text-foreground hover:border-sky-500/50 hover:text-sky-200"
+                ? "border-info/60 bg-info/25 text-info"
+                : "border-border bg-background/95 text-foreground hover:border-info/50 hover:text-info"
             )}
           >
             {followUser ? (
@@ -1121,7 +1121,7 @@ export function DispatchLiveMap({
           {selectedJob.customer_phone && (
             <a
               href={`tel:${selectedJob.customer_phone}`}
-              className="mt-2 inline-flex items-center gap-2 text-xs text-sky-400 hover:text-sky-300"
+              className="mt-2 inline-flex items-center gap-2 text-xs text-info hover:text-info"
             >
               <Phone className="h-3 w-3" /> {selectedJob.customer_phone}
             </a>
@@ -1135,7 +1135,7 @@ export function DispatchLiveMap({
               value={selectedJob.assigned_tech_id || ""}
               onChange={(e) => void assign(selectedJob.id, e.target.value)}
               disabled={technicians.length === 0 || savingId === selectedJob.id}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-operator disabled:opacity-50"
             >
               <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
               {technicians.map((t) => (
@@ -1153,7 +1153,7 @@ export function DispatchLiveMap({
           <button
             type="button"
             onClick={() => router.push(buildSchedulerFocusUrl(selectedJob.id))}
-            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-500/25"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-info/40 bg-info/15 px-3 py-2 text-xs font-semibold text-info hover:bg-info/25"
           >
             Open job sheet
           </button>
@@ -1166,8 +1166,8 @@ export function DispatchLiveMap({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted-foreground">
       <span className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-400" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-info" />
         </span>
         You
       </span>
@@ -1175,13 +1175,13 @@ export function DispatchLiveMap({
         <span className="h-2.5 w-2.5 rounded-full bg-success" /> Assigned
       </span>
       <span className="flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unassigned
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive" /> Unassigned
       </span>
       <span className="flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/80" /> Intake target
+        <span className="h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-white/80" /> Intake target
       </span>
       <span className="flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full bg-sky-400" /> Tech
+        <span className="h-2.5 w-2.5 rounded-full bg-info" /> Tech
       </span>
     </div>
   )
@@ -1242,7 +1242,7 @@ export function DispatchLiveMap({
   return (
     <WorkspacePanel density="default" className={cn("mb-4", className)}>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-info/15 text-info">
           <MapPinned className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">

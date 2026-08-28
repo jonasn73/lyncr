@@ -489,7 +489,7 @@ export function DashboardCallFlowConfigureDrawer({
                                   ))}
                                 </select>
                               )}
-                              <p className="text-micro text-muted-foreground">
+                              <p className="text-2xs text-muted-foreground">
                                 Available → rings them first. Unavailable → your phone if Available,
                                 otherwise the busy voice menu (press 1 for booking form).
                               </p>
@@ -630,14 +630,14 @@ export function DashboardCallFlowConfigureDrawer({
                                       }
                                       className={cn(fieldClass, "h-11")}
                                     />
-                                    <p className="text-micro text-muted-foreground">
+                                    <p className="text-2xs text-muted-foreground">
                                       Every inbound call to this business line forwards to this number.
                                     </p>
                                   </section>
                                 ) : null}
 
                                 {opt.value === "lyncr_pool" && active ? (
-                                  <p className="ml-1 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-3 text-2xs text-violet-200/90">
+                                  <p className="ml-1 rounded-xl border border-operator/20 bg-operator/5 px-3 py-3 text-2xs text-operator/90">
                                     Lyncr Pool is active — certified shared agents answer in-browser.
                                   </p>
                                 ) : null}
@@ -670,7 +670,7 @@ export function DashboardCallFlowConfigureDrawer({
                       </option>
                     ))}
                   </select>
-                  <p className="text-micro text-muted-foreground">
+                  <p className="text-2xs text-muted-foreground">
                     {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                       "Tone callers hear on greetings and hold prompts."}
                   </p>
@@ -680,7 +680,7 @@ export function DashboardCallFlowConfigureDrawer({
                   <label htmlFor="configure-busy" className="text-xs font-semibold text-foreground">
                     Busy greeting
                   </label>
-                  <p className="hidden text-micro text-muted-foreground md:block">
+                  <p className="hidden text-2xs text-muted-foreground md:block">
                     Played when Presence is Busy — press 1 texts a booking link; stay on the line
                     enters the hold queue (music + Lines Answer).
                   </p>
@@ -720,7 +720,7 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.repromptSecs)}
                     />
-                    <p className="hidden text-micro text-muted-foreground md:block">
+                    <p className="hidden text-2xs text-muted-foreground md:block">
                       Music length before we re-speak Busy (20–90). Blank = {holdDefaults.repromptSecs}s.
                     </p>
                   </div>
@@ -744,7 +744,7 @@ export function DashboardCallFlowConfigureDrawer({
                       className={cn(fieldClass, "min-h-11")}
                       placeholder={String(holdDefaults.maxWaitSecs)}
                     />
-                    <p className="hidden text-micro text-muted-foreground md:block">
+                    <p className="hidden text-2xs text-muted-foreground md:block">
                       Then one booking SMS + hangup (120–900). Blank = {holdDefaults.maxWaitSecs}s.
                     </p>
                   </div>
@@ -857,7 +857,7 @@ export function DashboardCallFlowConfigureDrawer({
                     className={cn(fieldClass, "min-h-11")}
                     placeholder="e.g. 9 or 1234"
                   />
-                  <p className="text-micro leading-relaxed text-muted-foreground">
+                  <p className="text-2xs leading-relaxed text-muted-foreground">
                     Digits dialed during the automation greeting ring your cell and skip presence
                     blocks. Avoid &quot;1&quot; (booking key).
                   </p>

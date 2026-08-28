@@ -54,7 +54,7 @@ export function PayLinkSentPanel({
         <div className="relative flex flex-col items-center pt-1">
           {/* Big check as the visual star. */}
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/20 text-success shadow-[0_0_28px_-4px] shadow-success/40 ring-1 ring-success/40">
-            <Check className="h-8 w-8 stroke-[2.5]" aria-hidden />
+            <Check className="h-9 w-9 stroke-[2.5]" aria-hidden />
           </div>
 
           <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.14em] text-success/80">
@@ -77,7 +77,7 @@ export function PayLinkSentPanel({
 
       {linkUrl ? (
         <div className="rounded-lg border border-border bg-card/50 px-3 py-2">
-          <p className="break-all text-micro text-muted-foreground">{linkUrl}</p>
+          <p className="break-all text-2xs text-muted-foreground">{linkUrl}</p>
           <button
             type="button"
             className="mt-1.5 text-2xs font-semibold text-success underline"

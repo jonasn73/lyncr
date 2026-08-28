@@ -69,7 +69,7 @@ export function SmsAlertBanner() {
     ? "border-destructive/40 bg-destructive/20 text-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.25)]"
     : isPending
       ? "border-warning/30 bg-warning/10 text-warning"
-      : "border-violet-500/30 bg-violet-500/10 text-violet-100"
+      : "border-operator/30 bg-operator/10 text-operator"
 
   return (
     <div

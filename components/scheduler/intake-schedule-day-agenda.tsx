@@ -63,7 +63,7 @@ export function IntakeScheduleDayAgenda({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {dayEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <Clock3 className="h-8 w-8 opacity-40" aria-hidden />
+            <Clock3 className="h-9 w-9 opacity-40" aria-hidden />
             <p>Your day is open.</p>
           </div>
         ) : (

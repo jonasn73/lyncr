@@ -157,20 +157,20 @@ export function PhotoUploadNotificationBanner() {
         <div
           key={notice.id}
           className={cn(
-            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-sky-500/40",
+            "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-info/40",
             "bg-background/95 px-4 py-3 text-sm text-foreground shadow-overlay backdrop-blur"
           )}
           role="status"
           aria-live="polite"
         >
-          <Camera className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" aria-hidden />
+          <Camera className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="font-medium leading-snug">
               {notice.headline}{" "}
               <button
                 type="button"
                 onClick={() => focusIntake(notice)}
-                className="font-bold text-sky-300 underline-offset-2 hover:underline"
+                className="font-bold text-info underline-offset-2 hover:underline"
               >
                 [View Intake]
               </button>

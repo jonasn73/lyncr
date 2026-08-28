@@ -62,9 +62,9 @@ export function PhoneLinesListContent({
                   "relative w-full overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-200",
                   isActive
                     ? poolRouting
-                      ? "border-violet-500/45 bg-violet-500/5 ring-1 ring-violet-500/15"
+                      ? "border-operator/45 bg-operator/5 ring-1 ring-operator/15"
                       : "border-primary/40 bg-primary/5 ring-1 ring-primary/15"
-                    : "border-white/8 bg-neutral-950/30 hover:border-teal-500/25 hover:bg-white/[0.03]"
+                    : "border-white/8 bg-background/30 hover:border-primary/25 hover:bg-white/[0.03]"
                 )}
               >
                 <button
@@ -80,7 +80,7 @@ export function PhoneLinesListContent({
                       "text-micro font-bold uppercase tracking-wider",
                       isActive
                         ? poolRouting
-                          ? "text-violet-300/85"
+                          ? "text-operator/85"
                           : "text-primary/80"
                         : "text-muted-foreground"
                     )}
@@ -108,7 +108,7 @@ export function PhoneLinesListContent({
                       onOpenCarrierDesk(line)
                     }}
                     aria-label={`Open carrier transfer desk for ${formatPhoneDisplay(line.number)}`}
-                    className="w-full px-3 pb-3 text-left text-micro font-medium text-warning/90 underline-offset-2 transition-colors hover:text-warning hover:underline"
+                    className="w-full px-3 pb-3 text-left text-2xs font-medium text-warning/90 underline-offset-2 transition-colors hover:text-warning hover:underline"
                   >
                     Transfer in progress — tap for carrier desk
                   </button>
@@ -136,14 +136,14 @@ export function PhoneLinesListContent({
         className={cn(
           "relative mt-4 rounded-xl border px-3 py-3 transition-colors",
           poolRouting
-            ? "border-violet-500/45 bg-violet-500/5 ring-1 ring-violet-500/15"
+            ? "border-operator/45 bg-operator/5 ring-1 ring-operator/15"
             : "border-primary/40 bg-primary/5 ring-1 ring-primary/15"
         )}
       >
         <span
           className={cn(
             "text-micro font-bold uppercase tracking-wider",
-            poolRouting ? "text-violet-300/85" : "text-primary/80"
+            poolRouting ? "text-operator/85" : "text-primary/80"
           )}
         >
           Active line

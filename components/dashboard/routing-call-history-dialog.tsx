@@ -343,7 +343,7 @@ function WeeklyDayBreakdownChart({
         {hasActivity ? (
           <p className="text-2xs text-muted-foreground">
             Busiest:{" "}
-            <span className="font-medium text-teal-400">
+            <span className="font-medium text-primary">
               {busiest.displayLabel === "Today" || busiest.displayLabel === "Yesterday"
                 ? busiest.displayLabel
                 : `${busiest.weekdayLabel} (${busiest.dateLabel})`}{" "}
@@ -373,7 +373,7 @@ function WeeklyDayBreakdownChart({
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
                   "hover:bg-card/60",
-                  isSelected && "bg-teal-950/40 ring-1 ring-teal-500/30"
+                  isSelected && "bg-primary/40 ring-1 ring-primary/30"
                 )}
                 aria-pressed={isSelected}
                 aria-label={`${day.displayLabel} ${day.dateLabel}: ${day.callCount} calls, ${formatTalkDuration(day.talkSeconds)} talk`}
@@ -382,12 +382,12 @@ function WeeklyDayBreakdownChart({
                   <p
                     className={cn(
                       "text-xs font-semibold",
-                      day.isToday ? "text-teal-300" : isMuted ? "text-muted-foreground" : "text-foreground"
+                      day.isToday ? "text-primary" : isMuted ? "text-muted-foreground" : "text-foreground"
                     )}
                   >
                     {day.displayLabel}
                   </p>
-                  <p className="text-micro text-muted-foreground">{day.dateLabel}</p>
+                  <p className="text-2xs text-muted-foreground">{day.dateLabel}</p>
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -395,7 +395,7 @@ function WeeklyDayBreakdownChart({
                     <div
                       className={cn(
                         "h-full rounded-full transition-all",
-                        day.callCount > 0 ? "bg-teal-500/80" : "bg-accent/40"
+                        day.callCount > 0 ? "bg-primary/80" : "bg-accent/40"
                       )}
                       style={{ width: `${Math.max(day.callCount > 0 ? 8 : 0, barPct)}%` }}
                     />
@@ -411,7 +411,7 @@ function WeeklyDayBreakdownChart({
                   >
                     {day.callCount} call{day.callCount === 1 ? "" : "s"}
                   </p>
-                  <p className="text-micro tabular-nums text-muted-foreground">
+                  <p className="text-2xs tabular-nums text-muted-foreground">
                     {day.talkSeconds > 0 ? formatTalkDuration(day.talkSeconds) : "—"}
                   </p>
                 </div>
@@ -427,7 +427,7 @@ function WeeklyDayBreakdownChart({
           {days.find((d) => d.key === selectedDayKey)?.displayLabel ?? "day"} only ·{" "}
           <button
             type="button"
-            className="text-teal-400 underline-offset-2 hover:underline"
+            className="text-primary underline-offset-2 hover:underline"
             onClick={() => onSelectDay(null)}
           >
             Show all week
@@ -444,10 +444,10 @@ function WeeklyDayBreakdownChart({
 
 function DirectionIcon({ callType }: { callType: string }) {
   const t = callType.toLowerCase()
-  if (t === "outgoing") return <PhoneOutgoing className="h-4 w-4 shrink-0 text-teal-400" aria-hidden />
+  if (t === "outgoing") return <PhoneOutgoing className="h-4 w-4 shrink-0 text-primary" aria-hidden />
   if (t === "missed") return <PhoneMissed className="h-4 w-4 shrink-0 text-warning" aria-hidden />
-  if (t === "voicemail") return <Voicemail className="h-4 w-4 shrink-0 text-violet-400" aria-hidden />
-  return <PhoneIncoming className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden />
+  if (t === "voicemail") return <Voicemail className="h-4 w-4 shrink-0 text-operator" aria-hidden />
+  return <PhoneIncoming className="h-4 w-4 shrink-0 text-primary" aria-hidden />
 }
 
 function SummaryStat({
@@ -465,14 +465,14 @@ function SummaryStat({
     <div
       className={cn(
         "rounded-xl border px-3 py-3",
-        highlight ? "border-teal-500/30 bg-teal-950/30" : "border-border/80 bg-card/40"
+        highlight ? "border-primary/30 bg-primary/30" : "border-border/80 bg-card/40"
       )}
     >
       <div className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />
         {label}
       </div>
-      <p className={cn("mt-1 text-lg font-bold tabular-nums", highlight ? "text-teal-300" : "text-foreground")}>
+      <p className={cn("mt-1 text-lg font-bold tabular-nums", highlight ? "text-primary" : "text-foreground")}>
         {value}
       </p>
     </div>
@@ -602,7 +602,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
               className={cn(
                 "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
                 weekOffset === 0
-                  ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
+                  ? "border-primary/40 bg-primary/15 text-primary"
                   : "border-border bg-card/50 text-muted-foreground hover:border-border hover:text-foreground"
               )}
             >
@@ -614,7 +614,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
               className={cn(
                 "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
                 weekOffset === -1
-                  ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
+                  ? "border-primary/40 bg-primary/15 text-primary"
                   : "border-border bg-card/50 text-muted-foreground hover:border-border hover:text-foreground"
               )}
             >
@@ -695,7 +695,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                           {callBackHref ? (
                             <a
                               href={callBackHref}
-                              className="truncate text-sm font-medium text-cyan-300 underline-offset-2 hover:underline"
+                              className="truncate text-sm font-medium text-primary underline-offset-2 hover:underline"
                             >
                               {formatPhoneDisplay(call.from_number)}
                             </a>
@@ -707,7 +707,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                           <span
                             className={cn(
                               "shrink-0 text-xs tabular-nums font-semibold",
-                              talkSec > 0 ? "text-teal-400" : "text-muted-foreground"
+                              talkSec > 0 ? "text-primary" : "text-muted-foreground"
                             )}
                           >
                             {talkSec > 0 ? formatDuration(talkSec) : "0s"}
@@ -735,7 +735,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                         {callBackHref ? (
                           <a
                             href={callBackHref}
-                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15 active:scale-[0.98]"
+                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/35 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition hover:bg-primary/15 active:scale-[0.98]"
                           >
                             <Phone className="h-4 w-4 shrink-0" aria-hidden />
                             Call back

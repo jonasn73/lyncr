@@ -99,7 +99,7 @@ export function SendToBankPanel({
           Send
         </button>
       </div>
-      {error ? <p className="text-2xs text-rose-200">{error}</p> : null}
+      {error ? <p className="text-2xs text-destructive">{error}</p> : null}
     </div>
   )
 }

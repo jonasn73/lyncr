@@ -403,7 +403,7 @@ export function AiIntakeFlowPanel({
     <>
       {variant === "modal" && (
         <div className="flex justify-end">
-          <StoryPopoverInfo storyKey="ai-flow-overview" label="About AI call flow" triggerClassName="h-8 w-8" />
+          <StoryPopoverInfo storyKey="ai-flow-overview" label="About AI call flow" triggerClassName="h-9 w-9" />
         </div>
       )}
       {loadError && (
@@ -427,7 +427,7 @@ export function AiIntakeFlowPanel({
           <StoryPopoverInfo
             storyKey="ai-assistant-not-linked-banner"
             label="Why assistant is not linked"
-            triggerClassName="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
+            triggerClassName="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/15 hover:text-destructive"
           />
         </div>
       )}
@@ -436,7 +436,7 @@ export function AiIntakeFlowPanel({
         <div>
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
-              <IconSurface tone="primary" className="h-10 w-10">
+              <IconSurface tone="primary" className="h-11 w-11">
                 <Bot className="h-5 w-5 text-primary" />
               </IconSurface>
               <div>
@@ -460,9 +460,9 @@ export function AiIntakeFlowPanel({
           <StoryPopoverInfo storyKey="ai-opening-line-section" label="About opening line" triggerClassName="h-7 w-7" />
         </div>
         {variant === "modal" ? (
-          <p className="text-micro text-muted-foreground">First thing the AI says. Tap Save when you change it.</p>
+          <p className="text-2xs text-muted-foreground">First thing the AI says. Tap Save when you change it.</p>
         ) : (
-          <p className="text-micro text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             Also used when Voice AI answers (default path) or after no-answer if you ring your cell first — synced when you Save.
           </p>
         )}
@@ -487,7 +487,7 @@ export function AiIntakeFlowPanel({
             )}
             {previewLoading ? "Loading preview…" : "Play preview"}
           </button>
-          <p className="text-micro leading-snug text-muted-foreground sm:max-w-[14rem] sm:text-right">
+          <p className="text-2xs leading-snug text-muted-foreground sm:max-w-[14rem] sm:text-right">
             Preview uses {SITE_NAME}&apos;s cloud voice when available; otherwise your{" "}
             <span className="font-medium text-foreground">browser voice</span>. Live calls use your saved voice assistant
             (see <span className="font-medium text-foreground">Voice &amp; model</span>).
@@ -535,7 +535,7 @@ export function AiIntakeFlowPanel({
         <div className="flex items-center justify-between rounded-xl border border-border/70 bg-secondary/35 px-3 py-3">
           <div className="min-w-0 pr-2">
             <p className="text-xs font-semibold text-foreground">Text me new leads</p>
-            <p className="text-micro text-muted-foreground">SMS when a lead is saved (if messaging is enabled).</p>
+            <p className="text-2xs text-muted-foreground">SMS when a lead is saved (if messaging is enabled).</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <StoryPopoverInfo storyKey="ai-sms-notify-toggle" label="About SMS lead notifications" triggerClassName="h-7 w-7" />
@@ -557,7 +557,7 @@ export function AiIntakeFlowPanel({
           <StoryPopoverInfo storyKey="ai-playbook-industry" label="About industry script" triggerClassName="h-7 w-7" />
         </div>
         {variant !== "modal" ? (
-          <p className="text-micro text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             We send this as instructions when you Save (plus your opening line above).
           </p>
         ) : null}
@@ -578,7 +578,7 @@ export function AiIntakeFlowPanel({
         </select>
 
         {variant === "modal" ? (
-          <details className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 text-micro text-muted-foreground">
+          <details className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 text-2xs text-muted-foreground">
             <summary className="cursor-pointer font-medium text-foreground">Flow outline — {flow.label}</summary>
             <p className="mt-2 leading-relaxed">{flow.goal}</p>
             <ul className="mt-2 list-inside list-disc space-y-1">
@@ -592,7 +592,7 @@ export function AiIntakeFlowPanel({
         ) : (
           <>
             <div className="rounded-xl bg-primary/5 px-3 py-2">
-              <p className="text-micro font-medium text-primary">Flow preview — {flow.label}</p>
+              <p className="text-2xs font-medium text-primary">Flow preview — {flow.label}</p>
               <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">{flow.goal}</p>
             </div>
             <div className="space-y-2">
@@ -603,7 +603,7 @@ export function AiIntakeFlowPanel({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-xs font-semibold text-foreground">{b.title}</p>
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-micro text-muted-foreground">
+                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-2xs text-muted-foreground">
                       {b.intent_slug}
                     </span>
                   </div>
@@ -631,7 +631,7 @@ export function AiIntakeFlowPanel({
               <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Voice &amp; model {variant === "modal" ? "" : "(optional)"}
               </p>
-              <p className="mt-0.5 text-micro text-muted-foreground">Skip unless you need a specific AI model or voice.</p>
+              <p className="mt-0.5 text-2xs text-muted-foreground">Skip unless you need a specific AI model or voice.</p>
             </div>
             <ChevronDown
               className={cn("mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform", showAdvancedAi && "rotate-180")}
@@ -643,15 +643,15 @@ export function AiIntakeFlowPanel({
         {showAdvancedAi && (
           <div className="space-y-3 border-t border-border/60 pt-3">
             {catalogLoading ? (
-              <p className="text-micro text-muted-foreground">Loading suggestions…</p>
+              <p className="text-2xs text-muted-foreground">Loading suggestions…</p>
             ) : null}
             {catalogError ? (
-              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-2 text-micro text-destructive">
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-2 py-2 text-2xs text-destructive">
                 {displayUserFacingMessage(catalogError)}
               </p>
             ) : null}
             {!catalogLoading && !catalogError ? (
-              <p className="text-micro text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 Suggestions use your browser&apos;s datalist:{" "}
                 <span className="font-semibold text-foreground">click the field</span>, then use the dropdown arrow (if
                 shown) or start typing — some browsers hide the list until you focus the box. You can always paste a
@@ -705,16 +705,16 @@ export function AiIntakeFlowPanel({
               </datalist>
               {!catalogLoading && voiceOptions.length > 0 ? (
                 <div className="mt-2 space-y-2 rounded-xl border border-border/60 bg-secondary/30 p-2">
-                  <p className="text-micro font-medium text-muted-foreground">
+                  <p className="text-2xs font-medium text-muted-foreground">
                     Review voices — same sample line for each (cloud preview when available; else browser).
                   </p>
                   <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {voiceOptions.slice(0, 50).map((v) => (
                       <li
                         key={v.id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-card/60 px-2 py-2 text-micro"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-card/60 px-2 py-2 text-2xs"
                       >
-                        <span className="min-w-0 truncate font-mono text-micro text-foreground" title={v.id}>
+                        <span className="min-w-0 truncate font-mono text-2xs text-foreground" title={v.id}>
                           {v.label || v.id}
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
@@ -722,14 +722,14 @@ export function AiIntakeFlowPanel({
                             type="button"
                             disabled={previewLoading}
                             onClick={() => void playCatalogVoiceSample(v.id)}
-                            className="rounded-md border border-primary/35 bg-primary/10 px-2 py-0.5 text-micro font-semibold text-primary hover:bg-primary/15 disabled:opacity-50"
+                            className="rounded-md border border-primary/35 bg-primary/10 px-2 py-0.5 text-2xs font-semibold text-primary hover:bg-primary/15 disabled:opacity-50"
                           >
                             Sample
                           </button>
                           <button
                             type="button"
                             onClick={() => setAiAdvanced((p) => ({ ...p, telnyxVoice: v.id }))}
-                            className="rounded-md border border-border/70 px-2 py-0.5 text-micro font-semibold text-muted-foreground hover:bg-muted/50"
+                            className="rounded-md border border-border/70 px-2 py-0.5 text-2xs font-semibold text-muted-foreground hover:bg-muted/50"
                           >
                             Use
                           </button>
@@ -738,15 +738,15 @@ export function AiIntakeFlowPanel({
                     ))}
                   </ul>
                   {voiceOptions.length > 50 ? (
-                    <p className="text-micro text-muted-foreground">Showing first 50 — type in the box to find more.</p>
+                    <p className="text-2xs text-muted-foreground">Showing first 50 — type in the box to find more.</p>
                   ) : null}
                 </div>
               ) : null}
             </div>
             {!catalogLoading && modelOptions.length === 0 && voiceOptions.length === 0 && !catalogError ? (
-              <p className="text-micro text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 No suggestions loaded — leave both fields empty for {SITE_NAME}&apos;s platform defaults, or type e.g.{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-micro">openai/gpt-4o</code> and a voice id
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-2xs">openai/gpt-4o</code> and a voice id
                 from your provider, then Save.
               </p>
             ) : null}
@@ -763,7 +763,7 @@ export function AiIntakeFlowPanel({
                 className="w-full resize-none rounded-xl border border-border/70 bg-secondary px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
             </div>
-            <p className="text-micro text-muted-foreground">
+            <p className="text-2xs text-muted-foreground">
               Rare: use Support → link assistant ID at the bottom of this screen instead of {SITE_NAME}&apos;s auto-created one.
             </p>
           </div>
@@ -785,7 +785,7 @@ export function AiIntakeFlowPanel({
 
       {/* Status, support, tiny tags — after Save in modal so setup + save stay on top */}
       <div className="space-y-2 border-t border-border/60 pt-3">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-micro text-muted-foreground">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-2xs text-muted-foreground">
           {assistantReady ? (
             <span className="font-semibold text-success">AI ready</span>
           ) : aiNoAnswerSelected ? (
@@ -794,7 +794,7 @@ export function AiIntakeFlowPanel({
             <span>Choose AI receptionist in Fallback Settings on the dashboard first</span>
           )}
           {assistantReady && telnyxAssistantId.trim() ? (
-            <span className="break-all font-mono text-micro opacity-80" title="For support">
+            <span className="break-all font-mono text-2xs opacity-80" title="For support">
               {telnyxAssistantId.trim()}
             </span>
           ) : null}
@@ -804,7 +804,7 @@ export function AiIntakeFlowPanel({
           <button
             type="button"
             onClick={() => setShowAdvancedAssistantId((v) => !v)}
-            className="text-micro font-medium text-primary underline-offset-2 hover:underline"
+            className="text-2xs font-medium text-primary underline-offset-2 hover:underline"
           >
             {showAdvancedAssistantId ? "Hide" : "Support — link a different assistant ID"}
           </button>
@@ -812,7 +812,7 @@ export function AiIntakeFlowPanel({
         </div>
         {showAdvancedAssistantId && (
           <div className="space-y-2 rounded-lg border border-border/60 bg-secondary/40 p-2">
-            <p className="text-micro leading-relaxed text-muted-foreground">
+            <p className="text-2xs leading-relaxed text-muted-foreground">
               Only if support gave you an ID to use. Leave empty otherwise.
             </p>
             <input
@@ -828,7 +828,7 @@ export function AiIntakeFlowPanel({
         {variant === "modal" ? (
           <div className="flex flex-wrap gap-1 pt-1">
             {VOICE_AI_FOOTER_CHIPS.map((c) => (
-              <span key={c} className="rounded-full bg-muted/80 px-2 py-0.5 text-micro text-muted-foreground">
+              <span key={c} className="rounded-full bg-muted/80 px-2 py-0.5 text-2xs text-muted-foreground">
                 {c}
               </span>
             ))}

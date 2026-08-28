@@ -22,7 +22,7 @@ function ComingSoonRow({
       <div className="min-w-0 flex-1">
         <p className="block text-xs font-semibold text-foreground">{title}</p>
         <p className="mt-0.5 text-2xs font-normal text-muted-foreground">{description}</p>
-        <p className="mt-1 hidden text-micro font-normal leading-snug text-muted-foreground md:block">
+        <p className="mt-1 hidden text-2xs font-normal leading-snug text-muted-foreground md:block">
           Not wired to live inbound yet — toggle coming later.
         </p>
       </div>
@@ -56,7 +56,7 @@ export function CallerIdUtilitiesCard({
         <SheetInfoTrigger
           onPress={onOpenTips}
           label="Caller ID"
-          className="h-8 w-8 shrink-0"
+          className="h-9 w-9 shrink-0"
         />
       </div>
 

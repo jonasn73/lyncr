@@ -264,7 +264,7 @@ export function HoldQueueWaitingCard({
       aria-live="polite"
     >
       <div className="mb-2.5 flex items-center gap-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-warning/30 bg-warning/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-warning/30 bg-warning/10">
           <PhoneIncoming className="h-4 w-4 text-warning dark:text-warning" aria-hidden />
         </div>
         <div className="min-w-0">
@@ -350,13 +350,13 @@ export function HoldQueueWaitingCard({
                     phone={c.callerE164}
                     businessLine={c.businessLineE164}
                     compact
-                    className="!h-9 !min-h-0 px-2 text-micro"
+                    className="!h-9 !min-h-0 px-2 text-2xs"
                   />
                 ) : null}
                 {answerLockedBriefly ? (
                   // Short lock only while the Busy greeting speaks (~8s).
                   <span
-                    className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-micro font-semibold text-warning dark:text-warning"
+                    className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-2xs font-semibold text-warning dark:text-warning"
                     title={`Answer unlocks after ~${Math.round(busyMenuAnswerUnlockMs() / 1000)}s while the Busy greeting plays.`}
                   >
                     Can’t answer yet
@@ -386,7 +386,7 @@ export function HoldQueueWaitingCard({
       </ul>
 
       {holdQueueStatsHaveTodayActivity(stats) ? (
-        <p className="mt-2.5 hidden text-micro text-muted-foreground md:block">
+        <p className="mt-2.5 hidden text-2xs text-muted-foreground md:block">
           Today · Answer {stats.answered} · Press 1 {stats.press1} · Left {stats.abandoned}
           {stats.avgWaitSecs != null ? ` · avg wait ${Math.round(stats.avgWaitSecs)}s` : ""}
         </p>

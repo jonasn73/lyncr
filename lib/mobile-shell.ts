@@ -41,4 +41,4 @@ export const LINES_MOBILE_STACK = "space-y-3"
 
 /** Left icon tile on Who answers / Rescue rows. */
 export const LINES_MOBILE_ICON_TILE =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"

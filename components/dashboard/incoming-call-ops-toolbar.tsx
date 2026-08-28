@@ -72,7 +72,7 @@ export function RepeatCallerUrgencyBadge({
   return (
     <span
       className={cn(
-        "bg-rose-500/20 border border-rose-500 text-rose-400 text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
+        "bg-destructive/20 border border-destructive text-destructive text-micro font-bold uppercase tracking-wider px-2 py-0.5 rounded-full animate-pulse",
         className
       )}
     >
@@ -325,7 +325,7 @@ export function IncomingCallOpsToolbar({
                 onClick={() => void handleDecline()}
                 className={cn(
                   BTN,
-                  "min-h-8 border-rose-900/50 bg-rose-950/40 py-1 text-rose-400 hover:bg-rose-950/60"
+                  "min-h-8 border-destructive/50 bg-destructive/40 py-1 text-destructive hover:bg-destructive/60"
                 )}
                 aria-label="Decline and send to voicemail"
               >
@@ -346,7 +346,7 @@ export function IncomingCallOpsToolbar({
                   BTN,
                   "min-h-8 py-1",
                   smsOpen
-                    ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
+                    ? "border-info/50 bg-info/20 text-info"
                     : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
                 )}
                 aria-label="Quick SMS templates"
@@ -376,7 +376,7 @@ export function IncomingCallOpsToolbar({
               <div
                 id="incoming-quick-sms-panel"
                 data-quick-sms
-                className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2"
+                className="rounded-xl border border-info/30 bg-info/10 p-2"
               >
                 <ul className="flex flex-col gap-1">
                   {QUICK_SMS_TEMPLATES.map((template) => (
@@ -385,7 +385,7 @@ export function IncomingCallOpsToolbar({
                         type="button"
                         disabled={smsSending}
                         onClick={() => void sendQuickSms(template)}
-                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-sky-500/15 disabled:opacity-50"
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-info/15 disabled:opacity-50"
                       >
                         {template}
                       </button>
@@ -455,7 +455,7 @@ export function IncomingCallOpsToolbar({
           onClick={() => void handleDecline()}
           className={cn(
             BTN,
-            "border-rose-900/50 bg-rose-950/40 text-rose-400 hover:bg-rose-950/60"
+            "border-destructive/50 bg-destructive/40 text-destructive hover:bg-destructive/60"
           )}
           aria-label="Decline and send to voicemail"
         >
@@ -476,7 +476,7 @@ export function IncomingCallOpsToolbar({
           className={cn(
             BTN,
             smsOpen
-              ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
+              ? "border-info/50 bg-info/20 text-info"
               : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
           )}
           aria-label="Quick SMS templates"
@@ -518,17 +518,17 @@ export function IncomingCallOpsToolbar({
         <div
           id="incoming-quick-sms-panel"
           data-quick-sms
-          className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3"
+          className="rounded-xl border border-info/30 bg-info/10 p-3"
         >
           <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-            <p className="text-micro font-semibold uppercase tracking-wider text-sky-300/80">
+            <p className="text-micro font-semibold uppercase tracking-wider text-info/80">
               One-tap texts
             </p>
             <button
               type="button"
               aria-label="Close Quick SMS"
               onClick={() => setSmsOpen(false)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-info/80 hover:bg-info/20 hover:text-info"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -540,7 +540,7 @@ export function IncomingCallOpsToolbar({
                   type="button"
                   disabled={smsSending}
                   onClick={() => void sendQuickSms(template)}
-                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-sky-500/15 disabled:opacity-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-info/15 disabled:opacity-50"
                 >
                   {template}
                 </button>

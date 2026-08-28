@@ -36,7 +36,7 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(52,211,153,0.12),transparent)]" />
       <header className="relative z-10 border-b border-white/5 px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-success to-teal-600 text-lg font-black text-slate-950 shadow-raised shadow-success/40">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-success to-teal-600 text-lg font-black text-slate-950 shadow-raised shadow-success/40">
             L
           </span>
           <div>
@@ -67,7 +67,7 @@ function StepDots({ step, smsInvite }: { step: number; smsInvite?: boolean }) {
         <div key={label} className="flex items-center gap-2">
           <span
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors",
+              "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-colors",
               i <= step ? "bg-success/20 text-success ring-1 ring-success/40" : "bg-muted text-muted-foreground"
             )}
           >
@@ -407,7 +407,7 @@ function OperatorOnboardWizard() {
         {step === 2 ? (
           <div className="mt-6 space-y-6 text-center">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/20 ring-2 ring-success/50">
-              <Sparkles className="h-8 w-8 text-success" aria-hidden />
+              <Sparkles className="h-9 w-9 text-success" aria-hidden />
             </span>
             <h1 className="text-xl font-semibold text-success">You&apos;re active & ready</h1>
             <p className="text-sm text-muted-foreground">

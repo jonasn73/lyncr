@@ -50,7 +50,7 @@ export function IntakeMapDestinationBanner({
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-500/50 bg-background/95 px-3 py-3 shadow-overlay backdrop-blur",
+        "rounded-xl border border-destructive/50 bg-background/95 px-3 py-3 shadow-overlay backdrop-blur",
         variant === "overlay" &&
           "pointer-events-auto absolute z-[1200] max-w-[min(20rem,calc(100%-1.5rem))] left-3 top-3 sm:right-auto",
         className
@@ -58,7 +58,7 @@ export function IntakeMapDestinationBanner({
       onPointerDown={variant === "overlay" ? (e) => e.stopPropagation() : undefined}
       onClick={variant === "overlay" ? (e) => e.stopPropagation() : undefined}
     >
-      <p className="text-micro font-bold uppercase tracking-wider text-rose-300">Intake target</p>
+      <p className="text-micro font-bold uppercase tracking-wider text-destructive">Intake target</p>
       <p className="truncate text-xs font-semibold text-foreground">
         {destination.label?.trim() || "Customer location"}
       </p>
@@ -74,7 +74,7 @@ export function IntakeMapDestinationBanner({
               rel="noopener noreferrer"
               title="Open in Maps"
               aria-label="Open address in Google Maps"
-              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-sky-300"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-info"
               onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -84,7 +84,7 @@ export function IntakeMapDestinationBanner({
       ) : null}
 
       {travelMetrics ? (
-        <div className="mt-2 space-y-0.5 border-t border-border/80 pt-2 text-micro leading-relaxed text-foreground">
+        <div className="mt-2 space-y-0.5 border-t border-border/80 pt-2 text-2xs leading-relaxed text-foreground">
           <p>
             🚗 Distance from current spot:{" "}
             <span className="font-semibold tabular-nums text-foreground">
@@ -112,7 +112,7 @@ export function IntakeMapDestinationBanner({
           ) : null}
         </div>
       ) : nearestTech ? (
-        <p className="mt-2 border-t border-border/80 pt-2 text-micro text-warning/90">
+        <p className="mt-2 border-t border-border/80 pt-2 text-2xs text-warning/90">
           ⚡ Nearest available tech: {nearestTech.name} ({formatMiles(nearestTech.miles)} mi away)
         </p>
       ) : null}
@@ -124,7 +124,7 @@ export function IntakeMapDestinationBanner({
           e.stopPropagation()
           onClear()
         }}
-        className="mt-1.5 text-micro font-semibold text-rose-300/90 underline-offset-2 hover:underline"
+        className="mt-1.5 text-2xs font-semibold text-destructive/90 underline-offset-2 hover:underline"
       >
         Clear pin
       </button>
@@ -139,7 +139,7 @@ export function IntakeMapDestinationBanner({
           e.stopPropagation()
           onReturn()
         }}
-        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-success/60 bg-success px-3 py-3 text-sm font-bold text-slate-950 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-success active:scale-[0.98]"
+        className="mt-2 flex w-full touch-manipulation items-center justify-center rounded-lg border border-success/60 bg-success px-3 py-3 text-sm font-bold text-success-foreground shadow-[0_0_0_1px_rgba(16,185,129,0.35)] transition-colors hover:bg-success active:scale-[0.98]"
       >
         ← Return to Intake Form
       </button>

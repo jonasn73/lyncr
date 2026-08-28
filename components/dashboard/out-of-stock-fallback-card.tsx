@@ -285,7 +285,7 @@ export function OutOfStockFallbackCard({
           {checkoutUrl ? (
             <div className="mt-2 space-y-2 rounded-md border border-success/30 bg-success/10 p-2">
               <p className="text-2xs font-medium text-success">Checkout ready · Pending Deposit</p>
-              <p className="break-all font-mono text-micro text-success/90">{checkoutUrl}</p>
+              <p className="break-all font-mono text-2xs text-success/90">{checkoutUrl}</p>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -327,7 +327,7 @@ export function OutOfStockFallbackCard({
           ) : affiliates.length === 0 ? (
             <p className="mt-3 text-xs text-muted-foreground">
               No affiliate locksmiths yet. Add rows to{" "}
-              <span className="font-mono text-micro">affiliate_locksmiths</span> in Neon (see
+              <span className="font-mono text-2xs">affiliate_locksmiths</span> in Neon (see
               migration 106).
             </p>
           ) : (
@@ -373,7 +373,7 @@ export function OutOfStockFallbackCard({
         </div>
       </div>
 
-      {error ? <p className="mt-2 text-center text-xs text-rose-300">{error}</p> : null}
+      {error ? <p className="mt-2 text-center text-xs text-destructive">{error}</p> : null}
       {!intake.customer_name.trim() || !intake.caller_e164.trim() ? (
         <p className="mt-2 text-center text-2xs text-muted-foreground">
           Enter customer name and phone before generating a link or sending a lead.

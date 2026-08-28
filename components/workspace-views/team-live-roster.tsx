@@ -135,7 +135,7 @@ function buildRosterRows(
 }
 
 const PRESENCE_DOT: Record<RosterPresence, string> = {
-  on_job: "bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]",
+  on_job: "bg-success shadow-[0_0_8px_rgba(74,222,128,0.7)]",
   standby: "bg-success shadow-[0_0_8px_rgba(52,211,153,0.65)]",
   away: "bg-warning shadow-[0_0_8px_rgba(251,191,36,0.65)]",
 }
@@ -238,7 +238,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
             Live roster
           </h2>
         </div>
-        <span className="text-micro font-medium tabular-nums text-muted-foreground">
+        <span className="text-2xs font-medium tabular-nums text-muted-foreground">
           {/* Match the list body's gate below — otherwise this blinks to "…" on every 30s poll. */}
           {loading && rows.length === 0 ? "…" : `${rows.length} tech${rows.length === 1 ? "" : "s"}`}
         </span>

@@ -53,9 +53,9 @@ function TelemetryPill({
   const displayValue = animatedValue != null ? rolled : value
   const sharedClasses = cn(
     "inline-flex min-w-0 w-full items-center justify-center gap-2 rounded-full border px-3 py-2",
-    "bg-neutral-950/50 backdrop-blur-sm transition-all duration-200",
+    "bg-background/50 backdrop-blur-sm transition-all duration-200",
     tone === "amber" && "border-warning/25 text-warning/90",
-    tone === "teal" && "border-teal-500/25 text-teal-100/90",
+    tone === "teal" && "border-primary/25 text-primary/90",
     tone === "emerald" && "border-success/25 text-success/90",
     tone === "default" && "border-white/8 text-foreground/90",
     onClick && "cursor-pointer hover:bg-card/50"
@@ -86,8 +86,8 @@ function TelemetryPill({
         className={cn(
           sharedClasses,
           "relative z-10 min-h-11 touch-manipulation",
-          "hover:border-cyan-500/30 hover:bg-card/70 active:scale-95 transition-all",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
+          "hover:border-primary/30 hover:bg-card/70 active:scale-95 transition-all",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         )}
         aria-label={`${label}: ${value}. Open details.`}
       >
@@ -144,7 +144,7 @@ function TelemetryTickerItem({
       {/* Always reserve third line so Missed/Booked sublabels do not grow cells after settle. */}
       <span
         className={cn(
-          "max-w-full truncate text-center text-micro font-medium leading-none",
+          "max-w-full truncate text-center text-2xs font-medium leading-none",
           sublabel ? "text-warning/90" : "invisible text-transparent",
           sublabelClassName
         )}
@@ -313,7 +313,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         className={cn("hidden w-full space-y-2 md:block", className)}
         aria-label="Today's workspace telemetry"
       >
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-neutral-950/40 px-4 py-3 backdrop-blur-md">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-background/40 px-4 py-3 backdrop-blur-md">
           <TelemetryPill
             label="Live lines"
             value={linesDisplay}
@@ -369,7 +369,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-warning" : "text-success"}
           />
         </div>
-        <p className="px-1 text-micro leading-snug text-muted-foreground">
+        <p className="px-1 text-2xs leading-snug text-muted-foreground">
           <span className="font-medium text-muted-foreground">Missed</span> = true unanswered (hold / press-1
           excluded). <span className="font-medium text-muted-foreground">Booked jobs</span> = real BOOKED jobs
           today ÷ unique callers (not pending time or press-1 alone).{" "}

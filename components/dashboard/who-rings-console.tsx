@@ -66,7 +66,7 @@ export function WhoRingsConsole({
           </div>
         </div>
         {onOpenAbout ? (
-          <SheetInfoTrigger onPress={onOpenAbout} label="About call flow" className="h-8 w-8 shrink-0" />
+          <SheetInfoTrigger onPress={onOpenAbout} label="About call flow" className="h-9 w-9 shrink-0" />
         ) : null}
       </div>
 

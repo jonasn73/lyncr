@@ -78,7 +78,7 @@ const AppShellHeader = memo(function AppShellHeader({
           className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to home"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" className="hidden sm:inline-flex" />
@@ -90,7 +90,7 @@ const AppShellHeader = memo(function AppShellHeader({
           className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
           aria-label="Go to routing"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" className="hidden sm:inline-flex" />

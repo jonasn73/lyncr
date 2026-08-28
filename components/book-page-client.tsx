@@ -38,7 +38,7 @@ const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 // Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-0.5 w-full rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-teal-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -318,8 +318,8 @@ export default function BookPageClient({
           {error}
         </p>
       ) : payHandoffUrl || wizardStep === "pay" ? (
-        <div className="rounded-2xl border border-teal-900/40 bg-teal-950/30 px-4 py-6 text-center">
-          <p className="text-sm font-semibold text-teal-100">Next: secure deposit</p>
+        <div className="rounded-2xl border border-primary/40 bg-primary/30 px-4 py-6 text-center">
+          <p className="text-sm font-semibold text-primary">Next: secure deposit</p>
           <p className="mt-2 text-sm text-foreground">
             Taking you to checkout to hold your window
             {availabilityLabel ? ` (${availabilityLabel})` : ""}…
@@ -327,7 +327,7 @@ export default function BookPageClient({
           {payHandoffUrl ? (
             <a
               href={payHandoffUrl}
-              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-600 px-6 text-sm font-semibold text-white hover:bg-teal-500"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary"
             >
               Continue to payment
             </a>
@@ -347,23 +347,23 @@ export default function BookPageClient({
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
-                  wizardStep === "details" && "bg-teal-500/20 text-teal-200"
+                  wizardStep === "details" && "bg-primary/20 text-primary"
                 )}
               >
                 Details
               </span>
-              <span className="text-zinc-700">→</span>
+              <span className="text-muted-foreground">→</span>
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
-                  wizardStep === "availability" && "bg-teal-500/20 text-teal-200"
+                  wizardStep === "availability" && "bg-primary/20 text-primary"
                 )}
               >
                 When
               </span>
               {mayRequireDeposit ? (
                 <>
-                  <span className="text-zinc-700">→</span>
+                  <span className="text-muted-foreground">→</span>
                   <span className="rounded-full px-2 py-0.5">Pay</span>
                 </>
               ) : null}
@@ -371,7 +371,7 @@ export default function BookPageClient({
           ) : null}
 
           {depositStatus === "cancelled" ? (
-            <p className="rounded-lg border border-teal-900/50 bg-teal-950/40 px-3 py-2 text-xs text-teal-200">
+            <p className="rounded-lg border border-primary/50 bg-primary/40 px-3 py-2 text-xs text-primary">
               Deposit checkout was cancelled — your time wasn’t reserved. Submit again when you’re ready.
             </p>
           ) : null}
@@ -454,7 +454,7 @@ export default function BookPageClient({
                         className={cn(
                           "rounded-lg border px-2 py-2 text-center text-xs font-medium leading-tight",
                           jobKind === opt.id
-                            ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                            ? "border-primary/60 bg-primary/15 text-primary"
                             : "border-border bg-card/60 text-foreground hover:border-border"
                         )}
                       >
@@ -482,7 +482,7 @@ export default function BookPageClient({
                   <div>
                     <p className="mb-1 text-xs text-muted-foreground">Vehicle</p>
                     <div className="grid grid-cols-3 gap-2">
-                      <label className="block text-micro text-muted-foreground">
+                      <label className="block text-2xs text-muted-foreground">
                         Year
                         <input
                           value={vehicleYear}
@@ -492,7 +492,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-micro text-muted-foreground">
+                      <label className="block text-2xs text-muted-foreground">
                         Make
                         <input
                           value={vehicleMake}
@@ -501,7 +501,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-micro text-muted-foreground">
+                      <label className="block text-2xs text-muted-foreground">
                         Model
                         <input
                           value={vehicleModel}
@@ -546,12 +546,12 @@ export default function BookPageClient({
                       className={cn(
                         "rounded-lg border px-2 py-2 text-center",
                         urgency === "asap"
-                          ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
+                          ? "border-destructive/50 bg-destructive/15 text-destructive"
                           : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
                       <span className="block text-xs font-semibold">ASAP</span>
-                      <span className="mt-0.5 block text-micro leading-tight text-muted-foreground">
+                      <span className="mt-0.5 block text-2xs leading-tight text-muted-foreground">
                         Need help now
                       </span>
                     </button>
@@ -561,12 +561,12 @@ export default function BookPageClient({
                       className={cn(
                         "rounded-lg border px-2 py-2 text-center",
                         urgency === "window"
-                          ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                          ? "border-primary/60 bg-primary/15 text-primary"
                           : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
                       <span className="block text-xs font-semibold">Schedule</span>
-                      <span className="mt-0.5 block text-micro leading-tight text-muted-foreground">
+                      <span className="mt-0.5 block text-2xs leading-tight text-muted-foreground">
                         Pick a window
                       </span>
                     </button>
@@ -587,7 +587,7 @@ export default function BookPageClient({
                     type="button"
                     disabled={!detailsReady || submitting}
                     onClick={() => onDetailsContinue()}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-sm font-semibold text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {submitting ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -597,7 +597,7 @@ export default function BookPageClient({
                       : "Continue — pick a window"}
                   </button>
                   {!detailsReady ? (
-                    <p className="mt-1 text-center text-micro text-muted-foreground">
+                    <p className="mt-1 text-center text-2xs text-muted-foreground">
                       Name, phone, address, job type, and urgency are required.
                     </p>
                   ) : null}
@@ -631,7 +631,7 @@ export default function BookPageClient({
                       className={cn(
                         "rounded-xl border px-3 py-3 text-left",
                         dayKey === day.dateKey
-                          ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                          ? "border-primary/60 bg-primary/15 text-primary"
                           : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
@@ -678,10 +678,10 @@ export default function BookPageClient({
               {windowReady ? (
                 <p className="rounded-lg border border-border/80 bg-background/50 px-3 py-2 text-center text-sm text-foreground">
                   You&apos;re free:{" "}
-                  <span className="font-semibold text-teal-100">{availabilityLabel}</span>
+                  <span className="font-semibold text-primary">{availabilityLabel}</span>
                 </p>
               ) : (
-                <p className="text-center text-2xs text-rose-300/90">
+                <p className="text-center text-2xs text-destructive/90">
                   Choose an end time after the start time.
                 </p>
               )}
@@ -696,7 +696,7 @@ export default function BookPageClient({
                 type="button"
                 disabled={!windowReady || submitting}
                 onClick={() => void submitRequest()}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-sm font-semibold text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {mayRequireDeposit ? depositLabel : "Submit request"}

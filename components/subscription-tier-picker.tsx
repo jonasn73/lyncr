@@ -40,7 +40,7 @@ export function SubscriptionTierPicker({ value, onChange, disabled }: Subscripti
             <span className="text-sm font-semibold text-foreground">{plan.name}</span>
             <span className="mt-1 text-lg font-bold text-foreground">{plan.priceLabel}</span>
             <span className="mt-1 text-2xs text-muted-foreground">{plan.description}</span>
-            <span className="mt-2 text-micro font-medium text-primary">{plan.lineLimitLabel}</span>
+            <span className="mt-2 text-2xs font-medium text-primary">{plan.lineLimitLabel}</span>
           </button>
         )
       })}

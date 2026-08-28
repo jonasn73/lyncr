@@ -51,7 +51,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
         "top-[var(--shell-header-h)]",
         ringing
           ? "border-warning/30 bg-warning/80"
-          : "border-cyan-500/30 bg-cyan-950/70"
+          : "border-primary/30 bg-primary/70"
       )}
     >
       <button
@@ -62,14 +62,14 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           "active:scale-[0.99] touch-manipulation",
           ringing
             ? "bg-warning/10 hover:bg-warning/15"
-            : "bg-cyan-500/10 hover:bg-cyan-500/15"
+            : "bg-primary/10 hover:bg-primary/15"
         )}
         aria-label={ringing ? "Open ringing call intake" : "Open connected call intake"}
       >
         <span
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            ringing ? "bg-warning/20 text-warning" : "bg-cyan-500/20 text-cyan-200"
+            ringing ? "bg-warning/20 text-warning" : "bg-primary/20 text-primary"
           )}
         >
           {ringing ? (
@@ -83,7 +83,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           <span
             className={cn(
               "block text-micro font-bold uppercase tracking-wider",
-              ringing ? "text-warning/90" : "text-cyan-300/90"
+              ringing ? "text-warning/90" : "text-primary/90"
             )}
           >
             {ringing ? "Incoming · Ringing" : `Live · ${mm}:${ss}`}
@@ -103,7 +103,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
             "h-2 w-2 shrink-0 rounded-full",
             ringing
               ? "animate-pulse bg-warning shadow-[0_0_10px_rgba(251,191,36,0.95)]"
-              : "bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.9)]"
+              : "bg-primary shadow-[0_0_10px_rgba(34,211,238,0.9)]"
           )}
           aria-hidden
         />

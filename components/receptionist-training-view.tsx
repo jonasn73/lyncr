@@ -121,7 +121,7 @@ function CertificationCard({
       <Card
         className={cn(
           "relative overflow-hidden border transition-all duration-200",
-          "cursor-default border-warning/40 bg-gradient-to-br from-warning/40 via-card to-violet-950/30 shadow-[0_0_40px_-12px_rgba(251,191,36,0.35)]"
+          "cursor-default border-warning/40 bg-gradient-to-br from-warning/40 via-card to-operator/30 shadow-[0_0_40px_-12px_rgba(251,191,36,0.35)]"
         )}
       >
         {cardInner}

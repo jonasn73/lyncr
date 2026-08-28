@@ -75,7 +75,7 @@ export function AdminInviteReceptionistDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button" className="bg-violet-600 text-white hover:bg-violet-500">
+        <Button type="button" className="bg-operator text-operator-foreground hover:bg-operator">
           <UserPlus className="mr-2 h-4 w-4" aria-hidden />
           Invite receptionist
         </Button>
@@ -161,7 +161,7 @@ export function AdminInviteReceptionistDialog() {
               <Button type="button" variant="outline" className="border-border" disabled={busy} onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-violet-600 hover:bg-violet-500" disabled={busy}>
+              <Button type="submit" className="bg-operator hover:bg-operator" disabled={busy}>
                 {busy ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />

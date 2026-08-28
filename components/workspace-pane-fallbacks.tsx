@@ -24,7 +24,7 @@ export function ActivityPaneFallback() {
       <WorkspacePageHeader eyebrow="Call history" title="Activities" />
       {/* Match live desktop shortcuts so sm+ handoff does not grow a new row. */}
       <div className="hidden flex-wrap items-center gap-3 sm:flex" aria-hidden>
-        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-300/50">
+        <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-info/40 bg-info/10 px-3 text-xs font-semibold text-info/50">
           Dispatch Map
         </span>
         <span className="inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary/50">
@@ -185,7 +185,7 @@ export function SettingsPaneFallback() {
     <WorkspacePage className="gap-6 pb-10" aria-busy="true" aria-label="Loading Settings">
       <WorkspacePageHeader eyebrow="Account" title="Settings" />
       <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 px-4 py-3">
-        <span className="h-12 w-12 shrink-0 rounded-full bg-primary/15" />
+        <span className="h-11 w-11 shrink-0 rounded-full bg-primary/15" />
         <div className="min-w-0 flex-1 space-y-2">
           <span className="block h-4 w-36 rounded bg-muted" />
           <span className="block h-3 w-48 rounded bg-muted/80" />

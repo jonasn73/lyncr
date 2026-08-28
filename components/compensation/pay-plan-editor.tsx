@@ -349,7 +349,7 @@ function ComponentRow({
           type="button"
           onClick={onRemove}
           aria-label="Remove this pay rule"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -622,7 +622,7 @@ function PlanCostPanel({
           ) : null}
 
           {showHoursInput && preview.floor.hoursSource === "assumed" ? (
-            <p className="text-micro leading-relaxed text-muted-foreground">
+            <p className="text-2xs leading-relaxed text-muted-foreground">
               An estimate, not a measurement — nobody&apos;s hours are tracked yet. The real floor
               is worked out per week from what they actually earned that week.
             </p>

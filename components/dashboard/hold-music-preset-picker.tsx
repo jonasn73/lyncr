@@ -48,7 +48,7 @@ export function HoldMusicPresetPicker({
       <label htmlFor={`${idPrefix}-preset`} className="text-xs font-semibold text-foreground">
         Hold music
       </label>
-      <p className="hidden text-micro text-muted-foreground md:block">
+      <p className="hidden text-2xs text-muted-foreground md:block">
         Classic US call-center hold while callers stay on the line. Royalty-free Muzak /
         soft jazz loops — Busy is never silent by default (Classic hold).
       </p>
@@ -74,7 +74,7 @@ export function HoldMusicPresetPicker({
         ))}
         <option value="custom">Custom URL…</option>
       </select>
-      <p className="hidden text-micro text-muted-foreground md:block">
+      <p className="hidden text-2xs text-muted-foreground md:block">
         {HOLD_MUSIC_PRESETS.find(
           (p) =>
             p.id ===
@@ -102,7 +102,7 @@ export function HoldMusicPresetPicker({
         </button>
         {advancedOpen ? (
           <div className="space-y-2 border-t border-border px-3 pb-3 pt-2">
-            <label htmlFor={`${idPrefix}-url`} className="text-micro font-medium text-muted-foreground">
+            <label htmlFor={`${idPrefix}-url`} className="text-2xs font-medium text-muted-foreground">
               Public HTTPS MP3/WAV
             </label>
             <input
@@ -113,7 +113,7 @@ export function HoldMusicPresetPicker({
               className={cn(fieldClass, "min-h-11 px-3 py-2")}
               placeholder="https://…/hold-music.mp3"
             />
-            <p className="hidden text-micro text-muted-foreground md:block">
+            <p className="hidden text-2xs text-muted-foreground md:block">
               Leave blank and pick Calm / Upbeat / Minimal above to use a bundled track.
             </p>
           </div>

@@ -79,7 +79,7 @@ export function OnboardingBillingStep({
 
       {reservedLine ? (
         <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 shadow-[var(--electric-glow)]">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/15">
             <Phone className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
@@ -155,7 +155,7 @@ export function OnboardingBillingStep({
               />
             </div>
           </div>
-          <p className="mt-3 flex items-center gap-2 text-micro text-muted-foreground">
+          <p className="mt-3 flex items-center gap-2 text-2xs text-muted-foreground">
             <Lock className="h-3 w-3 shrink-0" aria-hidden />
             Card details are handled by Stripe — we open checkout for your selected plan.
           </p>

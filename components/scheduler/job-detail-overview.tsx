@@ -84,7 +84,7 @@ const CONTACT_BTN =
 
 /** Smaller quick-action cells for the collapsed “More actions” grid. */
 const ACTION_BTN =
-  "flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2 text-micro font-semibold leading-tight transition-colors disabled:opacity-50"
+  "flex min-h-[40px] flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-2 text-2xs font-semibold leading-tight transition-colors disabled:opacity-50"
 
 /** Accordion toggle row for secondary sections. */
 function CollapseToggle({
@@ -239,7 +239,7 @@ export function JobDetailOverview({
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-micro font-semibold",
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-2xs font-semibold",
               OPERATOR_JOB_PHASE_BADGE_STYLE[operatorPhase]
             )}
           >
@@ -251,7 +251,7 @@ export function JobDetailOverview({
           <button
             type="button"
             onClick={onEdit}
-            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-1 text-micro font-semibold text-success transition-colors hover:bg-success/20"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-1 text-2xs font-semibold text-success transition-colors hover:bg-success/20"
           >
             <Pencil className="h-3 w-3" aria-hidden />
             {/* Shorter label on narrow screens */}
@@ -298,8 +298,8 @@ export function JobDetailOverview({
               CONTACT_BTN,
               "max-w-[5.5rem] flex-none",
               smsComposerOpen
-                ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-                : "border-sky-500/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                ? "border-info/50 bg-info/20 text-info"
+                : "border-info/35 bg-info/10 text-info hover:bg-info/20"
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
@@ -501,7 +501,7 @@ export function JobDetailOverview({
                     ACTION_BTN,
                     isJobCancelled
                       ? "border-border/40 bg-muted/40 text-muted-foreground"
-                      : "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                      : "border-destructive/35 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   )}
                   title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
                 >
@@ -516,7 +516,7 @@ export function JobDetailOverview({
                     ACTION_BTN,
                     isJobReferred
                       ? "border-border/40 bg-muted/40 text-muted-foreground"
-                      : "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
+                      : "border-operator/35 bg-operator/10 text-operator hover:bg-operator/20"
                   )}
                   title={isJobReferred ? "Already marked referred" : "Mark as referred"}
                 >
@@ -542,7 +542,7 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     reviewSmsFailed
-                      ? "border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
+                      ? "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
                       : "border-warning/40 bg-warning/15 text-warning hover:bg-warning/25"
                   )}
                 >
@@ -589,7 +589,7 @@ export function JobDetailOverview({
           ) : null}
         </section>
 
-        {error ? <p className="mt-2 text-sm text-rose-400">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     </div>
   )

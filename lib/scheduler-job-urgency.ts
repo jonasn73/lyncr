@@ -81,7 +81,7 @@ export const SCHEDULER_URGENCY_LABEL: Record<SchedulerJobUrgency, string> = {
 export const SCHEDULER_URGENCY_CHIP_CLASS: Record<SchedulerJobUrgency, string> = {
   active_now: `${URGENCY_CHIP_GLASS} border-yellow-500/55 ring-1 ring-yellow-500/25`,
   overdue: `${URGENCY_CHIP_GLASS} border-destructive/55 ring-1 ring-destructive/30`,
-  imminent: `${URGENCY_CHIP_GLASS} border-orange-500/55 ring-1 ring-orange-500/30 animate-pulse`,
+  imminent: `${URGENCY_CHIP_GLASS} border-warning/55 ring-1 ring-warning/30 animate-pulse`,
   soon: `${URGENCY_CHIP_GLASS} border-warning/45 ring-1 ring-warning/20`,
   later: URGENCY_CHIP_GLASS,
   unscheduled: URGENCY_CHIP_GLASS,
@@ -90,7 +90,7 @@ export const SCHEDULER_URGENCY_CHIP_CLASS: Record<SchedulerJobUrgency, string> =
 export const SCHEDULER_URGENCY_TIME_CLASS: Record<SchedulerJobUrgency, string> = {
   active_now: "text-yellow-300",
   overdue: "text-destructive",
-  imminent: "text-orange-300",
+  imminent: "text-warning",
   soon: "text-warning",
   later: "text-primary",
   unscheduled: "text-muted-foreground",

@@ -91,7 +91,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 px-4 py-3">
           {profileLoading ? (
             <>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
               </span>
               <div className="min-w-0 flex-1 space-y-2">
@@ -101,7 +101,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             </>
           ) : (
             <>
-              <Avatar className="h-12 w-12 shrink-0">
+              <Avatar className="h-11 w-11 shrink-0">
                 <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">
                   {initials || "ME"}
                 </AvatarFallback>
@@ -162,7 +162,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
-            icon={<Users className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Users className="h-5 w-5 text-operator" aria-hidden />}
             title="Team"
             subtitle="Add people who answer — phone or invite link"
             onClick={() => {
@@ -172,14 +172,14 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Network className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Network className="h-5 w-5 text-operator" aria-hidden />}
             title="Call routing"
             subtitle="Who answers — team, pool, or hybrid"
             onClick={modals.openRoutingStrategy}
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquare className="h-5 w-5 text-sky-300" aria-hidden />}
+            icon={<MessageSquare className="h-5 w-5 text-info" aria-hidden />}
             title="Messages"
             subtitle="SMS inbox — read and reply to customer texts"
             onClick={() => {
@@ -189,14 +189,14 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<Zap className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<Zap className="h-5 w-5 text-operator" aria-hidden />}
             title="SMS templates"
             subtitle="Job texts + your reusable quick SMS shortcuts"
             onClick={modals.openSmsAutomation}
           />
           <SettingsMenuRow
             grouped
-            icon={<MessageSquareText className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<MessageSquareText className="h-5 w-5 text-operator" aria-hidden />}
             title="Missed Call Rescue"
             subtitle="Auto booking-link textback + IVR capacity"
             onClick={modals.openMissedCallRescue}
@@ -210,7 +210,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<ShieldCheck className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<ShieldCheck className="h-5 w-5 text-operator" aria-hidden />}
             title="Carrier registration"
             subtitle="10DLC for US lead-alert SMS"
             badge={carrierRegistrationPending ? "Pending" : undefined}
@@ -241,7 +241,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
           />
           <SettingsMenuRow
             grouped
-            icon={<LifeBuoy className="h-5 w-5 text-violet-300" aria-hidden />}
+            icon={<LifeBuoy className="h-5 w-5 text-operator" aria-hidden />}
             title="Help"
             subtitle="Chat with Lyncr or report a problem"
             onClick={() => {
@@ -269,7 +269,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
             type="button"
             disabled={signingOut}
             onClick={onSignOut}
-            className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-destructive transition-colors hover:text-destructive disabled:opacity-50"
           >
             {signingOut ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-center px-6 py-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <BrandMark className="h-4 w-4 text-primary-foreground" />
           </div>
           <BrandWordmark size="md" />

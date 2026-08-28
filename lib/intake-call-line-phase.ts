@@ -128,9 +128,9 @@ export function intakeCallBadgeClassName(phase: IntakeCallLinePhase): string {
     case "answered":
       return "text-success/90"
     case "missed":
-      return "text-rose-400/90"
+      return "text-destructive/90"
     case "voicemail":
-      return "text-violet-400/90"
+      return "text-operator/90"
     case "ended":
       return "text-muted-foreground"
   }

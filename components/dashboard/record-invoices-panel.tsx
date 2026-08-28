@@ -59,7 +59,7 @@ function deliveryBits(inv: JobRecordInvoiceApi): string {
 
 function invoiceStatusClass(status: string): string {
   if (status === "sent") return "border-success/35 bg-success/10 text-success"
-  if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  if (status === "failed") return "border-destructive/35 bg-destructive/10 text-destructive"
   if (status === "partial") return "border-warning/35 bg-warning/10 text-warning"
   return "border-border/50 bg-muted/60 text-foreground"
 }
@@ -281,7 +281,7 @@ export function RecordInvoicesPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, phone, or invoice #"
-            className="h-11 w-full rounded-xl border border-border bg-background/70 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+            className="h-11 w-full rounded-xl border border-border bg-background/70 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/40"
             autoComplete="off"
             enterKeyHint="search"
           />
@@ -297,7 +297,7 @@ export function RecordInvoicesPanel({
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-2xs font-semibold text-primary/90 hover:bg-primary/10 disabled:opacity-50"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
@@ -306,7 +306,7 @@ export function RecordInvoicesPanel({
       ) : null}
 
       {error ? (
-        <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </p>
       ) : null}
@@ -334,7 +334,7 @@ export function RecordInvoicesPanel({
               )}
             >
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                   <Receipt className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -366,11 +366,11 @@ export function RecordInvoicesPanel({
                       {inv.deliveryStatusLabel}
                     </span>
                     {deliveryBits(inv) ? (
-                      <span className="text-micro text-muted-foreground">{deliveryBits(inv)}</span>
+                      <span className="text-2xs text-muted-foreground">{deliveryBits(inv)}</span>
                     ) : null}
                   </div>
                   {inv.deliveryStatus === "failed" || inv.deliveryStatus === "partial" ? (
-                    <p className="mt-1 text-micro text-rose-300/90">
+                    <p className="mt-1 text-2xs text-destructive/90">
                       {[inv.emailError, inv.smsError].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
@@ -473,7 +473,7 @@ export function RecordInvoicesPanel({
                         className={cn(
                           "rounded-lg py-2 text-xs font-semibold",
                           reviseChannel === id
-                            ? "bg-teal-500/20 text-teal-100"
+                            ? "bg-primary/20 text-primary"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >

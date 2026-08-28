@@ -77,10 +77,10 @@ export function BusinessMoneyPeriodChips({
             onClick={() => onChange(opt.id)}
             className={cn(
               "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
               "disabled:opacity-50",
               active
-                ? "border-violet-500/50 bg-violet-950/50 text-violet-100"
+                ? "border-operator/50 bg-operator/50 text-operator"
                 : "border-border bg-card/40 text-muted-foreground hover:border-border hover:text-foreground"
             )}
           >
@@ -215,7 +215,7 @@ export function BusinessMoneyChip({
       onClick={onClick}
       className={cn(
         "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
-        "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+        "hover:border-operator/40 hover:bg-operator/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
         "border-border bg-card/60"
       )}
     >
@@ -234,7 +234,7 @@ export function BusinessMoneyChip({
         >
           {row.net_abs_label}
         </p>
-        <p className={cn("text-micro font-medium", row.ahead ? "text-success/80" : "text-warning/80")}>
+        <p className={cn("text-2xs font-medium", row.ahead ? "text-success/80" : "text-warning/80")}>
           {row.verdict_label}
         </p>
       </div>

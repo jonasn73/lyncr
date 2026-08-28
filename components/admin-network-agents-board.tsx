@@ -125,11 +125,11 @@ export function AdminNetworkAgentsBoard() {
       <Card className={opCard}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base text-foreground">
-            <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
+            <UserPlus className="h-4 w-4 text-operator" aria-hidden />
             Onboard a global network agent
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Creates a receptionist row with <code className="rounded bg-background px-1 text-violet-200">user_id = NULL</code>{" "}
+            Creates a receptionist row with <code className="rounded bg-background px-1 text-operator">user_id = NULL</code>{" "}
             (requires migration 048). Skills decide which industries they can answer for.
           </CardDescription>
         </CardHeader>
@@ -176,7 +176,7 @@ export function AdminNetworkAgentsBoard() {
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       active
-                        ? "border-violet-500/60 bg-violet-600/25 text-violet-100"
+                        ? "border-operator/60 bg-operator/25 text-operator"
                         : "border-border bg-background/60 text-foreground hover:border-border"
                     )}
                     aria-pressed={active}
@@ -198,7 +198,7 @@ export function AdminNetworkAgentsBoard() {
             type="button"
             disabled={busy}
             onClick={() => void createAgent()}
-            className="bg-violet-600 text-white hover:bg-violet-500"
+            className="bg-operator text-operator-foreground hover:bg-operator"
           >
             {busy ? "Creating…" : "Create network agent"}
           </Button>
@@ -214,7 +214,7 @@ export function AdminNetworkAgentsBoard() {
         <CardContent className="overflow-x-auto">
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-300" />
+              <Loader2 className="h-4 w-4 animate-spin text-operator" />
               Loading…
             </div>
           ) : agents.length === 0 ? (
@@ -243,7 +243,7 @@ export function AdminNetworkAgentsBoard() {
                             <Badge
                               key={s}
                               variant="outline"
-                              className="border-border bg-background/60 text-micro text-foreground"
+                              className="border-border bg-background/60 text-2xs text-foreground"
                             >
                               {formatRoutingPoolSkillLabel(s)}
                             </Badge>
@@ -254,7 +254,7 @@ export function AdminNetworkAgentsBoard() {
                     <TableCell>
                       <span
                         className={cn(
-                          "rounded-full border px-2 py-0.5 text-micro font-medium",
+                          "rounded-full border px-2 py-0.5 text-2xs font-medium",
                           a.is_active
                             ? "border-success/40 bg-success/10 text-success"
                             : "border-border bg-background/60 text-muted-foreground"

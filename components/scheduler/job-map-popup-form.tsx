@@ -208,7 +208,7 @@ export function JobMapPopupForm({
                   "rounded-lg font-semibold uppercase tracking-wide transition-colors",
                   isSheet
                     ? "min-h-12 px-3 py-3 text-sm"
-                    : "flex-1 rounded px-2 py-1 text-micro",
+                    : "flex-1 rounded px-2 py-1 text-2xs",
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
@@ -271,7 +271,7 @@ export function JobMapPopupForm({
         </button>
       </div>
 
-      <p className="text-micro text-muted-foreground">
+      <p className="text-2xs text-muted-foreground">
         {SCHEDULER_STATUS_LABEL[schedulerLifecyclePhase({
           job_status: pendingStatus,
           dispatch_status: job.dispatch_status,

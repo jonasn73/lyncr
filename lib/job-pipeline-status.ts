@@ -117,20 +117,20 @@ export function pipelineStatusPillLabel(status: JobPipelineStatusId): string {
 /** Tailwind badge classes for pipeline-specific overview chips. */
 export const PIPELINE_STATUS_BADGE_STYLE: Record<JobPipelineStatusId, string> = {
   unassigned_pool: "bg-warning/20 text-warning ring-1 ring-warning/30",
-  DISPATCHED: "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/30",
-  awaiting_time: "bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/30",
-  salvage_pending: "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/30",
-  completed: "bg-zinc-500/20 text-foreground ring-1 ring-border/30",
+  DISPATCHED: "bg-primary/20 text-primary ring-1 ring-primary/30",
+  awaiting_time: "bg-operator/20 text-operator ring-1 ring-operator/30",
+  salvage_pending: "bg-destructive/20 text-destructive ring-1 ring-destructive/30",
+  completed: "bg-muted-foreground/20 text-foreground ring-1 ring-border/30",
 }
 
 /** Swimlane / grid card accent when dispatch_status is a pipeline-specific value. */
 export function schedulerDispatchCardStyle(dispatch_status?: string | null): string | null {
   const dispatch = (dispatch_status ?? "").trim().toLowerCase()
   if (dispatch === "awaiting_time") {
-    return "border-l-4 border-l-violet-500 text-violet-100"
+    return "border-l-4 border-l-violet-500 text-operator"
   }
   if (dispatch === "salvage_pending") {
-    return "border-l-4 border-l-rose-500 text-rose-100"
+    return "border-l-4 border-l-rose-500 text-destructive"
   }
   return null
 }

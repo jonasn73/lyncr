@@ -183,7 +183,7 @@ export function DeferredCardKeyInForm(props: {
           />
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
+            <p className="text-sm font-semibold text-destructive">Card form unavailable</p>
             <p className="max-w-xs text-xs leading-snug text-muted-foreground">
               Stripe never finished loading on this screen. Use Try again, or send a pay link.
             </p>
@@ -192,11 +192,11 @@ export function DeferredCardKeyInForm(props: {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
-          <p className="text-xs font-semibold text-rose-300">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <p className="text-xs font-semibold text-destructive">
             {loadFailed ? "Card form failed to load" : "Could not save card"}
           </p>
-          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">{error}</p>
+          <p className="mt-0.5 text-xs leading-snug text-destructive/90">{error}</p>
         </div>
       ) : null}
 
@@ -234,7 +234,7 @@ export function DeferredCardKeyInForm(props: {
           )}
         </button>
       </div>
-      <p className="text-center text-micro leading-snug text-muted-foreground">
+      <p className="text-center text-2xs leading-snug text-muted-foreground">
         Card saved — next the customer adds a tip. Nothing charged yet.
       </p>
     </div>

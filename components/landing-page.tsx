@@ -177,7 +177,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
       <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/75 backdrop-blur-xl">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <BrandMark className="h-4 w-4 text-primary-foreground" />
             </div>
             <BrandWordmark size="md" />
@@ -287,7 +287,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
               <div className="absolute left-1/2 top-[28%] h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 motion-safe:animate-landing-ring sm:h-32 sm:w-32" />
               <div className="absolute left-1/2 top-[28%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/25 motion-safe:animate-landing-ring-delay sm:h-24 sm:w-24" />
               <div className="absolute left-1/2 top-[28%] flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_48px_-8px_oklch(0.87_0.14_181_/0.85)] sm:h-20 sm:w-20">
-                <PhoneForwarded className="h-7 w-7 sm:h-8 sm:w-8" />
+                <PhoneForwarded className="h-7 w-7 sm:h-9 sm:w-9" />
               </div>
               {/* Link lines */}
               <svg
@@ -396,7 +396,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
             {steps.map((step, i) => (
               <div key={step.number} className="flex gap-6">
                 <div className="flex flex-col items-center">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
                     {step.number}
                   </div>
                   {i < steps.length - 1 && <div className="mt-2 h-full w-px bg-border" />}

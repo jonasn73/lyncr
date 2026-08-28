@@ -43,7 +43,7 @@ function formatTxDate(iso: string): string {
 
 function statusStyle(status: WalletTx["status"]): string {
   if (status === "COMPLETED") return "bg-success/15 text-success"
-  if (status === "FAILED") return "bg-rose-500/15 text-rose-300"
+  if (status === "FAILED") return "bg-destructive/15 text-destructive"
   return "bg-warning/15 text-warning"
 }
 
@@ -79,13 +79,13 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-indigo-950/80 via-zinc-950 to-zinc-950 shadow-[0_0_40px_-20px_rgba(99,102,241,0.45)]"
+      className="overflow-hidden rounded-2xl border border-operator/25 bg-gradient-to-br from-operator/80 via-background to-background shadow-[0_0_40px_-20px_rgba(99,102,241,0.45)]"
       aria-label="My Wallet"
     >
       <div className="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-operator/20 text-operator">
               <Wallet className="h-4 w-4" aria-hidden />
             </span>
             <div>
@@ -100,7 +100,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             setLoading(true)
             void load()
           }}
-          className="rounded-lg px-2 py-1 text-2xs font-medium text-indigo-300/90 transition hover:bg-indigo-500/10 hover:text-indigo-200"
+          className="rounded-lg px-2 py-1 text-2xs font-medium text-operator/90 transition hover:bg-operator/10 hover:text-operator"
         >
           Refresh
         </button>
@@ -136,7 +136,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             <span className="text-xs">Loading wallet…</span>
           </div>
         ) : error ? (
-          <p className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             Could not load wallet. Pull to refresh or try again.
           </p>
         ) : !data?.recentTransactions.length ? (
@@ -161,14 +161,14 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
                       {tx.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-micro text-muted-foreground">
+                  <p className="mt-0.5 text-2xs text-muted-foreground">
                     {formatTxDate(tx.createdAt)} · {methodLabel(tx.paymentMethod)}
                   </p>
                 </div>
                 <p
                   className={cn(
                     "shrink-0 text-sm font-semibold tabular-nums",
-                    tx.status === "FAILED" ? "text-rose-300" : "text-white"
+                    tx.status === "FAILED" ? "text-destructive" : "text-white"
                   )}
                 >
                   {formatUsd(tx.amount)}

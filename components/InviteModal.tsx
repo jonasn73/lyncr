@@ -75,7 +75,7 @@ export function InviteModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+        className="inline-flex items-center gap-2 rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator"
       >
         <UserPlus className="h-4 w-4" aria-hidden />
         Invite receptionist
@@ -141,7 +141,7 @@ export function InviteModal() {
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+                    className="rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground hover:bg-operator"
                   >
                     Done
                   </button>
@@ -163,7 +163,7 @@ export function InviteModal() {
                         }}
                         className={cn(
                           "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          active ? "bg-violet-600 text-white" : "text-foreground hover:bg-muted"
+                          active ? "bg-operator text-operator-foreground" : "text-foreground hover:bg-muted"
                         )}
                         aria-pressed={active}
                       >
@@ -189,7 +189,7 @@ export function InviteModal() {
                     }}
                     placeholder={isEmail ? "jordan@example.com" : "(555) 123-4567"}
                     autoFocus
-                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-operator focus:outline-none focus:ring-1 focus:ring-operator"
                   />
                 </div>
 
@@ -212,7 +212,7 @@ export function InviteModal() {
                     type="button"
                     onClick={() => void submit()}
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                     {busy ? "Sending…" : "Send invite"}

@@ -715,7 +715,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
     return (
       <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/30 px-3 py-3">
         <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
-          <p className="truncate text-micro font-medium text-muted-foreground">{label}</p>
+          <p className="truncate text-2xs font-medium text-muted-foreground">{label}</p>
           <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display || "\u00A0"}</p>
         </div>
         <LineRoutingStatus
@@ -754,7 +754,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         {compact ? (
           <div className="pointer-events-none flex items-center justify-between gap-3 pr-8">
             <div className="min-w-0">
-              <p className="truncate text-micro font-medium text-muted-foreground">{label}</p>
+              <p className="truncate text-2xs font-medium text-muted-foreground">{label}</p>
               <p className="truncate text-sm font-semibold text-foreground">{display || "\u00A0"}</p>
             </div>
             <LineRoutingStatus

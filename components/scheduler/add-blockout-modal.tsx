@@ -14,7 +14,7 @@ import {
 import type { ScheduleBlockout } from "@/lib/types"
 
 const fieldClass =
-  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground hover:border-border focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground hover:border-border focus:border-info/50 focus:outline-none focus:ring-1 focus:ring-info/40"
 
 type AddBlockoutModalProps = {
   open: boolean

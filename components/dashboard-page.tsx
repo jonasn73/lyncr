@@ -828,6 +828,7 @@ export function DashboardPage() {
             data-flicker-probe="lines-gate-sticky"
             className="sticky top-0 z-50 w-full bg-background"
           >
+            {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — py-2.5 is part of that fixed 52px geometry */}
             <div className="flex min-h-[3.25rem] w-full items-center border-b border-border/90 px-3 py-2.5" />
           </div>
           {/* Same padding + column gaps as live routing surface main column. */}
@@ -842,7 +843,7 @@ export function DashboardPage() {
                 aria-hidden
                 data-flicker-probe="lines-gate-telemetry-slot"
               >
-                <div className="grid h-full min-h-[4.25rem] grid-cols-3 gap-1 rounded-xl border border-border/60 bg-card/40 p-1 md:min-h-[5.5rem] md:gap-2 md:rounded-2xl md:border-white/5 md:bg-neutral-950/40 md:p-3">
+                <div className="grid h-full min-h-[4.25rem] grid-cols-3 gap-1 rounded-xl border border-border/60 bg-card/40 p-1 md:min-h-[5.5rem] md:gap-2 md:rounded-2xl md:border-white/5 md:bg-background/40 md:p-3">
                   <div className="rounded-md bg-muted/40" />
                   <div className="rounded-md bg-muted/40" />
                   <div className="rounded-md bg-muted/40" />

@@ -131,7 +131,7 @@ export function SupportChatPanel() {
             </p>
           </div>
           {data?.thread.user_unread_count ? (
-            <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-micro font-medium text-primary">
+            <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-2xs font-medium text-primary">
               {data.thread.user_unread_count} new
             </span>
           ) : null}
@@ -212,7 +212,7 @@ export function SupportChatPanel() {
                   </ul>
                 ) : null}
                 {!isSystem ? (
-                  <p className="mt-1 text-micro opacity-60">{formatTime(m.created_at)}</p>
+                  <p className="mt-1 text-2xs opacity-60">{formatTime(m.created_at)}</p>
                 ) : null}
               </div>
             </div>

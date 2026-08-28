@@ -125,7 +125,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                 <div className="flex items-center gap-2 sm:flex-col">
                   <span
                     className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold",
                       state === "done" && "border-success/50 bg-success/15 text-success",
                       state === "current" && "border-warning/50 bg-warning/15 text-warning",
                       state === "failed" && "border-destructive/50 bg-destructive/15 text-destructive",
@@ -222,7 +222,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex w-full items-center justify-center rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 sm:w-auto sm:px-6"
+          className="inline-flex w-full items-center justify-center rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground hover:bg-operator sm:w-auto sm:px-6"
         >
           Update registration & resubmit
         </button>

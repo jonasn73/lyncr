@@ -70,7 +70,7 @@ export function JobCardSummary({
           </h2>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-micro font-semibold",
+              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-2xs font-semibold",
               pillClass
             )}
           >
@@ -95,7 +95,7 @@ export function JobCardSummary({
           {showCallChip && model.phoneHref ? (
             <a
               href={model.phoneHref}
-              className="inline-flex items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-0.5 text-micro font-semibold text-success"
+              className="inline-flex items-center gap-1 rounded-md border border-success/35 bg-success/10 px-2 py-0.5 text-2xs font-semibold text-success"
             >
               <Phone className="h-3 w-3" aria-hidden />
               Call
@@ -162,7 +162,7 @@ export function JobCardSummary({
           <span
             className={cn(
               "font-medium",
-              appointmentDelayed ? "text-rose-400" : "text-foreground"
+              appointmentDelayed ? "text-destructive" : "text-foreground"
             )}
           >
             {model.appointmentLabel}

@@ -88,7 +88,7 @@ export function AdminProvisionTechnicianModal({
       <DialogContent className="border-border bg-[#0b1120] text-foreground sm:max-w-md" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
-            <HardHat className="h-5 w-5 text-violet-300" aria-hidden />
+            <HardHat className="h-5 w-5 text-operator" aria-hidden />
             Provision field technician
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -129,7 +129,7 @@ export function AdminProvisionTechnicianModal({
           <Button
             type="submit"
             disabled={busy}
-            className="inline-flex w-full items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500"
+            className="inline-flex w-full items-center justify-center gap-2 bg-operator hover:bg-operator"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

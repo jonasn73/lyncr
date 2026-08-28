@@ -65,7 +65,7 @@ const CATEGORY_SUGGESTIONS = [
 ]
 
 const PRIORITY_BADGE_CLASS: Record<AppImprovementPriority, string> = {
-  high: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+  high: "border-destructive/40 bg-destructive/10 text-destructive",
   medium: "border-warning/40 bg-warning/10 text-warning",
   low: "border-border bg-muted/60 text-muted-foreground",
 }
@@ -201,7 +201,7 @@ export function AdminImprovementsBoard({
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button type="button" className="bg-violet-600 text-white hover:bg-violet-500">
+            <Button type="button" className="bg-operator text-operator-foreground hover:bg-operator">
               <Plus className="mr-1.5 h-4 w-4" aria-hidden />
               Add improvement
             </Button>
@@ -309,7 +309,7 @@ export function AdminImprovementsBoard({
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(item)}
-                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${item.title} from the board`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -318,15 +318,15 @@ export function AdminImprovementsBoard({
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             variant="outline"
-                            className={cn("text-micro", PRIORITY_BADGE_CLASS[item.priority])}
+                            className={cn("text-2xs", PRIORITY_BADGE_CLASS[item.priority])}
                           >
                             {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="border-border text-micro text-muted-foreground">
+                          <Badge variant="outline" className="border-border text-2xs text-muted-foreground">
                             {item.category}
                           </Badge>
                           {item.source ? (
-                            <Badge variant="outline" className="border-sky-700/50 text-micro text-sky-400">
+                            <Badge variant="outline" className="border-info/50 text-2xs text-info">
                               {item.source}
                             </Badge>
                           ) : null}

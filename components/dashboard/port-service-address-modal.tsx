@@ -96,7 +96,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
       <DialogContent className="border-border/80 bg-card sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-violet-400" aria-hidden />
+            <MapPin className="h-5 w-5 text-operator" aria-hidden />
             Business service address
           </DialogTitle>
           <DialogDescription>
@@ -157,7 +157,7 @@ export function PortServiceAddressModal({ open, onOpenChange }: Props) {
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground hover:bg-operator disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Save address & continue port

@@ -458,7 +458,7 @@ export function AdminUserManageDrawer({
             {/* Wallet: add or subtract prepaid phone credit. */}
             <div className="space-y-2 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-violet-300" aria-hidden />
+                <Wallet className="h-4 w-4 text-operator" aria-hidden />
                 <Label className="text-foreground">Adjust wallet balance</Label>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -478,7 +478,7 @@ export function AdminUserManageDrawer({
                 />
                 <Button
                   type="button"
-                  className="shrink-0 bg-violet-600 hover:bg-violet-500"
+                  className="shrink-0 bg-operator hover:bg-operator"
                   disabled={walletBusy}
                   onClick={() => void applyWalletAdjustment()}
                 >
@@ -509,7 +509,7 @@ export function AdminUserManageDrawer({
                         "border-border",
                         selected && s === "active" && "border-success bg-success/20 text-success",
                         selected && s === "pending" && "border-warning bg-warning/20 text-warning",
-                        selected && s === "denied" && "border-border bg-zinc-600/20 text-foreground",
+                        selected && s === "denied" && "border-border bg-muted-foreground/20 text-foreground",
                         selected && s === "suspended" && "border-destructive bg-destructive/20 text-destructive",
                         selected && s === "flagged" && "border-warning bg-warning/20 text-warning",
                         !selected && "bg-background text-foreground hover:bg-card"
@@ -567,7 +567,7 @@ export function AdminUserManageDrawer({
             {/* Business actions — platform-admin manual field tech provisioning */}
             <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
-                <HardHat className="h-4 w-4 text-violet-300" aria-hidden />
+                <HardHat className="h-4 w-4 text-operator" aria-hidden />
                 <Label className="text-foreground">Business actions</Label>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -576,7 +576,7 @@ export function AdminUserManageDrawer({
               </p>
               <Button
                 type="button"
-                className="w-full bg-violet-600 hover:bg-violet-500"
+                className="w-full bg-operator hover:bg-operator"
                 disabled={!row || controlsLoading}
                 onClick={() => setProvisionTechOpen(true)}
               >
@@ -588,11 +588,11 @@ export function AdminUserManageDrawer({
             <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-sky-300" aria-hidden />
+                  <Building2 className="h-4 w-4 text-info" aria-hidden />
                   <Label className="text-foreground">Workspace &amp; team infrastructure</Label>
                 </div>
                 {controls?.is_multi_workspace ? (
-                  <Badge className="border-violet-700/60 bg-violet-950/40 text-violet-200">
+                  <Badge className="border-operator/60 bg-operator/40 text-operator">
                     Multi-workspace tenant
                   </Badge>
                 ) : null}
@@ -647,7 +647,7 @@ export function AdminUserManageDrawer({
                                 </p>
                               ) : null}
                               {org.messaging_10dlc?.brand_id || org.messaging_10dlc?.campaign_id ? (
-                                <p className="mt-1 truncate font-mono text-micro text-muted-foreground">
+                                <p className="mt-1 truncate font-mono text-2xs text-muted-foreground">
                                   {org.messaging_10dlc.brand_id ? `Brand ${org.messaging_10dlc.brand_id}` : null}
                                   {org.messaging_10dlc.brand_id && org.messaging_10dlc.campaign_id ? " · " : null}
                                   {org.messaging_10dlc.campaign_id
@@ -661,7 +661,7 @@ export function AdminUserManageDrawer({
                             </Badge>
                           </div>
                           {org.messaging_10dlc?.status ? (
-                            <p className="mt-1.5 text-micro capitalize text-muted-foreground">
+                            <p className="mt-1.5 text-2xs capitalize text-muted-foreground">
                               Telnyx registration: {org.messaging_10dlc.status.replace(/_/g, " ")}
                             </p>
                           ) : null}
@@ -687,11 +687,11 @@ export function AdminUserManageDrawer({
                                   {inv.channel === "SMS" ? (
                                     <MessageSquare className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
                                   ) : (
-                                    <Mail className="h-3.5 w-3.5 shrink-0 text-sky-400" aria-hidden />
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-info" aria-hidden />
                                   )}
                                   <div className="min-w-0">
                                     <p className="truncate font-mono text-xs text-foreground">{inv.target}</p>
-                                    <p className="text-micro text-muted-foreground">
+                                    <p className="text-2xs text-muted-foreground">
                                       {inv.channel} · expires{" "}
                                       {new Date(inv.expires_at).toLocaleDateString(undefined, {
                                         month: "short",
@@ -789,7 +789,7 @@ export function AdminUserManageDrawer({
           <Button
             type="submit"
             form="admin-user-override-form"
-            className="bg-violet-600 hover:bg-violet-500"
+            className="bg-operator hover:bg-operator"
             disabled={!row || saving}
           >
             {saving ? "Saving..." : "Save changes"}

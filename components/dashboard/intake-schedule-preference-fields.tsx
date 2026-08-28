@@ -92,7 +92,7 @@ export function IntakeSchedulePreferenceFields({
             className={cn(
               "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "asap"
-                ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
+                ? "border-destructive/50 bg-destructive/15 text-destructive"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
             )}
           >
@@ -107,7 +107,7 @@ export function IntakeSchedulePreferenceFields({
             className={cn(
               "rounded-xl border px-3 py-3 text-left transition-colors",
               value.scheduleUrgency === "window"
-                ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                ? "border-primary/60 bg-primary/15 text-primary"
                 : "border-border bg-card/40 text-foreground hover:border-primary/40"
             )}
           >
@@ -137,7 +137,7 @@ export function IntakeSchedulePreferenceFields({
                   className={cn(
                     "rounded-xl border px-3 py-3 text-left transition-colors",
                     value.scheduledDate === day.dateKey
-                      ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
+                      ? "border-primary/60 bg-primary/15 text-primary"
                       : "border-border bg-card/40 text-foreground hover:border-primary/40"
                   )}
                 >
@@ -195,10 +195,10 @@ export function IntakeSchedulePreferenceFields({
 
           {windowReady && availabilityLabel ? (
             <p className="rounded-lg border border-border/70 bg-card/40 px-3 py-2 text-center text-sm text-foreground">
-              Free: <span className="font-semibold text-teal-200">{availabilityLabel}</span>
+              Free: <span className="font-semibold text-primary">{availabilityLabel}</span>
             </p>
           ) : (
-            <p className="text-center text-2xs text-rose-300/90">
+            <p className="text-center text-2xs text-destructive/90">
               Choose an end time after the start time.
             </p>
           )}
@@ -206,7 +206,7 @@ export function IntakeSchedulePreferenceFields({
       ) : null}
 
       {value.scheduleUrgency === "asap" ? (
-        <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-center text-sm text-rose-100">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
           Marked ASAP — soft request until you pin a time in Scheduler.
         </p>
       ) : null}

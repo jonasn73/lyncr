@@ -263,7 +263,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/10 text-violet-200">
+            <Badge variant="outline" className="border-operator/40 bg-operator/10 text-operator">
               <Shield className="mr-1 h-3 w-3" aria-hidden />
               Dev only
             </Badge>
@@ -304,26 +304,26 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         </p>
         <ol className="mt-4 space-y-3 text-sm text-foreground">
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               1
             </span>
             <span>
               Click <strong className="font-medium text-foreground">Seed sandbox data</strong> — creates Test Locksmith
               Co. and provisions{" "}
-              <span className="font-mono text-violet-300">test_receptionist@lyncr.app</span> with empty skills (quiz-first).
+              <span className="font-mono text-operator">test_receptionist@lyncr.app</span> with empty skills (quiz-first).
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               2
             </span>
             <span>
               Use <strong className="font-medium text-foreground">Quick-Switch</strong> below — opens the{" "}
-              <code className="text-violet-300">automotive_core</code> quiz as the test receptionist.
+              <code className="text-operator">automotive_core</code> quiz as the test receptionist.
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               3
             </span>
             <span>
@@ -333,7 +333,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             </span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-operator/30 text-xs font-semibold text-operator">
               4
             </span>
             <span>
@@ -343,20 +343,20 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </li>
         </ol>
 
-        <div className="mt-5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-950/80 via-violet-900/40 to-slate-900/60 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="mt-5 rounded-xl border border-operator/40 bg-gradient-to-r from-operator/80 via-operator/40 to-card/60 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-sm font-semibold text-violet-100">
-              <KeyRound className="h-4 w-4 shrink-0 text-violet-300" aria-hidden />
+            <p className="flex items-center gap-2 text-sm font-semibold text-operator">
+              <KeyRound className="h-4 w-4 shrink-0 text-operator" aria-hidden />
               Quick-Switch to Test Receptionist Session
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-violet-200/80">
+            <p className="mt-1 text-xs leading-relaxed text-operator/80">
               Impersonates <span className="font-mono">test_receptionist@lyncr.app</span> and jumps straight to the
               automotive_core training quiz. Auto-seeds if the account is missing.
             </p>
           </div>
           <Button
             type="button"
-            className="mt-3 w-full shrink-0 bg-violet-600 hover:bg-violet-500 sm:mt-0 sm:w-auto"
+            className="mt-3 w-full shrink-0 bg-operator hover:bg-operator sm:mt-0 sm:w-auto"
             disabled={quickSwitchBusy}
             onClick={() => void handleQuickSwitch()}
           >
@@ -376,22 +376,22 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-violet-500/30 bg-card/60">
+        <Card className="border-operator/30 bg-card/60">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600/20 text-violet-300">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-operator/20 text-operator">
               <Database className="h-5 w-5" aria-hidden />
             </div>
             <CardTitle className="text-lg text-foreground">Run DB Environment Seed</CardTitle>
             <CardDescription className="text-muted-foreground">
               Creates <strong className="font-medium text-foreground">Test Locksmith Co.</strong> with SMS dispatch
-              enabled, automotive routing line, and <code className="text-violet-300">automotive_core</code> quiz in
+              enabled, automotive routing line, and <code className="text-operator">automotive_core</code> quiz in
               Neon.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               type="button"
-              className="w-full bg-violet-600 hover:bg-violet-500"
+              className="w-full bg-operator hover:bg-operator"
               disabled={pending}
               onClick={handleSeed}
             >
@@ -403,7 +403,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
 
         <Card className="border-warning/30 bg-card/60">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-warning/20 text-warning">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-warning/20 text-warning">
               <PhoneIncoming className="h-5 w-5" aria-hidden />
             </div>
             <CardTitle className="text-lg text-foreground">Fire Simulated Inbound Call</CardTitle>
@@ -430,9 +430,9 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-sky-500/30 bg-card/60 md:col-span-2 lg:col-span-1">
+        <Card className="border-info/30 bg-card/60 md:col-span-2 lg:col-span-1">
           <CardHeader className="pb-3">
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-info/20 text-info">
               <ScrollText className="h-5 w-5" aria-hidden />
             </div>
             <CardTitle className="text-lg text-foreground">Workspace snapshot</CardTitle>

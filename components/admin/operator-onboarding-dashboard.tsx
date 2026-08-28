@@ -41,7 +41,7 @@ const STATUS_LABEL: Record<OperatorOnboardingStatus, string> = {
 
 const STATUS_CLASS: Record<OperatorOnboardingStatus, string> = {
   PENDING_INVITE: "bg-warning/15 text-warning ring-warning/30",
-  DEVICE_TESTING: "bg-sky-500/15 text-sky-200 ring-sky-500/30",
+  DEVICE_TESTING: "bg-info/15 text-info ring-info/30",
   ACTIVE_READY: "bg-success/15 text-success ring-success/30",
 }
 
@@ -73,7 +73,7 @@ function canResendInvite(op: OperatorAdminRow): boolean {
 
 function statusBadge(op: OperatorAdminRow) {
   if (!op.is_active) {
-    return { label: "Disabled", className: "bg-slate-500/15 text-foreground ring-border/30" }
+    return { label: "Disabled", className: "bg-muted-foreground/15 text-foreground ring-border/30" }
   }
   const status = formatStatus(op.operator_onboarding_status)
   return { label: STATUS_LABEL[status], className: STATUS_CLASS[status] }
@@ -328,7 +328,7 @@ export function OperatorOnboardingDashboard() {
         <Card className="border-border bg-card/60 shadow-raised">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base text-foreground">
-              <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
+              <UserPlus className="h-4 w-4 text-operator" aria-hidden />
               Invite operator
             </CardTitle>
           </CardHeader>
@@ -400,7 +400,7 @@ export function OperatorOnboardingDashboard() {
                             />
                             <span className="min-w-0">
                               <span className="block text-xs font-medium text-foreground">{w.business_name}</span>
-                              <span className="block truncate text-micro text-muted-foreground">
+                              <span className="block truncate text-2xs text-muted-foreground">
                                 {lineLabel} · {w.owner_email}
                               </span>
                             </span>
@@ -411,7 +411,7 @@ export function OperatorOnboardingDashboard() {
                   </ul>
                 )}
                 {selectedWorkspaces.length > 0 ? (
-                  <p className="text-micro text-success/90">
+                  <p className="text-2xs text-success/90">
                     {selectedWorkspaces.length} workspace{selectedWorkspaces.length === 1 ? "" : "s"} selected
                   </p>
                 ) : null}
@@ -427,7 +427,7 @@ export function OperatorOnboardingDashboard() {
                   Text sent to {lastSentTo}. They can tap the link to finish setup.
                 </p>
               ) : null}
-              <Button type="submit" disabled={busy} className="w-full bg-violet-600 hover:bg-violet-500">
+              <Button type="submit" disabled={busy} className="w-full bg-operator hover:bg-operator">
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 ) : (
@@ -475,7 +475,7 @@ export function OperatorOnboardingDashboard() {
                               {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-micro text-muted-foreground">Tap for details</p>
+                          <p className="mt-1 text-2xs text-muted-foreground">Tap for details</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span
@@ -559,7 +559,7 @@ export function OperatorOnboardingDashboard() {
                   {detailNotice}
                   {detailManualLink ? (
                     <span className="mt-3 block space-y-2">
-                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-micro">
+                      <span className="block break-all rounded-md bg-black/20 px-2 py-2 font-mono text-2xs">
                         {detailManualLink}
                       </span>
                       <Button
@@ -580,7 +580,7 @@ export function OperatorOnboardingDashboard() {
                 {canResendInvite(selectedOperator) ? (
                   <Button
                     type="button"
-                    className="w-full bg-violet-600 hover:bg-violet-500"
+                    className="w-full bg-operator hover:bg-operator"
                     disabled={Boolean(detailBusy)}
                     onClick={() => void resendInvite(selectedOperator)}
                   >

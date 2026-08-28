@@ -122,7 +122,7 @@ function historyMethodLabel(method: OwnerCollectedTransaction["paymentMethod"]):
 
 function historyStatusClass(status: OwnerCollectedTransaction["status"]): string {
   if (status === "COMPLETED") return "border-success/35 bg-success/10 text-success"
-  if (status === "FAILED") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  if (status === "FAILED") return "border-destructive/35 bg-destructive/10 text-destructive"
   return "border-warning/35 bg-warning/10 text-warning"
 }
 
@@ -406,7 +406,7 @@ function AdhocCardForm({
           />
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
+            <p className="text-sm font-semibold text-destructive">Card form unavailable</p>
             <p className="max-w-xs text-xs leading-snug text-muted-foreground">
               Stripe never finished loading on this screen. Use Try again, or send a pay link.
             </p>
@@ -415,15 +415,15 @@ function AdhocCardForm({
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2">
-          <p className="text-xs font-semibold text-rose-300">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
+          <p className="text-xs font-semibold text-destructive">
             {loadFailed ? "Card form failed to load" : "Card charge failed"}
           </p>
-          <p className="mt-0.5 text-xs leading-snug text-rose-200/90">
+          <p className="mt-0.5 text-xs leading-snug text-destructive/90">
             <span className="font-semibold">Why: </span>
             {error}
           </p>
-          <p className="mt-1.5 text-2xs leading-snug text-rose-100/80">
+          <p className="mt-1.5 text-2xs leading-snug text-destructive/80">
             If this keeps happening on Safari or in-app browsers, send a pay link instead.
           </p>
         </div>
@@ -1622,7 +1622,7 @@ export function OwnerCollectPaymentSheet({
         >
           {/* Mobile drag affordance — same as Just finished / Scheduler sheets. */}
           <div className="flex shrink-0 justify-center pb-0.5 pt-3 md:hidden" aria-hidden>
-            <div className="h-1 w-10 rounded-full bg-zinc-600/80" />
+            <div className="h-1 w-10 rounded-full bg-muted-foreground/80" />
           </div>
           <SheetHeader
             className={cn(
@@ -1692,24 +1692,24 @@ export function OwnerCollectPaymentSheet({
                   <p className="mb-1.5 text-micro font-semibold uppercase tracking-wide text-success/70">
                     Collected (sales — not bank deposits)
                   </p>
-                  <p className="mb-2 text-micro leading-snug text-success/55">
+                  <p className="mb-2 text-2xs leading-snug text-success/55">
                     Full customer totals. Bank transfers are lower after the card fee.
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-micro font-medium text-success/55">Today</p>
+                      <p className="text-2xs font-medium text-success/55">Today</p>
                       <p className="text-sm font-bold tabular-nums text-success">
                         {formatCollectedDollars(collectedTodayCents)}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-micro font-medium text-success/55">This week</p>
+                      <p className="text-2xs font-medium text-success/55">This week</p>
                       <p className="text-sm font-bold tabular-nums text-success">
                         {formatCollectedDollars(collectedWeekCents)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-micro font-medium text-success/55">This month</p>
+                      <p className="text-2xs font-medium text-success/55">This month</p>
                       <p className="text-sm font-bold tabular-nums text-success">
                         {formatCollectedDollars(collectedMonthCents)}
                       </p>
@@ -1803,7 +1803,7 @@ export function OwnerCollectPaymentSheet({
                     Loading history…
                   </div>
                 ) : historyError ? (
-                  <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-4 text-center text-sm text-rose-200">
+                  <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-4 text-center text-sm text-destructive">
                     {historyError}
                   </p>
                 ) : historyRows.length === 0 ? (
@@ -1867,7 +1867,7 @@ export function OwnerCollectPaymentSheet({
                                 tx.status === "COMPLETED"
                                   ? "bg-success/15 text-success"
                                   : tx.status === "FAILED"
-                                    ? "bg-rose-500/15 text-rose-300"
+                                    ? "bg-destructive/15 text-destructive"
                                     : "bg-warning/15 text-warning"
                               )}
                             >
@@ -1900,12 +1900,12 @@ export function OwnerCollectPaymentSheet({
                                       : "Pending"}
                                 </span>
                                 {!tx.jobId ? (
-                                  <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-micro font-medium text-muted-foreground">
+                                  <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-2xs font-medium text-muted-foreground">
                                     Quick
                                   </span>
                                 ) : null}
                                 {canReceipt ? (
-                                  <span className="text-micro font-medium text-success/90">
+                                  <span className="text-2xs font-medium text-success/90">
                                     Tap to send receipt
                                   </span>
                                 ) : null}
@@ -2016,7 +2016,7 @@ export function OwnerCollectPaymentSheet({
                               paid
                                 ? "border-success/45 hover:border-success/60 hover:bg-card"
                                 : link
-                                  ? "border-sky-500/40 hover:border-sky-500/55 hover:bg-card"
+                                  ? "border-info/40 hover:border-info/55 hover:bg-card"
                                   : "border-border hover:border-success/40 hover:bg-card"
                             )}
                           >
@@ -2026,7 +2026,7 @@ export function OwnerCollectPaymentSheet({
                                 paid
                                   ? "bg-success/15 text-success"
                                   : link
-                                    ? "bg-sky-500/15 text-sky-300"
+                                    ? "bg-info/15 text-info"
                                     : "bg-success/15 text-success"
                               )}
                             >
@@ -2052,7 +2052,7 @@ export function OwnerCollectPaymentSheet({
                                   paid
                                     ? "text-success"
                                     : link
-                                      ? "text-sky-300"
+                                      ? "text-info"
                                       : "text-success/90"
                                 )}
                               >
@@ -2094,9 +2094,9 @@ export function OwnerCollectPaymentSheet({
                     />
                   </Elements>
                 ) : (
-                  <div className="space-y-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-rose-300">Card form not ready</p>
-                    <p className="text-xs text-rose-100/80">
+                  <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-destructive">Card form not ready</p>
+                    <p className="text-xs text-destructive/80">
                       Finish bank setup, then try Card again.
                     </p>
                     <button
@@ -2133,7 +2133,7 @@ export function OwnerCollectPaymentSheet({
                     <p className="text-sm font-semibold text-success">
                       They open the link and pay {fmtCents(paidTotalCents)}
                     </p>
-                    <p className="text-micro text-success/70">No tip on this step</p>
+                    <p className="text-2xs text-success/70">No tip on this step</p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-success">
                     {fmtCents(paidTotalCents)}
@@ -2157,7 +2157,7 @@ export function OwnerCollectPaymentSheet({
                       <button
                         type="button"
                         onClick={() => setPayLinkPhoneEditing(true)}
-                        className="mt-1 text-2xs font-semibold text-sky-300 underline"
+                        className="mt-1 text-2xs font-semibold text-info underline"
                       >
                         Wrong number?
                       </button>
@@ -2191,7 +2191,7 @@ export function OwnerCollectPaymentSheet({
                     Text link
                   </button>
                   {payLinkUrl ? (
-                    <p className="break-all text-micro text-success/90">{payLinkUrl}</p>
+                    <p className="break-all text-2xs text-success/90">{payLinkUrl}</p>
                   ) : null}
                 </div>
               </div>
@@ -2238,7 +2238,7 @@ export function OwnerCollectPaymentSheet({
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/10 px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-success">Service</p>
-                    <p className="text-micro text-success/70">
+                    <p className="text-2xs text-success/70">
                       Job + tax · pay with {pendingMethodLabel(pendingMethod)}
                       {pendingMethod === "card" && savedPaymentMethodId ? " · card ready" : ""}
                     </p>
@@ -2249,7 +2249,7 @@ export function OwnerCollectPaymentSheet({
                 </div>
 
                 {pendingMethod === "card" && savedPaymentMethodId ? (
-                  <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                  <p className="rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-center text-xs font-medium text-info">
                     {tipCustomerReadyNote()}
                   </p>
                 ) : null}
@@ -2280,7 +2280,7 @@ export function OwnerCollectPaymentSheet({
                       >
                         {opt.label}
                         {opt.id !== "none" && paidTotalCents > 0 ? (
-                          <span className="mt-0.5 block text-micro font-normal tabular-nums opacity-80">
+                          <span className="mt-0.5 block text-2xs font-normal tabular-nums opacity-80">
                             {fmtCents(
                               tipCentsFromChoice(opt.id, paidTotalCents, customTipDollars)
                             )}
@@ -2328,7 +2328,7 @@ export function OwnerCollectPaymentSheet({
 
                 {tapListening ? (
                   <div className="flex flex-col items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-4 py-6 text-center">
-                    <Nfc className="h-8 w-8 animate-pulse text-success" aria-hidden />
+                    <Nfc className="h-9 w-9 animate-pulse text-success" aria-hidden />
                     <p className="text-sm font-semibold text-success">Ready for tap</p>
                     <p className="text-xs text-success/80">
                       Hold the customer’s card or phone near this device…
@@ -2378,7 +2378,7 @@ export function OwnerCollectPaymentSheet({
                   canvasClassName="h-36 w-full sm:h-40"
                   optional
                 />
-                <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-xs font-medium text-sky-100">
+                <p className="rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-center text-xs font-medium text-info">
                   {tipSignHandBackCue({
                     offerSignature: true,
                     hasSignature: Boolean(signaturePng),
@@ -2534,7 +2534,7 @@ export function OwnerCollectPaymentSheet({
                         <Nfc className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Tap to Pay</span>
-                      <span className="text-micro text-muted-foreground">NFC</span>
+                      <span className="text-2xs text-muted-foreground">NFC</span>
                     </button>
                     <button
                       type="button"
@@ -2546,7 +2546,7 @@ export function OwnerCollectPaymentSheet({
                         <CreditCard className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Card</span>
-                      <span className="text-micro text-muted-foreground">Key in · ZIP</span>
+                      <span className="text-2xs text-muted-foreground">Key in · ZIP</span>
                     </button>
                     <button
                       type="button"
@@ -2558,10 +2558,10 @@ export function OwnerCollectPaymentSheet({
                         <Link2 className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Pay link</span>
-                      <span className="text-micro text-muted-foreground">Text SMS</span>
+                      <span className="text-2xs text-muted-foreground">Text SMS</span>
                     </button>
                   </div>
-                  <p className="mt-1.5 text-center text-micro text-muted-foreground">
+                  <p className="mt-1.5 text-center text-2xs text-muted-foreground">
                     Card / Tap: tip last. Pay link: send only — no tip here.
                   </p>
                 </section>

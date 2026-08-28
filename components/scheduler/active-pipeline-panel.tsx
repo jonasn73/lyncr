@@ -121,7 +121,7 @@ export function ActivePipelinePanel({
             className={cn(
               SCHEDULER_METADATA_LABEL,
               "mb-2 font-bold",
-              isMobileSheet ? "text-xs" : "text-micro"
+              isMobileSheet ? "text-xs" : "text-2xs"
             )}
           >
             {group.title}
@@ -287,7 +287,7 @@ export function ActivePipelinePanel({
                       className={cn(
                         "absolute right-3 top-3 z-20",
                         SCHEDULER_ACTION_BUTTON,
-                        "px-2 py-0.5 text-micro shadow-resting",
+                        "px-2 py-0.5 text-2xs shadow-resting",
                         highlighted && "border-success/40 bg-success/10 text-success"
                       )}
                     >

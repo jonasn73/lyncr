@@ -136,7 +136,7 @@ export function PortingOrderCommentsDialog({
                       : "border-border/60 bg-muted/30"
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2 text-micro text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2 text-2xs text-muted-foreground">
                     <span className="font-semibold text-foreground">{labelForUserType(c.user_type)}</span>
                     <span>
                       {c.created_at

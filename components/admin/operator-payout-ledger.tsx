@@ -97,11 +97,11 @@ export function OperatorPayoutLedger() {
         </Button>
       </div>
 
-      <Card className="border-violet-500/30 bg-gradient-to-br from-violet-950/40 via-slate-900/70 to-slate-950/80">
+      <Card className="border-operator/30 bg-gradient-to-br from-operator/40 via-card/70 to-background/80">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-violet-100">Total outstanding payout balance</CardTitle>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600/25 ring-1 ring-violet-400/40">
-            <Wallet className="h-4 w-4 text-violet-200" aria-hidden />
+          <CardTitle className="text-sm font-medium text-operator">Total outstanding payout balance</CardTitle>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-operator/25 ring-1 ring-operator/40">
+            <Wallet className="h-4 w-4 text-operator" aria-hidden />
           </div>
         </CardHeader>
         <CardContent>
@@ -117,7 +117,7 @@ export function OperatorPayoutLedger() {
         <CardContent className="overflow-x-auto p-0">
           {loading ? (
             <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading…
+              <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Loading…
             </div>
           ) : rows.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">No receptionists yet.</p>
@@ -144,16 +144,16 @@ export function OperatorPayoutLedger() {
                         <span className="font-medium text-foreground">{r.name}</span>
                         <div className="flex flex-wrap items-center gap-1">
                           {r.is_network_agent ? (
-                            <Badge variant="outline" className="border-violet-500/40 bg-violet-500/15 text-micro text-violet-200">
+                            <Badge variant="outline" className="border-operator/40 bg-operator/15 text-2xs text-operator">
                               Network
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="border-border bg-muted/60 text-micro text-foreground">
+                            <Badge variant="outline" className="border-border bg-muted/60 text-2xs text-foreground">
                               Business
                             </Badge>
                           )}
                           {!r.is_active && (
-                            <Badge variant="outline" className="border-border bg-card text-micro text-muted-foreground">
+                            <Badge variant="outline" className="border-border bg-card text-2xs text-muted-foreground">
                               Inactive
                             </Badge>
                           )}

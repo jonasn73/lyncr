@@ -67,14 +67,14 @@ export function CustomerPortalShell({
         <header className="text-center">
           <div
             className={cn(
-              "inline-flex items-center gap-2 text-teal-300/90",
+              "inline-flex items-center gap-2 text-primary/90",
               compact && "scale-90 origin-center"
             )}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 ring-1 ring-teal-500/35">
-              <BrandMark className="h-4 w-4 text-teal-300" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/35">
+              <BrandMark className="h-4 w-4 text-primary" />
             </span>
-            <BrandWordmark size="sm" variant="onDark" className="text-teal-50/90" />
+            <BrandWordmark size="sm" variant="onDark" className="text-primary/90" />
           </div>
           <h1
             className={cn(
@@ -113,7 +113,7 @@ export function CustomerPortalShell({
                     <span
                       className={cn(
                         "mx-0.5 h-px w-4 sm:w-6",
-                        done || active ? "bg-teal-500/60" : "bg-accent"
+                        done || active ? "bg-primary/60" : "bg-accent"
                       )}
                       aria-hidden
                     />
@@ -121,7 +121,7 @@ export function CustomerPortalShell({
                   <span
                     className={cn(
                       "rounded-full px-3 py-1 text-2xs font-semibold uppercase tracking-wide",
-                      active && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/40",
+                      active && "bg-primary/20 text-primary ring-1 ring-primary/40",
                       done && !active && "text-success/90",
                       !active && !done && "text-muted-foreground"
                     )}

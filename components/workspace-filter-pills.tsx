@@ -23,22 +23,22 @@ export type WorkspaceFilterPill = {
 const TONE_ACTIVE: Record<WorkspaceFilterPillTone, string> = {
   primary: "border-primary/40 text-primary",
   amber: "border-warning/40 text-warning",
-  sky: "border-sky-500/40 text-sky-100",
-  orange: "border-orange-500/40 text-orange-100",
+  sky: "border-info/40 text-info",
+  orange: "border-warning/40 text-warning",
 }
 
 const TONE_PILL: Record<WorkspaceFilterPillTone, string> = {
   primary: "bg-primary/15",
   amber: "bg-warning/15",
-  sky: "bg-sky-500/20",
-  orange: "bg-orange-500/20",
+  sky: "bg-info/20",
+  orange: "bg-warning/20",
 }
 
 const TONE_BADGE_ACTIVE: Record<WorkspaceFilterPillTone, string> = {
   primary: "bg-primary/25 text-primary-foreground",
   amber: "bg-warning/25 text-warning",
-  sky: "bg-sky-500/25 text-sky-50",
-  orange: "bg-orange-500/25 text-orange-50",
+  sky: "bg-info/25 text-info",
+  orange: "bg-warning/25 text-warning",
 }
 
 export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
@@ -113,7 +113,7 @@ export const WorkspaceFilterPills = memo(function WorkspaceFilterPills({
               {chip.badge != null && chip.badge > 0 ? (
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-micro font-bold tabular-nums",
+                    "rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums",
                     active ? TONE_BADGE_ACTIVE[tone] : "bg-warning/15 text-warning"
                   )}
                 >

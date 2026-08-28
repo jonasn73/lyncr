@@ -1366,12 +1366,13 @@ function SchedulerWorkspaceViewInner({
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
               {/* Always reserve New Intake height — panel hydrate must not push the board. */}
+              {/* eslint-disable-next-line no-restricted-syntax -- min-h-[3.25rem] sticky chrome — p-2.5 is part of that fixed 52px geometry */}
               <div className="min-h-[3.25rem] border-b border-border/80 p-2.5">
                 <button
                   type="button"
                   onClick={openNewIntake}
                   disabled={!inboundCallPanel}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 py-3 text-sm font-semibold text-black transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-black transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
                   New Intake
@@ -1557,7 +1558,7 @@ function SchedulerWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Previous day"
                       >
                         <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -1572,7 +1573,7 @@ function SchedulerWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Next day"
                       >
                         <ChevronRight className="h-4 w-4" aria-hidden />

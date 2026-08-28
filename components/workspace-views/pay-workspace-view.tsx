@@ -313,7 +313,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
       ) : null}
 
       {lowCarrierCreditWarning ? (
-        <p className="rounded-xl border border-rose-500/35 bg-rose-950/30 px-4 py-3 text-sm text-foreground/90">
+        <p className="rounded-xl border border-destructive/35 bg-destructive/30 px-4 py-3 text-sm text-foreground/90">
           Your carrier credit is below ${lowCreditThreshold.toFixed(2)} ({balanceLabel} remaining). Add credit below
           soon so calls keep routing without interruption.
         </p>

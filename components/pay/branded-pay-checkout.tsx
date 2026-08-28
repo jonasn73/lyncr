@@ -220,7 +220,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                 >
                   {opt.label}
                   {opt.id !== "none" && baseCents > 0 ? (
-                    <span className="mt-0.5 block text-micro font-normal tabular-nums opacity-80">
+                    <span className="mt-0.5 block text-2xs font-normal tabular-nums opacity-80">
                       {fmtUsd(tipCentsFromChoice(opt.id, baseCents, customTipDollars))}
                     </span>
                   ) : null}

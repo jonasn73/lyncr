@@ -137,7 +137,7 @@ export function AdminToolsBoard({
           <CardContent>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={texmlBusy}
               onClick={() => void syncTexml()}
             >
@@ -178,7 +178,7 @@ export function AdminToolsBoard({
             </div>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={remediateBusy || !chargeId.trim() || !destinationAccountId.trim()}
               onClick={() => void remediate(false)}
             >
@@ -215,7 +215,7 @@ export function AdminToolsBoard({
             </div>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={amberBusy || !amberEmail.trim()}
               onClick={() => void previewAmber()}
             >

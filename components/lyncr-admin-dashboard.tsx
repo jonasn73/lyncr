@@ -132,9 +132,9 @@ function MoneyStripCell({
       onClick={onClick}
       className={cn(
         "flex min-w-0 flex-col gap-0.5 rounded-xl border px-3 py-3 text-left transition-colors",
-        "hover:border-violet-500/40 hover:bg-violet-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+        "hover:border-operator/40 hover:bg-operator/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
         emphasize
-          ? "border-violet-500/35 bg-violet-950/40"
+          ? "border-operator/35 bg-operator/40"
           : "border-border bg-card/60"
       )}
     >
@@ -170,7 +170,7 @@ function AccountStatusBadge({ status }: { status: string }) {
         "border-0 capitalize",
         normalized === "active" && "bg-success/15 text-success",
         normalized === "pending" && "bg-warning/20 text-warning",
-        normalized === "denied" && "bg-zinc-500/20 text-foreground",
+        normalized === "denied" && "bg-muted-foreground/20 text-foreground",
         normalized === "suspended" && "bg-destructive/15 text-destructive",
         normalized === "flagged" && "bg-warning/15 text-warning",
         normalized !== "active" &&
@@ -198,7 +198,7 @@ function TierBadge({ tier }: { tier: string }) {
       className={cn(
         "border-0 capitalize",
         isPaid && "bg-success/50 text-success",
-        isTrial && "bg-sky-950/60 text-sky-300",
+        isTrial && "bg-info/60 text-info",
         !isPaid && !isTrial && "bg-accent/40 text-foreground"
       )}
     >
@@ -326,7 +326,7 @@ function UserRowActions({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={`Actions for ${row.email}`}
           >
             <MoreVertical className="h-4 w-4" aria-hidden />
@@ -452,7 +452,7 @@ function UserRowActions({
             </Button>
             <Button
               type="button"
-              className="bg-violet-600 text-white hover:bg-violet-500"
+              className="bg-operator text-operator-foreground hover:bg-operator"
               disabled={creditBusy}
               onClick={() => void handleAdjustCreditClick()}
             >
@@ -639,7 +639,7 @@ export function LyncrAdminDashboard({
               </div>
               <Link
                 href="/admin/businesses"
-                className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                className="shrink-0 rounded-lg bg-operator px-3 py-2 text-sm font-semibold text-operator-foreground hover:bg-operator"
               >
                 All businesses
               </Link>

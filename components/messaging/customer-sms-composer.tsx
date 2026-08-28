@@ -216,17 +216,17 @@ export function CustomerSmsComposer({
   return (
     <div
       className={cn(
-        "space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3",
+        "space-y-2 rounded-xl border border-info/30 bg-info/10 p-3",
         className
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wider text-sky-300/80">
+          <p className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wider text-info/80">
             <MessageSquare className="h-3 w-3" aria-hidden />
             {title}
           </p>
-          <p className="mt-0.5 truncate font-mono text-xs text-sky-100">
+          <p className="mt-0.5 truncate font-mono text-xs text-info">
             To {formatPhoneDisplay(toPhone)}
           </p>
         </div>
@@ -235,7 +235,7 @@ export function CustomerSmsComposer({
             type="button"
             aria-label="Close SMS composer"
             onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sky-200/80 hover:bg-sky-500/20 hover:text-sky-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-info/80 hover:bg-info/20 hover:text-info"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -293,7 +293,7 @@ export function CustomerSmsComposer({
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-semibold disabled:opacity-50",
               isMissed
-                ? "border-rose-500/40 bg-rose-500/15 text-rose-50 hover:bg-rose-500/25"
+                ? "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25"
                 : "border-success/35 bg-success/10 text-success hover:bg-success/20"
             )}
           >
@@ -335,7 +335,7 @@ export function CustomerSmsComposer({
 
       {showQuickTemplates && customSnippets.length > 0 ? (
         <div className="space-y-1">
-          <p className="text-micro font-semibold uppercase tracking-wider text-sky-300/70">Your texts</p>
+          <p className="text-micro font-semibold uppercase tracking-wider text-info/70">Your texts</p>
           <ul className="flex flex-col gap-1">
             {customSnippets.map((snip) => (
               <li key={snip.id}>
@@ -365,8 +365,8 @@ export function CustomerSmsComposer({
                 className={cn(
                   "w-full rounded-lg border px-3 py-2 text-left text-xs font-medium disabled:opacity-50",
                   isMissed
-                    ? "border-rose-500/25 bg-background/50 text-foreground hover:border-rose-400/40 hover:bg-card"
-                    : "border-sky-500/20 bg-background/50 text-foreground hover:border-sky-400/40 hover:bg-card"
+                    ? "border-destructive/25 bg-background/50 text-foreground hover:border-destructive/40 hover:bg-card"
+                    : "border-info/20 bg-background/50 text-foreground hover:border-info/40 hover:bg-card"
                 )}
               >
                 {template}
@@ -387,7 +387,7 @@ export function CustomerSmsComposer({
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={draftPlaceholder}
-          className="w-full resize-y rounded-lg border border-sky-900/40 bg-background/70 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-info/40 bg-background/70 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-info/50 focus:outline-none disabled:opacity-60"
         />
         <Button
           type="button"

@@ -231,7 +231,7 @@ export function IntakeScheduleDialog({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+              <Loader2 className="h-9 w-9 animate-spin text-muted-foreground" aria-hidden />
               <p className="text-sm text-muted-foreground">Loading job from dispatch…</p>
             </div>
           ) : null}

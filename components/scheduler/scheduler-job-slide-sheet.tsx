@@ -74,7 +74,7 @@ export function SchedulerJobSlideSheet({
           >
             {isMobile ? (
               <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
-                <span className="h-1 w-10 rounded-full bg-zinc-600/80" />
+                <span className="h-1 w-10 rounded-full bg-muted-foreground/80" />
               </div>
             ) : null}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>

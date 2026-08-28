@@ -234,7 +234,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           placeholder="Key Squad Locksmith LLC"
           className={workspaceFieldClass}
         />
-        <span className="text-micro text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           Must match the exact legal name on your EIN paperwork — not a nickname or software company.
         </span>
       </label>
@@ -261,7 +261,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           placeholder="https://yourbusiness.com"
           className={workspaceFieldClass}
         />
-        <span className="text-micro text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           Required. Use your brand site — carriers reject lyncr.app / agency URLs (error 710).
         </span>
       </label>
@@ -291,7 +291,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           required={requiresSmsRegistrationEin(entityType)}
           className={workspaceFieldClass}
         />
-        <span className="text-micro text-muted-foreground">Required for LLC, Corp, and Partnership</span>
+        <span className="text-2xs text-muted-foreground">Required for LLC, Corp, and Partnership</span>
       </label>
     </div>
   )
@@ -346,8 +346,8 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         />
       </label>
       {requiresSmsRegistrationEin(entityType) ? (
-        <p className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
-          <span className="font-semibold text-violet-200/90">Carrier sub-usecase (added automatically):</span>{" "}
+        <p className="rounded-lg border border-operator/20 bg-operator/5 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-operator/90">Carrier sub-usecase (added automatically):</span>{" "}
           Registered businesses like yours are sent to carriers as{" "}
           <span className="text-foreground">Low volume</span> with sub-usecase{" "}
           <span className="text-foreground">Account notifications</span> (lead alerts and appointment texts). You do
@@ -426,7 +426,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
               key={step}
               className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-xs font-medium text-muted-foreground"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/15 text-2xs font-bold text-violet-300">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-operator/15 text-2xs font-bold text-operator">
                 {i + 1}
               </span>
               {step}
@@ -439,7 +439,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
         {variant === "page" ? (
           <WorkspacePanel density="roomy" className="space-y-6">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-violet-400" aria-hidden />
+              <ShieldCheck className="h-5 w-5 text-operator" aria-hidden />
               <div>
                 <h2 className="text-base font-semibold text-foreground">A2P 10DLC carrier registration</h2>
                 <p className="text-xs text-muted-foreground">
@@ -481,7 +481,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           disabled={busy || loading}
           onClick={() => void handleSubmit()}
           className={cn(
-            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white shadow-raised shadow-violet-900/30 hover:bg-violet-500 disabled:opacity-50 sm:w-auto sm:px-6"
+            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground shadow-raised shadow-operator/30 hover:bg-operator disabled:opacity-50 sm:w-auto sm:px-6"
           )}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}

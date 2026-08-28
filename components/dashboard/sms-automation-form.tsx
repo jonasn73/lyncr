@@ -613,7 +613,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
         ) : null}
 
         {tab === "quick" ? (
-          <section className="space-y-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-3">
+          <section className="space-y-3 rounded-xl border border-info/25 bg-info/5 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Your saved texts</p>
@@ -623,7 +623,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 type="button"
                 disabled={saving || settings.sms_custom_snippets.length >= MAX_CUSTOM_SNIPPETS}
                 onClick={addSnippet}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-2 text-2xs font-semibold text-sky-100 hover:bg-sky-500/25 disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-info/40 bg-info/15 px-3 py-2 text-2xs font-semibold text-info hover:bg-info/25 disabled:opacity-50"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add
@@ -655,7 +655,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                         type="button"
                         disabled={saving}
                         onClick={() => removeSnippet(snip.id)}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-rose-500/40 hover:text-rose-300 disabled:opacity-50"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
                         aria-label={`Delete ${snip.label || "text"}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

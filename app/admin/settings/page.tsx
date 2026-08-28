@@ -24,7 +24,7 @@ export default function AdminSettingsPage() {
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <p className="text-sm text-foreground">
             When a business collects a card payment, Lyncr keeps{" "}
-            <span className="font-medium text-violet-200">{feeLabel}</span>.
+            <span className="font-medium text-operator">{feeLabel}</span>.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             To change this, update fee settings in Vercel and redeploy. You do not need to edit this page.

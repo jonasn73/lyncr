@@ -50,12 +50,12 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
     <div
       className={cn(
         SCHEDULER_GLASS_CARD,
-        "mt-2 space-y-2 border-rose-500/40 bg-rose-950/20 p-3 ring-1 ring-rose-500/25"
+        "mt-2 space-y-2 border-destructive/40 bg-destructive/20 p-3 ring-1 ring-destructive/25"
       )}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className={cn(SCHEDULER_METADATA_LABEL, "text-rose-300")}>Rescue offer</p>
+        <p className={cn(SCHEDULER_METADATA_LABEL, "text-destructive")}>Rescue offer</p>
         <button
           type="button"
           onClick={onClose}
@@ -100,7 +100,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
       </button>
 
       {smsMessage ? (
-        <p className="flex items-center gap-2 text-micro font-semibold text-success">
+        <p className="flex items-center gap-2 text-2xs font-semibold text-success">
           <Sparkles className="h-3 w-3" aria-hidden />
           {smsMessage}
         </p>

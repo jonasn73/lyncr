@@ -164,7 +164,7 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-2xs">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Navigation className="h-3.5 w-3.5 shrink-0 text-cyan-400" aria-hidden />
+          <Navigation className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           {canDrawRoute && distanceMiles != null ? (
             <span>
               About{" "}
@@ -193,7 +193,7 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
         </div>
         {canDrawRoute && distanceMiles != null ? (
           <span className="flex items-center gap-2">
-            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-semibold tabular-nums text-cyan-200">
+            <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 font-semibold tabular-nums text-primary">
               {formatDistanceMiles(distanceMiles)}
             </span>
             {travelMinutes != null ? (

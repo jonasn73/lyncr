@@ -17,7 +17,7 @@ import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
 const fieldClass =
-  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 type GreetingsPayload = {
   onJobGreetingText?: string
@@ -234,7 +234,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                   </option>
                 ))}
               </select>
-              <p className="text-micro text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 {IVR_VOICE_PERSONA_OPTIONS.find((o) => o.id === draft.voice)?.description ||
                   "Tone callers hear on Busy gather and hold re-prompts."}
               </p>
@@ -257,7 +257,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                 className={cn(fieldClass, "min-h-11 px-3 py-2")}
                 placeholder="e.g. 9 or 1234"
               />
-              <p className="text-micro text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 Digits dialed during the greeting ring your cell (+1 502-260-2716) and skip
                 presence blocks. Avoid &quot;1&quot; (booking key).
               </p>
@@ -268,7 +268,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-foreground">
               Busy greeting
             </label>
-            <p className="hidden text-micro text-muted-foreground md:block">
+            <p className="hidden text-2xs text-muted-foreground md:block">
               Played when Presence is Busy — press 1 texts a booking link; stay on the line enters
               the hold queue (music + Lines Answer).
             </p>
@@ -353,7 +353,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </button>
             {holidayOpen ? (
               <div className="space-y-3 border-t border-border px-3 pb-3 pt-3">
-                <p className="text-micro leading-relaxed text-muted-foreground">
+                <p className="text-2xs leading-relaxed text-muted-foreground">
                   When the current time falls in this window, callers hear the holiday greeting
                   instead of the Busy greeting.
                 </p>
@@ -421,7 +421,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
 
           <div className="rounded-lg border border-border bg-background/40 px-3 py-3">
             <p className="text-xs font-semibold text-foreground">Text after missed call</p>
-            <p className="mt-1 text-micro leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
               Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call
               Rescue can text “Sorry we missed your call — book here…” Turn it on/off under Lines →
               Missed Call Rescue (default on). Hanging up on Busy without pressing 1 does not text.
@@ -434,7 +434,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             onClick={() => void handleSave()}
             className={cn(
               "inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition-opacity",
-              "bg-teal-600 hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+              "bg-primary hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             {saving ? (

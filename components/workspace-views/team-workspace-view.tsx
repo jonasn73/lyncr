@@ -130,7 +130,7 @@ function NetworkInstructionsPanel() {
     <WorkspacePanel density="default" className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
             <Network className="h-5 w-5 text-primary" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -507,7 +507,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         <WorkspacePanel density="default" className="flex h-full flex-col lg:col-span-1">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+              <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
                 <Network className="h-5 w-5 text-primary" aria-hidden />
               </span>
               <div className="min-w-0">
@@ -551,7 +551,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         type="button"
                         onClick={() => void copyInviteLink(inv)}
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                         aria-label={`Copy invite link for ${inviteLabel}`}
                       >
                         {busy && inviteBusyKind === "copy" ? (
@@ -568,7 +568,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           type="button"
                           onClick={() => void resendInvite(inv)}
                           disabled={busy}
-                          className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                           aria-label={`Resend invite email to ${inviteLabel}`}
                         >
                           {busy && inviteBusyKind === "resend" ? (
@@ -587,7 +587,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
                         }
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
                         aria-label={`Cancel invite for ${inviteLabel}`}
                       >
                         <Trash2 className="h-3 w-3" aria-hidden />
@@ -595,7 +595,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                       </button>
                     </div>
                     {inviteActionError?.id === inv.id ? (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-micro leading-snug text-destructive">
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-2xs leading-snug text-destructive">
                         {inviteActionError.message}
                       </p>
                     ) : null}
@@ -644,7 +644,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             <span
                               className={cn(
                                 "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
-                                online ? "bg-success" : "bg-zinc-600"
+                                online ? "bg-success" : "bg-muted-foreground"
                               )}
                               aria-hidden
                             />
@@ -660,7 +660,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             onClick={() =>
                               setPendingRemove({ kind: "member", id: member.id, name: member.name })
                             }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${member.name} from your team`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />

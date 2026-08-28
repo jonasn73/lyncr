@@ -88,7 +88,7 @@ const DockNavItems = memo(function DockNavItems({
                   <span
                     className={cn(
                       "absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full",
-                      "bg-warning px-1 text-micro font-bold leading-none text-warning",
+                      "bg-warning px-1 text-2xs font-bold leading-none text-warning",
                       "shadow-[0_0_8px_rgba(251,191,36,0.7)]"
                     )}
                     aria-label={`${badge} new missed calls`}
@@ -102,7 +102,7 @@ const DockNavItems = memo(function DockNavItems({
               ) : (
                 <span
                   className={cn(
-                    "max-w-full truncate text-micro font-medium leading-none",
+                    "max-w-full truncate text-2xs font-medium leading-none",
                     isActive ? "text-primary" : "text-muted-foreground"
                   )}
                 >
@@ -114,7 +114,7 @@ const DockNavItems = memo(function DockNavItems({
               <span
                 className={cn(
                   "pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 z-[60] -translate-y-1/2",
-                  "whitespace-nowrap rounded-md border border-white/10 bg-neutral-950/90 px-3 py-1 text-xs font-medium text-foreground shadow-raised backdrop-blur-md",
+                  "whitespace-nowrap rounded-md border border-white/10 bg-background/90 px-3 py-1 text-xs font-medium text-foreground shadow-raised backdrop-blur-md",
                   "opacity-0 transition-[opacity,transform] duration-200 group-hover:opacity-100 group-focus-visible:opacity-100",
                   "translate-x-1 group-hover:translate-x-0 group-focus-visible:translate-x-0"
                 )}

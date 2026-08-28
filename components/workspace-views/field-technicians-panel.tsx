@@ -271,7 +271,7 @@ export function FieldTechniciansPanel() {
         </div>
       ) : techs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
             <HardHat className="h-6 w-6" aria-hidden />
           </span>
           <p className="text-sm text-muted-foreground">No field technicians yet.</p>
@@ -287,11 +287,11 @@ export function FieldTechniciansPanel() {
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{tech.name}</p>
                   {tech.invite_pending ? (
-                    <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-micro font-medium text-warning">
+                    <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-2xs font-medium text-warning">
                       Setup pending
                     </span>
                   ) : tech.is_active ? (
-                    <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-micro font-medium text-success">
+                    <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-2xs font-medium text-success">
                       Active
                     </span>
                   ) : null}
@@ -300,7 +300,7 @@ export function FieldTechniciansPanel() {
                   {tech.phone ? formatPhoneDisplay(tech.phone) : "—"}
                 </p>
                 {showWorkspacePicker ? (
-                  <label className="mt-1.5 block text-micro text-muted-foreground">
+                  <label className="mt-1.5 block text-2xs text-muted-foreground">
                     Business
                     <select
                       value={tech.organization_id ?? ""}

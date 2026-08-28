@@ -67,7 +67,7 @@ export function LiveTrafficPulse() {
             <span
               className={cn(
                 "relative inline-flex h-2.5 w-2.5 rounded-full",
-                calls.length > 0 ? "bg-success" : "bg-slate-600"
+                calls.length > 0 ? "bg-success" : "bg-muted-foreground"
               )}
             />
           </span>
@@ -81,11 +81,11 @@ export function LiveTrafficPulse() {
       <CardContent className="pt-0">
         {loading ? (
           <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Listening for live calls…
+            <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Listening for live calls…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <PhoneCall className="h-7 w-7 text-slate-700" aria-hidden />
+            <PhoneCall className="h-7 w-7 text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">No active calls on the network right now.</p>
           </div>
         ) : (
@@ -106,7 +106,7 @@ export function LiveTrafficPulse() {
                 <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={cn(
-                      "rounded-full px-2 py-0.5 text-micro font-medium",
+                      "rounded-full px-2 py-0.5 text-2xs font-medium",
                       c.connected
                         ? "bg-success/15 text-success"
                         : "bg-warning/15 text-warning"

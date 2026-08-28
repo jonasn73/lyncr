@@ -125,7 +125,7 @@ export function JobPoolCard({
       className={cn(
         SCHEDULER_LIST_CARD_SHELL,
         POOL_JOB_PRIORITY_CARD_CLASS[priority],
-        isRescueJob && "ring-1 ring-rose-500/40",
+        isRescueJob && "ring-1 ring-destructive/40",
         "group relative touch-manipulation text-left",
         sidebar
           ? "flex w-full max-w-none shrink-0 cursor-grab flex-col gap-2 px-3 py-3 active:cursor-grabbing"
@@ -157,7 +157,7 @@ export function JobPoolCard({
             <div className="flex flex-wrap items-center gap-2">
               <span className={SCHEDULER_METADATA_LABEL}>{priorityBadge}</span>
               {isRescueJob ? (
-                <span className="text-micro font-medium tracking-wide text-rose-300">
+                <span className="text-2xs font-medium tracking-wide text-destructive">
                   Price Denied
                 </span>
               ) : null}
@@ -168,7 +168,7 @@ export function JobPoolCard({
                 <span
                   className={cn(
                     SCHEDULER_METADATA_LABEL,
-                    "shrink-0 tabular-nums text-rose-400"
+                    "shrink-0 tabular-nums text-destructive"
                   )}
                 >
                   {formatPoolJobElapsedAge(job.created_at, now)} ago

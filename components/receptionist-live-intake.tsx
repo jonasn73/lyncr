@@ -123,9 +123,9 @@ function buildSteps(fields: FieldServiceFieldDef[]): IntakeStep[] {
 const TONE_CLASS: Record<string, string> = {
   emerald: "border-success/40 bg-success/10 text-success",
   amber: "border-warning/40 bg-warning/10 text-warning",
-  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
-  neutral: "border-border/50 bg-zinc-500/10 text-foreground",
+  rose: "border-destructive/40 bg-destructive/10 text-destructive",
+  sky: "border-info/40 bg-info/10 text-info",
+  neutral: "border-border/50 bg-muted-foreground/10 text-foreground",
 }
 
 function usdFromCents(cents: number): string {
@@ -403,7 +403,7 @@ export function ReceptionistLiveIntake({
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/20 text-success">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/20 text-success">
               <PhoneCall className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
@@ -439,7 +439,7 @@ export function ReceptionistLiveIntake({
           <span
             className={cn(
               "relative flex shrink-0 items-center justify-center rounded-full bg-success/20 text-success",
-              denseStep ? "h-8 w-8" : "h-10 w-10"
+              denseStep ? "h-9 w-9" : "h-11 w-11"
             )}
           >
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/30" />
@@ -481,7 +481,7 @@ export function ReceptionistLiveIntake({
             title="Minimize — keeps everything you have typed"
             className={cn(
               "inline-flex shrink-0 items-center justify-center rounded-lg border border-success/30 text-success transition hover:bg-success/15",
-              denseStep ? "h-7 w-7" : "h-8 w-8"
+              denseStep ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <Minus className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
@@ -493,7 +493,7 @@ export function ReceptionistLiveIntake({
             aria-label="Close intake"
             className={cn(
               "inline-flex shrink-0 items-center justify-center rounded-lg border border-success/30 text-success transition hover:bg-destructive/20 hover:text-destructive disabled:opacity-50",
-              denseStep ? "h-7 w-7" : "h-8 w-8"
+              denseStep ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <X className={cn(denseStep ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
@@ -577,7 +577,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("PENDING_TIME")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-info/40 bg-info/10 px-3 py-2 text-sm font-semibold text-info transition hover:bg-info/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Clock className="h-4 w-4" aria-hidden />
               Pending time
@@ -595,7 +595,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("FAILED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-muted-foreground/10 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted-foreground/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <AlertTriangle className="h-4 w-4" aria-hidden />
               Failed

@@ -77,9 +77,9 @@ const itemMediaVariants = cva(
     variants: {
       variant: {
         default: 'bg-transparent',
-        icon: "size-8 border rounded-sm bg-muted [&_svg:not([class*='size-'])]:size-4",
+        icon: "size-9 border rounded-sm bg-muted [&_svg:not([class*='size-'])]:size-4",
         image:
-          'size-10 rounded-sm overflow-hidden [&_img]:size-full [&_img]:object-cover',
+          'size-11 rounded-sm overflow-hidden [&_img]:size-full [&_img]:object-cover',
       },
     },
     defaultVariants: {

@@ -236,7 +236,7 @@ export function VehicleIntakeClarificationsPanel({
                   >
                     <span className="block">{option.label}</span>
                     {option.keyStyle && !option.label.toLowerCase().includes(option.keyStyle.toLowerCase()) ? (
-                      <span className="mt-0.5 block text-micro font-normal text-muted-foreground">
+                      <span className="mt-0.5 block text-2xs font-normal text-muted-foreground">
                         {option.keyStyle}
                       </span>
                     ) : null}

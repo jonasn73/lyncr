@@ -233,7 +233,7 @@ export function JobMoneyRail({
           type="button"
           onClick={() => void refreshLinks(true)}
           disabled={busy === "refresh"}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-semibold text-muted-foreground transition-colors hover:bg-card/50 hover:text-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold text-muted-foreground transition-colors hover:bg-card/50 hover:text-foreground disabled:opacity-50"
           aria-label="Refresh pay link status"
         >
           {busy === "refresh" ? (
@@ -274,7 +274,7 @@ export function JobMoneyRail({
               className={cn(
                 "font-semibold",
                 reviewStatusLabel === "Failed"
-                  ? "text-rose-300"
+                  ? "text-destructive"
                   : reviewStatusLabel === "Opened"
                     ? "text-success"
                     : "text-warning/90"
@@ -293,7 +293,7 @@ export function JobMoneyRail({
             type="button"
             size="sm"
             variant="outline"
-            className="border-sky-500/40 bg-sky-500/10 px-2 text-sky-50 hover:bg-sky-500/20"
+            className="border-info/40 bg-info/10 px-2 text-info hover:bg-info/20"
             disabled={saving || busy === "deposit" || depositCents < 50}
             onClick={() => void handleSendDeposit()}
             title="Send deposit pay link by SMS"
@@ -338,7 +338,7 @@ export function JobMoneyRail({
             size="sm"
             className={cn(
               reviewSmsFailed
-                ? "border border-rose-500/40 bg-rose-500/20 text-rose-50 hover:bg-rose-500/30"
+                ? "border border-destructive/40 bg-destructive/20 text-destructive hover:bg-destructive/30"
                 : "border border-warning/35 bg-warning/15 text-warning hover:bg-warning/25"
             )}
             disabled={saving || !customerPhone.trim()}
@@ -397,11 +397,11 @@ export function JobMoneyRail({
                 : "")
             }
             onChange={(e) => setSmsStaging(e.target.value)}
-            className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-background/60 p-3 text-xs text-foreground placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
+            className="h-16 w-full resize-y rounded-lg border border-info/40 bg-background/60 p-3 text-xs text-foreground placeholder-slate-600 focus:border-info/50 focus:outline-none"
             placeholder="Edit the deposit SMS…"
           />
           {lastSentUrl ? (
-            <p className="flex items-start gap-1 text-micro text-muted-foreground">
+            <p className="flex items-start gap-1 text-2xs text-muted-foreground">
               <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-success" aria-hidden />
               <span className="break-all font-mono text-muted-foreground">{lastSentUrl}</span>
             </p>

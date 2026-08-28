@@ -557,7 +557,7 @@ function KeyThumbnail({
   const showImage = Boolean(imageUrl) && !failed && !forceFobOutline
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-border bg-slate-850">
+    <div className="w-full overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex h-32 items-center justify-center">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
@@ -576,7 +576,7 @@ function KeyThumbnail({
         )}
       </div>
       {!showImage ? (
-        <p className="border-t border-border/80 px-2 py-2 text-center text-micro leading-snug text-muted-foreground">
+        <p className="border-t border-border/80 px-2 py-2 text-center text-2xs leading-snug text-muted-foreground">
           Verify button configuration with customer to confirm selection.
         </p>
       ) : null}
@@ -647,7 +647,7 @@ export function KeySelectionCard({
             </span>
           )}
           {card.supplierOrderBadge ? (
-            <span className="inline-flex max-w-full flex-wrap items-center rounded-md border border-sky-400/50 bg-sky-500/15 px-2 py-1 font-mono text-2xs font-semibold leading-snug tracking-wide text-sky-100">
+            <span className="inline-flex max-w-full flex-wrap items-center rounded-md border border-info/50 bg-info/15 px-2 py-1 font-mono text-2xs font-semibold leading-snug tracking-wide text-info">
               {card.supplierOrderBadge}
             </span>
           ) : null}
@@ -668,11 +668,11 @@ export function KeySelectionCard({
             </p>
           ) : null}
           {card.fccFootnote ? (
-            <p className="font-mono text-micro tracking-wide text-muted-foreground">{card.fccFootnote}</p>
+            <p className="font-mono text-2xs tracking-wide text-muted-foreground">{card.fccFootnote}</p>
           ) : null}
         </div>
         {disabledReason ? (
-          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-micro font-semibold leading-tight text-warning">
+          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-2xs font-semibold leading-tight text-warning">
             {disabledReason}
           </span>
         ) : null}
@@ -774,7 +774,7 @@ function VariantFilmstrip({
 
   if (compatibleVariants.length === 0) {
     return (
-      <p className="text-micro text-muted-foreground">
+      <p className="text-2xs text-muted-foreground">
         No key photos — use key style below.
       </p>
     )
@@ -950,10 +950,10 @@ function FccProfileSection({
         </div>
       </div>
 
-      <p className="font-mono text-micro tracking-wide text-muted-foreground">FCC {p.fcc_id}</p>
+      <p className="font-mono text-2xs tracking-wide text-muted-foreground">FCC {p.fcc_id}</p>
 
       {relatedFcc.length > 0 ? (
-        <p className="text-micro text-warning/80">
+        <p className="text-2xs text-warning/80">
           Related sticker: <span className="font-mono">{relatedFcc.join(", ")}</span>
         </p>
       ) : null}
@@ -1000,7 +1000,7 @@ function CollapsedFccSummary({
           ? `${layoutCount} key blank${layoutCount === 1 ? "" : "s"}`
           : "Key options"}
       </span>
-      <span className="shrink-0 font-mono text-micro text-muted-foreground">
+      <span className="shrink-0 font-mono text-2xs text-muted-foreground">
         FCC {p.fcc_id}
         {p.frequency ? ` · ${p.frequency} MHz` : ""}
       </span>
@@ -1027,7 +1027,7 @@ function PanelToolbar({
         <button
           type="button"
           onClick={onReturnToLookup}
-          className="text-micro font-semibold text-primary underline-offset-2 hover:underline"
+          className="text-2xs font-semibold text-primary underline-offset-2 hover:underline"
         >
           Back to database lookup
         </button>
@@ -1035,7 +1035,7 @@ function PanelToolbar({
         <button
           type="button"
           onClick={onManualBypass}
-          className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-micro font-semibold text-primary hover:bg-primary/15"
+          className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-2xs font-semibold text-primary hover:bg-primary/15"
         >
           Can&apos;t find FCC ID? Choose manually
         </button>
@@ -1851,7 +1851,7 @@ export function VehicleKeyInfoPanel({
       ) : null}
 
       {multipleFcc ? (
-        <p className="text-micro text-sky-100">
+        <p className="text-2xs text-info">
           {profileDetails.length} possible FCC IDs — primary match expanded; tap others to compare.
         </p>
       ) : null}
@@ -1999,7 +1999,7 @@ export function VehicleKeyInfoPanel({
       </label>
 
       {info.photo_disclaimer ? (
-        <p className="text-micro text-muted-foreground">{info.photo_disclaimer}</p>
+        <p className="text-2xs text-muted-foreground">{info.photo_disclaimer}</p>
       ) : null}
     </div>
   )

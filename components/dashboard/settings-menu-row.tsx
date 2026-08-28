@@ -44,9 +44,9 @@ export function SettingsMenuRow({
         className={cn(
           "flex shrink-0 items-center justify-center",
           grouped
-            ? "h-8 w-8 text-foreground"
+            ? "h-9 w-9 text-foreground"
             : cn(
-                "h-10 w-10 rounded-xl border border-border/60 bg-card/80",
+                "h-11 w-11 rounded-xl border border-border/60 bg-card/80",
                 destructive && "border-destructive/30 text-destructive"
               )
         )}

@@ -333,7 +333,7 @@ export function CustomerSignaturePad({
             alt="Customer signature"
             className="h-36 w-full object-contain sm:h-40"
           />
-          <p className="absolute bottom-2 left-2 rounded bg-success/90 px-2 py-0.5 text-micro font-semibold text-success-foreground">
+          <p className="absolute bottom-2 left-2 rounded bg-success/90 px-2 py-0.5 text-2xs font-semibold text-success-foreground">
             Signed
           </p>
         </div>

@@ -124,7 +124,7 @@ function RegisterForm() {
   }
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+    "w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-operator focus:outline-none focus:ring-1 focus:ring-operator"
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
@@ -210,8 +210,8 @@ function RegisterForm() {
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-primary/30 bg-violet-950/30 px-3 py-2">
-                  <p className="text-micro font-semibold uppercase tracking-wide text-violet-300">
+                <div className="rounded-lg border border-primary/30 bg-operator/30 px-3 py-2">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-operator">
                     You will be paid
                   </p>
                   <p className="mt-0.5 text-sm text-foreground">{agreement.pay_summary}</p>
@@ -262,7 +262,7 @@ function RegisterForm() {
               type="button"
               onClick={() => void submit()}
               disabled={submitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator px-4 py-3 text-sm font-medium text-operator-foreground transition-colors hover:bg-operator disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {submitting

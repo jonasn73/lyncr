@@ -78,18 +78,18 @@ export const SCHEDULE_INTERACTION_BADGE_CLASS: Record<
   string
 > = {
   upcoming:
-    "inline-flex items-center gap-1 text-micro font-medium tracking-wide text-orange-300/90",
+    "inline-flex items-center gap-1 text-2xs font-medium tracking-wide text-warning/90",
   active:
-    "inline-flex items-center gap-1 text-micro font-medium tracking-wide text-success/90",
+    "inline-flex items-center gap-1 text-2xs font-medium tracking-wide text-success/90",
   overdue:
-    "inline-flex items-center gap-1 text-micro font-medium tracking-wide text-rose-400",
+    "inline-flex items-center gap-1 text-2xs font-medium tracking-wide text-destructive",
 }
 
 export const SCHEDULE_INTERACTION_DOT_CLASS: Record<
   Exclude<ScheduleInteractionPhase, "none" | "completed">,
   string
 > = {
-  upcoming: "h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400",
+  upcoming: "h-1.5 w-1.5 shrink-0 rounded-full bg-warning",
   active: "h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-success",
-  overdue: "h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400",
+  overdue: "h-1.5 w-1.5 shrink-0 rounded-full bg-destructive",
 }

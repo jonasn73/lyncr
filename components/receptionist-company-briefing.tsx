@@ -34,8 +34,8 @@ const STATUS_TONE: Record<string, string> = {
   neutral: "border-border/50 bg-accent/30 text-foreground",
   amber: "border-warning/40 bg-warning/10 text-warning",
   emerald: "border-success/40 bg-success/10 text-success",
-  rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-  sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
+  rose: "border-destructive/40 bg-destructive/10 text-destructive",
+  sky: "border-info/40 bg-info/10 text-info",
 }
 
 function formatUsdFromCents(cents: number): string {
@@ -97,7 +97,7 @@ function CallerIdentityStrip({
     <div
       className={cn(
         "mt-3 rounded-xl border px-4 py-3",
-        known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-border bg-muted/40"
+        known ? "border-info/30 bg-info/[0.07]" : "border-border bg-muted/40"
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -304,7 +304,7 @@ export function CompanyBriefingCard({
           <button
             type="button"
             onClick={onHangup}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive/90 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-destructive sm:flex-none sm:px-8"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-destructive/90 px-6 py-3 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive sm:flex-none sm:px-8"
           >
             <PhoneOff className="h-4 w-4" aria-hidden />
             {ringing ? "Decline" : "Hang up"}
@@ -318,14 +318,14 @@ export function CompanyBriefingCard({
             label="Hours"
             value={briefing?.business_hours ?? null}
             emptyHint={loading ? "Loading…" : "No hours set by owner yet."}
-            accent="text-sky-300"
+            accent="text-info"
           />
           <CheatSheetTile
             icon={<ClipboardList className="h-3.5 w-3.5" aria-hidden />}
             label="Service Rules"
             value={briefing?.service_rules ?? null}
             emptyHint={loading ? "Loading…" : "No rates or policies set yet."}
-            accent="text-violet-300"
+            accent="text-operator"
           />
           <CheatSheetTile
             icon={<Megaphone className="h-3.5 w-3.5" aria-hidden />}

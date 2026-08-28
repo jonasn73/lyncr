@@ -72,13 +72,13 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
             <div key={label} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
               <span
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold",
+                  "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                   isRejected
                     ? "border-destructive/50 bg-destructive/60 text-destructive"
                     : done || (current && order?.status === "completed")
                       ? "border-success/50 bg-success/15 text-success"
                       : current
-                        ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                        ? "border-operator/50 bg-operator/15 text-operator"
                         : "border-border bg-card text-muted-foreground"
                 )}
               >
@@ -86,8 +86,8 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
               </span>
               <span
                 className={cn(
-                  "text-micro font-medium leading-tight",
-                  current ? "text-violet-200" : done ? "text-foreground" : "text-muted-foreground"
+                  "text-2xs font-medium leading-tight",
+                  current ? "text-operator" : done ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 {label}
@@ -220,12 +220,12 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       <button
         type="button"
         onClick={() => void openMessages()}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-3 text-sm font-semibold text-violet-200 hover:bg-violet-500/15"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-operator/40 bg-operator/10 px-3 py-3 text-sm font-semibold text-operator hover:bg-operator/15"
       >
         <MessageSquare className="h-4 w-4" aria-hidden />
         Transfer messages
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-warning px-2 py-0.5 text-micro font-bold text-warning">
+          <span className="rounded-full bg-warning px-2 py-0.5 text-2xs font-bold text-warning">
             {unreadCount} new
           </span>
         ) : null}
@@ -404,7 +404,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
             Back to buy a number
           </button>
           <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <PhoneForwarded className="h-4 w-4 text-violet-400" aria-hidden />
+            <PhoneForwarded className="h-4 w-4 text-operator" aria-hidden />
             Port Your Existing Number to Lyncr
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -415,7 +415,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
       ) : (
         <div className="shrink-0 border-b border-border/60 px-6 py-6">
           <h3 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
-            <PhoneForwarded className="h-5 w-5 text-violet-400" aria-hidden />
+            <PhoneForwarded className="h-5 w-5 text-operator" aria-hidden />
             Port Your Existing Number to Lyncr
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -437,7 +437,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               inputMode="tel"
               required
               placeholder="+1 (502) 555-0194"
-              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
@@ -449,7 +449,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setCarrier(e.target.value)}
               required
               placeholder="Verizon, AT&T, T-Mobile…"
-              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
@@ -461,7 +461,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setAccountNumber(e.target.value)}
               required
               placeholder="Carrier account number"
-              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
@@ -474,7 +474,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               type="password"
               autoComplete="off"
               placeholder="Port-out PIN from your carrier"
-              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
           <div className="space-y-2">
@@ -487,7 +487,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               required
               maxLength={120}
               placeholder="Key Squad 502 Line"
-              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-operator/50 focus:outline-none focus:ring-1 focus:ring-operator/40"
             />
           </div>
 
@@ -515,10 +515,10 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               }}
               className={cn(
                 "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-                dragOver ? "border-violet-500/60 bg-violet-500/10" : "border-border bg-background/40 hover:border-border"
+                dragOver ? "border-operator/60 bg-operator/10" : "border-border bg-background/40 hover:border-border"
               )}
             >
-              <Upload className="h-8 w-8 text-muted-foreground" aria-hidden />
+              <Upload className="h-9 w-9 text-muted-foreground" aria-hidden />
               <p className="text-sm font-medium text-foreground">
                 {invoiceFile ? invoiceFile.name : "Drag & drop or click to upload"}
               </p>
@@ -558,7 +558,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
           <button
             type="submit"
             disabled={busy || Boolean(addressBlock)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-operator py-3 text-sm font-semibold text-operator-foreground hover:bg-operator disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Submit Official Transfer Request

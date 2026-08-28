@@ -151,7 +151,7 @@ function MobileTechnicianAssignOverlay({
                     "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition touch-manipulation",
                     MOBILE_TAP_TARGET,
                     selected
-                      ? "border-cyan-500 bg-cyan-950/40 ring-2 ring-cyan-500/30"
+                      ? "border-primary bg-primary/40 ring-2 ring-primary/30"
                       : "border-border bg-card/80 active:scale-[0.98] active:bg-muted"
                   )}
                   aria-pressed={selected}
@@ -164,7 +164,7 @@ function MobileTechnicianAssignOverlay({
                   <span
                     className={cn(
                       "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                      selected ? "bg-cyan-500 text-zinc-950" : "bg-muted text-foreground"
+                      selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                     )}
                     aria-hidden
                   >
@@ -189,7 +189,7 @@ function MobileTechnicianAssignOverlay({
             <div className="overflow-hidden px-3 pt-3 transition-all duration-200 ease-out animate-in slide-in-from-bottom-2 fade-in">
               <Button
                 type="button"
-                className="min-h-11 w-full touch-manipulation bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
+                className="min-h-11 w-full touch-manipulation bg-primary text-primary-foreground hover:bg-primary"
                 onClick={() => onConfirm(selectedTechUserId)}
               >
                 Confirm Assignment to {selectedTech.name}
@@ -332,7 +332,7 @@ function TimelineAppointmentBlock({
       )}
       style={{ left: leftPx, width: widthPx, minWidth: 56 }}
     >
-      <p className="truncate text-micro font-semibold text-foreground">{ev.customer_name || "Job"}</p>
+      <p className="truncate text-2xs font-semibold text-foreground">{ev.customer_name || "Job"}</p>
       <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>{SCHEDULER_STATUS_LABEL[phase]}</p>
     </button>
   )
@@ -386,7 +386,7 @@ function MobileTimelineBoard({
                 {hourSlots.map((hour) => (
                   <div
                     key={hour}
-                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-micro font-medium text-muted-foreground"
+                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-2xs font-medium text-muted-foreground"
                     style={{ width: SCHEDULER_HOUR_COL_PX }}
                   >
                     {formatHourLabel(hour)}
@@ -407,7 +407,7 @@ function MobileTimelineBoard({
                   style={{ width: techColWidth, minHeight: SCHEDULER_TECH_ROW_PX }}
                 >
                   <p className="truncate text-xs font-semibold">{tech.name}</p>
-                  <p className="text-micro text-muted-foreground">{laneEvents.length} today</p>
+                  <p className="text-2xs text-muted-foreground">{laneEvents.length} today</p>
                 </div>
                 <div
                   className="relative shrink-0 bg-muted/10"
@@ -575,7 +575,7 @@ export function TechnicianSwimlaneBoard({
             {hourSlots.map((hour) => (
               <div
                 key={hour}
-                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-micro font-medium text-muted-foreground"
+                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-2xs font-medium text-muted-foreground"
                 style={{ height: SCHEDULER_HOUR_ROW_PX }}
               >
                 {formatHourLabel(hour)}
@@ -595,7 +595,7 @@ export function TechnicianSwimlaneBoard({
                 >
                   <div className="sticky top-0 z-10 flex h-16 flex-col justify-center border-b border-border/40 bg-card/95 px-3 backdrop-blur-sm">
                     <p className="truncate text-sm font-semibold text-foreground">{tech.name}</p>
-                    <p className="truncate text-micro text-muted-foreground">
+                    <p className="truncate text-2xs text-muted-foreground">
                       {laneEvents.length} job{laneEvents.length === 1 ? "" : "s"} today
                     </p>
                   </div>
@@ -661,7 +661,7 @@ export function TechnicianSwimlaneBoard({
 
                     {laneEvents.length === 0 && !loading ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
-                        <p className="text-center text-micro text-muted-foreground">Drop a pool job here</p>
+                        <p className="text-center text-2xs text-muted-foreground">Drop a pool job here</p>
                       </div>
                     ) : null}
                   </div>
@@ -676,7 +676,7 @@ export function TechnicianSwimlaneBoard({
 
       {showEmptyOverlay ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
-          <User className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <User className="h-9 w-9 text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">
             Add active technicians in Team to use the swimlane board.
           </p>

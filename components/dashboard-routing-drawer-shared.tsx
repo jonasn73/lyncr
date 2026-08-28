@@ -47,7 +47,7 @@ export function DrawerStepHeader({
   lineLabel?: string | null
 }) {
   return (
-    <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-zinc-900/80 to-transparent px-6 pb-6 pt-6">
+    <header className="shrink-0 border-b border-border/80 bg-gradient-to-b from-card/80 to-transparent px-6 pb-6 pt-6">
       {step?.trim() ? (
         <p className="text-micro font-semibold uppercase tracking-[0.14em] text-primary">{step}</p>
       ) : null}

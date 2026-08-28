@@ -70,7 +70,7 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
   if (status === "not_configured") {
     return { label: "Unavailable", className: "border-border bg-muted text-muted-foreground" }
   }
-  return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
+  return { label: "Needs setup", className: "border-info/40 bg-info/15 text-info" }
 }
 
 function payoutStatusClass(status: string): string {
@@ -80,7 +80,7 @@ function payoutStatusClass(status: string): string {
     return "border-warning/35 bg-warning/10 text-warning"
   }
   if (s === "failed" || s === "canceled") {
-    return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+    return "border-destructive/35 bg-destructive/10 text-destructive"
   }
   return "border-border bg-card text-muted-foreground"
 }
@@ -410,7 +410,7 @@ export function GetPaidSheet({
                     type="button"
                     disabled={loading}
                     onClick={() => void refreshStatus()}
-                    className="text-2xs font-semibold text-sky-300 disabled:opacity-50"
+                    className="text-2xs font-semibold text-info disabled:opacity-50"
                   >
                     Refresh
                   </button>
@@ -428,11 +428,11 @@ export function GetPaidSheet({
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-3">
-                    <p className="text-sm font-semibold text-sky-50">Set up payouts in Lyncr</p>
-                    <p className="mt-1 text-xs leading-relaxed text-sky-100/75">
+                  <div className="rounded-xl border border-info/30 bg-info/10 px-3 py-3">
+                    <p className="text-sm font-semibold text-info">Set up payouts in Lyncr</p>
+                    <p className="mt-1 text-xs leading-relaxed text-info/75">
                       Pick your business type (short), then finish bank details. Customers see{" "}
-                      <strong className="font-semibold text-sky-50">your</strong> name on the
+                      <strong className="font-semibold text-info">your</strong> name on the
                       statement.
                     </p>
                     {status?.message ? (
@@ -442,7 +442,7 @@ export function GetPaidSheet({
                 )}
 
                 {error ? (
-                  <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                  <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     {error}
                   </p>
                 ) : null}
@@ -569,7 +569,7 @@ export function GetPaidSheet({
                           <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Bank transfers (net to bank)
                           </p>
-                          <p className="mt-0.5 text-micro leading-snug text-muted-foreground">
+                          <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                             Recent payouts only — amount after fees, not the Collected total.
                           </p>
                         </div>
@@ -577,7 +577,7 @@ export function GetPaidSheet({
                           type="button"
                           disabled={payoutsLoading}
                           onClick={() => void refreshPayouts()}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-sky-300 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-info disabled:opacity-50"
                         >
                           <RefreshCw
                             className={cn("h-3.5 w-3.5", payoutsLoading && "animate-spin")}
@@ -612,7 +612,7 @@ export function GetPaidSheet({
                                       : ""}
                                   </p>
                                   {p.failureMessage ? (
-                                    <p className="mt-1 text-2xs text-rose-300">
+                                    <p className="mt-1 text-2xs text-destructive">
                                       {p.failureMessage}
                                     </p>
                                   ) : null}

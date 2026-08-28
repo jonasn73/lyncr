@@ -272,7 +272,7 @@ export function DashboardRingBackupDrawer({
                       : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
                     <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -340,7 +340,7 @@ export function DashboardRingBackupDrawer({
             className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
             aria-label="Ring duration in seconds"
           />
-          <div className="flex justify-between text-micro tabular-nums text-muted-foreground">
+          <div className="flex justify-between text-2xs tabular-nums text-muted-foreground">
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[0]}s</span>
             <span>{DASHBOARD_RING_TIMEOUT_CHOICES[DASHBOARD_RING_TIMEOUT_CHOICES.length - 1]}s</span>
           </div>
@@ -364,7 +364,7 @@ export function DashboardRingBackupDrawer({
                       : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
                     <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">

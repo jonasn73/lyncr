@@ -54,7 +54,7 @@ function methodLabel(method: OwnerCollectedTransaction["paymentMethod"]): string
 
 function walletStatusClass(status: CollectedChargeWalletStatus): string {
   if (status === "paid") return "border-success/35 bg-success/10 text-success"
-  if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
+  if (status === "failed") return "border-destructive/35 bg-destructive/10 text-destructive"
   return "border-warning/35 bg-warning/10 text-warning"
 }
 
@@ -277,7 +277,7 @@ export function MoneyPaymentsSheet({
                 <button
                   type="button"
                   onClick={() => setView(view === "invoice" ? "detail" : "list")}
-                  className="mb-1 inline-flex items-center gap-1 text-2xs font-semibold text-teal-300/90 hover:text-teal-200"
+                  className="mb-1 inline-flex items-center gap-1 text-2xs font-semibold text-primary/90 hover:text-primary"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -304,7 +304,7 @@ export function MoneyPaymentsSheet({
                 className={cn(
                   "rounded-lg py-2 text-xs font-semibold",
                   listTab === "payments"
-                    ? "bg-teal-500/20 text-teal-100"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -316,7 +316,7 @@ export function MoneyPaymentsSheet({
                 className={cn(
                   "rounded-lg py-2 text-xs font-semibold",
                   listTab === "invoices"
-                    ? "bg-teal-500/20 text-teal-100"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -339,7 +339,7 @@ export function MoneyPaymentsSheet({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search name or phone"
-                  className="h-11 w-full rounded-xl border border-border bg-background/70 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+                  className="h-11 w-full rounded-xl border border-border bg-background/70 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/40"
                   autoComplete="off"
                   enterKeyHint="search"
                 />
@@ -361,7 +361,7 @@ export function MoneyPaymentsSheet({
                     className={cn(
                       "rounded-lg py-2 text-2xs font-semibold",
                       dayFilter === opt.id
-                        ? "bg-teal-500/20 text-teal-100"
+                        ? "bg-primary/20 text-primary"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -399,7 +399,7 @@ export function MoneyPaymentsSheet({
                     else void load()
                   }}
                   disabled={listTab === "payments" && loading}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-teal-300/90 hover:bg-teal-500/10 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-primary/90 hover:bg-primary/10 disabled:opacity-50"
                 >
                   <RefreshCw
                     className={cn(
@@ -426,7 +426,7 @@ export function MoneyPaymentsSheet({
                   Loading payments…
                 </div>
               ) : error ? (
-                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-4 text-center text-sm text-rose-200">
+                <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-4 text-center text-sm text-destructive">
                   {error}
                 </p>
               ) : rows.length === 0 ? (
@@ -458,7 +458,7 @@ export function MoneyPaymentsSheet({
                         <button
                           type="button"
                           onClick={() => openDetail(tx)}
-                          className="flex w-full items-start gap-3 rounded-xl border border-border bg-card/50 px-3 py-3 text-left transition-colors hover:border-teal-500/40 hover:bg-card"
+                          className="flex w-full items-start gap-3 rounded-xl border border-border bg-card/50 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-card"
                         >
                           <span
                             className={cn(
@@ -466,7 +466,7 @@ export function MoneyPaymentsSheet({
                               walletStatus === "paid"
                                 ? "bg-success/15 text-success"
                                 : walletStatus === "failed"
-                                  ? "bg-rose-500/15 text-rose-300"
+                                  ? "bg-destructive/15 text-destructive"
                                   : "bg-warning/15 text-warning"
                             )}
                           >
@@ -495,12 +495,12 @@ export function MoneyPaymentsSheet({
                                 {collectedChargeWalletLabel(walletStatus)}
                               </span>
                               {!tx.jobId ? (
-                                <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-micro font-medium text-muted-foreground">
+                                <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-2xs font-medium text-muted-foreground">
                                   Quick
                                 </span>
                               ) : null}
                               {tx.customerPhone ? (
-                                <span className="text-micro text-muted-foreground">
+                                <span className="text-2xs text-muted-foreground">
                                   {formatPhoneDisplay(tx.customerPhone)}
                                 </span>
                               ) : null}
@@ -525,14 +525,14 @@ export function MoneyPaymentsSheet({
 
           {view === "invoice" && selected ? (
             <div className="space-y-4">
-              <div className="rounded-xl border border-teal-500/25 bg-teal-500/10 px-4 py-3">
-                <p className="text-micro font-semibold uppercase tracking-wide text-teal-200/70">
+              <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3">
+                <p className="text-micro font-semibold uppercase tracking-wide text-primary/70">
                   Already paid
                 </p>
-                <p className="mt-0.5 text-2xl font-bold tabular-nums text-teal-50">
+                <p className="mt-0.5 text-2xl font-bold tabular-nums text-primary">
                   {formatCollectedDollars(Math.round(selected.amount * 100))}
                 </p>
-                <p className="mt-1 text-2xs leading-snug text-teal-200/60">
+                <p className="mt-1 text-2xs leading-snug text-primary/60">
                   Sending an invoice here emails or texts a paid receipt (statement of payment) —
                   not a new bill to collect.
                 </p>
@@ -553,7 +553,7 @@ export function MoneyPaymentsSheet({
                       className={cn(
                         "inline-flex items-center justify-center gap-2 rounded-lg py-3 text-xs font-semibold transition-colors",
                         receiptChannel === "email"
-                          ? "bg-teal-500/20 text-teal-100"
+                          ? "bg-primary/20 text-primary"
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -566,7 +566,7 @@ export function MoneyPaymentsSheet({
                       className={cn(
                         "inline-flex items-center justify-center gap-2 rounded-lg py-3 text-xs font-semibold transition-colors",
                         receiptChannel === "sms"
-                          ? "bg-teal-500/20 text-teal-100"
+                          ? "bg-primary/20 text-primary"
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -584,7 +584,7 @@ export function MoneyPaymentsSheet({
                       value={receiptName}
                       onChange={(e) => setReceiptName(e.target.value)}
                       placeholder="Optional"
-                      className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+                      className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/40"
                     />
                   </label>
 
@@ -598,7 +598,7 @@ export function MoneyPaymentsSheet({
                         value={receiptEmail}
                         onChange={(e) => setReceiptEmail(e.target.value)}
                         placeholder="customer@email.com"
-                        className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+                        className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/40"
                         autoComplete="email"
                       />
                     </label>
@@ -612,7 +612,7 @@ export function MoneyPaymentsSheet({
                         value={receiptPhone}
                         onChange={(e) => setReceiptPhone(e.target.value)}
                         placeholder="(555) 123-4567"
-                        className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+                        className="h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/40"
                         autoComplete="tel"
                       />
                     </label>
@@ -701,7 +701,7 @@ function PaymentDetail({
         <Link
           href={`${DASHBOARD_PAGE_HREF.scheduler}?job=${encodeURIComponent(tx.jobId)}`}
           onClick={onClose}
-          className="block rounded-xl border border-border bg-card/40 px-4 py-3 text-sm font-semibold text-teal-300 hover:border-teal-500/40"
+          className="block rounded-xl border border-border bg-card/40 px-4 py-3 text-sm font-semibold text-primary hover:border-primary/40"
         >
           Open related job
         </Link>

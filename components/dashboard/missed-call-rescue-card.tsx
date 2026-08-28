@@ -200,7 +200,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   const label = !known ? "Text after miss…" : isOn ? "Text after miss on" : "Text after miss off"
   const showCapacity = typeof onCapacityThresholdChange === "function"
   const rescueBadge = (
-    <p className="mt-1.5 text-micro font-medium leading-snug text-warning/85">
+    <p className="mt-1.5 text-2xs font-medium leading-snug text-warning/85">
       Rescued revenue: {formatRescueRevenueDollars(rescueTotalCents)} via textback links.
     </p>
   )
@@ -231,7 +231,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           className="h-9 w-14 shrink-0 rounded-md border border-border bg-card px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-success/50 focus:outline-none focus:ring-1 focus:ring-success/40"
         />
       </label>
-      <p className="mt-1.5 text-micro text-muted-foreground">
+      <p className="mt-1.5 text-2xs text-muted-foreground">
         Today: {confirmedJobsToday == null ? "—" : confirmedJobsToday} confirmed
         {capacitySaving ? " · Saving…" : ""}
       </p>
@@ -257,7 +257,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             className={cn(
               LINES_MOBILE_ICON_TILE,
               !known
-                ? "bg-zinc-500/15 text-muted-foreground"
+                ? "bg-muted-foreground/15 text-muted-foreground"
                 : isOn
                   ? "bg-success/15 text-success"
                   : "bg-primary/12 text-primary"
@@ -303,7 +303,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border",
               !known
                 ? "border-border/60 bg-muted/40 text-muted-foreground"
                 : isOn

@@ -33,7 +33,7 @@ function msLabel(ms: number | null): string {
 function missedRateTone(pct: number): string {
   if (pct <= 5) return "text-success"
   if (pct <= 15) return "text-warning"
-  return "text-rose-300"
+  return "text-destructive"
 }
 
 export function CallHealthBoard() {
@@ -69,7 +69,7 @@ export function CallHealthBoard() {
     <Card className="flex h-full flex-col border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base text-foreground">
-          <Gauge className="h-4 w-4 text-violet-300" aria-hidden />
+          <Gauge className="h-4 w-4 text-operator" aria-hidden />
           Call Health
         </CardTitle>
         <span className="text-xs text-muted-foreground">Last {WINDOW_DAYS} days</span>
@@ -77,11 +77,11 @@ export function CallHealthBoard() {
       <CardContent className="pt-0">
         {loading && !summary ? (
           <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading call health…
+            <Loader2 className="h-4 w-4 animate-spin text-operator" aria-hidden /> Loading call health…
           </div>
         ) : !summary || summary.total_calls === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <PhoneMissed className="h-7 w-7 text-slate-700" aria-hidden />
+            <PhoneMissed className="h-7 w-7 text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">No inbound calls on the network in this window.</p>
           </div>
         ) : (

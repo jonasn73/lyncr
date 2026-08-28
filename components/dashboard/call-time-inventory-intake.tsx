@@ -209,7 +209,7 @@ export function CallTimeInventoryIntake({
           <p className="min-w-0 flex-1 text-xs font-medium text-success">
             <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
             {van1Qty} in van
-            <span className="ml-1.5 font-mono text-micro text-success/80">{displaySku}</span>
+            <span className="ml-1.5 font-mono text-2xs text-success/80">{displaySku}</span>
           </p>
           <Button
             type="button"
@@ -236,7 +236,7 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-success/30"
+              className="h-9 w-9 border border-success/30"
               disabled={stepperBusy || van1Qty <= 0}
               aria-label="Subtract one key from Van 1"
               onClick={() => void adjustByDelta(-1)}
@@ -254,7 +254,7 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-success/30"
+              className="h-9 w-9 border border-success/30"
               disabled={stepperBusy}
               aria-label="Add one key to Van 1"
               onClick={() => void adjustByDelta(1)}
@@ -285,7 +285,7 @@ export function CallTimeInventoryIntake({
           </div>
         ) : null}
 
-        {error ? <p className="mt-1.5 text-xs text-rose-300">{error}</p> : null}
+        {error ? <p className="mt-1.5 text-xs text-destructive">{error}</p> : null}
       </div>
     )
   }
@@ -302,7 +302,7 @@ export function CallTimeInventoryIntake({
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           Not in van
-          <span className="ml-1.5 font-mono text-micro text-foreground/80">{displaySku}</span>
+          <span className="ml-1.5 font-mono text-2xs text-foreground/80">{displaySku}</span>
         </p>
         <Button
           type="button"
@@ -320,7 +320,7 @@ export function CallTimeInventoryIntake({
         </Button>
         <button
           type="button"
-          className="text-2xs font-medium text-rose-300/90 underline-offset-2 hover:underline disabled:opacity-50"
+          className="text-2xs font-medium text-destructive/90 underline-offset-2 hover:underline disabled:opacity-50"
           disabled={saveBusy}
           onClick={() => void markOutOfStock()}
         >
@@ -336,7 +336,7 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-success/30"
+              className="h-9 w-9 border border-success/30"
               disabled={saveBusy || qtyDraft <= 1}
               aria-label="Decrease quantity"
               onClick={() => setQtyDraft((n) => Math.max(1, n - 1))}
@@ -350,7 +350,7 @@ export function CallTimeInventoryIntake({
               type="button"
               size="icon"
               variant="secondary"
-              className="h-8 w-8 border border-success/30"
+              className="h-9 w-9 border border-success/30"
               disabled={saveBusy}
               aria-label="Increase quantity"
               onClick={() => setQtyDraft((n) => n + 1)}
@@ -399,7 +399,7 @@ export function CallTimeInventoryIntake({
         </div>
       ) : null}
 
-      {error ? <p className="mt-1.5 text-xs text-rose-300">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-destructive">{error}</p> : null}
     </div>
   )
 }

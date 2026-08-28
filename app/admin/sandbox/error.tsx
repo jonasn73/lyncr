@@ -20,7 +20,7 @@ export default function AdminSandboxError({
       <p className="text-sm leading-relaxed text-muted-foreground">
         The dev sandbox hit a server error. Common fixes: run migrations{" "}
         <strong className="font-medium text-foreground">042–045</strong> in Neon (see{" "}
-        <code className="text-violet-300">scripts/MIGRATE-ALL.md</code>), then try seed again.
+        <code className="text-operator">scripts/MIGRATE-ALL.md</code>), then try seed again.
       </p>
       {error.digest ? (
         <p className="font-mono text-xs text-muted-foreground">Error digest: {error.digest}</p>
@@ -29,7 +29,7 @@ export default function AdminSandboxError({
         <button
           type="button"
           onClick={() => reset()}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+          className="rounded-lg bg-operator px-4 py-2 text-sm font-medium text-operator-foreground hover:bg-operator"
         >
           Try again
         </button>

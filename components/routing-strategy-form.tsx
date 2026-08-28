@@ -196,12 +196,12 @@ export function RoutingStrategyForm({ onSaved }: Props) {
               htmlFor={`routing-strategy-${opt.value}`}
               className={cn(
                 "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors",
-                selected ? "border-violet-500/60 bg-violet-500/10" : "border-border/70 bg-muted/20 hover:border-border"
+                selected ? "border-operator/60 bg-operator/10" : "border-border/70 bg-muted/20 hover:border-border"
               )}
             >
               <RadioGroupItem id={`routing-strategy-${opt.value}`} value={opt.value} className="mt-1" />
               <Icon
-                className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-violet-300" : "text-muted-foreground")}
+                className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-operator" : "text-muted-foreground")}
                 aria-hidden
               />
               <span className="min-w-0">

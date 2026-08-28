@@ -147,7 +147,7 @@ function toneClasses(tone: NotificationTone): string {
   if (tone === "critical") return "border-destructive/35 bg-destructive/10"
   if (tone === "warning") return "border-warning/35 bg-warning/10"
   if (tone === "success") return "border-success/35 bg-success/10"
-  return "border-sky-500/35 bg-sky-500/10"
+  return "border-info/35 bg-info/10"
 }
 
 export const NotificationCenter = memo(function NotificationCenter() {
@@ -570,7 +570,7 @@ export const NotificationCenter = memo(function NotificationCenter() {
           title="Alerts"
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-micro font-bold text-primary-foreground">
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-2xs font-bold text-primary-foreground">
             {items.length > 9 ? "9+" : items.length}
           </span>
         </Button>

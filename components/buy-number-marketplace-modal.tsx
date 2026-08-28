@@ -421,7 +421,7 @@ export function BuyNumberMarketplaceModal({
                 </p>
               ) : searching ? (
                 <div className="flex flex-col items-center justify-center gap-3 px-4 py-16">
-                  <div className="relative flex h-12 w-12 items-center justify-center">
+                  <div className="relative flex h-11 w-11 items-center justify-center">
                     <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" aria-hidden />
                     <Loader2 className="relative h-7 w-7 animate-spin text-primary" aria-hidden />
                   </div>
@@ -492,7 +492,7 @@ export function BuyNumberMarketplaceModal({
           <button
             type="button"
             onClick={() => setPanelView("port")}
-            className="block w-full text-xs font-semibold text-violet-400 hover:text-violet-300 hover:underline"
+            className="block w-full text-xs font-semibold text-operator hover:text-operator hover:underline"
           >
             Port your existing number to Lyncr
           </button>

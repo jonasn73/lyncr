@@ -154,8 +154,8 @@ export function RoutingStrategyDialog({
       <DialogContent className="z-[130] border-border/70 bg-background sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">
-              <Network className="h-4 w-4 text-violet-300" aria-hidden />
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-operator/30 bg-operator/10">
+              <Network className="h-4 w-4 text-operator" aria-hidden />
             </span>
             Call routing strategy
           </DialogTitle>
@@ -186,13 +186,13 @@ export function RoutingStrategyDialog({
                     className={cn(
                       "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors",
                       selected
-                        ? "border-violet-500/60 bg-violet-500/10"
+                        ? "border-operator/60 bg-operator/10"
                         : "border-border/70 bg-muted/20 hover:border-border"
                     )}
                   >
                     <RadioGroupItem id={`strategy-dlg-${opt.value}`} value={opt.value} className="mt-1" />
                     <Icon
-                      className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-violet-300" : "text-muted-foreground")}
+                      className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "text-operator" : "text-muted-foreground")}
                       aria-hidden
                     />
                     <span className="min-w-0">

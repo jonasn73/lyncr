@@ -116,7 +116,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
     <details className="group hidden w-full shrink-0 lg:contents">
       <summary
         className={cn(
-          "flex cursor-pointer list-none items-center gap-2 rounded-2xl border border-white/8 bg-neutral-950/50 px-4 py-3 shadow-resting ring-1 ring-white/5 backdrop-blur-md lg:hidden",
+          "flex cursor-pointer list-none items-center gap-2 rounded-2xl border border-white/8 bg-background/50 px-4 py-3 shadow-resting ring-1 ring-white/5 backdrop-blur-md lg:hidden",
           MOBILE_TAP_TARGET,
           "[&::-webkit-details-marker]:hidden"
         )}
@@ -134,7 +134,7 @@ export const DashboardRoutingSidebar = memo(function DashboardRoutingSidebar({
       <aside
         className={cn(
           "w-full shrink-0 lg:w-56 xl:w-60",
-          "rounded-2xl border border-white/8 bg-neutral-950/50 p-4 shadow-resting ring-1 ring-white/5 backdrop-blur-md",
+          "rounded-2xl border border-white/8 bg-background/50 p-4 shadow-resting ring-1 ring-white/5 backdrop-blur-md",
           "mt-2 lg:mt-0",
           className
         )}

@@ -76,13 +76,13 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           </p>
           {/* Desktop-only notes — hide long copy on mobile. */}
           {isAvailable ? (
-            <p className="mt-1 hidden text-micro leading-snug text-muted-foreground md:block">
+            <p className="mt-1 hidden text-2xs leading-snug text-muted-foreground md:block">
               If you&apos;re already on a call, new callers go to hold / team instead of
               interrupting. Text Amber BUSY / AVAILABLE anytime.
             </p>
           ) : null}
           {isBusy && untilLabel ? (
-            <p className="mt-1 hidden text-micro leading-snug text-muted-foreground md:block">
+            <p className="mt-1 hidden text-2xs leading-snug text-muted-foreground md:block">
               Set by Amber text — flips Available at that time (or turn Available on here).
             </p>
           ) : null}

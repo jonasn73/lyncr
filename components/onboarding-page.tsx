@@ -359,7 +359,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <SheetInfoTrigger
               onPress={() => setOnboardingSheetKey("onboarding-overview")}
               label="About this setup wizard"
-              className="h-8 w-8"
+              className="h-9 w-9"
             />
           </div>
           <span className="text-xs text-muted-foreground">
@@ -533,8 +533,8 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             <div>
                               <p className="text-sm font-medium tabular-nums text-foreground">{num.number}</p>
                               <p className="text-2xs text-muted-foreground">{num.type}</p>
-                              <p className="text-micro font-medium text-primary">{num.trialNote}</p>
-                              <p className="text-micro text-muted-foreground">{num.afterTrialPrice}</p>
+                              <p className="text-2xs font-medium text-primary">{num.trialNote}</p>
+                              <p className="text-2xs text-muted-foreground">{num.afterTrialPrice}</p>
                             </div>
                           </button>
                         )
@@ -677,7 +677,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               ) : (
                 <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                       {receptionistName.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div>
@@ -760,7 +760,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-foreground">{option.title}</p>
-                        <p className="mt-0.5 text-micro leading-snug text-muted-foreground">{option.subtext}</p>
+                        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{option.subtext}</p>
                       </div>
                     </button>
                   )
@@ -814,7 +814,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       ].map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full bg-primary/10 px-3 py-1 text-micro font-medium text-primary"
+                          className="rounded-full bg-primary/10 px-3 py-1 text-2xs font-medium text-primary"
                         >
                           {tag}
                         </span>

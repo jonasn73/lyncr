@@ -45,7 +45,7 @@ function MetricCell({
           className
         )}
       >
-        <span className="text-micro font-medium text-muted-foreground">{label}</span>
+        <span className="text-2xs font-medium text-muted-foreground">{label}</span>
         <span
           className={cn(
             "min-w-[0.75rem] text-xs font-bold tabular-nums",
@@ -146,7 +146,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           pending={metricsPending}
           label={useShortLabels ? "Active" : "Active Dispatches"}
           value={metrics.activeDispatches}
-          valueClassName="text-sky-300"
+          valueClassName="text-info"
         />
         <MetricCell
           compact={showPillRow}

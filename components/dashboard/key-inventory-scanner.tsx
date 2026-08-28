@@ -450,7 +450,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 {statusMsg}
               </p>
             ) : phase === "error" && statusMsg ? (
-              <p className="text-center text-sm text-rose-300">{statusMsg}</p>
+              <p className="text-center text-sm text-destructive">{statusMsg}</p>
             ) : (
               <p className="text-center text-xs text-muted-foreground">
                 {cameraReady ? "Hold steady — scan confirms with a short vibrate." : " "}
@@ -610,7 +610,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           ) : null}
 
           {statusMsg && phase === "found" ? (
-            <p className="text-center text-xs text-rose-300">{statusMsg}</p>
+            <p className="text-center text-xs text-destructive">{statusMsg}</p>
           ) : null}
 
           <Button
@@ -681,7 +681,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {statusMsg && phase === "new" ? (
-            <p className="text-center text-xs text-rose-300">{statusMsg}</p>
+            <p className="text-center text-xs text-destructive">{statusMsg}</p>
           ) : null}
 
           <div className="grid grid-cols-2 gap-3">

@@ -559,10 +559,10 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
   }
 
   const competitionBadge = highCompetition ? (
-    <p className="rounded-md border border-orange-500/40 bg-orange-500/15 px-3 py-2 text-2xs font-semibold leading-snug text-orange-100">
+    <p className="rounded-md border border-warning/40 bg-warning/15 px-3 py-2 text-2xs font-semibold leading-snug text-warning">
       🔥 High Competition Area — Aggressive Quote Suggested
       {postalCode ? (
-        <span className="font-normal text-orange-100/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
+        <span className="font-normal text-warning/80"> · ZIP {String(postalCode).slice(0, 5)}</span>
       ) : null}
     </p>
   ) : null
@@ -630,7 +630,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 <button
                   type="button"
                   onClick={() => setPriceStage("silent")}
-                  className="shrink-0 text-micro text-muted-foreground hover:text-foreground"
+                  className="shrink-0 text-2xs text-muted-foreground hover:text-foreground"
                 >
                   Hide
                 </button>
@@ -659,7 +659,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                 <p className="flex flex-wrap items-center gap-2 text-micro font-semibold uppercase tracking-wide text-success/90">
                   <span>Exact price workspace</span>
                   {quote.pricingTier === "tier3" ? (
-                    <span className="inline-flex items-center rounded-md border border-warning/50 bg-warning/15 px-2 py-0.5 text-micro font-semibold normal-case tracking-normal text-warning">
+                    <span className="inline-flex items-center rounded-md border border-warning/50 bg-warning/15 px-2 py-0.5 text-2xs font-semibold normal-case tracking-normal text-warning">
                       ⚠️ High-Security Vehicle - Specialized Programming Required
                     </span>
                   ) : null}
@@ -669,7 +669,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     <button
                       type="button"
                       onClick={resetToBaseline}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-medium text-success/90 hover:bg-success/10"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-medium text-success/90 hover:bg-success/10"
                     >
                       <RotateCcw className="h-3 w-3" aria-hidden />
                       Reset
@@ -678,7 +678,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   <button
                     type="button"
                     onClick={() => setPriceStage("starting")}
-                    className="text-micro text-muted-foreground hover:text-foreground"
+                    className="text-2xs text-muted-foreground hover:text-foreground"
                   >
                     Soft pitch
                   </button>
@@ -686,11 +686,11 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               </div>
 
               {diagnosticCushion ? (
-                <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2">
-                  <p className="text-sm font-bold tabular-nums text-sky-100">
+                <div className="rounded-lg border border-info/35 bg-info/10 px-3 py-2">
+                  <p className="text-sm font-bold tabular-nums text-info">
                     Entry fee: $29 on-site diagnostic
                   </p>
-                  <p className="mt-0.5 text-2xs leading-snug text-sky-100/85">
+                  <p className="mt-0.5 text-2xs leading-snug text-info/85">
                     Waived when we proceed with key cutting / programming. Full job estimate stays{" "}
                     <span className="font-semibold tabular-nums">
                       {formatQuoteDollars(totalEstimateCents)}
@@ -826,7 +826,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                       → Beat by $10 → pitch ${competitorTarget}
                     </span>
                   ) : (
-                    <span className="text-micro text-muted-foreground">
+                    <span className="text-2xs text-muted-foreground">
                       Auto-sets our total $10 under their number
                     </span>
                   )}
@@ -878,12 +878,12 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     <button
                       type="button"
                       onClick={() => setFlatLockDollars("")}
-                      className="text-micro font-medium text-warning underline-offset-2 hover:underline"
+                      className="text-2xs font-medium text-warning underline-offset-2 hover:underline"
                     >
                       Clear lock
                     </button>
                   ) : (
-                    <span className="text-micro text-warning/70">
+                    <span className="text-2xs text-warning/70">
                       Optional — overrides the system total when you book
                     </span>
                   )}
@@ -901,7 +901,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                   type="button"
                   className={cn(
                     dealPillClass,
-                    diagnosticCushion && "border-sky-400/60 bg-sky-500/25 text-sky-50"
+                    diagnosticCushion && "border-info/60 bg-info/25 text-info"
                   )}
                   onClick={toggleDiagnosticCushion}
                 >
@@ -912,7 +912,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
               {(quote.distanceMiles != null ||
                 quote.keyBlankCents > 0 ||
                 quote.programmingCents > 0) && (
-                <p className="text-micro text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   System baseline = {formatQuoteDollars(quote.baseCents)} service
                   {quote.distanceMiles != null
                     ? ` + ${formatQuoteDollars(quote.distancePremiumCents)} travel (${quote.distanceMiles.toFixed(1)} mi)`
@@ -925,7 +925,7 @@ export const ServiceQuoteCalculatorPanel = memo(function ServiceQuoteCalculatorP
                     : ""}
                 </p>
               )}
-              <p className="text-micro text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 {quote.dispatchJobTypeLabel}
                 {vehicleYear || vehicleMake || vehicleModel
                   ? ` · ${[vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ")}`

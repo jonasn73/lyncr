@@ -48,10 +48,10 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
         <DrawerScrollBody className="space-y-6">
           {line ? (
             <>
-              <div className="rounded-xl border border-white/8 bg-neutral-950/60 p-4">
+              <div className="rounded-xl border border-white/8 bg-background/60 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-teal-500/30 bg-teal-500/10">
-                    <Phone className="h-4 w-4 text-teal-300" aria-hidden />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+                    <Phone className="h-4 w-4 text-primary" aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">{display}</p>
@@ -77,7 +77,7 @@ export const PhoneLineIntakeSheet = memo(function PhoneLineIntakeSheet({
               </div>
 
               {line.routing_summary ? (
-                <div className="rounded-xl border border-white/8 bg-neutral-950/50 p-4 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-white/8 bg-background/50 p-4 text-sm text-muted-foreground">
                   <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Routing snapshot</p>
                   <ul className="mt-2 space-y-2">
                     <li>

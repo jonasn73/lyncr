@@ -603,21 +603,21 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               ) : null}
               {bankTransfers.length > 0 ? (
                 <div className="mt-3 space-y-2">
-                  <p className="text-micro font-semibold uppercase tracking-wide text-sky-200/70">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-info/70">
                     Sent to bank
                   </p>
                   {bankTransfers.slice(0, 3).map((p, i) => (
                     <div
                       key={`${p.createdLabel}-${i}`}
-                      className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2"
+                      className="rounded-lg border border-info/25 bg-info/10 px-3 py-2"
                     >
-                      <p className="text-sm font-bold tabular-nums text-sky-50">
+                      <p className="text-sm font-bold tabular-nums text-info">
                         {formatMoneyCents(p.amountCents)}
-                        <span className="ml-1.5 text-micro font-semibold uppercase tracking-wide text-sky-200/70">
+                        <span className="ml-1.5 text-micro font-semibold uppercase tracking-wide text-info/70">
                           {p.status.replace(/_/g, " ")}
                         </span>
                       </p>
-                      <p className="mt-0.5 text-micro text-sky-100/60">
+                      <p className="mt-0.5 text-2xs text-info/60">
                         {p.createdLabel}
                         {p.arrivalDateLabel !== "—" ? ` · arrives ${p.arrivalDateLabel}` : ""}
                       </p>
@@ -653,7 +653,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   key={opt.id}
                   type="button"
                   onClick={() => openPayments(opt.id)}
-                  className="rounded-xl border border-border bg-background/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-card/70"
+                  className="rounded-xl border border-border bg-background/60 px-2 py-3 text-center hover:border-primary/40 hover:bg-card/70"
                 >
                   <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     {opt.label}
@@ -673,10 +673,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <button
               type="button"
               onClick={() => openPayments("all")}
-              className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-background/70 px-4 text-left hover:border-teal-500/40 hover:bg-card"
+              className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-background/70 px-4 text-left hover:border-primary/40 hover:bg-card"
             >
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Receipt className="h-4 w-4 text-teal-300" aria-hidden />
+                <Receipt className="h-4 w-4 text-primary" aria-hidden />
                 Transactions
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -835,7 +835,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 setBusy(true)
                 void signOutAndGoToLogin()
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-rose-900/50 bg-rose-950/30 px-3 py-3 text-sm font-semibold text-rose-300 hover:bg-rose-950/50 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-destructive/50 bg-destructive/30 px-3 py-3 text-sm font-semibold text-destructive hover:bg-destructive/50 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

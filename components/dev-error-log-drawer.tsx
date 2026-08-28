@@ -46,11 +46,11 @@ function kindColor(kind: DevLogEntry["kind"]): string {
     case "react":
       return "bg-warning/20 text-warning border-warning/40"
     case "resource":
-      return "bg-sky-500/20 text-sky-200 border-sky-500/40"
+      return "bg-info/20 text-info border-info/40"
     case "unhandledrejection":
-      return "bg-violet-500/20 text-violet-200 border-violet-500/40"
+      return "bg-operator/20 text-operator border-operator/40"
     default:
-      return "bg-rose-500/20 text-rose-200 border-rose-500/40"
+      return "bg-destructive/20 text-destructive border-destructive/40"
   }
 }
 
@@ -186,9 +186,9 @@ export function DevErrorLogDrawer() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-4 right-4 z-[9998] flex h-12 w-12 items-center justify-center rounded-full border shadow-raised transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          "fixed bottom-4 right-4 z-[9998] flex h-11 w-11 items-center justify-center rounded-full border shadow-raised transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           count > 0
-            ? "border-rose-500/60 bg-rose-950 text-rose-100"
+            ? "border-destructive/60 bg-destructive text-destructive"
             : "border-border bg-card text-foreground"
         )}
         aria-label={count > 0 ? `Open dev error log (${count})` : "Open dev error log"}
@@ -196,7 +196,7 @@ export function DevErrorLogDrawer() {
       >
         <Bug className="h-5 w-5" aria-hidden />
         {count > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-micro font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-2xs font-bold text-destructive-foreground">
             {count > 99 ? "99+" : count}
           </span>
         ) : null}
@@ -209,7 +209,7 @@ export function DevErrorLogDrawer() {
         >
           <SheetHeader className="shrink-0 border-b border-border px-4 py-4 text-left">
             <SheetTitle className="flex items-center gap-2 text-foreground">
-              <Bug className="h-4 w-4 text-rose-400" aria-hidden />
+              <Bug className="h-4 w-4 text-destructive" aria-hidden />
               Dev error log
             </SheetTitle>
             <SheetDescription className="text-muted-foreground">
@@ -263,7 +263,7 @@ export function DevErrorLogDrawer() {
                       >
                         {kindLabel(entry.kind)}
                       </span>
-                      <time className="shrink-0 text-micro tabular-nums text-muted-foreground">
+                      <time className="shrink-0 text-2xs tabular-nums text-muted-foreground">
                         {new Date(entry.at).toLocaleTimeString()}
                       </time>
                     </div>
@@ -278,7 +278,7 @@ export function DevErrorLogDrawer() {
                       <p className="mt-2 text-2xs text-muted-foreground">No file:line parsed from stack</p>
                     )}
                     {entry.componentStack ? (
-                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-micro leading-relaxed text-muted-foreground">
+                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-2xs leading-relaxed text-muted-foreground">
                         {entry.componentStack.trim()}
                       </pre>
                     ) : null}
@@ -287,7 +287,7 @@ export function DevErrorLogDrawer() {
                         <summary className="cursor-pointer text-2xs text-muted-foreground hover:text-foreground">
                           Stack trace
                         </summary>
-                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-micro leading-relaxed text-muted-foreground">
+                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-2xs leading-relaxed text-muted-foreground">
                           {entry.stack}
                         </pre>
                       </details>

@@ -121,7 +121,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
       {!showQuiz ? (
         <WorkspacePanel density="roomy" className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15 ring-2 ring-success/40">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-success/15 ring-2 ring-success/40">
               <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />
             </div>
             <div>
@@ -177,7 +177,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           aria-label="Quiz completion progress"
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-primary transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-operator to-primary transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -243,7 +243,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
             <>
               <DialogHeader className="items-center text-center">
                 <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-success/15 ring-2 ring-success/40">
-                  <PartyPopper className="h-8 w-8 text-success" aria-hidden />
+                  <PartyPopper className="h-9 w-9 text-success" aria-hidden />
                 </div>
                 <DialogTitle className="text-2xl text-success">You&apos;re certified!</DialogTitle>
                 <DialogDescription className="text-base text-foreground">{resultModal.message}</DialogDescription>
@@ -265,7 +265,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
             <>
               <DialogHeader className="items-center text-center">
                 <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-warning/15 ring-2 ring-warning/40">
-                  <RotateCcw className="h-8 w-8 text-warning" aria-hidden />
+                  <RotateCcw className="h-9 w-9 text-warning" aria-hidden />
                 </div>
                 <DialogTitle className="text-2xl text-warning">
                   {resultModal.total > 0 ? "Keep studying" : "Could not grade quiz"}

@@ -135,6 +135,7 @@ export function WorkspaceStatCard({
     )
   }
   return (
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
     <div className={cn("min-h-[5.75rem] rounded-2xl border border-border bg-card/50 p-5", accent && accentClass)}>
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
@@ -156,6 +157,7 @@ export function WorkspaceUsageStatCard({
 }) {
   const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
   return (
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
     <div className="min-h-[5.75rem] rounded-2xl border border-warning/30 bg-warning/5 p-5">
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -186,6 +188,7 @@ export function WorkspaceTokenStatCard({
   hint?: string
 }) {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
     <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
@@ -229,13 +232,13 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
   const styles: Record<LeadIntentVariant, string> = {
     amber:
       "border-warning/50 bg-warning/10 text-warning shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
-    blue: "border-sky-500/45 bg-sky-500/10 text-sky-300 shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
+    blue: "border-info/45 bg-info/10 text-info shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
     muted: "border-border/80 bg-card/60 text-muted-foreground",
   }
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-micro font-semibold tracking-wide",
+        "inline-flex items-center rounded-full border px-3 py-1 text-2xs font-semibold tracking-wide",
         styles[variant]
       )}
     >
@@ -294,19 +297,19 @@ export function ActivityStatusPill({
     emergency:
       "border-success/55 bg-success/18 text-success shadow-[0_0_16px_-4px_rgba(16,185,129,0.65)]",
     ai_handled:
-      "border-violet-500/45 bg-violet-500/12 text-violet-300 shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
+      "border-operator/45 bg-operator/12 text-operator shadow-[0_0_14px_-6px_rgba(139,92,246,0.45)]",
     voicemail:
-      "border-rose-500/50 bg-rose-500/15 text-rose-200 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     missed_ivr:
-      "border-rose-500/55 bg-rose-500/18 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.55)]",
+      "border-destructive/55 bg-destructive/18 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.55)]",
     night_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     day_off_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     busy_link:
-      "border-rose-500/50 bg-rose-500/15 text-rose-100 shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
+      "border-destructive/50 bg-destructive/15 text-destructive shadow-[0_0_16px_-4px_rgba(244,63,94,0.45)]",
     hold_queue:
       "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     hold_press1:
@@ -314,7 +317,7 @@ export function ActivityStatusPill({
     busy_menu:
       "border-warning/45 bg-warning/12 text-warning shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
-      "border-rose-500/60 bg-rose-500/20 text-rose-50 shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
+      "border-destructive/60 bg-destructive/20 text-destructive shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
   }
   const labels: Record<ActivityCallStatus, string> = {
     answered: "Answered",
@@ -346,8 +349,8 @@ export function ActivityStatusPill({
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-md border font-bold uppercase tracking-wide",
         dense
-          ? "px-2 py-0.5 text-micro shadow-none"
-          : "px-2 py-0.5 text-micro",
+          ? "px-2 py-0.5 text-2xs shadow-none"
+          : "px-2 py-0.5 text-2xs",
         styles[status],
         dense && "shadow-none"
       )}

@@ -74,7 +74,7 @@ export function JobPoolTray({
               poolLooksEmpty
                 ? "bg-muted/80 text-muted-foreground"
                 : "bg-warning/15 text-warning",
-              sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
+              sidebar || embedded ? "h-7 w-7" : "h-9 w-9"
             )}
           >
             <Inbox className="h-3.5 w-3.5" aria-hidden />
@@ -136,8 +136,8 @@ export function JobPoolTray({
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "rescue"
-              ? "bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/40"
-              : "text-rose-300/80 hover:text-rose-100"
+              ? "bg-destructive/20 text-destructive ring-1 ring-destructive/40"
+              : "text-destructive/80 hover:text-destructive"
           )}
         >
           <LifeBuoy className="h-3 w-3" aria-hidden />

@@ -148,7 +148,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           <Briefcase className="h-3.5 w-3.5" aria-hidden />
           Job Pool
           {sortedPool.length > 0 ? (
-            <span className="tabular-nums text-micro text-muted-foreground">({sortedPool.length})</span>
+            <span className="tabular-nums text-2xs text-muted-foreground">({sortedPool.length})</span>
           ) : null}
         </button>
         <button
@@ -214,7 +214,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                         className={cn(
                           "w-full rounded-lg border px-3 py-3 text-left transition-colors",
                           hasPin
-                            ? "border-border bg-card/60 hover:border-sky-500/40 hover:bg-card"
+                            ? "border-border bg-card/60 hover:border-info/40 hover:bg-card"
                             : "cursor-not-allowed border-border bg-background/40 opacity-60"
                         )}
                       >
@@ -224,14 +224,14 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                           </span>
                           {hasPin ? (
                             <MapPin
-                              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400"
+                              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
                               aria-hidden
                             />
                           ) : null}
                         </div>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">{place}</p>
                         {!hasPin ? (
-                          <p className="mt-1 text-micro text-warning/80">Needs address to pin</p>
+                          <p className="mt-1 text-2xs text-warning/80">Needs address to pin</p>
                         ) : null}
                       </button>
                     </li>
@@ -291,7 +291,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 <ChevronUp className="h-3.5 w-3.5" aria-hidden />
                 Pool
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-micro tabular-nums text-rose-300">
+                  <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-2xs tabular-nums text-destructive">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -309,7 +309,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
               <>
                 Job Pool &amp; Roster
                 {sortedPool.length > 0 ? (
-                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-micro tabular-nums text-rose-300">
+                  <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-2xs tabular-nums text-destructive">
                     {sortedPool.length}
                   </span>
                 ) : null}
@@ -341,7 +341,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
                 className={cn(
                   "rounded-lg px-3 py-2 text-2xs font-semibold transition-colors",
                   on
-                    ? "bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40"
+                    ? "bg-info/20 text-info ring-1 ring-info/40"
                     : "bg-card/80 text-muted-foreground ring-1 ring-border hover:text-foreground"
                 )}
               >

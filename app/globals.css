@@ -21,8 +21,11 @@
      made outline/ghost buttons and menus unreadable (teal-on-teal / dark-on-dark). */
   --accent: oklch(0.26 0.022 268);
   --accent-foreground: oklch(0.96 0.01 275);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.95 0 0);
+  /* L .66 clears AA in both roles: 5.51:1 as text-destructive on --card, and
+     5.66:1 under --destructive-foreground. Was .58, which failed as text (3.97:1).
+     Foreground is dark, matching --success / --warning rather than white-on-red. */
+  --destructive: oklch(0.66 0.22 27);
+  --destructive-foreground: oklch(0.16 0.03 27);
   --border: oklch(0.30 0.022 268);
   --input: oklch(0.23 0.022 268);
   --ring: oklch(0.87 0.14 181);
@@ -40,6 +43,9 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 275);
   --sidebar-border: oklch(0.30 0.022 268);
   --sidebar-ring: oklch(0.87 0.14 181);
+  /* Primary-emphasis glow. Every use pairs it with bg-primary or border-primary
+     (selected tier, active CTA, checked switch) — it is not a live-call signal,
+     so do not repurpose it as one without changing all 14 call sites. */
   --electric-glow: 0 0 18px -4px oklch(0.87 0.14 181 / 0.75);
   /* Hue 145, not 155: --primary is hue 181, and 26 degrees was too close to
      tell brand chrome from an all-clear state in a product about live status. */
@@ -48,6 +54,15 @@
   --warning: oklch(0.80 0.16 85);
   --warning-foreground: oklch(0.18 0.03 85);
   --surface: oklch(0.20 0.022 268);
+  /* Two accents the app was already using as raw palette, now named. Every
+     other stray hue folded into an existing token: cyan/teal duplicated the
+     brand (primary), rose was an error tone (destructive), orange was an
+     at-risk tone (warning). Hues are 27 / 85 / 145 / 181 / 236 / 293 — the
+     tightest gap is 36 degrees, so no two states read alike. */
+  --info: oklch(0.72 0.14 236);
+  --info-foreground: oklch(0.16 0.03 236);
+  --operator: oklch(0.70 0.16 293);
+  --operator-foreground: oklch(0.16 0.03 293);
   /* Mobile app shell — header + bottom dock footprint for fixed overlays */
   --shell-header-h: 3.25rem;
   --shell-dock-h: calc(4rem + env(safe-area-inset-bottom, 0px));
@@ -120,6 +135,10 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-surface: var(--surface);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-operator: var(--operator);
+  --color-operator-foreground: var(--operator-foreground);
 }
 
 @layer base {

@@ -27,7 +27,7 @@ export function IpUsageRestrictions({
       {!compact && (
         <div className="flex items-center gap-3">
           {/* Icon chip in the brand's violet/indigo signal color. */}
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
             <Scale className="h-6 w-6 text-primary" aria-hidden />
           </div>
           <div>

@@ -50,7 +50,7 @@ export function ReceptionistPortalChrome({
       <header className="border-b border-border/50 bg-card/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
               <Phone className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">

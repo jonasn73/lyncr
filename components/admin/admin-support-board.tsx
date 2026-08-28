@@ -263,7 +263,7 @@ function LiveChatQueue() {
         <CardContent className="space-y-3">
           {loading && threads.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && threads.length === 0 ? (
@@ -281,7 +281,7 @@ function LiveChatQueue() {
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   unread
-                    ? "border-violet-500/40 bg-background/60 hover:border-violet-400/60"
+                    ? "border-operator/40 bg-background/60 hover:border-operator/60"
                     : "border-border/80 bg-background/40 hover:border-border"
                 )}
               >
@@ -298,7 +298,7 @@ function LiveChatQueue() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {row.owner_name} · {row.owner_email} · {row.status}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-micro font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-operator/20 px-2 py-0.5 text-2xs font-medium text-operator">
                       {row.admin_unread_count} unread
                     </span>
                   ) : null}
@@ -360,7 +360,7 @@ function LiveChatQueue() {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {detailLoading && messages.length === 0 ? (
               <div className="flex justify-center py-12">
-                <Spinner className="h-8 w-8 text-violet-400" />
+                <Spinner className="h-9 w-9 text-operator" />
               </div>
             ) : null}
             {messages.map((m) => {
@@ -379,7 +379,7 @@ function LiveChatQueue() {
                       "max-w-[90%] rounded-2xl px-3 py-2 text-sm",
                       isSystem &&
                         "max-w-[95%] border border-border bg-card/80 text-center text-xs text-muted-foreground",
-                      isAdmin && "bg-violet-600 text-white",
+                      isAdmin && "bg-operator text-operator-foreground",
                       !isAdmin && !isSystem && "border border-border bg-card text-foreground"
                     )}
                   >
@@ -414,7 +414,7 @@ function LiveChatQueue() {
                       </div>
                     ))}
                     {!isSystem ? (
-                      <p className="mt-1 text-micro opacity-60">{formatChatTime(m.created_at)}</p>
+                      <p className="mt-1 text-2xs opacity-60">{formatChatTime(m.created_at)}</p>
                     ) : null}
                   </div>
                 </div>
@@ -481,7 +481,7 @@ function LiveChatQueue() {
               <Button
                 type="button"
                 size="icon"
-                className="shrink-0 bg-violet-600 hover:bg-violet-500"
+                className="shrink-0 bg-operator hover:bg-operator"
                 disabled={sending || (!draft.trim() && pending.length === 0)}
                 onClick={() => void sendReply()}
                 aria-label="Send"
@@ -602,7 +602,7 @@ function FeedbackQueue() {
         <CardContent className="space-y-3">
           {loading && feedback.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && feedback.length === 0 ? (
@@ -613,11 +613,11 @@ function FeedbackQueue() {
               key={row.id}
               type="button"
               onClick={() => setSheet(row)}
-              className="w-full rounded-xl border border-border/80 bg-background/40 p-4 text-left transition-colors hover:border-violet-500/40 hover:bg-card/60"
+              className="w-full rounded-xl border border-border/80 bg-background/40 p-4 text-left transition-colors hover:border-operator/40 hover:bg-card/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-medium uppercase text-muted-foreground">{row.category}</span>
-                <span className="rounded-full border border-border px-2 py-0.5 text-micro font-medium capitalize text-foreground">
+                <span className="rounded-full border border-border px-2 py-0.5 text-2xs font-medium capitalize text-foreground">
                   {row.status}
                 </span>
               </div>
@@ -669,7 +669,7 @@ function FeedbackQueue() {
                 </Button>
                 <Button
                   type="button"
-                  className="bg-violet-600 text-white hover:bg-violet-500"
+                  className="bg-operator text-operator-foreground hover:bg-operator"
                   disabled={addingToBoard}
                   onClick={() => void addToBoard(sheet)}
                 >
@@ -778,7 +778,7 @@ function EmailInbox() {
         <CardContent className="space-y-3">
           {loading && emails.length === 0 ? (
             <div className="flex justify-center py-10">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {!loading && emails.length === 0 ? (
@@ -797,7 +797,7 @@ function EmailInbox() {
                 className={cn(
                   "w-full rounded-xl border p-4 text-left transition-colors",
                   unread
-                    ? "border-violet-500/40 bg-background/60 hover:border-violet-400/60"
+                    ? "border-operator/40 bg-background/60 hover:border-operator/60"
                     : "border-border/80 bg-background/40 hover:border-border"
                 )}
               >
@@ -810,7 +810,7 @@ function EmailInbox() {
                 <p className={cn("mt-1 text-sm", unread ? "font-medium text-foreground" : "text-foreground")}>
                   {row.subject || "(no subject)"}
                   {unread ? (
-                    <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-micro font-medium text-violet-300">
+                    <span className="ml-2 rounded-full bg-operator/20 px-2 py-0.5 text-2xs font-medium text-operator">
                       Unread
                     </span>
                   ) : null}
@@ -840,7 +840,7 @@ function EmailInbox() {
         >
           {detailLoading && !detail ? (
             <div className="flex justify-center py-16">
-              <Spinner className="h-8 w-8 text-violet-400" />
+              <Spinner className="h-9 w-9 text-operator" />
             </div>
           ) : null}
           {detail ? (
