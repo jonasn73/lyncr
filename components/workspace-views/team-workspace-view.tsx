@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { Check, Copy, Loader2, Network, Plus, Save, Send, Trash2, Users } from "lucide-react"
-import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import type { Receptionist, ReceptionistPayoutMetrics } from "@/lib/types"
@@ -18,16 +17,15 @@ import {
   TEAM_ROSTER_CHANGED_EVENT,
 } from "@/lib/team-invite-events"
 import {
-  PayPlanButton,
   PayPlanEditor,
   usePayPlans,
   type PayPlanTarget,
 } from "@/components/compensation/pay-plan-editor"
-import { grantedCapabilityLabels } from "@/lib/receptionist-capabilities"
 import {
   ReceptionistAccessEditor,
   type ReceptionistAccessTarget,
 } from "@/components/team/receptionist-access-editor"
+import { ReceptionistSettingsSheet } from "@/components/team/receptionist-settings-sheet"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
 import type { ReceptionistCapabilities, TeamInvite } from "@/lib/types"
@@ -228,6 +226,10 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const { plans, reload: reloadPlans } = usePayPlans()
   const [payTarget, setPayTarget] = useState<PayPlanTarget | null>(null)
   const [accessTarget, setAccessTarget] = useState<ReceptionistAccessTarget | null>(null)
+  // One settings sheet per person, opened by tapping their name. Keyed by id (not a member
+  // snapshot) so it always reflects the latest `members` row after Pay/Access save.
+  const [settingsTarget, setSettingsTarget] = useState<{ id: string; color: string } | null>(null)
+  const settingsMember = settingsTarget ? members.find((m) => m.id === settingsTarget.id) ?? null : null
 
   // Only the true first load shows the spinner — a reload triggered by
   // TEAM_ROSTER_CHANGED_EVENT (invite sent, phone contact added, etc.) must not blank
@@ -632,98 +634,45 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 </p>
               </div>
             ) : (
-              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-0.5">
+              <div className="max-h-[420px] space-y-2 overflow-y-auto pr-0.5">
                 {members.map((member, i) => {
                   const color = AVATAR_COLORS[i % AVATAR_COLORS.length]
                   const online = isMemberOnline(member)
                   const payout = payoutsById[member.id]
                   return (
-                    <div key={member.id} className="rounded-xl border border-border bg-background/40 px-3 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="relative">
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback className={cn("text-xs font-semibold text-primary-foreground", color)}>
-                                {initials(member.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span
-                              className={cn(
-                                "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
-                                online ? "bg-success" : "bg-muted-foreground"
-                              )}
-                              aria-hidden
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">{member.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">{formatPhoneDisplay(member.phone)}</p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPendingRemove({ kind: "member", id: member.id, name: member.name })
-                            }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Remove ${member.name} from your team`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                          </button>
-                          <Switch
-                            checked={online}
-                            disabled={togglingId === member.id}
-                            onCheckedChange={() => void toggleActive(member)}
-                            aria-label={`${member.name} availability`}
-                          />
-                        </div>
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => setSettingsTarget({ id: member.id, color })}
+                      className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-background/40 px-3 py-2.5 text-left transition-colors hover:bg-muted"
+                    >
+                      <div className="relative shrink-0">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className={cn("text-xs font-semibold text-primary-foreground", color)}>
+                            {initials(member.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
+                            online ? "bg-success" : "bg-muted-foreground"
+                          )}
+                          aria-hidden
+                        />
                       </div>
-                      <div className="mt-2 flex items-end justify-between gap-3">
-                        <div className="flex items-end gap-4">
-                          <PayPlanButton
-                            plan={plans[member.id]}
-                            label={member.name}
-                            onEdit={() =>
-                              setPayTarget({
-                                kind: "receptionist",
-                                id: member.id,
-                                name: member.name,
-                                employmentType: plans[member.id]?.employment_type ?? "UNSPECIFIED",
-                                components: plans[member.id]?.components ?? [],
-                              })
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAccessTarget({
-                                id: member.id,
-                                name: member.name,
-                                capabilities: { ...member.capabilities },
-                              })
-                            }
-                            aria-label={`Console access for ${member.name}`}
-                            className="min-w-0 max-w-full text-left"
-                          >
-                            <span className="block text-micro font-medium uppercase tracking-wide text-muted-foreground">
-                              Access
-                            </span>
-                            <span className="block truncate text-2xs text-foreground underline-offset-2 hover:underline">
-                              {grantedCapabilityLabels(member.capabilities).join(", ") || "Default"}
-                            </span>
-                          </button>
-                        </div>
-                        {payout ? (
-                          <p className="shrink-0 text-right text-2xs text-muted-foreground">
-                            {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
-                            <span className="font-medium text-foreground">
-                              {formatUsd(payout.total_earnings)} earned
-                            </span>
-                          </p>
-                        ) : null}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground underline-offset-2 hover:underline">
+                          {member.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{formatPhoneDisplay(member.phone)}</p>
                       </div>
-                    </div>
+                      {payout ? (
+                        <p className="shrink-0 text-right text-2xs text-muted-foreground">
+                          {formatUsd(payout.total_earnings)}
+                          <span className="block text-muted-foreground">this cycle</span>
+                        </p>
+                      ) : null}
+                    </button>
                   )
                 })}
               </div>
@@ -758,6 +707,41 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           }
           toast({ title: "Access updated" })
         }}
+      />
+
+      <ReceptionistSettingsSheet
+        member={settingsMember}
+        avatarColor={settingsTarget?.color ?? AVATAR_COLORS[0]}
+        online={settingsMember ? isMemberOnline(settingsMember) : false}
+        togglingActive={settingsMember ? togglingId === settingsMember.id : false}
+        plan={settingsMember ? plans[settingsMember.id] : undefined}
+        payout={settingsMember ? payoutsById[settingsMember.id] : undefined}
+        onToggleActive={() => settingsMember && void toggleActive(settingsMember)}
+        onEditPay={() =>
+          settingsMember &&
+          setPayTarget({
+            kind: "receptionist",
+            id: settingsMember.id,
+            name: settingsMember.name,
+            employmentType: plans[settingsMember.id]?.employment_type ?? "UNSPECIFIED",
+            components: plans[settingsMember.id]?.components ?? [],
+          })
+        }
+        onEditAccess={() =>
+          settingsMember &&
+          setAccessTarget({
+            id: settingsMember.id,
+            name: settingsMember.name,
+            capabilities: { ...settingsMember.capabilities },
+          })
+        }
+        onRemove={() => {
+          if (settingsMember) {
+            setPendingRemove({ kind: "member", id: settingsMember.id, name: settingsMember.name })
+          }
+          setSettingsTarget(null)
+        }}
+        onClose={() => setSettingsTarget(null)}
       />
 
       {/* Confirm before removing a phone contact or canceling an invite. */}
