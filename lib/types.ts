@@ -971,6 +971,16 @@ export interface ReceptionistCapabilities {
   full_vehicle_key_catalog: boolean
   /** Job board + tech assignment — the same JobDetailDrawer/TechAssignmentSelect owners use. */
   dispatching: boolean
+  /** Read the owner's customer book: CRM list, profiles, vehicles, service history. */
+  crm_access: boolean
+  /** Edit those customer records — display name, notes, vehicles, lead appointments. */
+  crm_edit: boolean
+  /** Shared calendar: see the schedule and book onto it. */
+  scheduler: boolean
+  /** See invoices, payment records, and pay links. */
+  invoicing: boolean
+  /** Send an invoice, receipt, or pay link to a customer — money leaving the building. */
+  invoicing_send: boolean
 }
 
 /** Payout rollup for one receptionist in the current billing cycle. */

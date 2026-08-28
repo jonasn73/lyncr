@@ -3,7 +3,7 @@
 // Body: { action: "resend" | "revise", channel?, amountCents?, paymentMethod?, ... }
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import {
   getJobRecordInvoiceByIdForOwner,
   jobRecordInvoiceToApi,
@@ -38,8 +38,11 @@ function defaultChannelFromRow(channelsRequested: string): SendRecordInvoiceChan
 type Ctx = { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "invoicing",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   const invoice = await getJobRecordInvoiceByIdForOwner(userId, id)
@@ -49,8 +52,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "invoicing_send",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const { id } = await ctx.params
   const invoice = await getJobRecordInvoiceByIdForOwner(userId, id)

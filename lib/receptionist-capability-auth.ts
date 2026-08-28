@@ -1,18 +1,11 @@
 // Who may act on a capability-gated feature (dispatching, invoicing, …), and whose account
 // those actions belong to.
 //
-// Generalizes lib/intake-write-auth.ts's owner/receptionist resolution: that file only ever
-// distinguishes role (any receptionist can take intake). Some features are opt-in per
-// receptionist on top of the role check — dispatching is the first — so this takes the
-// specific capability required and refuses a receptionist who doesn't have it turned on,
-// while an owner always passes regardless.
+// Narrow view of lib/workspace-actor.ts kept for the routes already written against it:
+// same owner-always / receptionist-only-when-opted-in rule, without the capability map on
+// the result. New routes should call resolveWorkspaceActor directly.
 
-import { getUserIdFromRequest } from "@/lib/auth"
-import { getUser } from "@/lib/db"
-import {
-  getReceptionistPortalContext,
-  isReceptionistPortalUser,
-} from "@/lib/receptionist-portal-auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import type { ReceptionistCapabilities } from "@/lib/types"
 
 export type CapabilityActor = {
@@ -35,31 +28,12 @@ export async function resolveCapabilityActor(
   cookieHeader: string | null,
   capability: keyof ReceptionistCapabilities
 ): Promise<CapabilityActor | null> {
-  const sessionUserId = getUserIdFromRequest(cookieHeader)
-  if (!sessionUserId) return null
-
-  const user = await getUser(sessionUserId)
-  if (!user) return null
-
-  if (isReceptionistPortalUser(user)) {
-    const ctx = await getReceptionistPortalContext(sessionUserId)
-    if (!ctx) return null
-    if (ctx.receptionist.capabilities[capability] !== true) return null
-    return {
-      ownerUserId: ctx.owner_user_id,
-      actingUserId: sessionUserId,
-      actorRole: "receptionist",
-      receptionistId: ctx.receptionist.id,
-    }
-  }
-
-  // Field techs and any future role are refused rather than defaulting to owner.
-  if (user.account_role !== "owner") return null
-
+  const actor = await resolveWorkspaceActor(cookieHeader, { capability })
+  if (!actor) return null
   return {
-    ownerUserId: sessionUserId,
-    actingUserId: sessionUserId,
-    actorRole: "owner",
-    receptionistId: null,
+    ownerUserId: actor.ownerUserId,
+    actingUserId: actor.actingUserId,
+    actorRole: actor.actorRole,
+    receptionistId: actor.receptionistId,
   }
 }

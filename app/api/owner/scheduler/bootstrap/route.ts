@@ -1,7 +1,7 @@
 // GET /api/owner/scheduler/bootstrap — calendar events + blockouts + tech roster + line tags
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { getPhoneNumbers, listFieldTechnicians, listOwnerSchedulerEvents } from "@/lib/db"
 import { listScheduleBlockouts } from "@/lib/schedule-blockouts-db"
 import { monthRangeUtc } from "@/lib/scheduler-utils"
@@ -9,8 +9,11 @@ import { monthRangeUtc } from "@/lib/scheduler-utils"
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const actor = await resolveWorkspaceActor(req.headers.get("cookie"), {
+    capability: "scheduler",
+  })
+  if (!actor) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  const userId = actor.ownerUserId
 
   const monthParam = req.nextUrl.searchParams.get("month")
   const organizationId = req.nextUrl.searchParams.get("organization_id")?.trim() || null

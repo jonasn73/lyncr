@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from "next/server"
-import { getUserIdFromRequest } from "@/lib/auth"
+import { resolveWorkspaceActor } from "@/lib/workspace-actor"
 import { resolveIntakeWriteActor } from "@/lib/intake-write-auth"
 import {
   listCustomersForUser,
@@ -17,10 +17,16 @@ export const runtime = "nodejs"
 export const preferredRegion = "iad1"
 
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req.headers.get("cookie"))
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const q = req.nextUrl.searchParams.get("q") || ""
   const phone = req.nextUrl.searchParams.get("phone") || ""
+  // One phone lookup is intake — "who is calling?" — which every receptionist does.
+  // Browsing the list is the customer book, which the owner has to opt her into.
+  const actor = await resolveWorkspaceActor(
+    req.headers.get("cookie"),
+    phone.trim() ? {} : { capability: "crm_access" }
+  )
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
+  const q = req.nextUrl.searchParams.get("q") || ""
   const limit = Number(req.nextUrl.searchParams.get("limit") || "80")
   try {
     if (phone.trim()) {
