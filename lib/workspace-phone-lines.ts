@@ -32,7 +32,7 @@ export function filterPhoneLinesForOrganization(
 
 /**
  * Activity history for this shop — every DID, not only the painted Main Line.
- * A one-line chrome seed (Amber) must not hide sister-line calls.
+ * A one-line chrome seed must not hide sister-line calls.
  */
 export function scopeCallsToShopLines<T extends { targetLineE164: string }>(
   calls: T[],

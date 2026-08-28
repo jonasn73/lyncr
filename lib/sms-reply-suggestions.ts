@@ -1,7 +1,7 @@
 // Rule-based SMS reply chips + drafts for the Latest “Needs reply” sheet.
 // Used by the UI immediately; the suggest-reply API can polish with OpenAI.
 
-import { formatCustomerNeedPhrase } from "@/lib/amber-coworker-commands"
+import { formatCustomerNeedPhrase } from "@/lib/customer-sms-phrases"
 
 /** What the customer’s last inbound message seems to be about. */
 export type SmsReplyIntent =

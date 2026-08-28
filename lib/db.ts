@@ -3089,6 +3089,32 @@ export async function getUserShopOrigin(userId: string): Promise<ShopOrigin | nu
  * account, so failing open leaves them with what they pay for, while the staff layer below
  * still defaults to denied. A database blip must not lock an owner out of their business.
  */
+/**
+ * Active DIDs on this account that must never be used as a customer-facing From.
+ *
+ * Was listAmberControlE164sForOwner. Amber is gone but its DID is not: the number is still
+ * provisioned, and a customer text going out from it would come from a number no customer
+ * recognises. Tolerates the column being absent on older databases.
+ */
+export async function listControlLineE164sForOwner(userId: string): Promise<string[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT p.number
+      FROM phone_numbers p
+      WHERE p.user_id = ${userId}::uuid
+        AND p.is_amber_control = true
+        AND p.status = 'active'
+    `
+    return rows
+      .map((r) => normalizePhoneNumberE164(String((r as { number?: string }).number ?? "")))
+      .filter(Boolean)
+  } catch (e) {
+    if (pgErrorCode(e) === "42703" || pgErrorCode(e) === "42P01") return []
+    throw e
+  }
+}
+
 export async function getPlatformAccountGrantsRaw(userId: string): Promise<unknown> {
   const sql = getSql()
   try {

@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { isAmberControlLine } from "@/lib/amber-control-line"
+import { isAmberControlLine } from "@/lib/control-line"
 import { displayUserFacingMessage } from "@/lib/porting-display"
 import { fetchOnboardingProfile } from "@/lib/onboarding-profile-client"
 import { formatBillingCycleDate } from "@/lib/format-billing-cycle"

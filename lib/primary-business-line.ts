@@ -137,17 +137,17 @@ export async function listActiveLinesFor10DlcAssignment(
 ): Promise<string[]> {
   const orgId = organizationId ?? null
   const out: string[] = []
-  // Never use Amber control DIDs as customer SMS From.
-  let amberSkip = new Set<string>()
+  // Never use a control DID as customer SMS From.
+  let controlSkip = new Set<string>()
   try {
-    const { listAmberControlE164sForOwner } = await import("@/lib/amber-db")
-    amberSkip = new Set(await listAmberControlE164sForOwner(ownerUserId))
+    const { listControlLineE164sForOwner } = await import("@/lib/db")
+    controlSkip = new Set(await listControlLineE164sForOwner(ownerUserId))
   } catch {
-    amberSkip = new Set()
+    controlSkip = new Set()
   }
   const push = (raw: string | null | undefined) => {
     const e164 = raw?.trim() ? normalizePhoneNumberE164(raw) : ""
-    if (e164 && !out.includes(e164) && !amberSkip.has(e164)) out.push(e164)
+    if (e164 && !out.includes(e164) && !controlSkip.has(e164)) out.push(e164)
   }
 
   if (!orgId || orgId.startsWith("legacy-")) {
