@@ -139,7 +139,7 @@ export function SendBookLinkSheet({
             <Link2 className="h-4 w-4 text-emerald-400" aria-hidden />
             Send book link
           </SheetTitle>
-          <SheetDescription className="text-sm text-zinc-400">
+          <SheetDescription className="text-sm text-muted-foreground">
             Text {callerName ? `${callerName} · ` : ""}
             {phone} a short form
             {feeMode !== "none" ? " + pay link" : ""}.
@@ -147,7 +147,7 @@ export function SendBookLinkSheet({
         </SheetHeader>
 
         <div className="mt-4 space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Fee
           </p>
           {(
@@ -177,7 +177,7 @@ export function SendBookLinkSheet({
               )}
             >
               <span className="text-sm font-semibold text-zinc-100">{opt.label}</span>
-              <span className="text-[11px] text-zinc-500">{opt.hint}</span>
+              <span className="text-[11px] text-muted-foreground">{opt.hint}</span>
             </button>
           ))}
 

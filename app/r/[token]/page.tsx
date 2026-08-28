@@ -70,7 +70,7 @@ export default function PublicReceiptPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4 text-slate-500">
+      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4 text-muted-foreground">
         Loading invoice…
       </main>
     )
@@ -82,13 +82,13 @@ export default function PublicReceiptPage() {
         <button
           type="button"
           onClick={exitReceiptPage}
-          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-muted-foreground shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
           aria-label="Close"
         >
           <X className="h-5 w-5" aria-hidden />
         </button>
         <p className="text-lg font-semibold text-slate-800">Invoice unavailable</p>
-        <p className="mt-2 max-w-sm text-sm text-slate-500">
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           {error || "This link may be invalid or expired."}
         </p>
         <button
@@ -98,7 +98,7 @@ export default function PublicReceiptPage() {
         >
           Done
         </button>
-        <p className="mt-3 text-xs text-slate-400">You can close this tab</p>
+        <p className="mt-3 text-xs text-muted-foreground">You can close this tab</p>
       </main>
     )
   }
@@ -137,7 +137,7 @@ export default function PublicReceiptPage() {
           >
             Done
           </button>
-          <p className="text-center text-[11px] text-slate-400">
+          <p className="text-center text-[11px] text-muted-foreground">
             You can close this tab · Sent by {invoice.businessName} · Powered by Lyncr
           </p>
         </div>

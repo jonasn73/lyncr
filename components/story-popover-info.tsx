@@ -31,7 +31,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
           className={cn(
             "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
             op
-              ? "text-slate-400 hover:bg-violet-500/15 hover:text-violet-200"
+              ? "text-muted-foreground hover:bg-violet-500/15 hover:text-violet-200"
               : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
             triggerClassName
           )}
@@ -66,7 +66,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
           >
             {story.eyebrow}
           </p>
-          <p className={cn("mt-0.5 text-[10px] leading-snug", op ? "text-slate-400" : "text-muted-foreground")}>
+          <p className={cn("mt-0.5 text-[10px] leading-snug", op ? "text-muted-foreground" : "text-muted-foreground")}>
             {story.storyline}
           </p>
           <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-slate-50" : "text-foreground")}>
@@ -77,7 +77,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
           className={cn(
             "space-y-2 px-3 py-3 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
             op
-              ? "text-slate-400 [&_p]:text-slate-400 [&_strong]:text-slate-200 [&_code]:bg-slate-900 [&_code]:text-violet-200"
+              ? "text-muted-foreground [&_p]:text-muted-foreground [&_strong]:text-slate-200 [&_code]:bg-slate-900 [&_code]:text-violet-200"
               : "text-muted-foreground [&_code]:bg-muted"
           )}
         >

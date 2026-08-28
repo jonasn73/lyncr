@@ -1353,7 +1353,7 @@ function SchedulerWorkspaceViewInner({
       <WorkspacePage>
         <WorkspacePageHeader eyebrow="Dispatch" title="Scheduler" />
 
-        <p className="mb-4 hidden text-xs text-zinc-500 md:block">
+        <p className="mb-4 hidden text-xs text-muted-foreground md:block">
           {intakeProfile === "locksmith"
             ? "Vehicle cascade, VIN lookup, and validated job addresses."
             : intakeProfile === "detailing"
@@ -1419,7 +1419,7 @@ function SchedulerWorkspaceViewInner({
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
                 <span>Booking &amp; blockouts</span>
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                   aria-hidden
                 />
               </summary>
@@ -1473,7 +1473,7 @@ function SchedulerWorkspaceViewInner({
                   format={(n) =>
                     `${n} active job${n === 1 ? "" : "s"} ${pipelineDayLabel}`
                   }
-                  className="min-h-[1rem] truncate text-xs text-zinc-500"
+                  className="min-h-[1rem] truncate text-xs text-muted-foreground"
                 />
               </div>
               <div className="max-h-[min(420px,50vh)] min-h-[4.5rem] overflow-y-auto bg-card/40 lg:max-h-[min(160px,22vh)]">
@@ -1508,7 +1508,7 @@ function SchedulerWorkspaceViewInner({
                       {/* Label only — live date/time already sits in the status card above. */}
                       <span>Calendar</span>
                       <ChevronDown
-                        className="h-4 w-4 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                         aria-hidden
                       />
                     </summary>
@@ -1526,7 +1526,7 @@ function SchedulerWorkspaceViewInner({
                         }}
                         className="mx-auto"
                       />
-                      <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-zinc-500">
+                      <p className="mt-1 min-h-[1rem] truncate text-center text-xs text-muted-foreground">
                         {calendarSubtitlePending
                           ? "\u00a0"
                           : `${displayEvents.length} scheduled this month${
@@ -1550,14 +1550,14 @@ function SchedulerWorkspaceViewInner({
                             assignedDayJobCount === 1 ? "" : "s"
                           } on lanes`
                         }
-                        className="min-h-[1rem] truncate text-xs text-zinc-500"
+                        className="min-h-[1rem] truncate text-xs text-muted-foreground"
                       />
                     </div>
                     <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, -1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Previous day"
                       >
                         <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -1565,14 +1565,14 @@ function SchedulerWorkspaceViewInner({
                       <button
                         type="button"
                         onClick={() => setSelectedDay(() => new Date())}
-                        className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                       >
                         Today
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedDay((day) => shiftCalendarDay(day, 1))}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-zinc-400 hover:bg-muted/50 hover:text-foreground"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         aria-label="Next day"
                       >
                         <ChevronRight className="h-4 w-4" aria-hidden />

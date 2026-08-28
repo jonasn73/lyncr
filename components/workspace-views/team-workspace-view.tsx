@@ -135,7 +135,7 @@ function NetworkInstructionsPanel() {
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Live Instruction Script</h2>
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
               Dispatch notes, active pricing scripts, and immediate alerts for the live operators on your
               line — business hours, how to greet callers, and what details to collect on every call.
             </p>
@@ -162,7 +162,7 @@ function NetworkInstructionsPanel() {
           "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
           "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
         }
-        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
       />
 
       {error ? (
@@ -172,7 +172,7 @@ function NetworkInstructionsPanel() {
       ) : null}
 
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[11px] text-zinc-600">
+        <span className="text-[11px] text-muted-foreground">
           {!loaded ? "Loading…" : `${text.length.toLocaleString()} characters`}
         </span>
         <div className="flex items-center gap-3">
@@ -465,7 +465,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           <span className="font-medium text-foreground">App invites</span> let them create a receptionist login for your
           business.
         </p>
-        <p className="mt-2 hidden text-xs text-zinc-500 md:block">
+        <p className="mt-2 hidden text-xs text-muted-foreground md:block">
           Adding someone or flipping Available does not change Who answers. Open Lines → Who answers →{" "}
           <span className="font-medium text-foreground">Team receptionist</span> and pick them (or use Custom
           Routing for any one-off phone number).
@@ -487,7 +487,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <button
               type="button"
               onClick={() => setShowRoutingTip(false)}
-              className="text-xs text-zinc-400 hover:text-zinc-200"
+              className="text-xs text-muted-foreground hover:text-zinc-200"
             >
               Dismiss
             </button>
@@ -512,7 +512,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               </span>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-foreground sm:text-base">People who can answer</h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                   Available means they can take calls when you pick them in Who answers — it does not select them.
                 </p>
               </div>
@@ -527,7 +527,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           </div>
 
           {billingCycleLabel ? (
-            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] text-zinc-500">
+            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] text-muted-foreground">
               Payout totals · billing cycle {billingCycleLabel}
             </div>
           ) : null}
@@ -543,7 +543,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 const busy = inviteBusyId === inv.id
                 return (
                   <div key={inv.id} className="space-y-2 border-t border-amber-500/10 pt-2 first:border-t-0 first:pt-0">
-                    <p className="min-w-0 truncate text-xs text-zinc-400">
+                    <p className="min-w-0 truncate text-xs text-muted-foreground">
                       {inv.first_name || "Invite"} · {inv.email || inv.phone || "link sent"}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -587,7 +587,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
                         }
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
                         aria-label={`Cancel invite for ${inviteLabel}`}
                       >
                         <Trash2 className="h-3 w-3" aria-hidden />
@@ -612,16 +612,16 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               </p>
             ) : null}
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-500">
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" /> Loading…
               </div>
             ) : members.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-600">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-muted-foreground">
                   <Users className="h-5 w-5" aria-hidden />
                 </span>
-                <p className="text-sm text-zinc-500">No one added yet.</p>
-                <p className="max-w-[16rem] text-xs text-zinc-600">
+                <p className="text-sm text-muted-foreground">No one added yet.</p>
+                <p className="max-w-[16rem] text-xs text-muted-foreground">
                   Tap Add to save a phone contact or send an invite link.
                 </p>
               </div>
@@ -651,7 +651,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-foreground">{member.name}</p>
-                            <p className="truncate text-xs text-zinc-500">{formatPhoneDisplay(member.phone)}</p>
+                            <p className="truncate text-xs text-muted-foreground">{formatPhoneDisplay(member.phone)}</p>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
@@ -660,7 +660,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             onClick={() =>
                               setPendingRemove({ kind: "member", id: member.id, name: member.name })
                             }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-500 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${member.name} from your team`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -688,7 +688,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           }
                         />
                         {payout ? (
-                          <p className="shrink-0 text-right text-[11px] text-zinc-400">
+                          <p className="shrink-0 text-right text-[11px] text-muted-foreground">
                             {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
                             <span className="font-medium text-zinc-200">
                               {formatUsd(payout.total_earnings)} earned
@@ -731,7 +731,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                 ? `Cancel invite for ${pendingRemove.name}?`
                 : `Remove ${pendingRemove?.name ?? "this person"} from your team?`}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-muted-foreground">
               {pendingRemove?.kind === "invite"
                 ? "Their invite link will stop working. You can send a new invite later."
                 : "They will no longer appear under People who can answer. You can add them again anytime."}

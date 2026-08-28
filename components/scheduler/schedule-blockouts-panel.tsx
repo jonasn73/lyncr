@@ -52,7 +52,7 @@ export function ScheduleBlockoutsPanel({
       </div>
 
       {dayRows.length === 0 ? (
-        <p className="mt-1.5 text-[11px] text-zinc-500">None today</p>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">None today</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {dayRows.map((b) => (

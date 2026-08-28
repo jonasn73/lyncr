@@ -256,7 +256,7 @@ function LiveChatQueue() {
       <Card className="border-slate-800 bg-slate-900/50">
         <CardHeader>
           <CardTitle className="text-base text-slate-100">Live chat</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardDescription className="hidden text-muted-foreground md:block">
             In-app conversations from Help → Chat with Lyncr Support. Newest activity first.
           </CardDescription>
         </CardHeader>
@@ -267,7 +267,7 @@ function LiveChatQueue() {
             </div>
           ) : null}
           {!loading && threads.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               No conversations yet. When a business owner messages from Help, it shows here.
             </p>
           ) : null}
@@ -289,13 +289,13 @@ function LiveChatQueue() {
                   <span className={cn("text-sm", unread ? "font-semibold text-slate-50" : "text-slate-200")}>
                     {row.business_name}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-muted-foreground">
                     {row.last_message_at
                       ? formatChatTime(row.last_message_at)
                       : formatChatTime(row.created_at)}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {row.owner_name} · {row.owner_email} · {row.status}
                   {unread ? (
                     <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
@@ -304,7 +304,7 @@ function LiveChatQueue() {
                   ) : null}
                 </p>
                 {row.last_message_preview ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{row.last_message_preview}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.last_message_preview}</p>
                 ) : null}
               </button>
             )
@@ -332,7 +332,7 @@ function LiveChatQueue() {
             <div className="flex items-start justify-between gap-2 pr-8">
               <div className="min-w-0">
                 <SheetTitle className="text-slate-50">Support chat</SheetTitle>
-                <p className="text-xs text-slate-500">{ownerLabel}</p>
+                <p className="text-xs text-muted-foreground">{ownerLabel}</p>
               </div>
               {activeUserId ? (
                 <Button
@@ -378,7 +378,7 @@ function LiveChatQueue() {
                     className={cn(
                       "max-w-[90%] rounded-2xl px-3 py-2 text-sm",
                       isSystem &&
-                        "max-w-[95%] border border-slate-700 bg-slate-900/80 text-center text-xs text-slate-400",
+                        "max-w-[95%] border border-slate-700 bg-slate-900/80 text-center text-xs text-muted-foreground",
                       isAdmin && "bg-violet-600 text-white",
                       !isAdmin && !isSystem && "border border-slate-700 bg-slate-900 text-slate-100"
                     )}
@@ -595,7 +595,7 @@ function FeedbackQueue() {
       <Card className="border-slate-800 bg-slate-900/50">
         <CardHeader>
           <CardTitle className="text-base text-slate-100">Feedback queue</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardDescription className="hidden text-muted-foreground md:block">
             In-app Help submissions (feedback_submissions). Newest first.
           </CardDescription>
         </CardHeader>
@@ -606,7 +606,7 @@ function FeedbackQueue() {
             </div>
           ) : null}
           {!loading && feedback.length === 0 ? (
-            <p className="text-sm text-slate-400">No feedback yet.</p>
+            <p className="text-sm text-muted-foreground">No feedback yet.</p>
           ) : null}
           {feedback.map((row) => (
             <button
@@ -616,14 +616,14 @@ function FeedbackQueue() {
               className="w-full rounded-xl border border-slate-700/80 bg-slate-950/40 p-4 text-left transition-colors hover:border-violet-500/40 hover:bg-slate-900/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-medium uppercase text-slate-500">{row.category}</span>
+                <span className="text-xs font-medium uppercase text-muted-foreground">{row.category}</span>
                 <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-300">
                   {row.status}
                 </span>
               </div>
               <p className="mt-2 text-sm font-medium text-slate-100">{row.subject}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-slate-400">{row.body}</p>
-              <p className="mt-2 text-xs text-slate-500">{new Date(row.created_at).toLocaleString()}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.body}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</p>
             </button>
           ))}
         </CardContent>
@@ -638,13 +638,13 @@ function FeedbackQueue() {
             <>
               <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
                 <SheetTitle className="text-slate-50">{sheet.subject}</SheetTitle>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {sheet.category} · {new Date(sheet.created_at).toLocaleString()}
                 </p>
               </SheetHeader>
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-medium uppercase text-slate-500">Status</span>
+                  <span className="text-[10px] font-medium uppercase text-muted-foreground">Status</span>
                   <Select
                     value={sheet.status}
                     onValueChange={(v) => void setStatus(sheet.id, v as FeedbackStatus)}
@@ -771,7 +771,7 @@ function EmailInbox() {
       <Card className="border-slate-800 bg-slate-900/50">
         <CardHeader>
           <CardTitle className="text-base text-slate-100">support@lyncr.app</CardTitle>
-          <CardDescription className="hidden text-slate-400 md:block">
+          <CardDescription className="hidden text-muted-foreground md:block">
             Inbound via Zoho forward → Resend. Setup: ADMIN-SUPPORT-INBOX.md + Neon migration 127.
           </CardDescription>
         </CardHeader>
@@ -782,7 +782,7 @@ function EmailInbox() {
             </div>
           ) : null}
           {!loading && emails.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               No emails yet. After Zoho forwarding and Resend webhook are set up, messages to
               support@lyncr.app show here.
             </p>
@@ -805,7 +805,7 @@ function EmailInbox() {
                   <span className={cn("text-sm", unread ? "font-semibold text-slate-50" : "text-slate-200")}>
                     {row.from_name ? `${row.from_name} · ${row.from_email}` : row.from_email}
                   </span>
-                  <span className="text-xs text-slate-500">{new Date(row.received_at).toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(row.received_at).toLocaleString()}</span>
                 </div>
                 <p className={cn("mt-1 text-sm", unread ? "font-medium text-slate-100" : "text-slate-300")}>
                   {row.subject || "(no subject)"}
@@ -816,9 +816,9 @@ function EmailInbox() {
                   ) : null}
                 </p>
                 {row.text_preview ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-500">{row.text_preview}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.text_preview}</p>
                 ) : null}
-                <p className="mt-2 text-xs text-slate-600">To {displayToAddress(row)}</p>
+                <p className="mt-2 text-xs text-muted-foreground">To {displayToAddress(row)}</p>
               </button>
             )
           })}
@@ -847,12 +847,12 @@ function EmailInbox() {
             <>
               <SheetHeader className="border-b border-slate-800 px-4 py-3 text-left">
                 <SheetTitle className="text-slate-50">{detail.subject || "(no subject)"}</SheetTitle>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   From {detail.from_name ? `${detail.from_name} <${detail.from_email}>` : detail.from_email}
                   {" · "}
                   {new Date(detail.received_at).toLocaleString()}
                 </p>
-                <p className="text-xs text-slate-600">To {displayToAddress(detail)}</p>
+                <p className="text-xs text-muted-foreground">To {displayToAddress(detail)}</p>
               </SheetHeader>
               <div className="max-h-[min(70vh,520px)] space-y-3 overflow-y-auto px-4 py-3">
                 {detail.text_body ? (
@@ -866,9 +866,9 @@ function EmailInbox() {
                     srcDoc={detail.html_body}
                   />
                 ) : (
-                  <p className="text-sm text-slate-500">No body content stored for this message.</p>
+                  <p className="text-sm text-muted-foreground">No body content stored for this message.</p>
                 )}
-                <p className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-500">
+                <p className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-muted-foreground">
                   Reply coming soon — for now, reply from Zoho if you keep a copy there.
                 </p>
               </div>
@@ -890,7 +890,7 @@ export function AdminSupportBoard() {
     <div className="mx-auto max-w-3xl space-y-4 p-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:p-6">
       <div>
         <h1 className="text-xl font-bold text-slate-50">Support</h1>
-        <p className="mt-1 hidden text-sm text-slate-500 md:block">
+        <p className="mt-1 hidden text-sm text-muted-foreground md:block">
           Live chat, emails to support@lyncr.app, and in-app feedback. Tap a row for details.
         </p>
       </div>

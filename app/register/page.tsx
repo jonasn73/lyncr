@@ -124,16 +124,16 @@ function RegisterForm() {
   }
 
   const inputClass =
-    "w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+    "w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-2xl">
         <h1 className="text-xl font-semibold text-slate-100">Set up your receptionist account</h1>
-        <p className="mt-1 text-sm text-slate-400">Complete your profile to start answering calls on Lyncr.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Complete your profile to start answering calls on Lyncr.</p>
 
         {validation.status === "loading" && (
-          <div className="mt-6 flex items-center gap-2 text-sm text-slate-400">
+          <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Verifying your invitation…
           </div>
         )}
@@ -151,7 +151,7 @@ function RegisterForm() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-300">Email</label>
                 <input value={validation.invite.target} readOnly className={`${inputClass} cursor-not-allowed opacity-70`} />
-                <p className="mt-1 text-xs text-slate-500">You&apos;ll sign in with this email.</p>
+                <p className="mt-1 text-xs text-muted-foreground">You&apos;ll sign in with this email.</p>
               </div>
             )}
 
@@ -179,7 +179,7 @@ function RegisterForm() {
                 placeholder="(555) 123-4567"
                 className={`${inputClass} ${isSms ? "cursor-not-allowed opacity-70" : ""}`}
               />
-              {isSms && <p className="mt-1 text-xs text-slate-500">This is the number your invite was sent to.</p>}
+              {isSms && <p className="mt-1 text-xs text-muted-foreground">This is the number your invite was sent to.</p>}
             </div>
 
             <div>
@@ -205,7 +205,7 @@ function RegisterForm() {
                       ? "Your employment terms"
                       : "Your contractor agreement"}
                   </h2>
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     From {agreement.business_name}. Read this before you finish signing up.
                   </p>
                 </div>
@@ -289,7 +289,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         </div>
       }

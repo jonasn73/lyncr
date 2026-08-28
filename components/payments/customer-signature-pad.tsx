@@ -183,7 +183,7 @@ const SignatureCanvas = forwardRef<CustomerSignaturePadHandle, PadProps>(
           }}
         />
         {!hasInk ? (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-base text-slate-400 sm:text-lg">
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-base text-muted-foreground sm:text-lg">
             Sign here
           </p>
         ) : null}
@@ -229,14 +229,14 @@ function FullscreenSignatureOverlay({
           <p id={titleId} className="text-base font-bold">
             Customer signature
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Rotate sideways to sign, tap Done, then hand the phone back.
           </p>
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-zinc-900 hover:text-white"
           aria-label="Close large signature"
         >
           <X className="h-5 w-5" aria-hidden />
@@ -294,7 +294,7 @@ export function CustomerSignaturePad({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {optional ? "Customer signature (optional)" : "Customer signature"}
         </span>
         <div className="flex items-center gap-1">
@@ -317,7 +317,7 @@ export function CustomerSignaturePad({
               onChange(null)
             }}
             disabled={!hasInk && !previewUrl}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-400 hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden />
             Clear

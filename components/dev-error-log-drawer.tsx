@@ -212,7 +212,7 @@ export function DevErrorLogDrawer() {
               <Bug className="h-4 w-4 text-rose-400" aria-hidden />
               Dev error log
             </SheetTitle>
-            <SheetDescription className="text-zinc-400">
+            <SheetDescription className="text-muted-foreground">
               Live window errors, failed loads, and unhandled promise rejections while you click around
               or switch workspaces. Development only.
             </SheetDescription>
@@ -232,7 +232,7 @@ export function DevErrorLogDrawer() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-zinc-400"
+                className="text-muted-foreground"
                 onClick={() => setOpen(false)}
               >
                 <X className="mr-1.5 h-3.5 w-3.5" aria-hidden />
@@ -243,7 +243,7 @@ export function DevErrorLogDrawer() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {count === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-zinc-500">
+              <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-muted-foreground">
                 No client errors yet. Switch workspaces or click through the UI — failures will land
                 here with file and line when available.
               </p>
@@ -263,7 +263,7 @@ export function DevErrorLogDrawer() {
                       >
                         {kindLabel(entry.kind)}
                       </span>
-                      <time className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                      <time className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
                         {new Date(entry.at).toLocaleTimeString()}
                       </time>
                     </div>
@@ -275,19 +275,19 @@ export function DevErrorLogDrawer() {
                         {entry.source}
                       </p>
                     ) : (
-                      <p className="mt-2 text-[11px] text-zinc-600">No file:line parsed from stack</p>
+                      <p className="mt-2 text-[11px] text-muted-foreground">No file:line parsed from stack</p>
                     )}
                     {entry.componentStack ? (
-                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-zinc-400">
+                      <pre className="mt-2 max-h-28 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
                         {entry.componentStack.trim()}
                       </pre>
                     ) : null}
                     {entry.stack ? (
                       <details className="mt-2">
-                        <summary className="cursor-pointer text-[11px] text-zinc-500 hover:text-zinc-300">
+                        <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-zinc-300">
                           Stack trace
                         </summary>
-                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-zinc-500">
+                        <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
                           {entry.stack}
                         </pre>
                       </details>
@@ -296,7 +296,7 @@ export function DevErrorLogDrawer() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="mt-2 h-7 px-2 text-xs text-zinc-400"
+                      className="mt-2 h-7 px-2 text-xs text-muted-foreground"
                       onClick={() => void copyEntry(entry)}
                     >
                       <Copy className="mr-1 h-3 w-3" aria-hidden />

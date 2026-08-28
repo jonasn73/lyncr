@@ -73,10 +73,10 @@ export function ReceptionistAvailabilityToggle({
             value={current ? "On" : "Off"}
             className={cn(
               "text-xs font-semibold uppercase tracking-wide",
-              current ? "text-emerald-300" : "text-zinc-500"
+              current ? "text-emerald-300" : "text-muted-foreground"
             )}
           />
-          {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
           <Switch
             checked={current}
             disabled={saving}
@@ -100,11 +100,11 @@ export function ReceptionistAvailabilityToggle({
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Your status</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Your status</p>
           <p className="mt-1 text-lg font-semibold text-foreground">
             {current ? "Available" : "Unavailable"}
           </p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             {current ? (
               <>
                 You&apos;re eligible for <span className="font-medium text-zinc-200">{businessName}</span>{" "}
@@ -120,7 +120,7 @@ export function ReceptionistAvailabilityToggle({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin text-zinc-500" aria-hidden /> : null}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden /> : null}
           <Switch
             checked={current}
             disabled={saving}

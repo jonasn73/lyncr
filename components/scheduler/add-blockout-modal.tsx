@@ -14,7 +14,7 @@ import {
 import type { ScheduleBlockout } from "@/lib/types"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
 type AddBlockoutModalProps = {
   open: boolean
@@ -109,7 +109,7 @@ function AddBlockoutModalForm({
             type="button"
             onClick={onClose}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-900 hover:text-foreground",
+              "inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-zinc-900 hover:text-foreground",
               MOBILE_TAP_TARGET
             )}
             aria-label="Close"
@@ -135,7 +135,7 @@ function AddBlockoutModalForm({
           <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Block Out Entire Day</p>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-muted-foreground">
                 When on, no booking or IVR slots are offered for this date.
               </p>
             </div>

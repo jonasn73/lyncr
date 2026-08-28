@@ -387,7 +387,7 @@ export function CustomerSmsComposer({
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={draftPlaceholder}
-          className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-muted-foreground focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
         />
         <Button
           type="button"

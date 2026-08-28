@@ -49,7 +49,7 @@ export function StorySheetHeader({
       <p
         className={cn(
           "mt-0.5 text-[11px] leading-snug",
-          variant === "member" ? "text-muted-foreground" : "text-slate-400"
+          variant === "member" ? "text-muted-foreground" : "text-muted-foreground"
         )}
       >
         {storyline}
@@ -85,7 +85,7 @@ export function StorySheetHeader({
         <SheetDescription
           className={cn(
             "mt-2 text-left text-xs leading-relaxed",
-            variant === "member" ? "text-muted-foreground" : "text-slate-400"
+            variant === "member" ? "text-muted-foreground" : "text-muted-foreground"
           )}
         >
           {description}

@@ -33,7 +33,7 @@ export function DrawerAutoGrowTextarea({
 }
 
 export const routingFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500/40"
 
 export function DrawerStepHeader({
   step,
@@ -60,9 +60,9 @@ export function DrawerStepHeader({
         {title}
       </h2>
       {subtitle.trim() ? (
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-zinc-500">{subtitle}</p>
+        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
       ) : null}
-      {lineLabel ? <p className="mt-2 text-[11px] text-zinc-600">{lineLabel}</p> : null}
+      {lineLabel ? <p className="mt-2 text-[11px] text-muted-foreground">{lineLabel}</p> : null}
     </header>
   )
 }
@@ -104,7 +104,7 @@ export function DrawerStickyFooter({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-800 bg-transparent px-4 py-3 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:border-zinc-600 hover:bg-zinc-900/50 hover:text-foreground"
+          className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-800 bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-zinc-600 hover:bg-zinc-900/50 hover:text-foreground"
         >
           Cancel
         </button>

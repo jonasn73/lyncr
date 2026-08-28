@@ -94,14 +94,14 @@ export function InviteModal() {
             <div className="mb-4 flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-100">Invite a receptionist</h2>
-                <p className="mt-0.5 text-sm text-slate-400">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   They&apos;ll get a link to set up their own account — no manual entry.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={close}
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-800 hover:text-slate-200"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
@@ -122,7 +122,7 @@ export function InviteModal() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-400">Registration link</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Registration link</label>
                   <input
                     readOnly
                     value={success.register_url}
@@ -189,7 +189,7 @@ export function InviteModal() {
                     }}
                     placeholder={isEmail ? "jordan@example.com" : "(555) 123-4567"}
                     autoFocus
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
 

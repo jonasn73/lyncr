@@ -1174,7 +1174,7 @@ export function TechPaymentModal(props: {
           </div>
           <Loader2 className="mb-4 h-6 w-6 animate-spin text-indigo-300" aria-hidden />
           <p className="text-lg font-semibold text-white">Hold card to back of phone…</p>
-          <p className="mt-2 max-w-xs text-sm text-zinc-400">
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
             Keep the contactless card or wallet still until the charge completes.
           </p>
           <p className="mt-4 font-mono text-xl font-bold text-emerald-300">{fmt(chargeWithTipCents())}</p>
@@ -1232,7 +1232,7 @@ export function TechPaymentModal(props: {
             {postPayStep !== "receipt" &&
             postPayStep !== "link_sent" &&
             postPayStep !== "finish_job" ? (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 {postPayStep === "tip_sign"
                   ? tipLastSheetSubtitle(fmt(paidTotalCents))
                   : postPayStep === "card_entry"
@@ -1242,14 +1242,14 @@ export function TechPaymentModal(props: {
                       : props.job.customer_name || props.job.customer_phone || "Customer"}
               </p>
             ) : postPayStep === "finish_job" ? (
-              <p className="text-xs text-zinc-500">Paid — one tap to close it out</p>
+              <p className="text-xs text-muted-foreground">Paid — one tap to close it out</p>
             ) : null}
           </div>
           <button
             type="button"
             onClick={props.onClose}
             disabled={busy || tapListening || slipBusy || finishBusy}
-            className="rounded-lg p-2 text-zinc-400 hover:text-white disabled:opacity-40"
+            className="rounded-lg p-2 text-muted-foreground hover:text-white disabled:opacity-40"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -1289,7 +1289,7 @@ export function TechPaymentModal(props: {
                 />
               </Elements>
             ) : (
-              <p className="text-sm text-zinc-400">Preparing card form…</p>
+              <p className="text-sm text-muted-foreground">Preparing card form…</p>
             )}
           </div>
         ) : postPayStep === "tip_sign" ? (
@@ -1308,7 +1308,7 @@ export function TechPaymentModal(props: {
                 setError(null)
               }}
               disabled={busy || tapListening}
-              className="inline-flex items-center gap-2 self-start text-[11px] font-semibold text-slate-400 hover:text-slate-200 disabled:opacity-40"
+              className="inline-flex items-center gap-2 self-start text-[11px] font-semibold text-muted-foreground hover:text-slate-200 disabled:opacity-40"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back to amount
@@ -1340,7 +1340,7 @@ export function TechPaymentModal(props: {
               </p>
             ) : null}
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Add a tip
               </p>
               <div className="mt-1.5 grid grid-cols-4 gap-2">
@@ -1360,7 +1360,7 @@ export function TechPaymentModal(props: {
                       "rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === opt.id
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                        : "border-zinc-700 bg-zinc-900 text-muted-foreground"
                     )}
                   >
                     {opt.label}
@@ -1379,14 +1379,14 @@ export function TechPaymentModal(props: {
                   "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                   tipChoice === "custom"
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                    : "border-zinc-700 bg-zinc-900 text-slate-400"
+                    : "border-zinc-700 bg-zinc-900 text-muted-foreground"
                 )}
               >
                 Custom tip
               </button>
               {tipChoice === "custom" ? (
                 <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                  <span className="text-sm font-semibold text-slate-400">$</span>
+                  <span className="text-sm font-semibold text-muted-foreground">$</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -1554,7 +1554,7 @@ export function TechPaymentModal(props: {
                 type="button"
                 disabled={finishBusy}
                 onClick={() => void finishJobAfterPay("keep_open")}
-                className="w-full rounded-xl py-3 text-sm font-medium text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-300 disabled:opacity-50"
+                className="w-full rounded-xl py-3 text-sm font-medium text-muted-foreground hover:bg-zinc-900/50 hover:text-zinc-300 disabled:opacity-50"
               >
                 Keep job open
               </button>
@@ -1602,10 +1602,10 @@ export function TechPaymentModal(props: {
             </div>
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Pay link
               </p>
-              <p className="mt-1 break-all text-[11px] text-zinc-400">{paidLink.url}</p>
+              <p className="mt-1 break-all text-[11px] text-muted-foreground">{paidLink.url}</p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
@@ -1635,13 +1635,13 @@ export function TechPaymentModal(props: {
             <button
               type="button"
               onClick={() => setForceNewCharge(true)}
-              className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-semibold text-slate-400 hover:text-slate-200"
+              className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-semibold text-muted-foreground hover:text-slate-200"
             >
               Collect another payment
             </button>
           </div>
         ) : awaitingLinkStatus ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-slate-400">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
             <p className="text-sm">Checking payment status…</p>
           </div>
@@ -1653,7 +1653,7 @@ export function TechPaymentModal(props: {
                   type="button"
                   onClick={props.onClose}
                   disabled={busy || tapListening || slipBusy}
-                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-400 hover:text-slate-200 disabled:opacity-40"
+                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-slate-200 disabled:opacity-40"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -1710,7 +1710,7 @@ export function TechPaymentModal(props: {
                                   paid
                                     ? "text-emerald-300"
                                     : expired
-                                      ? "text-zinc-500"
+                                      ? "text-muted-foreground"
                                       : "text-amber-200/90"
                                 )}
                               >
@@ -1745,11 +1745,11 @@ export function TechPaymentModal(props: {
               <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
                 <div className="flex items-end gap-2">
                   <label className="min-w-0 flex-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Amount
                     </span>
                     <div className="relative mt-1">
-                      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">
                         $
                       </span>
                       <input
@@ -1772,7 +1772,7 @@ export function TechPaymentModal(props: {
                     </div>
                   </label>
                   <div className="shrink-0 pb-0.5 text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Total
                     </p>
                     <p className="text-lg font-bold tabular-nums text-emerald-300">{fmt(totalCents)}</p>
@@ -1822,7 +1822,7 @@ export function TechPaymentModal(props: {
                 </div>
 
                 <details className="group mt-2 border-t border-zinc-800/80 pt-2">
-                  <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="group-open:hidden">
                       Line items ({lines.length}) · edit
                     </span>
@@ -1845,7 +1845,7 @@ export function TechPaymentModal(props: {
                           className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                         />
                         <div className="relative w-20 shrink-0">
-                          <span className="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-xs text-zinc-500">
+                          <span className="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-xs text-muted-foreground">
                             $
                           </span>
                           <input
@@ -1883,7 +1883,7 @@ export function TechPaymentModal(props: {
                           className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors disabled:opacity-40 ${
                             line.kind === "part"
                               ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
-                              : "border-zinc-700 text-zinc-500 hover:text-zinc-300"
+                              : "border-zinc-700 text-muted-foreground hover:text-zinc-300"
                           }`}
                         >
                           {line.kind === "part" ? "Part" : "Labor"}
@@ -1897,7 +1897,7 @@ export function TechPaymentModal(props: {
                             )
                           }}
                           disabled={lines.length === 1 || busy || activePopup !== null}
-                          className="shrink-0 rounded-md p-2 text-zinc-500 hover:text-red-400 disabled:opacity-30"
+                          className="shrink-0 rounded-md p-2 text-muted-foreground hover:text-red-400 disabled:opacity-30"
                           aria-label="Remove line"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1917,7 +1917,7 @@ export function TechPaymentModal(props: {
               </section>
 
               <section>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   How to pay
                 </p>
                 {error && !postPayStep && !activePopup ? (
@@ -1963,7 +1963,7 @@ export function TechPaymentModal(props: {
                     icon={<Banknote className="h-4 w-4" />}
                   />
                 </div>
-                <p className="mt-1.5 text-center text-[10px] text-zinc-500">
+                <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
                   Card / Tap / Cash: tip last. Pay link: send only — no tip here.
                 </p>
               </section>
@@ -1980,7 +1980,7 @@ export function TechPaymentModal(props: {
           </p>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <label className="block">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Name (optional)
             </span>
             <input
@@ -2007,7 +2007,7 @@ export function TechPaymentModal(props: {
             </div>
           ) : (
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Customer&apos;s mobile number
               </span>
               <input
@@ -2103,7 +2103,7 @@ function NestedPayPopup(props: {
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-lg p-2 text-zinc-400 hover:text-white"
+            className="rounded-lg p-2 text-muted-foreground hover:text-white"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -2146,7 +2146,7 @@ function PayOptionButton(props: {
         </span>
         <span className="min-w-0">
           <span className="block text-xs font-semibold text-white">{props.title}</span>
-          <span className="block text-[10px] text-zinc-500">{props.subtitle}</span>
+          <span className="block text-[10px] text-muted-foreground">{props.subtitle}</span>
         </span>
       </button>
     )
@@ -2170,7 +2170,7 @@ function PayOptionButton(props: {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-white">{props.title}</span>
-        <span className="block text-[11px] text-zinc-500">{props.subtitle}</span>
+        <span className="block text-[11px] text-muted-foreground">{props.subtitle}</span>
       </span>
     </button>
   )
@@ -2364,10 +2364,10 @@ function ManualCardForm(props: {
         </p>
         <p className="text-lg font-bold tabular-nums text-emerald-100">{props.totalLabel}</p>
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Card details</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Card details</p>
       <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
         {!elementReady && !loadFailed ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading card form…
           </div>
@@ -2396,7 +2396,7 @@ function ManualCardForm(props: {
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
-            <p className="max-w-xs text-xs leading-snug text-zinc-400">
+            <p className="max-w-xs text-xs leading-snug text-muted-foreground">
               Stripe never finished loading. Tap Try again, or send a pay link.
             </p>
           </div>
@@ -2439,7 +2439,7 @@ function ManualCardForm(props: {
           )}
         </button>
       </div>
-      <p className="text-[11px] leading-snug text-zinc-500">
+      <p className="text-[11px] leading-snug text-muted-foreground">
         If charge hangs on Safari or an in-app browser, go Back and send a pay link instead.
       </p>
     </form>

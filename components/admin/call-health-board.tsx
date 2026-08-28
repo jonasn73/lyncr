@@ -72,49 +72,49 @@ export function CallHealthBoard() {
           <Gauge className="h-4 w-4 text-violet-300" aria-hidden />
           Call Health
         </CardTitle>
-        <span className="text-xs text-slate-500">Last {WINDOW_DAYS} days</span>
+        <span className="text-xs text-muted-foreground">Last {WINDOW_DAYS} days</span>
       </CardHeader>
       <CardContent className="pt-0">
         {loading && !summary ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading call health…
           </div>
         ) : !summary || summary.total_calls === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <PhoneMissed className="h-7 w-7 text-slate-700" aria-hidden />
-            <p className="text-sm text-slate-500">No inbound calls on the network in this window.</p>
+            <p className="text-sm text-muted-foreground">No inbound calls on the network in this window.</p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Missed rate</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Missed rate</p>
                 <p className={cn("mt-1 text-xl font-semibold tabular-nums", missedRateTone(summary.missed_rate_percent))}>
                   {summary.missed_rate_percent}%
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-muted-foreground">
                   {summary.missed_calls} / {summary.total_calls} calls
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Avg setup</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Avg setup</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums text-slate-100">
                   {msLabel(summary.avg_setup_ms)}
                 </p>
-                <p className="text-[11px] text-slate-500">p95 {msLabel(summary.p95_setup_ms)}</p>
+                <p className="text-[11px] text-muted-foreground">p95 {msLabel(summary.p95_setup_ms)}</p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Post-dial delay</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Post-dial delay</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums text-slate-100">
                   {msLabel(summary.avg_post_dial_delay_ms)}
                 </p>
-                <p className="text-[11px] text-slate-500">avg across window</p>
+                <p className="text-[11px] text-muted-foreground">avg across window</p>
               </div>
             </div>
 
             {summary.missed_by_route.length > 0 ? (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Where missed calls landed
                 </p>
                 <ul className="mt-1.5 space-y-1">
@@ -124,7 +124,7 @@ export function CallHealthBoard() {
                       className="flex items-center justify-between gap-3 text-xs text-slate-300"
                     >
                       <span className="truncate">{row.routed_to_name}</span>
-                      <span className="shrink-0 font-mono tabular-nums text-slate-400">{row.count}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{row.count}</span>
                     </li>
                   ))}
                 </ul>

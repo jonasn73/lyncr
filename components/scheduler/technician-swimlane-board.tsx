@@ -127,7 +127,7 @@ function MobileTechnicianAssignOverlay({
           <DialogTitle className="text-base text-zinc-50">
             {overlay?.jobId ? "Assign job" : "Book time slot"}
           </DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             {jobLabel ? (
               <>
                 <span className="font-medium text-zinc-200">{jobLabel}</span>
@@ -172,7 +172,7 @@ function MobileTechnicianAssignOverlay({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-zinc-100">{tech.name}</span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-muted-foreground">
                       {selected
                         ? "Selected — tap Confirm below or double-tap to assign"
                         : "Tap to select"}
@@ -386,7 +386,7 @@ function MobileTimelineBoard({
                 {hourSlots.map((hour) => (
                   <div
                     key={hour}
-                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-[9px] font-medium text-zinc-500"
+                    className="shrink-0 border-r border-border/30 px-1 py-2 text-center text-[9px] font-medium text-muted-foreground"
                     style={{ width: SCHEDULER_HOUR_COL_PX }}
                   >
                     {formatHourLabel(hour)}
@@ -407,7 +407,7 @@ function MobileTimelineBoard({
                   style={{ width: techColWidth, minHeight: SCHEDULER_TECH_ROW_PX }}
                 >
                   <p className="truncate text-xs font-semibold">{tech.name}</p>
-                  <p className="text-[9px] text-zinc-500">{laneEvents.length} today</p>
+                  <p className="text-[9px] text-muted-foreground">{laneEvents.length} today</p>
                 </div>
                 <div
                   className="relative shrink-0 bg-muted/10"
@@ -575,7 +575,7 @@ export function TechnicianSwimlaneBoard({
             {hourSlots.map((hour) => (
               <div
                 key={hour}
-                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-zinc-500"
+                className="flex items-start justify-end border-b border-border/30 pr-2 pt-1 text-[10px] font-medium text-muted-foreground"
                 style={{ height: SCHEDULER_HOUR_ROW_PX }}
               >
                 {formatHourLabel(hour)}
@@ -595,7 +595,7 @@ export function TechnicianSwimlaneBoard({
                 >
                   <div className="sticky top-0 z-10 flex h-16 flex-col justify-center border-b border-border/40 bg-card/95 px-3 backdrop-blur-sm">
                     <p className="truncate text-sm font-semibold text-foreground">{tech.name}</p>
-                    <p className="truncate text-[10px] text-zinc-500">
+                    <p className="truncate text-[10px] text-muted-foreground">
                       {laneEvents.length} job{laneEvents.length === 1 ? "" : "s"} today
                     </p>
                   </div>
@@ -661,7 +661,7 @@ export function TechnicianSwimlaneBoard({
 
                     {laneEvents.length === 0 && !loading ? (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-3">
-                        <p className="text-center text-[10px] text-zinc-600">Drop a pool job here</p>
+                        <p className="text-center text-[10px] text-muted-foreground">Drop a pool job here</p>
                       </div>
                     ) : null}
                   </div>
@@ -676,11 +676,11 @@ export function TechnicianSwimlaneBoard({
 
       {showEmptyOverlay ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center">
-          <User className="h-8 w-8 text-zinc-600" aria-hidden />
-          <p className="text-sm text-zinc-400">
+          <User className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-muted-foreground">
             Add active technicians in Team to use the swimlane board.
           </p>
-          <p className="max-w-sm text-xs text-zinc-500">
+          <p className="max-w-sm text-xs text-muted-foreground">
             Drag jobs from the pool above onto a technician column to assign and schedule in one
             step.
           </p>

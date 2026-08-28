@@ -29,7 +29,7 @@ type Props = {
 function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_steps"] }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Transfer status</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Transfer status</p>
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         {steps.map((step, i) => (
           <div key={step.key} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
@@ -42,7 +42,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
                     : step.state === "current"
                       ? "border-sky-500/50 bg-sky-500/15 text-sky-200"
-                      : "border-zinc-700 bg-zinc-900 text-zinc-600"
+                      : "border-zinc-700 bg-zinc-900 text-muted-foreground"
               )}
             >
               {step.state === "complete" ? <Check className="h-4 w-4" /> : i + 1}
@@ -56,7 +56,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
                     ? "text-zinc-300"
                     : step.state === "failed"
                       ? "text-red-300"
-                      : "text-zinc-600"
+                      : "text-muted-foreground"
               )}
             >
               {step.label}
@@ -105,7 +105,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
   const visibleItems = useMemo(() => dedupePortingConversationItems(items), [items])
   if (visibleItems.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-zinc-500">
+      <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-muted-foreground">
         No carrier updates yet. Open this desk again after a moment — carrier correspondence syncs on
         each refresh.
       </p>
@@ -124,9 +124,9 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isSystem) {
           return (
             <div key={item.id} className="flex justify-center px-2">
-              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-center text-[11px] leading-snug text-zinc-400">
+              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-center text-[11px] leading-snug text-muted-foreground">
                 {displayPortingMessageBody(text)}
-                <span className="mt-0.5 block text-[10px] text-zinc-600">{formatThreadTime(item.created_at)}</span>
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatThreadTime(item.created_at)}</span>
               </div>
             </div>
           )
@@ -165,7 +165,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
                 ) : null}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
-              <time className="mt-2 block text-[10px] text-zinc-500">{formatThreadTime(item.created_at)}</time>
+              <time className="mt-2 block text-[10px] text-muted-foreground">{formatThreadTime(item.created_at)}</time>
             </div>
           </div>
         )
@@ -297,8 +297,8 @@ export function PortingInteractionDrawer({ orderId, open, onOpenChange }: Props)
               />
             </>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-zinc-500">
-              <Truck className="h-8 w-8 text-zinc-600" aria-hidden />
+            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted-foreground">
+              <Truck className="h-8 w-8 text-muted-foreground" aria-hidden />
               Select a transfer from the banner to open this desk.
             </div>
           )}

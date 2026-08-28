@@ -36,7 +36,7 @@ export function ActivityPaneFallback() {
         {["All activity", "Missed today", "Hold", "Press 1"].map((label) => (
           <span
             key={label}
-            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-[11px] font-semibold text-zinc-500"
+            className="inline-flex h-8 items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-[11px] font-semibold text-muted-foreground"
           >
             {label}
           </span>
@@ -56,7 +56,7 @@ export function CrmPaneFallback() {
       aria-label="Loading CRM"
     >
       <header className="flex flex-col gap-1">
-        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-zinc-500 md:block">
+        <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:block">
           CRM
         </p>
         <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -71,7 +71,7 @@ export function CrmPaneFallback() {
               {["All", "Leads", "Book forms", "Clients"].map((label) => (
                 <span
                   key={label}
-                  className="rounded-lg bg-zinc-900 px-3 py-2 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-800"
+                  className="rounded-lg bg-zinc-900 px-3 py-2 text-[11px] font-semibold text-muted-foreground ring-1 ring-zinc-800"
                 >
                   {label}
                 </span>
@@ -106,7 +106,7 @@ export function MapPaneFallback() {
             <h1 className="text-base font-semibold tracking-tight text-slate-100 sm:text-lg">
               Dispatch Map
             </h1>
-            <p className="hidden truncate text-xs text-slate-500 sm:block">
+            <p className="hidden truncate text-xs text-muted-foreground sm:block">
               Jobs, techs, and your location — one map for dispatch.
             </p>
           </div>
@@ -115,13 +115,13 @@ export function MapPaneFallback() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1" aria-hidden>
-          <span className="pr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="pr-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Layers
           </span>
           {["Jobs", "Techs", "Leads", "You"].map((label) => (
             <span
               key={label}
-              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[11px] text-slate-400"
+              className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[11px] text-muted-foreground"
             >
               {label}
             </span>

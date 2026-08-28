@@ -569,14 +569,14 @@ function KeyThumbnail({
             onError={() => setFailed(true)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 px-3 py-2 text-slate-400">
+          <div className="flex flex-col items-center justify-center gap-2 px-3 py-2 text-muted-foreground">
             <KeyTypeSampleIllustration kind={illustrationKind} />
             <span className="sr-only">{label} layout sample</span>
           </div>
         )}
       </div>
       {!showImage ? (
-        <p className="border-t border-slate-800/80 px-2 py-2 text-center text-[9px] leading-snug text-slate-500">
+        <p className="border-t border-slate-800/80 px-2 py-2 text-center text-[9px] leading-snug text-muted-foreground">
           Verify button configuration with customer to confirm selection.
         </p>
       ) : null}
@@ -655,20 +655,20 @@ export function KeySelectionCard({
             <ul className="space-y-0.5 text-[11px] leading-snug text-slate-300">
               {card.specs.map((spec) => (
                 <li key={spec.label}>
-                  <span className="text-slate-500">{spec.label}:</span> {spec.value}
+                  <span className="text-muted-foreground">{spec.label}:</span> {spec.value}
                 </li>
               ))}
             </ul>
           ) : card.description ? (
-            <p className="line-clamp-2 text-[11px] text-slate-400">{card.description}</p>
+            <p className="line-clamp-2 text-[11px] text-muted-foreground">{card.description}</p>
           ) : null}
           {card.programmingMethod ? (
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               {card.programmingMethod}
             </p>
           ) : null}
           {card.fccFootnote ? (
-            <p className="font-mono text-[9px] tracking-wide text-slate-600">{card.fccFootnote}</p>
+            <p className="font-mono text-[9px] tracking-wide text-muted-foreground">{card.fccFootnote}</p>
           ) : null}
         </div>
         {disabledReason ? (
@@ -950,7 +950,7 @@ function FccProfileSection({
         </div>
       </div>
 
-      <p className="font-mono text-[9px] tracking-wide text-slate-600">FCC {p.fcc_id}</p>
+      <p className="font-mono text-[9px] tracking-wide text-muted-foreground">FCC {p.fcc_id}</p>
 
       {relatedFcc.length > 0 ? (
         <p className="text-[10px] text-amber-100/80">
@@ -1000,7 +1000,7 @@ function CollapsedFccSummary({
           ? `${layoutCount} key blank${layoutCount === 1 ? "" : "s"}`
           : "Key options"}
       </span>
-      <span className="shrink-0 font-mono text-[9px] text-slate-600">
+      <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
         FCC {p.fcc_id}
         {p.frequency ? ` · ${p.frequency} MHz` : ""}
       </span>

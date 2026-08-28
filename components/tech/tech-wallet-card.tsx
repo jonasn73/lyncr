@@ -90,7 +90,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             </span>
             <div>
               <h2 className="text-sm font-semibold text-white">My Wallet</h2>
-              <p className="text-[11px] text-zinc-500">Earnings dashboard</p>
+              <p className="text-[11px] text-muted-foreground">Earnings dashboard</p>
             </div>
           </div>
         </div>
@@ -126,12 +126,12 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
       </div>
 
       <div className="px-4 pb-4">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Transactions
         </p>
 
         {loading && !data ? (
-          <div className="flex items-center justify-center gap-2 py-6 text-zinc-500">
+          <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             <span className="text-xs">Loading wallet…</span>
           </div>
@@ -140,7 +140,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             Could not load wallet. Pull to refresh or try again.
           </p>
         ) : !data?.recentTransactions.length ? (
-          <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-center text-xs text-zinc-500">
+          <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-center text-xs text-muted-foreground">
             No transactions yet — collect payment on a job to see earnings here.
           </p>
         ) : (
@@ -161,7 +161,7 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
                       {tx.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[10px] text-zinc-500">
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {formatTxDate(tx.createdAt)} · {methodLabel(tx.paymentMethod)}
                   </p>
                 </div>

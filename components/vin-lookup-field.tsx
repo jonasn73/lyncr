@@ -9,7 +9,7 @@ import { normalizeVin } from "@/lib/nhtsa-vpic"
 import type { VehicleCascadeValue } from "@/components/vehicle-picker-cascade"
 
 const inputClass =
-  "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  "w-full rounded-lg border border-border/70 bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
 type VinLookupFieldProps = {
   value: string
@@ -72,7 +72,7 @@ export function VinLookupField({
   return (
     <div className="grid gap-2">
       <div className="relative">
-        <ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
+        <ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <input
           type="text"
           className={cn(inputClass, matched && "border-emerald-500/50")}
@@ -88,7 +88,7 @@ export function VinLookupField({
           }}
         />
         {loading ? (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" aria-hidden />
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
         ) : matched ? (
           <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" aria-hidden />
         ) : null}

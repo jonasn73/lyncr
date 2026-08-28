@@ -118,15 +118,15 @@ export function JobCardSummary({
         )}
       >
         <p className="min-w-0">
-          <span className="font-semibold text-slate-500">Vehicle</span>
-          <span className="text-slate-600"> · </span>
+          <span className="font-semibold text-muted-foreground">Vehicle</span>
+          <span className="text-muted-foreground"> · </span>
           <span className="font-medium text-slate-100">
             {model.vehicleSummary || "No vehicle / service on file yet"}
           </span>
         </p>
         <p className="min-w-0">
-          <span className="font-semibold text-slate-500">Address</span>
-          <span className="text-slate-600"> · </span>
+          <span className="font-semibold text-muted-foreground">Address</span>
+          <span className="text-muted-foreground"> · </span>
           {model.serviceAddress ? (
             <>
               <span className="font-medium text-slate-100">{model.serviceAddress}</span>
@@ -150,15 +150,15 @@ export function JobCardSummary({
           {!hideBalance ? (
             <>
               <span className="font-semibold text-emerald-500/80">Balance</span>
-              <span className="text-slate-600"> · </span>
+              <span className="text-muted-foreground"> · </span>
               <span className="font-semibold tabular-nums text-emerald-300">
                 {model.billingLabel}
               </span>
-              <span className="text-slate-600"> · </span>
+              <span className="text-muted-foreground"> · </span>
             </>
           ) : null}
-          <span className="font-semibold text-slate-500">Appt</span>
-          <span className="text-slate-600"> · </span>
+          <span className="font-semibold text-muted-foreground">Appt</span>
+          <span className="text-muted-foreground"> · </span>
           <span
             className={cn(
               "font-medium",
@@ -170,13 +170,13 @@ export function JobCardSummary({
         </p>
         {model.keyHint !== "None on file" ? (
           <p className="min-w-0">
-            <span className="font-semibold text-slate-500">Key</span>
-            <span className="text-slate-600"> · </span>
+            <span className="font-semibold text-muted-foreground">Key</span>
+            <span className="text-muted-foreground"> · </span>
             <span className="font-medium text-slate-100">{model.keyHint}</span>
           </p>
         ) : null}
         {!hideSummaryLine && model.summaryLine ? (
-          <p className="line-clamp-2 text-[11px] text-slate-500">{model.summaryLine}</p>
+          <p className="line-clamp-2 text-[11px] text-muted-foreground">{model.summaryLine}</p>
         ) : null}
       </section>
     </div>

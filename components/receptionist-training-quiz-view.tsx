@@ -99,7 +99,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
   return (
     <WorkspacePage>
       <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="ghost" size="sm" className="text-zinc-400">
+        <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
           <Link href="/receptionist/training">
             <ChevronLeft className="mr-1 h-4 w-4" aria-hidden />
             All certifications
@@ -126,7 +126,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
             </div>
             <div>
               <h2 className="text-lg font-semibold text-emerald-100">You&apos;re already certified</h2>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 You passed {certification.title} and are in the live routing pool. No need to retake the quiz.
               </p>
             </div>
@@ -143,9 +143,9 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
               Retake quiz anyway
             </Button>
           </div>
-          <p className="text-xs text-zinc-500">
-            Testing a call? Use the violet <span className="font-medium text-zinc-400">Return to Admin Sandbox</span>{" "}
-            bar at the top, then click <span className="font-medium text-zinc-400">Simulate inbound call</span>.
+          <p className="text-xs text-muted-foreground">
+            Testing a call? Use the violet <span className="font-medium text-muted-foreground">Return to Admin Sandbox</span>{" "}
+            bar at the top, then click <span className="font-medium text-muted-foreground">Simulate inbound call</span>.
           </p>
         </WorkspacePanel>
       ) : null}
@@ -154,7 +154,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
       <>
       <WorkspacePanel density="default" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Award className="h-4 w-4 text-primary" aria-hidden />
             <span>
               Quiz progress:{" "}
@@ -164,7 +164,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
               answered
             </span>
           </div>
-          <span className="text-xs font-medium text-zinc-500">
+          <span className="text-xs font-medium text-muted-foreground">
             Passing score: {certification.passing_score}%
           </span>
         </div>
@@ -184,7 +184,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
       </WorkspacePanel>
 
       <form onSubmit={handleSubmit} className="space-y-6 pb-8">
-        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Certification quiz
         </div>
 

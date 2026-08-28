@@ -229,7 +229,7 @@ export function FieldTechniciansPanel() {
           </span>
           <div>
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Field Technicians</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">Road staff who get jobs on the Lyncr mobile console.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Road staff who get jobs on the Lyncr mobile console.</p>
           </div>
         </div>
         <button
@@ -266,15 +266,15 @@ export function FieldTechniciansPanel() {
       ) : null}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> Loading technicians…
         </div>
       ) : techs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-600">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-muted-foreground">
             <HardHat className="h-6 w-6" aria-hidden />
           </span>
-          <p className="text-sm text-zinc-500">No field technicians yet.</p>
+          <p className="text-sm text-muted-foreground">No field technicians yet.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -296,11 +296,11 @@ export function FieldTechniciansPanel() {
                     </span>
                   ) : null}
                 </div>
-                <p className="truncate text-xs text-zinc-500">
+                <p className="truncate text-xs text-muted-foreground">
                   {tech.phone ? formatPhoneDisplay(tech.phone) : "—"}
                 </p>
                 {showWorkspacePicker ? (
-                  <label className="mt-1.5 block text-[10px] text-zinc-500">
+                  <label className="mt-1.5 block text-[10px] text-muted-foreground">
                     Business
                     <select
                       value={tech.organization_id ?? ""}
@@ -354,13 +354,13 @@ export function FieldTechniciansPanel() {
                     setRemoveError(null)
                     setRemoveTarget(tech)
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-[11px] font-medium text-zinc-400 transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                   aria-label={`Remove ${tech.name} from your team`}
                 >
                   <Trash2 className="h-3 w-3" aria-hidden />
                   Remove
                 </button>
-                <span className={`text-[11px] font-medium ${tech.is_active ? "text-success" : "text-zinc-500"}`}>
+                <span className={`text-[11px] font-medium ${tech.is_active ? "text-success" : "text-muted-foreground"}`}>
                   {tech.is_active ? "Active" : "Off"}
                 </span>
                 <Switch checked={tech.is_active} onCheckedChange={() => void toggle(tech)} aria-label={`${tech.name} active`} />
@@ -400,7 +400,7 @@ export function FieldTechniciansPanel() {
             <AlertDialogTitle>
               Remove {removeTarget?.name ?? "this technician"} from your team?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-muted-foreground">
               They will disappear from Field Technicians and the live roster. Active/Off toggles stay
               available for everyone else — this only removes this person.
             </AlertDialogDescription>

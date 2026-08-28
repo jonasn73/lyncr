@@ -565,7 +565,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
             : "flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-3"
         }
       >
-        <p className="text-sm text-slate-500">No business line yet</p>
+        <p className="text-sm text-muted-foreground">No business line yet</p>
         <button
           type="button"
           onClick={openBuyModal}
@@ -658,7 +658,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
       return (
         <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0 max-w-full flex-1 basis-[min(100%,12rem)]">
-            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </p>
             <p className="break-all text-base font-semibold tabular-nums text-slate-100 sm:truncate">
@@ -675,7 +675,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         <span className="sr-only">Active business line</span>
         <div className="pointer-events-none flex items-center justify-between gap-3 pr-7">
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </p>
             <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display || "\u00A0"}</p>
@@ -703,7 +703,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
           })}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+          className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
       </label>
@@ -715,7 +715,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
     return (
       <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-3">
         <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
-          <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
+          <p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p>
           <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display || "\u00A0"}</p>
         </div>
         <LineRoutingStatus
@@ -736,7 +736,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   if (!multi) {
     return (
       <div className={cn("flex w-full max-w-md flex-col items-center justify-center gap-1 px-4 py-3", activeLineFieldClass)}>
-        <span className="text-xs font-medium text-zinc-400">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <span className="text-base text-foreground">{display || "\u00A0"}</span>
         <LineRoutingStatus
           routingStrategy={routingStrategy}
@@ -754,7 +754,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
         {compact ? (
           <div className="pointer-events-none flex items-center justify-between gap-3 pr-8">
             <div className="min-w-0">
-              <p className="truncate text-[10px] font-medium text-zinc-500">{label}</p>
+              <p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p>
               <p className="truncate text-sm font-semibold text-foreground">{display || "\u00A0"}</p>
             </div>
             <LineRoutingStatus
@@ -767,7 +767,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
           </div>
         ) : (
           <div className="pointer-events-none flex flex-col items-center gap-1 px-4 py-3 pr-10">
-            <span className="text-xs font-medium text-zinc-400">{label}</span>
+            <span className="text-xs font-medium text-muted-foreground">{label}</span>
             <span className="text-base font-semibold text-foreground">{display || "\u00A0"}</span>
             <LineRoutingStatus
               routingStrategy={routingStrategy}
@@ -798,7 +798,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
           })}
         </select>
       <ChevronDown
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden
       />
     </label>

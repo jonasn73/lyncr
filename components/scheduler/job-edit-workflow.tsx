@@ -131,7 +131,7 @@ export function JobEditWorkflow({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className={SCHEDULER_METADATA_LABEL}>Edit job</p>
-            <p className={cn(SCHEDULER_METADATA_LABEL, "mt-0.5 text-slate-400")}>{statusLabel}</p>
+            <p className={cn(SCHEDULER_METADATA_LABEL, "mt-0.5 text-muted-foreground")}>{statusLabel}</p>
           </div>
           <button
             type="button"
@@ -273,7 +273,7 @@ export function JobEditWorkflow({
                   Price
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                     $
                   </span>
                   <Input
@@ -298,7 +298,7 @@ export function JobEditWorkflow({
           <h3 className={sectionTitleClass}>
             Vehicle info
             {!isAutomotiveService ? (
-              <span className="ml-1 font-normal normal-case tracking-normal text-zinc-500">
+              <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground">
                 (optional)
               </span>
             ) : null}

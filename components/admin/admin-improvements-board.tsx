@@ -67,7 +67,7 @@ const CATEGORY_SUGGESTIONS = [
 const PRIORITY_BADGE_CLASS: Record<AppImprovementPriority, string> = {
   high: "border-rose-500/40 bg-rose-500/10 text-rose-300",
   medium: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  low: "border-slate-600 bg-slate-800/60 text-slate-400",
+  low: "border-slate-600 bg-slate-800/60 text-muted-foreground",
 }
 
 function emptyDraft(): {
@@ -194,7 +194,7 @@ export function AdminImprovementsBoard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-50">App Improvement Board</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Ideas, bugs, and roadmap items — decide what to tackle, track progress, mark done, or
             take it off the list.
           </p>
@@ -213,7 +213,7 @@ export function AdminImprovementsBoard({
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-2">
-                <Label className="text-slate-400">Title</Label>
+                <Label className="text-muted-foreground">Title</Label>
                 <Input
                   value={draft.title}
                   onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
@@ -223,7 +223,7 @@ export function AdminImprovementsBoard({
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-400">Description</Label>
+                <Label className="text-muted-foreground">Description</Label>
                 <Textarea
                   value={draft.description}
                   onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
@@ -234,7 +234,7 @@ export function AdminImprovementsBoard({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-slate-400">Category</Label>
+                  <Label className="text-muted-foreground">Category</Label>
                   <Input
                     value={draft.category}
                     onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
@@ -248,7 +248,7 @@ export function AdminImprovementsBoard({
                   </datalist>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-400">Priority</Label>
+                  <Label className="text-muted-foreground">Priority</Label>
                   <Select
                     value={draft.priority}
                     onValueChange={(v) => setDraft((d) => ({ ...d, priority: v as AppImprovementPriority }))}
@@ -287,15 +287,15 @@ export function AdminImprovementsBoard({
               <div className="flex items-baseline justify-between px-1">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-200">{col.label}</h2>
-                  <p className="text-[11px] text-slate-500">{col.hint}</p>
+                  <p className="text-[11px] text-muted-foreground">{col.hint}</p>
                 </div>
-                <Badge variant="outline" className="border-slate-700 text-slate-400">
+                <Badge variant="outline" className="border-slate-700 text-muted-foreground">
                   {rows.length}
                 </Badge>
               </div>
               <div className="space-y-2">
                 {rows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-slate-800 px-3 py-6 text-center text-xs text-slate-600">
+                  <p className="rounded-lg border border-dashed border-slate-800 px-3 py-6 text-center text-xs text-muted-foreground">
                     Nothing here
                   </p>
                 ) : (
@@ -309,7 +309,7 @@ export function AdminImprovementsBoard({
                           <button
                             type="button"
                             onClick={() => setDeleteTarget(item)}
-                            className="shrink-0 rounded p-1 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400"
+                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
                             aria-label={`Remove ${item.title} from the board`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -322,7 +322,7 @@ export function AdminImprovementsBoard({
                           >
                             {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-400">
+                          <Badge variant="outline" className="border-slate-700 text-[10px] text-muted-foreground">
                             {item.category}
                           </Badge>
                           {item.source ? (
@@ -334,7 +334,7 @@ export function AdminImprovementsBoard({
                       </CardHeader>
                       <CardContent className="space-y-3 pt-0">
                         {item.description ? (
-                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-400">
+                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                             {item.description}
                           </p>
                         ) : null}

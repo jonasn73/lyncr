@@ -85,7 +85,7 @@ const SettingsWorkspaceView = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
         Loading settings…
       </div>
@@ -538,7 +538,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         >
           <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
             <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Collect = charge customers. Bank = your payouts. Lyncr bill = your subscription.
             </p>
           </SheetHeader>
@@ -655,7 +655,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   onClick={() => openPayments(opt.id)}
                   className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-zinc-900/70"
                 >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {opt.label}
                   </p>
                   <p className="mt-1 text-sm font-bold tabular-nums text-emerald-200">
@@ -665,7 +665,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               ))}
             </div>
             {todayNetCents != null ? (
-              <p className="text-[11px] leading-snug text-slate-500">
+              <p className="text-[11px] leading-snug text-muted-foreground">
                 Today after Lyncr fees ~{formatMoneyCents(todayNetCents)} (2.9% + $0.30 per card).
               </p>
             ) : null}
@@ -679,7 +679,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 <Receipt className="h-4 w-4 text-teal-300" aria-hidden />
                 Transactions
               </span>
-              <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
             </button>
 
             {/* Collect = charge the customer (not Lyncr bill, not bank setup). */}
@@ -701,7 +701,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-950/50 px-4 py-2 text-slate-100 hover:bg-zinc-900 hover:text-white"
             >
               <span className="text-sm font-semibold">Outside payments</span>
-              <span className="text-[11px] font-medium text-slate-400">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 Record Venmo / cash already paid
               </span>
             </Button>
@@ -711,7 +711,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-center hover:border-zinc-600 hover:bg-zinc-900/70"
             >
               <span className="text-sm font-semibold text-slate-200">Lyncr bill</span>
-              <span className="text-[11px] font-medium text-slate-500">
+              <span className="text-[11px] font-medium text-muted-foreground">
                 Your app subscription — not customer charges
               </span>
             </Link>
@@ -724,7 +724,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           fallback={
             collectOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 p-0 sm:items-center">
-                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
                   Opening Collect…
                 </div>
@@ -749,7 +749,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           fallback={
             getPaidOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
-                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
                   Opening bank setup…
                 </div>
@@ -766,7 +766,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           fallback={
             paymentsOpen ? (
               <div className="fixed inset-0 z-[7000] flex items-end justify-center bg-black/50 sm:items-center">
-                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-slate-400">
+                <div className="flex w-full max-w-lg items-center justify-center gap-2 rounded-t-2xl bg-[#101018] px-4 py-16 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
                   Opening payments…
                 </div>
@@ -798,7 +798,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <div className="flex items-center justify-between gap-3 pr-8">
               <div className="min-w-0">
                 <SheetTitle className="text-base text-slate-100">Settings</SheetTitle>
-                <p className="truncate text-xs text-slate-500">{email}</p>
+                <p className="truncate text-xs text-muted-foreground">{email}</p>
               </div>
               <button
                 type="button"
@@ -817,7 +817,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2">
             <Suspense
               fallback={
-                <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
                   Loading…
                 </div>

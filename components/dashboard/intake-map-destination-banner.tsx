@@ -64,7 +64,7 @@ export function IntakeMapDestinationBanner({
       </p>
       {destination.address ? (
         <div className="mt-0.5 flex items-start gap-2">
-          <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-slate-400">
+          <p className="min-w-0 flex-1 line-clamp-2 text-[11px] text-muted-foreground">
             {destination.address}
           </p>
           {mapsHref ? (
@@ -74,7 +74,7 @@ export function IntakeMapDestinationBanner({
               rel="noopener noreferrer"
               title="Open in Maps"
               aria-label="Open address in Google Maps"
-              className="mt-0.5 shrink-0 rounded p-0.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-sky-300"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-slate-800 hover:text-sky-300"
               onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -91,7 +91,7 @@ export function IntakeMapDestinationBanner({
               {formatMiles(travelMetrics.miles)} mi
             </span>
             {travelMetrics.originSource === "shop" ? (
-              <span className="text-slate-500"> · shop baseline</span>
+              <span className="text-muted-foreground"> · shop baseline</span>
             ) : !travelMetrics.fromGps ? (
               // No GPS and no saved shop address — say it is a rough city estimate rather
               // than implying it was measured from the shop.

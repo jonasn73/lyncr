@@ -211,7 +211,7 @@ export function BusinessProfileModal({
             }}
           >
             <label className="block">
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Business name
               </span>
               <input
@@ -235,7 +235,7 @@ export function BusinessProfileModal({
             </label>
 
             <div className="space-y-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Shop address
               </span>
               <JobAddressAutocomplete
@@ -247,20 +247,20 @@ export function BusinessProfileModal({
                 seedQuery={shopSeed}
                 placeholder="Where your trucks roll out from"
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Travel distance and drive time on intake are measured from here whenever GPS is
                 off. Without it the map falls back to a rough Louisville-metro estimate.
               </p>
             </div>
 
             <div className="space-y-3 border-t border-border/60 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SMS alerts</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">SMS alerts</p>
               <div className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
                 <div className="flex items-start gap-3">
                   <Smartphone className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
                   <div>
                     <p className="text-sm font-medium text-foreground">Instant SMS lead alerts</p>
-                    <p className="text-xs text-zinc-500">Texts include caller, service type, and intake notes.</p>
+                    <p className="text-xs text-muted-foreground">Texts include caller, service type, and intake notes.</p>
                   </div>
                 </div>
                 <Switch checked={smsLeadsEnabled} onCheckedChange={setSmsLeadsEnabled} aria-label="SMS lead alerts" />
@@ -270,7 +270,7 @@ export function BusinessProfileModal({
                   <MessageSquare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
                   <div>
                     <p className="text-sm font-medium text-foreground">Latest activity SMS reminders</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-muted-foreground">
                       Text you when a customer reply needs an answer, or a finished job still needs Thanks + review.
                     </p>
                   </div>
@@ -282,7 +282,7 @@ export function BusinessProfileModal({
                 />
               </div>
               <label className="block">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Dedicated dispatch SMS number
                 </span>
                 <input
@@ -293,7 +293,7 @@ export function BusinessProfileModal({
                   value={dispatchSmsPhone}
                   onChange={(e) => setDispatchSmsPhone(e.target.value)}
                 />
-                <p className="mt-1.5 text-xs text-zinc-500">
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   Your cell where Lyncr texts these alerts. Leave blank to use your profile phone.
                 </p>
               </label>
@@ -302,7 +302,7 @@ export function BusinessProfileModal({
                   <FileAudio className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
                   <div>
                     <p className="text-sm font-medium text-foreground">Email call recordings</p>
-                    <p className="text-xs text-zinc-500">MP3 playback files sent to your primary email.</p>
+                    <p className="text-xs text-muted-foreground">MP3 playback files sent to your primary email.</p>
                   </div>
                 </div>
                 <Switch

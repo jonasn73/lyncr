@@ -38,7 +38,7 @@ const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 // Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-teal-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-muted-foreground focus:border-teal-500/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -309,7 +309,7 @@ export default function BookPageClient({
       compact
     >
       {loading ? (
-        <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Loading…
         </div>
@@ -337,13 +337,13 @@ export default function BookPageClient({
         <div className="rounded-2xl border border-emerald-900/50 bg-emerald-950/40 px-4 py-6 text-center">
           <p className="text-base font-semibold text-emerald-100">{successCopy.title}</p>
           <p className="mt-2 text-sm text-emerald-200/90">{successCopy.body}</p>
-          <p className="mt-3 text-xs text-zinc-400">{successCopy.nextHint}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{successCopy.nextHint}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {/* Mini step chips only when scheduling (shell already shows Book/Pay/Done). */}
           {urgency === "window" || wizardStep === "availability" ? (
-            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5",
@@ -382,7 +382,7 @@ export default function BookPageClient({
               <div className="space-y-3">
                 {/* Name + phone share one row so both stay above the fold. */}
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="block text-xs text-zinc-400">
+                  <label className="block text-xs text-muted-foreground">
                     Name *
                     <input
                       type="text"
@@ -393,7 +393,7 @@ export default function BookPageClient({
                       className={fieldClass}
                     />
                   </label>
-                  <label className="block text-xs text-zinc-400">
+                  <label className="block text-xs text-muted-foreground">
                     Phone *
                     <input
                       type="tel"
@@ -406,7 +406,7 @@ export default function BookPageClient({
                   </label>
                 </div>
 
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-muted-foreground">
                   Address *
                   <input
                     type="text"
@@ -420,8 +420,8 @@ export default function BookPageClient({
 
                 {/* Optional email — collapsed by default. */}
                 {emailOpen || customerEmail ? (
-                  <label className="block text-xs text-zinc-400">
-                    Email <span className="text-zinc-600">(optional)</span>
+                  <label className="block text-xs text-muted-foreground">
+                    Email <span className="text-muted-foreground">(optional)</span>
                     <input
                       type="email"
                       autoComplete="email"
@@ -435,7 +435,7 @@ export default function BookPageClient({
                   <button
                     type="button"
                     onClick={() => setEmailOpen(true)}
-                    className="text-left text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
                   >
                     + Add email
                   </button>
@@ -443,7 +443,7 @@ export default function BookPageClient({
 
                 {/* Job type — compact 2×2 chips (not tall full-width slabs). */}
                 <fieldset>
-                  <legend className="mb-1 text-xs text-zinc-400">Job type *</legend>
+                  <legend className="mb-1 text-xs text-muted-foreground">Job type *</legend>
                   <div className="grid grid-cols-2 gap-2">
                     {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                       <button
@@ -465,7 +465,7 @@ export default function BookPageClient({
                 </fieldset>
 
                 {jobKind === "other" ? (
-                  <label className="block text-xs text-zinc-400">
+                  <label className="block text-xs text-muted-foreground">
                     Describe the job *
                     <input
                       type="text"
@@ -480,9 +480,9 @@ export default function BookPageClient({
                 {/* Vehicle YMM — only for car-key jobs (copy / AKL). */}
                 {bookJobKindNeedsVehicle(jobKind) ? (
                   <div>
-                    <p className="mb-1 text-xs text-zinc-400">Vehicle</p>
+                    <p className="mb-1 text-xs text-muted-foreground">Vehicle</p>
                     <div className="grid grid-cols-3 gap-2">
-                      <label className="block text-[10px] text-zinc-500">
+                      <label className="block text-[10px] text-muted-foreground">
                         Year
                         <input
                           value={vehicleYear}
@@ -492,7 +492,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-[10px] text-zinc-500">
+                      <label className="block text-[10px] text-muted-foreground">
                         Make
                         <input
                           value={vehicleMake}
@@ -501,7 +501,7 @@ export default function BookPageClient({
                           className={fieldClass}
                         />
                       </label>
-                      <label className="block text-[10px] text-zinc-500">
+                      <label className="block text-[10px] text-muted-foreground">
                         Model
                         <input
                           value={vehicleModel}
@@ -516,8 +516,8 @@ export default function BookPageClient({
 
                 {/* Notes — collapsed until expanded (or already has text). */}
                 {notesOpen || notes ? (
-                  <label className="block text-xs text-zinc-400">
-                    Notes <span className="text-zinc-600">(optional)</span>
+                  <label className="block text-xs text-muted-foreground">
+                    Notes <span className="text-muted-foreground">(optional)</span>
                     <input
                       type="text"
                       value={notes}
@@ -530,7 +530,7 @@ export default function BookPageClient({
                   <button
                     type="button"
                     onClick={() => setNotesOpen(true)}
-                    className="text-left text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
                   >
                     + Add notes
                   </button>
@@ -538,7 +538,7 @@ export default function BookPageClient({
 
                 {/* Urgency — short side-by-side chips. */}
                 <fieldset>
-                  <legend className="mb-1 text-xs text-zinc-400">Urgency *</legend>
+                  <legend className="mb-1 text-xs text-muted-foreground">Urgency *</legend>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -551,7 +551,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-xs font-semibold">ASAP</span>
-                      <span className="mt-0.5 block text-[10px] leading-tight text-zinc-500">
+                      <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
                         Need help now
                       </span>
                     </button>
@@ -566,7 +566,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-xs font-semibold">Schedule</span>
-                      <span className="mt-0.5 block text-[10px] leading-tight text-zinc-500">
+                      <span className="mt-0.5 block text-[10px] leading-tight text-muted-foreground">
                         Pick a window
                       </span>
                     </button>
@@ -597,7 +597,7 @@ export default function BookPageClient({
                       : "Continue — pick a window"}
                   </button>
                   {!detailsReady ? (
-                    <p className="mt-1 text-center text-[10px] text-zinc-500">
+                    <p className="mt-1 text-center text-[10px] text-muted-foreground">
                       Name, phone, address, job type, and urgency are required.
                     </p>
                   ) : null}
@@ -614,14 +614,14 @@ export default function BookPageClient({
                 <button
                   type="button"
                   onClick={() => setWizardStep("details")}
-                  className="text-xs font-medium text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-200 hover:underline"
                 >
                   Back
                 </button>
               </div>
 
               <fieldset className="space-y-2">
-                <legend className="text-xs text-zinc-400">Which day?</legend>
+                <legend className="text-xs text-muted-foreground">Which day?</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {dayOptions.map((day) => (
                     <button
@@ -636,7 +636,7 @@ export default function BookPageClient({
                       )}
                     >
                       <span className="block text-sm font-semibold">{day.shortLabel}</span>
-                      <span className="mt-0.5 block text-[11px] text-zinc-400">
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
                         {day.label.replace(/^Today · |^Next day · /, "")}
                       </span>
                     </button>
@@ -645,7 +645,7 @@ export default function BookPageClient({
               </fieldset>
 
               <div className="grid grid-cols-2 gap-3">
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-muted-foreground">
                   From
                   <select
                     value={fromTime}
@@ -659,7 +659,7 @@ export default function BookPageClient({
                     ))}
                   </select>
                 </label>
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-muted-foreground">
                   To
                   <select
                     value={toTime}

@@ -65,7 +65,7 @@ function CertificationCard({
               Certified
             </Badge>
           ) : (
-            <Badge variant="outline" className="border-zinc-700 text-zinc-400">
+            <Badge variant="outline" className="border-zinc-700 text-muted-foreground">
               Locked
             </Badge>
           )}
@@ -78,7 +78,7 @@ function CertificationCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           {certification.module_data.lessons.length > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1">
               <BookOpen className="h-3.5 w-3.5" aria-hidden />
@@ -98,7 +98,7 @@ function CertificationCard({
           >
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">Live routing</p>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 {fieldActive ? "Receiving matched calls" : "Field paused — hidden from queue"}
               </p>
             </div>
@@ -181,7 +181,7 @@ export function ReceptionistTrainingView({ userId, initialCatalog }: Props) {
   return (
     <WorkspacePage>
       <WorkspacePageHeader title="Certifications & training" />
-      <p className="-mt-4 max-w-2xl text-sm text-zinc-400">
+      <p className="-mt-4 max-w-2xl text-sm text-muted-foreground">
         Earn specialty badges to join live routing pools. Toggle fields on or off anytime.
       </p>
 
@@ -189,18 +189,18 @@ export function ReceptionistTrainingView({ userId, initialCatalog }: Props) {
         <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           {certifiedCount} certified
         </Badge>
-        <Badge variant="outline" className="border-zinc-700 text-zinc-400">
+        <Badge variant="outline" className="border-zinc-700 text-muted-foreground">
           {catalog.length - certifiedCount} available to unlock
         </Badge>
       </div>
 
       {loading ? (
-        <div className="flex min-h-[240px] items-center justify-center text-zinc-500">
+        <div className="flex min-h-[240px] items-center justify-center text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden />
           Loading courses…
         </div>
       ) : catalog.length === 0 ? (
-        <WorkspacePanel density="roomy" className="text-center text-sm text-zinc-500">
+        <WorkspacePanel density="roomy" className="text-center text-sm text-muted-foreground">
           No certifications are published yet. Ask your operator to run migration 043 in Neon.
         </WorkspacePanel>
       ) : (

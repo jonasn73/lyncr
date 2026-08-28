@@ -238,19 +238,19 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
             Live roster
           </h2>
         </div>
-        <span className="text-[10px] font-medium tabular-nums text-slate-500">
+        <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
           {/* Match the list body's gate below — otherwise this blinks to "…" on every 30s poll. */}
           {loading && rows.length === 0 ? "…" : `${rows.length} tech${rows.length === 1 ? "" : "s"}`}
         </span>
       </div>
 
       {loading && rows.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-500">
+        <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
           Loading roster…
         </div>
       ) : rows.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
           No field techs yet — invite from the directory below.
         </p>
       ) : (
@@ -270,13 +270,13 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
                   <span className="truncate text-sm font-semibold text-slate-100">{row.shortName}</span>
                 </div>
                 {row.fieldDistanceLabel ? (
-                  <p className="text-slate-400 text-xs flex items-center gap-1 pl-[18px]">
+                  <p className="text-muted-foreground text-xs flex items-center gap-1 pl-[18px]">
                     <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
                     <span>{row.fieldDistanceLabel}</span>
                   </p>
                 ) : null}
               </div>
-              <span className="shrink-0 text-right text-[11px] font-medium text-slate-400">
+              <span className="shrink-0 text-right text-[11px] font-medium text-muted-foreground">
                 {row.detail}
               </span>
             </li>

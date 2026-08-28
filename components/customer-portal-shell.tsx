@@ -89,7 +89,7 @@ export function CustomerPortalShell({
           {subtitle ? (
             <p
               className={cn(
-                "text-sm text-zinc-400",
+                "text-sm text-muted-foreground",
                 compact ? "mt-1 hidden sm:block" : "mt-2"
               )}
             >
@@ -123,7 +123,7 @@ export function CustomerPortalShell({
                       "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide",
                       active && "bg-teal-500/20 text-teal-100 ring-1 ring-teal-500/40",
                       done && !active && "text-emerald-300/90",
-                      !active && !done && "text-zinc-500"
+                      !active && !done && "text-muted-foreground"
                     )}
                     aria-current={active ? "step" : undefined}
                   >

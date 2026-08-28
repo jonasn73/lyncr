@@ -138,7 +138,7 @@ export function ReceptionistEndpointToggle({
   const extras = (
     <>
       {showWebStatus ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className={cn("inline-block h-1.5 w-1.5 rounded-full", status.dot)} aria-hidden />
           <span>{status.text}</span>
           {webStatus === "error" && webError ? <span className="text-red-400">· {webError}</span> : null}
@@ -160,11 +160,11 @@ export function ReceptionistEndpointToggle({
     return (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Answer on
           </p>
           {/* Longer hint only on desktop — mobile stays action-first */}
-          <p className="hidden text-xs text-zinc-500 md:block">
+          <p className="hidden text-xs text-muted-foreground md:block">
             Where rings land when you&apos;re selected
           </p>
         </div>
@@ -179,8 +179,8 @@ export function ReceptionistEndpointToggle({
     <WorkspacePanel density="default">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Answer calls on</p>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Answer calls on</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Pick where calls routed to you ring. Browser is instant; cell forwards to your phone.
           </p>
         </div>
@@ -215,7 +215,7 @@ function EndpointButton({
       onClick={onClick}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-        active ? "bg-primary text-primary-foreground shadow-sm" : "text-zinc-400 hover:text-zinc-200",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-zinc-200",
         busy && "opacity-70",
         className
       )}

@@ -92,7 +92,7 @@ export function SchedulerJobSheetCloseButton({ onClose }: { onClose: () => void 
       type="button"
       aria-label="Close"
       // Large thumb target + high z so Edit never steals the tap (clears mobile drag handle).
-      className="absolute right-2 top-1.5 z-30 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-zinc-500 hover:bg-muted hover:text-foreground md:right-3 md:top-3"
+      className="absolute right-2 top-1.5 z-30 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground md:right-3 md:top-3"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()

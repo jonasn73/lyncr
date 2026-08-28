@@ -21,7 +21,7 @@ type IvrApiPayload = IvrMenuSettings & {
 }
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
 export function IvrGreetingsSettingsForm({
   routingBusinessNumber,
@@ -141,14 +141,14 @@ export function IvrGreetingsSettingsForm({
         >
           Greetings · Traditional IVR
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
           Edit what the text-to-speech engine reads when Off-duty IVR answers. Keypress routes are
           fixed below.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           Loading IVR settings…
         </div>
@@ -166,7 +166,7 @@ export function IvrGreetingsSettingsForm({
               className={cn(fieldClass, "min-h-[5.5rem] resize-y px-3 py-2 sm:min-h-[7rem] sm:py-3")}
               placeholder={DEFAULT_IVR_GREETING_TEXT}
             />
-            <p className="text-[10px] text-zinc-600">
+            <p className="text-[10px] text-muted-foreground">
               Spoken exactly as written when the keypad menu answers.
             </p>
           </div>
@@ -177,7 +177,7 @@ export function IvrGreetingsSettingsForm({
                 Digit 1 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Send SMS Booking Link</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
                 Texts a secure lyncr.app/book/[id] tracking link, then hangs up.
               </p>
             </div>
@@ -186,7 +186,7 @@ export function IvrGreetingsSettingsForm({
                 Digit 2 Action
               </p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">Ring Our Phone</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
                 Dials your cell for 20 seconds. If no answer, offers an SMS booking link.
               </p>
             </div>

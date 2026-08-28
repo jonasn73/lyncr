@@ -114,14 +114,14 @@ export function SalesTaxSettingsSheet({
             <Percent className="h-4 w-4 text-emerald-400" aria-hidden />
             Sales tax default
           </SheetTitle>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Controls how Charge / Collect opens. You can still flip tax on or off for one job.
           </p>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Loading…
             </div>
@@ -130,7 +130,7 @@ export function SalesTaxSettingsSheet({
               <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-100">Add sales tax by default</p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-muted-foreground">
                     Recommended on so you don’t forget tax on pay links.
                   </p>
                 </div>
@@ -142,7 +142,7 @@ export function SalesTaxSettingsSheet({
               </div>
 
               <label className="block rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Default tax %
                 </span>
                 <div className="mt-1.5 flex items-center gap-2">
@@ -157,7 +157,7 @@ export function SalesTaxSettingsSheet({
                     disabled={!enabledDefault}
                     className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-right text-sm tabular-nums text-white outline-none disabled:opacity-40"
                   />
-                  <span className="text-sm text-slate-400">%</span>
+                  <span className="text-sm text-muted-foreground">%</span>
                 </div>
               </label>
 

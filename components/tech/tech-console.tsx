@@ -221,14 +221,14 @@ export function TechConsole(props: {
         <div className="flex items-center gap-1">
           <button
             onClick={() => load(true)}
-            className="rounded-lg p-2 text-zinc-400 transition active:scale-95 hover:text-white"
+            className="rounded-lg p-2 text-muted-foreground transition active:scale-95 hover:text-white"
             aria-label="Refresh"
           >
             <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
           <button
             onClick={signOut}
-            className="rounded-lg p-2 text-zinc-400 transition active:scale-95 hover:text-white"
+            className="rounded-lg p-2 text-muted-foreground transition active:scale-95 hover:text-white"
             aria-label="Sign out"
           >
             <LogOut className="h-5 w-5" />
@@ -246,17 +246,17 @@ export function TechConsole(props: {
         ) : null}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-zinc-500">
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="h-7 w-7 animate-spin" />
             <p className="mt-3 text-sm">Loading your jobs…</p>
           </div>
         ) : active.length === 0 && done.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center text-zinc-500">
+          <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
             <CheckCircle2 className="h-10 w-10 text-zinc-700" />
-            <p className="mt-3 text-sm font-medium text-zinc-400">
+            <p className="mt-3 text-sm font-medium text-muted-foreground">
               {poolJobs.length > 0 ? "Claim a job from the pool above" : "No jobs assigned yet"}
             </p>
-            <p className="mt-1 text-xs text-zinc-600">
+            <p className="mt-1 text-xs text-muted-foreground">
               {poolJobs.length > 0
                 ? "Tap Claim to add an unassigned job to your route."
                 : "New dispatches appear here automatically."}
@@ -280,7 +280,7 @@ export function TechConsole(props: {
 
             {done.length > 0 && (
               <div className="pt-4">
-                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Completed today
                 </p>
                 {done.map((job) => (
@@ -331,7 +331,7 @@ function HopperPoolSection(props: {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Unassigned pool</p>
-          <p className="text-[11px] text-zinc-500">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
+          <p className="text-[11px] text-muted-foreground">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
         </div>
       </div>
       <ul className="space-y-2">
@@ -347,7 +347,7 @@ function HopperPoolSection(props: {
                 <p className="truncate text-sm font-semibold text-white">
                   {job.customer_name || job.customer_phone || "Customer"}
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-400">{job.job_type || "Service call"}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{job.job_type || "Service call"}</p>
                 {job.field_verification_required ? (
                   <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-300">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -355,13 +355,13 @@ function HopperPoolSection(props: {
                   </p>
                 ) : null}
                 {vehicle ? (
-                  <p className="mt-1 flex items-center gap-1 text-[11px] text-zinc-500">
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Car className="h-3 w-3 shrink-0" aria-hidden />
                     {vehicle}
                   </p>
                 ) : null}
                 {job.neighborhood || job.location ? (
-                  <p className="mt-1 flex items-start gap-1 text-[11px] text-zinc-600">
+                  <p className="mt-1 flex items-start gap-1 text-[11px] text-muted-foreground">
                     <MapPin className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
                     <span className="line-clamp-2">{job.neighborhood || job.location}</span>
                   </p>
@@ -390,7 +390,7 @@ function BadgesStrip({ badges }: { badges: TechBadge[] }) {
     <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Performance badges</p>
-        <span className="text-[11px] font-medium text-zinc-500">
+        <span className="text-[11px] font-medium text-muted-foreground">
           {earnedCount}/{badges.length} earned
         </span>
       </div>
@@ -475,7 +475,7 @@ function JobCard(props: {
           href={phoneHref ?? undefined}
           className={cn(
             "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
-            phoneHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+            phoneHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-muted-foreground"
           )}
         >
           <Phone className="h-4 w-4" /> Call
@@ -486,7 +486,7 @@ function JobCard(props: {
           rel="noopener noreferrer"
           className={cn(
             "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
-            mapsHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-zinc-600"
+            mapsHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-muted-foreground"
           )}
         >
           <Navigation className="h-4 w-4" /> Navigate
@@ -519,7 +519,7 @@ function JobCard(props: {
             "rounded-xl px-3 py-3 text-sm font-semibold shadow-lg transition active:scale-[0.98]",
             workComplete
               ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-900/30"
-              : "cursor-not-allowed bg-zinc-800 text-zinc-500 shadow-none"
+              : "cursor-not-allowed bg-zinc-800 text-muted-foreground shadow-none"
           )}
           title={
             workComplete
@@ -551,7 +551,7 @@ function JobCard(props: {
         </div>
       ) : null}
       {canMarkWorkComplete && !workComplete ? (
-        <p className="mt-2 text-center text-[10px] text-zinc-600">
+        <p className="mt-2 text-center text-[10px] text-muted-foreground">
           Mark work complete on the left, then Proceed to Payment unlocks.
         </p>
       ) : null}

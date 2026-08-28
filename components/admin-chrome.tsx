@@ -144,7 +144,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
-                : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
+                : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -153,7 +153,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
           </Link>
         )
       })}
-      <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-wide text-slate-600">More</p>
+      <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">More</p>
       {MORE_LINKS.map((item) => {
         const Icon = item.icon
         const active = item.match(pathname)
@@ -166,7 +166,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
-                : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-200"
+                : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -208,7 +208,7 @@ function MobileBottomTabs({
                 "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
                 active
                   ? "bg-violet-600/25 text-violet-100"
-                  : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
+                  : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
               )}
             >
               <span className="relative">
@@ -232,7 +232,7 @@ function MobileBottomTabs({
             "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
             moreActive
               ? "bg-violet-600/25 text-violet-100"
-              : "text-slate-500 hover:bg-slate-800/80 hover:text-slate-200"
+              : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
           )}
         >
           <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
@@ -279,7 +279,7 @@ function MoreSheet({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-slate-400 hover:text-slate-100"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-slate-100"
             aria-label="Close"
             onClick={onClose}
           >
@@ -306,7 +306,7 @@ function MoreSheet({
                 <span className="flex min-w-0 flex-col">
                   <span>{item.label}</span>
                   {item.href === "/admin/businesses" ? (
-                    <span className="text-[11px] font-normal text-slate-500">Full shop list</span>
+                    <span className="text-[11px] font-normal text-muted-foreground">Full shop list</span>
                   ) : null}
                 </span>
                 {item.href === "/admin/support" ? <SupportCountBadge count={supportCount} className="ml-auto" /> : null}
@@ -368,14 +368,14 @@ export function AdminChrome({
         </div>
         <NavLinks supportCount={supportCount} />
         <div className="mt-auto space-y-2 border-t border-slate-800 p-3">
-          <p className="truncate text-[11px] text-slate-500">{userEmail}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{userEmail}</p>
           {/* Desktop has no More sheet — keep Logout reachable in the sidebar footer */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
             disabled={busy}
-            className="h-8 w-full justify-start gap-2 px-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="h-8 w-full justify-start gap-2 px-2 text-muted-foreground hover:bg-slate-800 hover:text-slate-100"
             onClick={() => {
               setBusy(true)
               void signOutAndGoToLogin()
@@ -394,11 +394,11 @@ export function AdminChrome({
             <div className="min-w-0">
               {/* Page name lives in the big heading below — don’t repeat “Home” here. */}
               <p className="truncate text-sm font-semibold text-slate-100">Lyncr Admin</p>
-              <p className="truncate text-[11px] text-slate-500 sm:hidden">{userName}</p>
+              <p className="truncate text-[11px] text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
-          <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:bg-slate-800 hover:text-slate-100">
+          <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-slate-800 hover:text-slate-100">
             <Link href="/dashboard">App</Link>
           </Button>
         </header>

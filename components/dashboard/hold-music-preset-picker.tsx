@@ -14,7 +14,7 @@ import {
 } from "@/lib/hold-music-presets"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
 
 export type HoldMusicPresetPickerProps = {
   /** Stored hold_music_url (https://… or /audio/…). */
@@ -48,7 +48,7 @@ export function HoldMusicPresetPicker({
       <label htmlFor={`${idPrefix}-preset`} className="text-xs font-semibold text-zinc-300">
         Hold music
       </label>
-      <p className="hidden text-[10px] text-zinc-600 md:block">
+      <p className="hidden text-[10px] text-muted-foreground md:block">
         Classic US call-center hold while callers stay on the line. Royalty-free Muzak /
         soft jazz loops — Busy is never silent by default (Classic hold).
       </p>
@@ -74,7 +74,7 @@ export function HoldMusicPresetPicker({
         ))}
         <option value="custom">Custom URL…</option>
       </select>
-      <p className="hidden text-[10px] text-zinc-500 md:block">
+      <p className="hidden text-[10px] text-muted-foreground md:block">
         {HOLD_MUSIC_PRESETS.find(
           (p) =>
             p.id ===
@@ -91,10 +91,10 @@ export function HoldMusicPresetPicker({
           className="flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left"
           aria-expanded={advancedOpen}
         >
-          <span className="text-[11px] font-semibold text-zinc-400">Advanced · custom URL</span>
+          <span className="text-[11px] font-semibold text-muted-foreground">Advanced · custom URL</span>
           <ChevronDown
             className={cn(
-              "h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform",
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
               advancedOpen && "rotate-180"
             )}
             aria-hidden
@@ -102,7 +102,7 @@ export function HoldMusicPresetPicker({
         </button>
         {advancedOpen ? (
           <div className="space-y-2 border-t border-zinc-800 px-3 pb-3 pt-2">
-            <label htmlFor={`${idPrefix}-url`} className="text-[10px] font-medium text-zinc-500">
+            <label htmlFor={`${idPrefix}-url`} className="text-[10px] font-medium text-muted-foreground">
               Public HTTPS MP3/WAV
             </label>
             <input
@@ -113,7 +113,7 @@ export function HoldMusicPresetPicker({
               className={cn(fieldClass, "min-h-11 px-3 py-2")}
               placeholder="https://…/hold-music.mp3"
             />
-            <p className="hidden text-[10px] text-zinc-600 md:block">
+            <p className="hidden text-[10px] text-muted-foreground md:block">
               Leave blank and pick Calm / Upbeat / Minimal above to use a bundled track.
             </p>
           </div>

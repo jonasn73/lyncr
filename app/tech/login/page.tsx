@@ -62,12 +62,12 @@ function TechLoginForm() {
             L
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Lyncr Field Console</h1>
-          <p className="mt-1 text-sm text-zinc-400">Sign in to see your assigned jobs.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in to see your assigned jobs.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Mobile number</label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Mobile number</label>
             <input
               type="text"
               inputMode="tel"
@@ -80,7 +80,7 @@ function TechLoginForm() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Password</label>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</label>
             <input
               type="password"
               autoComplete="current-password"
@@ -107,7 +107,7 @@ function TechLoginForm() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-zinc-500">
+        <p className="mt-8 text-center text-xs text-muted-foreground">
           Powered by Lyncr · Ask your dispatcher for login details
         </p>
       </div>

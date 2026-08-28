@@ -198,7 +198,7 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
         ) : null}
       </div>
       {chips.length > 0 ? (
-        <p className="mt-1 text-[11px] text-zinc-400">{chips.join(" · ")}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">{chips.join(" · ")}</p>
       ) : null}
     </div>
   )
@@ -520,7 +520,7 @@ export function ReceptionistLiveIntake({
                   ? "bg-emerald-500/25 text-emerald-100"
                   : i < stepIndex
                     ? "text-emerald-300/70 hover:bg-emerald-500/10"
-                    : "text-zinc-600 hover:bg-emerald-500/5"
+                    : "text-muted-foreground hover:bg-emerald-500/5"
               }`}
             >
               {s.label}
@@ -534,7 +534,7 @@ export function ReceptionistLiveIntake({
         <h2 className="text-sm font-semibold text-foreground">
           {step ? step.label : config.title}
         </h2>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           {steps.length > 1
             ? `Step ${stepIndex + 1} of ${steps.length} — ask as you go, it saves as you type.`
             : "Fill this in while you talk — it texts the owner the moment you save."}
@@ -563,7 +563,7 @@ export function ReceptionistLiveIntake({
           {/* How the call ended is the last question, not the first — asking it beside
               the vehicle year invites logging an outcome before there is one. */}
           <div className={`flex flex-wrap items-center gap-2 ${isLastStep ? "" : "hidden"}`}>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Disposition:</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Disposition:</span>
             <button
               type="button"
               onClick={() => void logJob("BOOKED")}
@@ -615,7 +615,7 @@ export function ReceptionistLiveIntake({
                   })
                 }
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-zinc-400 transition hover:text-zinc-200 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-zinc-200 disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 Back

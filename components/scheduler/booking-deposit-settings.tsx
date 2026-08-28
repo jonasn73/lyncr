@@ -84,12 +84,12 @@ export function BookingDepositSettings({ className }: { className?: string }) {
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-zinc-100">Require deposit on /book</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
           Customers pay a Stripe deposit before the slot is confirmed.
         </p>
       </div>
       {loading ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" aria-label="Loading" />
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Loading" />
       ) : (
         <Switch
           checked={requireDeposit}

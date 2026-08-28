@@ -70,10 +70,10 @@ export function SettingsMenuRow({
           ) : null}
         </span>
         {subtitle ? (
-          <span className="mt-0.5 block text-xs leading-snug text-zinc-500">{subtitle}</span>
+          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{subtitle}</span>
         ) : null}
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
     </button>
   )
 }

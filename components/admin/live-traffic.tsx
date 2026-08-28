@@ -73,20 +73,20 @@ export function LiveTrafficPulse() {
           </span>
           Live Traffic Pulse
         </CardTitle>
-        <span className="inline-flex items-center gap-2 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
           <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
           {calls.length} active {calls.length === 1 ? "call" : "calls"}
         </span>
       </CardHeader>
       <CardContent className="pt-0">
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Listening for live calls…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <PhoneCall className="h-7 w-7 text-slate-700" aria-hidden />
-            <p className="text-sm text-slate-500">No active calls on the network right now.</p>
+            <p className="text-sm text-muted-foreground">No active calls on the network right now.</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-800/70">
@@ -94,12 +94,12 @@ export function LiveTrafficPulse() {
               <li key={c.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-100">{c.business_name}</p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-xs text-muted-foreground">
                     {maskNumber(c.from_number)} ·{" "}
                     {c.operator ? (
-                      <span className="text-slate-400">{c.operator}</span>
+                      <span className="text-muted-foreground">{c.operator}</span>
                     ) : (
-                      <span className="text-slate-600">Connecting…</span>
+                      <span className="text-muted-foreground">Connecting…</span>
                     )}
                   </p>
                 </div>

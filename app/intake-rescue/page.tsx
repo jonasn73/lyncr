@@ -282,7 +282,7 @@ function IntakeRescueInner() {
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
           Pending Info Intake
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{message}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
         {decodedLine ? (
           <p className="mt-1 text-xs font-medium text-emerald-700">Vehicle: {decodedLine}</p>
         ) : null}
@@ -314,7 +314,7 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">Upload ID now for faster dispatch</span>
-                <span className="mt-0.5 block text-[11px] text-zinc-500">Default — speeds up quoting</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">Default — speeds up quoting</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-transparent bg-white px-3 py-3 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
@@ -328,7 +328,7 @@ function IntakeRescueInner() {
               />
               <span className="text-sm text-zinc-800">
                 <span className="font-semibold">I will present physical ID to the technician on arrival</span>
-                <span className="mt-0.5 block text-[11px] text-zinc-500">No photo needed right now</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">No photo needed right now</span>
               </span>
             </label>
             {!verifyOnArrival ? (
@@ -364,7 +364,7 @@ function IntakeRescueInner() {
           <div className="space-y-2">
             <label className="block space-y-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-zinc-700">
-                Vehicle VIN <span className="font-normal normal-case text-zinc-500">(optional)</span>
+                Vehicle VIN <span className="font-normal normal-case text-muted-foreground">(optional)</span>
               </span>
               <input
                 type="text"
@@ -375,7 +375,7 @@ function IntakeRescueInner() {
                 onChange={(e) => setVehicleVin(e.target.value.toUpperCase())}
                 placeholder="17-character VIN"
                 maxLength={17}
-                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base tracking-wide text-zinc-900 outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-muted-foreground"
               />
             </label>
             <button
@@ -399,7 +399,7 @@ function IntakeRescueInner() {
             </button>
             {vinUnavailable ? (
               <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-                <p className="text-[11px] text-zinc-600">
+                <p className="text-[11px] text-muted-foreground">
                   Type what you know — e.g. 2018 Kia Optima.
                 </p>
                 <select
@@ -433,7 +433,7 @@ function IntakeRescueInner() {
                 />
               </div>
             ) : (
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-muted-foreground">
                 If provided, we decode Year / Make / Model / Trim automatically.
               </p>
             )}
@@ -478,7 +478,7 @@ export default function IntakeRescuePage() {
     <Suspense
       fallback={
         <main className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center px-6">
-          <p className="text-sm text-zinc-600">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         </main>
       }
     >

@@ -163,7 +163,7 @@ export function JobMapPopupForm({
         <p className={cn("truncate font-bold text-slate-100", isSheet ? "text-lg" : "text-sm")}>
           {job.customer_name?.trim() || "Customer"}
         </p>
-        <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-slate-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
+        <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
           {phoneHref ? (
             <a href={phoneHref} className={cn(SCHEDULER_INTERACTIVE_TEXT_LINK, "inline-flex min-h-11 items-center")}>
               {formatPhoneDisplay(job.customer_phone)}
@@ -173,7 +173,7 @@ export function JobMapPopupForm({
           )}
           {!isSheet ? (
             <>
-              <span className="hidden text-slate-600 sm:inline" aria-hidden>
+              <span className="hidden text-muted-foreground sm:inline" aria-hidden>
                 ·
               </span>
               <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{profileLine}</span>
@@ -212,7 +212,7 @@ export function JobMapPopupForm({
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
-                        "border border-slate-800/80 bg-slate-900/60 text-slate-400",
+                        "border border-slate-800/80 bg-slate-900/60 text-muted-foreground",
                         SCHEDULER_INTERACTIVE_HOVER,
                         "hover:text-slate-200"
                       ),
@@ -271,7 +271,7 @@ export function JobMapPopupForm({
         </button>
       </div>
 
-      <p className="text-[10px] text-zinc-600">
+      <p className="text-[10px] text-muted-foreground">
         {SCHEDULER_STATUS_LABEL[schedulerLifecyclePhase({
           job_status: pendingStatus,
           dispatch_status: job.dispatch_status,

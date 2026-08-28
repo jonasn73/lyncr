@@ -63,11 +63,11 @@ export function PresenceStatusBar({ className }: { className?: string }) {
             {/* Spinner while loading or saving — same cue as the old dual-button bar. */}
             <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
               {busySaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
               ) : null}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] font-normal text-slate-500">
+          <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
             {isBusy
               ? untilLabel
                 ? `Busy until ${untilLabel} · skip your phone`
@@ -76,13 +76,13 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           </p>
           {/* Desktop-only notes — hide long copy on mobile. */}
           {isAvailable ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-slate-600 md:block">
+            <p className="mt-1 hidden text-[10px] leading-snug text-muted-foreground md:block">
               If you&apos;re already on a call, new callers go to hold / team instead of
               interrupting. Text Amber BUSY / AVAILABLE anytime.
             </p>
           ) : null}
           {isBusy && untilLabel ? (
-            <p className="mt-1 hidden text-[10px] leading-snug text-slate-600 md:block">
+            <p className="mt-1 hidden text-[10px] leading-snug text-muted-foreground md:block">
               Set by Amber text — flips Available at that time (or turn Available on here).
             </p>
           ) : null}
@@ -104,7 +104,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               </span>
             )
           ) : (
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Available
             </span>
           )}

@@ -68,7 +68,7 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
     return { label: "Under review", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" }
   }
   if (status === "not_configured") {
-    return { label: "Unavailable", className: "border-zinc-600 bg-zinc-800 text-zinc-400" }
+    return { label: "Unavailable", className: "border-zinc-600 bg-zinc-800 text-muted-foreground" }
   }
   return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
 }
@@ -82,7 +82,7 @@ function payoutStatusClass(status: string): string {
   if (s === "failed" || s === "canceled") {
     return "border-rose-500/35 bg-rose-500/10 text-rose-300"
   }
-  return "border-zinc-700 bg-zinc-900 text-zinc-400"
+  return "border-zinc-700 bg-zinc-900 text-muted-foreground"
 }
 
 /** Lyncr dark theme for Stripe Connect embeds. */
@@ -337,7 +337,7 @@ export function GetPaidSheet({
                     : "Set up bank"}
               </SheetTitle>
               {embedding ? null : (
-                <p className="mt-0.5 text-xs text-zinc-500">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {status?.ready
                     ? "Change bank details here. Send money from the Money wallet."
                     : "Add your bank so card money can go to you."}
@@ -347,7 +347,7 @@ export function GetPaidSheet({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-zinc-400 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -392,7 +392,7 @@ export function GetPaidSheet({
         ) : (
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {loading && !status ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
               </div>
             ) : (
@@ -450,7 +450,7 @@ export function GetPaidSheet({
                 {!status?.ready ? (
                   <>
                     <div>
-                      <p className="mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <p className="mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Business type
                       </p>
                       <div className="grid gap-2">
@@ -472,7 +472,7 @@ export function GetPaidSheet({
                                 <span className="block text-sm font-semibold text-zinc-100">
                                   {k.title}
                                 </span>
-                                <span className="block text-[11px] text-zinc-500">{k.subtitle}</span>
+                                <span className="block text-[11px] text-muted-foreground">{k.subtitle}</span>
                               </span>
                               <span
                                 className={cn(
@@ -506,7 +506,7 @@ export function GetPaidSheet({
                   <>
                     {/* Manual bank transfer — only when something is actually ready */}
                     <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Send to bank
                       </p>
                       {!status.payoutsEnabled ? (
@@ -515,14 +515,14 @@ export function GetPaidSheet({
                           for approval.
                         </p>
                       ) : status.availableCents < 100 ? (
-                        <p className="text-xs text-zinc-400">
+                        <p className="text-xs text-muted-foreground">
                           Nothing ready yet. Close this and use Money — Send to bank appears there
                           after charges clear (usually 1–2 days).
                         </p>
                       ) : (
                         <>
                           <label className="block">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                               Amount (USD)
                             </span>
                             <input
@@ -531,7 +531,7 @@ export function GetPaidSheet({
                               value={transferDollars}
                               onChange={(e) => setTransferDollars(e.target.value)}
                               placeholder={(status.availableCents / 100).toFixed(2)}
-                              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none placeholder:text-zinc-600"
+                              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none placeholder:text-muted-foreground"
                             />
                           </label>
                           <button
@@ -555,7 +555,7 @@ export function GetPaidSheet({
                           >
                             Send all available ({fmtCents(status.availableCents, status.currency)})
                           </button>
-                          <p className="text-[11px] leading-snug text-zinc-500">
+                          <p className="text-[11px] leading-snug text-muted-foreground">
                             Standard transfer — usually arrives in 1–2 business days.
                           </p>
                         </>
@@ -566,10 +566,10 @@ export function GetPaidSheet({
                     <section className="space-y-2">
                       <div className="flex items-center justify-between gap-2 px-0.5">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Bank transfers (net to bank)
                           </p>
-                          <p className="mt-0.5 text-[10px] leading-snug text-zinc-600">
+                          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
                             Recent payouts only — amount after fees, not the Collected total.
                           </p>
                         </div>
@@ -587,9 +587,9 @@ export function GetPaidSheet({
                         </button>
                       </div>
                       {payoutsLoading && payouts.length === 0 ? (
-                        <p className="py-4 text-center text-xs text-zinc-500">Loading transfers…</p>
+                        <p className="py-4 text-center text-xs text-muted-foreground">Loading transfers…</p>
                       ) : payouts.length === 0 ? (
-                        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-zinc-500">
+                        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-muted-foreground">
                           No bank transfers yet. When you send money (or Stripe auto-pays), it
                           shows here.
                         </p>
@@ -605,7 +605,7 @@ export function GetPaidSheet({
                                   <p className="text-sm font-semibold tabular-nums text-slate-100">
                                     {fmtCents(p.amountCents, p.currency)}
                                   </p>
-                                  <p className="mt-0.5 text-[11px] text-zinc-500">
+                                  <p className="mt-0.5 text-[11px] text-muted-foreground">
                                     {p.createdLabel}
                                     {p.arrivalDateLabel !== "—"
                                       ? ` · arrives ${p.arrivalDateLabel}`

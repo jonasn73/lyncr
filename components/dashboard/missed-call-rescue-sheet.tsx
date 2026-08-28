@@ -259,10 +259,10 @@ function MissedLeadCard({
         </span>
       </div>
       {item.displayName ? (
-        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{item.displayName}</p>
+        <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{item.displayName}</p>
       ) : null}
       {item.latestStatus ? (
-        <p className="mt-1 text-[10px] font-medium text-slate-500">{item.latestStatus}</p>
+        <p className="mt-1 text-[10px] font-medium text-muted-foreground">{item.latestStatus}</p>
       ) : null}
       {href ? (
         <div className="mt-3 flex flex-col gap-2">
@@ -293,7 +293,7 @@ function MissedLeadCard({
           </button>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-slate-500">No dialable number on this log.</p>
+        <p className="mt-2 text-xs text-muted-foreground">No dialable number on this log.</p>
       )}
       {item.count > 1 && item.times.length > 0 ? (
         <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-medium leading-snug text-amber-100/90">
@@ -452,7 +452,7 @@ export function MissedCallRescueSheet({
             <span className="min-w-0 leading-snug">{headerTitle}</span>
           </SheetTitle>
           {/* Non-actionable copy — hide on the smallest phones per global UI standards. */}
-          <SheetDescription className="hidden text-xs text-slate-500 md:block">
+          <SheetDescription className="hidden text-xs text-muted-foreground md:block">
             Today&apos;s missed numbers — tap Call Back &amp; Rescue to reclaim the lead.
           </SheetDescription>
         </SheetHeader>
@@ -464,14 +464,14 @@ export function MissedCallRescueSheet({
           )}
         >
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-400">
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Loading hotlist…
             </div>
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-400">{error}</p>
           ) : hotlist.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">No missed calls today — nice work.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No missed calls today — nice work.</p>
           ) : (
             <ul className="flex flex-col gap-2" data-fetched-at={fetchedAt || undefined}>
               {hotlist.map((item) => (

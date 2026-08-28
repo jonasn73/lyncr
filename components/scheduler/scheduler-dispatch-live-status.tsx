@@ -136,10 +136,10 @@ function UpcomingJobsList({
   pending?: boolean
 }) {
   if (pending) {
-    return <p className="min-h-[1.25rem] text-[11px] text-zinc-600">{"\u00a0"}</p>
+    return <p className="min-h-[1.25rem] text-[11px] text-muted-foreground">{"\u00a0"}</p>
   }
   if (upcoming.length === 0) {
-    return <p className="text-[11px] text-zinc-600">Nothing scheduled yet</p>
+    return <p className="text-[11px] text-muted-foreground">Nothing scheduled yet</p>
   }
 
   return (
@@ -230,7 +230,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
   if (upcomingOnly) {
     return (
       <div className={cn(className)} aria-label="Upcoming jobs">
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Coming up next</p>
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Coming up next</p>
         <UpcomingJobsList
           upcoming={upcoming}
           now={now}

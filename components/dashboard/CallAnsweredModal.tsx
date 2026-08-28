@@ -381,18 +381,18 @@ function ReturningCallerDecisionCard({
           </p>
           <p className="mt-0.5 text-lg font-semibold leading-tight text-foreground">{customerName}</p>
           {phoneDisplay ? (
-            <p className="mt-0.5 font-mono text-xs text-zinc-400">{phoneDisplay}</p>
+            <p className="mt-0.5 font-mono text-xs text-muted-foreground">{phoneDisplay}</p>
           ) : null}
 
           {vehicleLabels.length > 0 ? (
             <p className="mt-2 text-[12px] leading-snug text-zinc-200">
-              <span className="text-zinc-500">Vehicle · </span>
+              <span className="text-muted-foreground">Vehicle · </span>
               {vehicleLabels.join(" · ")}
             </p>
           ) : null}
           {addressLine ? (
-            <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-              <span className="text-zinc-500">Address · </span>
+            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+              <span className="text-muted-foreground">Address · </span>
               {addressLine}
             </p>
           ) : null}
@@ -436,12 +436,12 @@ function ReturningCallerDecisionCard({
           ) : null}
           {lastJobLine ? (
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Last job
               </p>
               <p className="mt-0.5 text-[12px] leading-snug text-zinc-100">{lastJobLine}</p>
               {lastJobAddress ? (
-                <p className="mt-0.5 text-[11px] text-zinc-500">{lastJobAddress}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{lastJobAddress}</p>
               ) : null}
             </div>
           ) : null}
@@ -464,7 +464,7 @@ function ReturningCallerDecisionCard({
 
         {recentHistoryLines.length > 0 ? (
           <div className="mt-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Recent history
             </p>
             <ul className="mt-1 space-y-1">
@@ -484,7 +484,7 @@ function ReturningCallerDecisionCard({
         {notesPreview ? (
           <div className="mt-2 border-t border-zinc-800 pt-2">
             <p className="text-[11px] leading-snug text-muted-foreground">
-              <span className="text-zinc-500">Notes · </span>
+              <span className="text-muted-foreground">Notes · </span>
               {notesPreview}
             </p>
             {notesHasMore || notesExpanded ? (
@@ -538,7 +538,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onNewJob}
-              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-[11px] font-medium text-zinc-400 touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-[11px] font-medium text-muted-foreground touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
             >
               Start new job
             </button>
@@ -4114,7 +4114,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
               />
               {!compactIntakeChrome && effectiveCurrent.recording_url ? (
                 <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
-                  <span className="font-mono text-xs text-zinc-400">Recording:</span>
+                  <span className="font-mono text-xs text-muted-foreground">Recording:</span>
                   <audio
                     src={effectiveCurrent.recording_url}
                     controls

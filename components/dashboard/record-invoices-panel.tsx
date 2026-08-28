@@ -273,7 +273,7 @@ export function RecordInvoicesPanel({
       {showSearch && externalSearch == null ? (
         <div className="relative">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <input
@@ -281,7 +281,7 @@ export function RecordInvoicesPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, phone, or invoice #"
-            className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-teal-500/40"
+            className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
             autoComplete="off"
             enterKeyHint="search"
           />
@@ -290,7 +290,7 @@ export function RecordInvoicesPanel({
 
       {showToolbar ? (
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {loading ? "Loading…" : `${rows.length} invoice${rows.length === 1 ? "" : "s"}`}
           </p>
           <button
@@ -312,7 +312,7 @@ export function RecordInvoicesPanel({
       ) : null}
 
       {!loading && rows.length === 0 && !error ? (
-        <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-zinc-500">
+        <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-muted-foreground">
           No paid invoices yet. Use <span className="text-zinc-300">Send paid invoice</span> after
           Venmo/cash.
         </p>
@@ -348,13 +348,13 @@ export function RecordInvoicesPanel({
                       {formatMoney(inv.amountCents)}
                     </p>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {formatWhen(inv.createdAt)}
                     {" · "}
                     {inv.paymentMethodLabel}
                     {inv.revision > 1 ? ` · rev ${inv.revision}` : ""}
                     {" · "}
-                    <span className="font-mono text-zinc-400">{inv.invoiceNumber}</span>
+                    <span className="font-mono text-muted-foreground">{inv.invoiceNumber}</span>
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <span
@@ -366,7 +366,7 @@ export function RecordInvoicesPanel({
                       {inv.deliveryStatusLabel}
                     </span>
                     {deliveryBits(inv) ? (
-                      <span className="text-[10px] text-zinc-500">{deliveryBits(inv)}</span>
+                      <span className="text-[10px] text-muted-foreground">{deliveryBits(inv)}</span>
                     ) : null}
                   </div>
                   {inv.deliveryStatus === "failed" || inv.deliveryStatus === "partial" ? (
@@ -422,12 +422,12 @@ export function RecordInvoicesPanel({
 
               {isRevise ? (
                 <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-[11px] text-muted-foreground">
                     Edits create a <span className="text-zinc-300">new revision</span> — the old
                     invoice stays in history.
                   </p>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Amount ($)
                     </span>
                     <Input
@@ -439,7 +439,7 @@ export function RecordInvoicesPanel({
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Paid note
                     </span>
                     <Input
@@ -449,7 +449,7 @@ export function RecordInvoicesPanel({
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       VIN
                     </span>
                     <Input
@@ -474,7 +474,7 @@ export function RecordInvoicesPanel({
                           "rounded-lg py-2 text-xs font-semibold",
                           reviseChannel === id
                             ? "bg-teal-500/20 text-teal-100"
-                            : "text-slate-400 hover:text-slate-200"
+                            : "text-muted-foreground hover:text-slate-200"
                         )}
                       >
                         {label}

@@ -262,7 +262,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <p className="text-lg font-semibold text-white">Link problem</p>
-        <p className="mt-2 text-sm text-slate-400">{error}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
       </div>
     )
   }
@@ -277,10 +277,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center pb-[calc(env(safe-area-inset-bottom)+2rem)]">
         <p className="text-2xl font-semibold text-white">{successCopy.title}</p>
-        <p className="mt-2 text-sm text-slate-400">{successCopy.body}</p>
-        <p className="mt-3 text-xs text-slate-500">{successCopy.nextHint}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{successCopy.body}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{successCopy.nextHint}</p>
         {invite?.business_label ? (
-          <p className="mt-4 text-[11px] text-slate-600">{invite.business_label}</p>
+          <p className="mt-4 text-[11px] text-muted-foreground">{invite.business_label}</p>
         ) : null}
       </div>
     )
@@ -303,7 +303,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             ? `Pay ${amountLabel}`
             : `Book & pay ${amountLabel}`}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         {wizardStep === "availability"
           ? "Pick one day and when you’re free (start–end)."
           : wizardStep === "pay"
@@ -320,7 +320,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
       {/* Step chips */}
       {wizardStep !== "pay" ? (
-        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <span
             className={cn(
               "rounded-full px-3 py-1",
@@ -357,7 +357,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             {/* Name + phone on one row */}
             <div className="grid grid-cols-2 gap-2">
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">Name *</span>
+                <span className="text-xs font-medium text-muted-foreground">Name *</span>
                 <input
                   required
                   value={customerName}
@@ -367,7 +367,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 />
               </label>
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">Phone *</span>
+                <span className="text-xs font-medium text-muted-foreground">Phone *</span>
                 <input
                   required
                   type="tel"
@@ -380,7 +380,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             </div>
 
             <label className="block space-y-0.5">
-              <span className="text-xs font-medium text-slate-400">Address *</span>
+              <span className="text-xs font-medium text-muted-foreground">Address *</span>
               <input
                 required
                 value={address}
@@ -393,8 +393,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {emailOpen || email ? (
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">
-                  Email <span className="text-slate-600">(optional)</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Email <span className="text-muted-foreground">(optional)</span>
                 </span>
                 <input
                   type="email"
@@ -408,14 +408,14 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setEmailOpen(true)}
-                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-slate-300 hover:underline"
               >
                 + Add email
               </button>
             )}
 
             <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-400">Job type *</legend>
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">Job type *</legend>
               <div className="grid grid-cols-2 gap-2">
                 {BOOK_JOB_KIND_OPTIONS.map((opt) => (
                   <button
@@ -437,10 +437,10 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {bookJobKindNeedsVehicle(jobKind) ? (
               <div>
-                <p className="mb-1 text-xs font-medium text-slate-400">Vehicle</p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Vehicle</p>
                 <div className="grid grid-cols-3 gap-2">
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Year</span>
+                    <span className="text-[10px] text-muted-foreground">Year</span>
                     <input
                       value={year}
                       onChange={(e) => setYear(e.target.value)}
@@ -449,7 +449,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Make</span>
+                    <span className="text-[10px] text-muted-foreground">Make</span>
                     <input
                       value={make}
                       onChange={(e) => setMake(e.target.value)}
@@ -457,7 +457,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     />
                   </label>
                   <label className="block space-y-0.5">
-                    <span className="text-[10px] text-slate-500">Model</span>
+                    <span className="text-[10px] text-muted-foreground">Model</span>
                     <input
                       value={model}
                       onChange={(e) => setModel(e.target.value)}
@@ -466,7 +466,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   </label>
                 </div>
                 <label className="mt-1.5 block space-y-0.5">
-                  <span className="text-[10px] text-slate-500">Or describe</span>
+                  <span className="text-[10px] text-muted-foreground">Or describe</span>
                   <input
                     value={vehicleText}
                     onChange={(e) => setVehicleText(e.target.value)}
@@ -479,8 +479,8 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
             {notesOpen || notes ? (
               <label className="block space-y-0.5">
-                <span className="text-xs font-medium text-slate-400">
-                  Notes <span className="text-slate-600">(optional)</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Notes <span className="text-muted-foreground">(optional)</span>
                 </span>
                 <input
                   value={notes}
@@ -493,14 +493,14 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setNotesOpen(true)}
-                className="text-left text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-slate-300 hover:underline"
               >
                 + Add notes
               </button>
             )}
 
             <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-400">Urgency *</legend>
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">Urgency *</legend>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -512,7 +512,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   }
                 >
                   <span className="font-semibold">ASAP</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-500">Need help now</span>
+                  <span className="mt-0.5 block text-[10px] text-muted-foreground">Need help now</span>
                 </button>
                 <button
                   type="button"
@@ -524,7 +524,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   }
                 >
                   <span className="font-semibold">Schedule</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-500">Pick a window</span>
+                  <span className="mt-0.5 block text-[10px] text-muted-foreground">Pick a window</span>
                 </button>
               </div>
             </fieldset>
@@ -559,7 +559,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             <button
               type="button"
               onClick={() => setWizardStep("details")}
-              className="text-xs text-slate-400 underline-offset-2 hover:underline"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
             >
               Back
             </button>
@@ -648,7 +648,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <EmbeddedCheckout />
             </EmbeddedCheckoutProvider>
           </div>
-          <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+          <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
             On iPhone Safari, Apple Pay shows when available. Cash App and cards work on any device.
           </p>
         </div>

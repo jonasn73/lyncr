@@ -59,7 +59,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
         <button
           type="button"
           onClick={onClose}
-          className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-200"
+          className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-slate-200"
         >
           Close
         </button>
@@ -78,7 +78,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
         />
       </label>
 
-      <p className="text-[11px] leading-snug text-slate-400">{smsPreview}</p>
+      <p className="text-[11px] leading-snug text-muted-foreground">{smsPreview}</p>
 
       <button
         type="button"

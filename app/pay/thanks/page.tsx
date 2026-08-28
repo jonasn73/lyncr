@@ -110,7 +110,7 @@ function PayThanksInner() {
             ? "Hang tight while we confirm with the card network."
             : `Thank you for choosing ${shop}. A receipt is sent automatically by email and text when we have your contact info.`}
         </p>
-        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           After the job, you may get a short thank-you text with a review link. You can close this
           page anytime.
         </p>
@@ -130,7 +130,7 @@ export default function PayThanksPage() {
           subtitle="One moment…"
           centered
         >
-          <p className="text-center text-sm text-zinc-400">Confirming payment…</p>
+          <p className="text-center text-sm text-muted-foreground">Confirming payment…</p>
         </CustomerPortalShell>
       }
     >

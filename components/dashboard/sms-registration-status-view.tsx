@@ -40,7 +40,7 @@ function stepState(
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</dt>
+      <dt className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="text-sm text-foreground sm:text-right">{value}</dd>
     </div>
   )
@@ -115,7 +115,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Carrier lifecycle</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Carrier lifecycle</p>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {STEPS.map((step, index) => {
             const state = stepState(step.key, summary.lifecycle_stage)
@@ -129,7 +129,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                       state === "done" && "border-emerald-500/50 bg-emerald-500/15 text-emerald-300",
                       state === "current" && "border-amber-500/50 bg-amber-500/15 text-amber-200",
                       state === "failed" && "border-red-500/50 bg-red-500/15 text-red-300",
-                      state === "upcoming" && "border-zinc-700 bg-zinc-900 text-zinc-600"
+                      state === "upcoming" && "border-zinc-700 bg-zinc-900 text-muted-foreground"
                     )}
                   >
                     {state === "done" ? <Check className="h-4 w-4" aria-hidden /> : state === "failed" ? "!" : index + 1}
@@ -150,7 +150,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                     state === "current" && isReview && "text-amber-200",
                     state === "failed" && "text-red-200",
                     state === "done" && "text-emerald-200/90",
-                    state === "upcoming" && "text-zinc-500"
+                    state === "upcoming" && "text-muted-foreground"
                   )}
                 >
                   {step.key === "review" && state === "current" ? `⏳ ${step.label}` : step.label}
@@ -162,7 +162,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Submission summary</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Submission summary</p>
         <dl className="mt-4 space-y-3">
           <SummaryRow label="Business profile" value={summary.legal_business_name?.trim() || "—"} />
           {summary.entity_type ? <SummaryRow label="Entity type" value={summary.entity_type} /> : null}

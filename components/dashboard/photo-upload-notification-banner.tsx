@@ -177,7 +177,7 @@ export function PhotoUploadNotificationBanner() {
             </p>
             <Link
               href={notice.viewIntakeUrl}
-              className="mt-1 inline-block text-[11px] text-slate-400 hover:text-slate-200"
+              className="mt-1 inline-block text-[11px] text-muted-foreground hover:text-slate-200"
               onClick={() => dismiss(notice.id)}
             >
               Open dashboard ticket
@@ -186,7 +186,7 @@ export function PhotoUploadNotificationBanner() {
           <button
             type="button"
             onClick={() => dismiss(notice.id)}
-            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="rounded p-1 text-muted-foreground hover:bg-slate-800 hover:text-slate-100"
             aria-label="Dismiss photo notification"
           >
             <X className="h-4 w-4" />

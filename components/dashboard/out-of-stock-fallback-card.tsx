@@ -344,7 +344,7 @@ export function OutOfStockFallbackCard({
                       <a href={`tel:${a.phoneE164}`} className="hover:text-foreground">
                         {formatPhoneDisplay(a.phoneE164)}
                       </a>
-                      <span className="text-zinc-600">·</span>
+                      <span className="text-muted-foreground">·</span>
                       <span>{a.commissionLabel} commission</span>
                     </p>
                   </div>

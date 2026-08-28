@@ -135,7 +135,7 @@ function TelemetryTickerItem({
       </span>
       <span
         className={cn(
-          "max-w-full text-center text-[9px] font-semibold uppercase leading-none tracking-wider text-zinc-500",
+          "max-w-full text-center text-[9px] font-semibold uppercase leading-none tracking-wider text-muted-foreground",
           labelClassName
         )}
       >
@@ -291,8 +291,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             animatedValue={bookingAnimated}
             animatedFormatter={formatBookingRatePercent}
             sublabel={bookingFraction}
-            sublabelClassName="text-zinc-500"
-            valueClassName={bookingEmpty || !baselineReady ? "font-medium text-zinc-400" : undefined}
+            sublabelClassName="text-muted-foreground"
+            valueClassName={bookingEmpty || !baselineReady ? "font-medium text-muted-foreground" : undefined}
           />
           <TelemetryTickerItem
             label="Dispatch"
@@ -349,7 +349,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             animatedFormatter={formatBookingRatePercent}
             icon={Percent}
             tone="teal"
-            valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-slate-400" : undefined}
+            valueClassName={bookingEmpty || !baselineReady ? "text-sm font-medium text-muted-foreground" : undefined}
           />
           <TelemetryPill
             label="Avg dispatch today"
@@ -369,11 +369,11 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={rescueHot ? "text-amber-300" : "text-emerald-300"}
           />
         </div>
-        <p className="px-1 text-[10px] leading-snug text-zinc-500">
-          <span className="font-medium text-zinc-400">Missed</span> = true unanswered (hold / press-1
-          excluded). <span className="font-medium text-zinc-400">Booked jobs</span> = real BOOKED jobs
+        <p className="px-1 text-[10px] leading-snug text-muted-foreground">
+          <span className="font-medium text-muted-foreground">Missed</span> = true unanswered (hold / press-1
+          excluded). <span className="font-medium text-muted-foreground">Booked jobs</span> = real BOOKED jobs
           today ÷ unique callers (not pending time or press-1 alone).{" "}
-          <span className="font-medium text-zinc-400">Rescue $</span> = salvage quotes plus jobs booked
+          <span className="font-medium text-muted-foreground">Rescue $</span> = salvage quotes plus jobs booked
           after hold or press 1.
         </p>
       </section>

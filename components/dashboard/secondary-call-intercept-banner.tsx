@@ -152,7 +152,7 @@ export function SecondaryCallInterceptBanner({
           <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-100">
             {phoneLabel}
           </p>
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             Keep working intake — hold or decline without losing your draft.
           </p>
         </div>

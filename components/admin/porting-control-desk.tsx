@@ -201,7 +201,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 gap-2 px-2 text-[10px] text-slate-400 hover:text-slate-200"
+            className="h-7 gap-2 px-2 text-[10px] text-muted-foreground hover:text-slate-200"
             disabled={refreshing || ordersLoading || detailLoading}
             onClick={() => void refreshDesk()}
           >
@@ -212,15 +212,15 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
       </div>
 
       {ordersLoading ? (
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading transfers…
         </div>
       ) : orders.length === 0 ? (
-        <p className="text-xs text-slate-500">No porting orders for this business owner.</p>
+        <p className="text-xs text-muted-foreground">No porting orders for this business owner.</p>
       ) : (
         <>
           <div className="space-y-2">
-            <Label className="text-xs text-slate-400">Transfer request</Label>
+            <Label className="text-xs text-muted-foreground">Transfer request</Label>
             <select
               className="w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-100"
               value={selectedId ?? ""}
@@ -236,7 +236,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
           </div>
 
           {detailLoading && !detail ? (
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading transfer detail…
             </div>
           ) : detail ? (
@@ -249,7 +249,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   </Badge>
                 ) : null}
                 {detail.order.telnyx_order_id ? (
-                  <span className="font-mono text-[10px] text-slate-500">{detail.order.telnyx_order_id}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{detail.order.telnyx_order_id}</span>
                 ) : null}
               </div>
 
@@ -296,7 +296,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                           step.state === "current" && "text-sky-300",
                           step.state === "complete" && "text-emerald-300/90",
                           step.state === "failed" && "text-red-300",
-                          step.state === "upcoming" && "text-slate-500"
+                          step.state === "upcoming" && "text-muted-foreground"
                         )}
                       >
                         {step.label}
@@ -309,22 +309,22 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
               {(detail.notifications.length > 0 || detail.telnyx_comments.length > 0) && (
                 <div className="space-y-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
                   <div className="flex items-center gap-2">
-                    <MessageSquare className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                     <p className="text-xs font-medium text-slate-300">Carrier activity log</p>
                   </div>
                   <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
                     {detail.notifications.map((n) => (
                       <li key={`n-${n.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-2">
                         <p className="text-[11px] font-medium text-slate-300">{n.title}</p>
-                        <p className="text-[10px] text-slate-500">{displayPortingMessageBody(n.body)}</p>
-                        <p className="text-[10px] text-slate-600">{new Date(n.created_at).toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground">{displayPortingMessageBody(n.body)}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(n.created_at).toLocaleString()}</p>
                       </li>
                     ))}
                     {detail.telnyx_comments.map((c) => (
                       <li key={`c-${c.id}`} className="rounded border border-slate-800/80 bg-slate-950/60 px-2 py-2">
-                        <p className="text-[10px] text-slate-500">{commentAuthorLabel(c.user_type)}</p>
+                        <p className="text-[10px] text-muted-foreground">{commentAuthorLabel(c.user_type)}</p>
                         <p className="text-[11px] text-slate-300">{displayPortingMessageBody(c.body)}</p>
-                        <p className="text-[10px] text-slate-600">{new Date(c.created_at).toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleString()}</p>
                       </li>
                     ))}
                   </ul>
@@ -335,7 +335,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                 <p className="text-xs font-medium text-slate-300">Submit corrections to Telnyx</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Account number</Label>
+                    <Label className="text-[10px] text-muted-foreground">Account number</Label>
                     <Input
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
@@ -343,7 +343,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">PIN / passcode</Label>
+                    <Label className="text-[10px] text-muted-foreground">PIN / passcode</Label>
                     <Input
                       value={pin}
                       onChange={(e) => setPin(e.target.value)}
@@ -352,7 +352,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-slate-500">Service street address</Label>
+                  <Label className="text-[10px] text-muted-foreground">Service street address</Label>
                   <Input
                     value={streetAddress}
                     onChange={(e) => setStreetAddress(e.target.value)}
@@ -361,7 +361,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">City</Label>
+                    <Label className="text-[10px] text-muted-foreground">City</Label>
                     <Input
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
@@ -369,7 +369,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">State</Label>
+                    <Label className="text-[10px] text-muted-foreground">State</Label>
                     <Input
                       value={stateRegion}
                       onChange={(e) => setStateRegion(e.target.value)}
@@ -377,7 +377,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">ZIP</Label>
+                    <Label className="text-[10px] text-muted-foreground">ZIP</Label>
                     <Input
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
@@ -387,7 +387,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Legal entity name</Label>
+                    <Label className="text-[10px] text-muted-foreground">Legal entity name</Label>
                     <Input
                       value={entityName}
                       onChange={(e) => setEntityName(e.target.value)}
@@ -395,7 +395,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Authorized person</Label>
+                    <Label className="text-[10px] text-muted-foreground">Authorized person</Label>
                     <Input
                       value={authorizedPerson}
                       onChange={(e) => setAuthorizedPerson(e.target.value)}
@@ -405,7 +405,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Revised LOA (PDF)</Label>
+                    <Label className="text-[10px] text-muted-foreground">Revised LOA (PDF)</Label>
                     <Input
                       type="file"
                       accept=".pdf,application/pdf"
@@ -414,7 +414,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Revised invoice (PDF)</Label>
+                    <Label className="text-[10px] text-muted-foreground">Revised invoice (PDF)</Label>
                     <Input
                       type="file"
                       accept=".pdf,application/pdf,image/*"
@@ -424,7 +424,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-slate-500">Message to carrier (Telnyx comments thread)</Label>
+                  <Label className="text-[10px] text-muted-foreground">Message to carrier (Telnyx comments thread)</Label>
                   <Textarea
                     value={carrierComment}
                     onChange={(e) => setCarrierComment(e.target.value)}
@@ -449,7 +449,7 @@ export function PortingControlDesk({ ownerUserId }: { ownerUserId: string }) {
                   )}
                 </Button>
                 {!detail.order.telnyx_order_id ? (
-                  <p className="flex items-center gap-1 text-[10px] text-slate-500">
+                  <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <FileUp className="h-3 w-3" aria-hidden />
                     Waiting for Telnyx order id — corrections unlock after initial submission.
                   </p>

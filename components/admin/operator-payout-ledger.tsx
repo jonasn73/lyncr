@@ -80,7 +80,7 @@ export function OperatorPayoutLedger() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Operator payouts</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Talk-time, answer speed, and accrued balances across every network agent.
           </p>
         </div>
@@ -106,7 +106,7 @@ export function OperatorPayoutLedger() {
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold tabular-nums tracking-tight text-slate-50">{formatUsd(totalAccrued)}</p>
-          <p className="mt-1 text-xs text-slate-500">Sum of all unpaid accrued balances.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Sum of all unpaid accrued balances.</p>
         </CardContent>
       </Card>
 
@@ -116,24 +116,24 @@ export function OperatorPayoutLedger() {
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {loading ? (
-            <div className="flex items-center gap-2 p-6 text-sm text-slate-400">
+            <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading…
             </div>
           ) : rows.length === 0 ? (
-            <p className="p-6 text-sm text-slate-400">No receptionists yet.</p>
+            <p className="p-6 text-sm text-muted-foreground">No receptionists yet.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Agent</TableHead>
-                  <TableHead className="text-right text-slate-400">Calls</TableHead>
-                  <TableHead className="text-right text-slate-400">Minutes</TableHead>
-                  <TableHead className="text-right text-slate-400">Avg answer</TableHead>
-                  <TableHead className="text-right text-slate-400">Rate/min</TableHead>
-                  <TableHead className="text-right text-slate-400">Earned</TableHead>
-                  <TableHead className="text-right text-slate-400">Paid</TableHead>
-                  <TableHead className="text-right text-slate-400">Accrued</TableHead>
-                  <TableHead className="text-right text-slate-400">Payout</TableHead>
+                  <TableHead className="text-muted-foreground">Agent</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Calls</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Minutes</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Avg answer</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Rate/min</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Earned</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Paid</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Accrued</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Payout</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,7 +153,7 @@ export function OperatorPayoutLedger() {
                             </Badge>
                           )}
                           {!r.is_active && (
-                            <Badge variant="outline" className="border-slate-700 bg-slate-900 text-[10px] text-slate-500">
+                            <Badge variant="outline" className="border-slate-700 bg-slate-900 text-[10px] text-muted-foreground">
                               Inactive
                             </Badge>
                           )}
@@ -165,7 +165,7 @@ export function OperatorPayoutLedger() {
                     <TableCell className="text-right tabular-nums text-slate-300">{answerSpeed(r.avg_answer_ms)}</TableCell>
                     <TableCell className="text-right tabular-nums text-slate-300">{formatUsd(r.rate_per_minute)}</TableCell>
                     <TableCell className="text-right tabular-nums text-slate-300">{formatUsd(r.earned_usd)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-500">{formatUsd(r.paid_usd)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{formatUsd(r.paid_usd)}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-emerald-300">
                       {formatUsd(r.accrued_usd)}
                     </TableCell>

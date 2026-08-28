@@ -160,7 +160,7 @@ export function AppointmentConfirmSmsPanel({
             setPreset("custom")
             setText(e.target.value)
           }}
-          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-3 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-3 text-sm leading-relaxed text-slate-100 placeholder:text-muted-foreground focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
         />
       </label>
 

@@ -160,7 +160,7 @@ function ServiceSectorSelector({
                 compact ? "min-h-9" : "min-h-10",
                 active
                   ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                  : "border border-transparent text-slate-400 hover:text-slate-200"
+                  : "border border-transparent text-muted-foreground hover:text-slate-200"
               )}
               aria-pressed={active}
             >

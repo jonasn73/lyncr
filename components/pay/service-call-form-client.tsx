@@ -140,7 +140,7 @@ export function ServiceCallFormClient() {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <p className="text-lg font-semibold text-white">Link problem</p>
-        <p className="mt-2 text-sm text-slate-400">{error}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
       </div>
     )
   }
@@ -153,7 +153,7 @@ export function ServiceCallFormClient() {
       <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
         Service call — ${amountDollars}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Fill this in so a technician can be on the way. Then pay the ${amountDollars} service call
         fee securely.
       </p>

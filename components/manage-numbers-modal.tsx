@@ -140,7 +140,7 @@ function PortPinCorrectionForm({
           autoComplete="off"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-2 text-xs text-foreground placeholder:text-zinc-600 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
+          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
         />
       </label>
       <button
@@ -265,10 +265,10 @@ function EditableLineLabel({
             if (!saving) void commitSave()
           }}
           placeholder={DEFAULT_LINE_LABEL}
-          className="w-full rounded-md border border-primary/40 bg-zinc-900/80 px-2 py-1 text-xs text-foreground placeholder:text-zinc-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="w-full rounded-md border border-primary/40 bg-zinc-900/80 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
           aria-label="Line label whisper name"
         />
-        <p className="text-[10px] leading-snug text-zinc-500">
+        <p className="text-[10px] leading-snug text-muted-foreground">
           Line label (whisper name) — what your team hears when a call comes in.
         </p>
       </div>
@@ -284,11 +284,11 @@ function EditableLineLabel({
         className="group flex min-w-0 flex-1 items-center gap-1 text-left"
         title="Rename line label"
       >
-        <span className="truncate text-xs text-zinc-500 group-hover:text-zinc-300">{displayLabel}</span>
+        <span className="truncate text-xs text-muted-foreground group-hover:text-zinc-300">{displayLabel}</span>
         {saving ? (
-          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-zinc-500" aria-hidden />
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" aria-hidden />
         ) : (
-          <Pencil className="h-3 w-3 shrink-0 text-zinc-600 opacity-70 group-hover:text-primary group-hover:opacity-100" aria-hidden />
+          <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-70 group-hover:text-primary group-hover:opacity-100" aria-hidden />
         )}
       </button>
     </div>
@@ -458,7 +458,7 @@ export function ManageNumbersModal({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading lines" />
               </div>
             ) : lines.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-10 text-center text-sm text-zinc-500">
+              <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-10 text-center text-sm text-muted-foreground">
                 No active lines yet. Buy a number to publish your first business line.
               </p>
             ) : (
@@ -481,7 +481,7 @@ export function ManageNumbersModal({
                         onRevert={applyLineLabel}
                       />
                       {showWorkspacePicker ? (
-                        <label className="mt-2 block text-[10px] text-zinc-500">
+                        <label className="mt-2 block text-[10px] text-muted-foreground">
                           Business
                           <select
                             value={line.organization_id ?? ""}
@@ -510,7 +510,7 @@ export function ManageNumbersModal({
                         type="button"
                         disabled={!canReleaseAny || releasingId != null}
                         onClick={() => setReleaseTarget(line)}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                         title={
                           canReleaseAny
                             ? "Return this number to the carrier"

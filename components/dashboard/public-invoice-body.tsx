@@ -56,7 +56,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
       <header className="border-b border-slate-200 bg-slate-900 px-6 py-6 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
               Invoice
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{invoice.businessName}</h1>
@@ -73,7 +73,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
       <div className="space-y-6 px-6 py-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total paid
             </p>
             <p className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-600">
@@ -82,7 +82,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
             <p className="mt-1 text-sm font-medium text-slate-700">{paidHow}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Invoice #
             </p>
             <p className="mt-0.5 font-mono text-sm font-semibold">{invoice.invoiceNumber}</p>
@@ -91,20 +91,20 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Date paid
             </dt>
             <dd className="mt-0.5 text-slate-800">{invoice.paidAtLabel}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Payment
             </dt>
             <dd className="mt-0.5 text-slate-800">{invoice.paymentMethodLabel}</dd>
           </div>
           {invoice.customerName ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Bill to
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.customerName}</dd>
@@ -112,7 +112,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.vehicleLabel ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Vehicle
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.vehicleLabel}</dd>
@@ -120,7 +120,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.vehicleVin ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 VIN
               </dt>
               <dd className="mt-0.5 font-mono text-sm text-slate-800">{invoice.vehicleVin}</dd>
@@ -128,7 +128,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           ) : null}
           {invoice.addressLine1 ? (
             <div className="col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Address
               </dt>
               <dd className="mt-0.5 text-slate-800">{invoice.addressLine1}</dd>
@@ -138,7 +138,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         <table className="w-full border-t-2 border-slate-900 text-sm">
           <thead>
-            <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <tr className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <th className="py-3 text-left">Description</th>
               <th className="py-3 text-right">Amount</th>
             </tr>
@@ -165,7 +165,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
 
         {invoice.signaturePng ? (
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Customer signature
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -177,7 +177,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
           </div>
         ) : null}
 
-        <p className="text-[11px] leading-relaxed text-slate-400">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           Keep this for your records.
         </p>
       </div>

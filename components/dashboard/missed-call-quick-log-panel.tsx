@@ -124,7 +124,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             What was it about?
           </p>
           <div className="flex flex-wrap gap-2">
@@ -151,7 +151,7 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <label htmlFor="missed-quick-notes" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Notes
           </label>
           <Textarea
@@ -165,8 +165,8 @@ export function MissedCallQuickLogPanel({
         </div>
 
         <div>
-          <label htmlFor="missed-quick-name" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-            Caller name <span className="font-normal normal-case text-zinc-500">(optional)</span>
+          <label htmlFor="missed-quick-name" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Caller name <span className="font-normal normal-case text-muted-foreground">(optional)</span>
           </label>
           <Input
             id="missed-quick-name"
@@ -217,7 +217,7 @@ export function MissedCallQuickLogPanel({
           <Button
             type="button"
             variant="ghost"
-            className="h-10 flex-1 text-xs text-zinc-400"
+            className="h-10 flex-1 text-xs text-muted-foreground"
             disabled={saving}
             onClick={() => {
               if (purpose || notes) {

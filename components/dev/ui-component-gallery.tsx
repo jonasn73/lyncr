@@ -96,7 +96,7 @@ function Section({
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">{title}</h2>
-        <p className="mt-1 text-xs text-slate-500">{description}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       </div>
       {children}
     </section>
@@ -178,7 +178,7 @@ export function UiComponentGallery() {
       <header className="border-b border-slate-850 pb-4">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Internal</p>
         <h1 className="mt-1 text-2xl font-semibold text-slate-100">UI component gallery</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500">
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Visual audit bed for job cards, selection grids, and drawer typography. Resize the viewport to
           verify mobile layout density without clicking through live workflows.
         </p>
@@ -265,7 +265,7 @@ export function UiComponentGallery() {
             lineLabel="Main · (502) 555-0100"
           />
           <DrawerScrollBody>
-            <p className="text-sm leading-relaxed text-slate-400">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               Body copy uses the standard drawer padding and scroll container so long forms do not
               collide with the sticky footer. Metadata labels stay uppercase and quiet.
             </p>

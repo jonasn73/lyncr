@@ -143,7 +143,7 @@ export function TeamInviteModal({
                   "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "phone"
                     ? "bg-primary text-primary-foreground"
-                    : "text-zinc-400 hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -159,7 +159,7 @@ export function TeamInviteModal({
                   "inline-flex items-center justify-center gap-2 rounded-md px-2 py-2 text-xs font-semibold transition-colors",
                   mode === "invite"
                     ? "bg-primary text-primary-foreground"
-                    : "text-zinc-400 hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <UserPlus className="h-3.5 w-3.5" aria-hidden />
@@ -167,7 +167,7 @@ export function TeamInviteModal({
               </button>
             </div>
 
-            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               {mode === "phone"
                 ? "This forwards calls when you set Who answers → pick them (Custom Routing). They do not need a Lyncr login."
                 : "They get a signup link. After they accept, they land on the receptionist portal for your business."}
@@ -175,7 +175,7 @@ export function TeamInviteModal({
 
             <form className="mt-3 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
               <label className="block space-y-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
                 <input
                   type="text"
                   required
@@ -188,7 +188,7 @@ export function TeamInviteModal({
 
               {mode === "phone" ? (
                 <label className="block space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Mobile number
                   </span>
                   <input
@@ -203,7 +203,7 @@ export function TeamInviteModal({
               ) : (
                 <>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Email</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Email</span>
                     <input
                       type="email"
                       required
@@ -214,7 +214,7 @@ export function TeamInviteModal({
                     />
                   </label>
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Cell (optional)
                     </span>
                     <input
@@ -268,7 +268,7 @@ export function TeamInviteModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="w-full text-center text-xs text-zinc-500 hover:text-zinc-300"
+              className="w-full text-center text-xs text-muted-foreground hover:text-zinc-300"
             >
               Close
             </button>
@@ -289,7 +289,7 @@ export function TeamInviteModal({
               </p>
             ) : null}
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
-              <p className="break-all text-xs text-zinc-400">{inviteDone.register_url}</p>
+              <p className="break-all text-xs text-muted-foreground">{inviteDone.register_url}</p>
             </div>
             <button
               type="button"
@@ -299,7 +299,7 @@ export function TeamInviteModal({
               {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
               {copied ? "Copied!" : "Copy link"}
             </button>
-            <p className="text-xs leading-relaxed text-zinc-500">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               After they accept, set Who answers → pick them (or Custom Routing) so inbound calls reach them.
             </p>
             <Link

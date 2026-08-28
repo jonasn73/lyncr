@@ -170,7 +170,7 @@ export function PriceShopperRecoveryPanel({
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  className="text-left text-xs text-slate-400 hover:text-slate-200"
+                  className="text-left text-xs text-muted-foreground hover:text-slate-200"
                   onClick={() => onNegotiationStepChange(1)}
                 >
                   ← Go Back
@@ -201,7 +201,7 @@ export function PriceShopperRecoveryPanel({
               </Button>
               <button
                 type="button"
-                className="text-left text-xs text-slate-400 hover:text-slate-200"
+                className="text-left text-xs text-muted-foreground hover:text-slate-200"
                 onClick={() => onNegotiationStepChange(2)}
               >
                 ← Go Back

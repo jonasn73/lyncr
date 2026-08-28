@@ -122,7 +122,7 @@ export function TechAssignmentSelect({
                   <span>{tech.name}</span>
                   <span className="flex shrink-0 items-center gap-2">
                     {eta ? (
-                      <span className="text-[10px] font-medium tabular-nums text-slate-400">
+                      <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
                         {eta.label}
                       </span>
                     ) : null}

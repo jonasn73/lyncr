@@ -50,7 +50,7 @@ export function SupportChatReplyBanner() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-50">Lyncr Support replied</p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             You have {unread} unread {unread === 1 ? "message" : "messages"} in Help chat.
           </p>
           <Link
@@ -63,7 +63,7 @@ export function SupportChatReplyBanner() {
         <button
           type="button"
           aria-label="Dismiss"
-          className="rounded-md p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+          className="rounded-md p-1 text-muted-foreground hover:bg-slate-800 hover:text-slate-200"
           onClick={() => {
             try {
               sessionStorage.setItem(DISMISS_KEY, String(unread))

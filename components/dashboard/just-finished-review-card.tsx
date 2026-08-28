@@ -672,7 +672,7 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           <p className="truncate text-sm font-semibold text-foreground">
                             {item.headline}
                           </p>
-                          <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">
+                          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
                             {formatTimeAgo(item.at)}
                           </span>
                         </div>
@@ -693,10 +693,10 @@ export const JustFinishedReviewCard = memo(function JustFinishedReviewCard({
                           {item.statusLine}
                         </p>
                         {item.preview ? (
-                          <p className="mt-1 truncate text-[11px] text-zinc-500">{item.preview}</p>
+                          <p className="mt-1 truncate text-[11px] text-muted-foreground">{item.preview}</p>
                         ) : null}
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     </button>
                     {item.event === "replied" && item.customerPhone ? (
                       <button
@@ -1371,7 +1371,7 @@ function LatestActionDetail({
               Booking request
             </SheetTitle>
             <p className="mt-1 text-sm font-medium text-orange-100">{item.headline}</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Submitted {formatTimeAgo(item.at)}
             </p>
           </>
@@ -1380,7 +1380,7 @@ function LatestActionDetail({
             <SheetTitle className="pr-8 text-base font-semibold text-foreground">
               {item.customerName}
             </SheetTitle>
-            <p className="text-sm text-zinc-500">{phoneLabel}</p>
+            <p className="text-sm text-muted-foreground">{phoneLabel}</p>
             <p className="mt-1 text-sm font-medium text-foreground">{item.headline}</p>
           </>
         )}
@@ -1393,7 +1393,7 @@ function LatestActionDetail({
           <p
             className={cn(
               "mt-1 text-xs font-semibold",
-              reviewDeliveryLabel === "Failed" ? "text-rose-300" : "text-zinc-400"
+              reviewDeliveryLabel === "Failed" ? "text-rose-300" : "text-muted-foreground"
             )}
           >
             {reviewDeliveryLabel}
@@ -1411,34 +1411,34 @@ function LatestActionDetail({
             </p>
             <dl className="mt-2 space-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Name</dt>
+                <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Name</dt>
                 <dd className="min-w-0 font-medium text-foreground">{item.customerName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Phone</dt>
+                <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Phone</dt>
                 <dd className="min-w-0 text-zinc-200">{phoneLabel}</dd>
               </div>
               {bookService ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Service</dt>
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Service</dt>
                   <dd className="min-w-0 font-medium text-slate-100">{bookService}</dd>
                 </div>
               ) : null}
               {bookVehicle ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Vehicle</dt>
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Vehicle</dt>
                   <dd className="min-w-0 text-zinc-200">{bookVehicle}</dd>
                 </div>
               ) : null}
               {bookAddress ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">Address</dt>
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">Address</dt>
                   <dd className="min-w-0 text-zinc-200">{bookAddress}</dd>
                 </div>
               ) : null}
               {bookWhen ? (
                 <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-[11px] font-medium text-zinc-500">When</dt>
+                  <dt className="w-16 shrink-0 text-[11px] font-medium text-muted-foreground">When</dt>
                   <dd className="min-w-0 text-zinc-200">{bookWhen}</dd>
                 </div>
               ) : null}
@@ -1469,14 +1469,14 @@ function LatestActionDetail({
                         ? "text-emerald-200"
                         : step.label === "Needs reply"
                           ? "text-sky-200"
-                          : "text-zinc-400"
+                          : "text-muted-foreground"
                     )}
                   >
                     {step.done ? "✓ " : "○ "}
                     {step.label}
                   </p>
                   {step.detail ? (
-                    <p className="mt-0.5 text-xs text-zinc-500">{step.detail}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{step.detail}</p>
                   ) : null}
                 </li>
               ))}
@@ -1490,7 +1490,7 @@ function LatestActionDetail({
               Conversation
             </p>
             {threadLoading ? (
-              <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading messages…
               </div>
@@ -1597,7 +1597,7 @@ function LatestActionDetail({
                   Call
                 </a>
               ) : (
-                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-[11px] font-semibold text-zinc-600">
+                <span className="inline-flex items-center justify-center gap-1 rounded-xl border border-border/40 bg-muted/10 px-2 py-2 text-[11px] font-semibold text-muted-foreground">
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </span>
@@ -1700,7 +1700,7 @@ function LatestActionDetail({
                 onChange={(e) => setReplyDraft(e.target.value)}
                 rows={2}
                 placeholder="Type a reply…"
-                className="w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none"
+                className="w-full resize-none bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <button
                 type="button"

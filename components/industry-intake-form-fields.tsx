@@ -24,7 +24,7 @@ export {
 } from "@/lib/intake-form-helpers"
 
 const inputClass =
-  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  "w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 
 type IndustryIntakeFormFieldsProps = {
   /** Explicit field list — omit to auto-resolve from workspace context below. */
@@ -83,7 +83,7 @@ export function IndustryIntakeFormFields({
           return (
             <div key={field.name} className={cn(field.full ? "sm:col-span-2" : "", "sm:col-span-2")}>
               <fieldset className="grid gap-3 rounded-lg border border-border/60 p-3">
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Vehicle details
                 </legend>
                 <VehiclePickerCascade value={vehicleFromValues(values)} onChange={setVehicle} disabled={disabled} />
@@ -95,7 +95,7 @@ export function IndustryIntakeFormFields({
         return (
           <div key={field.name} className={cn(field.full ? "sm:col-span-2" : "")}>
             {field.type !== "checkbox" ? (
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 {field.label}
                 {field.required ? <span className="text-emerald-400"> *</span> : null}
               </label>
@@ -181,7 +181,7 @@ export function IndustryIntakeFormFields({
                   "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
                   values[field.name] === true
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200"
-                    : "border-border/70 bg-background text-zinc-400"
+                    : "border-border/70 bg-background text-muted-foreground"
                 )}
               >
                 {values[field.name] === true ? "Yes" : "No"}

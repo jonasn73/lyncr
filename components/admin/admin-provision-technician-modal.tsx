@@ -91,7 +91,7 @@ export function AdminProvisionTechnicianModal({
             <HardHat className="h-5 w-5 text-violet-300" aria-hidden />
             Provision field technician
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             {ownerEmail
               ? `Instantly add an active tech to ${ownerEmail}'s roster — no SMS invite required.`
               : "Instantly add an active tech to this business roster — no SMS invite required."}

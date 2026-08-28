@@ -49,11 +49,11 @@ function PhotoGrid({
 }) {
   return (
     <div className="min-w-0 flex-1">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-[10px] text-slate-500">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-[10px] text-muted-foreground">
           Waiting…
         </div>
       ) : (
@@ -297,7 +297,7 @@ export function IntakeJobPhotosPanel({
                         <p className="text-xs text-emerald-200/90">{vehicleLine}</p>
                       ) : null}
                       {rescueMeta?.vehicle_vin ? (
-                        <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                        <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                           VIN {rescueMeta.vehicle_vin}
                         </p>
                       ) : null}

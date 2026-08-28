@@ -149,7 +149,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
       }
     >
       {loading ? (
-        <div className="flex flex-col items-center gap-3 text-zinc-400">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
           <p className="text-sm">Loading secure payment…</p>
         </div>
@@ -157,7 +157,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-6 py-6 text-center">
           <h2 className="text-lg font-semibold text-red-100">Link unavailable</h2>
           <p className="mt-2 text-sm text-red-200/90">{error}</p>
-          <p className="mt-4 text-xs text-zinc-500">
+          <p className="mt-4 text-xs text-muted-foreground">
             Ask the business to send a new payment link.
           </p>
         </div>
@@ -167,7 +167,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
           <p className="mt-2 text-sm text-emerald-100/90">
             Thanks — {payload.business_label} received {fmtUsd(payload.charge_cents)}.
           </p>
-          <p className="mt-3 text-xs text-zinc-400">
+          <p className="mt-3 text-xs text-muted-foreground">
             A receipt is on the way by email and text when we have your contact info.
           </p>
           <Link
@@ -180,22 +180,22 @@ export function BrandedPayCheckout({ token }: { token: string }) {
       ) : payload?.status === "tip" ? (
         <div className="space-y-6">
           <div className="text-center">
-            <p className="text-sm text-zinc-400">Service total</p>
+            <p className="text-sm text-muted-foreground">Service total</p>
             <p className="mt-1 text-4xl font-bold tabular-nums text-amber-300">
               {fmtUsd(baseCents)}
             </p>
             {payload.customer_name ? (
-              <p className="mt-2 text-sm text-zinc-500">For {payload.customer_name}</p>
+              <p className="mt-2 text-sm text-muted-foreground">For {payload.customer_name}</p>
             ) : null}
             {(payload.tax_cents ?? 0) > 0 ? (
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Includes {fmtUsd(payload.tax_cents!)} tax
               </p>
             ) : null}
           </div>
 
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Add a tip
             </p>
             <div className="mt-1.5 grid grid-cols-4 gap-2">
@@ -215,7 +215,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                     "rounded-xl border py-2 text-xs font-semibold transition-colors",
                     tipChoice === opt.id
                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                      : "border-zinc-700 bg-zinc-900 text-zinc-400"
+                      : "border-zinc-700 bg-zinc-900 text-muted-foreground"
                   )}
                 >
                   {opt.label}
@@ -234,14 +234,14 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                 "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                 tipChoice === "custom"
                   ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                  : "border-zinc-700 bg-zinc-900 text-zinc-400"
+                  : "border-zinc-700 bg-zinc-900 text-muted-foreground"
               )}
             >
               Custom tip
             </button>
             {tipChoice === "custom" ? (
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                <span className="text-sm font-semibold text-zinc-400">$</span>
+                <span className="text-sm font-semibold text-muted-foreground">$</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -285,7 +285,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
               `Continue · ${fmtUsd(totalWithTip)}`
             )}
           </button>
-          <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+          <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
             Next you&apos;ll enter card or wallet details. Nothing is charged until you finish
             payment.
           </p>
@@ -302,7 +302,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
               </p>
             ) : null}
             {payload.customer_name ? (
-              <p className="mt-2 text-sm text-zinc-500">For {payload.customer_name}</p>
+              <p className="mt-2 text-sm text-muted-foreground">For {payload.customer_name}</p>
             ) : null}
           </div>
 
@@ -317,7 +317,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             </EmbeddedCheckoutProvider>
           </div>
 
-          <p className="mt-6 text-center text-[11px] leading-relaxed text-zinc-500">
+          <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
             Pay with card, Apple Pay, Google Pay, Cash App, or Link when those methods are on for
             this shop. On iPhone Safari, Apple Pay shows when available. You&apos;ll stay on this
             site when payment is complete. A receipt is sent automatically by email and text.

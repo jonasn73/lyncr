@@ -125,7 +125,7 @@ export function ActivePipelinePanel({
             )}
           >
             {group.title}
-            <span className="ml-2 font-normal text-slate-600">({group.jobs.length})</span>
+            <span className="ml-2 font-normal text-muted-foreground">({group.jobs.length})</span>
           </h3>
           <ul className={cn("flex flex-col", isMobileSheet ? "gap-3" : "gap-2")}>
             {group.jobs.map((job) => {
@@ -180,7 +180,7 @@ export function ActivePipelinePanel({
 
                       <div className="mt-3 space-y-3 text-sm text-slate-300">
                         <p className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                          <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {telHref ? (
                             <a
                               href={telHref}
@@ -194,7 +194,7 @@ export function ActivePipelinePanel({
                           )}
                         </p>
                         <p className="flex items-start gap-2">
-                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           <span className={cn(SCHEDULER_METADATA_LABEL, SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
@@ -202,7 +202,7 @@ export function ActivePipelinePanel({
                         </p>
                         {vehicle ? (
                           <p className="flex items-center gap-2">
-                            <Car className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                            <Car className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={SCHEDULER_METADATA_LABEL}>{vehicle}</span>
                           </p>
                         ) : null}
@@ -211,20 +211,20 @@ export function ActivePipelinePanel({
                         ) : null}
                         {job.assigned_tech_name ? (
                           <p className="flex items-center gap-2">
-                            <User className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                            <User className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                             <span>{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         <p className="flex items-start gap-2">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" aria-hidden />
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {addressLine ? (
                             <span className="break-words text-zinc-100">{addressLine}</span>
                           ) : (
-                            <span className="text-zinc-500">No address on file — tap Edit to add one</span>
+                            <span className="text-muted-foreground">No address on file — tap Edit to add one</span>
                           )}
                         </p>
                         {notesLine ? (
-                          <p className={cn(SCHEDULER_GLASS_CARD, "px-3 py-2 text-xs leading-relaxed text-slate-400")}>
+                          <p className={cn(SCHEDULER_GLASS_CARD, "px-3 py-2 text-xs leading-relaxed text-muted-foreground")}>
                             {notesLine}
                           </p>
                         ) : null}
@@ -312,12 +312,12 @@ export function ActivePipelinePanel({
                       </div>
 
                       <div className="mt-2 space-y-2">
-                        <p className="flex items-center gap-2 text-xs text-slate-400">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                           <span className="truncate">{phone}</span>
                         </p>
                         <p className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                           <span className={cn(SCHEDULER_METADATA_LABEL, "truncate", SCHEDULER_URGENCY_TIME_CLASS[urgency])}>
                             {formatTime(job.scheduled_at)}
                             {countdown ? ` · ${countdown}` : ""}
@@ -331,7 +331,7 @@ export function ActivePipelinePanel({
                         ) : null}
                         {vehicle ? (
                           <p className="flex items-center gap-2">
-                            <Car className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                            <Car className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{vehicle}</span>
                           </p>
                         ) : null}
@@ -339,14 +339,14 @@ export function ActivePipelinePanel({
                           <p className={cn(SCHEDULER_METADATA_LABEL, "truncate")}>{programmingMethod}</p>
                         ) : null}
                         {job.assigned_tech_name ? (
-                          <p className="flex items-center gap-2 text-xs text-slate-400">
-                            <User className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className="truncate">{job.assigned_tech_name}</span>
                           </p>
                         ) : null}
                         {job.location ? (
-                          <p className="flex items-start gap-2 text-xs text-slate-500">
-                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
+                          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                             <span className={isMobileSheet ? "break-words" : "line-clamp-2"}>{job.location}</span>
                           </p>
                         ) : null}

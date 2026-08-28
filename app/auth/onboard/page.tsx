@@ -41,13 +41,13 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
           </span>
           <div>
             <p className="text-sm font-semibold tracking-tight">Lyncr Operator Network</p>
-            <p className="text-xs text-slate-500">Secure provisioning</p>
+            <p className="text-xs text-muted-foreground">Secure provisioning</p>
           </div>
         </div>
       </header>
       <div className="relative z-10 mx-auto w-full max-w-lg flex-1 px-6 py-10">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-20 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin text-emerald-400" aria-hidden />
             Validating your invite…
           </div>
@@ -68,12 +68,12 @@ function StepDots({ step, smsInvite }: { step: number; smsInvite?: boolean }) {
           <span
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors",
-              i <= step ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : "bg-slate-800 text-slate-500"
+              i <= step ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : "bg-slate-800 text-muted-foreground"
             )}
           >
             {i < step ? <Check className="h-4 w-4" /> : i + 1}
           </span>
-          <span className={cn("hidden text-xs sm:inline", i <= step ? "text-slate-300" : "text-slate-600")}>{label}</span>
+          <span className={cn("hidden text-xs sm:inline", i <= step ? "text-slate-300" : "text-muted-foreground")}>{label}</span>
           {i < labels.length - 1 ? <span className="h-px w-6 bg-slate-700" aria-hidden /> : null}
         </div>
       ))}
@@ -253,7 +253,7 @@ function OperatorOnboardWizard() {
       <StepDots step={step} smsInvite={preview.phone_verified_by_sms_invite} />
 
       <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-6 shadow-xl backdrop-blur-sm">
-        <p className="text-center text-sm text-slate-400">
+        <p className="text-center text-sm text-muted-foreground">
           Welcome, <span className="font-medium text-slate-200">{preview.name.split(" ")[0] || "operator"}</span>
         </p>
         {preview.assigned_workspaces.length > 0 ? (
@@ -269,7 +269,7 @@ function OperatorOnboardWizard() {
                 <Mic className="h-7 w-7 text-emerald-300" aria-hidden />
               </span>
               <h1 className="text-xl font-semibold">Step 1 · Hardware check</h1>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 Allow microphone access so we can verify your browser is ready for WebRTC call answering.
               </p>
             </div>
@@ -294,7 +294,7 @@ function OperatorOnboardWizard() {
                   <ShieldCheck className="h-7 w-7 text-sky-300" aria-hidden />
                 </span>
                 <h1 className="text-xl font-semibold">Step 2 · Finish setup</h1>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-muted-foreground">
                   Your cell was verified when you received the invite text. Choose a password to secure your operator
                   account.
                 </p>
@@ -335,7 +335,7 @@ function OperatorOnboardWizard() {
                   <Phone className="h-7 w-7 text-sky-300" aria-hidden />
                 </span>
                 <h1 className="text-xl font-semibold">Step 2 · Fallback binding</h1>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-muted-foreground">
                   Add your mobile number and verify with a one-time code. This is your backup when WebRTC is unavailable.
                 </p>
               </div>
@@ -410,7 +410,7 @@ function OperatorOnboardWizard() {
               <Sparkles className="h-8 w-8 text-emerald-300" aria-hidden />
             </span>
             <h1 className="text-xl font-semibold text-emerald-100">You&apos;re active & ready</h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-foreground">
               WebRTC status:{" "}
               <span className="font-medium text-slate-200">
                 {web.status === "registered" || web.status === "active"

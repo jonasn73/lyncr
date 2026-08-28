@@ -83,7 +83,7 @@ export function AdminInviteReceptionistDialog() {
       <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite receptionist</DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             Creates a secure signup token locked to the receptionist role. Sends email when RESEND_API_KEY is set.
           </DialogDescription>
         </DialogHeader>

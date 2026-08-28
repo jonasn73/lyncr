@@ -108,7 +108,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-foreground">{profile.name || "Account"}</p>
-                <p className="truncate text-sm text-zinc-500">{profile.email}</p>
+                <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
               </div>
             </>
           )}
@@ -118,7 +118,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       {isPlatformAdmin ? <PlatformNotificationSettings variant="dashboard" className="rounded-xl" /> : null}
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Account</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -158,7 +158,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <SalesTaxSettingsSheet open={salesTaxOpen} onOpenChange={setSalesTaxOpen} />
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Calls & SMS</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Calls & SMS</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -227,7 +227,7 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       </section>
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">More</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">More</p>
         <SettingsGroupedList>
           <SettingsMenuRow
             grouped
@@ -434,7 +434,7 @@ function ToggleRow({
         <span className="min-w-0">
           <span className="block text-sm font-medium text-foreground">{label}</span>
           {subtitle ? (
-            <span className="mt-0.5 block text-xs leading-snug text-zinc-500">{subtitle}</span>
+            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{subtitle}</span>
           ) : null}
         </span>
       </span>

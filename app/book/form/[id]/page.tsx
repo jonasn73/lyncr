@@ -11,7 +11,7 @@ export default async function IntakeBookFormPage({ params }: PageProps) {
     <main className="min-h-dvh bg-slate-950 text-slate-100">
       <Suspense
         fallback={
-          <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-400">
+          <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
             Loading…
           </div>
         }

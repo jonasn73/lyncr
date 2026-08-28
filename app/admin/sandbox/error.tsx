@@ -17,13 +17,13 @@ export default function AdminSandboxError({
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-8 text-slate-200">
       <h1 className="text-xl font-semibold text-slate-100">Sandbox board failed to load</h1>
-      <p className="text-sm leading-relaxed text-slate-400">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         The dev sandbox hit a server error. Common fixes: run migrations{" "}
         <strong className="font-medium text-slate-300">042–045</strong> in Neon (see{" "}
         <code className="text-violet-300">scripts/MIGRATE-ALL.md</code>), then try seed again.
       </p>
       {error.digest ? (
-        <p className="font-mono text-xs text-slate-500">Error digest: {error.digest}</p>
+        <p className="font-mono text-xs text-muted-foreground">Error digest: {error.digest}</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         <button

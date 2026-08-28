@@ -102,7 +102,7 @@ export function InvoicePreviewSheet({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <SheetTitle className="text-base font-bold text-slate-100">Invoice</SheetTitle>
-              <p className="mt-0.5 truncate text-xs text-slate-500">
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {invoice?.invoiceNumber
                   ? invoice.invoiceNumber
                   : loading
@@ -113,7 +113,7 @@ export function InvoicePreviewSheet({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-zinc-400 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -124,14 +124,14 @@ export function InvoicePreviewSheet({
         {/* Scrollable receipt area — light gray behind white card. */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 px-3 py-4">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Loading invoice…
             </div>
           ) : error || !invoice ? (
             <div className="rounded-xl border border-rose-200 bg-white px-4 py-8 text-center">
               <p className="text-sm font-semibold text-slate-800">Invoice unavailable</p>
-              <p className="mt-2 text-xs text-slate-500">{error || "Could not load this invoice."}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{error || "Could not load this invoice."}</p>
             </div>
           ) : (
             <PublicInvoiceBody invoice={invoice} />
@@ -162,7 +162,7 @@ export function InvoicePreviewSheet({
               href={browserHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-9 w-full items-center justify-center gap-2 text-[11px] font-semibold text-zinc-500 hover:text-teal-300"
+              className="inline-flex h-9 w-full items-center justify-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-teal-300"
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               Open in browser

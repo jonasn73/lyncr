@@ -126,19 +126,19 @@ export function WorkspaceStatCard({
   if (dense) {
     return (
       <div className={cn("rounded-xl border border-border/50 bg-card/70 px-3 py-3 sm:px-4", accent && accentClass)}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-foreground sm:text-2xl">
           {value}
         </p>
-        {hint ? <p className="mt-0.5 hidden text-[11px] text-zinc-500 sm:block">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 hidden text-[11px] text-muted-foreground sm:block">{hint}</p> : null}
       </div>
     )
   }
   return (
     <div className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5", accent && accentClass)}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -157,7 +157,7 @@ export function WorkspaceUsageStatCard({
   const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
   return (
     <div className="min-h-[5.75rem] rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {used.toLocaleString()} / {included.toLocaleString()} mins used
       </p>
@@ -171,7 +171,7 @@ export function WorkspaceUsageStatCard({
           aria-valuemax={included}
         />
       </div>
-      {hint ? <p className="mt-2 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -187,12 +187,12 @@ export function WorkspaceTokenStatCard({
 }) {
   return (
     <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
         {tokens.toLocaleString()}
-        <span className="ml-1.5 text-base font-medium text-zinc-400">tokens</span>
+        <span className="ml-1.5 text-base font-medium text-muted-foreground">tokens</span>
       </p>
-      {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }
@@ -205,7 +205,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
     primary: "border-primary/40 bg-primary/15 text-primary",
     destructive: "border-destructive/40 bg-destructive/15 text-destructive",
     warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
-    muted: "border-zinc-700 bg-zinc-900/80 text-zinc-400",
+    muted: "border-zinc-700 bg-zinc-900/80 text-muted-foreground",
   }
   return (
     <span
@@ -230,7 +230,7 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
     amber:
       "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
     blue: "border-sky-500/45 bg-sky-500/10 text-sky-300 shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
-    muted: "border-zinc-600/80 bg-zinc-900/60 text-zinc-400",
+    muted: "border-zinc-600/80 bg-zinc-900/60 text-muted-foreground",
   }
   return (
     <span
@@ -403,7 +403,7 @@ export function WorkspaceDisclosureRow({
         <span className={cn("text-muted-foreground", destructive && "text-destructive")}>{icon}</span>
         <span className={cn("text-sm font-medium", destructive ? "text-destructive" : "text-foreground")}>{label}</span>
       </span>
-      <span className="text-zinc-600">›</span>
+      <span className="text-muted-foreground">›</span>
     </button>
   )
 }
@@ -434,7 +434,7 @@ export function WorkspaceToggleCard({
 }
 
 export const workspaceFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-zinc-600 hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 /**
  * Tracks whether a horizontal scroller has more content off either edge.
@@ -528,7 +528,7 @@ export function WorkspaceTh({
   return (
     <th
       className={cn(
-        "border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-zinc-500",
+        "border-b border-zinc-800/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
         className
       )}
     >
@@ -566,7 +566,7 @@ export function WorkspaceModule({
     <section className="border-b border-zinc-800/80 px-6 py-6 last:border-b-0">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {description ? <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p> : null}
+        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
       </div>
       {children}
     </section>

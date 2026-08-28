@@ -143,7 +143,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "invite"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  : "text-muted-foreground hover:text-zinc-200"
               )}
             >
               Send Invite Link
@@ -155,7 +155,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "manual"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  : "text-muted-foreground hover:text-zinc-200"
               )}
             >
               Create Manually
@@ -165,7 +165,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
 
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
           <label className="block space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Name</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -178,8 +178,8 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
 
           {mode === "invite" ? (
             <label className="block space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                Email <span className="font-normal normal-case text-zinc-600">(optional)</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Email <span className="font-normal normal-case text-muted-foreground">(optional)</span>
               </span>
               <input
                 type="email"
@@ -192,7 +192,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
           ) : null}
 
           <label className="block space-y-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Phone number</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Phone number</span>
             <input
               type="tel"
               inputMode="tel"

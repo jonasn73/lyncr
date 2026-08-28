@@ -315,10 +315,10 @@ export function OperatorOnboardingDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-100">People</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Invite operators by SMS, track onboarding status, and resend setup links.
         </p>
-        <p className="mt-1 max-w-2xl text-sm text-slate-400">
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Text a setup link to each operator&apos;s cell. They tap the link, test their mic, set a password, and
           enter the live console — no email required.
         </p>
@@ -361,19 +361,19 @@ export function OperatorOnboardingDashboard() {
                   autoComplete="tel"
                   className="border-slate-700 bg-slate-950/80"
                 />
-                <p className="text-[11px] text-slate-500">We text a one-tap setup link to this number.</p>
+                <p className="text-[11px] text-muted-foreground">We text a one-tap setup link to this number.</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Workspace clearance
                 </p>
                 {workspacesLoading ? (
-                  <p className="flex items-center gap-2 py-2 text-xs text-slate-500">
+                  <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                     Loading businesses…
                   </p>
                 ) : workspaceOptions.length === 0 ? (
-                  <p className="text-xs text-slate-500">No workspaces found yet.</p>
+                  <p className="text-xs text-muted-foreground">No workspaces found yet.</p>
                 ) : (
                   <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {workspaceOptions.map((w) => {
@@ -400,7 +400,7 @@ export function OperatorOnboardingDashboard() {
                             />
                             <span className="min-w-0">
                               <span className="block text-xs font-medium text-slate-200">{w.business_name}</span>
-                              <span className="block truncate text-[10px] text-slate-500">
+                              <span className="block truncate text-[10px] text-muted-foreground">
                                 {lineLabel} · {w.owner_email}
                               </span>
                             </span>
@@ -445,17 +445,17 @@ export function OperatorOnboardingDashboard() {
               <Radio className="h-4 w-4 text-emerald-300" aria-hidden />
               Provisioning queue
             </CardTitle>
-            <Button type="button" variant="ghost" size="sm" onClick={() => void load()} className="text-slate-400">
+            <Button type="button" variant="ghost" size="sm" onClick={() => void load()} className="text-muted-foreground">
               Refresh
             </Button>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading operators…
               </div>
             ) : operators.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500">No operators yet. Send your first invite.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No operators yet. Send your first invite.</p>
             ) : (
               <ul className="divide-y divide-slate-800">
                 {operators.map((op) => {
@@ -469,13 +469,13 @@ export function OperatorOnboardingDashboard() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-slate-100">{op.name || op.phone || op.email}</p>
-                          <p className="text-xs text-slate-500">{formatPhoneDisplay(op.phone)}</p>
+                          <p className="text-xs text-muted-foreground">{formatPhoneDisplay(op.phone)}</p>
                           {op.assigned_workspaces.length > 0 ? (
-                            <p className="mt-1 text-xs text-slate-400">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {op.assigned_workspaces.map((w) => w.business_name).join(" · ")}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-[10px] text-slate-600">Tap for details</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Tap for details</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span
@@ -486,7 +486,7 @@ export function OperatorOnboardingDashboard() {
                           >
                             {badge.label}
                           </span>
-                          <ChevronRight className="h-4 w-4 text-slate-600" aria-hidden />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
                         </div>
                       </button>
                     </li>
@@ -506,14 +506,14 @@ export function OperatorOnboardingDashboard() {
                 <DialogTitle className="text-slate-100">
                   {selectedOperator.name || formatPhoneDisplay(selectedOperator.phone)}
                 </DialogTitle>
-                <DialogDescription className="text-slate-400">
+                <DialogDescription className="text-muted-foreground">
                   Operator details and provisioning actions
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">Status</span>
+                  <span className="text-muted-foreground">Status</span>
                   {detailBadge ? (
                     <span
                       className={cn(
@@ -526,20 +526,20 @@ export function OperatorOnboardingDashboard() {
                   ) : null}
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Cell</span>
+                  <span className="text-muted-foreground">Cell</span>
                   <span className="text-slate-200">{formatPhoneDisplay(selectedOperator.phone)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Invited</span>
+                  <span className="text-muted-foreground">Invited</span>
                   <span className="text-slate-200">{formatWhen(selectedOperator.created_at)}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Link expires</span>
+                  <span className="text-muted-foreground">Link expires</span>
                   <span className="text-slate-200">{formatWhen(selectedOperator.invitation_expires_at)}</span>
                 </div>
                 {selectedOperator.assigned_workspaces.length > 0 ? (
                   <div>
-                    <span className="text-slate-500">Workspaces</span>
+                    <span className="text-muted-foreground">Workspaces</span>
                     <p className="mt-1 text-slate-200">
                       {selectedOperator.assigned_workspaces.map((w) => w.business_name).join(", ")}
                     </p>
@@ -596,7 +596,7 @@ export function OperatorOnboardingDashboard() {
                     This operator finished setup and is active. Disable them to pause routing.
                   </p>
                 ) : !selectedOperator.is_active ? (
-                  <p className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
+                  <p className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-muted-foreground">
                     Re-enable this operator, then use Resend setup text if they still need to finish onboarding.
                   </p>
                 ) : null}

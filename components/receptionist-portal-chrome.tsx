@@ -60,7 +60,7 @@ export function ReceptionistPortalChrome({
               <p className="truncate text-sm font-semibold leading-tight text-foreground">
                 {userName}
                 {businessName ? (
-                  <span className="font-normal text-zinc-500">
+                  <span className="font-normal text-muted-foreground">
                     {" · "}
                     <span className="text-zinc-300">{businessName}</span>
                   </span>
@@ -81,7 +81,7 @@ export function ReceptionistPortalChrome({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "h-8 text-zinc-400 hover:text-foreground",
+                    "h-8 text-muted-foreground hover:text-foreground",
                     active && "bg-primary/10 text-primary hover:text-primary"
                   )}
                 >
@@ -97,7 +97,7 @@ export function ReceptionistPortalChrome({
               variant="ghost"
               size="sm"
               onClick={() => void handleLogout()}
-              className="h-8 text-zinc-400 hover:text-foreground"
+              className="h-8 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Sign out
@@ -123,7 +123,7 @@ export function ReceptionistPortalChrome({
                 href={item.href}
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium",
-                  active ? "text-primary" : "text-zinc-500"
+                  active ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
@@ -134,7 +134,7 @@ export function ReceptionistPortalChrome({
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium text-zinc-500"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium text-muted-foreground"
           >
             <LogOut className="h-5 w-5" aria-hidden />
             Sign out

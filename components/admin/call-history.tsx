@@ -86,7 +86,7 @@ function StatusBadge({ status }: { status: string }) {
           ? "bg-red-500/15 text-red-300"
           : s === "in-progress" || s === "answered"
             ? "bg-sky-500/15 text-sky-300"
-            : "bg-slate-700/50 text-slate-400"
+            : "bg-slate-700/50 text-muted-foreground"
   return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", className)}>{label}</span>
 }
 
@@ -114,7 +114,7 @@ function UuidCell({ uuid }: { uuid: string }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <code className="truncate font-mono text-xs text-slate-400" title={uuid || undefined}>
+      <code className="truncate font-mono text-xs text-muted-foreground" title={uuid || undefined}>
         {shortUuid(uuid)}
       </code>
       {uuid ? (
@@ -122,7 +122,7 @@ function UuidCell({ uuid }: { uuid: string }) {
           type="button"
           onClick={() => void handleCopy()}
           className={cn(
-            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/80 bg-slate-950/60 text-slate-400 transition-colors",
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-700/80 bg-slate-950/60 text-muted-foreground transition-colors",
             "hover:border-violet-500/40 hover:bg-violet-950/40 hover:text-violet-200",
             copied && "border-emerald-500/40 text-emerald-300"
           )}
@@ -174,7 +174,7 @@ export function CallHistoryTable() {
         <CardTitle className="flex items-center gap-2 text-base text-slate-100">
           <History className="h-4 w-4 text-violet-300" aria-hidden />
           Call History
-          <span className="text-xs font-normal text-slate-500">last {calls.length}</span>
+          <span className="text-xs font-normal text-muted-foreground">last {calls.length}</span>
         </CardTitle>
         <Button
           type="button"
@@ -190,25 +190,25 @@ export function CallHistoryTable() {
       </CardHeader>
       <CardContent className="pt-0">
         {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin text-violet-300" aria-hidden /> Loading call logs…
           </div>
         ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <History className="h-7 w-7 text-slate-700" aria-hidden />
-            <p className="text-sm text-slate-500">No call records yet.</p>
+            <p className="text-sm text-muted-foreground">No call records yet.</p>
           </div>
         ) : (
           <div className="max-h-[460px] overflow-auto rounded-lg border border-slate-800/60">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="text-slate-400">Timestamp</TableHead>
-                  <TableHead className="text-slate-400">Direction</TableHead>
-                  <TableHead className="text-slate-400">Phone Routing</TableHead>
-                  <TableHead className="text-slate-400">Duration</TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Call UUID</TableHead>
+                  <TableHead className="text-muted-foreground">Timestamp</TableHead>
+                  <TableHead className="text-muted-foreground">Direction</TableHead>
+                  <TableHead className="text-muted-foreground">Phone Routing</TableHead>
+                  <TableHead className="text-muted-foreground">Duration</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Call UUID</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -222,8 +222,8 @@ export function CallHistoryTable() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap font-mono text-xs text-slate-300">
                       <span className="text-slate-200">{c.from_number || "Unknown"}</span>
-                      <span className="mx-1.5 text-slate-600">→</span>
-                      <span className="text-slate-400">{c.to_number || "Forwarded Leg"}</span>
+                      <span className="mx-1.5 text-muted-foreground">→</span>
+                      <span className="text-muted-foreground">{c.to_number || "Forwarded Leg"}</span>
                     </TableCell>
                     <TableCell className="font-mono text-sm tabular-nums text-slate-300">
                       {formatDuration(c.duration_seconds)}

@@ -464,7 +464,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
               <tbody>
                 {ledger.map((row) => (
                   <tr key={row.id} className={cn("hover:bg-zinc-900/40", WORKSPACE_TABLE_ROW_CLASS)}>
-                    <WorkspaceTd className="text-zinc-400">{row.date}</WorkspaceTd>
+                    <WorkspaceTd className="text-muted-foreground">{row.date}</WorkspaceTd>
                     <WorkspaceTd className="font-medium text-foreground">{row.operator}</WorkspaceTd>
                     <WorkspaceTd className="tabular-nums text-zinc-300">{row.minutes} min</WorkspaceTd>
                     <WorkspaceTd className="font-medium tabular-nums text-foreground">
@@ -476,7 +476,7 @@ export const PayWorkspaceView = memo(function PayWorkspaceView({
             ) : null}
           </WorkspaceTableWrap>
           {ledger.length === 0 ? (
-            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-6 py-12 text-center text-sm text-zinc-500">
+            <div className="flex min-h-[208px] items-center justify-center border-t border-zinc-800/50 px-6 py-12 text-center text-sm text-muted-foreground">
               {!callsLoaded ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />

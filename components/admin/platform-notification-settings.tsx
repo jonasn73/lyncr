@@ -183,7 +183,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
               <h3
                 className={cn(
                   "text-xs font-semibold uppercase tracking-wide",
-                  isAdminChrome ? "text-slate-400" : "text-muted-foreground"
+                  isAdminChrome ? "text-muted-foreground" : "text-muted-foreground"
                 )}
               >
                 {section.title}
@@ -203,7 +203,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
                         <p className={cn("text-sm font-medium", isAdminChrome && "text-slate-100")}>
                           {row.label}
                         </p>
-                        <p className={cn("mt-0.5 text-xs leading-snug", isAdminChrome ? "text-slate-400" : "text-muted-foreground")}>
+                        <p className={cn("mt-0.5 text-xs leading-snug", isAdminChrome ? "text-muted-foreground" : "text-muted-foreground")}>
                           {row.description}
                         </p>
                       </div>

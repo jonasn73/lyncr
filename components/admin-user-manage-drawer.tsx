@@ -56,7 +56,7 @@ function smsRegistrationBadgeClass(status: SmsRegistrationOrgStatus): string {
   if (status === "PENDING_APPROVAL") return "border-amber-700/60 bg-amber-950/40 text-amber-200"
   if (status === "APPROVED") return "border-emerald-700/60 bg-emerald-950/40 text-emerald-200"
   if (status === "REJECTED") return "border-red-800/60 bg-red-950/40 text-red-200"
-  return "border-slate-700 bg-slate-900/60 text-slate-400"
+  return "border-slate-700 bg-slate-900/60 text-muted-foreground"
 }
 
 /** Default empty control hub payload when the API fails. */
@@ -314,7 +314,7 @@ export function AdminUserManageDrawer({
           <SheetTitle className="text-slate-50">
             {row?.business_name.trim() || row?.email || "Manage shop"}
           </SheetTitle>
-          <SheetDescription className="text-slate-400">
+          <SheetDescription className="text-muted-foreground">
             {row ? row.email : "Select a shop"}
           </SheetDescription>
         </SheetHeader>
@@ -370,7 +370,7 @@ export function AdminUserManageDrawer({
 
             {businessEconomics ? (
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Business money
                 </p>
                 <BusinessMoneyBreakdown row={businessEconomics} />
@@ -386,7 +386,7 @@ export function AdminUserManageDrawer({
                 placeholder="+15551234567"
                 className="border-slate-700 bg-slate-950 font-mono text-slate-100"
               />
-              <p className="text-xs text-slate-500">Bypasses self-service purchase — assigns or updates the primary active line.</p>
+              <p className="text-xs text-muted-foreground">Bypasses self-service purchase — assigns or updates the primary active line.</p>
             </div>
 
             {/* Per-line override — this is what shows the purple bar on a shop dashboard. */}
@@ -395,11 +395,11 @@ export function AdminUserManageDrawer({
                 <Phone className="h-4 w-4 text-emerald-300" aria-hidden />
                 <Label className="text-slate-200">Active phone lines</Label>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Each shop on this login has a line. Clear “Admin override” and Save to turn off direct routing.
               </p>
               {controlsLoading && !controls ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading lines…
                 </div>
               ) : controls && controls.phone_lines.length > 0 ? (
@@ -416,7 +416,7 @@ export function AdminUserManageDrawer({
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-slate-100">{shopName}</p>
                           <p className="truncate font-mono text-xs text-slate-300">{line.number}</p>
-                          <p className="truncate text-[11px] text-slate-500">
+                          <p className="truncate text-[11px] text-muted-foreground">
                             {line.label} · <span className="capitalize">{line.status}</span>
                           </p>
                         </div>
@@ -436,7 +436,7 @@ export function AdminUserManageDrawer({
                         </Button>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-slate-400">Admin override for this line</Label>
+                        <Label className="text-[11px] text-muted-foreground">Admin override for this line</Label>
                         <Input
                           value={lineOverrideDrafts[line.id] ?? ""}
                           onChange={(e) =>
@@ -451,7 +451,7 @@ export function AdminUserManageDrawer({
                   })}
                 </ul>
               ) : (
-                <p className="text-xs text-slate-500">No provisioned lines on this account.</p>
+                <p className="text-xs text-muted-foreground">No provisioned lines on this account.</p>
               )}
             </div>
 
@@ -461,7 +461,7 @@ export function AdminUserManageDrawer({
                 <Wallet className="h-4 w-4 text-violet-300" aria-hidden />
                 <Label className="text-slate-200">Adjust wallet balance</Label>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Current carrier credit:{" "}
                 <span className="font-semibold tabular-nums text-slate-200">{formatUsd(creditBalance)}</span>
               </p>
@@ -521,7 +521,7 @@ export function AdminUserManageDrawer({
                   )
                 })}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Suspended accounts cannot receive or route calls until reactivated.
               </p>
             </div>
@@ -543,7 +543,7 @@ export function AdminUserManageDrawer({
                 <Label className="text-slate-200">Feature controls</Label>
               </div>
               {controlsLoading && !controls ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
                 </div>
               ) : (
@@ -551,7 +551,7 @@ export function AdminUserManageDrawer({
                   <div key={f.id} className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-200">{f.label}</p>
-                      <p className="text-xs text-slate-500">{f.description}</p>
+                      <p className="text-xs text-muted-foreground">{f.description}</p>
                     </div>
                     <Switch
                       checked={controls?.feature_flags?.[f.id] === true}
@@ -570,7 +570,7 @@ export function AdminUserManageDrawer({
                 <HardHat className="h-4 w-4 text-violet-300" aria-hidden />
                 <Label className="text-slate-200">Business actions</Label>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Provision an active field technician directly on this owner&apos;s roster — binds to their workspace
                 records without sending an SMS invite.
               </p>
@@ -599,13 +599,13 @@ export function AdminUserManageDrawer({
               </div>
 
               {controlsLoading && !controls ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Loading…
                 </div>
               ) : (
                 <>
-                  <div className="flex items-start gap-2 text-xs text-slate-400">
-                    <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                     <p>
                       <span className="font-medium text-slate-300">
                         {controls?.team_roster.active_receptionists ?? 0}
@@ -622,7 +622,7 @@ export function AdminUserManageDrawer({
                   </div>
 
                   {!controls || controls.organizations.length === 0 ? (
-                    <p className="text-xs text-slate-500">No workspaces found for this owner.</p>
+                    <p className="text-xs text-muted-foreground">No workspaces found for this owner.</p>
                   ) : (
                     <ul className="space-y-2">
                       {controls.organizations.map((org) => (
@@ -635,19 +635,19 @@ export function AdminUserManageDrawer({
                               <p className="truncate text-sm font-medium text-slate-200">
                                 {org.name}
                                 {org.is_default ? (
-                                  <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-slate-500">
+                                  <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
                                     default
                                   </span>
                                 ) : null}
                               </p>
                               {org.sms_registration?.legal_business_name || org.messaging_10dlc?.legal_company_name ? (
-                                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                                   {org.sms_registration?.legal_business_name ||
                                     org.messaging_10dlc?.legal_company_name}
                                 </p>
                               ) : null}
                               {org.messaging_10dlc?.brand_id || org.messaging_10dlc?.campaign_id ? (
-                                <p className="mt-1 truncate font-mono text-[10px] text-slate-600">
+                                <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
                                   {org.messaging_10dlc.brand_id ? `Brand ${org.messaging_10dlc.brand_id}` : null}
                                   {org.messaging_10dlc.brand_id && org.messaging_10dlc.campaign_id ? " · " : null}
                                   {org.messaging_10dlc.campaign_id
@@ -661,7 +661,7 @@ export function AdminUserManageDrawer({
                             </Badge>
                           </div>
                           {org.messaging_10dlc?.status ? (
-                            <p className="mt-1.5 text-[10px] capitalize text-slate-600">
+                            <p className="mt-1.5 text-[10px] capitalize text-muted-foreground">
                               Telnyx registration: {org.messaging_10dlc.status.replace(/_/g, " ")}
                             </p>
                           ) : null}
@@ -691,7 +691,7 @@ export function AdminUserManageDrawer({
                                   )}
                                   <div className="min-w-0">
                                     <p className="truncate font-mono text-xs text-slate-200">{inv.target}</p>
-                                    <p className="text-[10px] text-slate-500">
+                                    <p className="text-[10px] text-muted-foreground">
                                       {inv.channel} · expires{" "}
                                       {new Date(inv.expires_at).toLocaleDateString(undefined, {
                                         month: "short",
@@ -736,7 +736,7 @@ export function AdminUserManageDrawer({
                 <AlertDialogContent className="border-slate-800 bg-slate-900 text-slate-100">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Reset active lines?</AlertDialogTitle>
-                    <AlertDialogDescription className="text-slate-400">
+                    <AlertDialogDescription className="text-muted-foreground">
                       This permanently removes {row.email}&apos;s assigned numbers and zeroes their carrier credit.
                       This cannot be undone from the admin console.
                     </AlertDialogDescription>

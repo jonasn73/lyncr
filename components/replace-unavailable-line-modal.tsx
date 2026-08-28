@@ -117,7 +117,7 @@ export function ReplaceUnavailableLineModal({
           <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
             Area code
             <span className="relative">
-              <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={areaCode}
                 onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, "").slice(0, 3))}

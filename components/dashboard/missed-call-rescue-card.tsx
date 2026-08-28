@@ -231,7 +231,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
         />
       </label>
-      <p className="mt-1.5 text-[10px] text-zinc-500">
+      <p className="mt-1.5 text-[10px] text-muted-foreground">
         Today: {confirmedJobsToday == null ? "—" : confirmedJobsToday} confirmed
         {capacitySaving ? " · Saving…" : ""}
       </p>
@@ -257,7 +257,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
             className={cn(
               LINES_MOBILE_ICON_TILE,
               !known
-                ? "bg-zinc-500/15 text-zinc-400"
+                ? "bg-zinc-500/15 text-muted-foreground"
                 : isOn
                   ? "bg-emerald-500/15 text-emerald-300"
                   : "bg-primary/12 text-primary"
@@ -268,7 +268,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           <div className="min-w-0 flex-1">
             <p className={LINES_MOBILE_SECTION_LABEL}>Automation · Missed Call Rescue</p>
             <p className="truncate text-sm font-semibold text-foreground">{label}</p>
-            <p className="text-xs leading-snug text-zinc-500">
+            <p className="text-xs leading-snug text-muted-foreground">
               Text after a true miss (team rang, no answer) — not when callers hang up on Busy without
               pressing 1.
             </p>
@@ -328,7 +328,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
           className={switchClass}
         />
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         Texts “Sorry we missed your call — book here…” after a true miss (rang, no answer). Does not
         text when someone hangs up on Busy without pressing 1. Press 1 uses a different message.
       </p>

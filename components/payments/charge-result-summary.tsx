@@ -101,7 +101,7 @@ export function ChargeResultSummary({
           <p
             className={cn(
               "mt-1.5 text-xs tabular-nums",
-              tipFailed ? "text-amber-200/70" : "text-zinc-400"
+              tipFailed ? "text-amber-200/70" : "text-muted-foreground"
             )}
           >
             {detailParts.join(" · ")}

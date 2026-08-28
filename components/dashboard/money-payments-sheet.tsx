@@ -284,12 +284,12 @@ export function MoneyPaymentsSheet({
                 </button>
               ) : null}
               <SheetTitle className="text-base font-bold text-slate-100">{title}</SheetTitle>
-              <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
             </div>
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-2 text-zinc-400 hover:text-white"
+              className="rounded-lg p-2 text-muted-foreground hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -305,7 +305,7 @@ export function MoneyPaymentsSheet({
                   "rounded-lg py-2 text-xs font-semibold",
                   listTab === "payments"
                     ? "bg-teal-500/20 text-teal-100"
-                    : "text-slate-400 hover:text-slate-200"
+                    : "text-muted-foreground hover:text-slate-200"
                 )}
               >
                 Cards
@@ -317,7 +317,7 @@ export function MoneyPaymentsSheet({
                   "rounded-lg py-2 text-xs font-semibold",
                   listTab === "invoices"
                     ? "bg-teal-500/20 text-teal-100"
-                    : "text-slate-400 hover:text-slate-200"
+                    : "text-muted-foreground hover:text-slate-200"
                 )}
               >
                 Invoices
@@ -331,7 +331,7 @@ export function MoneyPaymentsSheet({
             <div className="space-y-3">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
                 />
                 <input
@@ -339,7 +339,7 @@ export function MoneyPaymentsSheet({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search name or phone"
-                  className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-teal-500/40"
+                  className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
                   autoComplete="off"
                   enterKeyHint="search"
                 />
@@ -362,7 +362,7 @@ export function MoneyPaymentsSheet({
                       "rounded-lg py-2 text-[11px] font-semibold",
                       dayFilter === opt.id
                         ? "bg-teal-500/20 text-teal-100"
-                        : "text-slate-400 hover:text-slate-200"
+                        : "text-muted-foreground hover:text-slate-200"
                     )}
                   >
                     {opt.label}
@@ -371,7 +371,7 @@ export function MoneyPaymentsSheet({
               </div>
 
               <div className="flex items-center justify-between gap-2 px-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {listTab === "invoices"
                     ? debouncedQ
                       ? "Matching invoices"
@@ -421,7 +421,7 @@ export function MoneyPaymentsSheet({
                   dayFilter={dayFilter}
                 />
               ) : loading && rows.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   Loading payments…
                 </div>
@@ -434,7 +434,7 @@ export function MoneyPaymentsSheet({
                   <p className="text-sm font-semibold text-slate-300">
                     {debouncedQ ? "No matching payments" : "No payments yet"}
                   </p>
-                  <p className="mt-1.5 text-xs leading-snug text-slate-500">
+                  <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
                     {debouncedQ
                       ? "Try another name or phone, or clear the search."
                       : "When you Collect a card, Tap to Pay, or cash charge, it shows up here."}
@@ -481,7 +481,7 @@ export function MoneyPaymentsSheet({
                                 {formatCollectedDollars(Math.round(tx.amount * 100))}
                               </span>
                             </span>
-                            <span className="mt-0.5 block text-[11px] text-slate-500">
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
                               {formatWhen(tx.createdAt)}
                               {subtitleParts ? ` · ${subtitleParts}` : ""}
                             </span>
@@ -495,12 +495,12 @@ export function MoneyPaymentsSheet({
                                 {collectedChargeWalletLabel(walletStatus)}
                               </span>
                               {!tx.jobId ? (
-                                <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                                <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                                   Quick
                                 </span>
                               ) : null}
                               {tx.customerPhone ? (
-                                <span className="text-[10px] text-zinc-500">
+                                <span className="text-[10px] text-muted-foreground">
                                   {formatPhoneDisplay(tx.customerPhone)}
                                 </span>
                               ) : null}
@@ -554,7 +554,7 @@ export function MoneyPaymentsSheet({
                         "inline-flex items-center justify-center gap-2 rounded-lg py-3 text-xs font-semibold transition-colors",
                         receiptChannel === "email"
                           ? "bg-teal-500/20 text-teal-100"
-                          : "text-slate-400 hover:text-slate-200"
+                          : "text-muted-foreground hover:text-slate-200"
                       )}
                     >
                       <Mail className="h-3.5 w-3.5" aria-hidden />
@@ -567,7 +567,7 @@ export function MoneyPaymentsSheet({
                         "inline-flex items-center justify-center gap-2 rounded-lg py-3 text-xs font-semibold transition-colors",
                         receiptChannel === "sms"
                           ? "bg-teal-500/20 text-teal-100"
-                          : "text-slate-400 hover:text-slate-200"
+                          : "text-muted-foreground hover:text-slate-200"
                       )}
                     >
                       <MessageSquare className="h-3.5 w-3.5" aria-hidden />
@@ -576,7 +576,7 @@ export function MoneyPaymentsSheet({
                   </div>
 
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Customer name
                     </span>
                     <input
@@ -584,13 +584,13 @@ export function MoneyPaymentsSheet({
                       value={receiptName}
                       onChange={(e) => setReceiptName(e.target.value)}
                       placeholder="Optional"
-                      className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-teal-500/40"
+                      className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
                     />
                   </label>
 
                   {receiptChannel === "email" ? (
                     <label className="block space-y-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Email
                       </span>
                       <input
@@ -598,13 +598,13 @@ export function MoneyPaymentsSheet({
                         value={receiptEmail}
                         onChange={(e) => setReceiptEmail(e.target.value)}
                         placeholder="customer@email.com"
-                        className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-teal-500/40"
+                        className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
                         autoComplete="email"
                       />
                     </label>
                   ) : (
                     <label className="block space-y-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Phone
                       </span>
                       <input
@@ -612,7 +612,7 @@ export function MoneyPaymentsSheet({
                         value={receiptPhone}
                         onChange={(e) => setReceiptPhone(e.target.value)}
                         placeholder="(555) 123-4567"
-                        className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-teal-500/40"
+                        className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
                         autoComplete="tel"
                       />
                     </label>
@@ -662,13 +662,13 @@ function PaymentDetail({
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Amount</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Amount</p>
         <p className="mt-0.5 text-3xl font-bold tabular-nums text-emerald-200">
           {formatCollectedDollars(amountCents)}
         </p>
         <p className="mt-1 text-sm font-semibold text-slate-100">{rowTitle(tx)}</p>
         {tx.customerPhone ? (
-          <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-slate-400">
+          <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
             <Phone className="h-3 w-3" aria-hidden />
             {formatPhoneDisplay(tx.customerPhone)}
           </p>
@@ -706,7 +706,7 @@ function PaymentDetail({
           Open related job
         </Link>
       ) : (
-        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3 text-[11px] leading-snug text-zinc-500">
+        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3 text-[11px] leading-snug text-muted-foreground">
           Walk-up / quick charge — not tied to a schedule job. Add the customer name when you send
           the invoice so you can find them later.
         </p>
@@ -726,7 +726,7 @@ function PaymentDetail({
             : "Invoice unavailable"}
       </button>
       {canInvoice ? (
-        <p className="text-center text-[11px] leading-snug text-zinc-500">
+        <p className="text-center text-[11px] leading-snug text-muted-foreground">
           Emails or texts a paid invoice page the customer can open.
         </p>
       ) : null}
@@ -737,7 +737,7 @@ function PaymentDetail({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex items-start justify-between gap-3 px-4 py-3">
-      <span className="shrink-0 text-[11px] font-medium text-zinc-500">{label}</span>
+      <span className="shrink-0 text-[11px] font-medium text-muted-foreground">{label}</span>
       <span className="text-right text-sm font-medium text-slate-200">{value}</span>
     </li>
   )

@@ -150,7 +150,7 @@ export function CarrierTransferDesk({
       ) : null}
 
       {!pinRequired && !pinPendingReview ? (
-        <label className="block text-xs font-medium text-zinc-400">
+        <label className="block text-xs font-medium text-muted-foreground">
           Reply / Provide Missing Info to Carrier Desk
           <textarea
             value={reply}
@@ -162,7 +162,7 @@ export function CarrierTransferDesk({
             placeholder="Answer the carrier desk (account number, invoice, LOA details, etc.)"
             aria-invalid={Boolean(fieldError && !fieldError.toLowerCase().includes("pin"))}
             className={cn(
-              "mt-1 w-full resize-y rounded-lg border bg-zinc-900/80 px-3 py-2 text-sm text-foreground placeholder:text-zinc-600",
+              "mt-1 w-full resize-y rounded-lg border bg-zinc-900/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
               fieldError && !fieldError.toLowerCase().includes("pin")
                 ? "border-red-500 ring-1 ring-red-500/40"
                 : "border-zinc-800"

@@ -62,9 +62,9 @@ export function ReceptionistSimpleIntake({
 
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-zinc-950/40 p-4">
-      <p className="text-xs font-medium text-zinc-400">Quick intake — name + why they called</p>
+      <p className="text-xs font-medium text-muted-foreground">Quick intake — name + why they called</p>
       <label className="block space-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Caller name</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Caller name</span>
         <input
           type="text"
           value={callerName}
@@ -74,7 +74,7 @@ export function ReceptionistSimpleIntake({
         />
       </label>
       <label className="block space-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Notes / reason</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Notes / reason</span>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -102,7 +102,7 @@ export function ReceptionistSimpleIntake({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-zinc-200 disabled:opacity-50"
         >
           <X className="h-4 w-4" aria-hidden />
           Cancel

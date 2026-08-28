@@ -95,7 +95,7 @@ function LocateInner() {
       <div>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Key Squad</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">Share your location</h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600">{message}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
       </div>
       {status === "ready" || status === "sharing" ? (
         <button
@@ -121,7 +121,7 @@ export default function LocatePage() {
     <Suspense
       fallback={
         <main className="mx-auto flex min-h-[100dvh] max-w-md items-center justify-center px-6">
-          <p className="text-sm text-zinc-600">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         </main>
       }
     >

@@ -239,15 +239,15 @@ function CallTimeDisplay({
 }) {
   const parts = formatCallTimestampParts(call)
   if (!parts) {
-    return <span className="text-xs text-zinc-600">—</span>
+    return <span className="text-xs text-muted-foreground">—</span>
   }
   // Single-line time for dense collapsed activity rows.
   if (variant === "inline") {
     return (
-      <span className="shrink-0 text-[11px] font-semibold tabular-nums text-zinc-400" title={parts.full}>
+      <span className="shrink-0 text-[11px] font-semibold tabular-nums text-muted-foreground" title={parts.full}>
         {parts.time}
         {parts.day && parts.day !== "Today" ? (
-          <span className="font-medium text-zinc-600"> · {parts.day}</span>
+          <span className="font-medium text-muted-foreground"> · {parts.day}</span>
         ) : null}
       </span>
     )
@@ -256,17 +256,17 @@ function CallTimeDisplay({
     return (
       <div className="flex shrink-0 flex-col items-end gap-0.5 text-right" title={parts.full}>
         <span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-zinc-100">
-          <Clock className="h-3.5 w-3.5 text-zinc-500" aria-hidden />
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           {parts.time}
         </span>
-        <span className="text-[11px] font-medium text-zinc-500">{parts.day}</span>
+        <span className="text-[11px] font-medium text-muted-foreground">{parts.day}</span>
       </div>
     )
   }
   return (
     <div className="flex flex-col gap-0.5" title={parts.full}>
       <span className="text-sm font-semibold tabular-nums text-zinc-200">{parts.time}</span>
-      <span className="text-[11px] font-medium text-zinc-500">{parts.day}</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{parts.day}</span>
     </div>
   )
 }
@@ -608,7 +608,7 @@ function AgentBadge({
   if (agent.kind === "none") {
     return (
       <span
-        className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2 py-0.5 text-[11px] font-medium text-zinc-500"
+        className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-800/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
         title={agent.label}
       >
         {agent.label}
@@ -684,7 +684,7 @@ function intakeActionTone(action: string): string {
     return "border-red-500/35 bg-red-500/10 text-red-300"
   }
   if (action === "No intake recorded") {
-    return "border-zinc-700/70 bg-zinc-800/40 text-zinc-500"
+    return "border-zinc-700/70 bg-zinc-800/40 text-muted-foreground"
   }
   return "border-cyan-500/35 bg-cyan-500/10 text-cyan-200"
 }
@@ -745,7 +745,7 @@ function ActivityIntakeSummary({
         </span>
       )}
       {activity.intakeDetail ? (
-        <p className={cn("text-zinc-400", compact ? "text-[11px] leading-snug line-clamp-2" : "text-xs leading-relaxed")}>
+        <p className={cn("text-muted-foreground", compact ? "text-[11px] leading-snug line-clamp-2" : "text-xs leading-relaxed")}>
           {activity.intakeDetail}
         </p>
       ) : null}
@@ -756,7 +756,7 @@ function ActivityIntakeSummary({
         </p>
       ) : null}
       {activity.callerScheduleHint ? (
-        <p className={cn("text-zinc-500", compact ? "text-[10px]" : "text-[11px]")}>{activity.callerScheduleHint}</p>
+        <p className={cn("text-muted-foreground", compact ? "text-[10px]" : "text-[11px]")}>{activity.callerScheduleHint}</p>
       ) : null}
       {schedulerHref ? (
         <Link
@@ -856,7 +856,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                   openIntakeForActivityCall(inbound, call)
                   onClose()
                 }}
-                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-muted-foreground hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
               >
                 <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
                 Add note
@@ -865,7 +865,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             {dialFirst && (canText || customerPhone) ? (
               <Link
                 href={`/dashboard/customers?phone=${encodeURIComponent(toE164(customerPhone) || customerPhone)}`}
-                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-muted-foreground hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
               >
                 <UserRound className="h-4 w-4 shrink-0" aria-hidden />
                 Continue in CRM
@@ -874,7 +874,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             {canText ? (
               <Link
                 href={messagesHref}
-                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
+                className="inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700/70 bg-zinc-950/40 px-3 text-sm font-semibold text-muted-foreground hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-200"
               >
                 <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
                 Text
@@ -886,7 +886,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
                 openIntakeDraft={needsRevenueRescue(call)}
                 intakeCall={call}
                 missed={false}
-                className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
+                className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-muted-foreground hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
               />
             ) : null}
             <SendBookLinkButton
@@ -894,12 +894,12 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
               callerName={call.callerName}
               businessLine={call.targetLineE164}
               callLogId={call.id}
-              className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
+              className="min-h-10 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-muted-foreground hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <AgentBadge agent={agent} />
-            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-3 py-1 text-[11px] font-medium tabular-nums text-zinc-400">
+            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700/70 bg-zinc-900/60 px-3 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
               {formatDuration(call.durationSeconds)}
             </span>
             <CallTimeDisplay call={call} variant="compact" />
@@ -965,11 +965,11 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
             </div>
           ) : null}
 
-          <p className="px-0.5 text-xs leading-relaxed text-zinc-400">{summary}</p>
+          <p className="px-0.5 text-xs leading-relaxed text-muted-foreground">{summary}</p>
 
           {call.hasRecording && call.recordingUrl ? (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Call recording</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Call recording</p>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <audio controls preload="none" src={call.recordingUrl} className="w-full">
                 Your browser does not support audio playback.
@@ -1010,7 +1010,7 @@ function CallerNameWithCount({
     >
       <span>{call.callerName}</span>
       {countLabel ? (
-        <span className="ml-1.5 font-normal text-slate-400">{countLabel}</span>
+        <span className="ml-1.5 font-normal text-muted-foreground">{countLabel}</span>
       ) : null}
     </p>
   )
@@ -1041,7 +1041,7 @@ function ActivityGroupActionBar({
     : null
   // Quiet secondary chips — same actions, less “four equal buttons.”
   const secondaryChip =
-    "!h-8 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-zinc-400 hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
+    "!h-8 min-w-0 flex-1 !border-zinc-700/70 !bg-zinc-950/40 !text-muted-foreground hover:!border-zinc-600 hover:!bg-zinc-900/70 hover:!text-zinc-200"
   const canDial = canCallBack(call)
   // Dial-first for Missed + Busy / Hold / Press 1; answered stay CRM-first.
   const callBackPrimary = (missed || hold) && canDial
@@ -1170,14 +1170,14 @@ function ActivityCallLegActions({
         aria-label={`Open details for call at ${call.time || "unknown time"}`}
       >
         <ActivityStatusPill status={st} dense />
-        <span className="min-w-0 flex-1 text-[11px] text-zinc-400">
+        <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <CallTimeDisplay call={call} variant="inline" />
-            <span className="text-zinc-600">·</span>
+            <span className="text-muted-foreground">·</span>
             <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
           </span>
         </span>
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
     )
   }
@@ -1188,13 +1188,13 @@ function ActivityCallLegActions({
       <div className="flex min-w-0 items-start gap-2">
         <ActivityStatusPill status={st} dense />
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-400">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
             <CallTimeDisplay call={call} variant="inline" />
-            <span className="text-zinc-600">·</span>
+            <span className="text-muted-foreground">·</span>
             <span className="tabular-nums">{formatDuration(call.durationSeconds)}</span>
           </p>
           {showLine ? (
-            <p className="mt-0.5 truncate text-[10px] text-zinc-600" title={targetLabel}>
+            <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={targetLabel}>
               {targetLabel}
             </p>
           ) : null}
@@ -1203,8 +1203,8 @@ function ActivityCallLegActions({
       {timeline.length > 0 ? (
         <ul className="space-y-0.5 px-0.5">
           {timeline.slice(0, 2).map((line, i) => (
-            <li key={`${call.id}-tl-${i}`} className="flex gap-2 text-[10px] text-zinc-500">
-              <Clock className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" aria-hidden />
+            <li key={`${call.id}-tl-${i}`} className="flex gap-2 text-[10px] text-muted-foreground">
+              <Clock className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
               <span>{line}</span>
             </li>
           ))}
@@ -1264,7 +1264,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
         <p className="text-sm font-medium text-zinc-300">No calls yet</p>
-        <p className="max-w-xs text-xs text-zinc-500">
+        <p className="max-w-xs text-xs text-muted-foreground">
           When someone dials your business line, the call shows up here so you can continue in CRM.
         </p>
         <Link
@@ -1340,16 +1340,16 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                 </p>
                 {/* Collapsed only: latest duration · time · intake (N calls already on the name). */}
                 {!expanded ? (
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                     <CallTimeDisplay call={call} variant="inline" />
-                    <span className="shrink-0 text-zinc-600">·</span>
+                    <span className="shrink-0 text-muted-foreground">·</span>
                     <span className="shrink-0 tabular-nums">
                       {formatDuration(call.durationSeconds)}
                     </span>
                     {showIntakeShort ? (
                       <>
-                        <span className="shrink-0 text-zinc-600">·</span>
-                        <span className="min-w-0 truncate text-zinc-500">{intakeShort}</span>
+                        <span className="shrink-0 text-muted-foreground">·</span>
+                        <span className="min-w-0 truncate text-muted-foreground">{intakeShort}</span>
                       </>
                     ) : null}
                   </p>
@@ -1357,7 +1357,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
               </span>
               <ChevronDown
                 className={cn(
-                  "mt-1 h-4 w-4 shrink-0 text-zinc-600 transition-transform duration-150 group-hover/caller:text-teal-400",
+                  "mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover/caller:text-teal-400",
                   expanded && "rotate-180 text-teal-400"
                 )}
                 aria-hidden
@@ -1380,7 +1380,7 @@ const ActivityCallsMobileList = memo(function ActivityCallsMobileList({
                         />
                       </div>
                     ) : null}
-                    <p className="px-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                    <p className="px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       Calls today · tap a row for details
                     </p>
                   </>
@@ -1475,7 +1475,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
               <WorkspaceTd colSpan={8} className="!px-3 py-12">
                 <div className="flex flex-col items-center gap-3 text-center">
                   <p className="text-sm font-medium text-zinc-300">No calls yet</p>
-                  <p className="max-w-sm text-xs text-zinc-500">
+                  <p className="max-w-sm text-xs text-muted-foreground">
                     When someone dials your business line, the call shows up here so you can continue
                     in CRM.
                   </p>
@@ -1516,7 +1516,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                         <button
                           type="button"
                           onClick={() => toggleExpanded(call.groupKey)}
-                          className="rounded p-0.5 text-slate-500 transition-colors duration-150 hover:bg-slate-800 hover:text-teal-300"
+                          className="rounded p-0.5 text-muted-foreground transition-colors duration-150 hover:bg-slate-800 hover:text-teal-300"
                           aria-label={expanded ? "Hide call details" : "Show call details"}
                           aria-expanded={expanded}
                         >
@@ -1549,7 +1549,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           {call.callerNumber}
                         </a>
                       ) : (
-                        <p className="truncate text-xs text-zinc-500" title={call.callerNumber}>
+                        <p className="truncate text-xs text-muted-foreground" title={call.callerNumber}>
                           {call.callerNumber}
                         </p>
                       )}
@@ -1563,7 +1563,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           call={call}
                         />
                       ) : (
-                        <span className="text-xs text-zinc-600">—</span>
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </WorkspaceTd>
                     <WorkspaceTd className="!px-3 !py-3 align-middle tabular-nums text-sm text-zinc-300">
@@ -1572,7 +1572,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                     <WorkspaceTd className="!px-3 !py-3 align-middle">
                       {multi ? (
                         <span
-                          className="line-clamp-2 text-[11px] leading-snug text-slate-500"
+                          className="line-clamp-2 text-[11px] leading-snug text-muted-foreground"
                           title={formatGroupedCallSummary(call)}
                         >
                           {formatGroupedCallSummary(call)}
@@ -1585,7 +1585,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                       <p className="truncate text-sm font-medium text-zinc-200" title={targetLabel}>
                         {targetLabel}
                       </p>
-                      <p className="mt-0.5 truncate text-[11px] text-zinc-500" title={call.routedTo}>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={call.routedTo}>
                         {formatRoutedToLabel(call.routedTo)}
                       </p>
                     </WorkspaceTd>
@@ -1625,7 +1625,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
                           {multi ? (
                             <>
                               <ActivityGroupActionBar call={call} className="max-w-xl" />
-                              <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                 Calls today · tap a row for details
                               </p>
                             </>
@@ -1836,7 +1836,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
             <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
               <PhoneMissed className="mx-auto mb-2 h-8 w-8 text-amber-400/80" aria-hidden />
               <p className="text-sm font-medium text-zinc-200">No missed calls today</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 This list resets at midnight. Yesterday’s missed calls stay in All calls.
               </p>
             </div>
@@ -1844,7 +1844,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           {showHoldEmpty ? (
             <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
               <p className="text-sm font-medium text-zinc-200">No hold-queue calls</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Callers who waited on hold show up here.
               </p>
             </div>
@@ -1852,7 +1852,7 @@ const ActivityWorkspaceBody = memo(function ActivityWorkspaceBody({
           {showPress1Empty ? (
             <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-10 text-center">
               <p className="text-sm font-medium text-zinc-200">No Press 1 bookings yet</p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 When a caller presses 1 for a booking text, it shows up here.
               </p>
             </div>

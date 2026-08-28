@@ -111,7 +111,7 @@ function InventoryRow({
               <Zap className="h-3 w-3" aria-hidden />
               Live line inventory
             </span>
-            <span className="text-xs font-medium text-zinc-400">$2.00 / mo</span>
+            <span className="text-xs font-medium text-muted-foreground">$2.00 / mo</span>
           </div>
         </div>
         <button
@@ -338,7 +338,7 @@ export function BuyNumberMarketplaceModal({
           ) : null}
           <div className="shrink-0 space-y-6 px-6 py-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Line label (whisper)
               </label>
               <input
@@ -359,11 +359,11 @@ export function BuyNumberMarketplaceModal({
               }}
             >
               <label className="min-w-0 flex-1">
-                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Area code
                 </span>
                 <div className="relative">
-                  <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                  <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
                     inputMode="numeric"
@@ -371,7 +371,7 @@ export function BuyNumberMarketplaceModal({
                     placeholder="502"
                     value={areaCode}
                     onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-3 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-3 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </label>
@@ -385,7 +385,7 @@ export function BuyNumberMarketplaceModal({
             </form>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Last 4 digits (optional)
               </label>
               <input
@@ -395,11 +395,11 @@ export function BuyNumberMarketplaceModal({
                 placeholder="0194"
                 value={lastFourDigits}
                 onChange={(e) => setLastFourDigits(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground placeholder:text-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
-              <p className="text-xs leading-relaxed text-zinc-500">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 Match numbers ending in these digits within the area code.{" "}
-                <span className="text-zinc-400">
+                <span className="text-muted-foreground">
                   (502) 555-0194 is a reserved movie/TV number — real carriers cannot sell 555-01xx lines.
                 </span>{" "}
                 Try last four <span className="font-medium text-zinc-300">0194</span> in area code{" "}
@@ -416,7 +416,7 @@ export function BuyNumberMarketplaceModal({
               )}
             >
               {!showInventory ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   Enter an area code and search to see available lines.
                 </p>
               ) : searching ? (
@@ -425,7 +425,7 @@ export function BuyNumberMarketplaceModal({
                     <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" aria-hidden />
                     <Loader2 className="relative h-7 w-7 animate-spin text-primary" aria-hidden />
                   </div>
-                  <p className="animate-pulse text-sm font-medium text-zinc-400">
+                  <p className="animate-pulse text-sm font-medium text-muted-foreground">
                     Searching {normalizeAreaCode(areaCode)} inventory…
                   </p>
                 </div>
@@ -434,7 +434,7 @@ export function BuyNumberMarketplaceModal({
                   {searchError}
                 </p>
               ) : results.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   {lastFourDigits.replace(/\D/g, "").length >= 2
                     ? `No 502 lines ending in ${lastFourDigits.replace(/\D/g, "").slice(-4)} right now. Clear the last-4 filter and search again, or try 859 / 606 / 270.`
                     : `No lines available in ${activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area code (859, 606, 270) or search again in a few minutes.`}
@@ -442,7 +442,7 @@ export function BuyNumberMarketplaceModal({
               ) : (
                 <div className="p-3">
                   {searchMeta && searchMeta.total_results > 0 ? (
-                    <p className="mb-3 px-1 text-xs text-zinc-500">
+                    <p className="mb-3 px-1 text-xs text-muted-foreground">
                       Showing {results.length}
                       {searchMeta.total_results > results.length
                         ? ` of ${searchMeta.total_results}+`
@@ -469,7 +469,7 @@ export function BuyNumberMarketplaceModal({
                         disabled={loadingMore}
                         onClick={() => void loadMoreNumbers()}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-xs font-semibold text-zinc-400",
+                          "inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-xs font-semibold text-muted-foreground",
                           "transition-[opacity,transform,border-color,color] duration-200",
                           "hover:scale-[1.02] hover:border-zinc-500 hover:text-zinc-200",
                           "active:scale-[0.98] disabled:opacity-50"

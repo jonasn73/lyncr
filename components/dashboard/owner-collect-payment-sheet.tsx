@@ -376,7 +376,7 @@ function AdhocCardForm({
       <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
         {/* Spinner only while still hoping the iframe will appear */}
         {!elementReady && !loadFailed ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading card form…
           </div>
@@ -407,7 +407,7 @@ function AdhocCardForm({
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <p className="text-sm font-semibold text-rose-300">Card form unavailable</p>
-            <p className="max-w-xs text-xs leading-snug text-slate-400">
+            <p className="max-w-xs text-xs leading-snug text-muted-foreground">
               Stripe never finished loading on this screen. Use Try again, or send a pay link.
             </p>
           </div>
@@ -1657,7 +1657,7 @@ export function OwnerCollectPaymentSheet({
                   </SheetTitle>
                 )}
                 {mode !== "receipt" && mode !== "link_sent" ? (
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {mode === "tip_sign"
                       ? tipLastSheetSubtitle(fmtCents(paidTotalCents))
                       : mode === "send_link"
@@ -1680,7 +1680,7 @@ export function OwnerCollectPaymentSheet({
                   resetAdhoc()
                   onOpenChange(false)
                 }}
-                className="rounded-lg p-2 text-zinc-400 hover:text-white"
+                className="rounded-lg p-2 text-muted-foreground hover:text-white"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
@@ -1724,7 +1724,7 @@ export function OwnerCollectPaymentSheet({
                       "rounded-lg py-2 text-xs font-semibold transition-colors",
                       listTab === "collect"
                         ? "bg-emerald-500/20 text-emerald-100"
-                        : "text-slate-400 hover:text-slate-200"
+                        : "text-muted-foreground hover:text-slate-200"
                     )}
                   >
                     Collect
@@ -1736,7 +1736,7 @@ export function OwnerCollectPaymentSheet({
                       "inline-flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                       listTab === "history"
                         ? "bg-emerald-500/20 text-emerald-100"
-                        : "text-slate-400 hover:text-slate-200"
+                        : "text-muted-foreground hover:text-slate-200"
                     )}
                   >
                     <History className="h-3.5 w-3.5" aria-hidden />
@@ -1750,7 +1750,7 @@ export function OwnerCollectPaymentSheet({
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {mode === "list" && listTab === "history" ? (
               <div className="space-y-3">
-                <p className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] leading-snug text-zinc-400">
+                <p className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
                   This list is customer charges only. Bank transfers are in{" "}
                   <button
                     type="button"
@@ -1766,7 +1766,7 @@ export function OwnerCollectPaymentSheet({
                 </p>
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden
                   />
                   <input
@@ -1774,13 +1774,13 @@ export function OwnerCollectPaymentSheet({
                     value={historySearch}
                     onChange={(e) => setHistorySearch(e.target.value)}
                     placeholder="Search name or phone"
-                    className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-zinc-600 outline-none focus:border-emerald-500/40"
+                    className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-emerald-500/40"
                     autoComplete="off"
                     enterKeyHint="search"
                   />
                 </div>
                 <div className="flex items-center justify-between gap-2 px-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {historyDebouncedQ ? "Matching charges" : "Recent charges"}
                   </p>
                   <button
@@ -1798,7 +1798,7 @@ export function OwnerCollectPaymentSheet({
                 </div>
 
                 {historyLoading && historyRows.length === 0 ? (
-                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                     Loading history…
                   </div>
@@ -1807,7 +1807,7 @@ export function OwnerCollectPaymentSheet({
                     {historyError}
                   </p>
                 ) : historyRows.length === 0 ? (
-                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-8 text-center text-sm text-slate-500">
+                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-8 text-center text-sm text-muted-foreground">
                     {historyDebouncedQ
                       ? "No matching charges. Try another name or phone."
                       : "No charges yet. Run a card or Tap to Pay from Collect, then check back here."}
@@ -1882,7 +1882,7 @@ export function OwnerCollectPaymentSheet({
                                   {formatCollectedDollars(Math.round(tx.amount * 100))}
                                 </span>
                               </span>
-                              <span className="mt-0.5 block text-[11px] text-slate-500">
+                              <span className="mt-0.5 block text-[11px] text-muted-foreground">
                                 {formatHistoryWhen(tx.createdAt)}
                                 {subtitle ? ` · ${subtitle}` : ""}
                               </span>
@@ -1900,7 +1900,7 @@ export function OwnerCollectPaymentSheet({
                                       : "Pending"}
                                 </span>
                                 {!tx.jobId ? (
-                                  <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                                  <span className="inline-flex rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                                     Quick
                                   </span>
                                 ) : null}
@@ -1967,17 +1967,17 @@ export function OwnerCollectPaymentSheet({
                   </span>
                 </button>
 
-                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Today’s jobs
                 </p>
 
                 {loading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                     Loading jobs…
                   </div>
                 ) : sorted.length === 0 ? (
-                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-6 text-center text-sm text-slate-500">
+                  <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-6 text-center text-sm text-muted-foreground">
                     No open jobs right now. Tap Add charge above.
                   </p>
                 ) : (
@@ -2041,7 +2041,7 @@ export function OwnerCollectPaymentSheet({
                                 {jobTitle(job)}
                               </span>
                               {job.location ? (
-                                <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
+                                <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
                                   <MapPin className="h-3 w-3 shrink-0" aria-hidden />
                                   {job.location}
                                 </span>
@@ -2122,7 +2122,7 @@ export function OwnerCollectPaymentSheet({
                     setPendingMethod(null)
                     setMode("adhoc")
                   }}
-                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
+                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-slate-200"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -2164,7 +2164,7 @@ export function OwnerCollectPaymentSheet({
                     </div>
                   ) : (
                     <label className="block">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Customer&apos;s mobile number
                       </span>
                       <input
@@ -2229,7 +2229,7 @@ export function OwnerCollectPaymentSheet({
                       setMode("adhoc")
                     }
                   }}
-                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
+                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-slate-200"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -2255,7 +2255,7 @@ export function OwnerCollectPaymentSheet({
                 ) : null}
 
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Add a tip
                   </p>
                   <div className="mt-1.5 grid grid-cols-4 gap-2">
@@ -2275,7 +2275,7 @@ export function OwnerCollectPaymentSheet({
                           "rounded-xl border py-2 text-xs font-semibold transition-colors",
                           tipChoice === opt.id
                             ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                            : "border-zinc-700 bg-zinc-900 text-slate-400"
+                            : "border-zinc-700 bg-zinc-900 text-muted-foreground"
                         )}
                       >
                         {opt.label}
@@ -2296,14 +2296,14 @@ export function OwnerCollectPaymentSheet({
                       "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === "custom"
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-slate-400"
+                        : "border-zinc-700 bg-zinc-900 text-muted-foreground"
                     )}
                   >
                     Custom tip
                   </button>
                   {tipChoice === "custom" ? (
                     <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                      <span className="text-sm font-semibold text-slate-400">$</span>
+                      <span className="text-sm font-semibold text-muted-foreground">$</span>
                       <input
                         type="number"
                         inputMode="decimal"
@@ -2416,7 +2416,7 @@ export function OwnerCollectPaymentSheet({
                 <button
                   type="button"
                   onClick={resetAdhoc}
-                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-400 hover:text-slate-200"
+                  className="inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-slate-200"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -2426,11 +2426,11 @@ export function OwnerCollectPaymentSheet({
                 <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
                   <div className="flex items-end gap-2">
                     <label className="min-w-0 flex-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Amount
                       </span>
                       <div className="relative mt-1">
-                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-zinc-500">
+                        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">
                           $
                         </span>
                         <input
@@ -2452,7 +2452,7 @@ export function OwnerCollectPaymentSheet({
                       </div>
                     </label>
                     <div className="shrink-0 pb-0.5 text-right">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Total
                       </p>
                       <p className="text-lg font-bold tabular-nums text-emerald-300">
@@ -2503,7 +2503,7 @@ export function OwnerCollectPaymentSheet({
                   </div>
 
                   <details className="group mt-2 border-t border-zinc-800/80 pt-2">
-                    <summary className="cursor-pointer list-none text-[11px] font-medium text-zinc-400 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                       <span className="group-open:hidden">
                         Note{adhocNote.trim() ? " · set" : ""} · edit
                       </span>
@@ -2514,13 +2514,13 @@ export function OwnerCollectPaymentSheet({
                       value={adhocNote}
                       onChange={(e) => setAdhocNote(e.target.value)}
                       placeholder="e.g. Lockout"
-                      className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-500"
+                      className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white outline-none placeholder:text-muted-foreground focus:border-emerald-500"
                     />
                   </details>
                 </section>
 
                 <section>
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     How to pay
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -2534,7 +2534,7 @@ export function OwnerCollectPaymentSheet({
                         <Nfc className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Tap to Pay</span>
-                      <span className="text-[10px] text-zinc-500">NFC</span>
+                      <span className="text-[10px] text-muted-foreground">NFC</span>
                     </button>
                     <button
                       type="button"
@@ -2546,7 +2546,7 @@ export function OwnerCollectPaymentSheet({
                         <CreditCard className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Card</span>
-                      <span className="text-[10px] text-zinc-500">Key in · ZIP</span>
+                      <span className="text-[10px] text-muted-foreground">Key in · ZIP</span>
                     </button>
                     <button
                       type="button"
@@ -2558,10 +2558,10 @@ export function OwnerCollectPaymentSheet({
                         <Link2 className="h-4 w-4" aria-hidden />
                       </span>
                       <span className="text-xs font-semibold text-white">Pay link</span>
-                      <span className="text-[10px] text-zinc-500">Text SMS</span>
+                      <span className="text-[10px] text-muted-foreground">Text SMS</span>
                     </button>
                   </div>
-                  <p className="mt-1.5 text-center text-[10px] text-zinc-500">
+                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
                     Card / Tap: tip last. Pay link: send only — no tip here.
                   </p>
                 </section>

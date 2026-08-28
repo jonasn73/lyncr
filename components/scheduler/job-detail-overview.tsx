@@ -76,7 +76,7 @@ type JobDetailOverviewProps = {
 }
 
 const SECTION_LABEL =
-  "text-[10px] uppercase font-bold tracking-widest text-slate-500"
+  "text-[10px] uppercase font-bold tracking-widest text-muted-foreground"
 
 /** Compact Call / SMS chips — shorter than the old full-width stacked buttons. */
 const CONTACT_BTN =
@@ -108,12 +108,12 @@ function CollapseToggle({
       <span className="min-w-0">
         <span className={cn(SECTION_LABEL, "block")}>{label}</span>
         {!open && hint ? (
-          <span className="mt-0.5 block truncate text-[11px] text-slate-400">{hint}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{hint}</span>
         ) : null}
       </span>
       <ChevronDown
         className={cn(
-          "h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform",
+          "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
           open && "rotate-180"
         )}
         aria-hidden
@@ -282,7 +282,7 @@ export function JobDetailOverview({
               disabled
               className={cn(
                 CONTACT_BTN,
-                "max-w-[5.5rem] flex-none border-slate-800 bg-slate-950/40 text-slate-500"
+                "max-w-[5.5rem] flex-none border-slate-800 bg-slate-950/40 text-muted-foreground"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -405,7 +405,7 @@ export function JobDetailOverview({
 
           <div className={SCHEDULER_FIELD_STACK}>
             <div className="flex items-center gap-2">
-              <UserRound className="h-3 w-3 text-slate-500" aria-hidden />
+              <UserRound className="h-3 w-3 text-muted-foreground" aria-hidden />
               <p className={SECTION_LABEL}>Assign tech</p>
             </div>
             <TechAssignmentSelect
@@ -461,7 +461,7 @@ export function JobDetailOverview({
                 {keyBlocks.map((block) => (
                   <p key={`${block.label}-${block.value}`} className="min-w-0 truncate">
                     <span className={cn(SCHEDULER_METADATA_LABEL, "inline")}>{block.label}</span>
-                    <span className="text-slate-600"> · </span>
+                    <span className="text-muted-foreground"> · </span>
                     <span
                       className={cn(
                         "font-medium text-slate-100",
@@ -500,7 +500,7 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobCancelled
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
+                      ? "border-zinc-600/40 bg-zinc-800/40 text-muted-foreground"
                       : "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
                   )}
                   title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
@@ -515,7 +515,7 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobReferred
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-zinc-400"
+                      ? "border-zinc-600/40 bg-zinc-800/40 text-muted-foreground"
                       : "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
                   )}
                   title={isJobReferred ? "Already marked referred" : "Mark as referred"}
@@ -583,7 +583,7 @@ export function JobDetailOverview({
                 placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
                 onChange={(e) => onJobNotesChange(e.target.value)}
                 onBlur={() => onSaveJobNotes()}
-                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none disabled:opacity-60"
+                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
               />
             </div>
           ) : null}

@@ -112,7 +112,7 @@ export function AdminNetworkAgentsBoard() {
       <header className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Network pool</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Shared, platform-managed receptionists (no owning business). Businesses on{" "}
             <span className="font-medium text-slate-300">Only Ring Lyncr Network</span> or{" "}
             <span className="font-medium text-slate-300">Ring My Team, Fallback to Lyncr</span> route to these by skill.
@@ -128,7 +128,7 @@ export function AdminNetworkAgentsBoard() {
             <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
             Onboard a global network agent
           </CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardDescription className="text-muted-foreground">
             Creates a receptionist row with <code className="rounded bg-slate-950 px-1 text-violet-200">user_id = NULL</code>{" "}
             (requires migration 048). Skills decide which industries they can answer for.
           </CardDescription>
@@ -136,7 +136,7 @@ export function AdminNetworkAgentsBoard() {
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="net-agent-name" className="text-slate-400">
+              <Label htmlFor="net-agent-name" className="text-muted-foreground">
                 Name
               </Label>
               <Input
@@ -148,7 +148,7 @@ export function AdminNetworkAgentsBoard() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="net-agent-phone" className="text-slate-400">
+              <Label htmlFor="net-agent-phone" className="text-muted-foreground">
                 Phone (cell)
               </Label>
               <Input
@@ -164,7 +164,7 @@ export function AdminNetworkAgentsBoard() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-400">Skills</Label>
+            <Label className="text-muted-foreground">Skills</Label>
             <div className="flex flex-wrap gap-2">
               {ROUTING_POOL_SKILL_TAGS.map((tag) => {
                 const active = selectedSkills.includes(tag)
@@ -209,16 +209,16 @@ export function AdminNetworkAgentsBoard() {
       <Card className={opCard}>
         <CardHeader>
           <CardTitle className="text-base text-slate-100">Active network agents</CardTitle>
-          <CardDescription className="text-slate-400">All receptionists with no owning business (user_id IS NULL).</CardDescription>
+          <CardDescription className="text-muted-foreground">All receptionists with no owning business (user_id IS NULL).</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-400">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin text-violet-300" />
               Loading…
             </div>
           ) : agents.length === 0 ? (
-            <p className="text-sm text-slate-400">No network agents yet. Onboard one above.</p>
+            <p className="text-sm text-muted-foreground">No network agents yet. Onboard one above.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -237,7 +237,7 @@ export function AdminNetworkAgentsBoard() {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {a.skills.length === 0 ? (
-                          <span className="text-xs text-slate-500">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           a.skills.map((s) => (
                             <Badge
@@ -257,7 +257,7 @@ export function AdminNetworkAgentsBoard() {
                           "rounded-full border px-2 py-0.5 text-[10px] font-medium",
                           a.is_active
                             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                            : "border-slate-600 bg-slate-950/60 text-slate-400"
+                            : "border-slate-600 bg-slate-950/60 text-muted-foreground"
                         )}
                       >
                         {a.is_active ? "Active" : "Inactive"}

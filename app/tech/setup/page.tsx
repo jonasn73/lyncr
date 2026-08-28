@@ -95,17 +95,17 @@ function TechSetupForm() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Set up your console</h1>
           {state.phase === "valid" ? (
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-muted-foreground">
               Welcome{state.name ? `, ${state.name.split(" ")[0]}` : ""}! {state.businessName} invited you to Lyncr.
               Choose a password to access your jobs.
             </p>
           ) : (
-            <p className="mt-1 text-sm text-zinc-400">Lyncr Field Console</p>
+            <p className="mt-1 text-sm text-muted-foreground">Lyncr Field Console</p>
           )}
         </div>
 
         {state.phase === "checking" && (
-          <p className="text-center text-sm text-zinc-500">Checking your invite link…</p>
+          <p className="text-center text-sm text-muted-foreground">Checking your invite link…</p>
         )}
 
         {state.phase === "invalid" && (
@@ -120,7 +120,7 @@ function TechSetupForm() {
         {state.phase === "valid" && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">Create password</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Create password</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -132,7 +132,7 @@ function TechSetupForm() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">Confirm password</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Confirm password</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -160,7 +160,7 @@ function TechSetupForm() {
           </form>
         )}
 
-        <p className="mt-8 text-center text-xs text-zinc-500">Powered by Lyncr</p>
+        <p className="mt-8 text-center text-xs text-muted-foreground">Powered by Lyncr</p>
       </div>
     </main>
   )

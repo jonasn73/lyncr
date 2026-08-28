@@ -45,11 +45,11 @@ function MetricCell({
           className
         )}
       >
-        <span className="text-[10px] font-medium text-zinc-500">{label}</span>
+        <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
         <span
           className={cn(
             "min-w-[0.75rem] text-xs font-bold tabular-nums",
-            isZero || pending ? "text-zinc-600" : valueClassName
+            isZero || pending ? "text-muted-foreground" : valueClassName
           )}
         >
           {display}
@@ -69,12 +69,12 @@ function MetricCell({
       <span
         className={cn(
           "min-h-[1.25rem] text-lg font-bold leading-none tracking-tight tabular-nums",
-          isZero || pending ? "text-zinc-600" : valueClassName
+          isZero || pending ? "text-muted-foreground" : valueClassName
         )}
       >
         {display}
       </span>
-      <span className="truncate text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+      <span className="truncate text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
     </div>

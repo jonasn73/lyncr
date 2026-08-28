@@ -105,7 +105,7 @@ function VehiclePickerDropdown({
               ))}
             </select>
             {loadingMakes ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" />
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : null}
           </div>
         </label>
@@ -126,7 +126,7 @@ function VehiclePickerDropdown({
               ))}
             </select>
             {loadingModels ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-500" />
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : null}
           </div>
         </label>
@@ -357,11 +357,11 @@ function VehiclePickerSequential({
           <p className={cn(WS_METADATA, "shrink-0")}>{pickerTitle}</p>
           {pickerLoading ? (
             <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
-              <Loader2 className="h-5 w-5 animate-spin text-slate-500" aria-hidden />
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
               <span className="sr-only">Loading options</span>
             </div>
           ) : pickerOptions.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-6 text-center text-xs text-slate-500">
+            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-6 text-center text-xs text-muted-foreground">
               {activePicker === "make"
                 ? "Pick a year first."
                 : activePicker === "model"

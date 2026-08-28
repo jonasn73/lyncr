@@ -138,13 +138,13 @@ function MoneyStripCell({
           : "border-slate-800 bg-slate-900/60"
       )}
     >
-      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span className="truncate text-lg font-bold tabular-nums tracking-tight text-slate-50 sm:text-xl">
         {value}
       </span>
-      {hint ? <span className="truncate text-[11px] text-slate-500">{hint}</span> : null}
+      {hint ? <span className="truncate text-[11px] text-muted-foreground">{hint}</span> : null}
     </button>
   )
 }
@@ -154,7 +154,7 @@ function MoneyDetailRow({ label, value, note }: { label: string; value: string; 
     <div className="flex items-start justify-between gap-3 border-b border-slate-800/80 py-3 last:border-0">
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-200">{label}</p>
-        {note ? <p className="mt-0.5 text-xs leading-snug text-slate-500">{note}</p> : null}
+        {note ? <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{note}</p> : null}
       </div>
       <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-50">{value}</p>
     </div>
@@ -178,7 +178,7 @@ function AccountStatusBadge({ status }: { status: string }) {
           normalized !== "flagged" &&
           normalized !== "pending" &&
           normalized !== "denied" &&
-          "bg-slate-700/50 text-slate-400"
+          "bg-slate-700/50 text-muted-foreground"
       )}
     >
       {accountStatusLabel(status)}
@@ -326,7 +326,7 @@ function UserRowActions({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="h-8 w-8 text-muted-foreground hover:bg-slate-800 hover:text-slate-100"
             aria-label={`Actions for ${row.email}`}
           >
             <MoreVertical className="h-4 w-4" aria-hidden />
@@ -420,13 +420,13 @@ function UserRowActions({
         <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Adjust credit balance</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-muted-foreground">
               Apply a positive or negative USD adjustment for {row.email}. Current balance:{" "}
               {formatUsd(row.carrier_credit)}.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <label className="mb-2 block text-xs font-medium text-slate-400" htmlFor={`credit-${row.user_id}`}>
+            <label className="mb-2 block text-xs font-medium text-muted-foreground" htmlFor={`credit-${row.user_id}`}>
               Amount (± USD)
             </label>
             <Input
@@ -578,7 +578,7 @@ export function LyncrAdminDashboard({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-50 sm:text-2xl">{pageTitle}</h1>
-          <p className="mt-0.5 hidden text-sm text-slate-500 md:block">{pageSubtitle}</p>
+          <p className="mt-0.5 hidden text-sm text-muted-foreground md:block">{pageSubtitle}</p>
         </div>
         <Button
           type="button"
@@ -602,7 +602,7 @@ export function LyncrAdminDashboard({
           <section className="space-y-2">
             <div>
               <h2 className="text-sm font-semibold text-slate-100">At a glance</h2>
-              <p className="hidden text-xs text-slate-500 md:block">
+              <p className="hidden text-xs text-muted-foreground md:block">
                 Tap a number for the breakdown.
               </p>
             </div>
@@ -635,7 +635,7 @@ export function LyncrAdminDashboard({
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-100">Find a shop</h2>
-                <p className="hidden text-xs text-slate-500 md:block">Tap a name to open Manage.</p>
+                <p className="hidden text-xs text-muted-foreground md:block">Tap a name to open Manage.</p>
               </div>
               <Link
                 href="/admin/businesses"
@@ -645,19 +645,19 @@ export function LyncrAdminDashboard({
               </Link>
             </div>
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
                 placeholder="Shop name or email…"
                 value={homeShopQuery}
                 onChange={(e) => setHomeShopQuery(e.target.value)}
-                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-muted-foreground"
               />
             </div>
             {loading && users.length === 0 ? (
               <div className="h-48 rounded-xl border border-slate-800 bg-slate-950/40" aria-hidden />
             ) : homeShopMatches.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-slate-800 px-3 py-6 text-center text-sm text-muted-foreground">
                 No shops match.
               </p>
             ) : (
@@ -673,7 +673,7 @@ export function LyncrAdminDashboard({
                         <span className="block truncate font-medium text-slate-50">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{row.email}</span>
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
                         <AccountStatusBadge status={row.account_status} />
@@ -709,7 +709,7 @@ export function LyncrAdminDashboard({
                                 ? "Paying businesses"
                                 : "Platform money"}
                 </SheetTitle>
-                <SheetDescription className="text-slate-400">
+                <SheetDescription className="text-muted-foreground">
                   {moneySheet === "telnyx"
                     ? "Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers."
                     : moneySheet === "saas"
@@ -851,7 +851,7 @@ export function LyncrAdminDashboard({
           </Sheet>
 
           {metrics ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2 text-xs text-muted-foreground">
             <span className="font-medium text-slate-300">System</span>
             <span className="inline-flex items-center gap-2">
               <Database className="h-3.5 w-3.5" aria-hidden /> Neon
@@ -874,7 +874,7 @@ export function LyncrAdminDashboard({
           <section className="space-y-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-100">Pending shops</h2>
-              <p className="hidden text-xs text-slate-500 md:block">
+              <p className="hidden text-xs text-muted-foreground md:block">
                 New signups waiting for Approve or Deny.
               </p>
             </div>
@@ -890,7 +890,7 @@ export function LyncrAdminDashboard({
                         <span className="block truncate font-medium text-slate-50">
                           {row.business_name.trim() || row.email}
                         </span>
-                        <span className="block truncate text-[11px] text-slate-500">{row.email}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{row.email}</span>
                       </span>
                       <AccountStatusBadge status={row.account_status} />
                     </button>
@@ -907,13 +907,13 @@ export function LyncrAdminDashboard({
             <CardHeader className="space-y-3 border-b border-slate-800/80 pb-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative max-w-md flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
                 placeholder="Search shop name, email, or phone…"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-slate-500"
+                className="border-slate-700 bg-slate-950/60 pl-9 text-slate-100 placeholder:text-muted-foreground"
               />
             </div>
             <Select value={tierFilter} onValueChange={setTierFilter}>
@@ -979,18 +979,18 @@ export function LyncrAdminDashboard({
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="sticky left-0 z-10 min-w-[11rem] bg-slate-900 text-slate-400">
+                  <TableHead className="sticky left-0 z-10 min-w-[11rem] bg-slate-900 text-muted-foreground">
                     Business
                   </TableHead>
-                  <TableHead className="text-slate-400">Status</TableHead>
-                  <TableHead className="text-slate-400">Plan</TableHead>
-                  <TableHead className="w-[4.5rem] text-slate-400">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Plan</TableHead>
+                  <TableHead className="w-[4.5rem] text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow className="border-slate-800">
-                    <TableCell colSpan={4} className="py-10 text-center text-slate-500">
+                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
                       No users match your filter.
                     </TableCell>
                   </TableRow>
@@ -1017,7 +1017,7 @@ export function LyncrAdminDashboard({
                           <p className="truncate font-medium text-slate-50" title={row.business_name || row.email}>
                             {row.business_name.trim() || "—"}
                           </p>
-                          <p className="truncate text-[11px] text-slate-500">{row.email}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{row.email}</p>
                         </div>
                       </TableCell>
                       <TableCell>

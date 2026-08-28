@@ -1105,13 +1105,13 @@ export function DispatchLiveMap({
                 {jobCustomerLabel(selectedJob)}
               </p>
               {selectedJob.location && (
-                <p className="mt-0.5 truncate text-xs text-zinc-500">{selectedJob.location}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{selectedJob.location}</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setSelectedJobId(null)}
-              className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-zinc-800 hover:text-zinc-300"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -1127,7 +1127,7 @@ export function DispatchLiveMap({
             </a>
           )}
 
-          <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Assign technician
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -1144,7 +1144,7 @@ export function DispatchLiveMap({
                 </option>
               ))}
             </select>
-            {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-500" />}
+            {savingId === selectedJob.id && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
           </div>
           {selectedJob.assigned_tech_name && (
             <p className="mt-2 text-xs text-emerald-400">Dispatched to {selectedJob.assigned_tech_name}</p>
@@ -1163,7 +1163,7 @@ export function DispatchLiveMap({
   )
 
   const legend = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-400">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
       <span className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
@@ -1192,7 +1192,7 @@ export function DispatchLiveMap({
         Location permission blocked — allow GPS to see proximity miles on job pins.
       </p>
     ) : dispatcherLocation.status === "requesting" && !userLocation ? (
-      <p className="mt-2 text-center text-xs text-slate-500">Locating you…</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Locating you…</p>
     ) : null
 
   // Unified Map tab — canvas only; parent owns layer toggles + drawers.
@@ -1229,7 +1229,7 @@ export function DispatchLiveMap({
         {mapCanvas}
         {locationHint}
         {plottableJobCount === 0 ? (
-          <p className="mt-2 text-center text-xs text-slate-500">
+          <p className="mt-2 text-center text-xs text-muted-foreground">
             {jobs.length === 0
               ? "No active dispatch jobs yet — open hopper jobs and assigned field work pin here (quote leads stay on Leads)."
               : "Active jobs are loaded but need a street address (or ZIP) before they can pin on the map."}
@@ -1247,7 +1247,7 @@ export function DispatchLiveMap({
         </span>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Live dispatch map</h2>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Active dispatch pins — tap a pin for proximity.
           </p>
         </div>

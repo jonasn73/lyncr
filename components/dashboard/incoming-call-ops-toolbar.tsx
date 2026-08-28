@@ -414,7 +414,7 @@ export function IncomingCallOpsToolbar({
       {/* Context Engine — active job badge or CNAM token + repeat history */}
       <div className="min-h-[1.25rem]">
         {showLookupSpinner ? (
-          <p className="flex items-center gap-2 text-[11px] text-slate-500">
+          <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             Looking up caller…
           </p>
@@ -438,7 +438,7 @@ export function IncomingCallOpsToolbar({
             <span className="text-[11px] font-medium text-slate-300">{context.metaLine}</span>
           </div>
         ) : (
-          <p className="text-[11px] font-medium text-slate-400">{context.cnamToken}</p>
+          <p className="text-[11px] font-medium text-muted-foreground">{context.cnamToken}</p>
         )}
         {urgency.isHighUrgency && urgency.minutesSinceLastMissed != null ? (
           <p className="mt-1 text-[11px] font-medium text-amber-500/90">

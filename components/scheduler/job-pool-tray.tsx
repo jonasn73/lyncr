@@ -72,7 +72,7 @@ export function JobPoolTray({
             className={cn(
               "flex shrink-0 items-center justify-center rounded-lg",
               poolLooksEmpty
-                ? "bg-zinc-800/80 text-zinc-500"
+                ? "bg-zinc-800/80 text-muted-foreground"
                 : "bg-amber-500/15 text-amber-200",
               sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
             )}
@@ -81,7 +81,7 @@ export function JobPoolTray({
           </span>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Job pool</h2>
-            <p className="text-[11px] leading-snug text-slate-500">
+            <p className="text-[11px] leading-snug text-muted-foreground">
               {poolLooksEmpty
                 ? "Unassigned bookings land here"
                 : mobileTimeline || sidebar || embedded
@@ -94,9 +94,9 @@ export function JobPoolTray({
           className={cn(
             "inline-flex h-5 min-w-[4.5rem] shrink-0 items-center justify-center rounded-md px-2 text-[10px] font-semibold uppercase tracking-wide",
             loading
-              ? "text-zinc-500"
+              ? "text-muted-foreground"
               : poolIsEmpty
-                ? "border border-zinc-800 bg-zinc-950/50 text-zinc-500"
+                ? "border border-zinc-800 bg-zinc-950/50 text-muted-foreground"
                 : "bg-amber-500/15 text-amber-200"
           )}
         >
@@ -125,7 +125,7 @@ export function JobPoolTray({
             "flex-1 rounded-md px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
             viewFilter === "all"
               ? "bg-slate-800 text-slate-100"
-              : "text-slate-500 hover:text-slate-300"
+              : "text-muted-foreground hover:text-slate-300"
           )}
         >
           All pool ({jobs.length})
@@ -176,7 +176,7 @@ export function JobPoolTray({
         )}
       >
         {!loading && visibleJobs.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-800/90 bg-zinc-950/30 px-3 py-3 text-center text-xs leading-relaxed text-zinc-500">
+          <p className="rounded-lg border border-dashed border-zinc-800/90 bg-zinc-950/30 px-3 py-3 text-center text-xs leading-relaxed text-muted-foreground">
             {viewFilter === "rescue"
               ? "No Price Denied jobs — rejected quotes land here for outreach."
               : "Pool is empty. New intakes without a tech show up here."}

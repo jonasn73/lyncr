@@ -90,10 +90,10 @@ export function JobPoolCard({
   const isRescueJob = isPriceDeniedRescueJob(job)
   const wrapText = touchInteraction || sidebar
   // Never ellipsis-cut the address — `truncate` was clipping streets on desktop cards.
-  const placeTextClass = "min-w-0 w-full text-xs leading-snug text-slate-500 break-words"
+  const placeTextClass = "min-w-0 w-full text-xs leading-snug text-muted-foreground break-words"
   const detailTextClass = wrapText
     ? "w-full text-sm block break-words text-muted-foreground"
-    : "min-w-0 break-words text-xs text-slate-400"
+    : "min-w-0 break-words text-xs text-muted-foreground"
 
   // One quiet meta line: vehicle • service • $price — skip service when it already is the title.
   const metaParts = [
@@ -139,7 +139,7 @@ export function JobPoolCard({
       <div className={cn("flex w-full items-start gap-2", sidebar ? "pr-2" : "pr-16")}>
         {!touchInteraction ? (
           <GripVertical
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600 opacity-60 group-hover:opacity-100"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100"
             aria-hidden
           />
         ) : null}
@@ -200,7 +200,7 @@ export function JobPoolCard({
           {metaLine ? (
             <p
               className={cn(
-                "mt-1 min-h-[1rem] text-xs text-slate-400",
+                "mt-1 min-h-[1rem] text-xs text-muted-foreground",
                 // Always wrap long service labels (e.g. “… Duplication”) — truncate was cutting words.
                 "break-words"
               )}
@@ -213,19 +213,19 @@ export function JobPoolCard({
             </p>
           )}
           {programmingMethod ? (
-            <p className={cn("text-[11px] text-slate-500", wrapText ? "break-words" : "truncate")}>
+            <p className={cn("text-[11px] text-muted-foreground", wrapText ? "break-words" : "truncate")}>
               {programmingMethod}
             </p>
           ) : null}
           <div className="mt-1 flex w-full flex-col gap-0.5">
             {/* Always reserve phone row height — phone popping in grew the card. */}
-            <p className="flex min-h-[1.25rem] w-full items-start gap-2 text-xs text-slate-400">
-              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+            <p className="flex min-h-[1.25rem] w-full items-start gap-2 text-xs text-muted-foreground">
+              <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <span
                 className={cn(
                   sidebar
-                    ? "min-w-0 text-[11px] tabular-nums leading-snug text-slate-400"
-                    : cn(detailTextClass, !wrapText && "text-xs text-slate-400"),
+                    ? "min-w-0 text-[11px] tabular-nums leading-snug text-muted-foreground"
+                    : cn(detailTextClass, !wrapText && "text-xs text-muted-foreground"),
                   !job.customer_phone && "invisible"
                 )}
               >
@@ -233,12 +233,12 @@ export function JobPoolCard({
               </span>
             </p>
             {placeLine || postalCode ? (
-              <p className="flex min-h-[2.5rem] w-full items-start gap-2 text-xs text-slate-500">
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
+              <p className="flex min-h-[2.5rem] w-full items-start gap-2 text-xs text-muted-foreground">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className={placeTextClass}>
                   {placeLine}
                   {postalCode ? (
-                    <span className="ml-1 text-xs font-medium text-slate-400">{postalCode}</span>
+                    <span className="ml-1 text-xs font-medium text-muted-foreground">{postalCode}</span>
                   ) : null}
                 </span>
               </p>
@@ -251,7 +251,7 @@ export function JobPoolCard({
                 </span>
               </p>
             )}
-            <p className="flex min-h-[1rem] items-center gap-1 text-xs text-slate-400">
+            <p className="flex min-h-[1rem] items-center gap-1 text-xs text-muted-foreground">
               {fieldDistanceLabel ? (
                 <>
                   <Navigation className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
