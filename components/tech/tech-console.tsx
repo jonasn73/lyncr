@@ -213,7 +213,7 @@ export function TechConsole(props: {
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800/80 bg-[#0b0b12]/95 px-6 py-4 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/80 bg-[#0b0b12]/95 px-6 py-4 backdrop-blur">
         <div>
           <p className="text-2xs font-medium uppercase tracking-wider text-indigo-400">{props.businessName}</p>
           <h1 className="text-lg font-bold leading-tight">Hi, {props.techName.split(" ")[0]}</h1>
@@ -286,9 +286,9 @@ export function TechConsole(props: {
                 {done.map((job) => (
                   <div
                     key={job.id}
-                    className="mb-2 flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 opacity-70"
+                    className="mb-2 flex items-center justify-between rounded-xl border border-border/60 bg-card/40 px-4 py-3 opacity-70"
                   >
-                    <span className="truncate text-sm text-zinc-300">
+                    <span className="truncate text-sm text-foreground">
                       {job.customer_name || job.customer_phone || "Job"}
                     </span>
                     <span className="rounded-full bg-emerald-500/20 px-3 py-0.5 text-2xs font-medium text-emerald-300">
@@ -341,7 +341,7 @@ function HopperPoolSection(props: {
           return (
             <li
               key={job.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3"
+              className="flex items-start justify-between gap-3 rounded-xl border border-border/80 bg-background/50 px-3 py-3"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">
@@ -387,7 +387,7 @@ function BadgesStrip({ badges }: { badges: TechBadge[] }) {
   if (!badges.length) return null
   const earnedCount = badges.filter((b) => b.earned).length
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-4">
+    <section className="rounded-2xl border border-border bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Performance badges</p>
         <span className="text-2xs font-medium text-muted-foreground">
@@ -402,13 +402,13 @@ function BadgesStrip({ badges }: { badges: TechBadge[] }) {
             className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition ${
               b.earned
                 ? "border-indigo-500/40 bg-indigo-500/10"
-                : "border-zinc-800 bg-zinc-950/40 opacity-50 grayscale"
+                : "border-border bg-background/40 opacity-50 grayscale"
             }`}
           >
             <span className="text-2xl leading-none" aria-hidden>
               {b.emoji}
             </span>
-            <span className="text-micro font-semibold leading-tight text-zinc-300">{b.label}</span>
+            <span className="text-micro font-semibold leading-tight text-foreground">{b.label}</span>
           </div>
         ))}
       </div>
@@ -460,7 +460,7 @@ function JobCard(props: {
           : null
 
   return (
-    <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow-sm">
+    <article className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm">
       {/* Same glass facts as owner JobDetailOverview */}
       <JobCardSummary
         source={job}
@@ -474,8 +474,8 @@ function JobCard(props: {
         <a
           href={phoneHref ?? undefined}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
-            phoneHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-muted-foreground"
+            "flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
+            phoneHref ? "text-white hover:bg-muted" : "pointer-events-none text-muted-foreground"
           )}
         >
           <Phone className="h-4 w-4" /> Call
@@ -485,8 +485,8 @@ function JobCard(props: {
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
-            mapsHref ? "text-white hover:bg-zinc-800" : "pointer-events-none text-muted-foreground"
+            "flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
+            mapsHref ? "text-white hover:bg-muted" : "pointer-events-none text-muted-foreground"
           )}
         >
           <Navigation className="h-4 w-4" /> Navigate
@@ -519,7 +519,7 @@ function JobCard(props: {
             "rounded-xl px-3 py-3 text-sm font-semibold shadow-lg transition active:scale-[0.98]",
             workComplete
               ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-900/30"
-              : "cursor-not-allowed bg-zinc-800 text-muted-foreground shadow-none"
+              : "cursor-not-allowed bg-muted text-muted-foreground shadow-none"
           )}
           title={
             workComplete
@@ -569,7 +569,7 @@ function LeftStatusButton(props: {
 }) {
   if (props.busy) {
     return (
-      <button disabled className="rounded-xl bg-zinc-800 px-3 py-3 text-sm font-semibold text-white opacity-60">
+      <button disabled className="rounded-xl bg-muted px-3 py-3 text-sm font-semibold text-white opacity-60">
         <Loader2 className="mx-auto h-4 w-4 animate-spin" />
       </button>
     )
@@ -588,7 +588,7 @@ function LeftStatusButton(props: {
     return (
       <button
         onClick={props.onArrived}
-        className="rounded-xl bg-zinc-800 px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-zinc-700"
+        className="rounded-xl bg-muted px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-accent"
       >
         Arrived on Site
       </button>

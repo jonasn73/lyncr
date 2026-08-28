@@ -116,7 +116,7 @@ export function PriceShopperRecoveryPanel({
         </Select>
       </div>
       {isPriceTooHigh ? (
-        <div className="mt-2 space-y-3 rounded-lg border border-orange-500/30 bg-slate-950 p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-orange-500/30 bg-background p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-orange-300">
               Save the deal — read verbatim
@@ -170,7 +170,7 @@ export function PriceShopperRecoveryPanel({
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
-                  className="text-left text-xs text-muted-foreground hover:text-slate-200"
+                  className="text-left text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => onNegotiationStepChange(1)}
                 >
                   ← Go Back
@@ -201,7 +201,7 @@ export function PriceShopperRecoveryPanel({
               </Button>
               <button
                 type="button"
-                className="text-left text-xs text-muted-foreground hover:text-slate-200"
+                className="text-left text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => onNegotiationStepChange(2)}
               >
                 ← Go Back

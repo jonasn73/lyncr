@@ -61,7 +61,7 @@ function invoiceStatusClass(status: string): string {
   if (status === "sent") return "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
   if (status === "failed") return "border-rose-500/35 bg-rose-500/10 text-rose-300"
   if (status === "partial") return "border-amber-500/35 bg-amber-500/10 text-amber-200"
-  return "border-zinc-600/50 bg-zinc-800/60 text-zinc-300"
+  return "border-border/50 bg-muted/60 text-foreground"
 }
 
 export function RecordInvoicesPanel({
@@ -281,7 +281,7 @@ export function RecordInvoicesPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, phone, or invoice #"
-            className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 pl-10 pr-3 text-sm text-slate-100 placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
+            className="h-11 w-full rounded-xl border border-border bg-background/70 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-teal-500/40"
             autoComplete="off"
             enterKeyHint="search"
           />
@@ -312,8 +312,8 @@ export function RecordInvoicesPanel({
       ) : null}
 
       {!loading && rows.length === 0 && !error ? (
-        <p className="rounded-xl border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-muted-foreground">
-          No paid invoices yet. Use <span className="text-zinc-300">Send paid invoice</span> after
+        <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+          No paid invoices yet. Use <span className="text-foreground">Send paid invoice</span> after
           Venmo/cash.
         </p>
       ) : null}
@@ -330,7 +330,7 @@ export function RecordInvoicesPanel({
                 "rounded-xl border px-3 py-3",
                 isHighlight
                   ? "border-emerald-500/50 bg-emerald-500/10"
-                  : "border-zinc-800 bg-zinc-900/50"
+                  : "border-border bg-card/50"
               )}
             >
               <div className="flex items-start gap-3">
@@ -339,7 +339,7 @@ export function RecordInvoicesPanel({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-100">
+                    <p className="truncate text-sm font-semibold text-foreground">
                       {inv.customerName ||
                         (inv.customerPhone ? formatPhoneDisplay(inv.customerPhone) : null) ||
                         inv.invoiceNumber}
@@ -381,7 +381,7 @@ export function RecordInvoicesPanel({
                 <button
                   type="button"
                   onClick={() => setPreviewInv(inv)}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View
@@ -389,7 +389,7 @@ export function RecordInvoicesPanel({
                 <a
                   href={inv.pdfUrl}
                   download
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card"
                 >
                   <Download className="h-3.5 w-3.5" />
                   PDF
@@ -413,7 +413,7 @@ export function RecordInvoicesPanel({
                   type="button"
                   disabled={busy}
                   onClick={() => (isRevise ? setReviseId(null) : openRevise(inv))}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-950/60 px-3 text-2xs font-semibold text-slate-200 hover:bg-zinc-900 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background/60 px-3 text-2xs font-semibold text-foreground hover:bg-card disabled:opacity-50"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   {isRevise ? "Cancel" : "Revise"}
@@ -421,9 +421,9 @@ export function RecordInvoicesPanel({
               </div>
 
               {isRevise ? (
-                <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
                   <p className="text-2xs text-muted-foreground">
-                    Edits create a <span className="text-zinc-300">new revision</span> — the old
+                    Edits create a <span className="text-foreground">new revision</span> — the old
                     invoice stays in history.
                   </p>
                   <label className="block space-y-1">
@@ -435,7 +435,7 @@ export function RecordInvoicesPanel({
                       inputMode="decimal"
                       value={reviseAmount}
                       onChange={(e) => setReviseAmount(e.target.value)}
-                      className="h-9 border-zinc-800 bg-zinc-950"
+                      className="h-9 border-border bg-background"
                     />
                   </label>
                   <label className="block space-y-1">
@@ -445,7 +445,7 @@ export function RecordInvoicesPanel({
                     <Input
                       value={reviseNote}
                       onChange={(e) => setReviseNote(e.target.value)}
-                      className="h-9 border-zinc-800 bg-zinc-950"
+                      className="h-9 border-border bg-background"
                     />
                   </label>
                   <label className="block space-y-1">
@@ -455,10 +455,10 @@ export function RecordInvoicesPanel({
                     <Input
                       value={reviseVin}
                       onChange={(e) => setReviseVin(e.target.value)}
-                      className="h-9 border-zinc-800 bg-zinc-950 font-mono text-sm"
+                      className="h-9 border-border bg-background font-mono text-sm"
                     />
                   </label>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-800 bg-zinc-950/60 p-1">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-background/60 p-1">
                     {(
                       [
                         ["email", "Email"],
@@ -474,7 +474,7 @@ export function RecordInvoicesPanel({
                           "rounded-lg py-2 text-xs font-semibold",
                           reviseChannel === id
                             ? "bg-teal-500/20 text-teal-100"
-                            : "text-muted-foreground hover:text-slate-200"
+                            : "text-muted-foreground hover:text-foreground"
                         )}
                       >
                         {label}
@@ -487,7 +487,7 @@ export function RecordInvoicesPanel({
                       value={reviseEmail}
                       onChange={(e) => setReviseEmail(e.target.value)}
                       placeholder="Email"
-                      className="h-9 border-zinc-800 bg-zinc-950"
+                      className="h-9 border-border bg-background"
                     />
                   )}
                   {(reviseChannel === "sms" || reviseChannel === "both") && (
@@ -496,7 +496,7 @@ export function RecordInvoicesPanel({
                       value={revisePhone}
                       onChange={(e) => setRevisePhone(e.target.value)}
                       placeholder="Phone"
-                      className="h-9 border-zinc-800 bg-zinc-950"
+                      className="h-9 border-border bg-background"
                     />
                   )}
                   <Button

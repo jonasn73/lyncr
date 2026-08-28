@@ -17,7 +17,7 @@ import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 const DEFAULT_BUSY_GREETING_TEXT = TELNYX_MENU_BUSY_PROMPT
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/40"
 
 type GreetingsPayload = {
   onJobGreetingText?: string
@@ -219,7 +219,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="ivr-voice-persona" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="ivr-voice-persona" className="text-xs font-semibold text-foreground">
                 AI Voice Persona
               </label>
               <select
@@ -241,7 +241,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="ivr-bypass-code" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="ivr-bypass-code" className="text-xs font-semibold text-foreground">
                 🔑 Secret Bypass Code
               </label>
               <input
@@ -264,8 +264,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </div>
           </div>
 
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-            <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-zinc-300">
+          <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
+            <label htmlFor="busy-greeting-text" className="text-xs font-semibold text-foreground">
               Busy greeting
             </label>
             <p className="hidden text-micro text-muted-foreground md:block">
@@ -290,7 +290,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="hold-reprompt-secs" className="text-xs font-semibold text-foreground">
                 Re-prompt every (sec)
               </label>
               <input
@@ -311,7 +311,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-zinc-300">
+              <label htmlFor="hold-max-wait-secs" className="text-xs font-semibold text-foreground">
                 Max wait (sec)
               </label>
               <input
@@ -333,14 +333,14 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
+          <div className="overflow-hidden rounded-lg border border-border bg-background/40">
             <button
               type="button"
               onClick={() => setHolidayOpen((o) => !o)}
               className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
               aria-expanded={holidayOpen}
             >
-              <span className="text-xs font-semibold text-zinc-300">
+              <span className="text-xs font-semibold text-foreground">
                 📅 Scheduled Holiday Closures
               </span>
               <ChevronDown
@@ -352,7 +352,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
               />
             </button>
             {holidayOpen ? (
-              <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
+              <div className="space-y-3 border-t border-border px-3 pb-3 pt-3">
                 <p className="text-micro leading-relaxed text-muted-foreground">
                   When the current time falls in this window, callers hear the holiday greeting
                   instead of the Busy greeting.
@@ -411,7 +411,7 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
                       holidayText: "",
                     }))
                   }
-                  className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                  className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
                   Clear holiday window
                 </button>
@@ -419,8 +419,8 @@ export function PresenceAutomationGreetingsForm({ className }: { className?: str
             ) : null}
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
-            <p className="text-xs font-semibold text-zinc-300">Text after missed call</p>
+          <div className="rounded-lg border border-border bg-background/40 px-3 py-3">
+            <p className="text-xs font-semibold text-foreground">Text after missed call</p>
             <p className="mt-1 text-micro leading-relaxed text-muted-foreground">
               Separate from Busy press 1. When someone rings your team and nobody answers, Missed Call
               Rescue can text “Sorry we missed your call — book here…” Turn it on/off under Lines →

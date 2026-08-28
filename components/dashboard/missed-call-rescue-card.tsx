@@ -206,10 +206,10 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
   )
 
   const capacityField = showCapacity ? (
-    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-3">
+    <div className="mt-3 rounded-lg border border-border bg-background/40 px-3 py-3">
       <label
         htmlFor="ivr-capacity-threshold"
-        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-2xs leading-snug text-zinc-300"
+        className="flex flex-wrap items-center gap-x-2 gap-y-2 text-2xs leading-snug text-foreground"
       >
         <span className="min-w-0 flex-1 font-medium">
           Auto-Bypass to IVR when confirmed daily jobs reach:
@@ -228,7 +228,7 @@ export const MissedCallRescueCard = memo(function MissedCallRescueCard({
               e.currentTarget.blur()
             }
           }}
-          className="h-9 w-14 shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+          className="h-9 w-14 shrink-0 rounded-md border border-border bg-card px-2 text-center text-sm font-semibold tabular-nums text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
         />
       </label>
       <p className="mt-1.5 text-micro text-muted-foreground">

@@ -139,12 +139,12 @@ function ServiceSectorSelector({
   return (
     <div className={cn("relative z-10", compact ? "my-0" : "my-4")}>
       {compact ? null : (
-        <Label className="mb-3 block text-xs text-slate-300">Tap a service to continue</Label>
+        <Label className="mb-3 block text-xs text-foreground">Tap a service to continue</Label>
       )}
 
       <div
         className={cn(
-          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-2",
+          "relative z-10 grid grid-cols-3 gap-2 rounded-xl border border-border bg-card/50 p-2",
           compact ? "mb-3" : "mb-4"
         )}
       >
@@ -160,7 +160,7 @@ function ServiceSectorSelector({
                 compact ? "min-h-9" : "min-h-10",
                 active
                   ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                  : "border border-transparent text-muted-foreground hover:text-slate-200"
+                  : "border border-transparent text-muted-foreground hover:text-foreground"
               )}
               aria-pressed={active}
             >

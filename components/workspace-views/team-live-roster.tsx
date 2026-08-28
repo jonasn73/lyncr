@@ -226,15 +226,15 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-xl border border-slate-850/60 bg-slate-900/30",
+        "overflow-hidden rounded-xl border border-border/60 bg-card/30",
         className
       )}
       aria-label="Live technician availability"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
         <div className="flex items-center gap-2">
           <UsersRound className="h-4 w-4 text-primary" aria-hidden />
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">
             Live roster
           </h2>
         </div>
@@ -254,7 +254,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
           No field techs yet — invite from the directory below.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-900/60">
+        <ul className="divide-y divide-border/60">
           {rows.map((row) => (
             <li
               key={row.id}
@@ -267,7 +267,7 @@ export const TeamLiveRoster = memo(function TeamLiveRoster({
                     title={PRESENCE_LABEL[row.presence]}
                     aria-label={PRESENCE_LABEL[row.presence]}
                   />
-                  <span className="truncate text-sm font-semibold text-slate-100">{row.shortName}</span>
+                  <span className="truncate text-sm font-semibold text-foreground">{row.shortName}</span>
                 </div>
                 {row.fieldDistanceLabel ? (
                   <p className="text-muted-foreground text-xs flex items-center gap-1 pl-[18px]">

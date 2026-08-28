@@ -142,7 +142,7 @@ export function AppointmentConfirmSmsPanel({
               "rounded-full border px-3 py-1 text-2xs font-semibold transition-colors disabled:opacity-50",
               preset === chip.id
                 ? "border-amber-400/60 bg-amber-500/25 text-amber-50"
-                : "border-amber-500/25 bg-slate-950/40 text-amber-100/80 hover:bg-amber-500/15"
+                : "border-amber-500/25 bg-background/40 text-amber-100/80 hover:bg-amber-500/15"
             )}
           >
             {chip.label}
@@ -160,7 +160,7 @@ export function AppointmentConfirmSmsPanel({
             setPreset("custom")
             setText(e.target.value)
           }}
-          className="w-full resize-y rounded-lg border border-amber-500/30 bg-slate-950/70 px-3 py-3 text-sm leading-relaxed text-slate-100 placeholder:text-muted-foreground focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-amber-500/30 bg-background/70 px-3 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-amber-400/50 focus:outline-none disabled:opacity-60"
         />
       </label>
 

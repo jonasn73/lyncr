@@ -144,7 +144,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
-                : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -166,7 +166,7 @@ function NavLinks({ onNavigate, supportCount = 0 }: { onNavigate?: () => void; s
               "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
-                : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -192,7 +192,7 @@ function MobileBottomTabs({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-[#060a12]/95 backdrop-blur-md lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#060a12]/95 backdrop-blur-md lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       aria-label="Admin primary navigation"
     >
@@ -208,7 +208,7 @@ function MobileBottomTabs({
                 "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
                 active
                   ? "bg-violet-600/25 text-violet-100"
-                  : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
+                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               )}
             >
               <span className="relative">
@@ -232,7 +232,7 @@ function MobileBottomTabs({
             "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-2 text-center transition-colors",
             moreActive
               ? "bg-violet-600/25 text-violet-100"
-              : "text-muted-foreground hover:bg-slate-800/80 hover:text-slate-200"
+              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           )}
         >
           <MoreHorizontal className="h-4 w-4 shrink-0" aria-hidden />
@@ -268,18 +268,18 @@ function MoreSheet({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-slate-800 bg-[#060a12] shadow-2xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-border bg-[#060a12] shadow-2xl lg:hidden"
         style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
         role="dialog"
         aria-label="More admin pages"
       >
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <p className="text-sm font-semibold text-slate-100">More</p>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">More</p>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-slate-100"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
             aria-label="Close"
             onClick={onClose}
           >
@@ -299,7 +299,7 @@ function MoreSheet({
                   "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                   active
                     ? "bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/40"
-                    : "text-slate-300 hover:bg-slate-800/80 hover:text-slate-100"
+                    : "text-foreground hover:bg-muted/80 hover:text-foreground"
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -318,7 +318,7 @@ function MoreSheet({
             type="button"
             disabled={logoutBusy}
             onClick={onLogout}
-            className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800/80 hover:text-slate-100 disabled:opacity-60"
+            className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 hover:text-foreground disabled:opacity-60"
           >
             <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             Logout
@@ -350,12 +350,12 @@ export function AdminChrome({
 
   return (
     <div
-      className="flex min-h-dvh flex-col bg-[#0b1120] text-slate-200 antialiased lg:flex-row"
+      className="flex min-h-dvh flex-col bg-[#0b1120] text-foreground antialiased lg:flex-row"
       data-sigo-surface="operator"
     >
       {/* Desktop sidebar — full nav */}
-      <aside className="hidden w-48 shrink-0 flex-col border-r border-slate-800 bg-[#060a12] lg:flex">
-        <div className="flex items-center gap-2 border-b border-slate-800 px-3 py-3">
+      <aside className="hidden w-48 shrink-0 flex-col border-r border-border bg-[#060a12] lg:flex">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600">
             <Shield className="h-4 w-4 text-white" aria-hidden />
           </div>
@@ -367,7 +367,7 @@ export function AdminChrome({
           </div>
         </div>
         <NavLinks supportCount={supportCount} />
-        <div className="mt-auto space-y-2 border-t border-slate-800 p-3">
+        <div className="mt-auto space-y-2 border-t border-border p-3">
           <p className="truncate text-2xs text-muted-foreground">{userEmail}</p>
           {/* Desktop has no More sheet — keep Logout reachable in the sidebar footer */}
           <Button
@@ -375,7 +375,7 @@ export function AdminChrome({
             variant="ghost"
             size="sm"
             disabled={busy}
-            className="h-8 w-full justify-start gap-2 px-2 text-muted-foreground hover:bg-slate-800 hover:text-slate-100"
+            className="h-8 w-full justify-start gap-2 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => {
               setBusy(true)
               void signOutAndGoToLogin()
@@ -388,17 +388,17 @@ export function AdminChrome({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
+        <header className="flex shrink-0 items-center gap-2 border-b border-border bg-[#0b1120]/95 px-3 py-2 backdrop-blur-md sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Headphones className="hidden h-4 w-4 text-violet-300 sm:block" aria-hidden />
             <div className="min-w-0">
               {/* Page name lives in the big heading below — don’t repeat “Home” here. */}
-              <p className="truncate text-sm font-semibold text-slate-100">Lyncr Admin</p>
+              <p className="truncate text-sm font-semibold text-foreground">Lyncr Admin</p>
               <p className="truncate text-2xs text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
-          <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-slate-800 hover:text-slate-100">
+          <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-muted hover:text-foreground">
             <Link href="/dashboard">App</Link>
           </Button>
         </header>

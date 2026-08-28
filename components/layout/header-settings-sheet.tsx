@@ -534,10 +534,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
       <Sheet open={moneyOpen} onOpenChange={setMoneyOpen}>
         <SheetContent
           side="bottom"
-          className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0"
+          className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-border bg-[#101018] p-0"
         >
-          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
-            <SheetTitle className="text-base text-slate-100">Money</SheetTitle>
+          <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
+            <SheetTitle className="text-base text-foreground">Money</SheetTitle>
             <p className="text-xs text-muted-foreground">
               Collect = charge customers. Bank = your payouts. Lyncr bill = your subscription.
             </p>
@@ -653,7 +653,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   key={opt.id}
                   type="button"
                   onClick={() => openPayments(opt.id)}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-zinc-900/70"
+                  className="rounded-xl border border-border bg-background/60 px-2 py-3 text-center hover:border-teal-500/40 hover:bg-card/70"
                 >
                   <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                     {opt.label}
@@ -673,9 +673,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <button
               type="button"
               onClick={() => openPayments("all")}
-              className="flex h-12 w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 text-left hover:border-teal-500/40 hover:bg-zinc-900"
+              className="flex h-12 w-full items-center justify-between rounded-xl border border-border bg-background/70 px-4 text-left hover:border-teal-500/40 hover:bg-card"
             >
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Receipt className="h-4 w-4 text-teal-300" aria-hidden />
                 Transactions
               </span>
@@ -698,7 +698,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               type="button"
               onClick={openInvoices}
               variant="outline"
-              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-zinc-700 bg-zinc-950/50 px-4 py-2 text-slate-100 hover:bg-zinc-900 hover:text-white"
+              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 border-border bg-background/50 px-4 py-2 text-foreground hover:bg-card hover:text-white"
             >
               <span className="text-sm font-semibold">Outside payments</span>
               <span className="text-2xs font-medium text-muted-foreground">
@@ -708,9 +708,9 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             <Link
               href="/dashboard/pay"
               onClick={() => setMoneyOpen(false)}
-              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-2 text-center hover:border-zinc-600 hover:bg-zinc-900/70"
+              className="mt-2 flex h-auto min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-border bg-background/40 px-4 py-2 text-center hover:border-border hover:bg-card/70"
             >
-              <span className="text-sm font-semibold text-slate-200">Lyncr bill</span>
+              <span className="text-sm font-semibold text-foreground">Lyncr bill</span>
               <span className="text-2xs font-medium text-muted-foreground">
                 Your app subscription — not customer charges
               </span>
@@ -794,10 +794,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
               : "flex w-full max-w-md flex-col gap-0 p-0 sm:max-w-md"
           )}
         >
-          <SheetHeader className="shrink-0 border-b border-slate-850 px-4 pb-3 pt-4 text-left">
+          <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
             <div className="flex items-center justify-between gap-3 pr-8">
               <div className="min-w-0">
-                <SheetTitle className="text-base text-slate-100">Settings</SheetTitle>
+                <SheetTitle className="text-base text-foreground">Settings</SheetTitle>
                 <p className="truncate text-xs text-muted-foreground">{email}</p>
               </div>
               <button
@@ -806,7 +806,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                   setOpen(false)
                   openOwnerHelpSheet("chat")
                 }}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 px-3 py-2 text-2xs font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-slate-100 focus-visible:bg-slate-800/80 focus-visible:text-slate-100"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-2xs font-semibold text-foreground hover:bg-muted/80 hover:text-foreground focus-visible:bg-muted/80 focus-visible:text-foreground"
               >
                 <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
                 Help
@@ -827,7 +827,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             </Suspense>
           </div>
 
-          <div className="shrink-0 border-t border-slate-850 px-4 py-3">
+          <div className="shrink-0 border-t border-border px-4 py-3">
             <button
               type="button"
               disabled={busy}

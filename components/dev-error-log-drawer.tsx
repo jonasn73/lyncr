@@ -189,7 +189,7 @@ export function DevErrorLogDrawer() {
           "fixed bottom-4 right-4 z-[9998] flex h-12 w-12 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           count > 0
             ? "border-rose-500/60 bg-rose-950 text-rose-100"
-            : "border-zinc-700 bg-zinc-900 text-zinc-300"
+            : "border-border bg-card text-foreground"
         )}
         aria-label={count > 0 ? `Open dev error log (${count})` : "Open dev error log"}
         title="Dev error log"
@@ -205,9 +205,9 @@ export function DevErrorLogDrawer() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="right"
-          className="flex w-full flex-col gap-0 border-zinc-800 bg-zinc-950 p-0 sm:max-w-md"
+          className="flex w-full flex-col gap-0 border-border bg-background p-0 sm:max-w-md"
         >
-          <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 py-4 text-left">
+          <SheetHeader className="shrink-0 border-b border-border px-4 py-4 text-left">
             <SheetTitle className="flex items-center gap-2 text-foreground">
               <Bug className="h-4 w-4 text-rose-400" aria-hidden />
               Dev error log
@@ -221,7 +221,7 @@ export function DevErrorLogDrawer() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-zinc-700"
+                className="border-border"
                 onClick={() => clearDevErrorLogs()}
                 disabled={count === 0}
               >
@@ -243,7 +243,7 @@ export function DevErrorLogDrawer() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {count === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                 No client errors yet. Switch workspaces or click through the UI — failures will land
                 here with file and line when available.
               </p>
@@ -252,7 +252,7 @@ export function DevErrorLogDrawer() {
                 {logs.map((entry) => (
                   <li
                     key={entry.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3 shadow-sm"
+                    className="rounded-xl border border-border bg-card/80 p-3 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span
@@ -267,11 +267,11 @@ export function DevErrorLogDrawer() {
                         {new Date(entry.at).toLocaleTimeString()}
                       </time>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-100">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
                       {entry.message}
                     </p>
                     {entry.source ? (
-                      <p className="mt-2 rounded-md bg-zinc-950/80 px-2 py-1 font-mono text-2xs leading-relaxed text-emerald-300/90">
+                      <p className="mt-2 rounded-md bg-background/80 px-2 py-1 font-mono text-2xs leading-relaxed text-emerald-300/90">
                         {entry.source}
                       </p>
                     ) : (
@@ -284,7 +284,7 @@ export function DevErrorLogDrawer() {
                     ) : null}
                     {entry.stack ? (
                       <details className="mt-2">
-                        <summary className="cursor-pointer text-2xs text-muted-foreground hover:text-zinc-300">
+                        <summary className="cursor-pointer text-2xs text-muted-foreground hover:text-foreground">
                           Stack trace
                         </summary>
                         <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-black/40 p-2 font-mono text-micro leading-relaxed text-muted-foreground">

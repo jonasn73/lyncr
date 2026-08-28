@@ -88,15 +88,15 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
 
       {/* Full-page Settings only — sheet header already shows email. */}
       {embedded ? null : (
-        <div className="flex items-center gap-4 rounded-xl border border-slate-850/60 bg-slate-900/30 px-4 py-3">
+        <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/30 px-4 py-3">
           {profileLoading ? (
             <>
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
               </span>
               <div className="min-w-0 flex-1 space-y-2">
-                <span className="block h-4 w-36 animate-pulse rounded bg-zinc-800" aria-hidden />
-                <span className="block h-3 w-48 animate-pulse rounded bg-zinc-800/80" aria-hidden />
+                <span className="block h-4 w-36 animate-pulse rounded bg-muted" aria-hidden />
+                <span className="block h-3 w-48 animate-pulse rounded bg-muted/80" aria-hidden />
               </div>
             </>
           ) : (
@@ -428,7 +428,7 @@ function ToggleRow({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-900/60 px-4 py-3 last:border-0">
+    <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3 last:border-0">
       <span className="flex min-w-0 items-center gap-3">
         <Volume2 className="h-5 w-5 shrink-0 text-primary" aria-hidden />
         <span className="min-w-0">

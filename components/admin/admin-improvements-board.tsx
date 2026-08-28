@@ -67,7 +67,7 @@ const CATEGORY_SUGGESTIONS = [
 const PRIORITY_BADGE_CLASS: Record<AppImprovementPriority, string> = {
   high: "border-rose-500/40 bg-rose-500/10 text-rose-300",
   medium: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  low: "border-slate-600 bg-slate-800/60 text-muted-foreground",
+  low: "border-border bg-muted/60 text-muted-foreground",
 }
 
 function emptyDraft(): {
@@ -193,7 +193,7 @@ export function AdminImprovementsBoard({
     <div className="mx-auto max-w-7xl space-y-6 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-50">App Improvement Board</h1>
+          <h1 className="text-xl font-bold text-foreground">App Improvement Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Ideas, bugs, and roadmap items — decide what to tackle, track progress, mark done, or
             take it off the list.
@@ -218,7 +218,7 @@ export function AdminImprovementsBoard({
                   value={draft.title}
                   onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
                   placeholder="e.g. Amber: multi-turn draft refinement"
-                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  className="border-border bg-background text-foreground"
                   autoFocus
                 />
               </div>
@@ -229,7 +229,7 @@ export function AdminImprovementsBoard({
                   onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                   placeholder="What is it, why it matters, any context."
                   rows={4}
-                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  className="border-border bg-background text-foreground"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -239,7 +239,7 @@ export function AdminImprovementsBoard({
                     value={draft.category}
                     onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
                     list="improvement-category-suggestions"
-                    className="border-slate-700 bg-slate-950 text-slate-100"
+                    className="border-border bg-background text-foreground"
                   />
                   <datalist id="improvement-category-suggestions">
                     {CATEGORY_SUGGESTIONS.map((c) => (
@@ -253,7 +253,7 @@ export function AdminImprovementsBoard({
                     value={draft.priority}
                     onValueChange={(v) => setDraft((d) => ({ ...d, priority: v as AppImprovementPriority }))}
                   >
-                    <SelectTrigger className="border-slate-700 bg-slate-950 text-slate-100">
+                    <SelectTrigger className="border-border bg-background text-foreground">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -286,24 +286,24 @@ export function AdminImprovementsBoard({
             <div key={col.status} className="space-y-3">
               <div className="flex items-baseline justify-between px-1">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-200">{col.label}</h2>
+                  <h2 className="text-sm font-semibold text-foreground">{col.label}</h2>
                   <p className="text-2xs text-muted-foreground">{col.hint}</p>
                 </div>
-                <Badge variant="outline" className="border-slate-700 text-muted-foreground">
+                <Badge variant="outline" className="border-border text-muted-foreground">
                   {rows.length}
                 </Badge>
               </div>
               <div className="space-y-2">
                 {rows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-slate-800 px-3 py-6 text-center text-xs text-muted-foreground">
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
                     Nothing here
                   </p>
                 ) : (
                   rows.map((item) => (
-                    <Card key={item.id} className="border-slate-800 bg-slate-900/50">
+                    <Card key={item.id} className="border-border bg-card/50">
                       <CardHeader className="space-y-2 pb-2">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold leading-snug text-slate-100">
+                          <p className="text-sm font-semibold leading-snug text-foreground">
                             {item.title}
                           </p>
                           <button
@@ -322,7 +322,7 @@ export function AdminImprovementsBoard({
                           >
                             {item.priority}
                           </Badge>
-                          <Badge variant="outline" className="border-slate-700 text-micro text-muted-foreground">
+                          <Badge variant="outline" className="border-border text-micro text-muted-foreground">
                             {item.category}
                           </Badge>
                           {item.source ? (
@@ -343,7 +343,7 @@ export function AdminImprovementsBoard({
                           onValueChange={(v) => void moveStatus(item, v as AppImprovementStatus)}
                           disabled={movingId === item.id}
                         >
-                          <SelectTrigger className="h-8 border-slate-700 bg-slate-950 text-xs text-slate-300">
+                          <SelectTrigger className="h-8 border-border bg-background text-xs text-foreground">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

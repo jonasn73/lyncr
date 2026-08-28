@@ -31,7 +31,7 @@ function formatPhoneDisplay(phone: string | null): string {
 
 /** Tone classes for the CRM job-status label, matching the owner-side CRM list rows. */
 const STATUS_TONE: Record<string, string> = {
-  neutral: "border-zinc-600/50 bg-zinc-700/30 text-zinc-200",
+  neutral: "border-border/50 bg-accent/30 text-foreground",
   amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
   emerald: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
   rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
@@ -97,7 +97,7 @@ function CallerIdentityStrip({
     <div
       className={cn(
         "mt-3 rounded-xl border px-4 py-3",
-        known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-zinc-700 bg-zinc-800/40"
+        known ? "border-sky-500/30 bg-sky-500/[0.07]" : "border-border bg-muted/40"
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -125,7 +125,7 @@ function CallerIdentityStrip({
       </div>
 
       {facts.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground">
           {facts.map((fact) => (
             <span key={fact.text} className="inline-flex items-center gap-2">
               {fact.icon}
@@ -159,7 +159,7 @@ function CheatSheetTile({
 }) {
   const has = Boolean(value && value.trim())
   return (
-    <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+    <div className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
       <p className={cn("flex items-center gap-2 text-2xs font-semibold uppercase tracking-wide", accent)}>
         {icon}
         {label}
@@ -167,7 +167,7 @@ function CheatSheetTile({
       <p
         className={cn(
           "mt-2 whitespace-pre-wrap text-sm leading-relaxed",
-          has ? "text-zinc-200" : "italic text-muted-foreground"
+          has ? "text-foreground" : "italic text-muted-foreground"
         )}
       >
         {has ? value : emptyHint}
@@ -249,11 +249,11 @@ export function CompanyBriefingCard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/50">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl shadow-black/50">
         {/* Header — answer-as greeting */}
         <div
           className={cn(
-            "rounded-t-2xl border-b border-zinc-800 p-6",
+            "rounded-t-2xl border-b border-border p-6",
             ringing ? "bg-emerald-950/30" : "bg-primary/10"
           )}
         >
@@ -283,7 +283,7 @@ export function CompanyBriefingCard({
 
           <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3">
             <p className="text-2xs font-semibold uppercase tracking-wide text-emerald-300">Opening script</p>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-100">&ldquo;{script}&rdquo;</p>
+            <p className="mt-1 text-sm leading-relaxed text-foreground">&ldquo;{script}&rdquo;</p>
           </div>
 
           <CallerIdentityStrip caller={caller} callerNumber={callerNumber} callerName={callerName} />
@@ -337,7 +337,7 @@ export function CompanyBriefingCard({
         </div>
 
         {loading && !briefing ? (
-          <p className="flex items-center justify-center gap-2 border-t border-zinc-800 px-6 py-3 text-xs text-muted-foreground">
+          <p className="flex items-center justify-center gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Pulling company briefing…
           </p>

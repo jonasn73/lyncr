@@ -80,7 +80,7 @@ export function AdminInviteReceptionistDialog() {
           Invite receptionist
         </Button>
       </DialogTrigger>
-      <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-md">
+      <DialogContent className="border-border bg-card text-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite receptionist</DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -90,21 +90,21 @@ export function AdminInviteReceptionistDialog() {
 
         {signupUrl ? (
           <div className="space-y-4 py-2">
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-foreground">
               Share this one-time link with <span className="font-medium text-white">{email}</span>:
             </p>
             <div className="flex gap-2">
               <Input
                 readOnly
                 value={signupUrl}
-                className="border-slate-700 bg-slate-950/80 font-mono text-xs text-slate-200"
+                className="border-border bg-background/80 font-mono text-xs text-foreground"
               />
-              <Button type="button" variant="outline" className="shrink-0 border-slate-600" onClick={() => void copyLink()}>
+              <Button type="button" variant="outline" className="shrink-0 border-border" onClick={() => void copyLink()}>
                 <Copy className="h-4 w-4" aria-hidden />
               </Button>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" className="border-slate-600" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" className="border-border" onClick={() => setOpen(false)}>
                 Done
               </Button>
             </DialogFooter>
@@ -112,7 +112,7 @@ export function AdminInviteReceptionistDialog() {
         ) : (
           <form className="space-y-4 py-2" onSubmit={(e) => void handleSubmit(e)}>
             <div className="space-y-2">
-              <Label htmlFor="invite-email" className="text-slate-300">
+              <Label htmlFor="invite-email" className="text-foreground">
                 Email
               </Label>
               <Input
@@ -122,12 +122,12 @@ export function AdminInviteReceptionistDialog() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex@example.com"
-                className="border-slate-700 bg-slate-950/80 text-slate-100"
+                className="border-border bg-background/80 text-foreground"
                 disabled={busy}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invite-first-name" className="text-slate-300">
+              <Label htmlFor="invite-first-name" className="text-foreground">
                 First name
               </Label>
               <Input
@@ -137,12 +137,12 @@ export function AdminInviteReceptionistDialog() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Alex"
-                className="border-slate-700 bg-slate-950/80 text-slate-100"
+                className="border-border bg-background/80 text-foreground"
                 disabled={busy}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invite-payout" className="text-slate-300">
+              <Label htmlFor="invite-payout" className="text-foreground">
                 Default payout rate (USD)
               </Label>
               <Input
@@ -153,12 +153,12 @@ export function AdminInviteReceptionistDialog() {
                 required
                 value={payoutRate}
                 onChange={(e) => setPayoutRate(e.target.value)}
-                className="border-slate-700 bg-slate-950/80 text-slate-100"
+                className="border-border bg-background/80 text-foreground"
                 disabled={busy}
               />
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" className="border-slate-600" disabled={busy} onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" className="border-border" disabled={busy} onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" className="bg-violet-600 hover:bg-violet-500" disabled={busy}>

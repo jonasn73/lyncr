@@ -9,6 +9,6 @@ export const metadata: Metadata = {
 
 export default function TechLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-[#0b0b12] text-zinc-100 antialiased">{children}</div>
+    <div className="min-h-[100dvh] bg-[#0b0b12] text-foreground antialiased">{children}</div>
   )
 }

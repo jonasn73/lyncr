@@ -65,7 +65,7 @@ function CertificationCard({
               Certified
             </Badge>
           ) : (
-            <Badge variant="outline" className="border-zinc-700 text-muted-foreground">
+            <Badge variant="outline" className="border-border text-muted-foreground">
               Locked
             </Badge>
           )}
@@ -189,7 +189,7 @@ export function ReceptionistTrainingView({ userId, initialCatalog }: Props) {
         <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
           {certifiedCount} certified
         </Badge>
-        <Badge variant="outline" className="border-zinc-700 text-muted-foreground">
+        <Badge variant="outline" className="border-border text-muted-foreground">
           {catalog.length - certifiedCount} available to unlock
         </Badge>
       </div>

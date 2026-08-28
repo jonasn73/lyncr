@@ -114,7 +114,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <div className="rounded-xl border border-border bg-background/40 p-4">
         <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier lifecycle</p>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {STEPS.map((step, index) => {
@@ -129,7 +129,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                       state === "done" && "border-emerald-500/50 bg-emerald-500/15 text-emerald-300",
                       state === "current" && "border-amber-500/50 bg-amber-500/15 text-amber-200",
                       state === "failed" && "border-red-500/50 bg-red-500/15 text-red-300",
-                      state === "upcoming" && "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                      state === "upcoming" && "border-border bg-card text-muted-foreground"
                     )}
                   >
                     {state === "done" ? <Check className="h-4 w-4" aria-hidden /> : state === "failed" ? "!" : index + 1}
@@ -138,7 +138,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
                     <span
                       className={cn(
                         "hidden h-px flex-1 sm:block sm:h-8 sm:w-px sm:flex-none",
-                        state === "done" ? "bg-emerald-500/40" : "bg-zinc-800"
+                        state === "done" ? "bg-emerald-500/40" : "bg-muted"
                       )}
                       aria-hidden
                     />
@@ -161,7 +161,7 @@ export function SmsRegistrationStatusView({ summary, loading, onRefresh, onEdit,
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <div className="rounded-xl border border-border bg-background/40 p-4">
         <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Submission summary</p>
         <dl className="mt-4 space-y-3">
           <SummaryRow label="Business profile" value={summary.legal_business_name?.trim() || "—"} />

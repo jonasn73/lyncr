@@ -90,10 +90,10 @@ export function InviteModal() {
             if (e.target === e.currentTarget) close()
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Invite a receptionist</h2>
+                <h2 className="text-lg font-semibold text-foreground">Invite a receptionist</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   They&apos;ll get a link to set up their own account — no manual entry.
                 </p>
@@ -101,7 +101,7 @@ export function InviteModal() {
               <button
                 type="button"
                 onClick={close}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-800 hover:text-slate-200"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
@@ -127,14 +127,14 @@ export function InviteModal() {
                     readOnly
                     value={success.register_url}
                     onFocus={(e) => e.currentTarget.select()}
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-200"
+                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground"
                   />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={reset}
-                    className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   >
                     Invite another
                   </button>
@@ -150,7 +150,7 @@ export function InviteModal() {
             ) : (
               <div className="space-y-4">
                 {/* Email / SMS toggle */}
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-slate-700 bg-slate-950/60 p-1">
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1">
                   {(["EMAIL", "SMS"] as Channel[]).map((c) => {
                     const active = channel === c
                     return (
@@ -163,7 +163,7 @@ export function InviteModal() {
                         }}
                         className={cn(
                           "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          active ? "bg-violet-600 text-white" : "text-slate-300 hover:bg-slate-800"
+                          active ? "bg-violet-600 text-white" : "text-foreground hover:bg-muted"
                         )}
                         aria-pressed={active}
                       >
@@ -175,7 +175,7 @@ export function InviteModal() {
                 </div>
 
                 <div>
-                  <label htmlFor="invite-target" className="mb-1 block text-sm font-medium text-slate-300">
+                  <label htmlFor="invite-target" className="mb-1 block text-sm font-medium text-foreground">
                     {isEmail ? "Email Address" : "Cell Phone Number"}
                   </label>
                   <input
@@ -189,7 +189,7 @@ export function InviteModal() {
                     }}
                     placeholder={isEmail ? "jordan@example.com" : "(555) 123-4567"}
                     autoFocus
-                    className="w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
 
@@ -204,7 +204,7 @@ export function InviteModal() {
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   >
                     Cancel
                   </button>

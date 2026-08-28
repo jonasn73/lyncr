@@ -50,7 +50,7 @@ type WizardStep = "details" | "availability" | "pay" | "done"
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
+  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
 
 export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
   const [loading, setLoading] = useState(true)
@@ -251,7 +251,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-300">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         Loading…
       </div>
@@ -313,7 +313,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               : `Fill this in, then pay ${amountLabel} on the next step.`}
       </p>
       {invite?.operator_note ? (
-        <p className="mt-3 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-300">
+        <p className="mt-3 rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground">
           {invite.operator_note}
         </p>
       ) : null}
@@ -352,7 +352,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       ) : null}
 
       {wizardStep === "details" ? (
-        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
+        <div className="mt-4 rounded-2xl border border-border bg-background/40 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:p-4">
           <div className="space-y-3">
             {/* Name + phone on one row */}
             <div className="grid grid-cols-2 gap-2">
@@ -408,7 +408,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setEmailOpen(true)}
-                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
                 + Add email
               </button>
@@ -426,7 +426,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                     className={
                       jobKind === opt.id
                         ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs font-medium text-emerald-50"
-                        : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                        : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                     }
                   >
                     {opt.chip}
@@ -493,7 +493,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               <button
                 type="button"
                 onClick={() => setNotesOpen(true)}
-                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-slate-300 hover:underline"
+                className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
                 + Add notes
               </button>
@@ -508,7 +508,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   className={
                     urgency === "asap"
                       ? "rounded-lg border border-rose-500/40 bg-rose-500/15 px-2 py-2 text-center text-xs text-rose-50"
-                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                      : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                   }
                 >
                   <span className="font-semibold">ASAP</span>
@@ -520,7 +520,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                   className={
                     urgency === "window"
                       ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2 py-2 text-center text-xs text-emerald-50"
-                      : "rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-center text-xs text-slate-200"
+                      : "rounded-lg border border-border bg-card px-2 py-2 text-center text-xs text-foreground"
                   }
                 >
                   <span className="font-semibold">Schedule</span>
@@ -532,7 +532,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
             {error ? <p className="text-sm text-red-300">{error}</p> : null}
           </div>
 
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800/80 bg-slate-950/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
             <div className="mx-auto w-full max-w-lg">
               <button
                 type="button"
@@ -553,7 +553,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
       ) : null}
 
       {wizardStep === "availability" ? (
-        <div className="mt-6 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+        <div className="mt-6 space-y-4 rounded-2xl border border-border bg-background/40 p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-white">Your availability</p>
             <button
@@ -574,7 +574,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
                 className={
                   dayKey === day.dateKey
                     ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm text-emerald-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left text-sm text-slate-200"
+                    : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
                 <span className="font-semibold">{day.shortLabel}</span>
@@ -584,7 +584,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-slate-300">From</span>
+              <span className="text-xs font-medium text-foreground">From</span>
               <select
                 value={fromTime}
                 onChange={(e) => setFromTime(e.target.value)}
@@ -598,7 +598,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
               </select>
             </label>
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-slate-300">To</span>
+              <span className="text-xs font-medium text-foreground">To</span>
               <select
                 value={toTime}
                 onChange={(e) => setToTime(e.target.value)}
@@ -614,7 +614,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           </div>
 
           {windowReady ? (
-            <p className="text-center text-sm text-slate-200">
+            <p className="text-center text-sm text-foreground">
               Free: <span className="font-semibold text-emerald-200">{availabilityLabel}</span>
             </p>
           ) : (
@@ -637,7 +637,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
 
       {wizardStep === "pay" && payClientSecret && stripePromise ? (
         <div id="book-link-pay" className="mt-6 space-y-3">
-          <p className="text-center text-sm font-medium text-slate-200">
+          <p className="text-center text-sm font-medium text-foreground">
             Pay {amountLabel} — Cash App, Apple Pay, card, or Link
           </p>
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">

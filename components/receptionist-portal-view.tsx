@@ -85,7 +85,7 @@ function LiveStatusStrip({ dashboard }: { dashboard: ReceptionistPortalDashboard
   const detail = (
     <>
       {ringing ? "Ringing for " : "Answering for "}
-      <span className="font-medium text-zinc-200">{live_status.business_name}</span>
+      <span className="font-medium text-foreground">{live_status.business_name}</span>
       {" · "}
       {formatPhoneDisplay(live_status.caller_number)}
       {live_status.caller_name ? ` (${live_status.caller_name})` : ""}
@@ -203,14 +203,14 @@ function RecentCallerList({
                 </a>
                 <a
                   href={`sms:${dialable}`}
-                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
                 >
                   Text
                 </a>
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : row.id)}
-                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-muted/30"
+                  className="rounded-lg border border-border/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
                 >
                   {open ? "Close" : "Notes"}
                 </button>
@@ -571,7 +571,7 @@ export function ReceptionistPortalView() {
                 >
                   {onCall ? "ON CALL" : ringingNow ? "RINGING" : available ? "ON DUTY" : "OFF DUTY"}
                 </h1>
-                <p className="mt-1.5 truncate text-sm text-zinc-300">
+                <p className="mt-1.5 truncate text-sm text-foreground">
                   <span className="font-medium text-foreground">{dashboard.business_name}</span>
                   <span className="text-muted-foreground"> · </span>
                   <span className="text-muted-foreground">{rateLabel}</span>

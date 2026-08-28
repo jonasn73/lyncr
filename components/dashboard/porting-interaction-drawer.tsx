@@ -28,7 +28,7 @@ type Props = {
 
 function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_steps"] }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+    <div className="rounded-xl border border-border bg-background/60 p-4">
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer status</p>
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         {steps.map((step, i) => (
@@ -42,7 +42,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
                     : step.state === "current"
                       ? "border-sky-500/50 bg-sky-500/15 text-sky-200"
-                      : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                      : "border-border bg-card text-muted-foreground"
               )}
             >
               {step.state === "complete" ? <Check className="h-4 w-4" /> : i + 1}
@@ -53,7 +53,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
                 step.state === "current"
                   ? "text-sky-200"
                   : step.state === "complete"
-                    ? "text-zinc-300"
+                    ? "text-foreground"
                     : step.state === "failed"
                       ? "text-red-300"
                       : "text-muted-foreground"
@@ -105,7 +105,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
   const visibleItems = useMemo(() => dedupePortingConversationItems(items), [items])
   if (visibleItems.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-zinc-800 px-4 py-8 text-center text-sm text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
         No carrier updates yet. Open this desk again after a moment — carrier correspondence syncs on
         each refresh.
       </p>
@@ -124,7 +124,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isSystem) {
           return (
             <div key={item.id} className="flex justify-center px-2">
-              <div className="max-w-[92%] rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-2 text-center text-2xs leading-snug text-muted-foreground">
+              <div className="max-w-[92%] rounded-full border border-border/80 bg-card/90 px-3 py-2 text-center text-2xs leading-snug text-muted-foreground">
                 {displayPortingMessageBody(text)}
                 <span className="mt-0.5 block text-micro text-muted-foreground">{formatThreadTime(item.created_at)}</span>
               </div>
@@ -151,7 +151,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
                 "max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 text-sm shadow-sm",
                 isDesk
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-50"
-                  : "border-zinc-700/80 bg-zinc-900/80 text-zinc-200"
+                  : "border-border/80 bg-card/80 text-foreground"
               )}
             >
               <div className="flex items-center gap-2">

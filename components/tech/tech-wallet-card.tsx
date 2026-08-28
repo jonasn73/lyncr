@@ -140,16 +140,16 @@ export function TechWalletCard({ refreshToken = 0 }: { refreshToken?: number }) 
             Could not load wallet. Pull to refresh or try again.
           </p>
         ) : !data?.recentTransactions.length ? (
-          <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-center text-xs text-muted-foreground">
+          <p className="rounded-lg border border-border bg-card/50 px-3 py-3 text-center text-xs text-muted-foreground">
             No transactions yet — collect payment on a job to see earnings here.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-800/80 overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/60">
+          <ul className="divide-y divide-border/80 overflow-hidden rounded-xl border border-border/80 bg-background/60">
             {data.recentTransactions.map((tx) => (
               <li key={tx.id} className="flex items-center gap-3 px-3 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-2xs text-zinc-300">
+                    <span className="font-mono text-2xs text-foreground">
                       Job {shortJobId(tx.jobId)}
                     </span>
                     <span

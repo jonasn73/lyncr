@@ -95,7 +95,7 @@ export function ReceptionistAvailabilityToggle({
     <WorkspacePanel
       density="default"
       className={cn(
-        current ? "border-emerald-500/35 bg-emerald-950/15" : "border-zinc-700/80 bg-zinc-900/40"
+        current ? "border-emerald-500/35 bg-emerald-950/15" : "border-border/80 bg-card/40"
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -107,13 +107,13 @@ export function ReceptionistAvailabilityToggle({
           <p className="mt-1 text-sm text-muted-foreground">
             {current ? (
               <>
-                You&apos;re eligible for <span className="font-medium text-zinc-200">{businessName}</span>{" "}
+                You&apos;re eligible for <span className="font-medium text-foreground">{businessName}</span>{" "}
                 when the owner has set you under Who answers. This does not choose you by itself.
               </>
             ) : (
               <>
                 You won&apos;t get rings for{" "}
-                <span className="font-medium text-zinc-200">{businessName}</span> — calls use the
+                <span className="font-medium text-foreground">{businessName}</span> — calls use the
                 owner&apos;s backup instead. Who answers is still the owner&apos;s choice.
               </>
             )}

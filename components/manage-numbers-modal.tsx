@@ -140,7 +140,7 @@ function PortPinCorrectionForm({
           autoComplete="off"
           value={pin}
           onChange={(e) => setPin(e.target.value)}
-          className="mt-1 w-full rounded-md border border-red-500/40 bg-zinc-950/80 px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
+          className="mt-1 w-full rounded-md border border-red-500/40 bg-background/80 px-2 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/40"
         />
       </label>
       <button
@@ -265,7 +265,7 @@ function EditableLineLabel({
             if (!saving) void commitSave()
           }}
           placeholder={DEFAULT_LINE_LABEL}
-          className="w-full rounded-md border border-primary/40 bg-zinc-900/80 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="w-full rounded-md border border-primary/40 bg-card/80 px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
           aria-label="Line label whisper name"
         />
         <p className="text-micro leading-snug text-muted-foreground">
@@ -284,7 +284,7 @@ function EditableLineLabel({
         className="group flex min-w-0 flex-1 items-center gap-1 text-left"
         title="Rename line label"
       >
-        <span className="truncate text-xs text-muted-foreground group-hover:text-zinc-300">{displayLabel}</span>
+        <span className="truncate text-xs text-muted-foreground group-hover:text-foreground">{displayLabel}</span>
         {saving ? (
           <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" aria-hidden />
         ) : (
@@ -458,7 +458,7 @@ export function ManageNumbersModal({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading lines" />
               </div>
             ) : lines.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-10 text-center text-sm text-muted-foreground">
+              <p className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-10 text-center text-sm text-muted-foreground">
                 No active lines yet. Buy a number to publish your first business line.
               </p>
             ) : (
@@ -466,7 +466,7 @@ export function ManageNumbersModal({
                 {lines.map((line) => (
                   <li
                     key={line.id}
-                    className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-4 py-3"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
                       <Phone className="h-4 w-4 text-primary" aria-hidden />
@@ -490,7 +490,7 @@ export function ManageNumbersModal({
                               const next = e.target.value.trim()
                               void saveLineWorkspace(line.id, next ? next : null, line.organization_id)
                             }}
-                            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+                            className="mt-1 w-full rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
                           >
                             <option value="">Unassigned</option>
                             {realOrganizations.map((org) => (
@@ -510,7 +510,7 @@ export function ManageNumbersModal({
                         type="button"
                         disabled={!canReleaseAny || releasingId != null}
                         onClick={() => setReleaseTarget(line)}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                         title={
                           canReleaseAny
                             ? "Return this number to the carrier"

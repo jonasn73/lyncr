@@ -107,10 +107,10 @@ export function SalesTaxSettingsSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-zinc-800 bg-[#101018] p-0"
+        className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-border bg-[#101018] p-0"
       >
-        <SheetHeader className="shrink-0 border-b border-zinc-800 px-4 pb-3 pt-4 text-left">
-          <SheetTitle className="flex items-center gap-2 text-base text-slate-100">
+        <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base text-foreground">
             <Percent className="h-4 w-4 text-emerald-400" aria-hidden />
             Sales tax default
           </SheetTitle>
@@ -127,9 +127,9 @@ export function SalesTaxSettingsSheet({
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-3 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-100">Add sales tax by default</p>
+                  <p className="text-sm font-semibold text-foreground">Add sales tax by default</p>
                   <p className="text-2xs text-muted-foreground">
                     Recommended on so you don’t forget tax on pay links.
                   </p>
@@ -141,7 +141,7 @@ export function SalesTaxSettingsSheet({
                 />
               </div>
 
-              <label className="block rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
+              <label className="block rounded-xl border border-border bg-background/50 px-3 py-3">
                 <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
                   Default tax %
                 </span>
@@ -155,7 +155,7 @@ export function SalesTaxSettingsSheet({
                     value={ratePercent}
                     onChange={(e) => setRatePercent(e.target.value)}
                     disabled={!enabledDefault}
-                    className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-right text-sm tabular-nums text-white outline-none disabled:opacity-40"
+                    className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-right text-sm tabular-nums text-white outline-none disabled:opacity-40"
                   />
                   <span className="text-sm text-muted-foreground">%</span>
                 </div>

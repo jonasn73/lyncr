@@ -103,7 +103,7 @@ function CollapseToggle({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/40 bg-slate-950/35 px-3 py-2 text-left transition-colors hover:bg-slate-950/55"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/35 px-3 py-2 text-left transition-colors hover:bg-background/55"
     >
       <span className="min-w-0">
         <span className={cn(SECTION_LABEL, "block")}>{label}</span>
@@ -262,7 +262,7 @@ export function JobDetailOverview({
 
         {/* Phone + Call / SMS on one compact row */}
         <div className="mt-1.5 flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate font-mono text-xs text-slate-300">
+          <p className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
             {customerPhone ? formatPhoneDisplay(customerPhone) : "No phone on file"}
           </p>
           {phoneHref ? (
@@ -282,7 +282,7 @@ export function JobDetailOverview({
               disabled
               className={cn(
                 CONTACT_BTN,
-                "max-w-[5.5rem] flex-none border-slate-800 bg-slate-950/40 text-muted-foreground"
+                "max-w-[5.5rem] flex-none border-border bg-background/40 text-muted-foreground"
               )}
             >
               <Phone className="h-3.5 w-3.5" aria-hidden />
@@ -360,7 +360,7 @@ export function JobDetailOverview({
         />
 
         {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
-        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-slate-950/35 px-3 py-2">
+        <section className="mt-2 space-y-2 rounded-xl border border-border/50 bg-background/35 px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className={SECTION_LABEL}>Dispatch</p>
             {saving ? (
@@ -455,7 +455,7 @@ export function JobDetailOverview({
               <div
                 className={cn(
                   "space-y-1 text-xs leading-snug",
-                  isMobile && "mt-1.5 rounded-lg border border-border/40 bg-slate-950/30 px-3 py-2"
+                  isMobile && "mt-1.5 rounded-lg border border-border/40 bg-background/30 px-3 py-2"
                 )}
               >
                 {keyBlocks.map((block) => (
@@ -464,7 +464,7 @@ export function JobDetailOverview({
                     <span className="text-muted-foreground"> · </span>
                     <span
                       className={cn(
-                        "font-medium text-slate-100",
+                        "font-medium text-foreground",
                         block.label === "TI SKU" && "font-mono text-emerald-300"
                       )}
                     >
@@ -500,7 +500,7 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobCancelled
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-muted-foreground"
+                      ? "border-border/40 bg-muted/40 text-muted-foreground"
                       : "border-rose-500/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
                   )}
                   title={isJobCancelled ? "This job is already cancelled" : "Cancel this job"}
@@ -515,7 +515,7 @@ export function JobDetailOverview({
                   className={cn(
                     ACTION_BTN,
                     isJobReferred
-                      ? "border-zinc-600/40 bg-zinc-800/40 text-muted-foreground"
+                      ? "border-border/40 bg-muted/40 text-muted-foreground"
                       : "border-violet-500/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20"
                   )}
                   title={isJobReferred ? "Already marked referred" : "Mark as referred"}
@@ -571,7 +571,7 @@ export function JobDetailOverview({
           {showNotes ? (
             <div
               className={cn(
-                "rounded-xl border border-slate-800/80 bg-slate-950/70 p-0.5 shadow-inner",
+                "rounded-xl border border-border/80 bg-background/70 p-0.5 shadow-inner",
                 isMobile && "mt-1.5"
               )}
             >
@@ -583,7 +583,7 @@ export function JobDetailOverview({
                 placeholder="Add a dispatch note… e.g. Autel failed due to poor cell signal"
                 onChange={(e) => onJobNotesChange(e.target.value)}
                 onBlur={() => onSaveJobNotes()}
-                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-slate-200 placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
+                className="min-h-[56px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
               />
             </div>
           ) : null}

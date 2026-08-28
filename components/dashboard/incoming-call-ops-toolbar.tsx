@@ -286,7 +286,7 @@ export function IncomingCallOpsToolbar({
             }}
             className={cn(
               BTN,
-              "min-h-8 border-slate-800 bg-slate-900/50 py-1 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+              "min-h-8 border-border bg-card/50 py-1 text-foreground hover:border-border hover:bg-card"
             )}
           >
             Call actions
@@ -347,7 +347,7 @@ export function IncomingCallOpsToolbar({
                   "min-h-8 py-1",
                   smsOpen
                     ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-                    : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+                    : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
                 )}
                 aria-label="Quick SMS templates"
               >
@@ -385,7 +385,7 @@ export function IncomingCallOpsToolbar({
                         type="button"
                         disabled={smsSending}
                         onClick={() => void sendQuickSms(template)}
-                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-sky-500/15 disabled:opacity-50"
                       >
                         {template}
                       </button>
@@ -435,7 +435,7 @@ export function IncomingCallOpsToolbar({
                 ⚠️ Recent Job Active
               </span>
             )}
-            <span className="text-2xs font-medium text-slate-300">{context.metaLine}</span>
+            <span className="text-2xs font-medium text-foreground">{context.metaLine}</span>
           </div>
         ) : (
           <p className="text-2xs font-medium text-muted-foreground">{context.cnamToken}</p>
@@ -477,7 +477,7 @@ export function IncomingCallOpsToolbar({
             BTN,
             smsOpen
               ? "border-sky-400/50 bg-sky-500/20 text-sky-50"
-              : "border-slate-800 bg-slate-900/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900"
+              : "border-border bg-card/50 text-foreground hover:border-border hover:bg-card"
           )}
           aria-label="Quick SMS templates"
         >
@@ -540,7 +540,7 @@ export function IncomingCallOpsToolbar({
                   type="button"
                   disabled={smsSending}
                   onClick={() => void sendQuickSms(template)}
-                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-100 hover:bg-sky-500/15 disabled:opacity-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-sky-500/15 disabled:opacity-50"
                 >
                   {template}
                 </button>

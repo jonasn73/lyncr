@@ -125,7 +125,7 @@ const TONE_CLASS: Record<string, string> = {
   amber: "border-amber-500/40 bg-amber-500/10 text-amber-200",
   rose: "border-rose-500/40 bg-rose-500/10 text-rose-200",
   sky: "border-sky-500/40 bg-sky-500/10 text-sky-200",
-  neutral: "border-zinc-600/50 bg-zinc-500/10 text-zinc-300",
+  neutral: "border-border/50 bg-zinc-500/10 text-foreground",
 }
 
 function usdFromCents(cents: number): string {
@@ -595,7 +595,7 @@ export function ReceptionistLiveIntake({
               type="button"
               onClick={() => void logJob("FAILED")}
               disabled={saving || Boolean(savedMsg)}
-              className="inline-flex items-center gap-2 rounded-lg border border-zinc-500/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-zinc-500/10 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-zinc-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <AlertTriangle className="h-4 w-4" aria-hidden />
               Failed
@@ -615,7 +615,7 @@ export function ReceptionistLiveIntake({
                   })
                 }
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-zinc-200 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 Back

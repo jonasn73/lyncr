@@ -49,13 +49,13 @@ export function SmsTemplateInterceptorSheet({
       />
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-900 rounded-t-2xl p-6 z-50 shadow-2xl",
+          "fixed bottom-0 left-0 right-0 bg-background border-t border-border rounded-t-2xl p-6 z-50 shadow-2xl",
           "pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         )}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-100">Choose a text</p>
+            <p className="text-sm font-semibold text-foreground">Choose a text</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">
               Sends to {recipientCount} prospect{recipientCount === 1 ? "" : "s"}
             </p>
@@ -64,7 +64,7 @@ export function SmsTemplateInterceptorSheet({
             type="button"
             disabled={sending}
             onClick={onClose}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-slate-900 hover:text-slate-300 disabled:opacity-50"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:opacity-50"
             aria-label="Close"
           >
             <X className="h-4 w-4" aria-hidden />
@@ -79,7 +79,7 @@ export function SmsTemplateInterceptorSheet({
               disabled={sending}
               onClick={() => onSelect(template)}
               className={cn(
-                "w-full text-left p-4 bg-slate-900/40 border border-slate-850/60 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer",
+                "w-full text-left p-4 bg-card/40 border border-border/60 hover:border-emerald-500/40 rounded-xl transition-all cursor-pointer",
                 "touch-manipulation disabled:cursor-wait disabled:opacity-60"
               )}
             >

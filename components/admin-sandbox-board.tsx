@@ -268,14 +268,14 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               Dev only
             </Badge>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100">Developer sandbox</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Developer sandbox</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             End-to-end testing for call routing, receptionist HUD, automotive_core quiz, and SMS intake dispatch —
             restricted to{" "}
-            <span className="font-medium text-slate-300">admin@lyncr.app</span>.
+            <span className="font-medium text-foreground">admin@lyncr.app</span>.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="border-slate-600 text-slate-300">
+        <Button asChild variant="outline" size="sm" className="border-border text-foreground">
           <Link href="/admin">← Admin home</Link>
         </Button>
       </div>
@@ -297,18 +297,18 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
         </div>
       ) : null}
 
-      <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-6">
-        <h2 className="text-base font-semibold text-slate-100">End-to-end test flow</h2>
+      <section className="rounded-xl border border-border/80 bg-card/40 p-6">
+        <h2 className="text-base font-semibold text-foreground">End-to-end test flow</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Follow these steps to exercise quiz → routing pool → HUD → SMS intake without manual signup.
         </p>
-        <ol className="mt-4 space-y-3 text-sm text-slate-300">
+        <ol className="mt-4 space-y-3 text-sm text-foreground">
           <li className="flex gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-600/30 text-xs font-semibold text-violet-200">
               1
             </span>
             <span>
-              Click <strong className="font-medium text-slate-200">Seed sandbox data</strong> — creates Test Locksmith
+              Click <strong className="font-medium text-foreground">Seed sandbox data</strong> — creates Test Locksmith
               Co. and provisions{" "}
               <span className="font-mono text-violet-300">test_receptionist@lyncr.app</span> with empty skills (quiz-first).
             </span>
@@ -318,7 +318,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               2
             </span>
             <span>
-              Use <strong className="font-medium text-slate-200">Quick-Switch</strong> below — opens the{" "}
+              Use <strong className="font-medium text-foreground">Quick-Switch</strong> below — opens the{" "}
               <code className="text-violet-300">automotive_core</code> quiz as the test receptionist.
             </span>
           </li>
@@ -328,7 +328,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             </span>
             <span>
               Pass the quiz to earn the automotive badge, then click{" "}
-              <strong className="font-medium text-slate-200">Return to Admin Sandbox</strong> in the violet bar at the
+              <strong className="font-medium text-foreground">Return to Admin Sandbox</strong> in the violet bar at the
               top of the receptionist portal.
             </span>
           </li>
@@ -337,7 +337,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
               4
             </span>
             <span>
-              Fire <strong className="font-medium text-slate-200">Simulate inbound call</strong> — the HUD should ring
+              Fire <strong className="font-medium text-foreground">Simulate inbound call</strong> — the HUD should ring
               for the certified receptionist. Review intake rows in the table below.
             </span>
           </li>
@@ -376,14 +376,14 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-violet-500/30 bg-slate-900/60">
+        <Card className="border-violet-500/30 bg-card/60">
           <CardHeader className="pb-3">
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600/20 text-violet-300">
               <Database className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Run DB Environment Seed</CardTitle>
+            <CardTitle className="text-lg text-foreground">Run DB Environment Seed</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Creates <strong className="font-medium text-slate-300">Test Locksmith Co.</strong> with SMS dispatch
+              Creates <strong className="font-medium text-foreground">Test Locksmith Co.</strong> with SMS dispatch
               enabled, automotive routing line, and <code className="text-violet-300">automotive_core</code> quiz in
               Neon.
             </CardDescription>
@@ -401,12 +401,12 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/30 bg-slate-900/60">
+        <Card className="border-amber-500/30 bg-card/60">
           <CardHeader className="pb-3">
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
               <PhoneIncoming className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Fire Simulated Inbound Call</CardTitle>
+            <CardTitle className="text-lg text-foreground">Fire Simulated Inbound Call</CardTitle>
             <CardDescription className="text-muted-foreground">
               Writes in-progress <code className="text-amber-200">call_logs</code> for every online receptionist matched
               to the sandbox line — opens the live HUD on{" "}
@@ -430,12 +430,12 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </CardContent>
         </Card>
 
-        <Card className="border-sky-500/30 bg-slate-900/60 md:col-span-2 lg:col-span-1">
+        <Card className="border-sky-500/30 bg-card/60 md:col-span-2 lg:col-span-1">
           <CardHeader className="pb-3">
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
               <ScrollText className="h-5 w-5" aria-hidden />
             </div>
-            <CardTitle className="text-lg text-slate-100">Workspace snapshot</CardTitle>
+            <CardTitle className="text-lg text-foreground">Workspace snapshot</CardTitle>
             <CardDescription className="text-muted-foreground">Current sandbox profile after seed.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-xs text-muted-foreground">
@@ -469,7 +469,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100">Review logs &amp; dispatches</h2>
+            <h2 className="text-lg font-semibold text-foreground">Review logs &amp; dispatches</h2>
             <p className="text-sm text-muted-foreground">
               Latest <code className="text-muted-foreground">ai_leads.collected</code> intake payloads for the sandbox
               workspace.
@@ -501,7 +501,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/50">
+        <div className="overflow-hidden rounded-xl border border-border/80 bg-card/50">
           {intakeLogs.length === 0 ? (
             <p className="px-6 py-12 text-center text-sm text-muted-foreground">
               No intake records yet. Seed the sandbox — a sample AKL lead is inserted automatically.
@@ -510,7 +510,7 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700/80 text-2xs uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border/80 text-2xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3 font-medium">When</th>
                     <th className="px-4 py-3 font-medium">Caller</th>
                     <th className="px-4 py-3 font-medium">Intent</th>
@@ -520,12 +520,12 @@ export function AdminSandboxBoard({ initialEnvironment, initialIntakeLogs }: Pro
                 </thead>
                 <tbody>
                   {intakeLogs.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-800/80 last:border-0">
+                    <tr key={row.id} className="border-b border-border/80 last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatWhen(row.created_at)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-300">{row.caller_e164 ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-300">{row.intent_slug ?? "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{row.caller_e164 ?? "—"}</td>
+                      <td className="px-4 py-3 text-foreground">{row.intent_slug ?? "—"}</td>
                       <td className="max-w-md px-4 py-3">
-                        <pre className="max-h-32 overflow-auto rounded-md bg-slate-950/80 p-2 font-mono text-2xs leading-relaxed text-emerald-100/90">
+                        <pre className="max-h-32 overflow-auto rounded-md bg-background/80 p-2 font-mono text-2xs leading-relaxed text-emerald-100/90">
                           {JSON.stringify(row.intake_payload, null, 2)}
                         </pre>
                         {row.summary ? (
@@ -583,7 +583,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <div className="flex justify-between gap-3">
       <span>{label}</span>
-      <span className={cn("text-right text-slate-300", mono && "font-mono text-2xs")}>{value}</span>
+      <span className={cn("text-right text-foreground", mono && "font-mono text-2xs")}>{value}</span>
     </div>
   )
 }

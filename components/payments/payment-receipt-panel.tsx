@@ -57,21 +57,21 @@ export function PaymentReceiptPanel({
       <ChargeResultSummary baseCents={baseCents} tip={tip} baseKind={baseKind} />
 
       {showSend ? (
-        <div className="space-y-3 border-t border-zinc-800/80 pt-3">
+        <div className="space-y-3 border-t border-border/80 pt-3">
           <p className="text-center text-2xs font-medium text-muted-foreground">
             Send a receipt?
           </p>
 
           {/* Segmented Email | Text — secondary to the Paid hero. */}
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-900/80 p-1 ring-1 ring-zinc-800">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-card/80 p-1 ring-1 ring-border">
             <button
               type="button"
               onClick={() => onReceiptChannelChange("email")}
               className={cn(
                 "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "email"
-                  ? "bg-zinc-700 text-white shadow-sm"
-                  : "text-muted-foreground hover:text-zinc-200"
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Mail className="h-3.5 w-3.5" aria-hidden />
@@ -83,8 +83,8 @@ export function PaymentReceiptPanel({
               className={cn(
                 "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "sms"
-                  ? "bg-zinc-700 text-white shadow-sm"
-                  : "text-muted-foreground hover:text-zinc-200"
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <MessageSquare className="h-3.5 w-3.5" aria-hidden />
@@ -99,7 +99,7 @@ export function PaymentReceiptPanel({
               value={receiptName}
               onChange={(e) => onReceiptNameChange(e.target.value)}
               placeholder="Customer name (optional)"
-              className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-muted-foreground focus:ring-emerald-500/40"
+              className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
             />
             {receiptChannel === "email" ? (
               <input
@@ -110,7 +110,7 @@ export function PaymentReceiptPanel({
                 value={receiptEmail}
                 onChange={(e) => onReceiptEmailChange(e.target.value)}
                 placeholder="customer@email.com"
-                className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-muted-foreground focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
               />
             ) : (
               <input
@@ -120,7 +120,7 @@ export function PaymentReceiptPanel({
                 value={receiptPhone}
                 onChange={(e) => onReceiptPhoneChange(e.target.value)}
                 placeholder="(502) 555-0100"
-                className="w-full rounded-lg border-0 bg-zinc-900/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-zinc-800 placeholder:text-muted-foreground focus:ring-emerald-500/40"
+                className="w-full rounded-lg border-0 bg-card/60 px-3 py-2 text-sm text-white outline-none ring-1 ring-border placeholder:text-muted-foreground focus:ring-emerald-500/40"
               />
             )}
           </div>
@@ -151,7 +151,7 @@ export function PaymentReceiptPanel({
         type="button"
         disabled={receiptBusy}
         onClick={onSkip}
-        className="w-full rounded-xl py-3 text-sm font-semibold text-muted-foreground hover:bg-zinc-900/60 hover:text-zinc-200 disabled:opacity-50"
+        className="w-full rounded-xl py-3 text-sm font-semibold text-muted-foreground hover:bg-card/60 hover:text-foreground disabled:opacity-50"
       >
         {skipLabel}
       </button>

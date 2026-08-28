@@ -233,7 +233,7 @@ export function JobMoneyRail({
           type="button"
           onClick={() => void refreshLinks(true)}
           disabled={busy === "refresh"}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-semibold text-muted-foreground transition-colors hover:bg-slate-900/50 hover:text-slate-200 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-semibold text-muted-foreground transition-colors hover:bg-card/50 hover:text-foreground disabled:opacity-50"
           aria-label="Refresh pay link status"
         >
           {busy === "refresh" ? (
@@ -246,7 +246,7 @@ export function JobMoneyRail({
       </div>
 
       {/* One-line money status — balance + latest link state */}
-      <p className="text-xs leading-snug text-slate-300">
+      <p className="text-xs leading-snug text-foreground">
         <span className="font-semibold text-emerald-500/80">Balance</span>
         <span className="text-muted-foreground"> · </span>
         <span className="font-semibold tabular-nums text-emerald-300">
@@ -397,7 +397,7 @@ export function JobMoneyRail({
                 : "")
             }
             onChange={(e) => setSmsStaging(e.target.value)}
-            className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/60 p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
+            className="h-16 w-full resize-y rounded-lg border border-sky-900/40 bg-background/60 p-3 text-xs text-foreground placeholder-slate-600 focus:border-sky-500/50 focus:outline-none"
             placeholder="Edit the deposit SMS…"
           />
           {lastSentUrl ? (

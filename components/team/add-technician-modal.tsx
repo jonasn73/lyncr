@@ -135,7 +135,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
         </DialogHeader>
 
         {isPlatformAdmin ? (
-          <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/80 p-1">
+          <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/80 p-1">
             <button
               type="button"
               onClick={() => setMode("invite")}
@@ -143,7 +143,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "invite"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-zinc-200"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Send Invite Link
@@ -155,7 +155,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "manual"
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-zinc-200"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Create Manually
@@ -172,7 +172,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               placeholder="Alex Rivera"
               required
               minLength={2}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 
@@ -186,7 +186,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex@example.com"
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
             </label>
           ) : null}
@@ -200,7 +200,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(502) 555-0100"
               required
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </label>
 

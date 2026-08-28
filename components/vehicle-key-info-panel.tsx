@@ -557,7 +557,7 @@ function KeyThumbnail({
   const showImage = Boolean(imageUrl) && !failed && !forceFobOutline
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-850">
+    <div className="w-full overflow-hidden rounded-lg border border-border bg-slate-850">
       <div className="flex h-32 items-center justify-center">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- fccid.io / bundled key thumbnails
@@ -576,7 +576,7 @@ function KeyThumbnail({
         )}
       </div>
       {!showImage ? (
-        <p className="border-t border-slate-800/80 px-2 py-2 text-center text-micro leading-snug text-muted-foreground">
+        <p className="border-t border-border/80 px-2 py-2 text-center text-micro leading-snug text-muted-foreground">
           Verify button configuration with customer to confirm selection.
         </p>
       ) : null}
@@ -614,8 +614,8 @@ export function KeySelectionCard({
           !disabled && selected
             ? "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/45"
             : !disabled
-              ? "border-slate-800 bg-slate-950/50 hover:border-slate-700"
-              : "border-slate-800 bg-slate-950/40"
+              ? "border-border bg-background/50 hover:border-border"
+              : "border-border bg-background/40"
         )}
         aria-pressed={selected}
         aria-disabled={disabled}
@@ -642,7 +642,7 @@ export function KeySelectionCard({
               {card.tiSku}
             </span>
           ) : (
-            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-emerald-100" : "text-slate-100")}>
+            <span className={cn("block text-sm font-semibold leading-snug", selected ? "text-emerald-100" : "text-foreground")}>
               {card.label}
             </span>
           )}
@@ -652,7 +652,7 @@ export function KeySelectionCard({
             </span>
           ) : null}
           {card.specs && card.specs.length > 0 ? (
-            <ul className="space-y-0.5 text-2xs leading-snug text-slate-300">
+            <ul className="space-y-0.5 text-2xs leading-snug text-foreground">
               {card.specs.map((spec) => (
                 <li key={spec.label}>
                   <span className="text-muted-foreground">{spec.label}:</span> {spec.value}
@@ -931,7 +931,7 @@ function FccProfileSection({
         <button
           type="button"
           disabled={disabled}
-          className="text-left text-xs font-semibold text-slate-200"
+          className="text-left text-xs font-semibold text-foreground"
           onClick={() => onSelectProfile(p)}
         >
           Key blank options
@@ -995,7 +995,7 @@ function CollapsedFccSummary({
       onClick={onToggle}
       className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-left hover:border-primary/40"
     >
-      <span className="min-w-0 truncate text-xs font-semibold text-slate-200">
+      <span className="min-w-0 truncate text-xs font-semibold text-foreground">
         {layoutCount > 0
           ? `${layoutCount} key blank${layoutCount === 1 ? "" : "s"}`
           : "Key options"}

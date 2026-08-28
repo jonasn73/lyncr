@@ -1366,7 +1366,7 @@ function SchedulerWorkspaceViewInner({
           <div className="flex w-full min-w-0 flex-col gap-2 lg:col-span-1 lg:sticky lg:top-[calc(var(--shell-header-h)+0.75rem)] lg:gap-3">
             <div className={cn(SCHEDULER_GLASS_CARD, "overflow-hidden p-0")}>
               {/* Always reserve New Intake height — panel hydrate must not push the board. */}
-              <div className="min-h-[3.25rem] border-b border-zinc-800/80 p-2.5">
+              <div className="min-h-[3.25rem] border-b border-border/80 p-2.5">
                 <button
                   type="button"
                   onClick={openNewIntake}
@@ -1378,7 +1378,7 @@ function SchedulerWorkspaceViewInner({
                 </button>
               </div>
 
-              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-zinc-800/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
+              <div className="max-h-[min(320px,38vh)] overflow-y-auto border-b border-border/80 px-3 py-3 lg:max-h-none lg:overflow-visible">
                 <JobPoolPanel
                   jobs={displayPoolJobs}
                   loading={poolTrayLoading}
@@ -1412,19 +1412,19 @@ function SchedulerWorkspaceViewInner({
 
             {/* Settings off the primary path — collapsed unless this day already has blockouts. */}
             <details
-              className="group rounded-xl border border-zinc-800/80 bg-zinc-950/40 open:bg-zinc-950/60"
+              className="group rounded-xl border border-border/80 bg-background/40 open:bg-background/60"
               open={blockoutsPanelOpen}
               onToggle={(e) => setBlockoutsPanelOpen(e.currentTarget.open)}
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-zinc-300 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
                 <span>Booking &amp; blockouts</span>
                 <ChevronDown
                   className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                   aria-hidden
                 />
               </summary>
-              <div className="space-y-3 border-t border-zinc-800/80 px-3 py-3">
-                <BookingDepositSettings className="border-zinc-800/60 bg-zinc-950/40" />
+              <div className="space-y-3 border-t border-border/80 px-3 py-3">
+                <BookingDepositSettings className="border-border/60 bg-background/40" />
                 <ScheduleBlockoutsPanel
                   embedded
                   dateKey={selectedKey}

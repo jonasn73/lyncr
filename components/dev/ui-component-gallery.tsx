@@ -95,7 +95,7 @@ function Section({
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">{title}</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">{title}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       </div>
       {children}
@@ -174,10 +174,10 @@ export function UiComponentGallery() {
   })
 
   return (
-    <div className="flex flex-col gap-8 bg-slate-950 p-4">
-      <header className="border-b border-slate-850 pb-4">
+    <div className="flex flex-col gap-8 bg-background p-4">
+      <header className="border-b border-border pb-4">
         <p className="text-micro font-semibold uppercase tracking-widest text-emerald-400">Internal</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-100">UI component gallery</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-foreground">UI component gallery</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Visual audit bed for job cards, selection grids, and drawer typography. Resize the viewport to
           verify mobile layout density without clicking through live workflows.
@@ -202,7 +202,7 @@ export function UiComponentGallery() {
         title="2 · Active job cards"
         description="ActivePipelinePanel mobile sheet layout — Normal, Urgent, Overdue, Completed."
       >
-        <div className="rounded-xl border border-slate-850 bg-slate-900/30 p-3">
+        <div className="rounded-xl border border-border bg-card/30 p-3">
           <ActivePipelinePanel
             jobs={pipelineJobs}
             layout="mobileSheet"
@@ -257,7 +257,7 @@ export function UiComponentGallery() {
         title="5 · Routing drawer chrome"
         description="DrawerStepHeader + scroll body + sticky footer — typography hierarchy stress test."
       >
-        <div className="flex max-h-[28rem] flex-col overflow-hidden rounded-xl border border-slate-850 bg-zinc-950">
+        <div className="flex max-h-[28rem] flex-col overflow-hidden rounded-xl border border-border bg-background">
           <DrawerStepHeader
             step="Step 02"
             title="Who answers first?"
@@ -295,7 +295,7 @@ export function UiComponentGallery() {
         title="6 · Job detail drawer panel"
         description="JobDetailOverview rendered inline (no Sheet) for typography + Quick Actions density."
       >
-        <div className="max-h-[36rem] overflow-hidden rounded-xl border border-slate-850 bg-card">
+        <div className="max-h-[36rem] overflow-hidden rounded-xl border border-border bg-card">
           <JobDetailOverview
             source={overviewSource}
             scheduledEvent={null}

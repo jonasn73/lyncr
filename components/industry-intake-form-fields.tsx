@@ -145,7 +145,7 @@ export function IndustryIntakeFormFields({
                         "rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
                         active
                           ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
-                          : "border-border/70 bg-background text-zinc-300 hover:bg-muted/40"
+                          : "border-border/70 bg-background text-foreground hover:bg-muted/40"
                       )}
                     >
                       {opt}
@@ -166,7 +166,7 @@ export function IndustryIntakeFormFields({
                   "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
                   values[field.name] === true
                     ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-100"
-                    : "border-border/70 bg-background text-zinc-300 hover:bg-muted/40"
+                    : "border-border/70 bg-background text-foreground hover:bg-muted/40"
                 )}
               >
                 {values[field.name] === true ? <Check className="h-3.5 w-3.5" aria-hidden /> : null}

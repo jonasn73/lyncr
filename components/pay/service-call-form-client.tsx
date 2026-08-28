@@ -129,7 +129,7 @@ export function ServiceCallFormClient() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-300">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         Loading…
       </div>
@@ -160,70 +160,70 @@ export function ServiceCallFormClient() {
 
       <form onSubmit={(e) => void onSubmit(e)} className="mt-6 space-y-4">
         <label className="block space-y-2">
-          <span className="text-xs font-medium text-slate-300">Your name *</span>
+          <span className="text-xs font-medium text-foreground">Your name *</span>
           <input
             required
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             autoComplete="name"
           />
         </label>
 
         <label className="block space-y-2">
-          <span className="text-xs font-medium text-slate-300">Phone *</span>
+          <span className="text-xs font-medium text-foreground">Phone *</span>
           <input
             required
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             autoComplete="tel"
           />
         </label>
 
         <label className="block space-y-2">
-          <span className="text-xs font-medium text-slate-300">Service address *</span>
+          <span className="text-xs font-medium text-foreground">Service address *</span>
           <input
             required
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="Street, city, ZIP"
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             autoComplete="street-address"
           />
         </label>
 
         <div className="grid grid-cols-3 gap-2">
           <label className="block space-y-2">
-            <span className="text-xs font-medium text-slate-300">Year</span>
+            <span className="text-xs font-medium text-foreground">Year</span>
             <input
               value={year}
               onChange={(e) => setYear(e.target.value)}
               inputMode="numeric"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             />
           </label>
           <label className="col-span-1 block space-y-2">
-            <span className="text-xs font-medium text-slate-300">Make</span>
+            <span className="text-xs font-medium text-foreground">Make</span>
             <input
               value={make}
               onChange={(e) => setMake(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-xs font-medium text-slate-300">Model</span>
+            <span className="text-xs font-medium text-foreground">Model</span>
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-2 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             />
           </label>
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="text-xs font-medium text-slate-300">What do you need?</legend>
+          <legend className="text-xs font-medium text-foreground">What do you need?</legend>
           <div className="grid gap-2">
             {JOB_KIND_OPTIONS.map((opt) => (
               <button
@@ -233,7 +233,7 @@ export function ServiceCallFormClient() {
                 className={
                   jobKind === opt.id
                     ? "rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-3 text-left text-sm font-medium text-emerald-50"
-                    : "rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left text-sm text-slate-200"
+                    : "rounded-lg border border-border bg-card px-3 py-3 text-left text-sm text-foreground"
                 }
               >
                 {opt.label}
@@ -243,12 +243,12 @@ export function ServiceCallFormClient() {
         </fieldset>
 
         <label className="block space-y-2">
-          <span className="text-xs font-medium text-slate-300">Notes (optional)</span>
+          <span className="text-xs font-medium text-foreground">Notes (optional)</span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+            className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             placeholder="Gate code, parking, key details…"
           />
         </label>

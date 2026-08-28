@@ -39,7 +39,7 @@ export function CustomerPortalReview({
         subtitle="This review link is no longer available."
         centered
       >
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border bg-card/50 px-4 py-6 text-center text-sm text-muted-foreground">
           Ask the business to send a fresh thank-you text if you still want to leave a review.
         </div>
       </CustomerPortalShell>
@@ -55,7 +55,7 @@ export function CustomerPortalReview({
       centered
     >
       <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-6 text-center">
-        <p className="text-sm text-zinc-300">
+        <p className="text-sm text-foreground">
           You&apos;ll open Google (or the business review page) next. Continues in{" "}
           <span className="font-semibold tabular-nums text-emerald-200">{seconds}s</span>.
         </p>

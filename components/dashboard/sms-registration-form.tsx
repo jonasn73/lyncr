@@ -424,7 +424,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           {["Business identity", "Service address", "Campaign use case"].map((step, i) => (
             <li
               key={step}
-              className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs font-medium text-muted-foreground"
+              className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-xs font-medium text-muted-foreground"
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/15 text-2xs font-bold text-violet-300">
                 {i + 1}

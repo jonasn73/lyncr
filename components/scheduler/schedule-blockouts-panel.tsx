@@ -62,7 +62,7 @@ export function ScheduleBlockoutsPanel({
                 disabled={deletingId === b.id}
                 onClick={() => onDelete(b.id)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg border border-amber-900/50 bg-zinc-950/60 px-3 py-2 text-left transition-colors hover:border-red-500/40 hover:bg-red-950/20",
+                  "flex w-full items-center justify-between gap-2 rounded-lg border border-amber-900/50 bg-background/60 px-3 py-2 text-left transition-colors hover:border-red-500/40 hover:bg-red-950/20",
                   MOBILE_TAP_TARGET
                 )}
                 title="Tap to delete and reopen slots"

@@ -102,7 +102,7 @@ function InventoryRow({
   onPurchase: (line: AvailableLine) => void
 }) {
   return (
-    <li className="transform-gpu rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 will-change-[opacity,transform]">
+    <li className="transform-gpu rounded-xl border border-border bg-background/60 p-4 will-change-[opacity,transform]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-base font-semibold tabular-nums text-foreground">{line.display}</p>
@@ -346,7 +346,7 @@ export function BuyNumberMarketplaceModal({
                 value={lineLabel}
                 onChange={(e) => setLineLabel(e.target.value)}
                 maxLength={120}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 placeholder="e.g. Main Line"
               />
             </div>
@@ -371,7 +371,7 @@ export function BuyNumberMarketplaceModal({
                     placeholder="502"
                     value={areaCode}
                     onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 py-3 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-card/50 py-3 pl-10 pr-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </label>
@@ -395,15 +395,15 @@ export function BuyNumberMarketplaceModal({
                 placeholder="0194"
                 value={lastFourDigits}
                 onChange={(e) => setLastFourDigits(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Match numbers ending in these digits within the area code.{" "}
                 <span className="text-muted-foreground">
                   (502) 555-0194 is a reserved movie/TV number — real carriers cannot sell 555-01xx lines.
                 </span>{" "}
-                Try last four <span className="font-medium text-zinc-300">0194</span> in area code{" "}
-                <span className="font-medium text-zinc-300">502</span> instead.
+                Try last four <span className="font-medium text-foreground">0194</span> in area code{" "}
+                <span className="font-medium text-foreground">502</span> instead.
               </p>
             </div>
           </div>
@@ -412,11 +412,11 @@ export function BuyNumberMarketplaceModal({
             <div
               className={cn(
                 "max-h-[min(52dvh,520px)] min-h-[12rem] overflow-y-auto overscroll-contain pr-1",
-                showInventory && "rounded-xl border border-zinc-800/80 bg-zinc-950/30"
+                showInventory && "rounded-xl border border-border/80 bg-background/30"
               )}
             >
               {!showInventory ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-muted-foreground">
+                <p className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   Enter an area code and search to see available lines.
                 </p>
               ) : searching ? (
@@ -434,7 +434,7 @@ export function BuyNumberMarketplaceModal({
                   {searchError}
                 </p>
               ) : results.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-4 py-8 text-center text-sm text-muted-foreground">
+                <p className="rounded-xl border border-dashed border-border bg-background/40 px-4 py-8 text-center text-sm text-muted-foreground">
                   {lastFourDigits.replace(/\D/g, "").length >= 2
                     ? `No 502 lines ending in ${lastFourDigits.replace(/\D/g, "").slice(-4)} right now. Clear the last-4 filter and search again, or try 859 / 606 / 270.`
                     : `No lines available in ${activeAreaCode ?? normalizeAreaCode(areaCode)} right now. Try a nearby area code (859, 606, 270) or search again in a few minutes.`}
@@ -463,15 +463,15 @@ export function BuyNumberMarketplaceModal({
                   </ul>
 
                   {canLoadMore ? (
-                    <div className="mt-4 flex justify-center border-t border-zinc-800/80 pt-4">
+                    <div className="mt-4 flex justify-center border-t border-border/80 pt-4">
                       <button
                         type="button"
                         disabled={loadingMore}
                         onClick={() => void loadMoreNumbers()}
                         className={cn(
-                          "inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-xs font-semibold text-muted-foreground",
+                          "inline-flex items-center gap-2 rounded-lg border border-border bg-transparent px-4 py-2 text-xs font-semibold text-muted-foreground",
                           "transition-[opacity,transform,border-color,color] duration-200",
-                          "hover:scale-[1.02] hover:border-zinc-500 hover:text-zinc-200",
+                          "hover:scale-[1.02] hover:border-border hover:text-foreground",
                           "active:scale-[0.98] disabled:opacity-50"
                         )}
                       >

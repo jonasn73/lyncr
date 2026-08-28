@@ -14,7 +14,7 @@ import {
 import type { ScheduleBlockout } from "@/lib/types"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground hover:border-border focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
 type AddBlockoutModalProps = {
   open: boolean
@@ -99,9 +99,9 @@ function AddBlockoutModalForm({
       <div
         role="dialog"
         aria-labelledby="add-blockout-title"
-        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-zinc-800 bg-zinc-950 shadow-2xl sm:rounded-2xl"
+        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:rounded-2xl"
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 id="add-blockout-title" className="text-base font-semibold text-foreground">
             Add Blockout Time
           </h2>
@@ -109,7 +109,7 @@ function AddBlockoutModalForm({
             type="button"
             onClick={onClose}
             className={cn(
-              "inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-zinc-900 hover:text-foreground",
+              "inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-card hover:text-foreground",
               MOBILE_TAP_TARGET
             )}
             aria-label="Close"
@@ -120,7 +120,7 @@ function AddBlockoutModalForm({
 
         <div className="space-y-4 overflow-y-auto px-4 py-4">
           <div className="space-y-2">
-            <label htmlFor="blockout-date" className="text-xs font-semibold text-zinc-300">
+            <label htmlFor="blockout-date" className="text-xs font-semibold text-foreground">
               Date
             </label>
             <input
@@ -132,7 +132,7 @@ function AddBlockoutModalForm({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/40 px-3 py-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Block Out Entire Day</p>
               <p className="text-2xs text-muted-foreground">
@@ -150,7 +150,7 @@ function AddBlockoutModalForm({
           {!isFullDay ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label htmlFor="blockout-start" className="text-xs font-semibold text-zinc-300">
+                <label htmlFor="blockout-start" className="text-xs font-semibold text-foreground">
                   Start time
                 </label>
                 <select
@@ -167,7 +167,7 @@ function AddBlockoutModalForm({
                 </select>
               </div>
               <div className="space-y-2">
-                <label htmlFor="blockout-end" className="text-xs font-semibold text-zinc-300">
+                <label htmlFor="blockout-end" className="text-xs font-semibold text-foreground">
                   End time
                 </label>
                 <select
@@ -187,7 +187,7 @@ function AddBlockoutModalForm({
           ) : null}
 
           <div className="space-y-2">
-            <label htmlFor="blockout-reason" className="text-xs font-semibold text-zinc-300">
+            <label htmlFor="blockout-reason" className="text-xs font-semibold text-foreground">
               Reason / label
             </label>
             <input
@@ -207,12 +207,12 @@ function AddBlockoutModalForm({
           ) : null}
         </div>
 
-        <div className="flex gap-2 border-t border-zinc-800 px-4 py-3">
+        <div className="flex gap-2 border-t border-border px-4 py-3">
           <button
             type="button"
             onClick={onClose}
             className={cn(
-              "flex-1 rounded-lg border border-zinc-700 text-sm font-semibold text-zinc-300 hover:bg-zinc-900",
+              "flex-1 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-card",
               MOBILE_TAP_TARGET
             )}
           >

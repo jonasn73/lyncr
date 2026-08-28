@@ -554,7 +554,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
   // Shared row layout; bare mode lets the sticky nav wrapper supply padding/border.
   const rowClass = bare
     ? "flex w-full min-w-0 items-center gap-2 sm:gap-3"
-    : "flex w-full items-center gap-2 border-b border-slate-900/80 px-2 py-3 sm:gap-3"
+    : "flex w-full items-center gap-2 border-b border-border/80 px-2 py-3 sm:gap-3"
 
   if (shopLines.length === 0) {
     return (
@@ -562,7 +562,7 @@ export const ActiveLineSubHeader = memo(function ActiveLineSubHeader({
         className={
           bare
             ? "flex w-full min-w-0 items-center justify-between gap-3"
-            : "flex w-full items-center justify-between gap-3 border-b border-slate-900/80 px-2 py-3"
+            : "flex w-full items-center justify-between gap-3 border-b border-border/80 px-2 py-3"
         }
       >
         <p className="text-sm text-muted-foreground">No business line yet</p>
@@ -661,7 +661,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
             <p className="truncate text-micro font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </p>
-            <p className="break-all text-base font-semibold tabular-nums text-slate-100 sm:truncate">
+            <p className="break-all text-base font-semibold tabular-nums text-foreground sm:truncate">
               {/* Never paint "" — empty vs phone digits is React #418 on hydrate. */}
               {display || "\u00A0"}
             </p>
@@ -678,7 +678,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
             <p className="truncate text-micro font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </p>
-            <p className="truncate text-base font-semibold tabular-nums text-slate-100">{display || "\u00A0"}</p>
+            <p className="truncate text-base font-semibold tabular-nums text-foreground">{display || "\u00A0"}</p>
           </div>
           {status}
         </div>
@@ -713,7 +713,7 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   // Compact mobile: phone left, status pill right — no tall stacked box
   if (compact && !multi) {
     return (
-      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-3">
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-border/60 bg-card/30 px-3 py-3">
         <div className="min-w-0 max-w-full flex-1 basis-[min(100%,11rem)]">
           <p className="truncate text-micro font-medium text-muted-foreground">{label}</p>
           <p className="break-all text-sm font-semibold text-foreground sm:truncate">{display || "\u00A0"}</p>
@@ -730,8 +730,8 @@ const ActiveLinePicker = memo(function ActiveLinePicker({
   }
 
   const activeLineFieldClass = compact
-    ? "w-full rounded-xl border border-slate-850/60 bg-slate-900/30 px-3 py-3 text-left"
-    : "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-primary/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+    ? "w-full rounded-xl border border-border/60 bg-card/30 px-3 py-3 text-left"
+    : "w-full rounded-lg border border-border bg-card/50 text-sm font-semibold text-foreground transition-colors duration-200 hover:border-primary/30 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
   if (!multi) {
     return (

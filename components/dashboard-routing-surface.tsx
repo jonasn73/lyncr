@@ -232,9 +232,9 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
     <div
       ref={stickyMeasureRef}
       data-flicker-probe="lines-sticky-chrome"
-      className="sticky top-0 z-50 w-full bg-slate-950"
+      className="sticky top-0 z-50 w-full bg-background"
     >
-      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-zinc-800/90 px-3 py-2.5">
+      <div className="flex min-h-[3.25rem] w-full items-center justify-between border-b border-border/90 px-3 py-2.5">
         {businessNumbers.length > 0 || quickSetupDecided ? (
           <ActiveLineSubHeader
             bare

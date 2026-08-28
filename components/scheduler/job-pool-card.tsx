@@ -146,7 +146,7 @@ export function JobPoolCard({
         <div className={cn(SCHEDULER_FIELD_STACK, wrapText ? "w-full flex-1" : "min-w-0 flex-1")}>
           <p
             className={cn(
-              "w-full text-sm font-medium text-slate-100",
+              "w-full text-sm font-medium text-foreground",
               // Wrap long titles — truncate cut “Duplication” mid-word on paint→live growth.
               "break-words"
             )}

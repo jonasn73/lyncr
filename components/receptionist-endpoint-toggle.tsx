@@ -113,7 +113,7 @@ export function ReceptionistEndpointToggle({
     <div
       role="radiogroup"
       aria-label="Call answering endpoint"
-      className="inline-flex w-full rounded-lg border border-border/50 bg-zinc-950/50 p-0.5 sm:w-auto"
+      className="inline-flex w-full rounded-lg border border-border/50 bg-background/50 p-0.5 sm:w-auto"
     >
       <EndpointButton
         active={current === "CELL"}
@@ -215,7 +215,7 @@ function EndpointButton({
       onClick={onClick}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-zinc-200",
+        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
         busy && "opacity-70",
         className
       )}

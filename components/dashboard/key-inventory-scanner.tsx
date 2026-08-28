@@ -361,7 +361,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
         <DialogContent
           showCloseButton={false}
           className={cn(
-            "fixed inset-0 z-[110] flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-zinc-950 p-0 text-white sm:max-w-none",
+            "fixed inset-0 z-[110] flex h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 text-white sm:max-w-none",
             "data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
           )}
         >
@@ -385,7 +385,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                   size="icon"
                   variant="secondary"
                   className={cn(
-                    "h-11 w-11 rounded-full border border-zinc-700 bg-zinc-900",
+                    "h-11 w-11 rounded-full border border-border bg-card",
                     torchOn && "border-amber-400/60 bg-amber-500/20 text-amber-200"
                   )}
                   aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
@@ -402,7 +402,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 type="button"
                 size="icon"
                 variant="secondary"
-                className="h-11 w-11 rounded-full border border-zinc-700 bg-zinc-900"
+                className="h-11 w-11 rounded-full border border-border bg-card"
                 aria-label="Close scanner"
                 onClick={closeAll}
               >
@@ -413,7 +413,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
 
           {/* Viewfinder */}
           <div className="relative mx-auto mt-1 w-full max-w-md flex-1 px-3">
-            <div className="relative h-full min-h-[52dvh] overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+            <div className="relative h-full min-h-[52dvh] overflow-hidden rounded-2xl border border-border bg-black">
               <div id={`ki-reader-${readerDomId}`} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
 
               {/* Green target box overlay (centered) */}
@@ -428,14 +428,14 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
               </div>
 
               {!cameraReady && !cameraError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/80 text-sm text-zinc-300">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-sm text-foreground">
                   <Loader2 className="h-6 w-6 animate-spin text-emerald-400" aria-hidden />
                   Starting camera…
                 </div>
               ) : null}
 
               {cameraError ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/90 p-6 text-center text-sm text-zinc-300">
+                <div className="absolute inset-0 flex items-center justify-center bg-background/90 p-6 text-center text-sm text-foreground">
                   {cameraError}
                 </div>
               ) : null}
@@ -462,7 +462,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={manualSku}
                 onChange={(e) => setManualSku(e.target.value.toUpperCase())}
                 placeholder="Or type SKU…"
-                className="h-11 border-zinc-700 bg-zinc-900 font-mono text-sm text-white placeholder:text-muted-foreground"
+                className="h-11 border-border bg-card font-mono text-sm text-white placeholder:text-muted-foreground"
                 autoCapitalize="characters"
                 enterKeyHint="search"
                 onKeyDown={(e) => {
@@ -498,7 +498,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           if (!next) dismissResultAndRescan()
         }}
       >
-        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-zinc-800 bg-zinc-950 text-white sm:max-w-sm">
+        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-border bg-background text-white sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg">SKU Found: {item?.sku ?? scannedSku}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -511,13 +511,13 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </DialogHeader>
 
           {item ? (
-            <div className="space-y-1 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-muted-foreground">
+            <div className="space-y-1 rounded-xl border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
               <p>
-                Van 1: <span className="text-zinc-200">{item.van1Quantity}</span>
+                Van 1: <span className="text-foreground">{item.van1Quantity}</span>
                 {" · "}
-                Van 2: <span className="text-zinc-200">{item.van2Quantity}</span>
+                Van 2: <span className="text-foreground">{item.van2Quantity}</span>
                 {" · "}
-                Shop: <span className="text-zinc-200">{item.shopQuantity}</span>
+                Shop: <span className="text-foreground">{item.shopQuantity}</span>
               </p>
               {item.fccId || item.brand ? (
                 <p className="font-mono">
@@ -545,7 +545,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                     "rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
                     location === value
                       ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200"
-                      : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                      : "border-border bg-card text-muted-foreground"
                   )}
                 >
                   {label}
@@ -558,7 +558,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             <Button
               type="button"
               variant="secondary"
-              className="h-12 border border-zinc-700 bg-zinc-900"
+              className="h-12 border border-border bg-card"
               disabled={adjusting}
               onClick={() => void adjustStock(-1)}
             >
@@ -585,7 +585,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           </div>
 
           {item ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-3">
+            <div className="rounded-xl border border-border bg-card/40 px-3 py-3">
               <KeyInventoryCapturePhotoButton
                 inventoryId={item.id}
                 sku={item.sku}
@@ -631,7 +631,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
           if (!next) dismissResultAndRescan()
         }}
       >
-        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-zinc-800 bg-zinc-950 text-white sm:max-w-sm">
+        <DialogContent className="z-[120] max-w-sm gap-4 rounded-2xl border-border bg-background text-white sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-lg">New key SKU</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -649,7 +649,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 id="ki-new-sku"
                 value={newForm.sku}
                 onChange={(e) => setNewForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))}
-                className="border-zinc-700 bg-zinc-900 font-mono text-white"
+                className="border-border bg-card font-mono text-white"
                 autoCapitalize="characters"
               />
             </div>
@@ -662,7 +662,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={newForm.fccId}
                 onChange={(e) => setNewForm((f) => ({ ...f, fccId: e.target.value.toUpperCase() }))}
                 placeholder="e.g. KR55WK49250"
-                className="border-zinc-700 bg-zinc-900 font-mono text-white placeholder:text-muted-foreground"
+                className="border-border bg-card font-mono text-white placeholder:text-muted-foreground"
                 autoCapitalize="characters"
               />
             </div>
@@ -675,7 +675,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 value={newForm.brand}
                 onChange={(e) => setNewForm((f) => ({ ...f, brand: e.target.value }))}
                 placeholder="Autel, OEM…"
-                className="border-zinc-700 bg-zinc-900 text-white placeholder:text-muted-foreground"
+                className="border-border bg-card text-white placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -688,7 +688,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
             <Button
               type="button"
               variant="secondary"
-              className="h-11 border border-zinc-700 bg-zinc-900"
+              className="h-11 border border-border bg-card"
               disabled={savingNew}
               onClick={() => dismissResultAndRescan()}
             >

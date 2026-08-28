@@ -38,7 +38,7 @@ const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
 // Compact inputs — shorter vertical padding so Details fits on a phone screen.
 const fieldClass =
-  "mt-0.5 w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-muted-foreground focus:border-teal-500/50 focus:outline-none"
+  "mt-0.5 w-full rounded-lg border border-border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-teal-500/50 focus:outline-none"
 
 export default function BookPageClient({
   initialLine = "",
@@ -320,7 +320,7 @@ export default function BookPageClient({
       ) : payHandoffUrl || wizardStep === "pay" ? (
         <div className="rounded-2xl border border-teal-900/40 bg-teal-950/30 px-4 py-6 text-center">
           <p className="text-sm font-semibold text-teal-100">Next: secure deposit</p>
-          <p className="mt-2 text-sm text-zinc-300">
+          <p className="mt-2 text-sm text-foreground">
             Taking you to checkout to hold your window
             {availabilityLabel ? ` (${availabilityLabel})` : ""}…
           </p>
@@ -378,7 +378,7 @@ export default function BookPageClient({
 
           {/* —— STEP 1: Compact Details sheet (aim: one phone screen) —— */}
           {wizardStep === "details" ? (
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
+            <section className="rounded-2xl border border-border bg-card/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
               <div className="space-y-3">
                 {/* Name + phone share one row so both stay above the fold. */}
                 <div className="grid grid-cols-2 gap-2">
@@ -435,7 +435,7 @@ export default function BookPageClient({
                   <button
                     type="button"
                     onClick={() => setEmailOpen(true)}
-                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                   >
                     + Add email
                   </button>
@@ -455,7 +455,7 @@ export default function BookPageClient({
                           "rounded-lg border px-2 py-2 text-center text-xs font-medium leading-tight",
                           jobKind === opt.id
                             ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
-                            : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                            : "border-border bg-card/60 text-foreground hover:border-border"
                         )}
                       >
                         {opt.chip}
@@ -530,7 +530,7 @@ export default function BookPageClient({
                   <button
                     type="button"
                     onClick={() => setNotesOpen(true)}
-                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                    className="text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                   >
                     + Add notes
                   </button>
@@ -547,7 +547,7 @@ export default function BookPageClient({
                         "rounded-lg border px-2 py-2 text-center",
                         urgency === "asap"
                           ? "border-rose-400/50 bg-rose-500/15 text-rose-50"
-                          : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                          : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
                       <span className="block text-xs font-semibold">ASAP</span>
@@ -562,7 +562,7 @@ export default function BookPageClient({
                         "rounded-lg border px-2 py-2 text-center",
                         urgency === "window"
                           ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
-                          : "border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-zinc-500"
+                          : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
                       <span className="block text-xs font-semibold">Schedule</span>
@@ -581,7 +581,7 @@ export default function BookPageClient({
               </div>
 
               {/* Fixed Continue — always visible at the bottom of the phone screen. */}
-              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800/80 bg-zinc-950/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
+              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-background/95 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm">
                 <div className="mx-auto w-full max-w-lg">
                   <button
                     type="button"
@@ -608,13 +608,13 @@ export default function BookPageClient({
 
           {/* —— STEP 2: Availability sheet (one day + From–To) —— */}
           {wizardStep === "availability" ? (
-            <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 shadow-lg shadow-black/20 sm:space-y-4 sm:p-4">
+            <section className="space-y-3 rounded-2xl border border-border bg-card/50 p-3 shadow-lg shadow-black/20 sm:space-y-4 sm:p-4">
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-sm font-semibold text-zinc-100">Your availability</h2>
+                <h2 className="text-sm font-semibold text-foreground">Your availability</h2>
                 <button
                   type="button"
                   onClick={() => setWizardStep("details")}
-                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
                   Back
                 </button>
@@ -632,7 +632,7 @@ export default function BookPageClient({
                         "rounded-xl border px-3 py-3 text-left",
                         dayKey === day.dateKey
                           ? "border-teal-400/60 bg-teal-500/15 text-teal-50"
-                          : "border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-500"
+                          : "border-border bg-card/60 text-foreground hover:border-border"
                       )}
                     >
                       <span className="block text-sm font-semibold">{day.shortLabel}</span>
@@ -676,7 +676,7 @@ export default function BookPageClient({
               </div>
 
               {windowReady ? (
-                <p className="rounded-lg border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 text-center text-sm text-zinc-200">
+                <p className="rounded-lg border border-border/80 bg-background/50 px-3 py-2 text-center text-sm text-foreground">
                   You&apos;re free:{" "}
                   <span className="font-semibold text-teal-100">{availabilityLabel}</span>
                 </p>

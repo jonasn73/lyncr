@@ -89,7 +89,7 @@ export function JobCardSummary({
 
       {showHeader && model.customerPhone ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="font-mono text-xs text-slate-300">
+          <p className="font-mono text-xs text-foreground">
             {formatPhoneDisplay(model.customerPhone)}
           </p>
           {showCallChip && model.phoneHref ? (
@@ -113,14 +113,14 @@ export function JobCardSummary({
       {/* Same Attribute · Detail rows as owner Active Job overview */}
       <section
         className={cn(
-          "space-y-1 text-xs leading-snug text-slate-300",
+          "space-y-1 text-xs leading-snug text-foreground",
           showHeader && "mt-2.5 border-t border-border/40 pt-3"
         )}
       >
         <p className="min-w-0">
           <span className="font-semibold text-muted-foreground">Vehicle</span>
           <span className="text-muted-foreground"> · </span>
-          <span className="font-medium text-slate-100">
+          <span className="font-medium text-foreground">
             {model.vehicleSummary || "No vehicle / service on file yet"}
           </span>
         </p>
@@ -129,7 +129,7 @@ export function JobCardSummary({
           <span className="text-muted-foreground"> · </span>
           {model.serviceAddress ? (
             <>
-              <span className="font-medium text-slate-100">{model.serviceAddress}</span>
+              <span className="font-medium text-foreground">{model.serviceAddress}</span>
               {model.mapsUrl ? (
                 <a
                   href={model.mapsUrl}
@@ -162,7 +162,7 @@ export function JobCardSummary({
           <span
             className={cn(
               "font-medium",
-              appointmentDelayed ? "text-rose-400" : "text-slate-100"
+              appointmentDelayed ? "text-rose-400" : "text-foreground"
             )}
           >
             {model.appointmentLabel}
@@ -172,7 +172,7 @@ export function JobCardSummary({
           <p className="min-w-0">
             <span className="font-semibold text-muted-foreground">Key</span>
             <span className="text-muted-foreground"> · </span>
-            <span className="font-medium text-slate-100">{model.keyHint}</span>
+            <span className="font-medium text-foreground">{model.keyHint}</span>
           </p>
         ) : null}
         {!hideSummaryLine && model.summaryLine ? (

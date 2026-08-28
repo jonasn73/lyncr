@@ -56,7 +56,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
           <div className="flex items-center gap-2">
             <label
               htmlFor="presence-available-toggle"
-              className="block cursor-pointer text-xs font-semibold text-slate-200"
+              className="block cursor-pointer text-xs font-semibold text-foreground"
             >
               Available
             </label>

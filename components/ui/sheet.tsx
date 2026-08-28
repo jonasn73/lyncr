@@ -42,7 +42,7 @@ function SheetOverlay({
         // Above Map tab overlays (z-[2000–2100]) and Leaflet panes so Settings never sits under the map.
         'fixed inset-0 z-[6000]',
         variant === 'drawer'
-          ? 'sigo-sheet-drawer-overlay bg-zinc-950/70 transform-gpu will-change-[opacity] backface-hidden'
+          ? 'sigo-sheet-drawer-overlay bg-background/70 transform-gpu will-change-[opacity] backface-hidden'
           : 'bg-black/60 transform-gpu will-change-[opacity] backface-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}

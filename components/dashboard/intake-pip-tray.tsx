@@ -20,7 +20,7 @@ export function IntakePipTray({
       onClick={onExpand}
       className={cn(
         // Above Leaflet panes (~400–1000) + Map chrome — same trap as Return-to-Intake.
-        "fixed bottom-[88px] left-4 right-4 z-[6200] flex cursor-pointer items-center justify-between rounded-xl border border-emerald-500/40 bg-slate-900 p-3 shadow-2xl",
+        "fixed bottom-[88px] left-4 right-4 z-[6200] flex cursor-pointer items-center justify-between rounded-xl border border-emerald-500/40 bg-card p-3 shadow-2xl",
         "md:left-auto md:right-6 md:w-[min(100%,22rem)]",
         "touch-manipulation transition-transform active:scale-[0.99]",
         className
@@ -32,7 +32,7 @@ export function IntakePipTray({
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
         </span>
-        <span className="truncate text-sm font-medium text-slate-100">
+        <span className="truncate text-sm font-medium text-foreground">
           Active Intake: {phoneDisplay}
         </span>
       </div>

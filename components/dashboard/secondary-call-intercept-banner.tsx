@@ -137,7 +137,7 @@ export function SecondaryCallInterceptBanner({
     <div
       className={cn(
         // Above Map/Leaflet stacking (PiP / intake sheet sit at 6200–6010).
-        "fixed top-4 left-4 right-4 z-[6200] rounded-xl border border-rose-500/40 bg-slate-950 p-3 shadow-2xl",
+        "fixed top-4 left-4 right-4 z-[6200] rounded-xl border border-rose-500/40 bg-background p-3 shadow-2xl",
         "md:left-auto md:right-6 md:w-[min(100%,24rem)]",
         className
       )}
@@ -149,7 +149,7 @@ export function SecondaryCallInterceptBanner({
           <p className="text-micro font-bold uppercase tracking-wider text-rose-300">
             Second line ringing
           </p>
-          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-100">
+          <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">
             {phoneLabel}
           </p>
           <p className="mt-1 text-2xs text-muted-foreground">

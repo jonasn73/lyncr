@@ -8,7 +8,7 @@ type PageProps = { params: Promise<{ id: string }> }
 export default async function IntakeBookFormPage({ params }: PageProps) {
   const { id } = await params
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100">
+    <main className="min-h-dvh bg-background text-foreground">
       <Suspense
         fallback={
           <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">

@@ -1031,7 +1031,7 @@ export function DispatchLiveMap({
       <div
         ref={containerRef}
         className={cn(
-          "relative z-[1] w-full overflow-hidden border border-zinc-800 bg-transparent",
+          "relative z-[1] w-full overflow-hidden border border-border bg-transparent",
           "touch-pan-y",
           fillParent
             ? "h-full min-h-[20rem] rounded-none border-0"
@@ -1054,7 +1054,7 @@ export function DispatchLiveMap({
             disabled={!ready}
             title="See all jobs and where you are"
             aria-label="Zoom out to all jobs"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-700 bg-slate-950/95 text-slate-200 shadow-lg backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-lg backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
           >
             <Maximize2 className="h-5 w-5" aria-hidden />
           </button>
@@ -1069,7 +1069,7 @@ export function DispatchLiveMap({
               "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-lg backdrop-blur disabled:opacity-40",
               followUser
                 ? "border-sky-500/60 bg-sky-500/25 text-sky-100"
-                : "border-zinc-700 bg-slate-950/95 text-slate-200 hover:border-sky-500/50 hover:text-sky-200"
+                : "border-border bg-background/95 text-foreground hover:border-sky-500/50 hover:text-sky-200"
             )}
           >
             {followUser ? (
@@ -1098,7 +1098,7 @@ export function DispatchLiveMap({
       ) : null}
 
       {selectedJob && (
-        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-zinc-700 bg-zinc-900/95 p-3 shadow-xl backdrop-blur">
+        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">
@@ -1111,7 +1111,7 @@ export function DispatchLiveMap({
             <button
               type="button"
               onClick={() => setSelectedJobId(null)}
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-zinc-800 hover:text-zinc-300"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -1135,7 +1135,7 @@ export function DispatchLiveMap({
               value={selectedJob.assigned_tech_id || ""}
               onChange={(e) => void assign(selectedJob.id, e.target.value)}
               disabled={technicians.length === 0 || savingId === selectedJob.id}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-white outline-none focus:border-violet-500 disabled:opacity-50"
             >
               <option value="">{technicians.length === 0 ? "No techs yet" : "Unassigned"}</option>
               {technicians.map((t) => (
@@ -1213,7 +1213,7 @@ export function DispatchLiveMap({
         */}
         {locationHint ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[500] flex justify-center px-3">
-            <div className="pointer-events-auto rounded-lg bg-slate-950/85 px-3 py-2 shadow-lg backdrop-blur">
+            <div className="pointer-events-auto rounded-lg bg-background/85 px-3 py-2 shadow-lg backdrop-blur">
               {locationHint}
             </div>
           </div>

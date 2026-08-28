@@ -68,7 +68,7 @@ function statusChip(status: ConnectStatus["status"]): { label: string; className
     return { label: "Under review", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" }
   }
   if (status === "not_configured") {
-    return { label: "Unavailable", className: "border-zinc-600 bg-zinc-800 text-muted-foreground" }
+    return { label: "Unavailable", className: "border-border bg-muted text-muted-foreground" }
   }
   return { label: "Needs setup", className: "border-sky-500/40 bg-sky-500/15 text-sky-100" }
 }
@@ -82,7 +82,7 @@ function payoutStatusClass(status: string): string {
   if (s === "failed" || s === "canceled") {
     return "border-rose-500/35 bg-rose-500/10 text-rose-300"
   }
-  return "border-zinc-700 bg-zinc-900 text-muted-foreground"
+  return "border-border bg-card text-muted-foreground"
 }
 
 /** Lyncr dark theme for Stripe Connect embeds. */
@@ -317,13 +317,13 @@ export function GetPaidSheet({
         showCloseButton={false}
         overlayClassName="z-[7000]"
         className={cn(
-          "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-zinc-800 bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",
+          "z-[7010] flex flex-col gap-0 overflow-hidden rounded-t-2xl border-border bg-[#101018] p-0 sm:max-w-lg sm:rounded-2xl",
           embedding ? "h-[96dvh] max-h-[96dvh]" : "max-h-[92dvh]"
         )}
       >
         <SheetHeader
           className={cn(
-            "shrink-0 border-b border-zinc-800 text-left",
+            "shrink-0 border-b border-border text-left",
             embedding ? "px-4 py-3" : "px-4 py-3"
           )}
         >
@@ -465,11 +465,11 @@ export function GetPaidSheet({
                                 "flex items-center justify-between gap-2 rounded-xl border px-3 py-3 text-left transition-colors",
                                 selected
                                   ? "border-emerald-500/60 bg-emerald-500/10"
-                                  : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                  : "border-border bg-background/40 hover:border-border"
                               )}
                             >
                               <span>
-                                <span className="block text-sm font-semibold text-zinc-100">
+                                <span className="block text-sm font-semibold text-foreground">
                                   {k.title}
                                 </span>
                                 <span className="block text-2xs text-muted-foreground">{k.subtitle}</span>
@@ -479,7 +479,7 @@ export function GetPaidSheet({
                                   "h-4 w-4 shrink-0 rounded-full border-2",
                                   selected
                                     ? "border-emerald-400 bg-emerald-500"
-                                    : "border-zinc-600"
+                                    : "border-border"
                                 )}
                                 aria-hidden
                               />
@@ -505,7 +505,7 @@ export function GetPaidSheet({
                 ) : (
                   <>
                     {/* Manual bank transfer — only when something is actually ready */}
-                    <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-3">
+                    <section className="space-y-2 rounded-xl border border-border bg-background/50 px-3 py-3">
                       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Send to bank
                       </p>
@@ -531,7 +531,7 @@ export function GetPaidSheet({
                               value={transferDollars}
                               onChange={(e) => setTransferDollars(e.target.value)}
                               placeholder={(status.availableCents / 100).toFixed(2)}
-                              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none placeholder:text-muted-foreground"
+                              className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-3 text-sm text-white outline-none placeholder:text-muted-foreground"
                             />
                           </label>
                           <button
@@ -551,7 +551,7 @@ export function GetPaidSheet({
                             type="button"
                             disabled={transferBusy}
                             onClick={() => void sendToBank({ fullAvailable: true })}
-                            className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-50"
+                            className="w-full rounded-xl border border-border py-3 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-50"
                           >
                             Send all available ({fmtCents(status.availableCents, status.currency)})
                           </button>
@@ -589,7 +589,7 @@ export function GetPaidSheet({
                       {payoutsLoading && payouts.length === 0 ? (
                         <p className="py-4 text-center text-xs text-muted-foreground">Loading transfers…</p>
                       ) : payouts.length === 0 ? (
-                        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-4 text-center text-xs text-muted-foreground">
+                        <p className="rounded-xl border border-border bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
                           No bank transfers yet. When you send money (or Stripe auto-pays), it
                           shows here.
                         </p>
@@ -598,11 +598,11 @@ export function GetPaidSheet({
                           {payouts.map((p) => (
                             <li
                               key={p.id}
-                              className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3"
+                              className="rounded-xl border border-border bg-card/50 px-3 py-3"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-semibold tabular-nums text-slate-100">
+                                  <p className="text-sm font-semibold tabular-nums text-foreground">
                                     {fmtCents(p.amountCents, p.currency)}
                                   </p>
                                   <p className="mt-0.5 text-2xs text-muted-foreground">
@@ -636,7 +636,7 @@ export function GetPaidSheet({
                       type="button"
                       disabled={sessionBusy}
                       onClick={() => void startEmbedded("management")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-600 bg-zinc-900 py-3 text-sm font-semibold text-slate-100 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm font-semibold text-foreground disabled:opacity-50"
                     >
                       {sessionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       Manage bank & business details

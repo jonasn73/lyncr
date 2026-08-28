@@ -84,7 +84,7 @@ const TAGS: { tag: string; label: string }[] = [
 ]
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
+  "w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none"
 
 type Props = {
   onSaved?: () => void
@@ -560,7 +560,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 />
               </div>
             ))}
-            <details className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-2">
+            <details className="rounded-lg border border-border bg-background/40 p-2">
               <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
                 More (job pause texts)
               </summary>
@@ -638,7 +638,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                 {settings.sms_custom_snippets.map((snip) => (
                   <li
                     key={snip.id}
-                    className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3"
+                    className="space-y-2 rounded-lg border border-border bg-background/50 p-3"
                   >
                     <div className="flex items-center gap-2">
                       <input
@@ -655,7 +655,7 @@ export function SmsAutomationForm({ onSaved }: Props) {
                         type="button"
                         disabled={saving}
                         onClick={() => removeSnippet(snip.id)}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-muted-foreground hover:border-rose-500/40 hover:text-rose-300 disabled:opacity-50"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-rose-500/40 hover:text-rose-300 disabled:opacity-50"
                         aria-label={`Delete ${snip.label || "text"}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -738,7 +738,7 @@ function PhaseBlock(props: {
         aria-label={`${props.title} message`}
       />
       {props.hideAuto ? null : (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2">
           <p className="text-xs text-muted-foreground">{props.autoLabel}</p>
           <Switch
             checked={props.enabled}

@@ -67,7 +67,7 @@ export function StorySheetHeader({
                     : "bg-violet-400"
                   : variant === "member"
                     ? "bg-muted/70"
-                    : "bg-slate-700"
+                    : "bg-accent"
               )}
             />
           ))}
@@ -76,7 +76,7 @@ export function StorySheetHeader({
       <SheetTitle
         className={cn(
           "mt-3 text-left text-lg font-semibold tracking-tight",
-          variant === "member" ? "text-foreground" : "text-slate-50"
+          variant === "member" ? "text-foreground" : "text-foreground"
         )}
       >
         {title}

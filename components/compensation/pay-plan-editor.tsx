@@ -89,7 +89,7 @@ const ADD_CHOICES: { kind: PayComponentKind; label: string; blurb: string }[] = 
 ]
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+  "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
 const selectClass = cn(inputClass, "appearance-none")
 
 /** Rate entry in dollars, kept as micros. Allows the sub-cent values a per-second rate needs. */
@@ -155,7 +155,7 @@ function ComponentRow({
   onRemove: () => void
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+    <div className="rounded-xl border border-border bg-background/40 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           {component.kind === "TIME" ? (
@@ -314,7 +314,7 @@ function ComponentRow({
                         "rounded-md border px-2 py-0.5 font-medium transition-colors",
                         on
                           ? "border-primary/50 bg-primary/15 text-foreground"
-                          : "border-zinc-700 text-muted-foreground hover:text-zinc-300"
+                          : "border-border text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {condition.toLowerCase()}
@@ -349,7 +349,7 @@ function ComponentRow({
           type="button"
           onClick={onRemove}
           aria-label="Remove this pay rule"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-800 text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -436,7 +436,7 @@ export function PayPlanButton({
       <span
         className={cn(
           "block truncate text-2xs underline-offset-2 group-hover:underline",
-          plan ? "text-zinc-300" : "text-amber-300/90"
+          plan ? "text-foreground" : "text-amber-300/90"
         )}
       >
         {plan?.summary ?? "Not set — tap to set"}
@@ -542,7 +542,7 @@ function PlanCostPanel({
     employmentType === "W2_EMPLOYEE" && components.some((c) => c.kind === "MINIMUM_WAGE_TOPUP")
 
   return (
-    <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-3">
+    <div className="space-y-2 rounded-lg border border-border bg-background/60 px-3 py-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Last 30 days, this plan would have cost
@@ -563,14 +563,14 @@ function PlanCostPanel({
               <p>
                 {preview.calls.count} answered call{preview.calls.count === 1 ? "" : "s"} ·{" "}
                 {talkTime(preview.calls.talkSeconds)} ·{" "}
-                <span className="tabular-nums text-zinc-300">{usd(preview.calls.cents)}</span>
+                <span className="tabular-nums text-foreground">{usd(preview.calls.cents)}</span>
               </p>
             ) : null}
             {preview.jobs.count > 0 ? (
               <p>
                 {preview.jobs.count} completed job{preview.jobs.count === 1 ? "" : "s"}
                 {preview.jobs.capped ? "+" : ""} ·{" "}
-                <span className="tabular-nums text-zinc-300">{usd(preview.jobs.cents)}</span>
+                <span className="tabular-nums text-foreground">{usd(preview.jobs.cents)}</span>
               </p>
             ) : null}
             {preview.calls.count === 0 && preview.jobs.count === 0 ? (
@@ -595,7 +595,7 @@ function PlanCostPanel({
           </div>
 
           {showHoursInput ? (
-            <label className="flex items-center gap-2 border-t border-zinc-800 pt-2 text-2xs text-muted-foreground">
+            <label className="flex items-center gap-2 border-t border-border pt-2 text-2xs text-muted-foreground">
               {preview.floor.hoursSource === "tracked" ? (
                 <span>
                   Using {preview.floor.weeklyHours} tracked hours a week.
@@ -693,7 +693,7 @@ function PayPlanForm({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-foreground sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto border-border bg-background text-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Pay for {target.name}</DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -723,7 +723,7 @@ function PayPlanForm({
                     "rounded-lg border px-3 py-2 text-left transition-colors",
                     employmentType === choice.value
                       ? "border-primary/50 bg-primary/10"
-                      : "border-zinc-800 hover:border-zinc-700"
+                      : "border-border hover:border-border"
                   )}
                 >
                   <span className="block text-sm font-medium text-foreground">{choice.label}</span>
@@ -736,7 +736,7 @@ function PayPlanForm({
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pay rules</p>
             {components.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-zinc-800 px-3 py-4 text-center text-xs text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
                 No pay rules yet. Add one below.
               </p>
             ) : (
@@ -753,7 +753,7 @@ function PayPlanForm({
             )}
 
             {adding ? (
-              <div className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-2">
+              <div className="grid gap-2 rounded-xl border border-border bg-background/40 p-2">
                 {ADD_CHOICES.map((choice) => (
                   <button
                     key={choice.kind}
@@ -762,7 +762,7 @@ function PayPlanForm({
                       setComponents((prev) => [...prev, blankComponent(choice.kind)])
                       setAdding(false)
                     }}
-                    className="rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-900"
+                    className="rounded-lg px-3 py-2 text-left transition-colors hover:bg-card"
                   >
                     <span className="block text-sm text-foreground">{choice.label}</span>
                     <span className="block text-2xs text-muted-foreground">{choice.blurb}</span>
@@ -773,7 +773,7 @@ function PayPlanForm({
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-card"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden /> Add a pay rule
               </button>
@@ -781,7 +781,7 @@ function PayPlanForm({
           </div>
 
           {components.length > 0 ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+            <div className="rounded-lg border border-border bg-card/40 px-3 py-2">
               <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 They will be paid
               </p>
@@ -827,7 +827,7 @@ function PayPlanForm({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-60"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-card disabled:opacity-60"
           >
             Cancel
           </button>

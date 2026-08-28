@@ -50,7 +50,7 @@ export function IntakeMapDestinationBanner({
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-500/50 bg-slate-950/95 px-3 py-3 shadow-xl backdrop-blur",
+        "rounded-xl border border-rose-500/50 bg-background/95 px-3 py-3 shadow-xl backdrop-blur",
         variant === "overlay" &&
           "pointer-events-auto absolute z-[1200] max-w-[min(20rem,calc(100%-1.5rem))] left-3 top-3 sm:right-auto",
         className
@@ -59,7 +59,7 @@ export function IntakeMapDestinationBanner({
       onClick={variant === "overlay" ? (e) => e.stopPropagation() : undefined}
     >
       <p className="text-micro font-bold uppercase tracking-wider text-rose-300">Intake target</p>
-      <p className="truncate text-xs font-semibold text-slate-100">
+      <p className="truncate text-xs font-semibold text-foreground">
         {destination.label?.trim() || "Customer location"}
       </p>
       {destination.address ? (
@@ -74,7 +74,7 @@ export function IntakeMapDestinationBanner({
               rel="noopener noreferrer"
               title="Open in Maps"
               aria-label="Open address in Google Maps"
-              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-slate-800 hover:text-sky-300"
+              className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-sky-300"
               onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -84,10 +84,10 @@ export function IntakeMapDestinationBanner({
       ) : null}
 
       {travelMetrics ? (
-        <div className="mt-2 space-y-0.5 border-t border-slate-800/80 pt-2 text-micro leading-relaxed text-slate-300">
+        <div className="mt-2 space-y-0.5 border-t border-border/80 pt-2 text-micro leading-relaxed text-foreground">
           <p>
             🚗 Distance from current spot:{" "}
-            <span className="font-semibold tabular-nums text-slate-100">
+            <span className="font-semibold tabular-nums text-foreground">
               {formatMiles(travelMetrics.miles)} mi
             </span>
             {travelMetrics.originSource === "shop" ? (
@@ -100,7 +100,7 @@ export function IntakeMapDestinationBanner({
           </p>
           <p>
             ⏱️ Estimated Drive Time:{" "}
-            <span className="font-semibold tabular-nums text-slate-100">
+            <span className="font-semibold tabular-nums text-foreground">
               {travelMetrics.durationMins} mins
             </span>
           </p>
@@ -112,7 +112,7 @@ export function IntakeMapDestinationBanner({
           ) : null}
         </div>
       ) : nearestTech ? (
-        <p className="mt-2 border-t border-slate-800/80 pt-2 text-micro text-amber-200/90">
+        <p className="mt-2 border-t border-border/80 pt-2 text-micro text-amber-200/90">
           ⚡ Nearest available tech: {nearestTech.name} ({formatMiles(nearestTech.miles)} mi away)
         </p>
       ) : null}

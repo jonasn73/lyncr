@@ -159,7 +159,7 @@ export function ActivePipelinePanel({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-lg font-semibold leading-tight text-zinc-50">{displayName}</p>
+                          <p className="text-lg font-semibold leading-tight text-foreground">{displayName}</p>
                           {job.job_type ? (
                             <p className="mt-1 text-sm font-medium text-primary">{job.job_type}</p>
                           ) : null}
@@ -178,7 +178,7 @@ export function ActivePipelinePanel({
                         </button>
                       </div>
 
-                      <div className="mt-3 space-y-3 text-sm text-slate-300">
+                      <div className="mt-3 space-y-3 text-sm text-foreground">
                         <p className="flex items-center gap-2">
                           <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {telHref ? (
@@ -218,7 +218,7 @@ export function ActivePipelinePanel({
                         <p className="flex items-start gap-2">
                           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           {addressLine ? (
-                            <span className="break-words text-zinc-100">{addressLine}</span>
+                            <span className="break-words text-foreground">{addressLine}</span>
                           ) : (
                             <span className="text-muted-foreground">No address on file — tap Edit to add one</span>
                           )}
@@ -303,7 +303,7 @@ export function ActivePipelinePanel({
                       <div className="flex items-start justify-between gap-2 pr-14">
                         <p
                           className={cn(
-                            "font-medium text-zinc-100",
+                            "font-medium text-foreground",
                             isMobileSheet ? "text-base" : "truncate text-sm"
                           )}
                         >

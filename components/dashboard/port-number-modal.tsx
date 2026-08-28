@@ -56,7 +56,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
   const rejected = order?.status === "rejected"
 
   return (
-    <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+    <div className="mt-6 rounded-xl border border-border bg-background/50 p-4">
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Transfer progress</p>
       {order ? (
         <p className="mt-1 text-xs text-muted-foreground">{portingTimelineLabel(order.status)}</p>
@@ -79,7 +79,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
                       : current
                         ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
-                        : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                        : "border-border bg-card text-muted-foreground"
                 )}
               >
                 {done || order?.status === "completed" && i <= step ? <Check className="h-4 w-4" /> : i + 1}
@@ -87,7 +87,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
               <span
                 className={cn(
                   "text-micro font-medium leading-tight",
-                  current ? "text-violet-200" : done ? "text-zinc-300" : "text-muted-foreground"
+                  current ? "text-violet-200" : done ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 {label}
@@ -200,14 +200,14 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
       ) : null}
 
       {notifications.length > 0 && !showActionBanner ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
+        <div className="rounded-xl border border-border bg-background/40 px-3 py-3">
           <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Messages from support
           </p>
           <ul className="mt-2 space-y-2">
             {notifications.slice(0, 3).map((n) => (
               <li key={n.id} className="text-xs text-muted-foreground">
-                <span className="font-medium text-zinc-300">{n.title}</span>
+                <span className="font-medium text-foreground">{n.title}</span>
                 {n.body ? (
                   <span className="text-muted-foreground"> — {displayPortingMessageBody(n.body).slice(0, 120)}</span>
                 ) : null}
@@ -437,7 +437,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               inputMode="tel"
               required
               placeholder="+1 (502) 555-0194"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
           <div className="space-y-2">
@@ -449,7 +449,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setCarrier(e.target.value)}
               required
               placeholder="Verizon, AT&T, T-Mobile…"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
           <div className="space-y-2">
@@ -461,7 +461,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               onChange={(e) => setAccountNumber(e.target.value)}
               required
               placeholder="Carrier account number"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
           <div className="space-y-2">
@@ -474,7 +474,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               type="password"
               autoComplete="off"
               placeholder="Port-out PIN from your carrier"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
           <div className="space-y-2">
@@ -487,7 +487,7 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               required
               maxLength={120}
               placeholder="Key Squad 502 Line"
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
 
@@ -515,11 +515,11 @@ export function PortNumberModal({ embedded, onBack, onSubmitted, open, onOpenCha
               }}
               className={cn(
                 "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-                dragOver ? "border-violet-500/60 bg-violet-500/10" : "border-zinc-700 bg-zinc-950/40 hover:border-zinc-600"
+                dragOver ? "border-violet-500/60 bg-violet-500/10" : "border-border bg-background/40 hover:border-border"
               )}
             >
               <Upload className="h-8 w-8 text-muted-foreground" aria-hidden />
-              <p className="text-sm font-medium text-zinc-300">
+              <p className="text-sm font-medium text-foreground">
                 {invoiceFile ? invoiceFile.name : "Drag & drop or click to upload"}
               </p>
               <p className="text-xs text-muted-foreground">Required by carrier compliance · PDF, PNG, or JPG · max 12 MB</p>

@@ -159,7 +159,7 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
   return (
     <Card
       className={cn(
-        isAdminChrome ? "border-slate-800 bg-slate-900/40 text-slate-100" : "border-border bg-card",
+        isAdminChrome ? "border-border bg-card/40 text-foreground" : "border-border bg-card",
         className
       )}
     >
@@ -196,11 +196,11 @@ export const PlatformNotificationSettings = memo(function PlatformNotificationSe
                       key={row.key}
                       className={cn(
                         "flex items-start justify-between gap-4 rounded-lg border px-3 py-3",
-                        isAdminChrome ? "border-slate-800 bg-slate-950/40" : "border-border/70 bg-muted/20"
+                        isAdminChrome ? "border-border bg-background/40" : "border-border/70 bg-muted/20"
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className={cn("text-sm font-medium", isAdminChrome && "text-slate-100")}>
+                        <p className={cn("text-sm font-medium", isAdminChrome && "text-foreground")}>
                           {row.label}
                         </p>
                         <p className={cn("mt-0.5 text-xs leading-snug", isAdminChrome ? "text-muted-foreground" : "text-muted-foreground")}>

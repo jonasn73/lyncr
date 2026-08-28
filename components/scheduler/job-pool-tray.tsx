@@ -72,7 +72,7 @@ export function JobPoolTray({
             className={cn(
               "flex shrink-0 items-center justify-center rounded-lg",
               poolLooksEmpty
-                ? "bg-zinc-800/80 text-muted-foreground"
+                ? "bg-muted/80 text-muted-foreground"
                 : "bg-amber-500/15 text-amber-200",
               sidebar || embedded ? "h-7 w-7" : "h-8 w-8"
             )}
@@ -96,7 +96,7 @@ export function JobPoolTray({
             loading
               ? "text-muted-foreground"
               : poolIsEmpty
-                ? "border border-zinc-800 bg-zinc-950/50 text-muted-foreground"
+                ? "border border-border bg-background/50 text-muted-foreground"
                 : "bg-amber-500/15 text-amber-200"
           )}
         >
@@ -113,7 +113,7 @@ export function JobPoolTray({
       {/* Always mount filter tabs — hide when empty so height never pops in with first job. */}
       <div
         className={cn(
-          "mb-2 flex gap-1 rounded-lg border border-slate-800/80 bg-slate-900/40 p-0.5",
+          "mb-2 flex gap-1 rounded-lg border border-border/80 bg-card/40 p-0.5",
           poolIsEmpty && viewFilter === "all" && "invisible pointer-events-none"
         )}
         aria-hidden={poolIsEmpty && viewFilter === "all"}
@@ -124,8 +124,8 @@ export function JobPoolTray({
           className={cn(
             "flex-1 rounded-md px-2 py-2 text-micro font-bold uppercase tracking-wide transition-colors",
             viewFilter === "all"
-              ? "bg-slate-800 text-slate-100"
-              : "text-muted-foreground hover:text-slate-300"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
           All pool ({jobs.length})
@@ -176,7 +176,7 @@ export function JobPoolTray({
         )}
       >
         {!loading && visibleJobs.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-800/90 bg-zinc-950/30 px-3 py-3 text-center text-xs leading-relaxed text-muted-foreground">
+          <p className="rounded-lg border border-dashed border-border/90 bg-background/30 px-3 py-3 text-center text-xs leading-relaxed text-muted-foreground">
             {viewFilter === "rescue"
               ? "No Price Denied jobs — rejected quotes land here for outreach."
               : "Pool is empty. New intakes without a tech show up here."}

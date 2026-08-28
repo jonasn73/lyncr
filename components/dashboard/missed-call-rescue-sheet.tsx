@@ -251,9 +251,9 @@ function MissedLeadCard({
   }
 
   return (
-    <li className="rounded-xl border border-slate-850 bg-slate-900/40 p-3">
+    <li className="rounded-xl border border-border bg-card/40 p-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="truncate text-sm font-semibold text-slate-100">{label}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{label}</p>
         <span className="shrink-0 text-micro font-semibold tabular-nums text-amber-200/90">
           {formatMissedTime(item.latestAt)}
         </span>
@@ -444,10 +444,10 @@ export function MissedCallRescueSheet({
       <SheetContent
         side="bottom"
         variant="drawer"
-        className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-slate-850 bg-slate-950 p-0"
+        className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl border-border bg-background p-0"
       >
-        <SheetHeader className="shrink-0 border-b border-slate-850 px-4 pb-3 pt-4 text-left">
-          <SheetTitle className="flex items-center gap-2 text-base text-slate-100">
+        <SheetHeader className="shrink-0 border-b border-border px-4 pb-3 pt-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base text-foreground">
             <PhoneMissed className="h-4 w-4 shrink-0 text-amber-300" aria-hidden />
             <span className="min-w-0 leading-snug">{headerTitle}</span>
           </SheetTitle>

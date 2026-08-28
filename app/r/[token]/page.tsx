@@ -94,7 +94,7 @@ export default function PublicReceiptPage() {
         <button
           type="button"
           onClick={exitReceiptPage}
-          className="mt-6 inline-flex h-11 min-w-[8rem] items-center justify-center rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white"
+          className="mt-6 inline-flex h-11 min-w-[8rem] items-center justify-center rounded-xl bg-card px-6 text-sm font-semibold text-white"
         >
           Done
         </button>

@@ -57,9 +57,9 @@ export function LiveTrafficPulse() {
   }, [])
 
   return (
-    <Card className="flex h-full flex-col border-slate-800 bg-slate-900/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
+    <Card className="flex h-full flex-col border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2 text-base text-slate-100">
+        <CardTitle className="flex items-center gap-2 text-base text-foreground">
           <span className="relative flex h-2.5 w-2.5">
             {calls.length > 0 && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -89,11 +89,11 @@ export function LiveTrafficPulse() {
             <p className="text-sm text-muted-foreground">No active calls on the network right now.</p>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-800/70">
+          <ul className="divide-y divide-border/70">
             {calls.map((c) => (
               <li key={c.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-100">{c.business_name}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{c.business_name}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {maskNumber(c.from_number)} ·{" "}
                     {c.operator ? (
@@ -114,7 +114,7 @@ export function LiveTrafficPulse() {
                   >
                     {c.connected ? "Connected" : "Ringing"}
                   </span>
-                  <span className="min-w-[3rem] text-right font-mono text-sm tabular-nums text-slate-200">
+                  <span className="min-w-[3rem] text-right font-mono text-sm tabular-nums text-foreground">
                     {elapsedLabel(c.started_at, now)}
                   </span>
                 </div>

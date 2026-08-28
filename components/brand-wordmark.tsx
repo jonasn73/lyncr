@@ -12,7 +12,7 @@ const SIZE_CLASS = {
 
 const VARIANT_CLASS = {
   default: "text-foreground",
-  onDark: "text-slate-50",
+  onDark: "text-foreground",
 } as const
 
 export type BrandWordmarkSize = keyof typeof SIZE_CLASS

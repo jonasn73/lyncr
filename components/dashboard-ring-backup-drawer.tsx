@@ -269,10 +269,10 @@ export function DashboardRingBackupDrawer({
                     "flex w-full items-start gap-3 rounded-xl border px-4 py-4 text-left transition-[border-color,background-color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950/60">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
                     <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -288,7 +288,7 @@ export function DashboardRingBackupDrawer({
 
         <section className="mt-8 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caller ID on your cell</p>
-          <div className="flex items-start justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-4">
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card/40 px-4 py-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-snug text-foreground">
                 Show Customer&apos;s Number on Inbound Calls
@@ -321,7 +321,7 @@ export function DashboardRingBackupDrawer({
                     "flex flex-col items-center rounded-xl border px-2 py-3 text-center transition-[border-color,background-color,color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
                   <span className="text-sm font-bold text-foreground">{preset.label}</span>
@@ -337,7 +337,7 @@ export function DashboardRingBackupDrawer({
             step={5}
             value={draftSeconds}
             onChange={(e) => setDraftSeconds(snapDashboardRingTimeoutSec(Number(e.target.value)))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-primary"
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
             aria-label="Ring duration in seconds"
           />
           <div className="flex justify-between text-micro tabular-nums text-muted-foreground">
@@ -361,10 +361,10 @@ export function DashboardRingBackupDrawer({
                     "flex w-full items-start gap-3 rounded-xl border px-4 py-4 text-left transition-[border-color,background-color] duration-200",
                     active
                       ? "border-primary/60 bg-primary/10 shadow-[0_0_20px_-8px_var(--primary)]"
-                      : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600"
+                      : "border-border bg-card/40 hover:border-border"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-950/60">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background/60">
                     <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -406,7 +406,7 @@ export function DashboardRingBackupDrawer({
 
 function RingBudgetSummary({ physicalRings, draftSeconds }: { physicalRings: number; draftSeconds: number }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+    <div className="rounded-xl border border-border bg-card/50 px-4 py-3">
       <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Ring budget</p>
       <p className="mt-1 text-lg font-semibold text-foreground">
         ~{physicalRings} physical rings{" "}
@@ -421,7 +421,7 @@ function RadioDot({ selected }: { selected: boolean }) {
     <div
       className={cn(
         "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200",
-        selected ? "border-primary bg-primary shadow-[0_0_12px_-2px_var(--primary)]" : "border-zinc-600"
+        selected ? "border-primary bg-primary shadow-[0_0_12px_-2px_var(--primary)]" : "border-border"
       )}
       aria-hidden
     >

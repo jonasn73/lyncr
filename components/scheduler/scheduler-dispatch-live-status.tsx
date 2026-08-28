@@ -84,7 +84,7 @@ function UpcomingJobChip({
         {/* Stack layout drops truncate so names like "Allen" are not sliced off. */}
         <span
           className={cn(
-            "mt-0.5 block text-xs font-medium text-slate-100",
+            "mt-0.5 block text-xs font-medium text-foreground",
             stackLayout ? "break-words" : "truncate"
           )}
         >
@@ -267,8 +267,8 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
               compact
                 ? "px-0 py-0"
                 : sidebar
-                  ? "border-b border-zinc-800/80 px-3 py-2"
-                  : "border-b border-zinc-800/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
+                  ? "border-b border-border/80 px-3 py-2"
+                  : "border-b border-border/80 px-3 py-2 md:border-b-0 md:border-r md:px-4 md:py-3"
             )}
           >
             <Clock3
@@ -285,7 +285,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
                 dateTime={now.toISOString()}
                 suppressHydrationWarning
                 className={cn(
-                  "font-semibold tabular-nums text-zinc-100",
+                  "font-semibold tabular-nums text-foreground",
                   compact ? "text-xs" : "text-sm"
                 )}
               >
@@ -314,7 +314,7 @@ export const SchedulerDispatchLiveStatus = memo(function SchedulerDispatchLiveSt
         {!compact ? (
           <div
             className={cn(
-              "border-t border-zinc-800/80",
+              "border-t border-border/80",
               sidebar ? "px-3 py-2" : "px-3 py-2 md:px-4"
             )}
           >

@@ -169,7 +169,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
           </span>
         </div>
         <div
-          className="h-2 overflow-hidden rounded-full bg-zinc-800"
+          className="h-2 overflow-hidden rounded-full bg-muted"
           role="progressbar"
           aria-valuenow={progressPercent}
           aria-valuemin={0}
@@ -246,7 +246,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
                   <PartyPopper className="h-8 w-8 text-emerald-300" aria-hidden />
                 </div>
                 <DialogTitle className="text-2xl text-emerald-100">You&apos;re certified!</DialogTitle>
-                <DialogDescription className="text-base text-zinc-300">{resultModal.message}</DialogDescription>
+                <DialogDescription className="text-base text-foreground">{resultModal.message}</DialogDescription>
               </DialogHeader>
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center">
                 <p className="text-3xl font-bold tabular-nums text-emerald-200">
@@ -270,7 +270,7 @@ export function ReceptionistTrainingQuizView({ userId, certification, alreadyCer
                 <DialogTitle className="text-2xl text-amber-100">
                   {resultModal.total > 0 ? "Keep studying" : "Could not grade quiz"}
                 </DialogTitle>
-                <DialogDescription className="text-base text-zinc-300">{resultModal.message}</DialogDescription>
+                <DialogDescription className="text-base text-foreground">{resultModal.message}</DialogDescription>
               </DialogHeader>
               {resultModal.total > 0 ? (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">

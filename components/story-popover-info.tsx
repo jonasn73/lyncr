@@ -46,7 +46,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         sideOffset={6}
         className={cn(
           "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-xl",
-          op ? "border-slate-600 bg-slate-950 text-slate-200" : "border-border/80 bg-popover text-popover-foreground",
+          op ? "border-border bg-background text-foreground" : "border-border/80 bg-popover text-popover-foreground",
           className
         )}
       >
@@ -69,7 +69,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
           <p className={cn("mt-0.5 text-micro leading-snug", op ? "text-muted-foreground" : "text-muted-foreground")}>
             {story.storyline}
           </p>
-          <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-slate-50" : "text-foreground")}>
+          <p className={cn("mt-2 text-sm font-semibold leading-tight", op ? "text-foreground" : "text-foreground")}>
             {story.title}
           </p>
         </div>
@@ -77,7 +77,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
           className={cn(
             "space-y-2 px-3 py-3 text-xs leading-relaxed [&_p]:mt-2 [&_p:first-child]:mt-0 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5",
             op
-              ? "text-muted-foreground [&_p]:text-muted-foreground [&_strong]:text-slate-200 [&_code]:bg-slate-900 [&_code]:text-violet-200"
+              ? "text-muted-foreground [&_p]:text-muted-foreground [&_strong]:text-foreground [&_code]:bg-card [&_code]:text-violet-200"
               : "text-muted-foreground [&_code]:bg-muted"
           )}
         >

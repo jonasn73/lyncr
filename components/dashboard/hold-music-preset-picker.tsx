@@ -14,7 +14,7 @@ import {
 } from "@/lib/hold-music-presets"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
 
 export type HoldMusicPresetPickerProps = {
   /** Stored hold_music_url (https://… or /audio/…). */
@@ -44,8 +44,8 @@ export function HoldMusicPresetPicker({
   }, [matched, value])
 
   return (
-    <div className={cn("space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3", className)}>
-      <label htmlFor={`${idPrefix}-preset`} className="text-xs font-semibold text-zinc-300">
+    <div className={cn("space-y-2 rounded-lg border border-border bg-background/40 p-3", className)}>
+      <label htmlFor={`${idPrefix}-preset`} className="text-xs font-semibold text-foreground">
         Hold music
       </label>
       <p className="hidden text-micro text-muted-foreground md:block">
@@ -84,7 +84,7 @@ export function HoldMusicPresetPicker({
         )?.description || "Choose a preset or paste your own HTTPS MP3/WAV."}
       </p>
 
-      <div className="overflow-hidden rounded-md border border-zinc-800/80">
+      <div className="overflow-hidden rounded-md border border-border/80">
         <button
           type="button"
           onClick={() => setAdvancedOpen((o) => !o)}
@@ -101,7 +101,7 @@ export function HoldMusicPresetPicker({
           />
         </button>
         {advancedOpen ? (
-          <div className="space-y-2 border-t border-zinc-800 px-3 pb-3 pt-2">
+          <div className="space-y-2 border-t border-border px-3 pb-3 pt-2">
             <label htmlFor={`${idPrefix}-url`} className="text-micro font-medium text-muted-foreground">
               Public HTTPS MP3/WAV
             </label>

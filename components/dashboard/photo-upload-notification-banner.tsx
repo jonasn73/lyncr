@@ -158,7 +158,7 @@ export function PhotoUploadNotificationBanner() {
           key={notice.id}
           className={cn(
             "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-sky-500/40",
-            "bg-slate-950/95 px-4 py-3 text-sm text-slate-100 shadow-xl backdrop-blur"
+            "bg-background/95 px-4 py-3 text-sm text-foreground shadow-xl backdrop-blur"
           )}
           role="status"
           aria-live="polite"
@@ -177,7 +177,7 @@ export function PhotoUploadNotificationBanner() {
             </p>
             <Link
               href={notice.viewIntakeUrl}
-              className="mt-1 inline-block text-2xs text-muted-foreground hover:text-slate-200"
+              className="mt-1 inline-block text-2xs text-muted-foreground hover:text-foreground"
               onClick={() => dismiss(notice.id)}
             >
               Open dashboard ticket
@@ -186,7 +186,7 @@ export function PhotoUploadNotificationBanner() {
           <button
             type="button"
             onClick={() => dismiss(notice.id)}
-            className="rounded p-1 text-muted-foreground hover:bg-slate-800 hover:text-slate-100"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Dismiss photo notification"
           >
             <X className="h-4 w-4" />

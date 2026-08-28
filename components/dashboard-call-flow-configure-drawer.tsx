@@ -29,7 +29,7 @@ import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 const RING_OPTIONS = [15, 20, 30, 45, 60] as const
 
@@ -374,11 +374,11 @@ export function DashboardCallFlowConfigureDrawer({
       />
 
       {/* Segmented tab bar */}
-      <div className="shrink-0 border-b border-zinc-800 px-4 pt-1 sm:px-6">
+      <div className="shrink-0 border-b border-border px-4 pt-1 sm:px-6">
         <div
           role="tablist"
           aria-label="Call flow settings"
-          className="flex gap-1 rounded-xl border border-zinc-800 bg-zinc-950/80 p-1"
+          className="flex gap-1 rounded-xl border border-border bg-background/80 p-1"
         >
           {TABS.map((tab) => {
             const active = currentTab === tab.id
@@ -392,8 +392,8 @@ export function DashboardCallFlowConfigureDrawer({
                 className={cn(
                   "min-h-9 flex-1 rounded-lg px-2 py-2 text-2xs font-semibold transition-colors sm:text-xs",
                   active
-                    ? "bg-zinc-800 text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-zinc-900 hover:text-zinc-200"
+                    ? "bg-muted text-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground"
                 )}
               >
                 {tab.label}
@@ -431,7 +431,7 @@ export function DashboardCallFlowConfigureDrawer({
                               "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                               active
                                 ? "border-emerald-500/40 bg-emerald-500/10"
-                                : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                : "border-border bg-background/40 hover:border-border"
                             )}
                           >
                             <span
@@ -440,7 +440,7 @@ export function DashboardCallFlowConfigureDrawer({
                                 "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                 active
                                   ? "border-emerald-400 bg-emerald-500/20"
-                                  : "border-zinc-600 bg-transparent"
+                                  : "border-border bg-transparent"
                               )}
                             >
                               {active ? (
@@ -458,10 +458,10 @@ export function DashboardCallFlowConfigureDrawer({
                           </button>
 
                           {opt.value === "team_receptionist" && active ? (
-                            <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                            <section className="ml-1 space-y-3 rounded-xl border border-border bg-card/40 p-4">
                               <label
                                 htmlFor="configure-team-receptionist"
-                                className="text-xs font-semibold text-zinc-300"
+                                className="text-xs font-semibold text-foreground"
                               >
                                 Who on your Team answers first
                               </label>
@@ -506,7 +506,7 @@ export function DashboardCallFlowConfigureDrawer({
                                       "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
                                       draft.ringTimeout === sec
                                         ? "border-primary bg-primary/15 text-primary"
-                                        : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                                        : "border-border text-foreground hover:border-border"
                                     )}
                                   >
                                     {sec}s
@@ -517,7 +517,7 @@ export function DashboardCallFlowConfigureDrawer({
                           ) : null}
 
                           {opt.value === "your_phone" && active ? (
-                            <section className="ml-1 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                            <section className="ml-1 space-y-3 rounded-xl border border-border bg-card/40 p-4">
                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Ring delay before fallback
                               </p>
@@ -536,7 +536,7 @@ export function DashboardCallFlowConfigureDrawer({
                                       "min-h-10 rounded-lg border px-3 text-sm font-semibold transition-colors",
                                       draft.ringTimeout === sec
                                         ? "border-primary bg-primary/15 text-primary"
-                                        : "border-zinc-800 text-zinc-300 hover:border-zinc-600"
+                                        : "border-border text-foreground hover:border-border"
                                     )}
                                   >
                                     {sec}s
@@ -549,7 +549,7 @@ export function DashboardCallFlowConfigureDrawer({
                       )
                     })}
 
-                    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/30">
+                    <div className="overflow-hidden rounded-xl border border-border bg-background/30">
                       <button
                         type="button"
                         onClick={() => setMoreRoutingOpen((o) => !o)}
@@ -568,7 +568,7 @@ export function DashboardCallFlowConfigureDrawer({
                         />
                       </button>
                       {moreRoutingOpen ? (
-                        <div className="space-y-2 border-t border-zinc-800 px-2 pb-3 pt-2">
+                        <div className="space-y-2 border-t border-border px-2 pb-3 pt-2">
                           {advancedRoutingModes.map((opt) => {
                             const active = draft.mode === opt.value
                             return (
@@ -582,7 +582,7 @@ export function DashboardCallFlowConfigureDrawer({
                                     "flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-colors touch-manipulation",
                                     active
                                       ? "border-emerald-500/40 bg-emerald-500/10"
-                                      : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                                      : "border-border bg-background/40 hover:border-border"
                                   )}
                                 >
                                   <span
@@ -591,7 +591,7 @@ export function DashboardCallFlowConfigureDrawer({
                                       "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                                       active
                                         ? "border-emerald-400 bg-emerald-500/20"
-                                        : "border-zinc-600 bg-transparent"
+                                        : "border-border bg-transparent"
                                     )}
                                   >
                                     {active ? (
@@ -609,10 +609,10 @@ export function DashboardCallFlowConfigureDrawer({
                                 </button>
 
                                 {opt.value === "custom_routing" && active ? (
-                                  <section className="ml-1 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                                  <section className="ml-1 space-y-2 rounded-xl border border-border bg-card/40 p-4">
                                     <label
                                       htmlFor="configure-custom-phone"
-                                      className="text-xs font-semibold text-zinc-300"
+                                      className="text-xs font-semibold text-foreground"
                                     >
                                       Target 10-digit phone number
                                     </label>
@@ -655,7 +655,7 @@ export function DashboardCallFlowConfigureDrawer({
             {currentTab === "greetings" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="configure-voice-persona" className="text-xs font-semibold text-zinc-300">
+                  <label htmlFor="configure-voice-persona" className="text-xs font-semibold text-foreground">
                     AI Voice Persona
                   </label>
                   <select
@@ -676,8 +676,8 @@ export function DashboardCallFlowConfigureDrawer({
                   </p>
                 </div>
 
-                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
-                  <label htmlFor="configure-busy" className="text-xs font-semibold text-zinc-300">
+                <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
+                  <label htmlFor="configure-busy" className="text-xs font-semibold text-foreground">
                     Busy greeting
                   </label>
                   <p className="hidden text-micro text-muted-foreground md:block">
@@ -701,7 +701,7 @@ export function DashboardCallFlowConfigureDrawer({
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-zinc-300">
+                    <label htmlFor="configure-hold-reprompt" className="text-xs font-semibold text-foreground">
                       Re-prompt every (sec)
                     </label>
                     <input
@@ -725,7 +725,7 @@ export function DashboardCallFlowConfigureDrawer({
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-zinc-300">
+                    <label htmlFor="configure-hold-maxwait" className="text-xs font-semibold text-foreground">
                       Max wait (sec)
                     </label>
                     <input
@@ -750,14 +750,14 @@ export function DashboardCallFlowConfigureDrawer({
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
+                <div className="overflow-hidden rounded-lg border border-border bg-background/40">
                   <button
                     type="button"
                     onClick={() => setHolidayOpen((o) => !o)}
                     className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-3 text-left"
                     aria-expanded={holidayOpen}
                   >
-                    <span className="text-xs font-semibold text-zinc-300">
+                    <span className="text-xs font-semibold text-foreground">
                       Scheduled Holiday Closures
                     </span>
                     <ChevronDown
@@ -769,7 +769,7 @@ export function DashboardCallFlowConfigureDrawer({
                     />
                   </button>
                   {holidayOpen ? (
-                    <div className="space-y-3 border-t border-zinc-800 px-3 pb-3 pt-3">
+                    <div className="space-y-3 border-t border-border px-3 pb-3 pt-3">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-2">
                           <label htmlFor="configure-holiday-start" className="text-2xs font-medium text-muted-foreground">
@@ -825,7 +825,7 @@ export function DashboardCallFlowConfigureDrawer({
                             holidayText: "",
                           }))
                         }
-                        className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-zinc-300 hover:underline"
+                        className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                       >
                         Clear holiday window
                       </button>
@@ -863,7 +863,7 @@ export function DashboardCallFlowConfigureDrawer({
                   </p>
                 </section>
 
-                <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <section className="space-y-3 rounded-xl border border-border bg-card/40 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Emergency / missed-call handling
                   </p>
@@ -908,7 +908,7 @@ export function DashboardCallFlowConfigureDrawer({
                             "flex w-full gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                             active
                               ? "border-primary/50 bg-primary/10"
-                              : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                              : "border-border bg-background/40 hover:border-border"
                           )}
                         >
                           <span
@@ -917,7 +917,7 @@ export function DashboardCallFlowConfigureDrawer({
                               "mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                               active
                                 ? "border-primary bg-primary/20"
-                                : "border-zinc-600 bg-transparent"
+                                : "border-border bg-transparent"
                             )}
                           >
                             {active ? (
@@ -938,7 +938,7 @@ export function DashboardCallFlowConfigureDrawer({
                   </div>
                 </section>
 
-                <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <section className="space-y-2 rounded-xl border border-border bg-card/40 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Hold queue tips
                   </p>

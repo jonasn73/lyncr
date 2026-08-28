@@ -147,7 +147,7 @@ const SignatureCanvas = forwardRef<CustomerSignaturePadHandle, PadProps>(
     useImperativeHandle(ref, () => ({ clear }), [clear])
 
     return (
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-zinc-600 bg-white">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-white">
         <canvas
           ref={canvasRef}
           className={cn("w-full touch-none cursor-crosshair", canvasClassName)}
@@ -224,7 +224,7 @@ function FullscreenSignatureOverlay({
       aria-modal="true"
       aria-labelledby={titleId}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0">
           <p id={titleId} className="text-base font-bold">
             Customer signature
@@ -236,7 +236,7 @@ function FullscreenSignatureOverlay({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg p-2 text-muted-foreground hover:bg-zinc-900 hover:text-white"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-card hover:text-white"
           aria-label="Close large signature"
         >
           <X className="h-5 w-5" aria-hidden />
@@ -249,7 +249,7 @@ function FullscreenSignatureOverlay({
             type="button"
             onClick={() => padRef.current?.clear()}
             disabled={!hasInk}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-zinc-900 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
           >
             <Eraser className="h-4 w-4" aria-hidden />
             Clear
@@ -317,7 +317,7 @@ export function CustomerSignaturePad({
               onChange(null)
             }}
             disabled={!hasInk && !previewUrl}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-muted-foreground hover:bg-zinc-800 hover:text-slate-200 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden />
             Clear

@@ -106,7 +106,7 @@ export function TechAssignmentSelect({
                 : "Select a tech"}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="border-slate-800/80 bg-slate-900/95 backdrop-blur-md">
+        <SelectContent className="border-border/80 bg-card/95 backdrop-blur-md">
           <SelectItem value="__unassigned__">Unassigned</SelectItem>
           {techsByProximity.map((tech) => {
             const techUserId = tech.portal_user_id!

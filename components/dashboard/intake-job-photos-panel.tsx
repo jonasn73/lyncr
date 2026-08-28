@@ -53,7 +53,7 @@ function PhotoGrid({
         {title} ({photos.length})
       </p>
       {photos.length === 0 ? (
-        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-slate-600/80 bg-slate-950/40 px-2 py-2 text-center text-micro text-muted-foreground">
+        <div className="grid min-h-[56px] place-items-center rounded-lg border border-dashed border-border/80 bg-background/40 px-2 py-2 text-center text-micro text-muted-foreground">
           Waiting…
         </div>
       ) : (
@@ -64,7 +64,7 @@ function PhotoGrid({
               href={photo.url}
               target="_blank"
               rel="noreferrer"
-              className="relative aspect-square overflow-hidden rounded-lg border border-slate-600/70 bg-slate-950"
+              className="relative aspect-square overflow-hidden rounded-lg border border-border/70 bg-background"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photo.url} alt={title} className="h-full w-full object-cover" />
@@ -285,7 +285,7 @@ export function IntakeJobPhotosPanel({
               ) : null}
 
               {hasActivity ? (
-                <div className="space-y-2 rounded-xl border border-slate-700/80 bg-slate-900/40 p-3">
+                <div className="space-y-2 rounded-xl border border-border/80 bg-card/40 p-3">
                   {vehicleLine || rescueMeta?.vehicle_vin || rescueMeta?.customer_name ? (
                     <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
                       {rescueMeta?.customer_name ? (
@@ -302,14 +302,14 @@ export function IntakeJobPhotosPanel({
                         </p>
                       ) : null}
                       {rescueMeta?.special_notes ? (
-                        <p className="mt-1 text-2xs text-slate-300">
+                        <p className="mt-1 text-2xs text-foreground">
                           {rescueMeta.special_notes}
                         </p>
                       ) : null}
                     </div>
                   ) : null}
 
-                  <p className="text-micro font-semibold uppercase tracking-wide text-slate-300">
+                  <p className="text-micro font-semibold uppercase tracking-wide text-foreground">
                     Job Attachments ({photos.length})
                   </p>
                   <div className="flex gap-2">

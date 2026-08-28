@@ -21,7 +21,7 @@ type IvrApiPayload = IvrMenuSettings & {
 }
 
 const fieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
 
 export function IvrGreetingsSettingsForm({
   routingBusinessNumber,
@@ -155,7 +155,7 @@ export function IvrGreetingsSettingsForm({
       ) : (
         <>
           <div className="space-y-2">
-            <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-zinc-300">
+            <label htmlFor="ivr-greeting-text" className="text-xs font-semibold text-foreground">
               Spoken greeting (text-to-speech)
             </label>
             <textarea

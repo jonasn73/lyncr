@@ -61,7 +61,7 @@ export function ReceptionistSimpleIntake({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-zinc-950/40 p-4">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
       <p className="text-xs font-medium text-muted-foreground">Quick intake — name + why they called</p>
       <label className="block space-y-2">
         <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Caller name</span>
@@ -70,7 +70,7 @@ export function ReceptionistSimpleIntake({
           value={callerName}
           onChange={(e) => setCallerName(e.target.value)}
           placeholder="e.g. Maria Lopez"
-          className="w-full rounded-lg border border-border/70 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+          className="w-full rounded-lg border border-border/70 bg-card/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
         />
       </label>
       <label className="block space-y-2">
@@ -80,7 +80,7 @@ export function ReceptionistSimpleIntake({
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           placeholder="Lockout on Main St, needs ASAP…"
-          className="w-full resize-y rounded-lg border border-border/70 bg-zinc-900/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+          className="w-full resize-y rounded-lg border border-border/70 bg-card/80 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
         />
       </label>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
@@ -102,7 +102,7 @@ export function ReceptionistSimpleIntake({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-zinc-200 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           <X className="h-4 w-4" aria-hidden />
           Cancel

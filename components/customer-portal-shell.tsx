@@ -50,7 +50,7 @@ export function CustomerPortalShell({
     <main
       className={cn(
         // Match Lyncr app chrome: dark slate + teal accents (not gold-only orphan).
-        "min-h-dvh bg-zinc-950 text-zinc-100",
+        "min-h-dvh bg-background text-foreground",
         centered && "flex flex-col",
         className
       )}
@@ -113,7 +113,7 @@ export function CustomerPortalShell({
                     <span
                       className={cn(
                         "mx-0.5 h-px w-4 sm:w-6",
-                        done || active ? "bg-teal-500/60" : "bg-zinc-700"
+                        done || active ? "bg-teal-500/60" : "bg-accent"
                       )}
                       aria-hidden
                     />

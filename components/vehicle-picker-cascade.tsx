@@ -159,8 +159,8 @@ function SelectionChip({
         active
           ? WS_OPTION_ROW_ACTIVE
           : selected
-            ? "border-emerald-500/40 bg-slate-900/80"
-            : "border-slate-850 bg-slate-900/40 hover:border-emerald-500/30",
+            ? "border-emerald-500/40 bg-card/80"
+            : "border-border bg-card/40 hover:border-emerald-500/30",
         disabled && "cursor-not-allowed opacity-40"
       )}
       aria-pressed={active}
@@ -356,12 +356,12 @@ function VehiclePickerSequential({
         >
           <p className={cn(WS_METADATA, "shrink-0")}>{pickerTitle}</p>
           {pickerLoading ? (
-            <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-slate-850 bg-slate-900/40">
+            <div className="flex min-h-[12rem] flex-1 items-center justify-center rounded-xl border border-border bg-card/40">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
               <span className="sr-only">Loading options</span>
             </div>
           ) : pickerOptions.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-850 px-3 py-6 text-center text-xs text-muted-foreground">
+            <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
               {activePicker === "make"
                 ? "Pick a year first."
                 : activePicker === "model"

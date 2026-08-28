@@ -241,7 +241,7 @@ function RepeatCustomerCrmChips({
               "inline-flex max-w-[11rem] truncate rounded-md border px-2 py-0.5 text-micro font-medium transition-colors",
               selected
                 ? "border-sky-500/50 bg-sky-500/20 text-sky-100"
-                : "border-zinc-700 bg-zinc-900/80 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+                : "border-border bg-card/80 text-foreground hover:border-border hover:text-foreground"
             )}
             title={`Use ${label}`}
           >
@@ -363,7 +363,7 @@ function ReturningCallerDecisionCard({
           <button
             type="button"
             onClick={onNewJob}
-            className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 touch-manipulation hover:border-zinc-500 hover:text-foreground active:scale-[0.98]"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-border bg-card/70 px-3 py-2 text-xs font-semibold text-foreground touch-manipulation hover:border-border hover:text-foreground active:scale-[0.98]"
           >
             Start new job
           </button>
@@ -375,7 +375,7 @@ function ReturningCallerDecisionCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 sm:px-4">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-3">
+        <div className="rounded-xl border border-border bg-background/80 px-3 py-3">
           <p className="text-micro font-semibold uppercase tracking-wider text-sky-300/90">
             Customer profile
           </p>
@@ -385,7 +385,7 @@ function ReturningCallerDecisionCard({
           ) : null}
 
           {vehicleLabels.length > 0 ? (
-            <p className="mt-2 text-xs leading-snug text-zinc-200">
+            <p className="mt-2 text-xs leading-snug text-foreground">
               <span className="text-muted-foreground">Vehicle · </span>
               {vehicleLabels.join(" · ")}
             </p>
@@ -435,11 +435,11 @@ function ReturningCallerDecisionCard({
             </div>
           ) : null}
           {lastJobLine ? (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+            <div className="rounded-lg border border-border bg-card/50 px-3 py-2">
               <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
                 Last job
               </p>
-              <p className="mt-0.5 text-xs leading-snug text-zinc-100">{lastJobLine}</p>
+              <p className="mt-0.5 text-xs leading-snug text-foreground">{lastJobLine}</p>
               {lastJobAddress ? (
                 <p className="mt-0.5 text-2xs text-muted-foreground">{lastJobAddress}</p>
               ) : null}
@@ -471,7 +471,7 @@ function ReturningCallerDecisionCard({
               {recentHistoryLines.map((line) => (
                 <li
                   key={line}
-                  className="truncate text-2xs leading-snug text-zinc-300"
+                  className="truncate text-2xs leading-snug text-foreground"
                   title={line}
                 >
                   {line}
@@ -482,7 +482,7 @@ function ReturningCallerDecisionCard({
         ) : null}
 
         {notesPreview ? (
-          <div className="mt-2 border-t border-zinc-800 pt-2">
+          <div className="mt-2 border-t border-border pt-2">
             <p className="text-2xs leading-snug text-muted-foreground">
               <span className="text-muted-foreground">Notes · </span>
               {notesPreview}
@@ -500,7 +500,7 @@ function ReturningCallerDecisionCard({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-4">
+      <div className="shrink-0 border-t border-border bg-background/95 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:px-4">
         <div className="flex flex-col gap-2">
           {primaryContinueLabel ? (
             <button
@@ -520,7 +520,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onOpenCrm}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 touch-manipulation hover:border-zinc-500 hover:bg-zinc-800 active:scale-[0.98]"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground touch-manipulation hover:border-border hover:bg-muted active:scale-[0.98]"
             >
               Open CRM
             </button>
@@ -530,7 +530,7 @@ function ReturningCallerDecisionCard({
               <button
                 type="button"
                 onClick={onRestoreDraft}
-                className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-2xs font-medium text-zinc-300 touch-manipulation hover:border-zinc-500 hover:text-foreground"
+                className="inline-flex flex-1 items-center justify-center rounded-lg border border-border bg-card/60 px-3 py-2 text-2xs font-medium text-foreground touch-manipulation hover:border-border hover:text-foreground"
               >
                 Restore draft
               </button>
@@ -538,7 +538,7 @@ function ReturningCallerDecisionCard({
             <button
               type="button"
               onClick={onNewJob}
-              className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-3 py-2 text-2xs font-medium text-muted-foreground touch-manipulation hover:border-zinc-500 hover:text-zinc-200"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-border bg-transparent px-3 py-2 text-2xs font-medium text-muted-foreground touch-manipulation hover:border-border hover:text-foreground"
             >
               Start new job
             </button>
@@ -824,7 +824,7 @@ function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
           role="status"
           aria-live="polite"
         >
-          <p className="rounded-full border border-emerald-500/40 bg-slate-950/95 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
+          <p className="rounded-full border border-emerald-500/40 bg-background/95 px-4 py-2 text-xs font-medium text-emerald-100 shadow-lg backdrop-blur">
             Draft restored.
           </p>
         </motion.div>
@@ -4113,7 +4113,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 compactActions={compactIntakeChrome || showReturningCallerCard}
               />
               {!compactIntakeChrome && effectiveCurrent.recording_url ? (
-                <div className="mt-2 flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
+                <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-card p-2">
                   <span className="font-mono text-xs text-muted-foreground">Recording:</span>
                   <audio
                     src={effectiveCurrent.recording_url}
@@ -4448,7 +4448,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "mobile"
                                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                                      : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                      : "border-border bg-card text-foreground"
                                   )}
                                 >
                                   I go to them
@@ -4466,7 +4466,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                     "rounded-xl border px-2 py-3 text-left text-xs font-semibold transition-colors",
                                     form.serviceVenue === "shop"
                                       ? "border-amber-500/50 bg-amber-500/15 text-amber-50"
-                                      : "border-zinc-700 bg-zinc-900 text-slate-300"
+                                      : "border-border bg-card text-foreground"
                                   )}
                                 >
                                   They come to shop
@@ -5008,7 +5008,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 )}
               </div>
 
-              <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-slate-800 bg-slate-900 p-2">
+              <div className="sticky bottom-0 shrink-0 space-y-2 border-t border-border bg-card p-2">
                 {stepIntake ? (
                   <>
                     {currentStep === "JOB_TYPE" ? (
@@ -5094,7 +5094,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           Back to location
                         </Button>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                          <div className="flex items-center space-x-2 rounded-lg border border-border bg-muted px-3 py-2">
                             <span className="font-bold text-emerald-400">$</span>
                             <input
                               id="manual-ac-quote-price"
@@ -5187,7 +5187,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                           type="button"
                           disabled={jobState === "creating" || !canSavePendingLead}
                           onClick={() => void savePendingLead()}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="w-full rounded-lg border border-border bg-muted py-3 text-sm font-medium text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                         </button>
@@ -5335,7 +5335,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                 ) : (
                   <>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center space-x-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                  <div className="flex items-center space-x-2 rounded-lg border border-border bg-muted px-3 py-2">
                     <span className="font-bold text-emerald-400">$</span>
                     <input
                       id="ac-quote-price"
@@ -5386,7 +5386,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                   type="button"
                   disabled={jobState === "creating" || !canSavePendingLead}
                   onClick={() => void savePendingLead()}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-lg border border-border bg-muted py-3 text-sm font-medium text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {jobState === "creating" ? "Saving…" : "Save as Pending Lead / Callback"}
                 </button>

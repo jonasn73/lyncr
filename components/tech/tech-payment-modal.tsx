@@ -1184,7 +1184,7 @@ export function TechPaymentModal(props: {
       <div
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
-          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-zinc-800 bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
+          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
           postPayStep === "tip_sign" ||
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
@@ -1206,7 +1206,7 @@ export function TechPaymentModal(props: {
               postPayStep === "link_sent" ||
               postPayStep === "finish_job"
               ? "border-b-0 pb-1"
-              : "border-b border-zinc-800"
+              : "border-b border-border"
           )}
         >
           <div>
@@ -1308,7 +1308,7 @@ export function TechPaymentModal(props: {
                 setError(null)
               }}
               disabled={busy || tapListening}
-              className="inline-flex items-center gap-2 self-start text-2xs font-semibold text-muted-foreground hover:text-slate-200 disabled:opacity-40"
+              className="inline-flex items-center gap-2 self-start text-2xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Back to amount
@@ -1360,7 +1360,7 @@ export function TechPaymentModal(props: {
                       "rounded-xl border py-2 text-xs font-semibold transition-colors",
                       tipChoice === opt.id
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                        : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                        : "border-border bg-card text-muted-foreground"
                     )}
                   >
                     {opt.label}
@@ -1379,13 +1379,13 @@ export function TechPaymentModal(props: {
                   "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                   tipChoice === "custom"
                     ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                    : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                    : "border-border bg-card text-muted-foreground"
                 )}
               >
                 Custom tip
               </button>
               {tipChoice === "custom" ? (
-                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
                   <span className="text-sm font-semibold text-muted-foreground">$</span>
                   <input
                     type="number"
@@ -1545,7 +1545,7 @@ export function TechPaymentModal(props: {
                   "flex min-h-11 w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
                   props.job.review_sms_sent_at
                     ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-400/50 hover:bg-emerald-500"
-                    : "border border-zinc-700/80 bg-zinc-950/50 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/70 hover:text-zinc-100"
+                    : "border border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card/70 hover:text-foreground"
                 )}
               >
                 {props.job.review_sms_sent_at ? "Complete job" : "Complete only — no thanks text"}
@@ -1554,7 +1554,7 @@ export function TechPaymentModal(props: {
                 type="button"
                 disabled={finishBusy}
                 onClick={() => void finishJobAfterPay("keep_open")}
-                className="w-full rounded-xl py-3 text-sm font-medium text-muted-foreground hover:bg-zinc-900/50 hover:text-zinc-300 disabled:opacity-50"
+                className="w-full rounded-xl py-3 text-sm font-medium text-muted-foreground hover:bg-card/50 hover:text-foreground disabled:opacity-50"
               >
                 Keep job open
               </button>
@@ -1601,7 +1601,7 @@ export function TechPaymentModal(props: {
               </p>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
+            <div className="rounded-xl border border-border bg-card/50 px-3 py-3">
               <p className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
                 Pay link
               </p>
@@ -1610,7 +1610,7 @@ export function TechPaymentModal(props: {
                 <button
                   type="button"
                   onClick={() => void navigator.clipboard?.writeText(paidLink.url)}
-                  className="flex-1 rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-slate-200"
+                  className="flex-1 rounded-lg border border-border py-2 text-xs font-semibold text-foreground"
                 >
                   Copy link
                 </button>
@@ -1635,7 +1635,7 @@ export function TechPaymentModal(props: {
             <button
               type="button"
               onClick={() => setForceNewCharge(true)}
-              className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-semibold text-muted-foreground hover:text-slate-200"
+              className="w-full rounded-xl border border-border py-3 text-sm font-semibold text-muted-foreground hover:text-foreground"
             >
               Collect another payment
             </button>
@@ -1653,7 +1653,7 @@ export function TechPaymentModal(props: {
                   type="button"
                   onClick={props.onClose}
                   disabled={busy || tapListening || slipBusy}
-                  className="inline-flex items-center gap-2 text-2xs font-semibold text-muted-foreground hover:text-slate-200 disabled:opacity-40"
+                  className="inline-flex items-center gap-2 text-2xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   Back
@@ -1742,7 +1742,7 @@ export function TechPaymentModal(props: {
               )}
 
               {/* One compact amount card — lines tucked under a short toggle. */}
-              <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-3">
+              <section className="rounded-xl border border-border bg-card/50 px-3 py-3">
                 <div className="flex items-end gap-2">
                   <label className="min-w-0 flex-1">
                     <span className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1765,8 +1765,8 @@ export function TechPaymentModal(props: {
                         disabled={busy || activePopup !== null}
                         aria-label="Amount before tax"
                         className={cn(
-                          "w-full rounded-lg border bg-zinc-950 py-2 pr-3 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
-                          totalCents < 50 ? "border-amber-500/60" : "border-zinc-700"
+                          "w-full rounded-lg border bg-background py-2 pr-3 pl-6 text-right text-xl font-bold tabular-nums text-white outline-none focus:border-emerald-500 disabled:opacity-60",
+                          totalCents < 50 ? "border-amber-500/60" : "border-border"
                         )}
                       />
                     </div>
@@ -1779,7 +1779,7 @@ export function TechPaymentModal(props: {
                   </div>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-2 border-t border-zinc-800/80 pt-2">
+                <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/80 pt-2">
                   <button
                     type="button"
                     role="switch"
@@ -1791,7 +1791,7 @@ export function TechPaymentModal(props: {
                     <span
                       className={cn(
                         "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-                        taxEnabled ? "bg-emerald-500" : "bg-zinc-700"
+                        taxEnabled ? "bg-emerald-500" : "bg-accent"
                       )}
                     >
                       <span
@@ -1801,7 +1801,7 @@ export function TechPaymentModal(props: {
                         )}
                       />
                     </span>
-                    <span className="text-xs font-medium text-zinc-300">
+                    <span className="text-xs font-medium text-foreground">
                       Tax{taxEnabled ? ` ${breakdown.ratePercent.toFixed(0)}%` : ""}
                     </span>
                   </button>
@@ -1816,12 +1816,12 @@ export function TechPaymentModal(props: {
                       onChange={(e) => setTaxRatePercent(e.target.value)}
                       disabled={busy || activePopup !== null}
                       aria-label="Tax rate percent"
-                      className="w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-white outline-none disabled:opacity-60"
+                      className="w-16 rounded-md border border-border bg-background px-2 py-1 text-right text-xs tabular-nums text-white outline-none disabled:opacity-60"
                     />
                   ) : null}
                 </div>
 
-                <details className="group mt-2 border-t border-zinc-800/80 pt-2">
+                <details className="group mt-2 border-t border-border/80 pt-2">
                   <summary className="cursor-pointer list-none text-2xs font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="group-open:hidden">
                       Line items ({lines.length}) · edit
@@ -1842,7 +1842,7 @@ export function TechPaymentModal(props: {
                           }
                           placeholder="Description"
                           disabled={busy || activePopup !== null}
-                          className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-2 text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                         />
                         <div className="relative w-20 shrink-0">
                           <span className="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-xs text-muted-foreground">
@@ -1863,7 +1863,7 @@ export function TechPaymentModal(props: {
                             inputMode="decimal"
                             placeholder="0.00"
                             disabled={busy || activePopup !== null}
-                            className="w-full rounded-md border border-zinc-700 bg-zinc-950 py-2 pr-2 pl-6 text-right text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
+                            className="w-full rounded-md border border-border bg-background py-2 pr-2 pl-6 text-right text-xs text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                           />
                         </div>
                         <button
@@ -1883,7 +1883,7 @@ export function TechPaymentModal(props: {
                           className={`shrink-0 rounded-md border px-2 py-1 text-micro font-medium transition-colors disabled:opacity-40 ${
                             line.kind === "part"
                               ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
-                              : "border-zinc-700 text-muted-foreground hover:text-zinc-300"
+                              : "border-border text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           {line.kind === "part" ? "Part" : "Labor"}
@@ -1988,11 +1988,11 @@ export function TechPaymentModal(props: {
               onChange={(e) => setLinkName(e.target.value)}
               disabled={busy}
               placeholder="Optional"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none disabled:opacity-60"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-3 text-sm text-white outline-none disabled:opacity-60"
             />
           </label>
           {!linkPhoneEditing && hasUsableSmsPhone(linkPhone) ? (
-            <div className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3">
+            <div className="rounded-lg border border-border bg-background px-3 py-3">
               <p className="text-sm font-semibold text-white">
                 We&apos;ll text {formatPhoneDisplay(linkPhone) || linkPhone.trim()}
               </p>
@@ -2016,7 +2016,7 @@ export function TechPaymentModal(props: {
                 disabled={busy}
                 inputMode="tel"
                 placeholder="(502) 555-1234"
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none disabled:opacity-60"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-3 text-sm text-white outline-none disabled:opacity-60"
               />
             </label>
           )}
@@ -2096,9 +2096,9 @@ function NestedPayPopup(props: {
         role="dialog"
         aria-modal="true"
         aria-label={props.title}
-        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-zinc-700 bg-[#12121a] shadow-2xl sm:rounded-3xl"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-[#12121a] shadow-2xl sm:rounded-3xl"
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h3 className="text-sm font-bold text-white">{props.title}</h3>
           <button
             type="button"
@@ -2137,11 +2137,11 @@ function PayOptionButton(props: {
           "flex flex-col items-start gap-1 rounded-xl border px-3 py-3 text-left transition active:scale-[0.99] disabled:opacity-50",
           props.active
             ? "border-emerald-500/50 bg-emerald-500/15"
-            : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+            : "border-border bg-muted/40 hover:border-border",
           props.dimmed && !props.disabled && "opacity-70"
         )}
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950/60 text-emerald-300">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/60 text-emerald-300">
           {props.icon}
         </span>
         <span className="min-w-0">
@@ -2161,11 +2161,11 @@ function PayOptionButton(props: {
         "flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition active:scale-[0.99] disabled:opacity-50",
         props.active
           ? "border-indigo-500 bg-indigo-500/15"
-          : "border-zinc-700 bg-zinc-800/40 hover:border-zinc-600",
+          : "border-border bg-muted/40 hover:border-border",
         props.dimmed && !props.disabled && "opacity-70"
       )}
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-950/60 text-indigo-300">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background/60 text-indigo-300">
         {props.icon}
       </span>
       <span className="min-w-0">
@@ -2365,7 +2365,7 @@ function ManualCardForm(props: {
         <p className="text-lg font-bold tabular-nums text-emerald-100">{props.totalLabel}</p>
       </div>
       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Card details</p>
-      <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
+      <div className="min-h-[12rem] rounded-xl border border-border bg-card/80 p-3">
         {!elementReady && !loadFailed ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -2415,7 +2415,7 @@ function ManualCardForm(props: {
         <button
           type="button"
           onClick={forceCancelCharge}
-          className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-3 text-sm font-semibold text-zinc-200"
+          className="rounded-xl border border-border bg-muted/60 px-3 py-3 text-sm font-semibold text-foreground"
         >
           Back
         </button>

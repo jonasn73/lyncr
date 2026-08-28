@@ -124,12 +124,12 @@ function RegisterForm() {
   }
 
   const inputClass =
-    "w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+    "w-full rounded-lg border border-border bg-background/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-2xl">
-        <h1 className="text-xl font-semibold text-slate-100">Set up your receptionist account</h1>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl">
+        <h1 className="text-xl font-semibold text-foreground">Set up your receptionist account</h1>
         <p className="mt-1 text-sm text-muted-foreground">Complete your profile to start answering calls on Lyncr.</p>
 
         {validation.status === "loading" && (
@@ -149,14 +149,14 @@ function RegisterForm() {
           <div className="mt-6 space-y-4">
             {validation.invite.type === "EMAIL" && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">Email</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                 <input value={validation.invite.target} readOnly className={`${inputClass} cursor-not-allowed opacity-70`} />
                 <p className="mt-1 text-xs text-muted-foreground">You&apos;ll sign in with this email.</p>
               </div>
             )}
 
             <div>
-              <label htmlFor="reg-name" className="mb-1 block text-sm font-medium text-slate-300">Full Name</label>
+              <label htmlFor="reg-name" className="mb-1 block text-sm font-medium text-foreground">Full Name</label>
               <input
                 id="reg-name"
                 value={fullName}
@@ -168,7 +168,7 @@ function RegisterForm() {
             </div>
 
             <div>
-              <label htmlFor="reg-phone" className="mb-1 block text-sm font-medium text-slate-300">Cell Phone Number</label>
+              <label htmlFor="reg-phone" className="mb-1 block text-sm font-medium text-foreground">Cell Phone Number</label>
               <input
                 id="reg-phone"
                 type="tel"
@@ -183,7 +183,7 @@ function RegisterForm() {
             </div>
 
             <div>
-              <label htmlFor="reg-password" className="mb-1 block text-sm font-medium text-slate-300">Password</label>
+              <label htmlFor="reg-password" className="mb-1 block text-sm font-medium text-foreground">Password</label>
               <input
                 id="reg-password"
                 type="password"
@@ -198,9 +198,9 @@ function RegisterForm() {
             </div>
 
             {agreement && (
-              <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+              <div className="space-y-3 rounded-xl border border-border bg-background/60 p-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-100">
+                  <h2 className="text-sm font-semibold text-foreground">
                     {agreement.employment_type === "W2_EMPLOYEE"
                       ? "Your employment terms"
                       : "Your contractor agreement"}
@@ -214,17 +214,17 @@ function RegisterForm() {
                   <p className="text-micro font-semibold uppercase tracking-wide text-violet-300">
                     You will be paid
                   </p>
-                  <p className="mt-0.5 text-sm text-slate-100">{agreement.pay_summary}</p>
+                  <p className="mt-0.5 text-sm text-foreground">{agreement.pay_summary}</p>
                 </div>
 
                 {/* Scrollable rather than collapsed: nobody should have to expand a
                     disclosure to find the terms they are about to sign. */}
-                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-relaxed text-slate-300">
+                <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-background p-3 text-xs leading-relaxed text-foreground">
                   {agreement.body}
                 </div>
 
                 <div>
-                  <label htmlFor="reg-signature" className="mb-1 block text-sm font-medium text-slate-300">
+                  <label htmlFor="reg-signature" className="mb-1 block text-sm font-medium text-foreground">
                     Sign by typing your full name
                   </label>
                   <input
@@ -236,12 +236,12 @@ function RegisterForm() {
                   />
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-300">
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-foreground">
                   <input
                     type="checkbox"
                     checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-950 accent-violet-600"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-violet-600"
                   />
                   <span>
                     I have read these terms and agree to sign them electronically, with the same
@@ -289,7 +289,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-muted-foreground">
+        <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         </div>
       }

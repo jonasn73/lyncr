@@ -135,7 +135,7 @@ export function WorkspaceStatCard({
     )
   }
   return (
-    <div className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5", accent && accentClass)}>
+    <div className={cn("min-h-[5.75rem] rounded-2xl border border-border bg-card/50 p-5", accent && accentClass)}>
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
@@ -161,7 +161,7 @@ export function WorkspaceUsageStatCard({
       <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {used.toLocaleString()} / {included.toLocaleString()} mins used
       </p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full bg-gradient-to-r from-amber-500/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}
@@ -205,7 +205,7 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
     primary: "border-primary/40 bg-primary/15 text-primary",
     destructive: "border-destructive/40 bg-destructive/15 text-destructive",
     warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
-    muted: "border-zinc-700 bg-zinc-900/80 text-muted-foreground",
+    muted: "border-border bg-card/80 text-muted-foreground",
   }
   return (
     <span
@@ -230,7 +230,7 @@ export function LeadIntentPill({ label, variant }: { label: string; variant: Lea
     amber:
       "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
     blue: "border-sky-500/45 bg-sky-500/10 text-sky-300 shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
-    muted: "border-zinc-600/80 bg-zinc-900/60 text-muted-foreground",
+    muted: "border-border/80 bg-card/60 text-muted-foreground",
   }
   return (
     <span
@@ -396,7 +396,7 @@ export function WorkspaceDisclosureRow({
         "flex w-full items-center justify-between gap-3 rounded-2xl border px-6 py-4 text-left transition-colors",
         destructive
           ? "border-destructive/40 bg-destructive/5 hover:bg-destructive/10"
-          : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-600 hover:bg-zinc-900/70"
+          : "border-border bg-card/40 hover:border-border hover:bg-card/70"
       )}
     >
       <span className="flex items-center gap-3">
@@ -420,11 +420,11 @@ export function WorkspaceToggleCard({
   disabled?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-4 transition-colors hover:border-zinc-700">
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-4 transition-colors hover:border-border">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <input
         type="checkbox"
-        className="h-4 w-4 rounded border-zinc-600 accent-primary"
+        className="h-4 w-4 rounded border-border accent-primary"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onCheckedChange(e.target.checked)}
@@ -434,7 +434,7 @@ export function WorkspaceToggleCard({
 }
 
 export const workspaceFieldClass =
-  "w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-zinc-600 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+  "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
 /**
  * Tracks whether a horizontal scroller has more content off either edge.
@@ -528,7 +528,7 @@ export function WorkspaceTh({
   return (
     <th
       className={cn(
-        "border-b border-zinc-800/80 px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground",
+        "border-b border-border/80 px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground",
         className
       )}
     >
@@ -547,7 +547,7 @@ export function WorkspaceTd({
   colSpan?: number
 }) {
   return (
-    <td colSpan={colSpan} className={cn("border-b border-zinc-800/50 px-4 py-4 text-foreground", className)}>
+    <td colSpan={colSpan} className={cn("border-b border-border/50 px-4 py-4 text-foreground", className)}>
       {children}
     </td>
   )
@@ -563,7 +563,7 @@ export function WorkspaceModule({
   children: ReactNode
 }) {
   return (
-    <section className="border-b border-zinc-800/80 px-6 py-6 last:border-b-0">
+    <section className="border-b border-border/80 px-6 py-6 last:border-b-0">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}

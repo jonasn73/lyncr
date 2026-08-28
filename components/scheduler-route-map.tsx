@@ -753,10 +753,10 @@ export const SchedulerRouteMap = forwardRef<SchedulerRouteMapHandle, SchedulerRo
         </div>
       ) : null}
       <div ref={mapShellRef} className="relative min-h-0 flex-1">
-        <div ref={containerRef} className="absolute inset-0 z-0 bg-zinc-950" />
+        <div ref={containerRef} className="absolute inset-0 z-0 bg-background" />
       </div>
       {!ready ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/80">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/80">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
         </div>
       ) : null}

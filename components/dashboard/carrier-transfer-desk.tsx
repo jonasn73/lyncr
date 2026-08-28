@@ -90,7 +90,7 @@ export function CarrierTransferDesk({
   const submitBlocked = (pinRequired || (pinPendingReview && showPinEditor)) && !pinPattern.test(pinTrimmed)
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-background/50 p-4">
       {submitSuccessMessage ? (
         <div
           className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-3 py-3 text-xs text-emerald-100"
@@ -137,7 +137,7 @@ export function CarrierTransferDesk({
             placeholder="Transfer PIN from your carrier app"
             aria-invalid={pinInvalid || Boolean(fieldError?.toLowerCase().includes("pin"))}
             className={cn(
-              "mt-1 w-full rounded-lg border bg-zinc-950 px-3 py-2 text-sm text-foreground",
+              "mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground",
               pinInvalid || fieldError?.toLowerCase().includes("pin")
                 ? "border-red-500 ring-1 ring-red-500/40"
                 : pinPendingReview
@@ -162,10 +162,10 @@ export function CarrierTransferDesk({
             placeholder="Answer the carrier desk (account number, invoice, LOA details, etc.)"
             aria-invalid={Boolean(fieldError && !fieldError.toLowerCase().includes("pin"))}
             className={cn(
-              "mt-1 w-full resize-y rounded-lg border bg-zinc-900/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
+              "mt-1 w-full resize-y rounded-lg border bg-card/80 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
               fieldError && !fieldError.toLowerCase().includes("pin")
                 ? "border-red-500 ring-1 ring-red-500/40"
-                : "border-zinc-800"
+                : "border-border"
             )}
           />
         </label>

@@ -41,7 +41,7 @@ function MetricCell({
     return (
       <div
         className={cn(
-          "inline-flex shrink-0 snap-start items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 px-3 py-1",
+          "inline-flex shrink-0 snap-start items-center gap-2 rounded-full border border-border/80 bg-card/90 px-3 py-1",
           className
         )}
       >
@@ -62,7 +62,7 @@ function MetricCell({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-zinc-800/60 bg-zinc-950/40 px-2 py-2",
+        "flex min-w-0 flex-col items-start justify-center gap-0 rounded-md border border-border/60 bg-background/40 px-2 py-2",
         className
       )}
     >
@@ -138,7 +138,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
             ? "flex flex-nowrap gap-2 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "grid grid-cols-2 gap-2 px-3 py-2 sm:grid-cols-4",
           sidebar && !showPillRow && "sm:grid-cols-2 gap-1 px-3 py-2",
-          !showPillRow && !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur"
+          !showPillRow && !embedded && "border-b border-border bg-card/90 backdrop-blur"
         )}
       >
         <MetricCell
@@ -167,7 +167,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           pending={metricsPending}
           label={useShortLabels ? "Done" : "Completed Today"}
           value={metrics.completedToday}
-          valueClassName="text-zinc-200"
+          valueClassName="text-foreground"
         />
         {showPillRow && inboundCallPanel && !hidePrimaryAction ? (
           <Button
@@ -186,7 +186,7 @@ export const DispatchOperationsMetricStrip = memo(function DispatchOperationsMet
           className={cn(
             "px-3 pb-2",
             sidebar ? "pt-0" : "px-3 md:px-8",
-            !embedded && "border-b border-zinc-800 bg-zinc-900/90 backdrop-blur md:pb-3"
+            !embedded && "border-b border-border bg-card/90 backdrop-blur md:pb-3"
           )}
         >
           <Button

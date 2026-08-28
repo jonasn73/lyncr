@@ -32,7 +32,7 @@ export default function OperatorOnboardPage() {
 
 function OnboardShell({ loading, children }: { loading?: boolean; children?: React.ReactNode }) {
   return (
-    <main className="flex min-h-[100dvh] flex-col bg-[#0a0f14] text-slate-100">
+    <main className="flex min-h-[100dvh] flex-col bg-[#0a0f14] text-foreground">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(52,211,153,0.12),transparent)]" />
       <header className="relative z-10 border-b border-white/5 px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center gap-3">
@@ -68,13 +68,13 @@ function StepDots({ step, smsInvite }: { step: number; smsInvite?: boolean }) {
           <span
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors",
-              i <= step ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : "bg-slate-800 text-muted-foreground"
+              i <= step ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/40" : "bg-muted text-muted-foreground"
             )}
           >
             {i < step ? <Check className="h-4 w-4" /> : i + 1}
           </span>
-          <span className={cn("hidden text-xs sm:inline", i <= step ? "text-slate-300" : "text-muted-foreground")}>{label}</span>
-          {i < labels.length - 1 ? <span className="h-px w-6 bg-slate-700" aria-hidden /> : null}
+          <span className={cn("hidden text-xs sm:inline", i <= step ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+          {i < labels.length - 1 ? <span className="h-px w-6 bg-accent" aria-hidden /> : null}
         </div>
       ))}
     </div>
@@ -252,9 +252,9 @@ function OperatorOnboardWizard() {
     <OnboardShell>
       <StepDots step={step} smsInvite={preview.phone_verified_by_sms_invite} />
 
-      <div className="rounded-2xl border border-white/8 bg-slate-950/60 p-6 shadow-xl backdrop-blur-sm">
+      <div className="rounded-2xl border border-white/8 bg-background/60 p-6 shadow-xl backdrop-blur-sm">
         <p className="text-center text-sm text-muted-foreground">
-          Welcome, <span className="font-medium text-slate-200">{preview.name.split(" ")[0] || "operator"}</span>
+          Welcome, <span className="font-medium text-foreground">{preview.name.split(" ")[0] || "operator"}</span>
         </p>
         {preview.assigned_workspaces.length > 0 ? (
           <p className="mt-2 text-center text-xs text-emerald-300/90">
@@ -300,12 +300,12 @@ function OperatorOnboardWizard() {
                 </p>
               </div>
               {preview.phone ? (
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-center text-sm text-slate-300">
+                <div className="rounded-lg border border-border bg-card/60 px-3 py-2 text-center text-sm text-foreground">
                   {preview.phone}
                 </div>
               ) : null}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">
+                <Label htmlFor="password" className="text-foreground">
                   Create password
                 </Label>
                 <Input
@@ -314,7 +314,7 @@ function OperatorOnboardWizard() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="border-slate-700 bg-slate-900/80"
+                  className="border-border bg-card/80"
                 />
               </div>
               {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -340,7 +340,7 @@ function OperatorOnboardWizard() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="backup-phone" className="text-slate-300">
+                <Label htmlFor="backup-phone" className="text-foreground">
                   Mobile number
                 </Label>
                 <Input
@@ -349,7 +349,7 @@ function OperatorOnboardWizard() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(502) 555-0100"
-                  className="border-slate-700 bg-slate-900/80"
+                  className="border-border bg-card/80"
                 />
               </div>
               {!otpSent ? (
@@ -364,7 +364,7 @@ function OperatorOnboardWizard() {
                     </p>
                   ) : null}
                   <div className="space-y-2">
-                    <Label htmlFor="otp" className="text-slate-300">
+                    <Label htmlFor="otp" className="text-foreground">
                       SMS code
                     </Label>
                     <Input
@@ -372,11 +372,11 @@ function OperatorOnboardWizard() {
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       placeholder="6-digit code"
-                      className="border-slate-700 bg-slate-900/80"
+                      className="border-border bg-card/80"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-slate-300">
+                    <Label htmlFor="password" className="text-foreground">
                       Create password
                     </Label>
                     <Input
@@ -385,7 +385,7 @@ function OperatorOnboardWizard() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="At least 8 characters"
-                      className="border-slate-700 bg-slate-900/80"
+                      className="border-border bg-card/80"
                     />
                   </div>
                   <Button
@@ -412,7 +412,7 @@ function OperatorOnboardWizard() {
             <h1 className="text-xl font-semibold text-emerald-100">You&apos;re active & ready</h1>
             <p className="text-sm text-muted-foreground">
               WebRTC status:{" "}
-              <span className="font-medium text-slate-200">
+              <span className="font-medium text-foreground">
                 {web.status === "registered" || web.status === "active"
                   ? "Connected"
                   : web.status === "connecting"

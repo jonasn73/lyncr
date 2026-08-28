@@ -155,12 +155,12 @@ export function JobMapPopupForm({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 text-slate-100",
+        "flex flex-col gap-3 text-foreground",
         isSheet ? "w-full gap-4 p-1" : SCHEDULER_MAP_POPUP_SHELL
       )}
     >
-      <div className={cn("space-y-2 border-b border-slate-800/80 pb-2", !isSheet && "pr-6")}>
-        <p className={cn("truncate font-bold text-slate-100", isSheet ? "text-lg" : "text-sm")}>
+      <div className={cn("space-y-2 border-b border-border/80 pb-2", !isSheet && "pr-6")}>
+        <p className={cn("truncate font-bold text-foreground", isSheet ? "text-lg" : "text-sm")}>
           {job.customer_name?.trim() || "Customer"}
         </p>
         <div className={cn(SCHEDULER_FIELD_STACK, "text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5")}>
@@ -212,9 +212,9 @@ export function JobMapPopupForm({
                   active
                     ? "bg-primary text-primary-foreground"
                     : cn(
-                        "border border-slate-800/80 bg-slate-900/60 text-muted-foreground",
+                        "border border-border/80 bg-card/60 text-muted-foreground",
                         SCHEDULER_INTERACTIVE_HOVER,
-                        "hover:text-slate-200"
+                        "hover:text-foreground"
                       ),
                   disabled && !active && "cursor-not-allowed opacity-40"
                 )}
@@ -251,7 +251,7 @@ export function JobMapPopupForm({
           disabled={saving}
           onClick={onCancel}
           className={cn(
-            "flex-1 rounded-md border border-slate-800/80 font-medium text-slate-300",
+            "flex-1 rounded-md border border-border/80 font-medium text-foreground",
             SCHEDULER_INTERACTIVE_HOVER,
             isSheet ? "min-h-12 px-4 py-3 text-base" : "px-2 py-2 text-xs"
           )}

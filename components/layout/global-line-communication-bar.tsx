@@ -88,7 +88,7 @@ export const GlobalLineCommunicationBar = memo(function GlobalLineCommunicationB
           >
             {ringing ? "Incoming · Ringing" : `Live · ${mm}:${ss}`}
           </span>
-          <span className="block truncate text-sm font-semibold tabular-nums text-slate-100">
+          <span className="block truncate text-sm font-semibold tabular-nums text-foreground">
             {phone}
           </span>
           {contextMeta ? (

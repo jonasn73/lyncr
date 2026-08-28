@@ -58,7 +58,7 @@ function TelemetryPill({
     tone === "teal" && "border-teal-500/25 text-teal-100/90",
     tone === "emerald" && "border-emerald-500/25 text-emerald-100/90",
     tone === "default" && "border-white/8 text-foreground/90",
-    onClick && "cursor-pointer hover:bg-zinc-900/50"
+    onClick && "cursor-pointer hover:bg-card/50"
   )
 
   const inner = (
@@ -86,7 +86,7 @@ function TelemetryPill({
         className={cn(
           sharedClasses,
           "relative z-10 min-h-11 touch-manipulation",
-          "hover:border-cyan-500/30 hover:bg-zinc-900/70 active:scale-95 transition-all",
+          "hover:border-cyan-500/30 hover:bg-card/70 active:scale-95 transition-all",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40"
         )}
         aria-label={`${label}: ${value}. Open details.`}
@@ -130,7 +130,7 @@ function TelemetryTickerItem({
   const body = (
     <>
       {/* Slightly smaller than before so the 3×2 block reads shorter on phones. */}
-      <span className={cn("text-sm font-bold leading-none tabular-nums text-slate-100", valueClassName)}>
+      <span className={cn("text-sm font-bold leading-none tabular-nums text-foreground", valueClassName)}>
         {displayValue}
       </span>
       <span

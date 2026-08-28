@@ -132,7 +132,7 @@ export function SendBookLinkSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[88dvh] overflow-y-auto rounded-t-2xl border-zinc-800 bg-zinc-950 px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 text-zinc-100"
+        className="max-h-[88dvh] overflow-y-auto rounded-t-2xl border-border bg-background px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 text-foreground"
       >
         <SheetHeader className="text-left">
           <SheetTitle className="flex items-center gap-2 text-base text-white">
@@ -173,35 +173,35 @@ export function SendBookLinkSheet({
                 "flex w-full flex-col items-start rounded-xl border px-3 py-3 text-left transition-colors",
                 feeMode === opt.id
                   ? "border-emerald-500/50 bg-emerald-500/15"
-                  : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                  : "border-border bg-card/60 hover:border-border"
               )}
             >
-              <span className="text-sm font-semibold text-zinc-100">{opt.label}</span>
+              <span className="text-sm font-semibold text-foreground">{opt.label}</span>
               <span className="text-2xs text-muted-foreground">{opt.hint}</span>
             </button>
           ))}
 
           {feeMode === "full_quote" ? (
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-zinc-300">Quote amount ($)</span>
+              <span className="text-xs font-medium text-foreground">Quote amount ($)</span>
               <input
                 inputMode="decimal"
                 value={quoteDollars}
                 onChange={(e) => setQuoteDollars(e.target.value)}
                 placeholder="e.g. 185"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
               />
             </label>
           ) : null}
 
           <label className="block space-y-2">
-            <span className="text-xs font-medium text-zinc-300">Short note (optional)</span>
+            <span className="text-xs font-medium text-foreground">Short note (optional)</span>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={280}
               placeholder="We’ll call when we’re close…"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
+              className="w-full rounded-lg border border-border bg-card px-3 py-3 text-sm text-white outline-none focus:border-emerald-500/60"
             />
           </label>
 

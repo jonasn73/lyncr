@@ -132,7 +132,7 @@ export function TeamInviteModal({
 
         {showForm ? (
           <>
-            <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1">
+            <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-border bg-background/60 p-1">
               <button
                 type="button"
                 onClick={() => {
@@ -182,7 +182,7 @@ export function TeamInviteModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Alex Rivera"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </label>
 
@@ -197,7 +197,7 @@ export function TeamInviteModal({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(502) 555-0100"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                   />
                 </label>
               ) : (
@@ -210,7 +210,7 @@ export function TeamInviteModal({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="alex@example.com"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                   <label className="block space-y-2">
@@ -222,7 +222,7 @@ export function TeamInviteModal({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="(502) 555-0100"
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                     />
                   </label>
                 </>
@@ -268,7 +268,7 @@ export function TeamInviteModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="w-full text-center text-xs text-muted-foreground hover:text-zinc-300"
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
             >
               Close
             </button>
@@ -277,7 +277,7 @@ export function TeamInviteModal({
 
         {inviteDone ? (
           <div className="mt-2 space-y-4">
-            <p className="text-sm text-zinc-300">
+            <p className="text-sm text-foreground">
               Invite ready for <span className="font-medium text-foreground">{inviteDone.email}</span>.
               {inviteDone.email_sent
                 ? " We also emailed the link."
@@ -288,7 +288,7 @@ export function TeamInviteModal({
                 {inviteDone.email_error}
               </p>
             ) : null}
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
+            <div className="rounded-lg border border-border bg-background/60 px-3 py-2">
               <p className="break-all text-xs text-muted-foreground">{inviteDone.register_url}</p>
             </div>
             <button
@@ -305,7 +305,7 @@ export function TeamInviteModal({
             <Link
               href="/dashboard"
               onClick={() => onOpenChange(false)}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-zinc-700 py-3 text-sm font-semibold text-foreground hover:bg-zinc-900"
+              className="inline-flex w-full items-center justify-center rounded-lg border border-border py-3 text-sm font-semibold text-foreground hover:bg-card"
             >
               Go to Who answers
             </Link>

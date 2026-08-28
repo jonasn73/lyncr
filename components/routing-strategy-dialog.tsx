@@ -235,7 +235,7 @@ export function RoutingStrategyDialog({
                   value={ringTimeout}
                   onChange={(e) => setRingTimeout(e.target.value)}
                   disabled={saving}
-                  className="w-[8rem] rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm font-semibold text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  className="w-[8rem] rounded-lg border border-border bg-card/50 px-3 py-2 text-sm font-semibold text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
                   How long your private staff rings before the Lyncr network is tried (5–60s).

@@ -154,10 +154,10 @@ export const IntakeTravelPreview = memo(function IntakeTravelPreview({
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <div className="relative overflow-hidden rounded-lg border border-border/60 bg-zinc-950">
+      <div className="relative overflow-hidden rounded-lg border border-border/60 bg-background">
         <div ref={containerRef} className="h-[11rem] w-full" aria-label="Travel map preview" />
         {!mapReady ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/80">
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
           </div>
         ) : null}

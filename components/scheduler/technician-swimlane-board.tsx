@@ -122,15 +122,15 @@ function MobileTechnicianAssignOverlay({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-sm gap-0 border-zinc-800 bg-zinc-950 p-0 sm:max-w-md">
-        <DialogHeader className="border-b border-zinc-800 px-4 py-3 text-left">
-          <DialogTitle className="text-base text-zinc-50">
+      <DialogContent className="max-w-sm gap-0 border-border bg-background p-0 sm:max-w-md">
+        <DialogHeader className="border-b border-border px-4 py-3 text-left">
+          <DialogTitle className="text-base text-foreground">
             {overlay?.jobId ? "Assign job" : "Book time slot"}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {jobLabel ? (
               <>
-                <span className="font-medium text-zinc-200">{jobLabel}</span>
+                <span className="font-medium text-foreground">{jobLabel}</span>
                 {" · "}
               </>
             ) : null}
@@ -152,7 +152,7 @@ function MobileTechnicianAssignOverlay({
                     MOBILE_TAP_TARGET,
                     selected
                       ? "border-cyan-500 bg-cyan-950/40 ring-2 ring-cyan-500/30"
-                      : "border-zinc-800 bg-zinc-900/80 active:scale-[0.98] active:bg-zinc-800"
+                      : "border-border bg-card/80 active:scale-[0.98] active:bg-muted"
                   )}
                   aria-pressed={selected}
                   aria-label={
@@ -164,14 +164,14 @@ function MobileTechnicianAssignOverlay({
                   <span
                     className={cn(
                       "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                      selected ? "bg-cyan-500 text-zinc-950" : "bg-zinc-800 text-zinc-200"
+                      selected ? "bg-cyan-500 text-zinc-950" : "bg-muted text-foreground"
                     )}
                     aria-hidden
                   >
                     {tech.name.trim().charAt(0).toUpperCase() || "?"}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-zinc-100">{tech.name}</span>
+                    <span className="block truncate text-sm font-semibold text-foreground">{tech.name}</span>
                     <span className="block text-xs text-muted-foreground">
                       {selected
                         ? "Selected — tap Confirm below or double-tap to assign"
@@ -184,7 +184,7 @@ function MobileTechnicianAssignOverlay({
           })}
         </ul>
 
-        <div className="border-t border-zinc-800">
+        <div className="border-t border-border">
           {selectedTech && selectedTechUserId ? (
             <div className="overflow-hidden px-3 pt-3 transition-all duration-200 ease-out animate-in slide-in-from-bottom-2 fade-in">
               <Button
@@ -332,7 +332,7 @@ function TimelineAppointmentBlock({
       )}
       style={{ left: leftPx, width: widthPx, minWidth: 56 }}
     >
-      <p className="truncate text-micro font-semibold text-slate-100">{ev.customer_name || "Job"}</p>
+      <p className="truncate text-micro font-semibold text-foreground">{ev.customer_name || "Job"}</p>
       <p className={cn("truncate", SCHEDULER_METADATA_LABEL)}>{SCHEDULER_STATUS_LABEL[phase]}</p>
     </button>
   )

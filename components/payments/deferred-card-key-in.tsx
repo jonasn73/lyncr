@@ -153,7 +153,7 @@ export function DeferredCardKeyInForm(props: {
         </p>
       </div>
 
-      <div className="min-h-[12rem] rounded-xl border border-zinc-700 bg-zinc-900/80 p-3">
+      <div className="min-h-[12rem] rounded-xl border border-border bg-card/80 p-3">
         {!elementReady && !loadFailed ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -204,7 +204,7 @@ export function DeferredCardKeyInForm(props: {
         <button
           type="button"
           onClick={cancel}
-          className="flex-1 rounded-lg border border-zinc-700 px-3 py-3 text-sm font-semibold text-slate-300"
+          className="flex-1 rounded-lg border border-border px-3 py-3 text-sm font-semibold text-foreground"
         >
           Back
         </button>

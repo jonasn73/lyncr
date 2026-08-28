@@ -271,7 +271,7 @@ export function FieldTechniciansPanel() {
         </div>
       ) : techs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-muted-foreground">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
             <HardHat className="h-6 w-6" aria-hidden />
           </span>
           <p className="text-sm text-muted-foreground">No field technicians yet.</p>
@@ -281,7 +281,7 @@ export function FieldTechniciansPanel() {
           {techs.map((tech) => (
             <div
               key={tech.id}
-              className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export function FieldTechniciansPanel() {
                         const next = e.target.value.trim()
                         void moveTech(tech, next ? next : null)
                       }}
-                      className="mt-0.5 w-full max-w-[200px] rounded-md border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+                      className="mt-0.5 w-full max-w-[200px] rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
                     >
                       <option value="">Unassigned</option>
                       {realOrganizations.map((org) => (
@@ -342,7 +342,7 @@ export function FieldTechniciansPanel() {
                     type="button"
                     onClick={() => void resend(tech)}
                     disabled={resentId === tech.id}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-2xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-2xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
                   >
                     {resentId === tech.id ? <Check className="h-3 w-3" /> : <Send className="h-3 w-3" />}
                     {resentId === tech.id ? "Sent" : "Resend"}
@@ -354,7 +354,7 @@ export function FieldTechniciansPanel() {
                     setRemoveError(null)
                     setRemoveTarget(tech)
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-2xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-2xs font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                   aria-label={`Remove ${tech.name} from your team`}
                 >
                   <Trash2 className="h-3 w-3" aria-hidden />
@@ -395,7 +395,7 @@ export function FieldTechniciansPanel() {
           }
         }}
       >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+        <AlertDialogContent className="border-border bg-background text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Remove {removeTarget?.name ?? "this technician"} from your team?
@@ -411,7 +411,7 @@ export function FieldTechniciansPanel() {
             </p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+            <AlertDialogCancel disabled={removing} className="border-border bg-card">
               Keep
             </AlertDialogCancel>
             <AlertDialogAction

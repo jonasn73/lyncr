@@ -337,7 +337,7 @@ function WeeklyDayBreakdownChart({
   const hasActivity = days.some((d) => d.callCount > 0)
 
   return (
-    <section className="border-b border-zinc-800/80 px-4 py-3" aria-label="Calls by day this week">
+    <section className="border-b border-border/80 px-4 py-3" aria-label="Calls by day this week">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">By day</p>
         {hasActivity ? (
@@ -372,7 +372,7 @@ function WeeklyDayBreakdownChart({
                 onClick={() => onSelectDay(isSelected ? null : day.key)}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
-                  "hover:bg-zinc-900/60",
+                  "hover:bg-card/60",
                   isSelected && "bg-teal-950/40 ring-1 ring-teal-500/30"
                 )}
                 aria-pressed={isSelected}
@@ -382,7 +382,7 @@ function WeeklyDayBreakdownChart({
                   <p
                     className={cn(
                       "text-xs font-semibold",
-                      day.isToday ? "text-teal-300" : isMuted ? "text-muted-foreground" : "text-zinc-300"
+                      day.isToday ? "text-teal-300" : isMuted ? "text-muted-foreground" : "text-foreground"
                     )}
                   >
                     {day.displayLabel}
@@ -391,11 +391,11 @@ function WeeklyDayBreakdownChart({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800/80">
+                  <div className="h-2 overflow-hidden rounded-full bg-muted/80">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all",
-                        day.callCount > 0 ? "bg-teal-500/80" : "bg-zinc-700/40"
+                        day.callCount > 0 ? "bg-teal-500/80" : "bg-accent/40"
                       )}
                       style={{ width: `${Math.max(day.callCount > 0 ? 8 : 0, barPct)}%` }}
                     />
@@ -406,7 +406,7 @@ function WeeklyDayBreakdownChart({
                   <p
                     className={cn(
                       "text-xs font-bold tabular-nums",
-                      day.callCount > 0 ? "text-zinc-100" : "text-muted-foreground"
+                      day.callCount > 0 ? "text-foreground" : "text-muted-foreground"
                     )}
                   >
                     {day.callCount} call{day.callCount === 1 ? "" : "s"}
@@ -465,14 +465,14 @@ function SummaryStat({
     <div
       className={cn(
         "rounded-xl border px-3 py-3",
-        highlight ? "border-teal-500/30 bg-teal-950/30" : "border-zinc-800/80 bg-zinc-900/40"
+        highlight ? "border-teal-500/30 bg-teal-950/30" : "border-border/80 bg-card/40"
       )}
     >
       <div className="flex items-center gap-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3 w-3 shrink-0" aria-hidden />
         {label}
       </div>
-      <p className={cn("mt-1 text-lg font-bold tabular-nums", highlight ? "text-teal-300" : "text-zinc-100")}>
+      <p className={cn("mt-1 text-lg font-bold tabular-nums", highlight ? "text-teal-300" : "text-foreground")}>
         {value}
       </p>
     </div>
@@ -576,9 +576,9 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90vh,820px)] overflow-hidden border-zinc-800 bg-zinc-950 p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-zinc-800 px-6 py-4">
-          <DialogTitle className="text-base text-zinc-50">
+      <DialogContent className="max-h-[min(90vh,820px)] overflow-hidden border-border bg-background p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-base text-foreground">
             {filter === "weekly_talk" && weekOffset === -1
               ? `Last week · ${weekRangeLabel}`
               : filter === "weekly_talk"
@@ -595,7 +595,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
         </DialogHeader>
 
         {filter === "weekly_talk" ? (
-          <div className="flex gap-2 border-b border-zinc-800/80 px-4 py-3">
+          <div className="flex gap-2 border-b border-border/80 px-4 py-3">
             <button
               type="button"
               onClick={() => handleWeekOffsetChange(0)}
@@ -603,7 +603,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                 "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
                 weekOffset === 0
                   ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
-                  : "border-zinc-800 bg-zinc-900/50 text-muted-foreground hover:border-zinc-700 hover:text-zinc-200"
+                  : "border-border bg-card/50 text-muted-foreground hover:border-border hover:text-foreground"
               )}
             >
               This week
@@ -615,7 +615,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                 "min-h-10 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98]",
                 weekOffset === -1
                   ? "border-teal-500/40 bg-teal-500/15 text-teal-100"
-                  : "border-zinc-800 bg-zinc-900/50 text-muted-foreground hover:border-zinc-700 hover:text-zinc-200"
+                  : "border-border bg-card/50 text-muted-foreground hover:border-border hover:text-foreground"
               )}
             >
               Last week
@@ -624,7 +624,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
         ) : null}
 
         {showTalkSummary && !loading && !error ? (
-          <div className="grid grid-cols-2 gap-2 border-b border-zinc-800/80 px-4 py-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 border-b border-border/80 px-4 py-3 sm:grid-cols-4">
             <SummaryStat
               label="Total talk"
               value={formatTalkDuration(summary.totalTalkSeconds)}
@@ -638,7 +638,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
         ) : null}
 
         {!loading && !error && showTalkSummary && summary.callCount > 0 ? (
-          <div className="border-b border-zinc-800/60 px-6 py-2 text-xs text-muted-foreground">
+          <div className="border-b border-border/60 px-6 py-2 text-xs text-muted-foreground">
             Avg {formatDuration(summary.avgTalkSeconds)} per call
             {filter === "weekly_talk" && selectedWeekDayKey ? (
               <span className="text-muted-foreground">
@@ -686,7 +686,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                 return (
                   <li
                     key={call.id}
-                    className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-3 py-3"
+                    className="rounded-xl border border-border/80 bg-card/50 px-3 py-3"
                   >
                     <div className="flex items-start gap-3">
                       <DirectionIcon callType={call.call_type} />
@@ -700,7 +700,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
                               {formatPhoneDisplay(call.from_number)}
                             </a>
                           ) : (
-                            <p className="truncate text-sm font-medium text-zinc-100">
+                            <p className="truncate text-sm font-medium text-foreground">
                               {formatPhoneDisplay(call.from_number)}
                             </p>
                           )}
@@ -750,7 +750,7 @@ export const RoutingCallHistoryDialog = memo(function RoutingCallHistoryDialog({
           )}
         </div>
 
-        <div className="border-t border-zinc-800 px-6 py-2 text-center text-2xs text-muted-foreground">
+        <div className="border-t border-border px-6 py-2 text-center text-2xs text-muted-foreground">
           {listRows.length} call{listRows.length === 1 ? "" : "s"}
           {selectedWeekDayKey && filter === "weekly_talk"
             ? ` on ${weeklyDayBreakdown.find((d) => d.key === selectedWeekDayKey)?.displayLabel ?? "this day"}`

@@ -59,7 +59,7 @@ export function RescueOfferInline({ job, onClose }: RescueOfferInlineProps) {
         <button
           type="button"
           onClick={onClose}
-          className="text-micro font-semibold uppercase tracking-wide text-muted-foreground hover:text-slate-200"
+          className="text-micro font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
         >
           Close
         </button>

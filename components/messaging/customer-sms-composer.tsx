@@ -255,7 +255,7 @@ export function CustomerSmsComposer({
                   disabled={busy}
                   value={etaMinutes}
                   onChange={(e) => setEtaMinutes(e.target.value)}
-                  className="h-9 w-16 rounded-md border border-amber-500/30 bg-slate-950/70 px-2 text-center text-sm font-semibold tabular-nums text-amber-50 focus:border-amber-400/50 focus:outline-none disabled:opacity-50"
+                  className="h-9 w-16 rounded-md border border-amber-500/30 bg-background/70 px-2 text-center text-sm font-semibold tabular-nums text-amber-50 focus:border-amber-400/50 focus:outline-none disabled:opacity-50"
                   aria-label="Minutes late"
                 />
                 <span className="text-2xs text-amber-200/70">min</span>
@@ -276,7 +276,7 @@ export function CustomerSmsComposer({
               type="button"
               disabled={busy}
               onClick={() => sendStatusQuick("arrived")}
-              className="rounded-md border border-amber-500/30 bg-slate-950/40 px-2 py-1 text-2xs font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
+              className="rounded-md border border-amber-500/30 bg-background/40 px-2 py-1 text-2xs font-semibold text-amber-50 hover:bg-amber-500/20 disabled:opacity-50"
             >
               I&apos;m here
             </button>
@@ -365,8 +365,8 @@ export function CustomerSmsComposer({
                 className={cn(
                   "w-full rounded-lg border px-3 py-2 text-left text-xs font-medium disabled:opacity-50",
                   isMissed
-                    ? "border-rose-500/25 bg-slate-950/50 text-slate-100 hover:border-rose-400/40 hover:bg-slate-900"
-                    : "border-sky-500/20 bg-slate-950/50 text-slate-100 hover:border-sky-400/40 hover:bg-slate-900"
+                    ? "border-rose-500/25 bg-background/50 text-foreground hover:border-rose-400/40 hover:bg-card"
+                    : "border-sky-500/20 bg-background/50 text-foreground hover:border-sky-400/40 hover:bg-card"
                 )}
               >
                 {template}
@@ -387,7 +387,7 @@ export function CustomerSmsComposer({
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={draftPlaceholder}
-          className="w-full resize-y rounded-lg border border-sky-900/40 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 placeholder:text-muted-foreground focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
+          className="w-full resize-y rounded-lg border border-sky-900/40 bg-background/70 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-sky-500/50 focus:outline-none disabled:opacity-60"
         />
         <Button
           type="button"

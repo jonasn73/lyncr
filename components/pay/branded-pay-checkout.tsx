@@ -215,7 +215,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                     "rounded-xl border py-2 text-xs font-semibold transition-colors",
                     tipChoice === opt.id
                       ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                      : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                      : "border-border bg-card text-muted-foreground"
                   )}
                 >
                   {opt.label}
@@ -234,13 +234,13 @@ export function BrandedPayCheckout({ token }: { token: string }) {
                 "mt-1.5 w-full rounded-xl border py-2 text-xs font-semibold transition-colors",
                 tipChoice === "custom"
                   ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
-                  : "border-zinc-700 bg-zinc-900 text-muted-foreground"
+                  : "border-border bg-card text-muted-foreground"
               )}
             >
               Custom tip
             </button>
             {tipChoice === "custom" ? (
-              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2">
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
                 <span className="text-sm font-semibold text-muted-foreground">$</span>
                 <input
                   type="number"

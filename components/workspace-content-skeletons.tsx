@@ -9,7 +9,7 @@ import {
   WORKSPACE_TABLE_ROW_CLASS,
 } from "@/components/dashboard-workspace-ui"
 
-const SKELETON_BLOCK = "rounded-xl bg-zinc-900/80"
+const SKELETON_BLOCK = "rounded-xl bg-card/80"
 
 /** Wrapper for lists/cards after data is ready — no opacity fade (that looked like a dark overlay). */
 export function WorkspaceBloom({ children, className }: { children: ReactNode; className?: string }) {
@@ -59,7 +59,7 @@ export function CrmListRowSkeleton({ count = 6 }: { count?: number }) {
       {Array.from({ length: count }, (_, i) => (
         <li
           key={i}
-          className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-3"
+          className="rounded-xl border border-border/80 bg-card/40 px-3 py-3"
         >
           <SkeletonBar className="h-4 w-32 max-w-[70%]" />
           <SkeletonBar className="mt-1.5 h-3 w-24 max-w-[50%]" />
@@ -114,7 +114,7 @@ function TableSkeletonBody({ columns, rows = 6 }: TableSkeletonProps) {
         {Array.from({ length: rows }, (_, i) => (
           <tr key={i} className={WORKSPACE_TABLE_ROW_CLASS}>
             {columns.map((col) => (
-              <td key={col.label} className="border-b border-zinc-800/50 px-4 py-4 align-middle">
+              <td key={col.label} className="border-b border-border/50 px-4 py-4 align-middle">
                 <SkeletonBar className="h-4 w-[70%] max-w-[10rem]" />
               </td>
             ))}
@@ -130,17 +130,17 @@ export function ActivityTableSkeleton() {
     // Match live list height roughly — avoid a huge empty well under short lists.
     <WorkspacePanel className="min-h-[16rem] bg-background shadow-none ring-0">
       {/* Mobile + tablet: card list — matches ActivityCallsMobileList (not the desktop table). */}
-      <ul className="divide-y divide-zinc-800/70 lg:hidden" aria-hidden>
+      <ul className="divide-y divide-border/70 lg:hidden" aria-hidden>
         {Array.from({ length: 6 }, (_, i) => (
           <li key={i} className="px-3 py-3">
             <div className="flex items-start gap-2">
-              <div className="mt-0.5 h-5 w-16 shrink-0 rounded-full bg-zinc-800/80" />
+              <div className="mt-0.5 h-5 w-16 shrink-0 rounded-full bg-muted/80" />
               <div className="min-w-0 flex-1 space-y-2">
-                <div className="h-4 w-[55%] max-w-[12rem] rounded bg-zinc-800/80" />
-                <div className="h-3 w-[40%] max-w-[9rem] rounded bg-zinc-800/60" />
-                <div className="h-3 w-[48%] max-w-[10rem] rounded bg-zinc-800/50" />
+                <div className="h-4 w-[55%] max-w-[12rem] rounded bg-muted/80" />
+                <div className="h-3 w-[40%] max-w-[9rem] rounded bg-muted/60" />
+                <div className="h-3 w-[48%] max-w-[10rem] rounded bg-muted/50" />
               </div>
-              <div className="mt-1 h-4 w-4 shrink-0 rounded bg-zinc-800/60" />
+              <div className="mt-1 h-4 w-4 shrink-0 rounded bg-muted/60" />
             </div>
           </li>
         ))}
@@ -169,7 +169,7 @@ export function PayStatCardsSkeleton() {
   return (
     <div className="grid min-h-[5.75rem] gap-4 sm:grid-cols-3" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn("min-h-[5.75rem] rounded-2xl border border-zinc-800/60", SKELETON_BLOCK)} />
+        <div key={i} className={cn("min-h-[5.75rem] rounded-2xl border border-border/60", SKELETON_BLOCK)} />
       ))}
     </div>
   )
@@ -178,7 +178,7 @@ export function PayStatCardsSkeleton() {
 export function PayLedgerSkeleton() {
   return (
     <WorkspacePanel className="min-h-[300px]">
-      <div className="border-b border-zinc-800 px-6 py-4">
+      <div className="border-b border-border px-6 py-4">
         <SkeletonBar className="h-4 w-32" />
       </div>
       <TableSkeletonBody

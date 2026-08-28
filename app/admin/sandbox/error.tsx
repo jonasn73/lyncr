@@ -15,11 +15,11 @@ export default function AdminSandboxError({
   }, [error])
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-8 text-slate-200">
-      <h1 className="text-xl font-semibold text-slate-100">Sandbox board failed to load</h1>
+    <div className="mx-auto flex max-w-lg flex-col gap-4 p-8 text-foreground">
+      <h1 className="text-xl font-semibold text-foreground">Sandbox board failed to load</h1>
       <p className="text-sm leading-relaxed text-muted-foreground">
         The dev sandbox hit a server error. Common fixes: run migrations{" "}
-        <strong className="font-medium text-slate-300">042–045</strong> in Neon (see{" "}
+        <strong className="font-medium text-foreground">042–045</strong> in Neon (see{" "}
         <code className="text-violet-300">scripts/MIGRATE-ALL.md</code>), then try seed again.
       </p>
       {error.digest ? (
@@ -35,7 +35,7 @@ export default function AdminSandboxError({
         </button>
         <Link
           href="/admin"
-          className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
         >
           Back to admin
         </Link>

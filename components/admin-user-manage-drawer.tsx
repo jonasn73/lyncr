@@ -56,7 +56,7 @@ function smsRegistrationBadgeClass(status: SmsRegistrationOrgStatus): string {
   if (status === "PENDING_APPROVAL") return "border-amber-700/60 bg-amber-950/40 text-amber-200"
   if (status === "APPROVED") return "border-emerald-700/60 bg-emerald-950/40 text-emerald-200"
   if (status === "REJECTED") return "border-red-800/60 bg-red-950/40 text-red-200"
-  return "border-slate-700 bg-slate-900/60 text-muted-foreground"
+  return "border-border bg-card/60 text-muted-foreground"
 }
 
 /** Default empty control hub payload when the API fails. */
@@ -308,10 +308,10 @@ export function AdminUserManageDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full border-slate-800 bg-[#0b1120] text-slate-100 sm:max-w-lg">
+      <SheetContent side="right" className="w-full border-border bg-[#0b1120] text-foreground sm:max-w-lg">
         <SheetHeader>
           {/* Shop name is the title so you know whose account you opened. */}
-          <SheetTitle className="text-slate-50">
+          <SheetTitle className="text-foreground">
             {row?.business_name.trim() || row?.email || "Manage shop"}
           </SheetTitle>
           <SheetDescription className="text-muted-foreground">
@@ -349,7 +349,7 @@ export function AdminUserManageDrawer({
             <Button
               type="button"
               variant="outline"
-              className="w-full border-slate-600 text-slate-100"
+              className="w-full border-border text-foreground"
               disabled={impersonatePending}
               onClick={() => {
                 startImpersonateTransition(async () => {
@@ -369,7 +369,7 @@ export function AdminUserManageDrawer({
             </Button>
 
             {businessEconomics ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+              <div className="rounded-xl border border-border bg-background/50 p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Business money
                 </p>
@@ -379,21 +379,21 @@ export function AdminUserManageDrawer({
 
             {/* Routing: assign the shop’s main Telnyx number. */}
             <div className="space-y-2">
-              <Label className="text-slate-300">Direct phone assignment (Telnyx DID)</Label>
+              <Label className="text-foreground">Direct phone assignment (Telnyx DID)</Label>
               <Input
                 value={manualPhone}
                 onChange={(e) => setManualPhone(e.target.value)}
                 placeholder="+15551234567"
-                className="border-slate-700 bg-slate-950 font-mono text-slate-100"
+                className="border-border bg-background font-mono text-foreground"
               />
               <p className="text-xs text-muted-foreground">Bypasses self-service purchase — assigns or updates the primary active line.</p>
             </div>
 
             {/* Per-line override — this is what shows the purple bar on a shop dashboard. */}
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-emerald-300" aria-hidden />
-                <Label className="text-slate-200">Active phone lines</Label>
+                <Label className="text-foreground">Active phone lines</Label>
               </div>
               <p className="text-xs text-muted-foreground">
                 Each shop on this login has a line. Clear “Admin override” and Save to turn off direct routing.
@@ -410,12 +410,12 @@ export function AdminUserManageDrawer({
                     return (
                     <li
                       key={line.id}
-                      className="flex flex-col gap-2 rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2"
+                      className="flex flex-col gap-2 rounded-md border border-border bg-card/50 px-3 py-2"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-100">{shopName}</p>
-                          <p className="truncate font-mono text-xs text-slate-300">{line.number}</p>
+                          <p className="truncate text-sm font-medium text-foreground">{shopName}</p>
+                          <p className="truncate font-mono text-xs text-foreground">{line.number}</p>
                           <p className="truncate text-2xs text-muted-foreground">
                             {line.label} · <span className="capitalize">{line.status}</span>
                           </p>
@@ -443,7 +443,7 @@ export function AdminUserManageDrawer({
                             setLineOverrideDrafts((prev) => ({ ...prev, [line.id]: e.target.value }))
                           }
                           placeholder="Empty = normal routing"
-                          className="border-slate-700 bg-slate-950 font-mono text-xs text-slate-100"
+                          className="border-border bg-background font-mono text-xs text-foreground"
                         />
                       </div>
                     </li>
@@ -456,14 +456,14 @@ export function AdminUserManageDrawer({
             </div>
 
             {/* Wallet: add or subtract prepaid phone credit. */}
-            <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="space-y-2 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-violet-300" aria-hidden />
-                <Label className="text-slate-200">Adjust wallet balance</Label>
+                <Label className="text-foreground">Adjust wallet balance</Label>
               </div>
               <p className="text-xs text-muted-foreground">
                 Current carrier credit:{" "}
-                <span className="font-semibold tabular-nums text-slate-200">{formatUsd(creditBalance)}</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatUsd(creditBalance)}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Input
@@ -473,7 +473,7 @@ export function AdminUserManageDrawer({
                   value={walletAmount}
                   onChange={(e) => setWalletAmount(e.target.value)}
                   placeholder="± USD (e.g. 25 or -10)"
-                  className="border-slate-700 bg-slate-950 text-slate-100"
+                  className="border-border bg-background text-foreground"
                   disabled={walletBusy}
                 />
                 <Button
@@ -487,14 +487,14 @@ export function AdminUserManageDrawer({
               </div>
             </div>
 
-            <Accordion type="single" collapsible className="rounded-lg border border-slate-800">
+            <Accordion type="single" collapsible className="rounded-lg border border-border">
               <AccordionItem value="advanced" className="border-0 px-3">
-                <AccordionTrigger className="text-sm font-semibold text-slate-200 hover:no-underline">
+                <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
                   Advanced
                 </AccordionTrigger>
                 <AccordionContent className="space-y-6 pb-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">Account status</Label>
+              <Label className="text-foreground">Account status</Label>
               <div className="flex flex-wrap gap-2" role="group" aria-label="Account status">
                 {ACCOUNT_STATUSES.map((s) => {
                   const selected = targetStatus === s
@@ -506,13 +506,13 @@ export function AdminUserManageDrawer({
                       size="sm"
                       aria-pressed={selected}
                       className={cn(
-                        "border-slate-700",
+                        "border-border",
                         selected && s === "active" && "border-emerald-600 bg-emerald-600/20 text-emerald-200",
                         selected && s === "pending" && "border-amber-500 bg-amber-600/20 text-amber-100",
-                        selected && s === "denied" && "border-zinc-500 bg-zinc-600/20 text-zinc-100",
+                        selected && s === "denied" && "border-border bg-zinc-600/20 text-foreground",
                         selected && s === "suspended" && "border-red-600 bg-red-600/20 text-red-200",
                         selected && s === "flagged" && "border-amber-600 bg-amber-600/20 text-amber-200",
-                        !selected && "bg-slate-950 text-slate-300 hover:bg-slate-900"
+                        !selected && "bg-background text-foreground hover:bg-card"
                       )}
                       onClick={() => setTargetStatus(s)}
                     >
@@ -527,20 +527,20 @@ export function AdminUserManageDrawer({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Custom admin routing notes</Label>
+              <Label className="text-foreground">Custom admin routing notes</Label>
               <Textarea
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
                 placeholder="e.g. VIP client — manual billing clear"
-                className="min-h-[100px] border-slate-700 bg-slate-950 text-slate-100"
+                className="min-h-[100px] border-border bg-background text-foreground"
               />
             </div>
 
             {/* Feature controls */}
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-amber-300" aria-hidden />
-                <Label className="text-slate-200">Feature controls</Label>
+                <Label className="text-foreground">Feature controls</Label>
               </div>
               {controlsLoading && !controls ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -550,7 +550,7 @@ export function AdminUserManageDrawer({
                 FEATURE_CONTROLS.map((f) => (
                   <div key={f.id} className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-200">{f.label}</p>
+                      <p className="text-sm font-medium text-foreground">{f.label}</p>
                       <p className="text-xs text-muted-foreground">{f.description}</p>
                     </div>
                     <Switch
@@ -565,10 +565,10 @@ export function AdminUserManageDrawer({
             </div>
 
             {/* Business actions — platform-admin manual field tech provisioning */}
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-center gap-2">
                 <HardHat className="h-4 w-4 text-violet-300" aria-hidden />
-                <Label className="text-slate-200">Business actions</Label>
+                <Label className="text-foreground">Business actions</Label>
               </div>
               <p className="text-xs text-muted-foreground">
                 Provision an active field technician directly on this owner&apos;s roster — binds to their workspace
@@ -585,11 +585,11 @@ export function AdminUserManageDrawer({
             </div>
 
             {/* Workspace & team infrastructure */}
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border bg-background/40 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-sky-300" aria-hidden />
-                  <Label className="text-slate-200">Workspace &amp; team infrastructure</Label>
+                  <Label className="text-foreground">Workspace &amp; team infrastructure</Label>
                 </div>
                 {controls?.is_multi_workspace ? (
                   <Badge className="border-violet-700/60 bg-violet-950/40 text-violet-200">
@@ -607,13 +607,13 @@ export function AdminUserManageDrawer({
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                     <p>
-                      <span className="font-medium text-slate-300">
+                      <span className="font-medium text-foreground">
                         {controls?.team_roster.active_receptionists ?? 0}
                       </span>{" "}
                       active receptionist
                       {(controls?.team_roster.active_receptionists ?? 0) === 1 ? "" : "s"}
                       {" · "}
-                      <span className="font-medium text-slate-300">
+                      <span className="font-medium text-foreground">
                         {controls?.team_roster.active_field_technicians ?? 0}
                       </span>{" "}
                       active dispatch tech
@@ -628,11 +628,11 @@ export function AdminUserManageDrawer({
                       {controls.organizations.map((org) => (
                         <li
                           key={org.id}
-                          className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-3"
+                          className="rounded-md border border-border bg-card/50 px-3 py-3"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-slate-200">
+                              <p className="truncate text-sm font-medium text-foreground">
                                 {org.name}
                                 {org.is_default ? (
                                   <span className="ml-1.5 text-micro font-normal uppercase tracking-wide text-muted-foreground">
@@ -671,9 +671,9 @@ export function AdminUserManageDrawer({
                   )}
 
                   {(controls?.pending_invites.length ?? 0) > 0 ? (
-                    <Accordion type="single" collapsible className="rounded-md border border-slate-800">
+                    <Accordion type="single" collapsible className="rounded-md border border-border">
                       <AccordionItem value="pending-invites" className="border-0 px-3">
-                        <AccordionTrigger className="py-3 text-xs font-medium text-slate-300 hover:no-underline">
+                        <AccordionTrigger className="py-3 text-xs font-medium text-foreground hover:no-underline">
                           Pending team invites ({controls?.pending_invites.length})
                         </AccordionTrigger>
                         <AccordionContent>
@@ -681,7 +681,7 @@ export function AdminUserManageDrawer({
                             {controls?.pending_invites.map((inv) => (
                               <li
                                 key={inv.id}
-                                className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2"
+                                className="flex items-center justify-between gap-3 rounded-md border border-border bg-background/60 px-3 py-2"
                               >
                                 <div className="flex min-w-0 items-center gap-2">
                                   {inv.channel === "SMS" ? (
@@ -690,7 +690,7 @@ export function AdminUserManageDrawer({
                                     <Mail className="h-3.5 w-3.5 shrink-0 text-sky-400" aria-hidden />
                                   )}
                                   <div className="min-w-0">
-                                    <p className="truncate font-mono text-xs text-slate-200">{inv.target}</p>
+                                    <p className="truncate font-mono text-xs text-foreground">{inv.target}</p>
                                     <p className="text-micro text-muted-foreground">
                                       {inv.channel} · expires{" "}
                                       {new Date(inv.expires_at).toLocaleDateString(undefined, {
@@ -733,7 +733,7 @@ export function AdminUserManageDrawer({
                     {resetting ? "Resetting..." : "Reset active lines"}
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="border-slate-800 bg-slate-900 text-slate-100">
+                <AlertDialogContent className="border-border bg-card text-foreground">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Reset active lines?</AlertDialogTitle>
                     <AlertDialogDescription className="text-muted-foreground">
@@ -742,7 +742,7 @@ export function AdminUserManageDrawer({
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="border-slate-700 bg-slate-950">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="border-border bg-background">Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       className="bg-red-600 hover:bg-red-700"
                       onClick={(e) => {
@@ -777,11 +777,11 @@ export function AdminUserManageDrawer({
           />
         ) : null}
 
-        <SheetFooter className="border-t border-slate-800 pt-4">
+        <SheetFooter className="border-t border-border pt-4">
           <Button
             type="button"
             variant="outline"
-            className="border-slate-700 text-slate-200"
+            className="border-border text-foreground"
             onClick={() => onOpenChange(false)}
           >
             Cancel

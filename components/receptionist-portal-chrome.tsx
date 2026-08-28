@@ -62,7 +62,7 @@ export function ReceptionistPortalChrome({
                 {businessName ? (
                   <span className="font-normal text-muted-foreground">
                     {" · "}
-                    <span className="text-zinc-300">{businessName}</span>
+                    <span className="text-foreground">{businessName}</span>
                   </span>
                 ) : null}
               </p>

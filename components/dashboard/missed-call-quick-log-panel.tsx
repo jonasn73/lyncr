@@ -139,7 +139,7 @@ export function MissedCallQuickLogPanel({
                     "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
                     active
                       ? "border-rose-400/50 bg-rose-500/15 text-rose-100"
-                      : "border-zinc-700/80 bg-zinc-900/40 text-zinc-300 hover:border-rose-400/35 hover:bg-slate-800 hover:text-rose-100"
+                      : "border-border/80 bg-card/40 text-foreground hover:border-rose-400/35 hover:bg-muted hover:text-rose-100"
                   )}
                   aria-pressed={active}
                 >
@@ -160,7 +160,7 @@ export function MissedCallQuickLogPanel({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Anything to remember — address hint, what they said, when to call back…"
             rows={3}
-            className="resize-none border-zinc-700/80 bg-zinc-950/50 text-sm"
+            className="resize-none border-border/80 bg-background/50 text-sm"
           />
         </div>
 
@@ -173,7 +173,7 @@ export function MissedCallQuickLogPanel({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="If you know who it was"
-            className="border-zinc-700/80 bg-zinc-950/50"
+            className="border-border/80 bg-background/50"
           />
         </div>
 

@@ -162,7 +162,7 @@ function NetworkInstructionsPanel() {
           "Pricing: Basic wash $40 · Full detail from $150 — quote ranges only, never commit a final price\n" +
           "Always collect: caller name, callback number, vehicle, service needed, and ZIP"
         }
-        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+        className="mt-4 min-h-[160px] w-full resize-y rounded-xl border border-border bg-background/60 px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
       />
 
       {error ? (
@@ -458,7 +458,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
       <WorkspacePageHeader eyebrow="Dispatch" title="Team" />
 
       <WorkspacePanel density="compact">
-        <p className="text-sm leading-relaxed text-zinc-300">
+        <p className="text-sm leading-relaxed text-foreground">
           Add people who can answer your business calls.{" "}
           <span className="font-medium text-foreground">Phone contacts</span> ring their cell when you pick them under{" "}
           <span className="font-medium text-foreground">Who answers</span> (Custom Routing).{" "}
@@ -487,7 +487,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <button
               type="button"
               onClick={() => setShowRoutingTip(false)}
-              className="text-xs text-muted-foreground hover:text-zinc-200"
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
               Dismiss
             </button>
@@ -527,7 +527,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           </div>
 
           {billingCycleLabel ? (
-            <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-2xs text-muted-foreground">
+            <div className="mt-3 rounded-lg border border-border bg-background/50 px-3 py-2 text-2xs text-muted-foreground">
               Payout totals · billing cycle {billingCycleLabel}
             </div>
           ) : null}
@@ -551,7 +551,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         type="button"
                         onClick={() => void copyInviteLink(inv)}
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                         aria-label={`Copy invite link for ${inviteLabel}`}
                       >
                         {busy && inviteBusyKind === "copy" ? (
@@ -568,7 +568,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           type="button"
                           onClick={() => void resendInvite(inv)}
                           disabled={busy}
-                          className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                           aria-label={`Resend invite email to ${inviteLabel}`}
                         >
                           {busy && inviteBusyKind === "resend" ? (
@@ -587,7 +587,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                           setPendingRemove({ kind: "invite", id: inv.id, name: inviteLabel })
                         }
                         disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700/80 px-2 py-1 text-micro font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-micro font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
                         aria-label={`Cancel invite for ${inviteLabel}`}
                       >
                         <Trash2 className="h-3 w-3" aria-hidden />
@@ -617,7 +617,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
               </div>
             ) : members.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60 text-muted-foreground">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/60 text-muted-foreground">
                   <Users className="h-5 w-5" aria-hidden />
                 </span>
                 <p className="text-sm text-muted-foreground">No one added yet.</p>
@@ -632,7 +632,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                   const online = isMemberOnline(member)
                   const payout = payoutsById[member.id]
                   return (
-                    <div key={member.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
+                    <div key={member.id} className="rounded-xl border border-border bg-background/40 px-3 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="relative">
@@ -660,7 +660,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                             onClick={() =>
                               setPendingRemove({ kind: "member", id: member.id, name: member.name })
                             }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Remove ${member.name} from your team`}
                           >
                             <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -690,7 +690,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
                         {payout ? (
                           <p className="shrink-0 text-right text-2xs text-muted-foreground">
                             {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
-                            <span className="font-medium text-zinc-200">
+                            <span className="font-medium text-foreground">
                               {formatUsd(payout.total_earnings)} earned
                             </span>
                           </p>
@@ -724,7 +724,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
           if (!open && !removing) setPendingRemove(null)
         }}
       >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-foreground">
+        <AlertDialogContent className="border-border bg-background text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {pendingRemove?.kind === "invite"
@@ -738,7 +738,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing} className="border-zinc-700 bg-zinc-900">
+            <AlertDialogCancel disabled={removing} className="border-border bg-card">
               Keep
             </AlertDialogCancel>
             <AlertDialogAction
