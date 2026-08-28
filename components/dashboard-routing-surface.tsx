@@ -285,7 +285,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
             {/* Main column: setup / telemetry / (Who answers + Available stack). */}
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-4">
               {quickSetupDecided && !isSetupComplete ? (
-                <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm ring-1 ring-primary/10 sm:p-7">
+                <section className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-resting ring-1 ring-primary/10 sm:p-7">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12">
                       <Check className="h-4 w-4 text-primary" aria-hidden />

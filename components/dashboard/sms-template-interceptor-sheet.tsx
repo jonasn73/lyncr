@@ -49,7 +49,7 @@ export function SmsTemplateInterceptorSheet({
       />
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-background border-t border-border rounded-t-2xl p-6 z-50 shadow-2xl",
+          "fixed bottom-0 left-0 right-0 bg-background border-t border-border rounded-t-2xl p-6 z-50 shadow-overlay",
           "pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         )}
       >

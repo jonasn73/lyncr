@@ -824,7 +824,7 @@ function IntakeDraftRestoredFlash({ visible }: { visible: boolean }) {
           role="status"
           aria-live="polite"
         >
-          <p className="rounded-full border border-success/40 bg-background/95 px-4 py-2 text-xs font-medium text-success shadow-lg backdrop-blur">
+          <p className="rounded-full border border-success/40 bg-background/95 px-4 py-2 text-xs font-medium text-success shadow-raised backdrop-blur">
             Draft restored.
           </p>
         </motion.div>

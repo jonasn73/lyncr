@@ -86,7 +86,7 @@ export function WorkspacePanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-lg ring-1 ring-border/40",
+        "overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-raised ring-1 ring-border/40",
         density && WORKSPACE_PANEL_DENSITY[density],
         className
       )}

@@ -33,7 +33,7 @@ type NetworkAgent = {
   created_at: string
 }
 
-const opCard = "border-border/80 bg-card/50 text-foreground shadow-sm"
+const opCard = "border-border/80 bg-card/50 text-foreground shadow-resting"
 
 export function AdminNetworkAgentsBoard() {
   const { toast } = useToast()

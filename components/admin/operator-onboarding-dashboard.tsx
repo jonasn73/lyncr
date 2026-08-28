@@ -325,7 +325,7 @@ export function OperatorOnboardingDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
-        <Card className="border-border bg-card/60 shadow-lg">
+        <Card className="border-border bg-card/60 shadow-raised">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base text-foreground">
               <UserPlus className="h-4 w-4 text-violet-300" aria-hidden />
@@ -439,7 +439,7 @@ export function OperatorOnboardingDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card/60 shadow-lg">
+        <Card className="border-border bg-card/60 shadow-raised">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base text-foreground">
               <Radio className="h-4 w-4 text-success" aria-hidden />

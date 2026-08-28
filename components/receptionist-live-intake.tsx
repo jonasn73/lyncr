@@ -392,7 +392,7 @@ export function ReceptionistLiveIntake({
     return (
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-[7020] border-t border-success/40 bg-success px-4 py-3 shadow-2xl",
+          "fixed inset-x-0 bottom-0 z-[7020] border-t border-success/40 bg-success px-4 py-3 shadow-overlay",
           // The mobile bottom tab nav (ReceptionistPortalChrome) is also fixed to the
           // viewport edge below `sm`, so a flush bar here sat on top of it and blocked
           // Home / Calls / Earnings while a call was minimized. Float above the nav

@@ -215,7 +215,7 @@ function EndpointButton({
       onClick={onClick}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
-        active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+        active ? "bg-primary text-primary-foreground shadow-resting" : "text-muted-foreground hover:text-foreground",
         busy && "opacity-70",
         className
       )}

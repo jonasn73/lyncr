@@ -80,7 +80,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
       title="Command center"
       description="Search commands or actions"
       showCloseButton
-      className="max-w-xl border border-border/80 bg-background/95 shadow-2xl backdrop-blur-xl"
+      className="max-w-xl border border-border/80 bg-background/95 shadow-overlay backdrop-blur-xl"
     >
       <CommandInput placeholder="Search commands or actions…" />
       <CommandList>

@@ -368,7 +368,7 @@ export function HoldQueueWaitingCard({
                     disabled={answeringId === c.id || !canAnswer || c.status === "bridging"}
                     onClick={() => void answerCaller(c.id)}
                     className={cn(
-                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50",
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-resting hover:bg-primary/90 disabled:opacity-50",
                       MOBILE_TAP_TARGET
                     )}
                   >

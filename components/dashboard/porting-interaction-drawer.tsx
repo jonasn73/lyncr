@@ -135,7 +135,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
         if (isCustomer) {
           return (
             <div key={item.id} className="flex justify-end">
-              <div className="max-w-[88%] rounded-2xl rounded-br-md border border-sky-500/25 bg-sky-500/15 px-4 py-3 text-sm text-sky-50 shadow-sm">
+              <div className="max-w-[88%] rounded-2xl rounded-br-md border border-sky-500/25 bg-sky-500/15 px-4 py-3 text-sm text-sky-50 shadow-resting">
                 <p className="text-micro font-semibold uppercase tracking-wide text-sky-200/80">You</p>
                 <p className="mt-1 whitespace-pre-wrap leading-relaxed">{displayPortingMessageBody(text)}</p>
                 <time className="mt-2 block text-micro text-sky-200/60">{formatThreadTime(item.created_at)}</time>
@@ -148,7 +148,7 @@ function ConversationFeed({ items }: { items: PortingConversationItem[] }) {
           <div key={item.id} className="flex justify-start">
             <div
               className={cn(
-                "max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 text-sm shadow-sm",
+                "max-w-[92%] rounded-2xl rounded-bl-md border px-4 py-3 text-sm shadow-resting",
                 isDesk
                   ? "border-warning/30 bg-warning/10 text-warning"
                   : "border-border/80 bg-card/80 text-foreground"

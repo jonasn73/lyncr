@@ -142,7 +142,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               className={cn(
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "invite"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-resting"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -154,7 +154,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
               className={cn(
                 "rounded-md px-3 py-2 text-xs font-semibold transition-colors",
                 mode === "manual"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-resting"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >

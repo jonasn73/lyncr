@@ -186,7 +186,7 @@ export function DevErrorLogDrawer() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-4 right-4 z-[9998] flex h-12 w-12 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          "fixed bottom-4 right-4 z-[9998] flex h-12 w-12 items-center justify-center rounded-full border shadow-raised transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           count > 0
             ? "border-rose-500/60 bg-rose-950 text-rose-100"
             : "border-border bg-card text-foreground"
@@ -252,7 +252,7 @@ export function DevErrorLogDrawer() {
                 {logs.map((entry) => (
                   <li
                     key={entry.id}
-                    className="rounded-xl border border-border bg-card/80 p-3 shadow-sm"
+                    className="rounded-xl border border-border bg-card/80 p-3 shadow-resting"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span

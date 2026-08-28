@@ -223,7 +223,7 @@ export function OutOfStockFallbackCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-warning/40 bg-warning/10 p-4 shadow-sm shadow-warning/20",
+        "rounded-xl border border-warning/40 bg-warning/10 p-4 shadow-resting shadow-warning/20",
         className
       )}
     >

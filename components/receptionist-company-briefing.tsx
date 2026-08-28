@@ -249,7 +249,7 @@ export function CompanyBriefingCard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl shadow-black/50">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-overlay shadow-black/50">
         {/* Header — answer-as greeting */}
         <div
           className={cn(

@@ -428,7 +428,7 @@ export function LandingPage({ signupUrl, loginUrl, appUrl }: LandingPageProps) {
                 className={cn(
                   "relative flex flex-col rounded-2xl border p-6",
                   plan.highlighted
-                    ? "border-primary bg-primary/5 shadow-xl shadow-primary/10"
+                    ? "border-primary bg-primary/5 shadow-overlay shadow-primary/10"
                     : "border-border bg-card"
                 )}
               >

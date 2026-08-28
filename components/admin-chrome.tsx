@@ -268,7 +268,7 @@ function MoreSheet({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-border bg-[#060a12] shadow-2xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-border bg-[#060a12] shadow-overlay lg:hidden"
         style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
         role="dialog"
         aria-label="More admin pages"

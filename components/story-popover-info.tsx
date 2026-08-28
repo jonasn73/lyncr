@@ -45,7 +45,7 @@ export const StoryPopoverInfo = memo(function StoryPopoverInfo({
         align="end"
         sideOffset={6}
         className={cn(
-          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-xl",
+          "z-[200] w-[min(92vw,22rem)] max-h-[min(58vh,400px)] overflow-y-auto overscroll-contain p-0 shadow-overlay",
           op ? "border-border bg-background text-foreground" : "border-border/80 bg-popover text-popover-foreground",
           className
         )}

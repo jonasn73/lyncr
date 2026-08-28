@@ -1054,7 +1054,7 @@ export function DispatchLiveMap({
             disabled={!ready}
             title="See all jobs and where you are"
             aria-label="Zoom out to all jobs"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-lg backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background/95 text-foreground shadow-raised backdrop-blur hover:border-sky-500/50 hover:text-sky-200 disabled:opacity-40"
           >
             <Maximize2 className="h-5 w-5" aria-hidden />
           </button>
@@ -1066,7 +1066,7 @@ export function DispatchLiveMap({
             aria-label="Center map on my location"
             aria-pressed={followUser}
             className={cn(
-              "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-lg backdrop-blur disabled:opacity-40",
+              "inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-raised backdrop-blur disabled:opacity-40",
               followUser
                 ? "border-sky-500/60 bg-sky-500/25 text-sky-100"
                 : "border-border bg-background/95 text-foreground hover:border-sky-500/50 hover:text-sky-200"
@@ -1098,7 +1098,7 @@ export function DispatchLiveMap({
       ) : null}
 
       {selectedJob && (
-        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur">
+        <div className="absolute right-3 top-3 z-[40] w-[min(16rem,calc(100%-1.5rem))] rounded-xl border border-border bg-card/95 p-3 shadow-overlay backdrop-blur">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">
@@ -1213,7 +1213,7 @@ export function DispatchLiveMap({
         */}
         {locationHint ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[500] flex justify-center px-3">
-            <div className="pointer-events-auto rounded-lg bg-background/85 px-3 py-2 shadow-lg backdrop-blur">
+            <div className="pointer-events-auto rounded-lg bg-background/85 px-3 py-2 shadow-raised backdrop-blur">
               {locationHint}
             </div>
           </div>

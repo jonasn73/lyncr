@@ -1,7 +1,7 @@
 /** Skeleton for the hopper job pool tray while data streams. */
 export function JobPoolPanelSkeleton() {
   return (
-    <section className="rounded-2xl border border-warning/20 bg-gradient-to-r from-warning/5 via-card to-card px-4 py-3 shadow-sm">
+    <section className="rounded-2xl border border-warning/20 bg-gradient-to-r from-warning/5 via-card to-card px-4 py-3 shadow-resting">
       <div className="mb-2 flex items-center gap-2">
         <div className="h-8 w-8 animate-pulse rounded-xl bg-muted/60" />
         <div className="flex flex-1 flex-col gap-2">

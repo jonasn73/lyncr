@@ -128,7 +128,7 @@ function RegisterForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-overlay">
         <h1 className="text-xl font-semibold text-foreground">Set up your receptionist account</h1>
         <p className="mt-1 text-sm text-muted-foreground">Complete your profile to start answering calls on Lyncr.</p>
 

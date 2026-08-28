@@ -20,7 +20,7 @@ export function IntakePipTray({
       onClick={onExpand}
       className={cn(
         // Above Leaflet panes (~400–1000) + Map chrome — same trap as Return-to-Intake.
-        "fixed bottom-[88px] left-4 right-4 z-[6200] flex cursor-pointer items-center justify-between rounded-xl border border-success/40 bg-card p-3 shadow-2xl",
+        "fixed bottom-[88px] left-4 right-4 z-[6200] flex cursor-pointer items-center justify-between rounded-xl border border-success/40 bg-card p-3 shadow-overlay",
         "md:left-auto md:right-6 md:w-[min(100%,22rem)]",
         "touch-manipulation transition-transform active:scale-[0.99]",
         className

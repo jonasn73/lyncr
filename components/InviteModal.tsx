@@ -90,7 +90,7 @@ export function InviteModal() {
             if (e.target === e.currentTarget) close()
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-overlay">
             <div className="mb-4 flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Invite a receptionist</h2>

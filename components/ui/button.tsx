@@ -15,7 +15,7 @@ const buttonVariants = cva(
         // Muted hover — not accent/primary. App theme is dark on :root without
         // a .dark class, so dark:hover:* never runs; keep light text on hover.
         outline:
-          'border bg-background text-foreground shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 dark:hover:text-foreground',
+          'border bg-background text-foreground shadow-resting hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 dark:hover:text-foreground',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:

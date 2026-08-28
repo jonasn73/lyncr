@@ -99,7 +99,7 @@ function AddBlockoutModalForm({
       <div
         role="dialog"
         aria-labelledby="add-blockout-title"
-        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl sm:rounded-2xl"
+        className="relative z-[1] flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-overlay sm:rounded-2xl"
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 id="add-blockout-title" className="text-base font-semibold text-foreground">

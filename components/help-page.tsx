@@ -122,7 +122,7 @@ export function HelpPage() {
       <SupportChatPanel />
 
       {billing && (
-        <Card id="billing-account-balance" className="scroll-mt-28 border-border/80 bg-card/90 shadow-sm">
+        <Card id="billing-account-balance" className="scroll-mt-28 border-border/80 bg-card/90 shadow-resting">
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -170,7 +170,7 @@ export function HelpPage() {
         </Card>
       )}
 
-      <Card className="border-border/80 bg-card/90 shadow-sm">
+      <Card className="border-border/80 bg-card/90 shadow-resting">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -203,7 +203,7 @@ export function HelpPage() {
         </CardContent>
       </Card>
 
-      <Card id="help-contact-support" className="scroll-mt-28 border-border/80 bg-card/90 shadow-sm">
+      <Card id="help-contact-support" className="scroll-mt-28 border-border/80 bg-card/90 shadow-resting">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">

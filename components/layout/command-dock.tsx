@@ -114,7 +114,7 @@ const DockNavItems = memo(function DockNavItems({
               <span
                 className={cn(
                   "pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 z-[60] -translate-y-1/2",
-                  "whitespace-nowrap rounded-md border border-white/10 bg-neutral-950/90 px-3 py-1 text-xs font-medium text-foreground shadow-lg backdrop-blur-md",
+                  "whitespace-nowrap rounded-md border border-white/10 bg-neutral-950/90 px-3 py-1 text-xs font-medium text-foreground shadow-raised backdrop-blur-md",
                   "opacity-0 transition-[opacity,transform] duration-200 group-hover:opacity-100 group-focus-visible:opacity-100",
                   "translate-x-1 group-hover:translate-x-0 group-focus-visible:translate-x-0"
                 )}

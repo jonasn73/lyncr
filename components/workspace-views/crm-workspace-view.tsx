@@ -2826,7 +2826,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       >
         <DialogContent
           className={cn(
-            "gap-0 overflow-hidden border-border bg-background p-0 shadow-2xl",
+            "gap-0 overflow-hidden border-border bg-background p-0 shadow-overlay",
             "max-h-[min(85dvh,36rem)] w-[calc(100%-2rem)] max-w-md",
             "[&>button]:top-3 [&>button]:right-3 [&>button]:text-muted-foreground"
           )}

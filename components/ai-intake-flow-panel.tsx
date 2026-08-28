@@ -452,7 +452,7 @@ export function AiIntakeFlowPanel({
       )}
 
       {/* 1 — Opening line first (what callers hear) */}
-      <section className="space-y-2 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+      <section className="space-y-2 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-resting">
         <div className="flex items-center justify-between gap-2">
           <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {variant === "modal" ? "Opening line" : "What callers hear first"}
@@ -549,7 +549,7 @@ export function AiIntakeFlowPanel({
       </section>
 
       {/* 2 — Industry / playbook */}
-      <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+      <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-resting">
         <div className="flex items-center justify-between gap-2">
           <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {variant === "modal" ? "Industry script" : "Playbook (reference)"}
@@ -620,7 +620,7 @@ export function AiIntakeFlowPanel({
       </section>
 
       {/* 3 — Optional voice/model */}
-      <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+      <section className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-resting">
         <div className="flex items-stretch gap-1">
           <button
             type="button"

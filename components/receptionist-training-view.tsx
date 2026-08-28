@@ -134,7 +134,7 @@ function CertificationCard({
       <Card
         className={cn(
           "relative overflow-hidden border transition-all duration-200",
-          "cursor-pointer border-border/70 bg-card/80 hover:border-primary/40 hover:shadow-md"
+          "cursor-pointer border-border/70 bg-card/80 hover:border-primary/40 hover:shadow-raised"
         )}
       >
         {cardInner}

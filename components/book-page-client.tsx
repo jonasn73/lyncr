@@ -378,7 +378,7 @@ export default function BookPageClient({
 
           {/* —— STEP 1: Compact Details sheet (aim: one phone screen) —— */}
           {wizardStep === "details" ? (
-            <section className="rounded-2xl border border-border bg-card/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-lg shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
+            <section className="rounded-2xl border border-border bg-card/50 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] shadow-raised shadow-black/20 sm:p-4 sm:pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
               <div className="space-y-3">
                 {/* Name + phone share one row so both stay above the fold. */}
                 <div className="grid grid-cols-2 gap-2">
@@ -608,7 +608,7 @@ export default function BookPageClient({
 
           {/* —— STEP 2: Availability sheet (one day + From–To) —— */}
           {wizardStep === "availability" ? (
-            <section className="space-y-3 rounded-2xl border border-border bg-card/50 p-3 shadow-lg shadow-black/20 sm:space-y-4 sm:p-4">
+            <section className="space-y-3 rounded-2xl border border-border bg-card/50 p-3 shadow-raised shadow-black/20 sm:space-y-4 sm:p-4">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-sm font-semibold text-foreground">Your availability</h2>
                 <button

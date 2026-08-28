@@ -287,7 +287,7 @@ export function ActivePipelinePanel({
                       className={cn(
                         "absolute right-3 top-3 z-20",
                         SCHEDULER_ACTION_BUTTON,
-                        "px-2 py-0.5 text-micro shadow-sm",
+                        "px-2 py-0.5 text-micro shadow-resting",
                         highlighted && "border-success/40 bg-success/10 text-success"
                       )}
                     >

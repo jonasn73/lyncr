@@ -44,7 +44,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
   const paidHow = paidHowLabel(invoice)
 
   return (
-    <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm">
+    <article className="relative mx-auto max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-resting">
       {/* Soft PAID stamp — visible but not covering content. */}
       <div
         aria-hidden

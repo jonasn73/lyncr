@@ -1184,7 +1184,7 @@ export function TechPaymentModal(props: {
       <div
         className={cn(
           // Content-height sheet — tip+sign hugs content (no empty full-screen void).
-          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md",
+          "flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-b-0 border-border bg-[#101018] pb-[env(safe-area-inset-bottom)] shadow-overlay sm:max-w-md",
           postPayStep === "tip_sign" ||
           postPayStep === "sign" ||
           postPayStep === "card_entry" ||
@@ -1531,7 +1531,7 @@ export function TechPaymentModal(props: {
                   type="button"
                   disabled={finishBusy}
                   onClick={() => void finishJobAfterPay("thanks")}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-success py-4 text-base font-semibold text-white shadow-lg shadow-success/40 ring-2 ring-success/50 hover:bg-success disabled:opacity-50"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-success py-4 text-base font-semibold text-white shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success disabled:opacity-50"
                 >
                   {finishBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                   Complete &amp; send thanks
@@ -1544,7 +1544,7 @@ export function TechPaymentModal(props: {
                 className={cn(
                   "flex min-h-11 w-full items-center justify-center rounded-xl py-3 text-sm font-semibold disabled:opacity-50",
                   props.job.review_sms_sent_at
-                    ? "bg-success text-white shadow-lg shadow-success/40 ring-2 ring-success/50 hover:bg-success"
+                    ? "bg-success text-white shadow-raised shadow-success/40 ring-2 ring-success/50 hover:bg-success"
                     : "border border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card/70 hover:text-foreground"
                 )}
               >
@@ -1796,7 +1796,7 @@ export function TechPaymentModal(props: {
                     >
                       <span
                         className={cn(
-                          "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                          "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-resting transition-transform",
                           taxEnabled && "translate-x-4"
                         )}
                       />
@@ -2096,7 +2096,7 @@ function NestedPayPopup(props: {
         role="dialog"
         aria-modal="true"
         aria-label={props.title}
-        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-[#12121a] shadow-2xl sm:rounded-3xl"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-[#12121a] shadow-overlay sm:rounded-3xl"
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h3 className="text-sm font-bold text-white">{props.title}</h3>

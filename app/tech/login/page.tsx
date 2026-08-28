@@ -58,7 +58,7 @@ function TechLoginForm() {
     <main className="flex min-h-[100dvh] flex-col justify-center px-6 py-12">
       <div className="mx-auto w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-black text-white shadow-lg shadow-indigo-900/40">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-black text-white shadow-raised shadow-indigo-900/40">
             L
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Lyncr Field Console</h1>
@@ -101,7 +101,7 @@ function TechLoginForm() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-4 text-base font-semibold text-white shadow-lg shadow-indigo-900/40 transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-4 text-base font-semibold text-white shadow-raised shadow-indigo-900/40 transition active:scale-[0.99] disabled:opacity-60"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>

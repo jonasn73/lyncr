@@ -158,7 +158,7 @@ export function PhotoUploadNotificationBanner() {
           key={notice.id}
           className={cn(
             "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border border-sky-500/40",
-            "bg-background/95 px-4 py-3 text-sm text-foreground shadow-xl backdrop-blur"
+            "bg-background/95 px-4 py-3 text-sm text-foreground shadow-overlay backdrop-blur"
           )}
           role="status"
           aria-live="polite"

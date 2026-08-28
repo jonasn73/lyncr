@@ -82,7 +82,7 @@ export default function PublicReceiptPage() {
         <button
           type="button"
           onClick={exitReceiptPage}
-          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-muted-foreground shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-muted-foreground shadow-resting ring-1 ring-slate-200 hover:bg-slate-50"
           aria-label="Close"
         >
           <X className="h-5 w-5" aria-hidden />
@@ -111,7 +111,7 @@ export default function PublicReceiptPage() {
       <button
         type="button"
         onClick={exitReceiptPage}
-        className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white"
+        className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-20 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-resting ring-1 ring-slate-200 backdrop-blur hover:bg-white"
         aria-label="Close"
       >
         <X className="h-5 w-5" aria-hidden />
@@ -125,7 +125,7 @@ export default function PublicReceiptPage() {
           <a
             href={pdfHref}
             download
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white shadow-sm hover:bg-success"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-white shadow-resting hover:bg-success"
           >
             <Download className="h-4 w-4" aria-hidden />
             Download PDF
@@ -133,7 +133,7 @@ export default function PublicReceiptPage() {
           <button
             type="button"
             onClick={exitReceiptPage}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 shadow-resting hover:bg-slate-50"
           >
             Done
           </button>

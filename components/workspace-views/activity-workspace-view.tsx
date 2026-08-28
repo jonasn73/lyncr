@@ -1057,14 +1057,14 @@ function ActivityGroupActionBar({
           hold={hold && !missed}
           className={cn(
             "h-10 w-full",
-            missed ? "shadow-sm shadow-rose-950/30" : "shadow-sm shadow-warning/30"
+            missed ? "shadow-resting shadow-rose-950/30" : "shadow-resting shadow-warning/30"
           )}
         />
       ) : crmHref ? (
         <Link
           href={crmHref}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 shadow-sm shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-teal-500/50 bg-teal-500/20 px-3 text-sm font-semibold text-teal-50 shadow-resting shadow-teal-950/30 hover:border-teal-400/70 hover:bg-teal-500/30"
           aria-label="Continue in CRM"
           title="Continue in CRM"
         >
@@ -1436,7 +1436,7 @@ const ActivityCallsTable = memo(function ActivityCallsTable({ rows, lineLabelMap
   }
 
   return (
-    // Same surface as the page — bg-card/90 + shadow looked like a dim reddish overlay after load.
+    // Same surface as the page — bg-card/90 + shadow-resting looked like a dim reddish overlay after load.
     <WorkspacePanel className="bg-background shadow-none ring-0">
       {/* Cards through tablet: the 8-column table needs ~1024px — below that, cells
           overflow and the status badge/caller name paint over the next column. */}

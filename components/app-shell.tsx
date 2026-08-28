@@ -118,7 +118,7 @@ const AppShellHeader = memo(function AppShellHeader({
             variant="outline"
             size="sm"
             asChild
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
           >
             <Link href={DASHBOARD_PAGE_HREF.messages} aria-label="Messages">
               <MessageSquare className="h-4 w-4" aria-hidden />
@@ -130,7 +130,7 @@ const AppShellHeader = memo(function AppShellHeader({
             variant="outline"
             size="sm"
             onClick={() => onNavigate("messages")}
-            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-sm md:hidden"
+            className="h-9 w-9 shrink-0 border-border/80 bg-card/80 p-0 shadow-resting md:hidden"
             aria-label="Messages"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
@@ -186,7 +186,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 shadow-sm"
+        className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 shadow-resting"
       >
         <CreditCard className="h-4 w-4 shrink-0 text-success/70" aria-hidden />
         <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none" aria-hidden>
@@ -209,7 +209,7 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 shadow-sm"
+        className="h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 shadow-resting"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />

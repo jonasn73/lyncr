@@ -50,7 +50,7 @@ export function IntakeMapDestinationBanner({
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-500/50 bg-background/95 px-3 py-3 shadow-xl backdrop-blur",
+        "rounded-xl border border-rose-500/50 bg-background/95 px-3 py-3 shadow-overlay backdrop-blur",
         variant === "overlay" &&
           "pointer-events-auto absolute z-[1200] max-w-[min(20rem,calc(100%-1.5rem))] left-3 top-3 sm:right-auto",
         className

@@ -640,7 +640,7 @@ export function IntakeBookFormClient({ inviteId }: { inviteId: string }) {
           <p className="text-center text-sm font-medium text-foreground">
             Pay {amountLabel} — Cash App, Apple Pay, card, or Link
           </p>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-overlay shadow-black/40">
             <EmbeddedCheckoutProvider
               stripe={stripePromise}
               options={{ clientSecret: payClientSecret }}

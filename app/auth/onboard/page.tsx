@@ -36,7 +36,7 @@ function OnboardShell({ loading, children }: { loading?: boolean; children?: Rea
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(52,211,153,0.12),transparent)]" />
       <header className="relative z-10 border-b border-white/5 px-6 py-6">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-success to-teal-600 text-lg font-black text-slate-950 shadow-lg shadow-success/40">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-success to-teal-600 text-lg font-black text-slate-950 shadow-raised shadow-success/40">
             L
           </span>
           <div>
@@ -252,7 +252,7 @@ function OperatorOnboardWizard() {
     <OnboardShell>
       <StepDots step={step} smsInvite={preview.phone_verified_by_sms_invite} />
 
-      <div className="rounded-2xl border border-white/8 bg-background/60 p-6 shadow-xl backdrop-blur-sm">
+      <div className="rounded-2xl border border-white/8 bg-background/60 p-6 shadow-overlay backdrop-blur-sm">
         <p className="text-center text-sm text-muted-foreground">
           Welcome, <span className="font-medium text-foreground">{preview.name.split(" ")[0] || "operator"}</span>
         </p>

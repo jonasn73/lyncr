@@ -298,7 +298,7 @@ export const JobAddressAutocomplete = forwardRef<
           width: menuRect.width,
           zIndex: 120,
         }}
-        className="pointer-events-auto max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-xl"
+        className="pointer-events-auto max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-card py-1 shadow-overlay"
       >
         {suggestions.map((s, idx) => (
           <li key={`${s.place_id ?? s.formatted}-${idx}`}>

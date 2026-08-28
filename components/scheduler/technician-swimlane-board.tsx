@@ -272,7 +272,7 @@ function SwimlaneAppointmentBlock({
           : undefined
       }
       className={cn(
-        "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-lg border px-2 py-1 shadow-md",
+        "absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-lg border px-2 py-1 shadow-raised",
         onSelect ? cn("pointer-events-auto cursor-pointer", SCHEDULER_TIMELINE_CARD_HOVER) : "pointer-events-none",
         highlighted && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         eventCardStyle(ev)
@@ -325,7 +325,7 @@ function TimelineAppointmentBlock({
       type="button"
       onClick={onSelect}
       className={cn(
-        "absolute top-1 z-10 min-h-[44px] overflow-hidden rounded-md border px-2 py-1 text-left shadow-md",
+        "absolute top-1 z-10 min-h-[44px] overflow-hidden rounded-md border px-2 py-1 text-left shadow-raised",
         SCHEDULER_TIMELINE_CARD_HOVER,
         highlighted && "ring-2 ring-primary",
         eventCardStyle(ev)

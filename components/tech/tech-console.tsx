@@ -460,7 +460,7 @@ function JobCard(props: {
           : null
 
   return (
-    <article className="rounded-2xl border border-border bg-card/70 p-4 shadow-sm">
+    <article className="rounded-2xl border border-border bg-card/70 p-4 shadow-resting">
       {/* Same glass facts as owner JobDetailOverview */}
       <JobCardSummary
         source={job}
@@ -516,7 +516,7 @@ function JobCard(props: {
           disabled={!workComplete || props.busy}
           onClick={props.onProceedToPayment}
           className={cn(
-            "rounded-xl px-3 py-3 text-sm font-semibold shadow-lg transition active:scale-[0.98]",
+            "rounded-xl px-3 py-3 text-sm font-semibold shadow-raised transition active:scale-[0.98]",
             workComplete
               ? "bg-gradient-to-br from-success to-green-600 text-white shadow-success/30"
               : "cursor-not-allowed bg-muted text-muted-foreground shadow-none"

@@ -392,7 +392,7 @@ export function DashboardCallFlowConfigureDrawer({
                 className={cn(
                   "min-h-9 flex-1 rounded-lg px-2 py-2 text-2xs font-semibold transition-colors sm:text-xs",
                   active
-                    ? "bg-muted text-foreground shadow-sm"
+                    ? "bg-muted text-foreground shadow-resting"
                     : "text-muted-foreground hover:bg-card hover:text-foreground"
                 )}
               >

@@ -481,7 +481,7 @@ export function SmsRegistrationForm({ onSubmitted, variant = "page" }: Props) {
           disabled={busy || loading}
           onClick={() => void handleSubmit()}
           className={cn(
-            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-900/30 hover:bg-violet-500 disabled:opacity-50 sm:w-auto sm:px-6"
+            "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white shadow-raised shadow-violet-900/30 hover:bg-violet-500 disabled:opacity-50 sm:w-auto sm:px-6"
           )}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}

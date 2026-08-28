@@ -120,7 +120,7 @@ export function SupportChatPanel() {
   return (
     <div
       id="support-chat"
-      className="flex min-h-[min(420px,70vh)] flex-col overflow-hidden rounded-xl border border-border/80 bg-card/90 shadow-sm"
+      className="flex min-h-[min(420px,70vh)] flex-col overflow-hidden rounded-xl border border-border/80 bg-card/90 shadow-resting"
     >
       <div className="border-b border-border/70 px-4 py-3">
         <div className="flex items-center justify-between gap-2">

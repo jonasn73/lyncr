@@ -469,7 +469,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           size="sm"
           onClick={openMoneyPicker}
           onPointerEnter={() => prefetchCollectJobs()}
-          className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 text-success shadow-sm hover:bg-success/20 hover:text-success focus-visible:text-success"
+          className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 text-success shadow-resting hover:bg-success/20 hover:text-success focus-visible:text-success"
           aria-label={
             chipAmountLabel && chipDisplay
               ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money — Collect, bank, or Lyncr bill.`
@@ -498,7 +498,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           variant="outline"
           onClick={() => setOpen(true)}
           className={cn(
-            "group h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 text-foreground shadow-sm",
+            "group h-9 shrink-0 gap-2 border-border/80 bg-card/80 px-2 text-foreground shadow-resting",
             "hover:bg-muted hover:text-foreground",
             "focus-visible:bg-muted focus-visible:text-foreground",
             "active:bg-muted/80 active:text-foreground",

@@ -384,7 +384,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
           <aside
             id="dispatch-map-sheet"
             className={cn(
-              "pointer-events-auto flex w-full flex-col overflow-hidden rounded-t-2xl border border-border border-b-0 bg-background/98 shadow-2xl backdrop-blur transition-transform duration-200 ease-out",
+              "pointer-events-auto flex w-full flex-col overflow-hidden rounded-t-2xl border border-border border-b-0 bg-background/98 shadow-overlay backdrop-blur transition-transform duration-200 ease-out",
               // Cap height so most of the map stays visible.
               "max-h-[min(46dvh,22rem)]",
               mobilePoolOpen ? "translate-y-0" : "pointer-events-none translate-y-full"
@@ -412,7 +412,7 @@ export function MapTab({ isActive = true }: { isActive?: boolean }) {
         <aside
           id="dispatch-map-drawer"
           className={cn(
-            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-border bg-background/95 shadow-2xl backdrop-blur transition-transform duration-200 ease-out lg:flex",
+            "pointer-events-auto absolute bottom-0 right-0 top-0 z-[30] hidden w-80 max-w-[40%] flex-col border-l border-border bg-background/95 shadow-overlay backdrop-blur transition-transform duration-200 ease-out lg:flex",
             // Open on desktop from CSS — no useEffect snap from full-bleed to sidebar.
             desktopPoolCollapsed
               ? "pointer-events-none translate-x-full"

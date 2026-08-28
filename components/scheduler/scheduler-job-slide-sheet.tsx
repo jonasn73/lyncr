@@ -57,7 +57,7 @@ export function SchedulerJobSlideSheet({
             role="dialog"
             aria-modal="true"
             className={cn(
-              "scheduler-job-detail-sheet relative fixed z-[1410] flex flex-col overflow-hidden bg-card shadow-lg",
+              "scheduler-job-detail-sheet relative fixed z-[1410] flex flex-col overflow-hidden bg-card shadow-raised",
               // Phone: peek-style bottom sheet. Desktop: full-height right rail.
               isMobile
                 ? "inset-x-0 bottom-0 top-auto max-h-[min(88dvh,720px)] rounded-t-2xl border border-b-0 border-border/60"

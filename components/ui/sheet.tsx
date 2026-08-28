@@ -61,7 +61,7 @@ function SheetContent({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
-  /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow */
+  /** `drawer` = GPU translate3d slide, no backdrop blur, lighter shadow-resting */
   variant?: 'default' | 'drawer'
   /** Raise above another open sheet (e.g. Get paid over Settings). */
   overlayClassName?: string
@@ -80,12 +80,12 @@ function SheetContent({
           'bg-background fixed z-[6010] flex flex-col',
           isDrawer
             ? cn(
-                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-lg transform-gpu will-change-transform backface-hidden',
+                'sigo-sheet-drawer-panel inset-y-0 h-full w-full border-l border-border/60 shadow-raised transform-gpu will-change-transform backface-hidden',
                 side === 'right' && 'right-0 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' && 'left-0 w-3/4 border-r border-l-0 sm:max-w-sm',
               )
             : cn(
-                'shadow-2xl transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
+                'shadow-overlay transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
                 side === 'right' &&
                   'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-full border-l border-border/60 sm:max-w-md md:max-w-lg lg:max-w-xl',
                 side === 'left' &&

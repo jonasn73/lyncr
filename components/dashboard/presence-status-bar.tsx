@@ -122,7 +122,7 @@ export function PresenceStatusBar({ className }: { className?: string }) {
               isBusy
                 ? "data-[state=unchecked]:bg-warning data-[state=unchecked]:border-warning dark:data-[state=unchecked]:bg-warning data-[state=unchecked]:shadow-[0_0_16px_rgba(251,191,36,0.9)]"
                 : "data-[state=checked]:bg-success data-[state=checked]:border-success dark:data-[state=checked]:bg-success",
-              "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-md dark:[&_[data-slot=switch-thumb]]:bg-white",
+              "[&_[data-slot=switch-thumb]]:size-5 [&_[data-slot=switch-thumb]]:bg-white [&_[data-slot=switch-thumb]]:shadow-raised dark:[&_[data-slot=switch-thumb]]:bg-white",
               "[&_[data-slot=switch-thumb][data-state=checked]]:translate-x-[1.35rem]"
             )}
           />

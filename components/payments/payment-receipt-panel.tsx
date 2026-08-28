@@ -70,7 +70,7 @@ export function PaymentReceiptPanel({
               className={cn(
                 "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "email"
-                  ? "bg-accent text-white shadow-sm"
+                  ? "bg-accent text-white shadow-resting"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -83,7 +83,7 @@ export function PaymentReceiptPanel({
               className={cn(
                 "flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors",
                 receiptChannel === "sms"
-                  ? "bg-accent text-white shadow-sm"
+                  ? "bg-accent text-white shadow-resting"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
