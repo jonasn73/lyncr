@@ -16,7 +16,8 @@
 //                    decides what their staff may do
 //        ↓
 //   receptionist     what the owner granted, capped by the platform ceiling
-//   field tech       same shape — capability model still to come
+//   field tech       same, in its own vocabulary — a tech is not a receptionist
+//                    with fewer buttons
 //
 // effective = platform grants ∩ actor grants, computed once, here. A route asks for the
 // capability it needs and gets a yes or a null; it never reasons about roles. When
@@ -24,6 +25,12 @@
 
 import { getUserIdFromRequest } from "@/lib/auth"
 import { getPlatformAccountGrantsRaw, getUser } from "@/lib/db"
+import { getFieldTechContext } from "@/lib/field-tech-auth"
+import {
+  DEFAULT_FIELD_TECH_CAPABILITIES,
+  isFieldTechCapability,
+  parseFieldTechCapabilities,
+} from "@/lib/field-technician-capabilities"
 import { isLyncrAdminUser } from "@/lib/lyncr-admin"
 import {
   getReceptionistPortalContext,
@@ -37,9 +44,19 @@ import {
   ALL_PLATFORM_GRANTS,
   intersectGrants,
   parsePlatformAccountGrants,
+  type AllCapabilities,
   type PlatformAccountGrants,
 } from "@/lib/platform-account-grants"
-import type { ReceptionistCapabilities } from "@/lib/types"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
+
+/** Merge a role's own grants into the full key set — keys of other roles read false. */
+function asAllCapabilities(granted: Partial<AllCapabilities>): AllCapabilities {
+  return {
+    ...DEFAULT_RECEPTIONIST_CAPABILITIES,
+    ...DEFAULT_FIELD_TECH_CAPABILITIES,
+    ...granted,
+  } as AllCapabilities
+}
 
 export type ActorRole = "platform_admin" | "owner" | "receptionist" | "field_tech"
 
@@ -52,8 +69,10 @@ export type Actor = {
   /** Receptionist row id when a receptionist is acting, for attribution. */
   receptionistId: string | null
   receptionistName: string | null
+  /** Technician row id when a field tech is acting, for attribution. */
+  technicianId: string | null
   /** What this actor may do here — already capped by the platform ceiling. */
-  capabilities: ReceptionistCapabilities
+  capabilities: AllCapabilities
   /** What the platform allows this ACCOUNT at all, before the staff layer. */
   platformGrants: PlatformAccountGrants
 }
@@ -63,7 +82,13 @@ export type ResolveActorOptions = {
    * Capability this request requires. Omit for surfaces every linked member of the
    * business gets by default — answering the phone and writing down who called.
    */
-  capability?: keyof ReceptionistCapabilities
+  capability?: keyof AllCapabilities
+  /**
+   * Admit a field tech on a route that needs no capability — "show me my own jobs".
+   * Unnecessary when `capability` is already a tech capability: asking for one IS the
+   * statement that techs belong here.
+   */
+  allowFieldTech?: boolean
 }
 
 /** Load the platform ceiling for an account. Absent column / row reads as fully granted. */
@@ -103,7 +128,8 @@ export async function resolveActor(
       actorRole: "platform_admin",
       receptionistId: null,
       receptionistName: null,
-      capabilities: ALL_CAPABILITIES_GRANTED,
+      technicianId: null,
+      capabilities: asAllCapabilities(ALL_PLATFORM_GRANTS),
       platformGrants: ALL_PLATFORM_GRANTS,
     }
   }
@@ -116,9 +142,8 @@ export async function resolveActor(
     const platformGrants = await platformGrantsFor(ctx.owner_user_id)
     // Both ceilings apply: what the owner gave her, capped by what the platform allows
     // the account. A grant the owner cannot exercise is not one she can inherit.
-    const capabilities = intersectGrants(
-      platformGrants,
-      parseReceptionistCapabilities(ctx.receptionist.capabilities)
+    const capabilities = asAllCapabilities(
+      intersectGrants(platformGrants, parseReceptionistCapabilities(ctx.receptionist.capabilities))
     )
     if (options.capability && capabilities[options.capability] !== true) return null
 
@@ -128,14 +153,43 @@ export async function resolveActor(
       actorRole: "receptionist",
       receptionistId: ctx.receptionist.id,
       receptionistName: ctx.receptionist.name?.trim() || null,
+      technicianId: null,
       capabilities,
       platformGrants,
     }
   }
 
-  // Field techs work jobs; they do not run the front desk. They get their own capability
-  // model and their own resolver seam rather than being quietly folded in here — see
-  // lib/field-tech-auth.ts. Refusing is the honest answer until that exists.
+  // Field techs work jobs; they do not run the front desk. They are admitted only when the
+  // route asks for a TECH capability (or says allowFieldTech outright), which is what keeps
+  // every intake and workspace route refusing them exactly as before — those ask for front
+  // desk capabilities, or for none at all, and a tech satisfies neither.
+  if (user.account_role === "field_tech") {
+    const techCapabilityAsked = options.capability
+      ? isFieldTechCapability(options.capability)
+      : false
+    if (!techCapabilityAsked && options.allowFieldTech !== true) return null
+
+    const ctx = await getFieldTechContext(sessionUserId)
+    if (!ctx) return null
+
+    const platformGrants = await platformGrantsFor(ctx.owner_user_id)
+    const capabilities = asAllCapabilities(
+      intersectGrants(platformGrants, parseFieldTechCapabilities(ctx.technician.capabilities))
+    )
+    if (options.capability && capabilities[options.capability] !== true) return null
+
+    return {
+      ownerUserId: ctx.owner_user_id,
+      actingUserId: sessionUserId,
+      actorRole: "field_tech",
+      receptionistId: null,
+      receptionistName: null,
+      technicianId: ctx.technician.id,
+      capabilities,
+      platformGrants,
+    }
+  }
+
   if (user.account_role !== "owner") return null
 
   const platformGrants = await platformGrantsFor(sessionUserId)
@@ -148,7 +202,8 @@ export async function resolveActor(
     actorRole: "owner",
     receptionistId: null,
     receptionistName: null,
-    capabilities: platformGrants,
+    technicianId: null,
+    capabilities: asAllCapabilities(platformGrants),
     platformGrants,
   }
 }

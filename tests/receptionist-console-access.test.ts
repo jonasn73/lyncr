@@ -1,8 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { requireReceptionistCapability } from "@/lib/receptionist-route-guard"
 import { RECEPTIONIST_NAV_ITEMS } from "@/components/receptionist-portal-chrome"
-import { CAPABILITY_TOGGLES } from "@/components/team/receptionist-access-editor"
+import {
+  CAPABILITY_TOGGLES,
+  FIELD_TECH_CAPABILITY_TOGGLES,
+} from "@/components/team/receptionist-access-editor"
 import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
+import {
+  DEFAULT_FIELD_TECH_CAPABILITIES,
+  FIELD_TECH_CAPABILITY_LABELS,
+} from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
 import type { ReceptionistCapabilities } from "@/lib/types"
 
@@ -123,5 +131,33 @@ describe("capability registry stays whole", () => {
 
   it("starts every capability off, so a grant is always a deliberate act", () => {
     expect(keys.filter((k) => DEFAULT_RECEPTIONIST_CAPABILITIES[k] !== false)).toEqual([])
+  })
+})
+
+describe("field tech capability registry stays whole", () => {
+  // Same guard as the front desk's. A capability the owner cannot see is one the owner
+  // cannot reason about, whichever console it belongs to.
+  const keys = Object.keys(DEFAULT_FIELD_TECH_CAPABILITIES) as (keyof FieldTechnicianCapabilities)[]
+
+  it("names every tech capability", () => {
+    expect(keys.filter((k) => !FIELD_TECH_CAPABILITY_LABELS[k])).toEqual([])
+  })
+
+  it("gives the owner a toggle for every tech capability", () => {
+    const toggled = new Set(FIELD_TECH_CAPABILITY_TOGGLES.map((t) => t.key))
+    expect(keys.filter((k) => !toggled.has(k))).toEqual([])
+  })
+
+  it("explains every tech toggle", () => {
+    expect(FIELD_TECH_CAPABILITY_TOGGLES.filter((t) => !t.description?.trim())).toEqual([])
+  })
+
+  it("starts every tech capability off", () => {
+    expect(keys.filter((k) => DEFAULT_FIELD_TECH_CAPABILITIES[k] !== false)).toEqual([])
+  })
+
+  it("keeps the two vocabularies disjoint — one word, one meaning", () => {
+    const front = new Set(Object.keys(RECEPTIONIST_CAPABILITY_LABELS))
+    expect(keys.filter((k) => front.has(k))).toEqual([])
   })
 })

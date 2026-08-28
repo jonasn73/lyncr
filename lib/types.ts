@@ -118,7 +118,26 @@ export interface FieldTechnician {
   is_active: boolean
   /** True while the tech still has a pending SMS invite (hasn't set their password yet). */
   invite_pending?: boolean
+  /** Owner-configurable per-tech feature flags (`152-field-technician-capabilities.sql`). */
+  capabilities: FieldTechnicianCapabilities
   created_at: string
+}
+
+/**
+ * What the owner has opted this tech into beyond doing the jobs they are handed.
+ *
+ * Keyed to real seams in the tech console rather than invented categories — each one is a
+ * thing that is on the screen today. See lib/field-technician-capabilities.ts.
+ */
+export interface FieldTechnicianCapabilities {
+  /** See the unassigned pool and claim work from it, instead of only doing what's dispatched. */
+  job_pool: boolean
+  /** See and dial the customer's number from the job card. */
+  customer_contact: boolean
+  /** Take payment on site — card, tap to pay, or a pay link. */
+  collect_payment: boolean
+  /** See their own wallet: what they've earned and what's owed. */
+  view_earnings: boolean
 }
 
 /** A single invoice line item. */

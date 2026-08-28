@@ -18,18 +18,22 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { RECEPTIONIST_CAPABILITY_LABELS } from "@/lib/receptionist-capabilities"
-import type { ReceptionistCapabilities } from "@/lib/types"
+import { FIELD_TECH_CAPABILITY_LABELS } from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities, ReceptionistCapabilities } from "@/lib/types"
+
+/** A flat on/off map — whichever registry the dialog was handed. */
+export type CapabilityFlags = Record<string, boolean>
 
 export interface ReceptionistAccessTarget {
   id: string
   name: string
-  capabilities: ReceptionistCapabilities
+  capabilities: CapabilityFlags
 }
 
 interface ReceptionistAccessEditorProps {
   target: ReceptionistAccessTarget | null
   onClose: () => void
-  onSaved: (capabilities: ReceptionistCapabilities) => void
+  onSaved: (capabilities: CapabilityFlags) => void
 }
 
 export const CAPABILITY_TOGGLES: {
@@ -77,19 +81,77 @@ export const CAPABILITY_TOGGLES: {
 
 export function ReceptionistAccessEditor({ target, onClose, onSaved }: ReceptionistAccessEditorProps) {
   if (!target) return null
-  return <ReceptionistAccessForm key={target.id} target={target} onClose={onClose} onSaved={onSaved} />
+  return (
+    <ReceptionistAccessForm
+      key={target.id}
+      target={target}
+      onClose={onClose}
+      onSaved={onSaved}
+      endpoint="/api/receptionists"
+      toggles={CAPABILITY_TOGGLES}
+      labels={RECEPTIONIST_CAPABILITY_LABELS}
+    />
+  )
 }
+
+/** Same dialog, the field-tech capability list. One editor, two registries. */
+export function FieldTechAccessEditor({ target, onClose, onSaved }: ReceptionistAccessEditorProps) {
+  if (!target) return null
+  return (
+    <ReceptionistAccessForm
+      key={target.id}
+      target={target}
+      onClose={onClose}
+      onSaved={onSaved}
+      endpoint="/api/technicians"
+      toggles={FIELD_TECH_CAPABILITY_TOGGLES}
+      labels={FIELD_TECH_CAPABILITY_LABELS}
+    />
+  )
+}
+
+export const FIELD_TECH_CAPABILITY_TOGGLES: {
+  key: keyof FieldTechnicianCapabilities
+  description: string
+}[] = [
+  {
+    key: "job_pool",
+    description:
+      "Lets them see unassigned work and claim it themselves. Off means they only get jobs you dispatch to them.",
+  },
+  {
+    key: "customer_contact",
+    description: "Shows the customer's number on the job card so they can call ahead from the road.",
+  },
+  {
+    key: "collect_payment",
+    description:
+      "Lets them take payment on site — card, tap to pay, or a pay link. This one handles your money.",
+  },
+  {
+    key: "view_earnings",
+    description: "Shows their own wallet: what they have earned and what is still owed to them.",
+  },
+]
 
 function ReceptionistAccessForm({
   target,
   onClose,
   onSaved,
+  endpoint,
+  toggles,
+  labels,
 }: {
   target: ReceptionistAccessTarget
   onClose: () => void
-  onSaved: (capabilities: ReceptionistCapabilities) => void
+  onSaved: (capabilities: CapabilityFlags) => void
+  /** Collection route the PATCH goes to — `/api/receptionists` or `/api/technicians`. */
+  endpoint: string
+  /** Capability list for this role. A tech is not a receptionist with fewer buttons. */
+  toggles: readonly { key: string; description: string }[]
+  labels: Record<string, string>
 }) {
-  const [capabilities, setCapabilities] = useState<ReceptionistCapabilities>(target.capabilities)
+  const [capabilities, setCapabilities] = useState<CapabilityFlags>(target.capabilities)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,7 +159,7 @@ function ReceptionistAccessForm({
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`/api/receptionists/${target.id}`, {
+      const res = await fetch(`${endpoint}/${target.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -105,7 +167,7 @@ function ReceptionistAccessForm({
       })
       const json = (await res.json().catch(() => ({}))) as {
         error?: string
-        data?: { capabilities?: ReceptionistCapabilities }
+        data?: { capabilities?: CapabilityFlags }
       }
       if (!res.ok) throw new Error(json.error ?? "Could not update access")
       onSaved(json.data?.capabilities ?? capabilities)
@@ -129,7 +191,7 @@ function ReceptionistAccessForm({
         </DialogHeader>
 
         <div className="space-y-2">
-          {CAPABILITY_TOGGLES.map((toggle) => {
+          {toggles.map((toggle) => {
             const on = capabilities[toggle.key] === true
             return (
               <button
@@ -145,7 +207,7 @@ function ReceptionistAccessForm({
                 )}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-foreground">{RECEPTIONIST_CAPABILITY_LABELS[toggle.key]}</span>
+                  <span className="text-sm font-semibold text-foreground">{labels[toggle.key]}</span>
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide",

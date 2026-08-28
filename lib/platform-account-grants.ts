@@ -13,13 +13,29 @@
 // console on. A missing key therefore reads as GRANTED here, where a missing key reads as
 // denied for staff. Both defaults fail in the safe direction for the person they describe.
 
-import { ALL_CAPABILITIES_GRANTED, DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
-import type { ReceptionistCapabilities } from "@/lib/types"
+import { DEFAULT_FIELD_TECH_CAPABILITIES } from "@/lib/field-technician-capabilities"
+import { DEFAULT_RECEPTIONIST_CAPABILITIES } from "@/lib/receptionist-capabilities"
+import type { FieldTechnicianCapabilities, ReceptionistCapabilities } from "@/lib/types"
+
+/** Every capability in the product, whoever holds it. */
+export type AllCapabilities = ReceptionistCapabilities & FieldTechnicianCapabilities
 
 /** Same keys as staff capabilities — the platform ceiling for one business account. */
-export type PlatformAccountGrants = ReceptionistCapabilities
+export type PlatformAccountGrants = AllCapabilities
 
-export const ALL_PLATFORM_GRANTS: PlatformAccountGrants = ALL_CAPABILITIES_GRANTED
+/** Every key the product knows about, front desk and field alike. */
+export const ALL_CAPABILITY_KEYS = [
+  ...(Object.keys(DEFAULT_RECEPTIONIST_CAPABILITIES) as (keyof ReceptionistCapabilities)[]),
+  ...(Object.keys(DEFAULT_FIELD_TECH_CAPABILITIES) as (keyof FieldTechnicianCapabilities)[]),
+] as (keyof AllCapabilities)[]
+
+export const ALL_PLATFORM_GRANTS: PlatformAccountGrants = ALL_CAPABILITY_KEYS.reduce(
+  (grants, key) => {
+    grants[key] = true
+    return grants
+  },
+  {} as PlatformAccountGrants
+)
 
 /**
  * Tolerant of a missing column, a partial object, or unknown keys — and unlike staff
@@ -28,8 +44,7 @@ export const ALL_PLATFORM_GRANTS: PlatformAccountGrants = ALL_CAPABILITIES_GRANT
  */
 export function parsePlatformAccountGrants(raw: unknown): PlatformAccountGrants {
   const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
-  const keys = Object.keys(DEFAULT_RECEPTIONIST_CAPABILITIES) as (keyof PlatformAccountGrants)[]
-  return keys.reduce((grants, key) => {
+  return ALL_CAPABILITY_KEYS.reduce((grants, key) => {
     grants[key] = obj[key] !== false
     return grants
   }, {} as PlatformAccountGrants)
@@ -44,13 +59,14 @@ export function parsePlatformAccountGrants(raw: unknown): PlatformAccountGrants 
  * A receptionist with crm_access on an account the platform has restricted still gets
  * nothing — which is what makes the platform admin the master rather than an advisory.
  */
-export function intersectGrants(
+export function intersectGrants<T extends Partial<Record<keyof AllCapabilities, boolean>>>(
   platform: PlatformAccountGrants,
-  actor: ReceptionistCapabilities
-): ReceptionistCapabilities {
-  const keys = Object.keys(DEFAULT_RECEPTIONIST_CAPABILITIES) as (keyof ReceptionistCapabilities)[]
+  actor: T
+): T {
+  const keys = Object.keys(actor) as (keyof AllCapabilities)[]
   return keys.reduce((effective, key) => {
-    effective[key] = platform[key] === true && actor[key] === true
+    ;(effective as Record<string, boolean>)[key as string] =
+      platform[key] === true && actor[key] === true
     return effective
-  }, {} as ReceptionistCapabilities)
+  }, {} as T)
 }

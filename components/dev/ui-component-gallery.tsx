@@ -2,6 +2,7 @@
 
 // Internal UI audit gallery — renders core presentation primitives with mock data.
 
+import { DEFAULT_FIELD_TECH_CAPABILITIES } from "@/lib/field-technician-capabilities"
 import { useMemo, useState } from "react"
 import {
   DrawerScrollBody,
@@ -70,6 +71,7 @@ const MOCK_TECHS: FieldTechnician[] = [
     phone: "+15025550999",
     email: "jordan@example.com",
     is_active: true,
+    capabilities: DEFAULT_FIELD_TECH_CAPABILITIES,
     created_at: new Date().toISOString(),
   },
 ]

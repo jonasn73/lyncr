@@ -5,6 +5,11 @@
 // Set DATABASE_URL in Vercel → Settings → Environment Variables, then run
 // scripts/001-create-schema.sql and scripts/002-add-password-hash.sql in your Neon SQL Editor.
 
+import {
+  DEFAULT_FIELD_TECH_CAPABILITIES,
+  parseFieldTechCapabilities,
+} from "@/lib/field-technician-capabilities"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 import { unstable_cache, revalidateTag } from "next/cache"
 import {
@@ -9433,6 +9438,7 @@ function isMissingFieldTechOrganizationColumnError(e: unknown): boolean {
 
 function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician {
   return {
+    capabilities: parseFieldTechCapabilities(row.capabilities),
     id: String(row.id),
     owner_user_id: String(row.user_id),
     organization_id: row.organization_id != null ? String(row.organization_id) : null,
@@ -9602,6 +9608,7 @@ export async function insertFieldTechnician(params: {
     `
   }
   return {
+    capabilities: { ...DEFAULT_FIELD_TECH_CAPABILITIES },
     id,
     owner_user_id: params.owner_user_id,
     organization_id: organizationId,
@@ -9687,6 +9694,37 @@ export async function setFieldTechnicianActive(
 }
 
 /** Move a technician to another workspace or update active flag. */
+/**
+ * Merge a partial capability patch onto one tech's flags.
+ *
+ * Its own function rather than another branch of patchFieldTechnicianForOwner's if-chain:
+ * that one switches on which scalar columns were supplied, while this is a JSONB merge
+ * (`||`), so an owner toggling one flag cannot clear the others.
+ */
+export async function setFieldTechnicianCapabilities(
+  ownerUserId: string,
+  techId: string,
+  patch: Partial<FieldTechnicianCapabilities>
+): Promise<boolean> {
+  const sql = getSql()
+  if (Object.keys(patch).length === 0) return false
+  try {
+    const rows = await sql`
+      UPDATE field_technicians
+      SET capabilities = coalesce(capabilities, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb
+      WHERE id = ${techId} AND user_id = ${ownerUserId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (pgErrorCode(e) === "42703") {
+      console.warn("[field tech capabilities] column missing — run scripts/152", e)
+      return false
+    }
+    throw e
+  }
+}
+
 export async function patchFieldTechnicianForOwner(
   ownerUserId: string,
   techId: string,

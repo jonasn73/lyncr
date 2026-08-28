@@ -3,6 +3,9 @@
 // DELETE /api/technicians/[id] — remove tech from the owner roster
 // ============================================
 
+import { DEFAULT_FIELD_TECH_CAPABILITIES } from "@/lib/field-technician-capabilities"
+import { setFieldTechnicianCapabilities } from "@/lib/db"
+import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { deleteFieldTechnicianForOwner, patchFieldTechnicianForOwner } from "@/lib/db"
@@ -17,13 +20,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const body = (await req.json().catch(() => ({}))) as {
     is_active?: boolean
     organization_id?: string | null
+    capabilities?: Partial<FieldTechnicianCapabilities>
   }
 
-  if (typeof body.is_active !== "boolean" && body.organization_id === undefined) {
+  // Only keys the registry knows, and only booleans — same shape the receptionist route
+  // uses, so adding a capability stays "add a default + a label".
+  const capabilityPatch: Partial<FieldTechnicianCapabilities> = {}
+  if (body.capabilities && typeof body.capabilities === "object") {
+    for (const key of Object.keys(DEFAULT_FIELD_TECH_CAPABILITIES) as (keyof FieldTechnicianCapabilities)[]) {
+      const value = (body.capabilities as Record<string, unknown>)[key]
+      if (typeof value === "boolean") capabilityPatch[key] = value
+    }
+  }
+  const hasCapabilityPatch = Object.keys(capabilityPatch).length > 0
+
+  if (typeof body.is_active !== "boolean" && body.organization_id === undefined && !hasCapabilityPatch) {
     return NextResponse.json(
-      { error: "Provide is_active (boolean) and/or organization_id" },
+      { error: "Provide is_active (boolean), organization_id, and/or capabilities" },
       { status: 400 }
     )
+  }
+
+  if (hasCapabilityPatch) {
+    const saved = await setFieldTechnicianCapabilities(userId, id, capabilityPatch)
+    if (!saved) return NextResponse.json({ error: "Technician not found" }, { status: 404 })
+    if (typeof body.is_active !== "boolean" && body.organization_id === undefined) {
+      return NextResponse.json({ data: { ok: true } })
+    }
   }
 
   try {
