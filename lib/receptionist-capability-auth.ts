@@ -6,6 +6,7 @@
 // the result. New routes should call resolveWorkspaceActor directly.
 
 import { resolveWorkspaceActor } from "@/lib/workspace-actor"
+import type { ActorRole } from "@/lib/actor"
 import type { ReceptionistCapabilities } from "@/lib/types"
 
 export type CapabilityActor = {
@@ -13,7 +14,7 @@ export type CapabilityActor = {
   ownerUserId: string
   /** Signed-in user performing the action; equals ownerUserId when the owner does it. */
   actingUserId: string
-  actorRole: "owner" | "receptionist"
+  actorRole: ActorRole
   receptionistId: string | null
 }
 

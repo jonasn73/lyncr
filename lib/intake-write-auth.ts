@@ -10,13 +10,14 @@
 // is capability-gated — see lib/workspace-actor.ts, which this now delegates to.
 
 import { resolveWorkspaceActor } from "@/lib/workspace-actor"
+import type { ActorRole } from "@/lib/actor"
 
 export type IntakeWriteActor = {
   /** Account the records are written under — always the business owner. */
   ownerUserId: string
   /** Signed-in user performing the write; equals ownerUserId when the owner does it. */
   actingUserId: string
-  actorRole: "owner" | "receptionist"
+  actorRole: ActorRole
   /** Receptionist row id when a receptionist is acting, for attribution. */
   receptionistId: string | null
   receptionistName: string | null

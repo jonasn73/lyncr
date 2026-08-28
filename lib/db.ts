@@ -3072,6 +3072,29 @@ export async function getUserShopOrigin(userId: string): Promise<ShopOrigin | nu
   }
 }
 
+/**
+ * Platform-admin ceiling for one business account (`151-platform-account-grants.sql`).
+ *
+ * Deliberately its own query rather than a column on getUser: that SELECT is the hottest
+ * path in the app and already carries a missing-column fallback, and this table is read
+ * once per authorization, not once per render.
+ *
+ * Fails OPEN — an unreadable or absent column returns {}, which parses as fully granted.
+ * The failure direction matters: this ceiling only ever restricts an owner on their own
+ * account, so failing open leaves them with what they pay for, while the staff layer below
+ * still defaults to denied. A database blip must not lock an owner out of their business.
+ */
+export async function getPlatformAccountGrantsRaw(userId: string): Promise<unknown> {
+  const sql = getSql()
+  try {
+    const rows = await sql`SELECT platform_grants FROM users WHERE id = ${userId} LIMIT 1`
+    return rows[0]?.platform_grants ?? {}
+  } catch (e) {
+    console.warn("[platform grants] falling back to fully granted:", e)
+    return {}
+  }
+}
+
 export async function getUser(userId: string): Promise<User | null> {
   const sql = getSql()
   try {

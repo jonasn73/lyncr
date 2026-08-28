@@ -3,6 +3,7 @@ import { resolveCapabilityActor } from "@/lib/receptionist-capability-auth"
 
 const getUserIdFromRequest = vi.fn()
 const getUser = vi.fn()
+const getPlatformAccountGrantsRaw = vi.fn((..._a: unknown[]) => ({}) as unknown)
 const getReceptionistPortalContext = vi.fn()
 const isReceptionistPortalUser = vi.fn()
 
@@ -11,6 +12,8 @@ vi.mock("@/lib/auth", () => ({
 }))
 vi.mock("@/lib/db", () => ({
   getUser: (...args: unknown[]) => getUser(...args),
+  getPlatformAccountGrantsRaw: (...args: unknown[]) =>
+    getPlatformAccountGrantsRaw(...args),
 }))
 vi.mock("@/lib/receptionist-portal-auth", () => ({
   getReceptionistPortalContext: (...args: unknown[]) => getReceptionistPortalContext(...args),
