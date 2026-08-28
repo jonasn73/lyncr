@@ -26,6 +26,10 @@ export const EMPTY_CALLER_LOOKUP: ReceptionistCallerLookup = {
   last_job_summary: null,
   last_job_vehicle: null,
   last_job_at: null,
+  last_job_vehicle_year: null,
+  last_job_vehicle_make: null,
+  last_job_vehicle_model: null,
+  last_job_type: null,
 }
 
 /** Compare on digits — CRM rows and carrier CNAM disagree on +1 / formatting. */
@@ -67,6 +71,10 @@ export async function lookupReceptionistCaller(
     let lastJobSummary: string | null = null
     let lastJobVehicle: string | null = null
     let lastJobAt: string | null = null
+    let lastJobVehicleYear: string | null = null
+    let lastJobVehicleMake: string | null = null
+    let lastJobVehicleModel: string | null = null
+    let lastJobType: string | null = null
     try {
       const [lastJob] = await listCrmServiceHistoryForCustomer({
         userId: ownerUserId,
@@ -78,6 +86,10 @@ export async function lookupReceptionistCaller(
         lastJobSummary = lastJob.summary?.trim() || lastJob.job_type?.trim() || null
         lastJobVehicle = lastJob.vehicle_label
         lastJobAt = lastJob.scheduled_at ?? lastJob.at ?? null
+        lastJobVehicleYear = lastJob.vehicle_year
+        lastJobVehicleMake = lastJob.vehicle_make
+        lastJobVehicleModel = lastJob.vehicle_model
+        lastJobType = lastJob.job_type
       }
     } catch {
       // No history is a normal outcome — leave the fields null.
@@ -100,6 +112,10 @@ export async function lookupReceptionistCaller(
       last_job_summary: lastJobSummary,
       last_job_vehicle: lastJobVehicle,
       last_job_at: lastJobAt,
+      last_job_vehicle_year: lastJobVehicleYear,
+      last_job_vehicle_make: lastJobVehicleMake,
+      last_job_vehicle_model: lastJobVehicleModel,
+      last_job_type: lastJobType,
     }
   } catch {
     // A CRM hiccup must never block the screen-pop or the answer button.

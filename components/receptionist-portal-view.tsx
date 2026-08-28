@@ -12,6 +12,7 @@ import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import { ReceptionistLiveIntake, type LiveCallSession } from "@/components/receptionist-live-intake"
+import type { CallConnectedPayload } from "@/app/actions/call-events"
 import { ReceptionistEndpointToggle } from "@/components/receptionist-endpoint-toggle"
 import { ReceptionistAvailabilityToggle } from "@/components/receptionist-availability-toggle"
 import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
@@ -366,10 +367,15 @@ export function ReceptionistPortalView() {
   // Open intake from polled state when realtime did not, or could not, deliver.
   //
   // Adjusted during render rather than in an effect: an effect would paint an empty
-  // HUD first and fill it on the next pass. Deliberately one-way — this opens the
-  // HUD, never closes it. A call ending is exactly when a receptionist is still
-  // typing up what it was about, and a poll landing after hangup must not take the
-  // form away mid-sentence. Closing stays with the explicit dismiss and call-ended.
+  // HUD first and fill it on the next pass. Opening is one-way — a poll never yanks
+  // the form away on its own read. Closing an ANSWERED call is normally left to the
+  // explicit dismiss and the call-ended realtime event, since that is exactly when a
+  // receptionist may still be typing up what the call was about — but if that event
+  // never lands (no realtime configured, a dropped connection, a backgrounded tab),
+  // nothing else ever closes the HUD and it sits there claiming the call is still
+  // going. `answeredCallGoneStreak` is the fallback: two consecutive polls agreeing
+  // the call is over closes it exactly like the realtime event would, while still
+  // refusing to act on one racy/stale poll.
   const polledLive =
     dashboard?.live_status.mode === "on_call" || dashboard?.live_status.mode === "ringing"
       ? dashboard.live_status
@@ -378,6 +384,14 @@ export function ReceptionistPortalView() {
   // logs its intake against the same call.
   const polledCallSid = polledLive?.provider_call_sid ?? null
   const polledAnswered = dashboard?.live_status.mode === "on_call"
+  // Counts consecutive POLLS (not renders) that agree the call is over — the WebRTC
+  // hook below re-renders this component far more often than `dashboard` actually
+  // changes, so the streak is keyed off the dashboard object each poll produces.
+  // State, not a ref: this block runs during render, and refs may not be read or
+  // written there.
+  const [answeredCallGoneStreak, setAnsweredCallGoneStreak] = useState(0)
+  const [answeredCallGoneCheckedDashboard, setAnsweredCallGoneCheckedDashboard] =
+    useState<ReceptionistPortalDashboard | null>(null)
 
   if (polledLive && polledCallSid && polledCallSid !== handledCallSid && !activeCall) {
     setHandledCallSid(polledCallSid)
@@ -391,6 +405,7 @@ export function ReceptionistPortalView() {
       // Ringing until proven otherwise — the clock in the HUD depends on it.
       answeredAt: polledAnswered ? (polledLive.started_at ?? new Date().toISOString()) : null,
     })
+    if (answeredCallGoneStreak !== 0) setAnsweredCallGoneStreak(0)
   } else if (
     polledLive &&
     polledAnswered &&
@@ -401,12 +416,33 @@ export function ReceptionistPortalView() {
     // Ringing → answered on a HUD that is already open. Stamp the pickup so the timer
     // switches from counting ring time to counting talk time.
     setActiveCall({ ...activeCall, answeredAt: polledLive.started_at ?? new Date().toISOString() })
+    if (answeredCallGoneStreak !== 0) setAnsweredCallGoneStreak(0)
   } else if (dashboard && !polledLive && activeCall && !activeCall.answeredAt) {
     // The caller hung up before anyone picked up. There is nothing to write up about a
     // call that never happened, so the HUD closes itself rather than sitting there with
-    // a running clock. An ANSWERED call that ends is left alone on purpose — that is
-    // exactly when she is still typing up what it was about.
+    // a running clock.
     setActiveCall(null)
+  } else if (
+    dashboard &&
+    !polledLive &&
+    activeCall &&
+    activeCall.answeredAt &&
+    dashboard !== answeredCallGoneCheckedDashboard
+  ) {
+    // The call has ended after being answered — normally call-ended (realtime) closes
+    // this. Confirm across two separate polls before acting, so a single stale read
+    // can't cut a receptionist off mid-sentence, but still self-heal when realtime
+    // never fires.
+    setAnsweredCallGoneCheckedDashboard(dashboard)
+    const nextStreak = answeredCallGoneStreak + 1
+    if (nextStreak >= 2) {
+      setActiveCall(null)
+      setAnsweredCallGoneStreak(0)
+    } else {
+      setAnsweredCallGoneStreak(nextStreak)
+    }
+  } else if (polledLive && activeCall && answeredCallGoneStreak !== 0) {
+    setAnsweredCallGoneStreak(0)
   }
 
   const receptionistId = dashboard?.receptionist.id ?? null
@@ -419,21 +455,26 @@ export function ReceptionistPortalView() {
     const channelName = `receptionist-${receptionistId}`
     const channel = pusher.subscribe(channelName)
 
-    const onConnected = (payload: LiveCallSession) => {
+    const onConnected = (payload: CallConnectedPayload) => {
+      // This event fires the instant the callee leg answers — payload.startedAt IS the
+      // answer moment, not the ring start, so both fields below are the same timestamp.
+      const answerTime = payload.startedAt ?? new Date().toISOString()
       setHandledCallSid(payload.callLogId)
       setActiveCall({
-        answeredAt: payload.answeredAt ?? payload.startedAt ?? new Date().toISOString(),
+        answeredAt: answerTime,
         callLogId: payload.callLogId,
         businessType: payload.businessType ?? "generic",
         callerNumber: payload.callerNumber ?? null,
         callerName: payload.callerName ?? null,
         businessName: payload.businessName ?? dashboardRef.current?.business_name ?? null,
-        startedAt: payload.startedAt ?? new Date().toISOString(),
+        startedAt: answerTime,
       })
+      setAnsweredCallGoneStreak(0)
       load({ silent: true })
     }
     const onEnded = () => {
       setActiveCall(null)
+      setAnsweredCallGoneStreak(0)
       load({ silent: true })
     }
 

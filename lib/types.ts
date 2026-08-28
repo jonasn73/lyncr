@@ -1088,6 +1088,12 @@ export interface ReceptionistCallerLookup {
   last_job_vehicle: string | null
   /** ISO timestamp of the most recent job (scheduled time, else created time). */
   last_job_at: string | null
+  /** Split YMM from the most recent job — lets the HUD prefill vehicle fields in one tap. */
+  last_job_vehicle_year: string | null
+  last_job_vehicle_make: string | null
+  last_job_vehicle_model: string | null
+  /** Job type on the most recent job, e.g. "Ignition" — offered as a one-tap prefill too. */
+  last_job_type: string | null
 }
 
 /**

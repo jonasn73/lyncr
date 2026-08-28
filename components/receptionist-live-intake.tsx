@@ -15,8 +15,14 @@ import {
   serializeIntakeValues,
   type IntakeFormValues,
 } from "@/components/industry-intake-form-fields"
-import { buildFieldServiceSummary, intakeFieldsForProfile, intakeTitleForProfile } from "@/lib/field-service-intake"
+import {
+  buildFieldServiceSummary,
+  fieldsForJobType,
+  intakeFieldsForProfile,
+  intakeTitleForProfile,
+} from "@/lib/field-service-intake"
 import { resolveWorkspaceIntakeProfile } from "@/lib/workspace-intake-profile"
+import { ReceptionistSimpleIntake } from "@/components/receptionist-simple-intake"
 
 export type LiveCallSession = {
   callLogId: string
@@ -150,7 +156,21 @@ function shortDate(iso: string): string | null {
  * a stranger. Purely additive: a lookup that fails or finds nobody renders nothing
  * rather than a row of empty labels.
  */
-function CallerContext({ callerNumber }: { callerNumber: string | null }) {
+function CallerContext({
+  callerNumber,
+  onUseLastVehicle,
+  vehicleAlreadySet,
+}: {
+  callerNumber: string | null
+  /** One-tap "she's back in the same car" — skips re-asking YMM and job type. */
+  onUseLastVehicle: (info: {
+    year: string | null
+    make: string | null
+    model: string | null
+    jobType: string | null
+  }) => void
+  vehicleAlreadySet: boolean
+}) {
   const [lookup, setLookup] = useState<ReceptionistCallerLookup | null>(null)
 
   useEffect(() => {
@@ -190,6 +210,10 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
   const lastJobDate = lookup.last_job_at ? shortDate(lookup.last_job_at) : null
   if (lastJobDate) lastJobBits.push(lastJobDate)
 
+  const hasLastVehicle = Boolean(
+    lookup.last_job_vehicle_year || lookup.last_job_vehicle_make || lookup.last_job_vehicle_model
+  )
+
   return (
     <div className="border-b border-emerald-500/20 bg-emerald-950/40 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -216,6 +240,23 @@ function CallerContext({ callerNumber }: { callerNumber: string | null }) {
         <p className="mt-1 text-[11px] text-zinc-400">
           <span className="text-zinc-500">Last visit:</span> {lastJobBits.join(" · ")}
         </p>
+      ) : null}
+      {hasLastVehicle && !vehicleAlreadySet ? (
+        <button
+          type="button"
+          onClick={() =>
+            onUseLastVehicle({
+              year: lookup.last_job_vehicle_year,
+              make: lookup.last_job_vehicle_make,
+              model: lookup.last_job_vehicle_model,
+              jobType: lookup.last_job_type,
+            })
+          }
+          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+        >
+          <Check className="h-3 w-3" aria-hidden />
+          Same vehicle as last time — fill it in
+        </button>
       ) : null}
       {lookup.notes ? (
         <p className="mt-1 truncate text-[11px] italic text-zinc-500" title={lookup.notes}>
@@ -244,8 +285,20 @@ export function ReceptionistLiveIntake({
   // Collapsed to a bar rather than closed — she needs to look something up mid-call
   // without losing what she has typed, which is why the owner console has a PiP.
   const [minimized, setMinimized] = useState(false)
+  // Escape hatch for a call that was never going to become a booking (wrong number, a
+  // quick question, "just checking pricing") — the full step wizard is the wrong tool
+  // for that, same reasoning as the owner console's missed-call quick note.
+  const [quickMode, setQuickMode] = useState(false)
 
-  const steps = useMemo(() => buildSteps(config.fields), [config.fields])
+  // A job type that doesn't involve a vehicle (e.g. a house "Rekey") drops the vehicle
+  // step and any car-key-specific fields entirely, rather than asking for a car nobody
+  // has — the same "don't ask unless it applies" idea the owner console already applies
+  // via serviceTypeRequiresVehicle.
+  const effectiveFields = useMemo(
+    () => fieldsForJobType(config.fields, config.profile, String(values.job_type ?? "")),
+    [config.fields, config.profile, values.job_type]
+  )
+  const steps = useMemo(() => buildSteps(effectiveFields), [effectiveFields])
   const step = steps[Math.min(stepIndex, steps.length - 1)]
   const isLastStep = stepIndex >= steps.length - 1
   // Address is "the single field most worth getting right" (see buildSteps above) — shrink
@@ -324,8 +377,8 @@ export function ReceptionistLiveIntake({
     setValues((prev) => ({ ...prev, [name]: value }))
 
   const missingRequired = useMemo(
-    () => !intakeValuesComplete(config.fields, values),
-    [config.fields, values]
+    () => !intakeValuesComplete(effectiveFields, values),
+    [effectiveFields, values]
   )
 
   function buildSummary(): string {
@@ -523,8 +576,42 @@ export function ReceptionistLiveIntake({
         </div>
       </div>
 
-      <CallerContext callerNumber={callerNumber} />
+      <CallerContext
+        callerNumber={callerNumber}
+        vehicleAlreadySet={Boolean(values.vehicle_year || values.vehicle_make || values.vehicle_model)}
+        onUseLastVehicle={(info) => {
+          if (info.year) setField("vehicle_year", info.year)
+          if (info.make) setField("vehicle_make", info.make)
+          if (info.model) setField("vehicle_model", info.model)
+          if (info.jobType && !values.job_type) setField("job_type", info.jobType)
+        }}
+      />
 
+      {!quickMode ? (
+        <div className="border-b border-emerald-500/20 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setQuickMode(true)}
+            className="text-[11px] font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+          >
+            Not a booking? Log a quick note instead
+          </button>
+        </div>
+      ) : null}
+
+      {quickMode ? (
+        <div className="px-4 py-5">
+          <ReceptionistSimpleIntake
+            callLogId={session.callLogId}
+            callerNumber={callerNumber ?? ""}
+            initialCallerName={callerName}
+            businessName={session.businessName}
+            onSaved={() => onDismiss("saved")}
+            onCancel={() => setQuickMode(false)}
+          />
+        </div>
+      ) : (
+        <>
       {/* Where she is, and how much is left. */}
       {steps.length > 1 ? (
         <div className="flex items-center gap-1.5 border-b border-emerald-500/20 px-4 py-2">
@@ -564,7 +651,7 @@ export function ReceptionistLiveIntake({
 
         <div className="mt-4">
           <IndustryIntakeFormFields
-            fields={step ? step.fields : config.fields}
+            fields={step ? step.fields : effectiveFields}
             values={values}
             onChange={setField}
           />
@@ -667,6 +754,8 @@ export function ReceptionistLiveIntake({
           </div>
         </div>
       </div>
+        </>
+      )}
     </WorkspacePanel>
   )
 }
