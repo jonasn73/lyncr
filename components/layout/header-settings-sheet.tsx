@@ -29,8 +29,8 @@ import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import {
   estimateLyncrNetFromGrossCents,
   formatHeaderMoneyCents,
+  formatSignedHeaderMoneyCents,
   readHeaderMoneyCache,
-  resolveHeaderWalletChipDisplay,
   writeHeaderMoneyCache,
   type HeaderMoneyCache,
 } from "@/lib/header-money-cache"
@@ -136,6 +136,11 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
     return cached?.availableCents ?? null
   })
+  // Wallet ledger balance (migration 155) — charges minus reversals minus payouts, the chip's number.
+  const [walletBalanceCents, setWalletBalanceCents] = useState<number | null>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached?.walletBalanceCents ?? null
+  })
   // Funds Stripe still holds before they become transferable (often 1–2 days after a card pay).
   const [pendingCents, setPendingCents] = useState<number>(() => {
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
@@ -168,8 +173,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   const [periodsReady, setPeriodsReady] = useState(
     () => readHeaderMoneyCache(undefined, moneyPaint) != null
   )
-  // Wallet chip = Stripe balance only (not “sales today”).
-  const amountReady = availableCents != null
+  // Wallet chip = the ledger balance (migration 155), not Stripe's transfer-eligible balance.
+  const amountReady = walletBalanceCents != null
   // Recent bank transfers — loaded when Money opens.
   const [bankTransfers, setBankTransfers] = useState<
     {
@@ -187,6 +192,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const cached = readHeaderMoneyCache()
     if (!cached) return
     setAvailableCents((prev) => (prev == null ? cached.availableCents : prev))
+    setWalletBalanceCents((prev) => (prev == null ? cached.walletBalanceCents : prev))
     setPendingCents((prev) => (prev === 0 && cached.pendingCents ? cached.pendingCents : prev))
     setConnectReady((prev) => prev || cached.connectReady === true)
     setTodayCents((prev) => (prev == null ? cached.todayCents : prev))
@@ -245,6 +251,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             weekCents?: number
             monthCents?: number
             allTimeCents?: number
+            walletBalanceCents?: number
           }
         } | null) => {
           const today = j?.data?.todayCents
@@ -252,6 +259,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           const week = j?.data?.weekCents
           const month = j?.data?.monthCents
           const all = j?.data?.allTimeCents
+          const walletBalance = j?.data?.walletBalanceCents
           if (typeof today !== "number" || typeof month !== "number") return null
           const next = {
             todayCents: today,
@@ -259,12 +267,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             weekCents: typeof week === "number" ? week : 0,
             monthCents: month,
             allTimeCents: typeof all === "number" ? all : 0,
+            walletBalanceCents: typeof walletBalance === "number" ? walletBalance : 0,
           }
           setTodayCents(next.todayCents)
           setYesterdayCents(next.yesterdayCents)
           setWeekCents(next.weekCents)
           setMonthCents(next.monthCents)
           setAllTimeCents(next.allTimeCents)
+          setWalletBalanceCents(next.walletBalanceCents)
           setPeriodsReady(true)
           return next
         }
@@ -284,6 +294,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         weekCents: col?.weekCents ?? prev?.weekCents ?? 0,
         monthCents: col?.monthCents ?? prev?.monthCents ?? 0,
         allTimeCents: col?.allTimeCents ?? prev?.allTimeCents ?? 0,
+        walletBalanceCents: col?.walletBalanceCents ?? prev?.walletBalanceCents ?? 0,
       })
     })
     // moneyPaint is request-stable; omit from deps (#185).
@@ -436,11 +447,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setPaymentsOpen(true)
   }, [])
 
-  // Wallet chip = Stripe Available (or Pending) — never “sales today”.
-  const chipDisplay = amountReady
-    ? resolveHeaderWalletChipDisplay(availableCents ?? 0, pendingCents, todayCents)
-    : null
-  const chipAmountLabel = chipDisplay ? formatMoneyCents(chipDisplay.amountCents) : null
+  // Wallet chip = the ledger balance (migration 155): charges minus reversals minus payouts,
+  // updated the instant any of those happens. Not Stripe's available/pending balance — that
+  // still drives Send to bank specifically, inside the Money sheet below.
+  const chipAmountLabel = amountReady ? formatSignedHeaderMoneyCents(walletBalanceCents ?? 0) : null
 
   const periodCents = (id: CollectedPeriod): number | null => {
     if (!periodsReady) return null
@@ -462,7 +472,7 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
   return (
     <>
       <div className="flex items-center gap-2">
-        {/* Wallet chip: Stripe Available (or Pending). Tap → Money sheet. */}
+        {/* Wallet chip: ledger balance (migration 155). Tap → Money sheet. */}
         <Button
           type="button"
           variant="outline"
@@ -471,18 +481,14 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           onPointerEnter={() => prefetchCollectJobs()}
           className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 text-success shadow-resting hover:bg-success/20 hover:text-success focus-visible:text-success"
           aria-label={
-            chipAmountLabel && chipDisplay
-              ? `Wallet ${chipAmountLabel}. ${chipDisplay.label}. Tap for Money — Collect, bank, or Lyncr bill.`
+            chipAmountLabel
+              ? `Wallet balance ${chipAmountLabel}. Tap for Money — Collect, bank, or Lyncr bill.`
               : "Wallet — loading balance"
           }
-          title={
-            chipAmountLabel && chipDisplay
-              ? `${chipAmountLabel} · ${chipDisplay.label}`
-              : "Loading account balance"
-          }
+          title={chipAmountLabel ? `${chipAmountLabel} · Wallet balance` : "Loading account balance"}
         >
           <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
-          {chipAmountLabel && amountReady && chipDisplay ? (
+          {chipAmountLabel && amountReady ? (
             <span className="text-xs font-bold tabular-nums" suppressHydrationWarning>
               {chipAmountLabel}
             </span>

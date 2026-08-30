@@ -5,9 +5,11 @@ import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 
 export type WalletTransactionStatus = "PENDING" | "COMPLETED" | "FAILED"
-export type WalletPaymentMethod = "TAP_TO_PAY" | "MANUAL_CARD" | "CASH"
+export type WalletPaymentMethod = "TAP_TO_PAY" | "MANUAL_CARD" | "CASH" | "PAYOUT"
 /** Why money moved back out (migration 154). DISPUTE_WON re-credits after winning. */
 export type WalletReversalReason = "REFUND" | "DISPUTE" | "DISPUTE_WON"
+/** CHARGE = customer payment. REVERSAL = refund/dispute. PAYOUT = sent to bank (migration 155). */
+export type WalletEntryType = "CHARGE" | "REVERSAL" | "PAYOUT"
 
 export type WalletTransaction = {
   id: string
@@ -20,6 +22,9 @@ export type WalletTransaction = {
   /** Walk-up / adhoc E.164 phone when job_id is null (migration 124). */
   customerPhone: string | null
   customerName: string | null
+  /** The business this money belongs to — direct SUM(amount) ownership (migration 155). */
+  ownerUserId: string | null
+  entryType: WalletEntryType
   createdAt: string
 }
 
@@ -66,7 +71,12 @@ function mapTransaction(row: Record<string, unknown>): WalletTransaction {
     statusRaw === "COMPLETED" || statusRaw === "FAILED" ? statusRaw : "PENDING"
   const methodRaw = String(row.payment_method ?? "CASH").toUpperCase()
   const paymentMethod: WalletPaymentMethod =
-    methodRaw === "TAP_TO_PAY" || methodRaw === "MANUAL_CARD" ? methodRaw : "CASH"
+    methodRaw === "TAP_TO_PAY" || methodRaw === "MANUAL_CARD" || methodRaw === "PAYOUT"
+      ? methodRaw
+      : "CASH"
+  const entryTypeRaw = String(row.entry_type ?? "CHARGE").toUpperCase()
+  const entryType: WalletEntryType =
+    entryTypeRaw === "REVERSAL" || entryTypeRaw === "PAYOUT" ? entryTypeRaw : "CHARGE"
   const created =
     row.created_at instanceof Date
       ? row.created_at.toISOString()
@@ -88,7 +98,65 @@ function mapTransaction(row: Record<string, unknown>): WalletTransaction {
       row.customer_name != null && String(row.customer_name).trim()
         ? String(row.customer_name).trim()
         : null,
+    ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
+    entryType,
     createdAt: created,
+  }
+}
+
+/** Full row read, degrading to the pre-155 column set when owner_user_id/entry_type are missing. */
+async function fetchWalletTransactionById(
+  sql: ReturnType<typeof getSql>,
+  id: string
+): Promise<WalletTransaction | null> {
+  try {
+    const rows = await sql`
+      SELECT
+        id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+        customer_phone, customer_name, owner_user_id, entry_type, created_at
+      FROM wallet_transactions
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (pgErrorCode(e) !== "42703") throw e
+    const rows = await sql`
+      SELECT id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at
+      FROM wallet_transactions
+      WHERE id = ${id}
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  }
+}
+
+/** Same degrade-gracefully read, keyed by Stripe PaymentIntent (latest row wins). */
+async function fetchWalletTransactionByPI(
+  sql: ReturnType<typeof getSql>,
+  pi: string
+): Promise<WalletTransaction | null> {
+  try {
+    const rows = await sql`
+      SELECT
+        id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+        customer_phone, customer_name, owner_user_id, entry_type, created_at
+      FROM wallet_transactions
+      WHERE stripe_payment_intent_id = ${pi}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  } catch (e) {
+    if (pgErrorCode(e) !== "42703") throw e
+    const rows = await sql`
+      SELECT id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at
+      FROM wallet_transactions
+      WHERE stripe_payment_intent_id = ${pi}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `
+    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
   }
 }
 
@@ -169,6 +237,9 @@ export async function createWalletTransaction(params: {
   /** Walk-up contact (migration 124). Ignored when columns are missing. */
   customerPhone?: string | null
   customerName?: string | null
+  /** The business this money belongs to (migration 155). Ignored when the column is missing. */
+  ownerUserId?: string | null
+  entryType?: WalletEntryType
 }): Promise<WalletTransaction | null> {
   const sql = getSql()
   const id = crypto.randomUUID()
@@ -177,13 +248,15 @@ export async function createWalletTransaction(params: {
 
   const customerPhone = (params.customerPhone ?? "").trim() || null
   const customerName = (params.customerName ?? "").trim().slice(0, 80) || null
+  const ownerUserId = (params.ownerUserId ?? "").trim() || null
+  const entryType = params.entryType ?? "CHARGE"
 
   try {
     try {
       await sql`
         INSERT INTO wallet_transactions
           (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
-           customer_phone, customer_name, created_at)
+           customer_phone, customer_name, owner_user_id, entry_type, created_at)
         VALUES
           (
             ${id},
@@ -195,12 +268,36 @@ export async function createWalletTransaction(params: {
             ${params.stripePaymentIntentId?.trim() || null},
             ${customerPhone},
             ${customerName},
+            ${ownerUserId},
+            ${entryType},
             now()
           )
       `
     } catch (inner) {
-      // Pre-migration 124: customer_phone / customer_name columns missing.
-      if (pgErrorCode(inner) === "42703") {
+      if (pgErrorCode(inner) !== "42703") throw inner
+      // Pre-migration 155: owner_user_id / entry_type columns missing.
+      try {
+        await sql`
+          INSERT INTO wallet_transactions
+            (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+             customer_phone, customer_name, created_at)
+          VALUES
+            (
+              ${id},
+              ${params.userId},
+              ${params.jobId},
+              ${amount},
+              ${params.status},
+              ${params.paymentMethod},
+              ${params.stripePaymentIntentId?.trim() || null},
+              ${customerPhone},
+              ${customerName},
+              now()
+            )
+        `
+      } catch (inner2) {
+        // Pre-migration 124: customer_phone / customer_name columns missing too.
+        if (pgErrorCode(inner2) !== "42703") throw inner2
         await sql`
           INSERT INTO wallet_transactions
             (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id, created_at)
@@ -216,8 +313,6 @@ export async function createWalletTransaction(params: {
               now()
             )
         `
-      } else {
-        throw inner
       }
     }
 
@@ -229,15 +324,7 @@ export async function createWalletTransaction(params: {
       `
     }
 
-    const rows = await sql`
-      SELECT
-        id, user_id, job_id, amount, status, payment_method,
-        stripe_payment_intent_id, created_at
-      FROM wallet_transactions
-      WHERE id = ${id}
-      LIMIT 1
-    `
-    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+    return await fetchWalletTransactionById(sql, id)
   } catch (e) {
     if (isMissingWalletSchemaError(e)) {
       console.warn("[tech-wallet] migration 111 not applied — skipped transaction")
@@ -338,16 +425,7 @@ export async function findWalletTransactionByPaymentIntent(
   const pi = stripePaymentIntentId.trim()
   if (!pi) return null
   try {
-    const rows = await sql`
-      SELECT
-        id, user_id, job_id, amount, status, payment_method,
-        stripe_payment_intent_id, created_at
-      FROM wallet_transactions
-      WHERE stripe_payment_intent_id = ${pi}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `
-    return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+    return await fetchWalletTransactionByPI(sql, pi)
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return null
     throw e
@@ -485,24 +563,49 @@ export async function recordWalletReversal(params: {
   const id = crypto.randomUUID()
 
   try {
-    await sql`
-      INSERT INTO wallet_transactions
-        (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
-         reverses_transaction_id, reversal_reason, created_at)
-      VALUES
-        (
-          ${id},
-          ${original.userId},
-          ${original.jobId},
-          ${signed},
-          'COMPLETED',
-          ${original.paymentMethod},
-          ${eventId},
-          ${original.id},
-          ${params.reason},
-          now()
-        )
-    `
+    try {
+      await sql`
+        INSERT INTO wallet_transactions
+          (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+           reverses_transaction_id, reversal_reason, owner_user_id, entry_type, created_at)
+        VALUES
+          (
+            ${id},
+            ${original.userId},
+            ${original.jobId},
+            ${signed},
+            'COMPLETED',
+            ${original.paymentMethod},
+            ${eventId},
+            ${original.id},
+            ${params.reason},
+            ${original.ownerUserId},
+            'REVERSAL',
+            now()
+          )
+      `
+    } catch (inner) {
+      // Pre-migration 155: owner_user_id / entry_type columns missing.
+      if (pgErrorCode(inner) !== "42703") throw inner
+      await sql`
+        INSERT INTO wallet_transactions
+          (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+           reverses_transaction_id, reversal_reason, created_at)
+        VALUES
+          (
+            ${id},
+            ${original.userId},
+            ${original.jobId},
+            ${signed},
+            'COMPLETED',
+            ${original.paymentMethod},
+            ${eventId},
+            ${original.id},
+            ${params.reason},
+            now()
+          )
+      `
+    }
   } catch (e) {
     // Same event delivered twice — the unique index already recorded it.
     if (isUniqueViolation(e)) return null
@@ -522,13 +625,56 @@ export async function recordWalletReversal(params: {
     WHERE id = ${original.userId}
   `
 
-  const rows = await sql`
-    SELECT
-      id, user_id, job_id, amount, status, payment_method,
-      stripe_payment_intent_id, created_at
-    FROM wallet_transactions
-    WHERE id = ${id}
-    LIMIT 1
-  `
-  return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
+  return await fetchWalletTransactionById(sql, id)
+}
+
+/**
+ * Record money leaving the wallet for a bank transfer, the instant Stripe confirms the payout
+ * was created — the ledger has to know the moment it happens, not days later on arrival.
+ * Must never throw past a genuine payout success: the bank transfer already happened on
+ * Stripe's side, so a ledger write failure here is a drift to reconcile, not a reason to make
+ * the payout itself look like it failed.
+ */
+export async function recordWalletPayout(params: {
+  ownerUserId: string
+  amountUsd: number
+  stripePayoutId: string
+}): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const ownerUserId = params.ownerUserId.trim()
+  const payoutId = params.stripePayoutId.trim()
+  const magnitude = Math.round(Math.abs(Number(params.amountUsd)) * 100) / 100
+  if (!ownerUserId || !payoutId || !Number.isFinite(magnitude) || magnitude <= 0) return null
+
+  const id = crypto.randomUUID()
+  const signed = -magnitude
+
+  try {
+    await sql`
+      INSERT INTO wallet_transactions
+        (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+         owner_user_id, entry_type, created_at)
+      VALUES
+        (${id}, ${ownerUserId}, NULL, ${signed}, 'COMPLETED', 'PAYOUT', ${payoutId},
+         ${ownerUserId}, 'PAYOUT', now())
+    `
+  } catch (e) {
+    // Same payout id recorded twice — idempotent, not an error.
+    if (isUniqueViolation(e)) return null
+    if (isMissingWalletSchemaError(e) || pgErrorCode(e) === "42703") {
+      console.error(
+        "[tech-wallet] payout could not be recorded on the ledger — run scripts/155-wallet-owner-and-payouts.sql",
+        { stripePayoutId: payoutId }
+      )
+      return null
+    }
+    console.error("[tech-wallet] payout ledger write failed after a real Stripe payout", {
+      stripePayoutId: payoutId,
+      ownerUserId,
+      error: e,
+    })
+    return null
+  }
+
+  return await fetchWalletTransactionById(sql, id)
 }

@@ -14,14 +14,21 @@ export type OwnerCollectedSummary = {
   weekCents: number
   /** Settled dollars collected since the start of the current month. */
   monthCents: number
-  /** All settled dollars ever for this business. */
+  /** All settled dollars ever for this business (charges net of refunds/disputes; payouts excluded — this is a lifetime collected figure, not a balance). */
   allTimeCents: number
   /** Number of completed payment rows today. */
   todayCount: number
+  /**
+   * Money actually in hand right now: charges minus reversals minus payouts already sent,
+   * updated the instant each happens (migration 155). This is the wallet balance — a
+   * different, always-smaller number than allTimeCents once anything has been paid out.
+   */
+  walletBalanceCents: number
 }
 
 /**
- * Sum completed wallet ledger rows on jobs owned by this business.
+ * Sum completed wallet ledger rows owned by this business (owner_user_id, migration 155 —
+ * stamped at write time so a payment stays attributed even if its job is later deleted).
  * When TECH_JOB_COMMISSION_RATE is 1 (default), wallet amount ≈ customer charge.
  * Day / week / month use the owner’s IANA timezone (not the UTC server clock).
  */
@@ -36,6 +43,7 @@ export async function getOwnerCollectedSummary(
     monthCents: 0,
     allTimeCents: 0,
     todayCount: 0,
+    walletBalanceCents: 0,
   }
   const uid = ownerUserId.trim()
   if (!uid) return empty
@@ -45,40 +53,41 @@ export async function getOwnerCollectedSummary(
   const tz = sanitizeIanaTimezone(timezone)
 
   try {
-    // Job payments (via ai_leads owner) + walk-up / ad-hoc charges on the owner's wallet.
     // Postgres timezone() + date_trunc so Louisville “yesterday” is not UTC “today”.
+    // "Collected" figures exclude PAYOUT rows (money leaving is not un-collecting it) —
+    // walletBalance is the only figure that nets everything (CHARGE + REVERSAL + PAYOUT).
     const rows = await sql`
       SELECT
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
-            = date_trunc('day', timezone(${tz}, now()))
+          WHERE wt.entry_type <> 'PAYOUT'
+            AND date_trunc('day', timezone(${tz}, wt.created_at))
+              = date_trunc('day', timezone(${tz}, now()))
         ), 0)::float8 AS today_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
-            = date_trunc('day', timezone(${tz}, now()) - interval '1 day')
+          WHERE wt.entry_type <> 'PAYOUT'
+            AND date_trunc('day', timezone(${tz}, wt.created_at))
+              = date_trunc('day', timezone(${tz}, now()) - interval '1 day')
         ), 0)::float8 AS yesterday_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE date_trunc('week', timezone(${tz}, wt.created_at))
-            = date_trunc('week', timezone(${tz}, now()))
+          WHERE wt.entry_type <> 'PAYOUT'
+            AND date_trunc('week', timezone(${tz}, wt.created_at))
+              = date_trunc('week', timezone(${tz}, now()))
         ), 0)::float8 AS week_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE date_trunc('month', timezone(${tz}, wt.created_at))
-            = date_trunc('month', timezone(${tz}, now()))
+          WHERE wt.entry_type <> 'PAYOUT'
+            AND date_trunc('month', timezone(${tz}, wt.created_at))
+              = date_trunc('month', timezone(${tz}, now()))
         ), 0)::float8 AS month_usd,
-        COALESCE(SUM(wt.amount), 0)::float8 AS all_time_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type <> 'PAYOUT'), 0)::float8 AS all_time_usd,
+        COALESCE(SUM(wt.amount), 0)::float8 AS wallet_balance_usd,
         COALESCE(COUNT(*) FILTER (
-          WHERE date_trunc('day', timezone(${tz}, wt.created_at))
-            = date_trunc('day', timezone(${tz}, now()))
+          WHERE wt.entry_type <> 'PAYOUT'
+            AND date_trunc('day', timezone(${tz}, wt.created_at))
+              = date_trunc('day', timezone(${tz}, now()))
         ), 0)::int AS today_count
       FROM wallet_transactions wt
-      LEFT JOIN ai_leads al ON al.id = wt.job_id
       WHERE wt.status = 'COMPLETED'
-        -- No amount > 0 filter: reversal rows (migration 154) are negative COMPLETED rows and
-        -- must pull the total down. Excluding them would leave refunded money counted forever.
-        AND (
-          al.user_id = ${uid}
-          OR (wt.job_id IS NULL AND wt.user_id = ${uid})
-        )
+        AND wt.owner_user_id = ${uid}
     `
     const row = rows[0] as
       | {
@@ -87,6 +96,7 @@ export async function getOwnerCollectedSummary(
           week_usd?: number
           month_usd?: number
           all_time_usd?: number
+          wallet_balance_usd?: number
           today_count?: number
         }
       | undefined
@@ -95,6 +105,7 @@ export async function getOwnerCollectedSummary(
     const weekUsd = Number(row?.week_usd ?? 0) || 0
     const monthUsd = Number(row?.month_usd ?? 0) || 0
     const allTimeUsd = Number(row?.all_time_usd ?? 0) || 0
+    const walletBalanceUsd = Number(row?.wallet_balance_usd ?? 0) || 0
     return {
       todayCents: Math.round(todayUsd * 100),
       yesterdayCents: Math.round(yesterdayUsd * 100),
@@ -102,6 +113,7 @@ export async function getOwnerCollectedSummary(
       monthCents: Math.round(monthUsd * 100),
       allTimeCents: Math.round(allTimeUsd * 100),
       todayCount: Number(row?.today_count ?? 0) || 0,
+      walletBalanceCents: Math.round(walletBalanceUsd * 100),
     }
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return empty

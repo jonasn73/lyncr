@@ -4,6 +4,7 @@ import type Stripe from "stripe"
 import { getUser } from "@/lib/db"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 import { getConnectReadyState, getConnectBalanceSummary } from "@/lib/stripe-connect"
+import { recordWalletPayout } from "@/lib/tech-wallet"
 
 export type ConnectPayoutRow = {
   id: string
@@ -124,5 +125,14 @@ export async function createConnectPayout(params: {
     },
     { stripeAccount: accountId }
   )
+
+  // Awaited so the ledger balance reflects the payout before this request returns — recordWalletPayout
+  // never throws (money already left Stripe; a ledger write failure must not read as a failed transfer).
+  await recordWalletPayout({
+    ownerUserId: params.userId,
+    amountUsd: amount / 100,
+    stripePayoutId: payout.id,
+  })
+
   return mapPayout(payout)
 }

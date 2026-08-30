@@ -727,6 +727,7 @@ export function OwnerCollectPaymentSheet({
             weekCents?: number
             monthCents?: number
             allTimeCents?: number
+            walletBalanceCents?: number
           }
         }
         if (cancelled || !res.ok) return
@@ -735,6 +736,7 @@ export function OwnerCollectPaymentSheet({
         const week = json.data?.weekCents
         const month = json.data?.monthCents
         const allTime = json.data?.allTimeCents
+        const walletBalance = json.data?.walletBalanceCents
         if (typeof today === "number") setCollectedTodayCents(today)
         if (typeof week === "number") setCollectedWeekCents(week)
         if (typeof month === "number") setCollectedMonthCents(month)
@@ -750,6 +752,8 @@ export function OwnerCollectPaymentSheet({
             weekCents: typeof week === "number" ? week : prev?.weekCents ?? 0,
             monthCents: month,
             allTimeCents: typeof allTime === "number" ? allTime : prev?.allTimeCents ?? 0,
+            walletBalanceCents:
+              typeof walletBalance === "number" ? walletBalance : prev?.walletBalanceCents ?? 0,
           })
         }
       } catch {

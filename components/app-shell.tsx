@@ -17,13 +17,9 @@ import { Button } from "@/components/ui/button"
 import { AppNavCommandPalette } from "@/components/app-nav-command-palette"
 import { CommandDock } from "@/components/layout/command-dock"
 import { GlobalLineCommunicationBar } from "@/components/layout/global-line-communication-bar"
-import {
-  HeaderAccountMenu,
-  peekHeaderMoneyCache,
-  formatHeaderMoneyCents,
-} from "@/components/layout/header-settings-sheet"
+import { HeaderAccountMenu, peekHeaderMoneyCache } from "@/components/layout/header-settings-sheet"
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
-import { resolveHeaderWalletChipDisplay } from "@/lib/header-money-cache"
+import { formatSignedHeaderMoneyCents } from "@/lib/header-money-cache"
 import { NotificationCenter } from "@/components/layout/notification-center"
 import { useGlobalKeyPress } from "@/lib/hooks/use-global-key-press"
 import { DASHBOARD_PAGE_HREF, type PageId } from "@/lib/dashboard-nav"
@@ -153,29 +149,13 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
   const [cachedChip, setCachedChip] = useState(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (!cached) return null
-    // Same Available → Pending → $0 rules as the live chip.
-    const display = resolveHeaderWalletChipDisplay(
-      cached.availableCents,
-      cached.pendingCents,
-      cached.todayCents
-    )
-    return {
-      amount: formatHeaderMoneyCents(display.amountCents),
-      label: display.chipLabel,
-    }
+    // Same wallet-ledger-balance number as the live chip (migration 155).
+    return { amount: formatSignedHeaderMoneyCents(cached.walletBalanceCents) }
   })
   useLayoutEffect(() => {
     const cached = peekHeaderMoneyCache(paintSeeds.money)
     if (cached == null) return
-    const display = resolveHeaderWalletChipDisplay(
-      cached.availableCents,
-      cached.pendingCents,
-      cached.todayCents
-    )
-    setCachedChip({
-      amount: formatHeaderMoneyCents(display.amountCents),
-      label: display.chipLabel,
-    })
+    setCachedChip({ amount: formatSignedHeaderMoneyCents(cached.walletBalanceCents) })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- paint seed is stable per layout request
   }, [])
 
@@ -189,18 +169,11 @@ const HeaderAccountMenuSkeleton = memo(function HeaderAccountMenuSkeleton() {
         className="h-9 shrink-0 gap-2 border-success/40 bg-success/10 px-3 shadow-resting"
       >
         <CreditCard className="h-4 w-4 shrink-0 text-success/70" aria-hidden />
-        <span className="flex min-w-[4.5rem] flex-col items-end justify-center leading-none" aria-hidden>
+        <span aria-hidden>
           {cachedChip ? (
-            <>
-              <span className="text-xs font-bold tabular-nums text-success">
-                {cachedChip.amount}
-              </span>
-              <span className="mt-0.5 text-micro font-semibold uppercase tracking-wide text-success/70">
-                {cachedChip.label}
-              </span>
-            </>
+            <span className="text-xs font-bold tabular-nums text-success">{cachedChip.amount}</span>
           ) : (
-            <span className="inline-block h-3 w-14" />
+            <span className="inline-block h-3 w-10" />
           )}
         </span>
       </Button>

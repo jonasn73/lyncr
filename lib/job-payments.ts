@@ -399,6 +399,7 @@ export async function createJobPaymentIntent(params: {
       status: ledgerStatusForIntent(intent.status),
       paymentMethod: params.walletMethod,
       stripePaymentIntentId: intent.id,
+      ownerUserId: params.job.ownerUserId,
     },
     intent.id,
     alreadyCharged
@@ -524,6 +525,7 @@ export async function createAdhocPaymentIntent(params: {
       stripePaymentIntentId: intent.id,
       customerPhone: customerPhone || null,
       customerName: customerName || null,
+      ownerUserId: params.ownerUserId,
     },
     intent.id,
     alreadyCharged

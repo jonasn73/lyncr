@@ -25,6 +25,12 @@ export type HeaderMoneyCache = {
   weekCents: number
   monthCents: number
   allTimeCents: number
+  /**
+   * Money actually in hand right now (charges − reversals − payouts, migration 155) — the
+   * header chip's number. Distinct from availableCents/pendingCents, which are Stripe's
+   * transfer-eligibility state and still drive the Send to bank panel specifically.
+   */
+  walletBalanceCents: number
   connectReady: boolean
   /** epoch ms when this seed was written — cookie/paint reads treat an old one as no-seed. */
   fetchedAtMs?: number
@@ -54,6 +60,11 @@ function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached 
   // Older cookies omitted yesterdayCents — treat as 0 so we still seed periods.
   if (typeof cached.yesterdayCents !== "number" || !Number.isFinite(cached.yesterdayCents)) {
     cached.yesterdayCents = 0
+  }
+  // Pre-155 cookies have no walletBalanceCents — fall back to availableCents so the chip still
+  // seeds something reasonable until the next live fetch lands.
+  if (typeof cached.walletBalanceCents !== "number" || !Number.isFinite(cached.walletBalanceCents)) {
+    cached.walletBalanceCents = cached.availableCents
   }
   return true
 }
@@ -101,6 +112,20 @@ export function formatHeaderMoneyCents(cents: number): string {
 }
 
 /**
+ * Same formatting, but negatives are rendered rather than clamped to $0. Stripe's
+ * available/pending balances can never be negative, but the wallet ledger balance can — a
+ * dispute landing after a payout is a real deficit, and showing "$0" there would hide it.
+ */
+export function formatSignedHeaderMoneyCents(cents: number): string {
+  const safe = Number.isFinite(cents) ? cents : 0
+  return (safe / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: safe % 100 === 0 ? 0 : 2,
+  })
+}
+
+/**
  * Rough “your cut” after Lyncr’s card fee (default 2.9% + $0.30), treating
  * the gross as one charge. Real fees are per card payment — good enough for
  * a daily glance, not a bank statement.
@@ -113,69 +138,3 @@ export function estimateLyncrNetFromGrossCents(grossCents: number): number {
   return Math.max(0, amount - Math.max(0, fee))
 }
 
-/**
- * What the header wallet chip should show at a glance.
- * Always Stripe Connect wallet (Available → Pending → $0) — never “sales today”.
- * Swapping to today’s sales made $1 test charges look like ~$196 “vanished”.
- * Today / yesterday sales live in the Money sheet (separate from wallet balance).
- */
-export type HeaderWalletChipDisplay = {
-  /** Big number on the chip = money still in Stripe for this shop. */
-  amountCents: number
-  /**
-   * in_account — transferable Stripe available balance
-   * pending — funds still clearing (not yet available)
-   * zero — nothing ready and nothing pending
-   */
-  mode: "in_account" | "pending" | "zero"
-  /** Longer wording for aria / tooltips. */
-  label: string
-  /** Aria/tooltip only — the visible chip is just the $ amount. */
-  chipLabel: string
-}
-
-/**
- * Pick which amount the chip shows.
- * 1) Available > 0 → Available (ready to transfer / in Stripe)
- * 2) Else Pending > 0 → Pending (clearing — not a fake $0)
- * 3) Else $0
- *
- * `todayCents` is ignored for the chip amount (kept on the signature so older
- * call sites keep compiling). Sales totals belong in Money → Customers paid.
- */
-export function resolveHeaderWalletChipDisplay(
-  availableCents: number,
-  pendingCents: number,
-  _todayCents?: number | null
-): HeaderWalletChipDisplay {
-  const available = Number.isFinite(availableCents) ? Math.max(0, availableCents) : 0
-  const pending = Number.isFinite(pendingCents) ? Math.max(0, pendingCents) : 0
-
-  // Money already ready to send to the bank.
-  if (available > 0) {
-    return {
-      amountCents: available,
-      mode: "in_account",
-      label: "In Stripe · available",
-      chipLabel: "Available",
-    }
-  }
-
-  // Card pays still clearing — show that $ so the chip is not a fake $0.
-  // Do not print “Pending” on the chip (that word belongs on each transaction).
-  if (pending > 0) {
-    return {
-      amountCents: pending,
-      mode: "pending",
-      label: "In Stripe · still clearing",
-      chipLabel: "In Stripe",
-    }
-  }
-
-  return {
-    amountCents: 0,
-    mode: "zero",
-    label: "In Stripe · empty",
-    chipLabel: "In Stripe",
-  }
-}
