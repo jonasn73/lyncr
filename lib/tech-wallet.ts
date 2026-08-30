@@ -6,6 +6,8 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 
 export type WalletTransactionStatus = "PENDING" | "COMPLETED" | "FAILED"
 export type WalletPaymentMethod = "TAP_TO_PAY" | "MANUAL_CARD" | "CASH"
+/** Why money moved back out (migration 154). DISPUTE_WON re-credits after winning. */
+export type WalletReversalReason = "REFUND" | "DISPUTE" | "DISPUTE_WON"
 
 export type WalletTransaction = {
   id: string
@@ -407,4 +409,126 @@ export async function failWalletTransactionByPaymentIntent(
     if (isMissingWalletSchemaError(e)) return null
     throw e
   }
+}
+
+
+/**
+ * Total already reversed against one charge, as a positive dollar figure.
+ * Reversal rows are negative, so this flips the sign for callers that reason in amounts owed.
+ */
+export async function sumReversedForPaymentIntent(
+  stripePaymentIntentId: string,
+  /** Count only this kind of reversal — refund totals must not net off a dispute hold. */
+  reason?: WalletReversalReason
+): Promise<number> {
+  const sql = getSql()
+  const pi = stripePaymentIntentId.trim()
+  if (!pi) return 0
+  try {
+    const rows = await sql`
+      SELECT COALESCE(SUM(rev.amount), 0)::float8 AS reversed
+      FROM wallet_transactions rev
+      JOIN wallet_transactions orig ON orig.id = rev.reverses_transaction_id
+      WHERE orig.stripe_payment_intent_id = ${pi}
+        AND (${reason ?? null}::text IS NULL OR rev.reversal_reason = ${reason ?? null})
+    `
+    // Negative rows sum to a negative; report the magnitude taken back so far.
+    return Math.abs(Number(rows[0]?.reversed ?? 0) || 0)
+  } catch (e) {
+    // Pre-154 there are no reversal rows at all, so nothing has been taken back.
+    if (pgErrorCode(e) === "42703" || isMissingWalletSchemaError(e)) return 0
+    throw e
+  }
+}
+
+/**
+ * Take money back out of the wallet after a refund or a dispute.
+ *
+ * Written as a NEW negative row rather than an edit of the original charge: partial refunds
+ * cannot be expressed by a status flag, the collected history stays readable, and every total
+ * in the app is already SUM(amount) so a negative row lowers it with no query changes.
+ *
+ * `reversalEventId` is the Stripe refund / dispute id and is stored in stripe_payment_intent_id,
+ * which carries a unique index (migration 116). A webhook delivered twice therefore loses the
+ * insert and changes nothing — the idempotency is the database's, not a check we can race.
+ *
+ * A charge still PENDING never credited the balance, so it is marked FAILED instead and no
+ * negative row is written; subtracting there would invent money that was never added.
+ */
+export async function recordWalletReversal(params: {
+  /** PaymentIntent of the ORIGINAL charge being taken back. */
+  stripePaymentIntentId: string
+  /** Stripe refund / dispute id — the idempotency key. */
+  reversalEventId: string
+  /** Positive dollars. Direction comes from `reason`, not the sign passed in. */
+  amountUsd: number
+  reason: WalletReversalReason
+}): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const pi = params.stripePaymentIntentId.trim()
+  const eventId = params.reversalEventId.trim()
+  const magnitude = Math.round(Math.abs(Number(params.amountUsd)) * 100) / 100
+  if (!pi || !eventId || !Number.isFinite(magnitude) || magnitude <= 0) return null
+
+  const original = await findWalletTransactionByPaymentIntent(pi)
+  if (!original) return null
+
+  if (original.status === "PENDING") {
+    // Never credited, so there is nothing to debit — just close it out.
+    await failWalletTransactionByPaymentIntent(pi)
+    return null
+  }
+  if (original.status === "FAILED") return null
+
+  // Winning a dispute returns the money that DISPUTE took; everything else removes money.
+  const signed = params.reason === "DISPUTE_WON" ? magnitude : -magnitude
+  const id = crypto.randomUUID()
+
+  try {
+    await sql`
+      INSERT INTO wallet_transactions
+        (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+         reverses_transaction_id, reversal_reason, created_at)
+      VALUES
+        (
+          ${id},
+          ${original.userId},
+          ${original.jobId},
+          ${signed},
+          'COMPLETED',
+          ${original.paymentMethod},
+          ${eventId},
+          ${original.id},
+          ${params.reason},
+          now()
+        )
+    `
+  } catch (e) {
+    // Same event delivered twice — the unique index already recorded it.
+    if (isUniqueViolation(e)) return null
+    if (isMissingWalletSchemaError(e) || pgErrorCode(e) === "42703") {
+      console.error(
+        "[tech-wallet] reversal could not be recorded — run scripts/154-wallet-reversals.sql",
+        { paymentIntentId: pi, reversalEventId: eventId }
+      )
+      return null
+    }
+    throw e
+  }
+
+  await sql`
+    UPDATE users
+    SET balance = COALESCE(balance, 0) + ${signed}
+    WHERE id = ${original.userId}
+  `
+
+  const rows = await sql`
+    SELECT
+      id, user_id, job_id, amount, status, payment_method,
+      stripe_payment_intent_id, created_at
+    FROM wallet_transactions
+    WHERE id = ${id}
+    LIMIT 1
+  `
+  return rows[0] ? mapTransaction(rows[0] as Record<string, unknown>) : null
 }

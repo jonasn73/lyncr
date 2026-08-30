@@ -46,6 +46,23 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed":
         await handleStripeCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
         break
+      // Money out: a refund or a dispute has to lower the wallet, since a cleared card now
+      // raises it immediately. Without these three the total only ever grows.
+      case "charge.refunded": {
+        const { handleStripeChargeRefunded } = await import("@/lib/wallet-reversals")
+        await handleStripeChargeRefunded(event.data.object as Stripe.Charge)
+        break
+      }
+      case "charge.dispute.created": {
+        const { handleStripeDisputeCreated } = await import("@/lib/wallet-reversals")
+        await handleStripeDisputeCreated(event.data.object as Stripe.Dispute)
+        break
+      }
+      case "charge.dispute.closed": {
+        const { handleStripeDisputeClosed } = await import("@/lib/wallet-reversals")
+        await handleStripeDisputeClosed(event.data.object as Stripe.Dispute)
+        break
+      }
       case "account.updated": {
         const { handleStripeConnectAccountUpdated } = await import("@/lib/stripe-connect")
         await handleStripeConnectAccountUpdated(event.data.object as Stripe.Account)

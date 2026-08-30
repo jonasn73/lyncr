@@ -15,6 +15,7 @@ function tx(
     stripePaymentIntentId: "pi_test",
     tipCents: null,
     hasSignature: false,
+    reversalReason: null,
     ...partial,
   }
 }

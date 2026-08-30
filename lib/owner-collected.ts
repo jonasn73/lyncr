@@ -73,7 +73,8 @@ export async function getOwnerCollectedSummary(
       FROM wallet_transactions wt
       LEFT JOIN ai_leads al ON al.id = wt.job_id
       WHERE wt.status = 'COMPLETED'
-        AND wt.amount > 0
+        -- No amount > 0 filter: reversal rows (migration 154) are negative COMPLETED rows and
+        -- must pull the total down. Excluding them would leave refunded money counted forever.
         AND (
           al.user_id = ${uid}
           OR (wt.job_id IS NULL AND wt.user_id = ${uid})
@@ -109,10 +110,14 @@ export async function getOwnerCollectedSummary(
   }
 }
 
-/** Null/undefined = still loading — never paint "$0" as a fake loaded total. */
+/**
+ * Null/undefined = still loading — never paint "$0" as a fake loaded total.
+ * Negatives are rendered, not clamped: reversal rows (migration 154) are negative, and a
+ * refund shown as "$0" would read as a bug rather than as money going back.
+ */
 export function formatCollectedDollars(cents: number | null | undefined): string {
   if (cents == null || !Number.isFinite(cents)) return "—"
-  return (Math.max(0, cents) / 100).toLocaleString("en-US", {
+  return (cents / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
@@ -133,6 +138,8 @@ export type OwnerCollectedTransaction = {
   stripePaymentIntentId: string | null
   tipCents: number | null
   hasSignature: boolean
+  /** Non-null only on negative reversal rows (migration 154). */
+  reversalReason: "REFUND" | "DISPUTE" | "DISPUTE_WON" | null
 }
 
 /**
@@ -253,6 +260,7 @@ export async function listOwnerCollectedTransactions(
             NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
             NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
+            wt.reversal_reason,
             CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
@@ -330,6 +338,7 @@ export async function listOwnerCollectedTransactions(
             NULLIF(TRIM(al.collected->>'vehicle_model'), '') AS vehicle_model,
             NULLIF(TRIM(al.collected->>'job_type'), '') AS job_type,
             ps.tip_cents,
+            wt.reversal_reason,
             CASE WHEN ps.signature_png IS NOT NULL AND ps.signature_png <> '' THEN true ELSE false END AS has_signature
           FROM wallet_transactions wt
           LEFT JOIN ai_leads al ON al.id = wt.job_id
@@ -659,7 +668,8 @@ export async function sumWalkUpCompletedCentsByPhoneDigits(
       WHERE wt.user_id = ${uid}
         AND wt.job_id IS NULL
         AND wt.status = 'COMPLETED'
-        AND wt.amount > 0
+        -- Negative reversal rows carry the original's null job_id, so a refunded walk-up
+        -- lowers that customer's lifetime value instead of counting forever.
         AND right(regexp_replace(COALESCE(wt.customer_phone, ''), '[^0-9]', '', 'g'), 10) = ANY(${keys})
       GROUP BY 1
     `) as Record<string, unknown>[]
@@ -727,5 +737,11 @@ function mapOwnerCollectedRow(row: Record<string, unknown>): OwnerCollectedTrans
         ? Math.round(Number(row.tip_cents))
         : null,
     hasSignature: row.has_signature === true,
+    reversalReason:
+      row.reversal_reason === "REFUND" ||
+      row.reversal_reason === "DISPUTE" ||
+      row.reversal_reason === "DISPUTE_WON"
+        ? row.reversal_reason
+        : null,
   }
 }

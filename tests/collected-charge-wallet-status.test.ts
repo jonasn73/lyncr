@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   collectedChargeWalletLabel,
   collectedChargeWalletStatus,
+  formatCollectedDollars,
   isStalePendingCollectedCharge,
 } from "@/lib/owner-collected"
 
@@ -81,5 +82,20 @@ describe("collectedChargeWalletStatus", () => {
         now
       )
     ).toBe("pending")
+  })
+})
+
+describe("formatCollectedDollars with reversals", () => {
+  it("renders money going back out as negative, not clamped to $0", () => {
+    // Reversal rows (migration 154) are negative. Clamping made a refund read as "$0",
+    // which looks like a bug rather than money returned.
+    expect(formatCollectedDollars(-12000)).toBe("-$120")
+    expect(formatCollectedDollars(-4550)).toBe("-$45.50")
+  })
+
+  it("still formats collected amounts unchanged", () => {
+    expect(formatCollectedDollars(12000)).toBe("$120")
+    expect(formatCollectedDollars(4550)).toBe("$45.50")
+    expect(formatCollectedDollars(null)).toBe("—")
   })
 })

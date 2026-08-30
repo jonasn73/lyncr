@@ -58,6 +58,13 @@ function walletStatusClass(status: CollectedChargeWalletStatus): string {
   return "border-warning/35 bg-warning/10 text-warning"
 }
 
+/** Reversal rows are negative; say why rather than showing a bare minus figure. */
+function reversalLabel(tx: OwnerCollectedTransaction): string | null {
+  if (!tx.reversalReason) return null
+  if (tx.reversalReason === "REFUND") return "Refund"
+  return tx.reversalReason === "DISPUTE" ? "Disputed" : "Dispute won"
+}
+
 function rowTitle(tx: OwnerCollectedTransaction): string {
   return (
     tx.customerName ||
@@ -477,7 +484,12 @@ export function MoneyPaymentsSheet({
                               <span className="truncate text-sm font-semibold text-foreground">
                                 {rowTitle(tx)}
                               </span>
-                              <span className="shrink-0 text-sm font-bold tabular-nums text-success">
+                              <span
+                                className={cn(
+                                  "shrink-0 text-sm font-bold tabular-nums",
+                                  tx.amount < 0 ? "text-destructive" : "text-success"
+                                )}
+                              >
                                 {formatCollectedDollars(Math.round(tx.amount * 100))}
                               </span>
                             </span>
@@ -489,10 +501,12 @@ export function MoneyPaymentsSheet({
                               <span
                                 className={cn(
                                   "inline-flex rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide",
-                                  walletStatusClass(walletStatus)
+                                  reversalLabel(tx)
+                                    ? "border-destructive/40 bg-destructive/10 text-destructive"
+                                    : walletStatusClass(walletStatus)
                                 )}
                               >
-                                {collectedChargeWalletLabel(walletStatus)}
+                                {reversalLabel(tx) ?? collectedChargeWalletLabel(walletStatus)}
                               </span>
                               {!tx.jobId ? (
                                 <span className="inline-flex rounded-full border border-border px-2 py-0.5 text-2xs font-medium text-muted-foreground">
