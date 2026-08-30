@@ -3,7 +3,7 @@
 // Admin Finance — Lyncr's own performance, every business's real balance (not blended
 // together), a revenue-over-time chart, and a filterable platform-wide transaction ledger.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   Bar,
@@ -358,10 +358,16 @@ function CardDetailContent({
   cardKey,
   finance,
   businessEconomics,
+  onJumpToLedger,
+  onOpenBusiness,
 }: {
   cardKey: CardKey
   finance: NonNullable<ReturnType<typeof useLyncrAdminDashboardData>["metrics"]>["finance"]
   businessEconomics: AdminBusinessEconomics[]
+  /** Backed by real wallet_transactions rows — jumps straight to them, filtered. */
+  onJumpToLedger: (filters: { entryType?: string; ownerUserId?: string }) => void
+  /** Not in the wallet ledger (Stripe subscriptions) — opens the business's own detail instead. */
+  onOpenBusiness: (userId: string) => void
 }) {
   if (cardKey === "stripe_available" || cardKey === "stripe_pending") {
     return (
@@ -419,19 +425,26 @@ function CardDetailContent({
       <div className="space-y-1">
         <p className="mb-2 text-2xs leading-snug text-muted-foreground">
           Real Stripe-paid invoices, {finance?.business_money_period_label ?? "all time"}. Businesses
-          with no Stripe customer on file, or no payment this period, aren't listed.
+          with no Stripe customer on file, or no payment this period, aren't listed. These are Stripe
+          subscription invoices — not in the wallet ledger below — so tap a business to see its
+          subscription status rather than individual transactions.
         </p>
         {rows.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">No Stripe subscription revenue in this window.</p>
         ) : (
           rows.map((b) => (
-            <div key={b.user_id} className="border-b border-border/60 py-2">
+            <button
+              type="button"
+              key={b.user_id}
+              onClick={() => onOpenBusiness(b.user_id)}
+              className="block w-full border-b border-border/60 py-2 text-left hover:bg-muted/30"
+            >
               <div className="flex items-center justify-between text-sm">
                 <span className="text-foreground">{b.business_name}</span>
                 <span className="tabular-nums text-foreground">{b.plan_revenue_label}</span>
               </div>
               <p className="mt-0.5 text-2xs text-muted-foreground">{b.plan_status_label}</p>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -446,11 +459,23 @@ function CardDetailContent({
           Lyncr's Connect application fee, {finance?.business_money_period_label ?? "all time"}. Tagged
           Actual when read directly from Stripe, Est. when estimated from a completed charge.
         </p>
+        <button
+          type="button"
+          onClick={() => onJumpToLedger({ entryType: "FEE" })}
+          className="mb-2 text-2xs font-semibold text-operator hover:underline"
+        >
+          See every fee transaction →
+        </button>
         {rows.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">No card fees in this window.</p>
         ) : (
           rows.map((b) => (
-            <div key={b.user_id} className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+            <button
+              type="button"
+              key={b.user_id}
+              onClick={() => onJumpToLedger({ entryType: "FEE", ownerUserId: b.user_id })}
+              className="flex w-full items-center justify-between border-b border-border/60 py-2 text-left text-sm hover:bg-muted/30"
+            >
               <span className="flex items-center gap-2 text-foreground">
                 {b.business_name}
                 <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-muted-foreground">
@@ -458,7 +483,7 @@ function CardDetailContent({
                 </span>
               </span>
               <span className="tabular-nums text-foreground">{b.card_fee_mtd_label}</span>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -505,12 +530,16 @@ function CardDetailContent({
           {finance?.actual_plan_revenue_period_label ?? "$0"}
         </span>
       </div>
-      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
-        <span className="text-foreground">Card fees to Lyncr</span>
+      <button
+        type="button"
+        onClick={() => onJumpToLedger({ entryType: "FEE" })}
+        className="flex w-full items-center justify-between border-b border-border/60 py-2 text-left text-sm hover:bg-muted/30"
+      >
+        <span className="text-foreground">Card fees to Lyncr →</span>
         <span className="tabular-nums font-medium text-success">
           {finance?.net_breakdown_card_fees_label ?? "$0"}
         </span>
-      </div>
+      </button>
       <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
         <span className="text-foreground">Credit packs sold</span>
         <span className="tabular-nums font-medium text-success">
@@ -529,6 +558,11 @@ function CardDetailContent({
           {finance?.platform_net_period_label ?? "—"}
         </span>
       </div>
+      <p className="mt-2 text-2xs leading-snug text-muted-foreground">
+        Plan cash and credit packs aren't in the wallet ledger (Stripe subscriptions and a
+        separate billing ledger) — tap a business below to see their full detail. Phone cost is
+        a wholesale estimate, not individual transactions.
+      </p>
 
       <p className="mb-1 mt-4 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
         Which businesses
@@ -537,12 +571,17 @@ function CardDetailContent({
         <p className="py-4 text-center text-xs text-muted-foreground">No activity in this window.</p>
       ) : (
         sorted.map((b) => (
-          <div key={b.user_id} className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+          <button
+            type="button"
+            key={b.user_id}
+            onClick={() => onOpenBusiness(b.user_id)}
+            className="flex w-full items-center justify-between border-b border-border/60 py-2 text-left text-sm hover:bg-muted/30"
+          >
             <span className="text-foreground">{b.business_name}</span>
             <span className={cn("tabular-nums font-medium", b.ahead ? "text-success" : "text-warning")}>
               {b.net_label}
             </span>
-          </div>
+          </button>
         ))
       )}
     </div>
@@ -597,6 +636,22 @@ export function AdminFinanceBoard() {
   const [search, setSearch] = useState("")
   const [offset, setOffset] = useState(0)
   const limit = 50
+  const ledgerSectionRef = useRef<HTMLDivElement | null>(null)
+
+  /**
+   * "All the way to the source" — every card breakdown that's backed by wallet_transactions
+   * (fees, business balances) jumps here instead of just naming a number. Closes whatever sheet
+   * is open, sets the ledger filters, and scrolls the real rows into view.
+   */
+  const jumpToLedger = useCallback((filters: { entryType?: string; ownerUserId?: string }) => {
+    setOpenCard(null)
+    setTypeFilter(filters.entryType ?? "all")
+    setOwnerFilter(filters.ownerUserId ?? "all")
+    setOffset(0)
+    requestAnimationFrame(() => {
+      ledgerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }, [])
 
   const [ledger, setLedger] = useState<LedgerPage | null>(null)
   const [ledgerLoading, setLedgerLoading] = useState(true)
@@ -755,7 +810,14 @@ export function AdminFinanceBoard() {
                         onClick={() => openBusiness(row.user_id)}
                       />
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-foreground">
+                    <TableCell
+                      className="text-right font-semibold tabular-nums text-foreground underline decoration-dotted underline-offset-4 hover:text-operator"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        jumpToLedger({ ownerUserId: row.user_id })
+                      }}
+                      title="See their transactions"
+                    >
                       {row.collected_wallet_balance_label}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -828,7 +890,7 @@ export function AdminFinanceBoard() {
       </section>
 
       {/* --- Full ledger: every charge, fee, reversal, payout, filterable --- */}
-      <section className="space-y-3">
+      <section ref={ledgerSectionRef} className="scroll-mt-4 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Transactions</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1002,7 +1064,13 @@ export function AdminFinanceBoard() {
           </SheetHeader>
           <div className="mt-4 max-h-[calc(100vh-8rem)] overflow-y-auto px-1">
             {openCard ? (
-              <CardDetailContent cardKey={openCard} finance={finance} businessEconomics={businessEconomics} />
+              <CardDetailContent
+                cardKey={openCard}
+                finance={finance}
+                businessEconomics={businessEconomics}
+                onJumpToLedger={jumpToLedger}
+                onOpenBusiness={openBusiness}
+              />
             ) : null}
           </div>
         </SheetContent>
