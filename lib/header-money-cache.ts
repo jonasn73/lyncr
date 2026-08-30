@@ -26,11 +26,15 @@ export type HeaderMoneyCache = {
   monthCents: number
   allTimeCents: number
   /**
-   * Money actually in hand right now (charges − reversals − payouts, migration 155) — the
-   * header chip's number. Distinct from availableCents/pendingCents, which are Stripe's
-   * transfer-eligibility state and still drive the Send to bank panel specifically.
+   * Money actually in hand right now (charges − reversals − fees − payouts, migrations
+   * 155/156) — the header chip's number. Distinct from availableCents/pendingCents, which are
+   * Stripe's transfer-eligibility state and still drive the Send to bank panel specifically.
    */
   walletBalanceCents: number
+  /** Lifetime Stripe/Lyncr processing fees taken at charge time. Always ≤ 0. */
+  lifetimeFeesCents: number
+  /** Lifetime money sent to the bank via Send to bank. Always ≤ 0. */
+  lifetimePayoutsCents: number
   connectReady: boolean
   /** epoch ms when this seed was written — cookie/paint reads treat an old one as no-seed. */
   fetchedAtMs?: number
@@ -65,6 +69,12 @@ function isValidMoneyCache(cached: HeaderMoneyCache | null | undefined): cached 
   // seeds something reasonable until the next live fetch lands.
   if (typeof cached.walletBalanceCents !== "number" || !Number.isFinite(cached.walletBalanceCents)) {
     cached.walletBalanceCents = cached.availableCents
+  }
+  if (typeof cached.lifetimeFeesCents !== "number" || !Number.isFinite(cached.lifetimeFeesCents)) {
+    cached.lifetimeFeesCents = 0
+  }
+  if (typeof cached.lifetimePayoutsCents !== "number" || !Number.isFinite(cached.lifetimePayoutsCents)) {
+    cached.lifetimePayoutsCents = 0
   }
   return true
 }

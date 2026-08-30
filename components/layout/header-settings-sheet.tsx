@@ -141,6 +141,15 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
     return cached?.walletBalanceCents ?? null
   })
+  // Lifetime breakdown (migration 156) — shown when the owner taps into the wallet.
+  const [lifetimeFeesCents, setLifetimeFeesCents] = useState<number>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached?.lifetimeFeesCents ?? 0
+  })
+  const [lifetimePayoutsCents, setLifetimePayoutsCents] = useState<number>(() => {
+    const cached = readHeaderMoneyCache(undefined, moneyPaint)
+    return cached?.lifetimePayoutsCents ?? 0
+  })
   // Funds Stripe still holds before they become transferable (often 1–2 days after a card pay).
   const [pendingCents, setPendingCents] = useState<number>(() => {
     const cached = readHeaderMoneyCache(undefined, moneyPaint)
@@ -200,6 +209,10 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
     setWeekCents((prev) => (prev == null ? cached.weekCents : prev))
     setMonthCents((prev) => (prev == null ? cached.monthCents : prev))
     setAllTimeCents((prev) => (prev == null ? cached.allTimeCents : prev))
+    setLifetimeFeesCents((prev) => (prev === 0 && cached.lifetimeFeesCents ? cached.lifetimeFeesCents : prev))
+    setLifetimePayoutsCents((prev) =>
+      prev === 0 && cached.lifetimePayoutsCents ? cached.lifetimePayoutsCents : prev
+    )
     setPeriodsReady(true)
     // moneyPaint is stable per layout; do not depend on object identity (#185).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,6 +265,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             monthCents?: number
             allTimeCents?: number
             walletBalanceCents?: number
+            lifetimeFeesCents?: number
+            lifetimePayoutsCents?: number
           }
         } | null) => {
           const today = j?.data?.todayCents
@@ -260,6 +275,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           const month = j?.data?.monthCents
           const all = j?.data?.allTimeCents
           const walletBalance = j?.data?.walletBalanceCents
+          const fees = j?.data?.lifetimeFeesCents
+          const payouts = j?.data?.lifetimePayoutsCents
           if (typeof today !== "number" || typeof month !== "number") return null
           const next = {
             todayCents: today,
@@ -268,6 +285,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
             monthCents: month,
             allTimeCents: typeof all === "number" ? all : 0,
             walletBalanceCents: typeof walletBalance === "number" ? walletBalance : 0,
+            lifetimeFeesCents: typeof fees === "number" ? fees : 0,
+            lifetimePayoutsCents: typeof payouts === "number" ? payouts : 0,
           }
           setTodayCents(next.todayCents)
           setYesterdayCents(next.yesterdayCents)
@@ -275,6 +294,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
           setMonthCents(next.monthCents)
           setAllTimeCents(next.allTimeCents)
           setWalletBalanceCents(next.walletBalanceCents)
+          setLifetimeFeesCents(next.lifetimeFeesCents)
+          setLifetimePayoutsCents(next.lifetimePayoutsCents)
           setPeriodsReady(true)
           return next
         }
@@ -295,6 +316,8 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
         monthCents: col?.monthCents ?? prev?.monthCents ?? 0,
         allTimeCents: col?.allTimeCents ?? prev?.allTimeCents ?? 0,
         walletBalanceCents: col?.walletBalanceCents ?? prev?.walletBalanceCents ?? 0,
+        lifetimeFeesCents: col?.lifetimeFeesCents ?? prev?.lifetimeFeesCents ?? 0,
+        lifetimePayoutsCents: col?.lifetimePayoutsCents ?? prev?.lifetimePayoutsCents ?? 0,
       })
     })
     // moneyPaint is request-stable; omit from deps (#185).
@@ -645,6 +668,44 @@ export const HeaderAccountMenu = memo(function HeaderAccountMenu({
                 </button>
               ) : null}
             </div>
+
+            {/* Wallet breakdown — the header chip is walletBalanceCents; this shows how it got there. */}
+            {periodsReady && amountReady ? (
+              <div className="rounded-xl border border-border/80 bg-card/60 px-4 py-3">
+                <p className="text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+                  Wallet balance
+                </p>
+                <p className="mt-0.5 text-2xl font-bold tabular-nums text-foreground">
+                  {formatSignedHeaderMoneyCents(walletBalanceCents ?? 0)}
+                </p>
+                <p className="mt-1 text-2xs leading-snug text-muted-foreground">
+                  Actual money you have right now — charges minus refunds, fees, and what you've
+                  sent to your bank. Updates the instant any of those happens.
+                </p>
+                <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Lifetime collected</span>
+                    <span className="font-semibold tabular-nums text-foreground">
+                      {formatSignedHeaderMoneyCents(allTimeCents ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Card fees paid</span>
+                    <span className="font-semibold tabular-nums text-warning">
+                      −{formatSignedHeaderMoneyCents(Math.abs(lifetimeFeesCents))}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Sent to your bank</span>
+                    <span className="font-semibold tabular-nums text-warning">
+                      −{formatSignedHeaderMoneyCents(Math.abs(lifetimePayoutsCents))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-32 rounded-xl border border-border/60 bg-card/40" aria-hidden />
+            )}
 
             {/* Compact sales glance — tap a day to open the transactions popup */}
             <div className="grid grid-cols-3 gap-2">

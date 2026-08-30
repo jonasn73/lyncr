@@ -728,6 +728,8 @@ export function OwnerCollectPaymentSheet({
             monthCents?: number
             allTimeCents?: number
             walletBalanceCents?: number
+            lifetimeFeesCents?: number
+            lifetimePayoutsCents?: number
           }
         }
         if (cancelled || !res.ok) return
@@ -737,6 +739,8 @@ export function OwnerCollectPaymentSheet({
         const month = json.data?.monthCents
         const allTime = json.data?.allTimeCents
         const walletBalance = json.data?.walletBalanceCents
+        const lifetimeFees = json.data?.lifetimeFeesCents
+        const lifetimePayouts = json.data?.lifetimePayoutsCents
         if (typeof today === "number") setCollectedTodayCents(today)
         if (typeof week === "number") setCollectedWeekCents(week)
         if (typeof month === "number") setCollectedMonthCents(month)
@@ -754,6 +758,10 @@ export function OwnerCollectPaymentSheet({
             allTimeCents: typeof allTime === "number" ? allTime : prev?.allTimeCents ?? 0,
             walletBalanceCents:
               typeof walletBalance === "number" ? walletBalance : prev?.walletBalanceCents ?? 0,
+            lifetimeFeesCents:
+              typeof lifetimeFees === "number" ? lifetimeFees : prev?.lifetimeFeesCents ?? 0,
+            lifetimePayoutsCents:
+              typeof lifetimePayouts === "number" ? lifetimePayouts : prev?.lifetimePayoutsCents ?? 0,
           })
         }
       } catch {

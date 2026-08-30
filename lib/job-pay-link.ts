@@ -504,6 +504,7 @@ export async function fulfillCollectPayLinkFromCheckout(
         stripePaymentIntentId: paymentIntentId,
         customerPhone: (meta.customer_phone || "").trim() || null,
         customerName: (meta.customer_name || "").trim() || null,
+        ownerUserId: ownerUserId || null,
       })
     } catch (e) {
       // checkout.session.completed and payment_intent.succeeded can race for the same pay-link
@@ -762,6 +763,7 @@ export async function fulfillCollectPayLinkFromPaymentIntent(
         stripePaymentIntentId: intent.id,
         customerPhone: (meta.customer_phone || "").trim() || null,
         customerName: (meta.customer_name || "").trim() || null,
+        ownerUserId: ownerUserId || null,
       })
     } catch (e) {
       // checkout.session.completed and payment_intent.succeeded can race for the same pay-link

@@ -19,11 +19,16 @@ export type OwnerCollectedSummary = {
   /** Number of completed payment rows today. */
   todayCount: number
   /**
-   * Money actually in hand right now: charges minus reversals minus payouts already sent,
-   * updated the instant each happens (migration 155). This is the wallet balance — a
-   * different, always-smaller number than allTimeCents once anything has been paid out.
+   * Money actually in hand right now: charges minus reversals minus fees minus payouts
+   * already sent, updated the instant each happens (migrations 155/156). This is the wallet
+   * balance — a different, always-smaller number than allTimeCents once anything has been
+   * paid out or a card fee taken.
    */
   walletBalanceCents: number
+  /** Lifetime Stripe/Lyncr processing fees taken at charge time (migration 156). Always ≤ 0. */
+  lifetimeFeesCents: number
+  /** Lifetime money sent to the bank via Send to bank (migration 155). Always ≤ 0. */
+  lifetimePayoutsCents: number
 }
 
 /**
@@ -44,6 +49,8 @@ export async function getOwnerCollectedSummary(
     allTimeCents: 0,
     todayCount: 0,
     walletBalanceCents: 0,
+    lifetimeFeesCents: 0,
+    lifetimePayoutsCents: 0,
   }
   const uid = ownerUserId.trim()
   if (!uid) return empty
@@ -59,29 +66,31 @@ export async function getOwnerCollectedSummary(
     const rows = await sql`
       SELECT
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE wt.entry_type <> 'PAYOUT'
+          WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')
             AND date_trunc('day', timezone(${tz}, wt.created_at))
               = date_trunc('day', timezone(${tz}, now()))
         ), 0)::float8 AS today_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE wt.entry_type <> 'PAYOUT'
+          WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')
             AND date_trunc('day', timezone(${tz}, wt.created_at))
               = date_trunc('day', timezone(${tz}, now()) - interval '1 day')
         ), 0)::float8 AS yesterday_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE wt.entry_type <> 'PAYOUT'
+          WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')
             AND date_trunc('week', timezone(${tz}, wt.created_at))
               = date_trunc('week', timezone(${tz}, now()))
         ), 0)::float8 AS week_usd,
         COALESCE(SUM(wt.amount) FILTER (
-          WHERE wt.entry_type <> 'PAYOUT'
+          WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')
             AND date_trunc('month', timezone(${tz}, wt.created_at))
               = date_trunc('month', timezone(${tz}, now()))
         ), 0)::float8 AS month_usd,
-        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type <> 'PAYOUT'), 0)::float8 AS all_time_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')), 0)::float8 AS all_time_usd,
         COALESCE(SUM(wt.amount), 0)::float8 AS wallet_balance_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'FEE'), 0)::float8 AS lifetime_fees_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'PAYOUT'), 0)::float8 AS lifetime_payouts_usd,
         COALESCE(COUNT(*) FILTER (
-          WHERE wt.entry_type <> 'PAYOUT'
+          WHERE wt.entry_type NOT IN ('PAYOUT', 'FEE')
             AND date_trunc('day', timezone(${tz}, wt.created_at))
               = date_trunc('day', timezone(${tz}, now()))
         ), 0)::int AS today_count
@@ -97,6 +106,8 @@ export async function getOwnerCollectedSummary(
           month_usd?: number
           all_time_usd?: number
           wallet_balance_usd?: number
+          lifetime_fees_usd?: number
+          lifetime_payouts_usd?: number
           today_count?: number
         }
       | undefined
@@ -106,6 +117,8 @@ export async function getOwnerCollectedSummary(
     const monthUsd = Number(row?.month_usd ?? 0) || 0
     const allTimeUsd = Number(row?.all_time_usd ?? 0) || 0
     const walletBalanceUsd = Number(row?.wallet_balance_usd ?? 0) || 0
+    const lifetimeFeesUsd = Number(row?.lifetime_fees_usd ?? 0) || 0
+    const lifetimePayoutsUsd = Number(row?.lifetime_payouts_usd ?? 0) || 0
     return {
       todayCents: Math.round(todayUsd * 100),
       yesterdayCents: Math.round(yesterdayUsd * 100),
@@ -114,6 +127,8 @@ export async function getOwnerCollectedSummary(
       allTimeCents: Math.round(allTimeUsd * 100),
       todayCount: Number(row?.today_count ?? 0) || 0,
       walletBalanceCents: Math.round(walletBalanceUsd * 100),
+      lifetimeFeesCents: Math.round(lifetimeFeesUsd * 100),
+      lifetimePayoutsCents: Math.round(lifetimePayoutsUsd * 100),
     }
   } catch (e) {
     if (isMissingWalletSchemaError(e)) return empty

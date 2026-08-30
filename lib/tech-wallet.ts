@@ -678,3 +678,60 @@ export async function recordWalletPayout(params: {
 
   return await fetchWalletTransactionById(sql, id)
 }
+
+/**
+ * Record Stripe/Lyncr's own cut of a charge as its own ledger row, the moment the charge
+ * settles — without this, the wallet balance overstates by the processing fee forever, since
+ * wallet_transactions.amount on the CHARGE row is the full customer amount, not net of fees.
+ * Never throws: the charge itself already succeeded and was already recorded by the time this
+ * runs, so a fee-row failure is a (small, self-correcting) drift, not a reason to fail the charge.
+ */
+export async function recordWalletFee(params: {
+  ownerUserId: string
+  userId: string
+  jobId: string | null
+  amountUsd: number
+  paymentMethod: WalletPaymentMethod
+  /** PaymentIntent of the charge this fee was taken from — the idempotency key is derived from it. */
+  stripePaymentIntentId: string
+}): Promise<WalletTransaction | null> {
+  const sql = getSql()
+  const ownerUserId = params.ownerUserId.trim()
+  const userId = params.userId.trim()
+  const pi = params.stripePaymentIntentId.trim()
+  const magnitude = Math.round(Math.abs(Number(params.amountUsd)) * 100) / 100
+  if (!ownerUserId || !userId || !pi || !Number.isFinite(magnitude) || magnitude <= 0) return null
+
+  const id = crypto.randomUUID()
+  const signed = -magnitude
+  const feeRef = `${pi}:fee`
+
+  try {
+    await sql`
+      INSERT INTO wallet_transactions
+        (id, user_id, job_id, amount, status, payment_method, stripe_payment_intent_id,
+         owner_user_id, entry_type, created_at)
+      VALUES
+        (${id}, ${userId}, ${params.jobId}, ${signed}, 'COMPLETED', ${params.paymentMethod}, ${feeRef},
+         ${ownerUserId}, 'FEE', now())
+    `
+  } catch (e) {
+    // Same charge's fee recorded twice — idempotent, not an error.
+    if (isUniqueViolation(e)) return null
+    if (isMissingWalletSchemaError(e) || pgErrorCode(e) === "42703") {
+      console.error(
+        "[tech-wallet] fee could not be recorded on the ledger — run scripts/156-wallet-fees-and-backfill.sql",
+        { paymentIntentId: pi }
+      )
+      return null
+    }
+    console.error("[tech-wallet] fee ledger write failed after a real charge", {
+      paymentIntentId: pi,
+      ownerUserId,
+      error: e,
+    })
+    return null
+  }
+
+  return await fetchWalletTransactionById(sql, id)
+}

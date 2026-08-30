@@ -9,6 +9,7 @@ import {
   failWalletTransactionByPaymentIntent,
   findLatestWalletTransactionByJobId,
   findWalletTransactionByPaymentIntent,
+  recordWalletFee,
   settleWalletTransactionByPaymentIntent,
   type WalletPaymentMethod,
   type WalletTransaction,
@@ -404,6 +405,16 @@ export async function createJobPaymentIntent(params: {
     intent.id,
     alreadyCharged
   )
+  if (transaction?.status === "COMPLETED" && applicationFeeAmount > 0) {
+    await recordWalletFee({
+      ownerUserId: params.job.ownerUserId,
+      userId: params.job.assignedTechId,
+      jobId: params.job.jobId,
+      amountUsd: applicationFeeAmount / 100,
+      paymentMethod: params.walletMethod,
+      stripePaymentIntentId: intent.id,
+    })
+  }
 
   return {
     clientSecret: intent.client_secret,
@@ -530,6 +541,16 @@ export async function createAdhocPaymentIntent(params: {
     intent.id,
     alreadyCharged
   )
+  if (transaction?.status === "COMPLETED" && applicationFeeAmount > 0) {
+    await recordWalletFee({
+      ownerUserId: params.ownerUserId,
+      userId: params.ownerUserId,
+      jobId: null,
+      amountUsd: applicationFeeAmount / 100,
+      paymentMethod: params.walletMethod,
+      stripePaymentIntentId: intent.id,
+    })
+  }
 
   return {
     clientSecret: intent.client_secret,
@@ -634,6 +655,16 @@ export async function confirmJobPaymentIntent(
     }
 
     const transaction = await settleWalletTransactionByPaymentIntent(intent.id)
+    if (transaction?.status === "COMPLETED" && (intent.application_fee_amount ?? 0) > 0) {
+      await recordWalletFee({
+        ownerUserId: transaction.ownerUserId ?? transaction.userId,
+        userId: transaction.userId,
+        jobId: transaction.jobId,
+        amountUsd: (intent.application_fee_amount ?? 0) / 100,
+        paymentMethod: transaction.paymentMethod,
+        stripePaymentIntentId: intent.id,
+      })
+    }
     if (jobId && kind !== "adhoc_payment") {
       const job = await getJobPaymentContext(jobId)
       if (job) await markJobCompletedForPayment(job)
