@@ -28,16 +28,29 @@ function buildPlatformRollups(rows: AdminBusinessEconomics[]): {
   platform_net_period_cents: number
   platform_net_period_label: string
   business_money_period_label: string
+  /** What platform_net is actually made of — same four lines the per-business drawer shows, summed. */
+  net_breakdown_card_fees_cents: number
+  net_breakdown_card_fees_label: string
+  net_breakdown_credit_packs_cents: number
+  net_breakdown_credit_packs_label: string
+  net_breakdown_phone_cost_cents: number
+  net_breakdown_phone_cost_label: string
 } {
   let walletCents = 0
   let planRevenueCents = 0
   let netCents = 0
+  let cardFeeCents = 0
+  let creditPackCents = 0
+  let phoneCostCents = 0
   for (const row of rows) {
     walletCents += row.collected_wallet_balance_cents
     // Only Stripe-sourced plan cash — a business with no Stripe customer contributes $0 here,
     // same as it does in its own row, rather than inventing a number for it.
     if (row.plan_cash_source === "stripe") planRevenueCents += row.plan_revenue_cents
     netCents += row.net_cents
+    cardFeeCents += row.card_fee_mtd_cents
+    creditPackCents += row.credit_pack_mtd_cents
+    phoneCostCents += row.est_phone_cost_mtd_cents
   }
   return {
     total_business_wallet_balance_cents: walletCents,
@@ -47,6 +60,12 @@ function buildPlatformRollups(rows: AdminBusinessEconomics[]): {
     platform_net_period_cents: netCents,
     platform_net_period_label: formatUsdFromCents(netCents),
     business_money_period_label: rows[0]?.period_chip_label ?? "All time",
+    net_breakdown_card_fees_cents: cardFeeCents,
+    net_breakdown_card_fees_label: formatUsdFromCents(cardFeeCents),
+    net_breakdown_credit_packs_cents: creditPackCents,
+    net_breakdown_credit_packs_label: formatUsdFromCents(creditPackCents),
+    net_breakdown_phone_cost_cents: phoneCostCents,
+    net_breakdown_phone_cost_label: formatUsdFromCents(phoneCostCents),
   }
 }
 

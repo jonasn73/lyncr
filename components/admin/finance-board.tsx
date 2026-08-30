@@ -465,16 +465,73 @@ function CardDetailContent({
     )
   }
 
-  // platform_net
+  // platform_net — show what it's actually made of first (same four lines the per-business
+  // drawer shows, just summed platform-wide), then which businesses contributed.
   const sorted = businessEconomics
     .filter((b) => b.net_cents !== 0)
     .slice()
     .sort((a, b) => b.net_cents - a.net_cents)
+  const netAhead = (finance?.platform_net_period_cents ?? 0) >= 0
   return (
     <div className="space-y-1">
-      <p className="mb-2 text-2xs leading-snug text-muted-foreground">
-        Per business: plan cash + card fees + credit packs − est. phone cost,{" "}
-        {finance?.business_money_period_label ?? "all time"}.
+      <div
+        className={cn(
+          "mb-3 rounded-xl border px-3 py-3",
+          netAhead ? "border-success/35 bg-success/10" : "border-warning/35 bg-warning/10"
+        )}
+      >
+        <p
+          className={cn(
+            "text-2xs font-semibold uppercase tracking-wide",
+            netAhead ? "text-success/80" : "text-warning/80"
+          )}
+        >
+          {netAhead ? "We're ahead" : "We're behind"}
+        </p>
+        <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+          {finance?.platform_net_period_label ?? "—"}
+        </p>
+        <p className="mt-1 text-2xs text-muted-foreground">
+          Net for Lyncr · {finance?.business_money_period_label ?? "All time"}, every business
+        </p>
+      </div>
+
+      <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+        What it's made of
+      </p>
+      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+        <span className="text-foreground">Plan cash (Stripe)</span>
+        <span className="tabular-nums font-medium text-success">
+          {finance?.actual_plan_revenue_period_label ?? "$0"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+        <span className="text-foreground">Card fees to Lyncr</span>
+        <span className="tabular-nums font-medium text-success">
+          {finance?.net_breakdown_card_fees_label ?? "$0"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+        <span className="text-foreground">Credit packs sold</span>
+        <span className="tabular-nums font-medium text-success">
+          {finance?.net_breakdown_credit_packs_label ?? "$0"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+        <span className="text-foreground">Phone cost (est.)</span>
+        <span className="tabular-nums font-medium text-warning">
+          −{finance?.net_breakdown_phone_cost_label ?? "$0"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between border-b border-border py-2 text-sm">
+        <span className="font-semibold text-foreground">Net for Lyncr</span>
+        <span className="tabular-nums font-semibold text-foreground">
+          {finance?.platform_net_period_label ?? "—"}
+        </span>
+      </div>
+
+      <p className="mb-1 mt-4 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Which businesses
       </p>
       {sorted.length === 0 ? (
         <p className="py-4 text-center text-xs text-muted-foreground">No activity in this window.</p>

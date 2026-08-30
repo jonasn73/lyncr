@@ -904,6 +904,16 @@ export interface LyncrAdminMetrics {
     platform_net_period_label: string
     /** Human window matching the selected Business money period, e.g. "This month". */
     business_money_period_label: string
+    /**
+     * What platform_net_period_cents is made of, summed across every business for the same
+     * period: actual_plan_revenue_period_cents (plan cash) + these three − phone cost = net.
+     */
+    net_breakdown_card_fees_cents: number
+    net_breakdown_card_fees_label: string
+    net_breakdown_credit_packs_cents: number
+    net_breakdown_credit_packs_label: string
+    net_breakdown_phone_cost_cents: number
+    net_breakdown_phone_cost_label: string
   }
 }
 
