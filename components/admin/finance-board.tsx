@@ -1,10 +1,19 @@
 "use client"
 
 // Admin Finance — Lyncr's own performance, every business's real balance (not blended
-// together), and a filterable platform-wide transaction ledger for auditing.
+// together), a revenue-over-time chart, and a filterable platform-wide transaction ledger.
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { useLyncrAdminDashboardData } from "@/hooks/use-lyncr-admin-dashboard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,8 +33,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { AdminBusinessEconomics } from "@/lib/types"
+
+// Static values (not CSS var()) — SVG fill attributes set by recharts don't resolve custom
+// properties reliably. Pulled from app/globals.css, except the bar fill: the app's --success
+// (L 0.72, tuned for small text) sits outside the dark-mode chart lightness band (0.48–0.67,
+// dataviz skill), so the bar uses a deeper shade of the same hue — validated with
+// validate_palette.js against this card's actual surface (#0c101a): all checks pass.
+const CHART_SUCCESS = "oklch(0.60 0.19 145)"
+const CHART_MUTED = "oklch(0.62 0.02 275)"
+const CHART_BORDER = "oklch(0.30 0.022 268)"
+const CHART_TOOLTIP_BG = "oklch(0.175 0.022 268)"
+const CHART_TOOLTIP_FG = "oklch(0.96 0.01 275)"
 
 type LedgerRow = {
   id: string
@@ -44,6 +66,14 @@ type LedgerRow = {
 
 type LedgerPage = { rows: LedgerRow[]; totalCount: number; limit: number; offset: number }
 
+type DailyPoint = {
+  day: string
+  chargeCents: number
+  reversalCents: number
+  feeCents: number
+  payoutCents: number
+}
+
 function formatUsd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
@@ -57,6 +87,12 @@ function formatDateTime(iso: string): string {
   })
 }
 
+function formatChartDay(day: string): string {
+  // day is YYYY-MM-DD (US Eastern) — parse as local calendar date, not UTC midnight.
+  const [y, m, d] = day.split("-").map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 function ledgerTypeTone(entryType: LedgerRow["entryType"]): string {
   if (entryType === "CHARGE") return "text-success"
   if (entryType === "REVERSAL") return "text-warning"
@@ -64,19 +100,284 @@ function ledgerTypeTone(entryType: LedgerRow["entryType"]): string {
   return "text-muted-foreground"
 }
 
-function PerfCard({ label, value, note }: { label: string; value: string; note?: string }) {
+type CardKey = "stripe_available" | "stripe_pending" | "actual_revenue" | "estimated_mrr" | "card_fees" | "platform_net"
+
+function PerfCard({
+  label,
+  value,
+  note,
+  onClick,
+}: {
+  label: string
+  value: string
+  note?: string
+  onClick?: () => void
+}) {
   return (
-    <div className="rounded-xl border border-border bg-card/60 px-4 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "rounded-xl border border-border bg-card/60 px-4 py-3 text-left transition-colors",
+        onClick && "hover:border-operator/40 hover:bg-operator/10 cursor-pointer",
+        !onClick && "cursor-default"
+      )}
+    >
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</p>
       {note ? <p className="mt-1 text-2xs leading-snug text-muted-foreground">{note}</p> : null}
+    </button>
+  )
+}
+
+function RevenueChart() {
+  const [points, setPoints] = useState<DailyPoint[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/admin/finance/daily?days=30", {
+          credentials: "include",
+          cache: "no-store",
+        })
+        const json = (await res.json()) as { data?: { points?: DailyPoint[] } }
+        if (!cancelled) setPoints(json.data?.points ?? [])
+      } catch {
+        if (!cancelled) setPoints([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const chartData = useMemo(
+    () =>
+      (points ?? []).map((p) => ({
+        day: formatChartDay(p.day),
+        dollars: p.chargeCents / 100,
+      })),
+    [points]
+  )
+
+  const total = useMemo(() => (points ?? []).reduce((s, p) => s + p.chargeCents, 0), [points])
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">Collected, last 30 days</h2>
+        <p className="text-xs text-muted-foreground">
+          Real charges across every business · {formatUsd(total)} total
+        </p>
+      </div>
+      <div className="rounded-xl border border-border bg-card/60 px-2 py-3">
+        {loading ? (
+          <div className="flex h-52 items-center justify-center text-xs text-muted-foreground">
+            Loading…
+          </div>
+        ) : chartData.every((d) => d.dollars === 0) ? (
+          <div className="flex h-52 items-center justify-center text-xs text-muted-foreground">
+            No charges in the last 30 days.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid vertical={false} stroke={CHART_BORDER} strokeWidth={1} />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: CHART_MUTED, fontSize: 11 }}
+                axisLine={{ stroke: CHART_BORDER }}
+                tickLine={false}
+                interval="preserveStartEnd"
+                minTickGap={24}
+              />
+              <YAxis
+                tick={{ fill: CHART_MUTED, fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                width={56}
+                tickFormatter={(v: number) => `$${v.toLocaleString("en-US")}`}
+              />
+              <RechartsTooltip
+                cursor={{ fill: CHART_BORDER, opacity: 0.3 }}
+                contentStyle={{
+                  background: CHART_TOOLTIP_BG,
+                  border: `1px solid ${CHART_BORDER}`,
+                  borderRadius: 8,
+                  color: CHART_TOOLTIP_FG,
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: CHART_TOOLTIP_FG, fontWeight: 600 }}
+                formatter={(value: number) => [
+                  value.toLocaleString("en-US", { style: "currency", currency: "USD" }),
+                  "Collected",
+                ]}
+              />
+              <Bar dataKey="dollars" fill={CHART_SUCCESS} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function CardDetailContent({
+  cardKey,
+  finance,
+  businessEconomics,
+}: {
+  cardKey: CardKey
+  finance: NonNullable<ReturnType<typeof useLyncrAdminDashboardData>["metrics"]>["finance"]
+  businessEconomics: AdminBusinessEconomics[]
+}) {
+  if (cardKey === "stripe_available" || cardKey === "stripe_pending") {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-border bg-card/40 px-4 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Available</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+            {finance?.stripe_platform_available_label ?? "—"}
+          </p>
+          <p className="mt-1 text-2xs text-muted-foreground">Ready to pay out from Lyncr's Stripe account.</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card/40 px-4 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+            {finance?.stripe_platform_pending_label ?? "—"}
+          </p>
+          <p className="mt-1 text-2xs text-muted-foreground">Not yet available — still clearing.</p>
+        </div>
+        <p className="text-2xs leading-snug text-muted-foreground">
+          This is Lyncr's own platform Stripe balance — the application fee Lyncr keeps from card
+          charges, plus subscription revenue. It is separate from any business's own Connect
+          wallet balance, shown below under Business balances.
+        </p>
+      </div>
+    )
+  }
+
+  if (cardKey === "estimated_mrr") {
+    const tiers = finance?.active_paid_by_tier
+    return (
+      <div className="space-y-1">
+        <p className="mb-2 text-2xs leading-snug text-muted-foreground">
+          Not real billing data — active paid subscriptions × list price (Starter $19 · Professional
+          $49 · Business $99). See Actual revenue for real Stripe-collected cash.
+        </p>
+        {[
+          { label: "Starter", n: tiers?.starter ?? 0, price: 1900 },
+          { label: "Professional", n: tiers?.professional ?? 0, price: 4900 },
+          { label: "Business", n: tiers?.business ?? 0, price: 9900 },
+        ].map((t) => (
+          <div key={t.label} className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+            <span className="text-foreground">
+              {t.label} <span className="text-muted-foreground">× {t.n}</span>
+            </span>
+            <span className="tabular-nums text-foreground">{formatUsd(t.n * t.price)}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (cardKey === "actual_revenue") {
+    const rows = businessEconomics.filter((b) => b.plan_cash_source === "stripe" && b.plan_revenue_cents !== 0)
+    return (
+      <div className="space-y-1">
+        <p className="mb-2 text-2xs leading-snug text-muted-foreground">
+          Real Stripe-paid invoices, {finance?.business_money_period_label ?? "all time"}. Businesses
+          with no Stripe customer on file, or no payment this period, aren't listed.
+        </p>
+        {rows.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">No Stripe subscription revenue in this window.</p>
+        ) : (
+          rows.map((b) => (
+            <div key={b.user_id} className="border-b border-border/60 py-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground">{b.business_name}</span>
+                <span className="tabular-nums text-foreground">{b.plan_revenue_label}</span>
+              </div>
+              <p className="mt-0.5 text-2xs text-muted-foreground">{b.plan_status_label}</p>
+            </div>
+          ))
+        )}
+      </div>
+    )
+  }
+
+  if (cardKey === "card_fees") {
+    const rows = businessEconomics.filter((b) => b.card_fee_mtd_cents !== 0)
+    return (
+      <div className="space-y-1">
+        <p className="mb-2 text-2xs leading-snug text-muted-foreground">
+          Lyncr's Connect application fee, {finance?.business_money_period_label ?? "all time"}. Tagged
+          Actual when read directly from Stripe, Est. when estimated from a completed charge.
+        </p>
+        {rows.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">No card fees in this window.</p>
+        ) : (
+          rows.map((b) => (
+            <div key={b.user_id} className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+              <span className="flex items-center gap-2 text-foreground">
+                {b.business_name}
+                <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-muted-foreground">
+                  {b.card_fee_source === "stripe" ? "Actual" : "Est."}
+                </span>
+              </span>
+              <span className="tabular-nums text-foreground">{b.card_fee_mtd_label}</span>
+            </div>
+          ))
+        )}
+      </div>
+    )
+  }
+
+  // platform_net
+  const sorted = businessEconomics
+    .filter((b) => b.net_cents !== 0)
+    .slice()
+    .sort((a, b) => b.net_cents - a.net_cents)
+  return (
+    <div className="space-y-1">
+      <p className="mb-2 text-2xs leading-snug text-muted-foreground">
+        Per business: plan cash + card fees + credit packs − est. phone cost,{" "}
+        {finance?.business_money_period_label ?? "all time"}.
+      </p>
+      {sorted.length === 0 ? (
+        <p className="py-4 text-center text-xs text-muted-foreground">No activity in this window.</p>
+      ) : (
+        sorted.map((b) => (
+          <div key={b.user_id} className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+            <span className="text-foreground">{b.business_name}</span>
+            <span className={cn("tabular-nums font-medium", b.ahead ? "text-success" : "text-warning")}>
+              {b.net_label}
+            </span>
+          </div>
+        ))
+      )}
     </div>
   )
+}
+
+const CARD_TITLES: Record<CardKey, string> = {
+  stripe_available: "Lyncr's Stripe balance",
+  stripe_pending: "Lyncr's Stripe balance",
+  actual_revenue: "Actual revenue breakdown",
+  estimated_mrr: "Estimated MRR breakdown",
+  card_fees: "Card fees breakdown",
+  platform_net: "Platform net breakdown",
 }
 
 export function AdminFinanceBoard() {
   const { metrics, businessEconomics, loading, refreshing, fetchLatestAdminStats } =
     useLyncrAdminDashboardData()
+  const [openCard, setOpenCard] = useState<CardKey | null>(null)
 
   const sortedBusinesses = useMemo(
     () =>
@@ -157,42 +458,51 @@ export function AdminFinanceBoard() {
         </Button>
       </div>
 
-      {/* --- Lyncr's own performance --- */}
+      {/* --- Lyncr's own performance — every card opens a breakdown --- */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Lyncr performance</h2>
+        <p className="text-xs text-muted-foreground">Tap a card for the breakdown.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <PerfCard
             label="Stripe available"
             value={finance?.stripe_platform_available_label ?? "—"}
             note="Lyncr's own cash, ready to pay out"
+            onClick={() => setOpenCard("stripe_available")}
           />
           <PerfCard
             label="Stripe pending"
             value={finance?.stripe_platform_pending_label ?? "—"}
             note="Not yet available"
+            onClick={() => setOpenCard("stripe_pending")}
           />
           <PerfCard
             label={`Actual revenue · ${finance?.business_money_period_label ?? "All time"}`}
             value={finance?.actual_plan_revenue_period_label ?? "—"}
             note="Real Stripe-paid invoices, summed across every business"
+            onClick={() => setOpenCard("actual_revenue")}
           />
           <PerfCard
             label="Estimated MRR"
             value={finance?.estimated_mrr_label ?? "—"}
             note="List-price estimate, not real billing"
+            onClick={() => setOpenCard("estimated_mrr")}
           />
           <PerfCard
             label="Card fees (MTD)"
             value={finance?.card_fee_revenue_mtd_label ?? "—"}
             note={finance?.card_fee_formula_label}
+            onClick={() => setOpenCard("card_fees")}
           />
           <PerfCard
             label={`Platform net · ${finance?.business_money_period_label ?? "All time"}`}
             value={finance?.platform_net_period_label ?? "—"}
             note="Revenue minus estimated phone cost, all businesses"
+            onClick={() => setOpenCard("platform_net")}
           />
         </div>
       </section>
+
+      <RevenueChart />
 
       {/* --- Every business's own balance, never blended into one number --- */}
       <section className="space-y-3">
@@ -390,6 +700,20 @@ export function AdminFinanceBoard() {
           </div>
         ) : null}
       </section>
+
+      <Sheet open={openCard != null} onOpenChange={(open) => !open && setOpenCard(null)}>
+        <SheetContent side="right" className="w-full border-border bg-background text-foreground sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="text-foreground">{openCard ? CARD_TITLES[openCard] : ""}</SheetTitle>
+            <SheetDescription className="sr-only">Breakdown detail</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 max-h-[calc(100vh-8rem)] overflow-y-auto px-1">
+            {openCard ? (
+              <CardDetailContent cardKey={openCard} finance={finance} businessEconomics={businessEconomics} />
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

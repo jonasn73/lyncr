@@ -82,6 +82,47 @@ function mapRow(row: Record<string, unknown>): AdminLedgerRow {
   }
 }
 
+export type AdminLedgerDailyPoint = {
+  /** YYYY-MM-DD, US Eastern (matches the rest of Ops money windows). */
+  day: string
+  chargeCents: number
+  reversalCents: number
+  feeCents: number
+  payoutCents: number
+}
+
+/** Daily rollup of real ledger activity for the last `days` days — powers the revenue chart. */
+export async function getAdminWalletDailyRollup(days: number): Promise<AdminLedgerDailyPoint[]> {
+  const sql = neon(resolveNeonDatabaseUrl())
+  const span = Math.min(180, Math.max(1, Math.floor(days)))
+  try {
+    const rows = (await sql`
+      SELECT
+        to_char(timezone('America/New_York', wt.created_at), 'YYYY-MM-DD') AS day,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'CHARGE'), 0)::float8 AS charge_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'REVERSAL'), 0)::float8 AS reversal_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'FEE'), 0)::float8 AS fee_usd,
+        COALESCE(SUM(wt.amount) FILTER (WHERE wt.entry_type = 'PAYOUT'), 0)::float8 AS payout_usd
+      FROM wallet_transactions wt
+      WHERE wt.status = 'COMPLETED'
+        AND wt.created_at >= now() - (${span}::int * interval '1 day')
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `) as { day: string; charge_usd: number; reversal_usd: number; fee_usd: number; payout_usd: number }[]
+
+    return rows.map((r) => ({
+      day: r.day,
+      chargeCents: Math.round(Number(r.charge_usd) * 100),
+      reversalCents: Math.round(Number(r.reversal_usd) * 100),
+      feeCents: Math.round(Number(r.fee_usd) * 100),
+      payoutCents: Math.round(Number(r.payout_usd) * 100),
+    }))
+  } catch (e) {
+    console.warn("[admin-wallet-ledger] daily rollup failed:", e)
+    return []
+  }
+}
+
 export async function listAdminWalletLedger(filters: AdminLedgerFilters): Promise<AdminLedgerPage> {
   const sql = neon(resolveNeonDatabaseUrl())
   const limit = Math.min(200, Math.max(1, filters.limit ?? 50))
