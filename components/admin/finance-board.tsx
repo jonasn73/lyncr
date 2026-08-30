@@ -583,7 +583,7 @@ export function AdminFinanceBoard() {
   const platformNetAhead = (finance?.platform_net_period_cents ?? 0) >= 0
 
   return (
-    <div className="space-y-10">
+    <div className="mx-auto max-w-7xl space-y-10 p-3 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Finance</h1>
