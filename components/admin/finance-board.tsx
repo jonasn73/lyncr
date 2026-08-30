@@ -122,6 +122,15 @@ function formatDateTime(iso: string): string {
   })
 }
 
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success("Copied")
+  } catch {
+    toast.error("Could not copy — select the text and copy it manually.")
+  }
+}
+
 function formatChartDay(day: string): string {
   // day is YYYY-MM-DD (US Eastern) — parse as local calendar date, not UTC midnight.
   const [y, m, d] = day.split("-").map(Number)
@@ -781,6 +790,11 @@ export function AdminFinanceBoard() {
     }
   }, [])
 
+  // Tapping a row shows that one transaction's own detail, not the whole business — "View
+  // business" inside the detail is the deliberate way to jump further.
+  const [selectedTxn, setSelectedTxn] = useState<LedgerRow | null>(null)
+  const [selectedBillingEntry, setSelectedBillingEntry] = useState<BillingLedgerRow | null>(null)
+
   const [ledger, setLedger] = useState<LedgerPage | null>(null)
   const [ledgerLoading, setLedgerLoading] = useState(true)
 
@@ -1134,8 +1148,8 @@ export function AdminFinanceBoard() {
                     ledger.rows.map((row) => (
                       <TableRow
                         key={row.id}
-                        className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
-                        onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+                        className="cursor-pointer border-border hover:bg-muted/30"
+                        onClick={() => setSelectedTxn(row)}
                       >
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                           {formatDateTime(row.createdAt)}
@@ -1284,8 +1298,8 @@ export function AdminFinanceBoard() {
                     billingLedger.rows.map((row) => (
                       <TableRow
                         key={row.id}
-                        className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
-                        onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+                        className="cursor-pointer border-border hover:bg-muted/30"
+                        onClick={() => setSelectedBillingEntry(row)}
                       >
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                           {formatDateTime(row.createdAt)}
@@ -1343,6 +1357,157 @@ export function AdminFinanceBoard() {
               </div>
             ) : null}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- One transaction's own detail — tapping a row shows this, not the whole business. --- */}
+      <Dialog open={selectedTxn != null} onOpenChange={(open) => !open && setSelectedTxn(null)}>
+        <DialogContent className="border-border bg-background sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {selectedTxn ? formatUsd(selectedTxn.amountCents) : ""}
+            </DialogTitle>
+            <DialogDescription>{selectedTxn ? formatDateTime(selectedTxn.createdAt) : ""}</DialogDescription>
+          </DialogHeader>
+          {selectedTxn ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Business</span>
+                <span className="text-foreground">{selectedTxn.businessName}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Type</span>
+                <span className={cn("font-semibold", ledgerTypeTone(selectedTxn.entryType))}>
+                  {selectedTxn.entryType}
+                  {selectedTxn.reversalReason ? ` · ${selectedTxn.reversalReason}` : ""}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "border-0 capitalize",
+                    selectedTxn.status === "COMPLETED" && "bg-success/15 text-success",
+                    selectedTxn.status === "PENDING" && "bg-warning/20 text-warning",
+                    selectedTxn.status === "FAILED" && "bg-destructive/15 text-destructive"
+                  )}
+                >
+                  {selectedTxn.status.toLowerCase()}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Customer</span>
+                <span className="text-foreground">{selectedTxn.customerName ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Payment method</span>
+                <span className="text-foreground">{selectedTxn.paymentMethod || "—"}</span>
+              </div>
+              <div className="py-2">
+                <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Stripe ref</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
+                    {selectedTxn.stripePaymentIntentId ?? "—"}
+                  </code>
+                  {selectedTxn.stripePaymentIntentId ? (
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(selectedTxn.stripePaymentIntentId!)}
+                      className="shrink-0 text-2xs font-semibold text-operator hover:underline"
+                    >
+                      Copy
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              {selectedTxn.ownerUserId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = selectedTxn.ownerUserId!
+                    setSelectedTxn(null)
+                    openBusiness(id)
+                  }}
+                  className="mt-2 w-full rounded-lg border border-border py-2 text-center text-xs font-semibold text-operator hover:bg-muted/30"
+                >
+                  View business →
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* --- One billing ledger entry's own detail — same pattern as the transaction detail. --- */}
+      <Dialog open={selectedBillingEntry != null} onOpenChange={(open) => !open && setSelectedBillingEntry(null)}>
+        <DialogContent className="border-border bg-background sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {selectedBillingEntry ? selectedBillingEntry.deltaLabel : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedBillingEntry ? formatDateTime(selectedBillingEntry.createdAt) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBillingEntry ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Business</span>
+                <span className="text-foreground">{selectedBillingEntry.businessName}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Reason</span>
+                <span className="text-foreground">{selectedBillingEntry.reason.replace(/_/g, " ")}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Amount</span>
+                <span
+                  className={cn(
+                    "font-semibold",
+                    selectedBillingEntry.deltaCents < 0 ? "text-warning" : "text-success"
+                  )}
+                >
+                  {selectedBillingEntry.deltaCents < 0 ? "" : "+"}
+                  {selectedBillingEntry.deltaLabel}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <span className="text-muted-foreground">Balance after</span>
+                <span className="text-foreground">{selectedBillingEntry.balanceAfterLabel}</span>
+              </div>
+              {selectedBillingEntry.reference ? (
+                <div className="py-2">
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Reference</p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
+                      {selectedBillingEntry.reference}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(selectedBillingEntry.reference!)}
+                      className="shrink-0 text-2xs font-semibold text-operator hover:underline"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {selectedBillingEntry.ownerUserId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = selectedBillingEntry.ownerUserId!
+                    setSelectedBillingEntry(null)
+                    openBusiness(id)
+                  }}
+                  className="mt-2 w-full rounded-lg border border-border py-2 text-center text-xs font-semibold text-operator hover:bg-muted/30"
+                >
+                  View business →
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
