@@ -123,14 +123,63 @@ function PerfCard({
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "rounded-xl border border-border bg-card/60 px-4 py-3 text-left transition-colors",
+        "rounded-xl border border-border bg-card/60 px-3.5 py-3 text-left transition-colors",
         onClick && "hover:border-operator/40 hover:bg-operator/10 cursor-pointer",
         !onClick && "cursor-default"
       )}
     >
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</p>
-      {note ? <p className="mt-1 text-2xs leading-snug text-muted-foreground">{note}</p> : null}
+      <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{value}</p>
+      {note ? <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{note}</p> : null}
+    </button>
+  )
+}
+
+/**
+ * The one number this page leads with: is Lyncr profitable right now. Everything else
+ * (Stripe balance, revenue, fees) supports this but isn't what you check first.
+ */
+function HeroStat({
+  label,
+  value,
+  ahead,
+  note,
+  onClick,
+}: {
+  label: string
+  value: string
+  ahead: boolean
+  note?: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-full rounded-2xl border px-5 py-4 text-left transition-colors sm:px-6 sm:py-5",
+        ahead
+          ? "border-success/35 bg-success/10 hover:bg-success/15"
+          : "border-warning/35 bg-warning/10 hover:bg-warning/15"
+      )}
+    >
+      <p
+        className={cn(
+          "text-2xs font-semibold uppercase tracking-wide",
+          ahead ? "text-success/80" : "text-warning/80"
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-4xl font-bold tabular-nums sm:text-5xl",
+          ahead ? "text-success" : "text-warning"
+        )}
+      >
+        {value}
+      </p>
+      {note ? <p className="mt-1.5 text-xs leading-snug text-muted-foreground">{note}</p> : null}
     </button>
   )
 }
@@ -531,12 +580,14 @@ export function AdminFinanceBoard() {
 
   const finance = metrics?.finance
 
+  const platformNetAhead = (finance?.platform_net_period_cents ?? 0) >= 0
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Finance</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-2xl font-bold text-foreground">Finance</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Lyncr's own performance, every business's real balance, and the full transaction ledger.
           </p>
         </div>
@@ -555,11 +606,16 @@ export function AdminFinanceBoard() {
         </Button>
       </div>
 
-      {/* --- Lyncr's own performance — every card opens a breakdown --- */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Lyncr performance</h2>
-        <p className="text-xs text-muted-foreground">Tap a card for the breakdown.</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {/* --- Lyncr's own performance: one hero number, five supporting ones below it. --- */}
+      <section className="space-y-4">
+        <HeroStat
+          label={`Platform net · ${finance?.business_money_period_label ?? "All time"}`}
+          value={finance?.platform_net_period_label ?? "—"}
+          ahead={platformNetAhead}
+          note="Revenue minus estimated phone cost, across every business. Tap for the per-business breakdown."
+          onClick={() => setOpenCard("platform_net")}
+        />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <PerfCard
             label="Stripe available"
             value={finance?.stripe_platform_available_label ?? "—"}
@@ -575,7 +631,7 @@ export function AdminFinanceBoard() {
           <PerfCard
             label={`Actual revenue · ${finance?.business_money_period_label ?? "All time"}`}
             value={finance?.actual_plan_revenue_period_label ?? "—"}
-            note="Real Stripe-paid invoices, summed across every business"
+            note="Real Stripe-paid invoices, all businesses"
             onClick={() => setOpenCard("actual_revenue")}
           />
           <PerfCard
@@ -590,12 +646,6 @@ export function AdminFinanceBoard() {
             note={finance?.card_fee_formula_label}
             onClick={() => setOpenCard("card_fees")}
           />
-          <PerfCard
-            label={`Platform net · ${finance?.business_money_period_label ?? "All time"}`}
-            value={finance?.platform_net_period_label ?? "—"}
-            note="Revenue minus estimated phone cost, all businesses"
-            onClick={() => setOpenCard("platform_net")}
-          />
         </div>
       </section>
 
@@ -603,18 +653,20 @@ export function AdminFinanceBoard() {
 
       {/* --- Every business's own balance, never blended into one number --- */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Business balances</h2>
-        <p className="text-xs text-muted-foreground">
-          Each business's own job-payment wallet — sorted highest to lowest. Not a platform total.
-          Tap a row to go deeper: account, money, staff, and support.
-        </p>
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Business balances</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Each business's own job-payment wallet — sorted highest to lowest, not a platform
+            total. Tap a row for account, money, staff, and support.
+          </p>
+        </div>
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Business</TableHead>
-                <TableHead className="text-muted-foreground">Wallet balance</TableHead>
-                <TableHead className="text-muted-foreground">Lifetime collected</TableHead>
+                <TableHead className="text-right text-muted-foreground">Wallet balance</TableHead>
+                <TableHead className="text-right text-muted-foreground">Lifetime collected</TableHead>
                 <TableHead className="text-muted-foreground">Plan</TableHead>
               </TableRow>
             </TableHeader>
@@ -646,10 +698,10 @@ export function AdminFinanceBoard() {
                         onClick={() => openBusiness(row.user_id)}
                       />
                     </TableCell>
-                    <TableCell className="tabular-nums text-foreground">
+                    <TableCell className="text-right font-semibold tabular-nums text-foreground">
                       {row.collected_wallet_balance_label}
                     </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {row.plan_revenue_label}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{row.plan_tier_label}</TableCell>
@@ -663,23 +715,28 @@ export function AdminFinanceBoard() {
 
       {/* --- Needs attention: pending signups + platform health, so nothing that used to live
            on the old Home page is lost by making Finance the front door. --- */}
-      <section className="space-y-3">
+      <section className="space-y-4">
         <h2 className="text-sm font-semibold text-foreground">Needs attention</h2>
+
         {metrics ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/80 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">System</span>
-            <span className="inline-flex items-center gap-2">
-              <Database className="h-3.5 w-3.5" aria-hidden /> Neon
-              <HealthDot status={metrics.health.neon} />
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
-              <HealthDot status={metrics.health.telnyx} />
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Sentry
-              <HealthDot status={metrics.health.sentry} />
-            </span>
+          <div className="rounded-xl border border-border/80 bg-card/40 px-3.5 py-2.5">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              System
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+              <span className="inline-flex items-center gap-2">
+                <Database className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Neon
+                <HealthDot status={metrics.health.neon} />
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Telnyx
+                <HealthDot status={metrics.health.telnyx} />
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> Sentry
+                <HealthDot status={metrics.health.sentry} />
+              </span>
+            </div>
           </div>
         ) : null}
 
@@ -687,19 +744,19 @@ export function AdminFinanceBoard() {
 
         {pendingOwners.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              New signups waiting for Approve or Deny.
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Pending shops — waiting for Approve or Deny
             </p>
             <ul className="divide-y divide-border rounded-xl border border-border">
               {pendingOwners.map((row) => (
                 <li key={row.user_id}>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40"
+                    className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-muted/40"
                     onClick={() => openBusiness(row.user_id)}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-medium text-foreground">
+                      <span className="block truncate text-sm font-medium text-foreground">
                         {row.business_name.trim() || row.email}
                       </span>
                       <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
@@ -715,7 +772,12 @@ export function AdminFinanceBoard() {
 
       {/* --- Full ledger: every charge, fee, reversal, payout, filterable --- */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Transactions</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Transactions</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Every charge, fee, reversal, and payout — search, filter, or tap a row's business.
+          </p>
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
             placeholder="Search customer or business…"
@@ -768,7 +830,7 @@ export function AdminFinanceBoard() {
                 <TableHead className="text-muted-foreground">When</TableHead>
                 <TableHead className="text-muted-foreground">Business</TableHead>
                 <TableHead className="text-muted-foreground">Type</TableHead>
-                <TableHead className="text-muted-foreground">Amount</TableHead>
+                <TableHead className="text-right text-muted-foreground">Amount</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Customer</TableHead>
                 <TableHead className="text-muted-foreground">Stripe ref</TableHead>
@@ -815,7 +877,7 @@ export function AdminFinanceBoard() {
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "tabular-nums font-medium",
+                        "text-right tabular-nums font-medium",
                         row.amountCents < 0 ? "text-warning" : "text-foreground"
                       )}
                     >
