@@ -3,7 +3,7 @@
 // Admin Finance — Lyncr's own performance, every business's real balance (not blended
 // together), a revenue-over-time chart, and a filterable platform-wide transaction ledger.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
   Bar,
@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Database, MessageCircle, Phone, RefreshCw, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { AdminBusinessEconomics, LyncrAdminDirectoryRow } from "@/lib/types"
@@ -679,21 +680,19 @@ export function AdminFinanceBoard() {
   const [search, setSearch] = useState("")
   const [offset, setOffset] = useState(0)
   const limit = 50
-  const ledgerSectionRef = useRef<HTMLDivElement | null>(null)
+  const [ledgerDialogOpen, setLedgerDialogOpen] = useState(false)
 
   /**
    * "All the way to the source" — every card breakdown that's backed by wallet_transactions
    * (fees, business balances) jumps here instead of just naming a number. Closes whatever sheet
-   * is open, sets the ledger filters, and scrolls the real rows into view.
+   * is open, sets the ledger filters, and pops the real rows open in their own window.
    */
   const jumpToLedger = useCallback((filters: { entryType?: string; ownerUserId?: string }) => {
     setOpenCard(null)
     setTypeFilter(filters.entryType ?? "all")
     setOwnerFilter(filters.ownerUserId ?? "all")
     setOffset(0)
-    requestAnimationFrame(() => {
-      ledgerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    })
+    setLedgerDialogOpen(true)
   }, [])
 
   // --- Billing ledger: separate table from a separate source table (billing_ledger, prepaid
@@ -704,7 +703,7 @@ export function AdminFinanceBoard() {
   const [billingReasonFilter, setBillingReasonFilter] = useState<string>("all")
   const [billingOffset, setBillingOffset] = useState(0)
   const billingLimit = 50
-  const billingSectionRef = useRef<HTMLDivElement | null>(null)
+  const [billingDialogOpen, setBillingDialogOpen] = useState(false)
 
   const [billingLedger, setBillingLedger] = useState<BillingLedgerPage | null>(null)
   const [billingLedgerLoading, setBillingLedgerLoading] = useState(true)
@@ -745,9 +744,7 @@ export function AdminFinanceBoard() {
     setBillingReasonFilter(filters.reason ?? "all")
     setBillingOwnerFilter(filters.ownerUserId ?? "all")
     setBillingOffset(0)
-    requestAnimationFrame(() => {
-      billingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    })
+    setBillingDialogOpen(true)
   }, [])
 
   // --- Stripe invoices: live per-business fetch (not in either DB ledger) — what "Plan cash"
@@ -1016,296 +1013,334 @@ export function AdminFinanceBoard() {
         ) : null}
       </section>
 
-      {/* --- Full ledger: every charge, fee, reversal, payout, filterable --- */}
-      <section ref={ledgerSectionRef} className="scroll-mt-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Transactions</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Every charge, fee, reversal, and payout — search, filter, or tap a row's business.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Input
-            placeholder="Search customer or business…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 border-border bg-background/60 sm:max-w-xs"
-          />
-          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[200px]">
-              <SelectValue placeholder="Business" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All businesses</SelectItem>
-              {businessEconomics.map((b) => (
-                <SelectItem key={b.user_id} value={b.user_id}>
-                  {b.business_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[150px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              <SelectItem value="CHARGE">Charge</SelectItem>
-              <SelectItem value="REVERSAL">Reversal</SelectItem>
-              <SelectItem value="PAYOUT">Payout</SelectItem>
-              <SelectItem value="FEE">Fee</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="COMPLETED">Completed</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="FAILED">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* --- Full ledger + billing ledger: opened as their own pop-up windows instead of long
+           inline sections, so getting to them never means scrolling the whole page. --- */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setLedgerDialogOpen(true)}
+          className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-3.5 text-left transition hover:border-operator/40 hover:bg-card/60"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Transactions</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Every charge, fee, reversal, and payout
+              {ledger ? ` · ${ledger.totalCount} total` : ""}
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-operator">Open →</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBillingDialogOpen(true)}
+          className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-3.5 text-left transition hover:border-operator/40 hover:bg-card/60"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Billing ledger (phone credit)</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Credit packs sold and phone cost
+              {billingLedger ? ` · ${billingLedger.totalCount} total` : ""}
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-operator">Open →</span>
+        </button>
+      </section>
 
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">When</TableHead>
-                <TableHead className="text-muted-foreground">Business</TableHead>
-                <TableHead className="text-muted-foreground">Type</TableHead>
-                <TableHead className="text-right text-muted-foreground">Amount</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Customer</TableHead>
-                <TableHead className="text-muted-foreground">Stripe ref</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ledgerLoading && !ledger ? (
-                <TableRow className="border-border">
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              ) : !ledger || ledger.rows.length === 0 ? (
-                <TableRow className="border-border">
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    No transactions match.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                ledger.rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
-                    onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
-                  >
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {formatDateTime(row.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-foreground">
-                      {row.businessName}
-                      {row.ownerUserId ? (
-                        <SupportAlertDot
-                          alert={supportAlerts[row.ownerUserId]}
-                          businessName={row.businessName}
-                          onClick={() => openBusiness(row.ownerUserId!)}
-                        />
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <span className={cn("text-xs font-semibold", ledgerTypeTone(row.entryType))}>
-                        {row.entryType}
-                        {row.reversalReason ? ` · ${row.reversalReason}` : ""}
-                      </span>
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right tabular-nums font-medium",
-                        row.amountCents < 0 ? "text-warning" : "text-foreground"
-                      )}
-                    >
-                      {formatUsd(row.amountCents)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "border-0 capitalize",
-                          row.status === "COMPLETED" && "bg-success/15 text-success",
-                          row.status === "PENDING" && "bg-warning/20 text-warning",
-                          row.status === "FAILED" && "bg-destructive/15 text-destructive"
-                        )}
+      <Dialog open={ledgerDialogOpen} onOpenChange={setLedgerDialogOpen}>
+        <DialogContent className="flex max-h-[min(88vh,900px)] flex-col overflow-hidden border-border bg-background sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Transactions</DialogTitle>
+            <DialogDescription>
+              Every charge, fee, reversal, and payout — search, filter, or tap a row's business.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <Input
+                placeholder="Search customer or business…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 border-border bg-background/60 sm:max-w-xs"
+              />
+              <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[200px]">
+                  <SelectValue placeholder="Business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All businesses</SelectItem>
+                  {businessEconomics.map((b) => (
+                    <SelectItem key={b.user_id} value={b.user_id}>
+                      {b.business_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[150px]">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="CHARGE">Charge</SelectItem>
+                  <SelectItem value="REVERSAL">Reversal</SelectItem>
+                  <SelectItem value="PAYOUT">Payout</SelectItem>
+                  <SelectItem value="FEE">Fee</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="FAILED">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground">When</TableHead>
+                    <TableHead className="text-muted-foreground">Business</TableHead>
+                    <TableHead className="text-muted-foreground">Type</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Amount</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-muted-foreground">Customer</TableHead>
+                    <TableHead className="text-muted-foreground">Stripe ref</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ledgerLoading && !ledger ? (
+                    <TableRow className="border-border">
+                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                        Loading…
+                      </TableCell>
+                    </TableRow>
+                  ) : !ledger || ledger.rows.length === 0 ? (
+                    <TableRow className="border-border">
+                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                        No transactions match.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    ledger.rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
+                        onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
                       >
-                        {row.status.toLowerCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{row.customerName ?? "—"}</TableCell>
-                    <TableCell className="max-w-[160px] truncate font-mono text-2xs text-muted-foreground">
-                      {row.stripePaymentIntentId ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {ledger && ledger.totalCount > 0 ? (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {ledger.offset + 1}–{Math.min(ledger.offset + ledger.rows.length, ledger.totalCount)} of{" "}
-              {ledger.totalCount}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={offset === 0 || ledgerLoading}
-                onClick={() => setOffset(Math.max(0, offset - limit))}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={offset + limit >= ledger.totalCount || ledgerLoading}
-                onClick={() => setOffset(offset + limit)}
-              >
-                Next
-              </Button>
+                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                          {formatDateTime(row.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-foreground">
+                          {row.businessName}
+                          {row.ownerUserId ? (
+                            <SupportAlertDot
+                              alert={supportAlerts[row.ownerUserId]}
+                              businessName={row.businessName}
+                              onClick={() => openBusiness(row.ownerUserId!)}
+                            />
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn("text-xs font-semibold", ledgerTypeTone(row.entryType))}>
+                            {row.entryType}
+                            {row.reversalReason ? ` · ${row.reversalReason}` : ""}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums font-medium",
+                            row.amountCents < 0 ? "text-warning" : "text-foreground"
+                          )}
+                        >
+                          {formatUsd(row.amountCents)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "border-0 capitalize",
+                              row.status === "COMPLETED" && "bg-success/15 text-success",
+                              row.status === "PENDING" && "bg-warning/20 text-warning",
+                              row.status === "FAILED" && "bg-destructive/15 text-destructive"
+                            )}
+                          >
+                            {row.status.toLowerCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{row.customerName ?? "—"}</TableCell>
+                        <TableCell className="max-w-[160px] truncate font-mono text-2xs text-muted-foreground">
+                          {row.stripePaymentIntentId ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        ) : null}
-      </section>
 
-      {/* --- Billing ledger: prepaid phone credit — a different table (billing_ledger), not
-           wallet_transactions. What Credit packs sold and wallet-burn phone cost are made of. --- */}
-      <section ref={billingSectionRef} className="scroll-mt-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Billing ledger (phone credit)</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Every prepaid credit pack purchased and every dollar burned — a running balance, not
-            wallet_transactions. Covers Credit packs sold and part of Phone cost.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Select value={billingOwnerFilter} onValueChange={setBillingOwnerFilter}>
-            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[200px]">
-              <SelectValue placeholder="Business" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All businesses</SelectItem>
-              {businessEconomics.map((b) => (
-                <SelectItem key={b.user_id} value={b.user_id}>
-                  {b.business_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={billingReasonFilter} onValueChange={setBillingReasonFilter}>
-            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[220px]">
-              <SelectValue placeholder="Reason" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All reasons</SelectItem>
-              <SelectItem value="stripe_credit_pack">Credit pack purchased</SelectItem>
-              <SelectItem value="carrier_number_purchase">Phone number purchased</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">When</TableHead>
-                <TableHead className="text-muted-foreground">Business</TableHead>
-                <TableHead className="text-muted-foreground">Reason</TableHead>
-                <TableHead className="text-right text-muted-foreground">Amount</TableHead>
-                <TableHead className="text-right text-muted-foreground">Balance after</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {billingLedgerLoading && !billingLedger ? (
-                <TableRow className="border-border">
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                    Loading…
-                  </TableCell>
-                </TableRow>
-              ) : !billingLedger || billingLedger.rows.length === 0 ? (
-                <TableRow className="border-border">
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                    No billing ledger activity matches.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                billingLedger.rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
-                    onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+            {ledger && ledger.totalCount > 0 ? (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {ledger.offset + 1}–{Math.min(ledger.offset + ledger.rows.length, ledger.totalCount)} of{" "}
+                  {ledger.totalCount}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={offset === 0 || ledgerLoading}
+                    onClick={() => setOffset(Math.max(0, offset - limit))}
                   >
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {formatDateTime(row.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-foreground">{row.businessName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {row.reason.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right tabular-nums font-medium",
-                        row.deltaCents < 0 ? "text-warning" : "text-success"
-                      )}
-                    >
-                      {row.deltaCents < 0 ? "" : "+"}
-                      {row.deltaLabel}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {row.balanceAfterLabel}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {billingLedger && billingLedger.totalCount > 0 ? (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {billingLedger.offset + 1}–
-              {Math.min(billingLedger.offset + billingLedger.rows.length, billingLedger.totalCount)} of{" "}
-              {billingLedger.totalCount}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={billingOffset === 0 || billingLedgerLoading}
-                onClick={() => setBillingOffset(Math.max(0, billingOffset - billingLimit))}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={billingOffset + billingLimit >= billingLedger.totalCount || billingLedgerLoading}
-                onClick={() => setBillingOffset(billingOffset + billingLimit)}
-              >
-                Next
-              </Button>
-            </div>
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={offset + limit >= ledger.totalCount || ledgerLoading}
+                    onClick={() => setOffset(offset + limit)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </section>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={billingDialogOpen} onOpenChange={setBillingDialogOpen}>
+        <DialogContent className="flex max-h-[min(88vh,900px)] flex-col overflow-hidden border-border bg-background sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Billing ledger (phone credit)</DialogTitle>
+            <DialogDescription>
+              Every prepaid credit pack purchased and every dollar burned — a running balance, not
+              wallet_transactions. Covers Credit packs sold and part of Phone cost.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <Select value={billingOwnerFilter} onValueChange={setBillingOwnerFilter}>
+                <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[200px]">
+                  <SelectValue placeholder="Business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All businesses</SelectItem>
+                  {businessEconomics.map((b) => (
+                    <SelectItem key={b.user_id} value={b.user_id}>
+                      {b.business_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={billingReasonFilter} onValueChange={setBillingReasonFilter}>
+                <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[220px]">
+                  <SelectValue placeholder="Reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All reasons</SelectItem>
+                  <SelectItem value="stripe_credit_pack">Credit pack purchased</SelectItem>
+                  <SelectItem value="carrier_number_purchase">Phone number purchased</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground">When</TableHead>
+                    <TableHead className="text-muted-foreground">Business</TableHead>
+                    <TableHead className="text-muted-foreground">Reason</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Amount</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Balance after</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {billingLedgerLoading && !billingLedger ? (
+                    <TableRow className="border-border">
+                      <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                        Loading…
+                      </TableCell>
+                    </TableRow>
+                  ) : !billingLedger || billingLedger.rows.length === 0 ? (
+                    <TableRow className="border-border">
+                      <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                        No billing ledger activity matches.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    billingLedger.rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
+                        onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+                      >
+                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                          {formatDateTime(row.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-foreground">{row.businessName}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {row.reason.replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums font-medium",
+                            row.deltaCents < 0 ? "text-warning" : "text-success"
+                          )}
+                        >
+                          {row.deltaCents < 0 ? "" : "+"}
+                          {row.deltaLabel}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {row.balanceAfterLabel}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {billingLedger && billingLedger.totalCount > 0 ? (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {billingLedger.offset + 1}–
+                  {Math.min(billingLedger.offset + billingLedger.rows.length, billingLedger.totalCount)} of{" "}
+                  {billingLedger.totalCount}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={billingOffset === 0 || billingLedgerLoading}
+                    onClick={() => setBillingOffset(Math.max(0, billingOffset - billingLimit))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={billingOffset + billingLimit >= billingLedger.totalCount || billingLedgerLoading}
+                    onClick={() => setBillingOffset(billingOffset + billingLimit)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={openCard != null} onOpenChange={(open) => !open && setOpenCard(null)}>
         <SheetContent side="right" className="w-full border-border bg-background text-foreground sm:max-w-md">
