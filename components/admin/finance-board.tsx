@@ -654,6 +654,10 @@ export function AdminFinanceBoard() {
     (userId: string) => {
       const row = users.find((u) => u.user_id === userId)
       if (!row) return
+      // The business drawer is a Sheet (z-6010) — close any open Transactions/Billing ledger
+      // Dialog (z-7010) first, or the drawer opens visually behind it.
+      setLedgerDialogOpen(false)
+      setBillingDialogOpen(false)
       setManageUser(row)
       setDrawerOpen(true)
     },
