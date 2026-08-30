@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
   Building2,
+  DollarSign,
   FlaskConical,
   Headphones,
   Home,
@@ -33,6 +34,12 @@ const NAV = [
     label: "Businesses",
     icon: Building2,
     match: (p: string) => p.startsWith("/admin/businesses"),
+  },
+  {
+    href: "/admin/finance",
+    label: "Finance",
+    icon: DollarSign,
+    match: (p: string) => p.startsWith("/admin/finance"),
   },
   {
     href: "/admin/support",
