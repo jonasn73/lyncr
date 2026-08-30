@@ -34,9 +34,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { RefreshCw } from "lucide-react"
+import { Database, MessageCircle, Phone, RefreshCw, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { AdminBusinessEconomics } from "@/lib/types"
+import type { AdminBusinessEconomics, LyncrAdminDirectoryRow } from "@/lib/types"
+import type { AdminSupportAlert } from "@/lib/admin-support-alerts"
+import { AdminUserManageDrawer } from "@/components/admin-user-manage-drawer"
+import { AccountStatusBadge, isShopOwnerRow } from "@/components/lyncr-admin-dashboard"
+import { CallHealthBoard } from "@/components/admin/call-health-board"
 
 // Static values (not CSS var()) — SVG fill attributes set by recharts don't resolve custom
 // properties reliably. Pulled from app/globals.css, except the bar fill: the app's --success
@@ -127,6 +131,66 @@ function PerfCard({
       <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</p>
       {note ? <p className="mt-1 text-2xs leading-snug text-muted-foreground">{note}</p> : null}
+    </button>
+  )
+}
+
+function HealthDot({ status }: { status: "ok" | "error" | "unconfigured" }) {
+  const color =
+    status === "ok"
+      ? "bg-success shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+      : status === "unconfigured"
+        ? "bg-warning"
+        : "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.7)]"
+  const label = status === "ok" ? "Connected" : status === "unconfigured" ? "Not configured" : "Error"
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("h-2.5 w-2.5 rounded-full", color)} aria-hidden />
+      <span className="text-sm text-foreground">{label}</span>
+    </span>
+  )
+}
+
+function roleLabel(role: AdminSupportAlert["lastSenderRole"]): string | null {
+  if (role === "field_tech") return "Tech"
+  if (role === "receptionist") return "Receptionist"
+  if (role === "owner") return "Owner"
+  return null
+}
+
+/**
+ * Small red dot + count beside a business name — the "individual business alert" the whole
+ * point of folding Support into Finance was to surface. When the last message came from a
+ * specific tech/receptionist rather than the owner, the title shows "Business / Tech" so the
+ * hierarchy is visible without a click.
+ */
+function SupportAlertDot({
+  alert,
+  businessName,
+  onClick,
+}: {
+  alert: AdminSupportAlert | undefined
+  businessName: string
+  onClick?: () => void
+}) {
+  if (!alert || alert.unreadCount <= 0) return null
+  const who = roleLabel(alert.lastSenderRole)
+  const title =
+    (who && who !== "Owner" ? `${businessName} / ${who}` : businessName) +
+    ` — ${alert.unreadCount} unread` +
+    (alert.lastMessagePreview ? `: "${alert.lastMessagePreview}"` : "")
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick?.()
+      }}
+      title={title}
+      className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-destructive/20 px-1.5 py-0.5 align-middle text-2xs font-semibold text-destructive hover:bg-destructive/30"
+    >
+      <MessageCircle className="h-2.5 w-2.5" aria-hidden />
+      {alert.unreadCount}
     </button>
   )
 }
@@ -389,9 +453,28 @@ const CARD_TITLES: Record<CardKey, string> = {
 }
 
 export function AdminFinanceBoard() {
-  const { metrics, businessEconomics, loading, refreshing, fetchLatestAdminStats } =
+  const { metrics, users, businessEconomics, supportAlerts, loading, refreshing, fetchLatestAdminStats } =
     useLyncrAdminDashboardData()
   const [openCard, setOpenCard] = useState<CardKey | null>(null)
+
+  // Business drill-down — reuses the same rich Manage drawer the old Businesses page used,
+  // just reachable directly from a business's row here instead of a separate page trip.
+  const [manageUser, setManageUser] = useState<LyncrAdminDirectoryRow | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const openBusiness = useCallback(
+    (userId: string) => {
+      const row = users.find((u) => u.user_id === userId)
+      if (!row) return
+      setManageUser(row)
+      setDrawerOpen(true)
+    },
+    [users]
+  )
+
+  const pendingOwners = useMemo(
+    () => users.filter((u) => isShopOwnerRow(u) && u.account_status === "pending"),
+    [users]
+  )
 
   const sortedBusinesses = useMemo(
     () =>
@@ -523,6 +606,7 @@ export function AdminFinanceBoard() {
         <h2 className="text-sm font-semibold text-foreground">Business balances</h2>
         <p className="text-xs text-muted-foreground">
           Each business's own job-payment wallet — sorted highest to lowest. Not a platform total.
+          Tap a row to go deeper: account, money, staff, and support.
         </p>
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table>
@@ -549,8 +633,19 @@ export function AdminFinanceBoard() {
                 </TableRow>
               ) : (
                 sortedBusinesses.map((row) => (
-                  <TableRow key={row.user_id} className="border-border">
-                    <TableCell className="font-medium text-foreground">{row.business_name}</TableCell>
+                  <TableRow
+                    key={row.user_id}
+                    className="cursor-pointer border-border hover:bg-muted/30"
+                    onClick={() => openBusiness(row.user_id)}
+                  >
+                    <TableCell className="font-medium text-foreground">
+                      {row.business_name}
+                      <SupportAlertDot
+                        alert={supportAlerts[row.user_id]}
+                        businessName={row.business_name}
+                        onClick={() => openBusiness(row.user_id)}
+                      />
+                    </TableCell>
                     <TableCell className="tabular-nums text-foreground">
                       {row.collected_wallet_balance_label}
                     </TableCell>
@@ -564,6 +659,58 @@ export function AdminFinanceBoard() {
             </TableBody>
           </Table>
         </div>
+      </section>
+
+      {/* --- Needs attention: pending signups + platform health, so nothing that used to live
+           on the old Home page is lost by making Finance the front door. --- */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Needs attention</h2>
+        {metrics ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/80 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">System</span>
+            <span className="inline-flex items-center gap-2">
+              <Database className="h-3.5 w-3.5" aria-hidden /> Neon
+              <HealthDot status={metrics.health.neon} />
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Phone className="h-3.5 w-3.5" aria-hidden /> Telnyx
+              <HealthDot status={metrics.health.telnyx} />
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Sentry
+              <HealthDot status={metrics.health.sentry} />
+            </span>
+          </div>
+        ) : null}
+
+        <CallHealthBoard />
+
+        {pendingOwners.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              New signups waiting for Approve or Deny.
+            </p>
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {pendingOwners.map((row) => (
+                <li key={row.user_id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40"
+                    onClick={() => openBusiness(row.user_id)}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-foreground">
+                        {row.business_name.trim() || row.email}
+                      </span>
+                      <span className="block truncate text-2xs text-muted-foreground">{row.email}</span>
+                    </span>
+                    <AccountStatusBadge status={row.account_status} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {/* --- Full ledger: every charge, fee, reversal, payout, filterable --- */}
@@ -642,11 +789,24 @@ export function AdminFinanceBoard() {
                 </TableRow>
               ) : (
                 ledger.rows.map((row) => (
-                  <TableRow key={row.id} className="border-border">
+                  <TableRow
+                    key={row.id}
+                    className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
+                    onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+                  >
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {formatDateTime(row.createdAt)}
                     </TableCell>
-                    <TableCell className="text-foreground">{row.businessName}</TableCell>
+                    <TableCell className="text-foreground">
+                      {row.businessName}
+                      {row.ownerUserId ? (
+                        <SupportAlertDot
+                          alert={supportAlerts[row.ownerUserId]}
+                          businessName={row.businessName}
+                          onClick={() => openBusiness(row.ownerUserId!)}
+                        />
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       <span className={cn("text-xs font-semibold", ledgerTypeTone(row.entryType))}>
                         {row.entryType}
@@ -728,6 +888,16 @@ export function AdminFinanceBoard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AdminUserManageDrawer
+        row={manageUser}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        fetchLatestAdminStats={fetchLatestAdminStats}
+        businessEconomics={
+          manageUser ? businessEconomics.find((b) => b.user_id === manageUser.user_id) ?? null : null
+        }
+      />
     </div>
   )
 }

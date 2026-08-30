@@ -13,6 +13,7 @@ import {
 import type { AdminBusinessEconomics } from "@/lib/types"
 import { pingTelnyxApi } from "@/lib/telnyx"
 import type { LyncrAdminMetrics } from "@/lib/types"
+import { getAdminSupportAlertsByOwner } from "@/lib/admin-support-alerts"
 
 /**
  * Sum per-business rows (already real, already labeled Actual/Est. per field) into three
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
     // Optional period for Business money chips (defaults to all_time).
     const period = parseAdminMoneyPeriod(req.nextUrl.searchParams.get("period"))
 
-    const [counts, users, neonOk, telnyxStatus, telnyxRoutingPool, finance, businessEconomics] =
+    const [counts, users, neonOk, telnyxStatus, telnyxRoutingPool, finance, businessEconomics, supportAlerts] =
       await Promise.all([
         getLyncrAdminMetrics(),
         listLyncrAdminDirectory(),
@@ -65,6 +66,7 @@ export async function GET(req: NextRequest) {
         fetchTelnyxRoutingPoolForAdmin(),
         buildPlatformFinanceSnapshot(),
         listAdminBusinessEconomics(period),
+        getAdminSupportAlertsByOwner(),
       ])
     const rollups = buildPlatformRollups(businessEconomics)
     const metrics: LyncrAdminMetrics = {
@@ -78,7 +80,13 @@ export async function GET(req: NextRequest) {
       finance: { ...finance, ...rollups },
     }
     return NextResponse.json({
-      data: { metrics, users, business_economics: businessEconomics, period },
+      data: {
+        metrics,
+        users,
+        business_economics: businessEconomics,
+        support_alerts: Object.fromEntries(supportAlerts),
+        period,
+      },
     })
   } catch (e) {
     console.error("[lyncr-admin] data:", e)

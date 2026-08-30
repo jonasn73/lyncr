@@ -83,7 +83,7 @@ function formatUsd(amount: number): string {
 }
 
 /** True for a real shop login — not techs, receptionists, or the Lyncr admin account. */
-function isShopOwnerRow(row: LyncrAdminDirectoryRow): boolean {
+export function isShopOwnerRow(row: LyncrAdminDirectoryRow): boolean {
   const email = row.email.trim().toLowerCase()
   if (row.account_role === "field_tech" || row.account_role === "receptionist") return false
   if (email.endsWith("@tech.lyncr.app")) return false
@@ -170,7 +170,7 @@ function MoneyDetailRow({ label, value, note }: { label: string; value: string; 
   )
 }
 
-function AccountStatusBadge({ status }: { status: string }) {
+export function AccountStatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase()
   return (
     <Badge

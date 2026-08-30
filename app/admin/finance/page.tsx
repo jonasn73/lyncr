@@ -1,7 +1,5 @@
-import { AdminFinanceBoard } from "@/components/admin/finance-board"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default function AdminFinancePage() {
-  return <AdminFinanceBoard />
+export default function AdminFinanceRedirect() {
+  redirect("/admin")
 }

@@ -7,19 +7,13 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import {
   Building2,
-  DollarSign,
-  FlaskConical,
   Headphones,
   Home,
   LogOut,
   MessageSquareWarning,
   MoreHorizontal,
-  Network,
   Settings,
   Shield,
-  SquareKanban,
-  Users,
-  Wallet,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -27,6 +21,11 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { Button } from "@/components/ui/button"
 import { BrandWordmark } from "@/components/brand-wordmark"
 
+// Home is Finance — money, every business's balance, and the transaction ledger in one
+// place. Businesses/Support stay reachable for directory browsing and the full ticket
+// queue; Settings is the only other thing left. Everything else (operator workforce
+// management, ad-hoc tools, the improvements board) was removed — not finance- or
+// business-specific, and unused.
 const NAV = [
   { href: "/admin", label: "Home", icon: Home, match: (p: string) => p === "/admin" },
   {
@@ -36,46 +35,10 @@ const NAV = [
     match: (p: string) => p.startsWith("/admin/businesses"),
   },
   {
-    href: "/admin/finance",
-    label: "Finance",
-    icon: DollarSign,
-    match: (p: string) => p.startsWith("/admin/finance"),
-  },
-  {
     href: "/admin/support",
     label: "Support",
     icon: MessageSquareWarning,
     match: (p: string) => p.startsWith("/admin/support"),
-  },
-  {
-    href: "/admin/people",
-    label: "People",
-    icon: Users,
-    match: (p: string) => p.startsWith("/admin/people") || p.startsWith("/admin/receptionists"),
-  },
-  {
-    href: "/admin/network",
-    label: "Network",
-    icon: Network,
-    match: (p: string) => p.startsWith("/admin/network"),
-  },
-  {
-    href: "/admin/payouts",
-    label: "Payouts",
-    icon: Wallet,
-    match: (p: string) => p.startsWith("/admin/payouts") || p.startsWith("/admin/dashboard/operators"),
-  },
-  {
-    href: "/admin/tools",
-    label: "Tools",
-    icon: FlaskConical,
-    match: (p: string) => p.startsWith("/admin/tools") || p.startsWith("/admin/sandbox"),
-  },
-  {
-    href: "/admin/improvements",
-    label: "Improvements",
-    icon: SquareKanban,
-    match: (p: string) => p.startsWith("/admin/improvements"),
   },
   {
     href: "/admin/settings",
