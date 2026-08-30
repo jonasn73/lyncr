@@ -5,13 +5,49 @@ import { requireLyncrAdmin } from "@/lib/admin-api-guard"
 import { getLyncrAdminMetrics, listLyncrAdminDirectory, pingNeonDatabase } from "@/lib/db"
 import { shouldEnableSentry } from "@/lib/sentry-config"
 import { fetchTelnyxRoutingPoolForAdmin } from "@/lib/admin-telnyx-routing-pool"
-import { buildPlatformFinanceSnapshot } from "@/lib/admin-platform-finance"
+import { buildPlatformFinanceSnapshot, formatUsdFromCents } from "@/lib/admin-platform-finance"
 import {
   listAdminBusinessEconomics,
   parseAdminMoneyPeriod,
 } from "@/lib/admin-business-economics"
+import type { AdminBusinessEconomics } from "@/lib/types"
 import { pingTelnyxApi } from "@/lib/telnyx"
 import type { LyncrAdminMetrics } from "@/lib/types"
+
+/**
+ * Sum per-business rows (already real, already labeled Actual/Est. per field) into three
+ * platform totals. No new data source — every input here is a number `listAdminBusinessEconomics`
+ * already computed from live Stripe/DB reads for the selected period.
+ */
+function buildPlatformRollups(rows: AdminBusinessEconomics[]): {
+  total_business_wallet_balance_cents: number
+  total_business_wallet_balance_label: string
+  actual_plan_revenue_period_cents: number
+  actual_plan_revenue_period_label: string
+  platform_net_period_cents: number
+  platform_net_period_label: string
+  business_money_period_label: string
+} {
+  let walletCents = 0
+  let planRevenueCents = 0
+  let netCents = 0
+  for (const row of rows) {
+    walletCents += row.collected_wallet_balance_cents
+    // Only Stripe-sourced plan cash — a business with no Stripe customer contributes $0 here,
+    // same as it does in its own row, rather than inventing a number for it.
+    if (row.plan_cash_source === "stripe") planRevenueCents += row.plan_revenue_cents
+    netCents += row.net_cents
+  }
+  return {
+    total_business_wallet_balance_cents: walletCents,
+    total_business_wallet_balance_label: formatUsdFromCents(walletCents),
+    actual_plan_revenue_period_cents: planRevenueCents,
+    actual_plan_revenue_period_label: formatUsdFromCents(planRevenueCents),
+    platform_net_period_cents: netCents,
+    platform_net_period_label: formatUsdFromCents(netCents),
+    business_money_period_label: rows[0]?.period_chip_label ?? "All time",
+  }
+}
 
 export async function GET(req: NextRequest) {
   const ctx = await requireLyncrAdmin(req)
@@ -30,6 +66,7 @@ export async function GET(req: NextRequest) {
         buildPlatformFinanceSnapshot(),
         listAdminBusinessEconomics(period),
       ])
+    const rollups = buildPlatformRollups(businessEconomics)
     const metrics: LyncrAdminMetrics = {
       ...counts,
       telnyx_routing_pool: telnyxRoutingPool,
@@ -38,7 +75,7 @@ export async function GET(req: NextRequest) {
         telnyx: telnyxStatus,
         sentry: shouldEnableSentry() ? "ok" : "unconfigured",
       },
-      finance,
+      finance: { ...finance, ...rollups },
     }
     return NextResponse.json({
       data: { metrics, users, business_economics: businessEconomics, period },

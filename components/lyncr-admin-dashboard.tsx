@@ -65,7 +65,16 @@ import { accountStatusLabel } from "@/lib/account-status"
 import type { AdminBusinessEconomics } from "@/lib/types"
 import type { AdminMoneyPeriodUi } from "@/hooks/use-lyncr-admin-dashboard"
 
-type MoneySheetKey = "telnyx" | "saas" | "card_fees" | "credits" | "stripe" | "wallets" | "paying" | null
+type MoneySheetKey =
+  | "telnyx"
+  | "saas"
+  | "card_fees"
+  | "credits"
+  | "stripe"
+  | "wallets"
+  | "business_wallets"
+  | "paying"
+  | null
 
 const ROUTING_POOL_LOW_BALANCE_USD = 15
 
@@ -475,7 +484,7 @@ function UserRowActions({
 export function LyncrAdminDashboard({
   metrics,
   users,
-  businessEconomics: _businessEconomics = [],
+  businessEconomics = [],
   moneyPeriod: _moneyPeriod = "all_time",
   setMoneyPeriod: _setMoneyPeriod,
   loading,
@@ -607,7 +616,7 @@ export function LyncrAdminDashboard({
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <MoneyStripCell
                 emphasize
                 label="Telnyx ready"
@@ -620,6 +629,12 @@ export function LyncrAdminDashboard({
                 value={metrics?.finance?.stripe_platform_available_label ?? "—"}
                 hint="Lyncr cash now"
                 onClick={() => setMoneySheet("stripe")}
+              />
+              <MoneyStripCell
+                label="Business wallets"
+                value={metrics?.finance?.total_business_wallet_balance_label ?? "—"}
+                hint="What shops have collected"
+                onClick={() => setMoneySheet("business_wallets")}
               />
               <MoneyStripCell
                 label="Paying shops"
@@ -696,7 +711,7 @@ export function LyncrAdminDashboard({
                   {moneySheet === "telnyx"
                     ? "Telnyx phone balance"
                     : moneySheet === "saas"
-                      ? "Estimated SaaS revenue"
+                      ? "SaaS revenue"
                       : moneySheet === "card_fees"
                         ? "Card fees this month"
                         : moneySheet === "credits"
@@ -705,15 +720,17 @@ export function LyncrAdminDashboard({
                             ? "Stripe balance (Lyncr)"
                             : moneySheet === "wallets"
                               ? "Prepaid phone wallets"
-                              : moneySheet === "paying"
-                                ? "Paying businesses"
-                                : "Platform money"}
+                              : moneySheet === "business_wallets"
+                                ? "Business wallet balances"
+                                : moneySheet === "paying"
+                                  ? "Paying businesses"
+                                  : "Platform money"}
                 </SheetTitle>
                 <SheetDescription className="text-muted-foreground">
                   {moneySheet === "telnyx"
                     ? "Money sitting in Telnyx to pay for inbound/outbound calls, SMS, and numbers."
                     : moneySheet === "saas"
-                      ? "List-price estimate from active paid subscription tiers (not Stripe invoice cash)."
+                      ? "Two numbers, on purpose: a list-price estimate, and the real Stripe cash collected this period."
                       : moneySheet === "card_fees"
                         ? "Lyncr’s Connect application fee when shops run Collect / Tap / pay links. Charged only when Stripe creates an application_fee on the Connect charge."
                         : moneySheet === "credits"
@@ -722,9 +739,11 @@ export function LyncrAdminDashboard({
                             ? "Lyncr’s platform Stripe account — not shop Connect wallets."
                             : moneySheet === "wallets"
                               ? "Sum of credit sitting in customer Pay wallets — liability until they burn minutes."
-                              : moneySheet === "paying"
-                                ? "Accounts marked with an active subscription in onboarding."
-                                : ""}
+                              : moneySheet === "business_wallets"
+                                ? "What every business currently has sitting in their own job-payment wallet — updates the instant they collect a charge or send money to their bank."
+                                : moneySheet === "paying"
+                                  ? "Accounts marked with an active subscription in onboarding."
+                                  : ""}
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-4 space-y-1 px-1">
@@ -745,9 +764,19 @@ export function LyncrAdminDashboard({
                 {moneySheet === "saas" ? (
                   <>
                     <MoneyDetailRow
+                      label={`Actual revenue · ${metrics?.finance?.business_money_period_label ?? "All time"}`}
+                      value={metrics?.finance?.actual_plan_revenue_period_label ?? formatUsd(0)}
+                      note="Real Stripe paid invoices, summed across every business for the selected Business money period. Businesses with no Stripe customer on file contribute $0 here, same as their own row."
+                    />
+                    <MoneyDetailRow
+                      label="Platform net · same period"
+                      value={metrics?.finance?.platform_net_period_label ?? formatUsd(0)}
+                      note="Sum of every business's (plan cash + card fees + credit packs − est. phone cost). Phone cost is a wholesale estimate unless a shop's prepaid wallet burn is higher — see each business's breakdown for Actual vs. Est."
+                    />
+                    <MoneyDetailRow
                       label="Estimated MRR"
                       value={metrics?.finance?.estimated_mrr_label ?? formatUsd(0)}
-                      note="Starter $19 · Pro $49 · Business $99 list prices × active paid counts."
+                      note="Not real billing data — Starter $19 · Pro $49 · Business $99 list prices × active paid counts. Use Actual revenue above for real cash."
                     />
                     <MoneyDetailRow
                       label="Starter"
@@ -832,6 +861,32 @@ export function LyncrAdminDashboard({
                     value={formatUsd(metrics?.total_carrier_credit ?? 0)}
                     note="Customer phone wallets — Lyncr owes this as minute credit."
                   />
+                ) : null}
+                {moneySheet === "business_wallets" ? (
+                  <>
+                    <MoneyDetailRow
+                      label="All businesses, combined"
+                      value={metrics?.finance?.total_business_wallet_balance_label ?? formatUsd(0)}
+                      note="Right now — not a period total. Moves the instant any business collects a charge, gets refunded/disputed, or sends money to their bank."
+                    />
+                    {businessEconomics
+                      .slice()
+                      .sort((a, b) => b.collected_wallet_balance_cents - a.collected_wallet_balance_cents)
+                      .filter((row) => row.collected_wallet_balance_cents !== 0)
+                      .slice(0, 20)
+                      .map((row) => (
+                        <MoneyDetailRow
+                          key={row.user_id}
+                          label={row.business_name}
+                          value={row.collected_wallet_balance_label}
+                        />
+                      ))}
+                    {businessEconomics.every((row) => row.collected_wallet_balance_cents === 0) ? (
+                      <p className="py-3 text-xs text-muted-foreground">
+                        No business has a non-zero wallet balance yet.
+                      </p>
+                    ) : null}
+                  </>
                 ) : null}
                 {moneySheet === "paying" ? (
                   <>

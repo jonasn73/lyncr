@@ -7,7 +7,7 @@ import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
 /** Ops Home “this month” uses US Eastern so evenings don’t flip to next month early (UTC). */
 const ADMIN_FINANCE_TZ = "America/New_York"
 
-function formatUsdFromCents(cents: number): string {
+export function formatUsdFromCents(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",

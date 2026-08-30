@@ -14368,6 +14368,8 @@ export type AdminBusinessEconomicsRawRow = {
   wallet_burn_mtd_cents: number
   number_purchase_mtd_cents: number
   credit_pack_mtd_cents: number
+  /** Current job-payment wallet balance (charges − reversals − payouts), not period-scoped. */
+  collected_wallet_balance_cents: number
 }
 
 /** Lightweight prior-month usage for “July had X calls” hints on This month. */
@@ -14437,6 +14439,14 @@ export async function getAdminBusinessEconomicsRawRows(opts: {
         WHERE bl.created_at >= ${gteIso}::timestamptz
           AND (${ltIso}::timestamptz IS NULL OR bl.created_at < ${ltIso}::timestamptz)
         GROUP BY bl.user_id
+      ),
+      collected_wallet AS (
+        -- Current balance, not period-scoped: charges minus reversals minus payouts, right now.
+        SELECT wt.owner_user_id AS user_id,
+               coalesce(sum(wt.amount), 0)::numeric AS balance_usd
+        FROM wallet_transactions wt
+        WHERE wt.status = 'COMPLETED' AND wt.owner_user_id IS NOT NULL
+        GROUP BY wt.owner_user_id
       )
       SELECT
         o.user_id,
@@ -14453,11 +14463,13 @@ export async function getAdminBusinessEconomicsRawRows(opts: {
         coalesce(s.sms_count, 0)::int AS sms_count_mtd,
         coalesce(l.wallet_burn_cents, 0)::bigint AS wallet_burn_mtd_cents,
         coalesce(l.number_purchase_cents, 0)::bigint AS number_purchase_mtd_cents,
-        coalesce(l.credit_pack_cents, 0)::bigint AS credit_pack_mtd_cents
+        coalesce(l.credit_pack_cents, 0)::bigint AS credit_pack_mtd_cents,
+        round(coalesce(cw.balance_usd, 0) * 100)::bigint AS collected_wallet_balance_cents
       FROM owners o
       LEFT JOIN calls c ON c.user_id = o.user_id
       LEFT JOIN sms s ON s.user_id = o.user_id
       LEFT JOIN ledger l ON l.user_id = o.user_id
+      LEFT JOIN collected_wallet cw ON cw.user_id = o.user_id
       ORDER BY o.business_name ASC
     `) as Record<string, unknown>[]
 
@@ -14496,7 +14508,11 @@ export async function getAdminBusinessEconomicsRawRows(opts: {
             0::int AS sms_count_mtd,
             0::bigint AS wallet_burn_mtd_cents,
             0::bigint AS number_purchase_mtd_cents,
-            0::bigint AS credit_pack_mtd_cents
+            0::bigint AS credit_pack_mtd_cents,
+            coalesce((
+              SELECT round(sum(wt.amount) * 100)::bigint FROM wallet_transactions wt
+              WHERE wt.owner_user_id = u.id AND wt.status = 'COMPLETED'
+            ), 0) AS collected_wallet_balance_cents
           FROM users u
           WHERE coalesce(u.account_role, 'owner') = 'owner'
             AND nullif(trim(u.business_name), '') IS NOT NULL
@@ -14532,6 +14548,7 @@ function mapAdminBusinessEconomicsRawRow(row: Record<string, unknown>): AdminBus
     wallet_burn_mtd_cents: Number(row.wallet_burn_mtd_cents ?? 0),
     number_purchase_mtd_cents: Number(row.number_purchase_mtd_cents ?? 0),
     credit_pack_mtd_cents: Number(row.credit_pack_mtd_cents ?? 0),
+    collected_wallet_balance_cents: Number(row.collected_wallet_balance_cents ?? 0),
   }
 }
 

@@ -180,6 +180,20 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
       />
       <MoneyLine label="Net for Lyncr" value={row.net_label} tone="net" />
 
+      <div className="mt-3 rounded-xl border border-border/80 bg-background/40 px-3 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Their wallet, right now
+        </p>
+        <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+          {row.collected_wallet_balance_label}
+        </p>
+        <p className="mt-1 text-2xs leading-snug text-muted-foreground">
+          What this business currently has sitting in their own job-payment wallet — not a
+          Lyncr number, and not period-scoped. Updates the instant they collect a charge, get
+          refunded/disputed, or send money to their bank.
+        </p>
+      </div>
+
       {(row.saas_last_paid_label || row.saas_next_bill_label) && (
         <p className="mt-2 text-2xs leading-snug text-muted-foreground">
           Last SaaS payment: {row.saas_last_paid_label ?? "never"}

@@ -482,6 +482,8 @@ function assembleRow(
     carrier_credit_usd: row.carrier_credit,
     stripe_connect_account_id: row.stripe_connect_account_id,
     breakdown_notes: notes,
+    collected_wallet_balance_cents: row.collected_wallet_balance_cents,
+    collected_wallet_balance_label: formatUsdFromCents(row.collected_wallet_balance_cents),
   }
 }
 

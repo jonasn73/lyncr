@@ -888,6 +888,22 @@ export interface LyncrAdminMetrics {
     stripe_platform_available_label: string
     stripe_platform_pending_label: string
     stripe_configured: boolean
+    /** Sum of every business's current job-payment wallet balance (charges − reversals − payouts). */
+    total_business_wallet_balance_cents: number
+    total_business_wallet_balance_label: string
+    /**
+     * Real Stripe-invoice SaaS cash across all businesses for the selected Business money period —
+     * not a list-price estimate, unlike estimated_mrr_cents. Only counts rows with a Stripe customer
+     * on file (plan_cash_source === "stripe"); businesses with no Stripe id contribute $0, same as
+     * their own row does, rather than being silently dropped.
+     */
+    actual_plan_revenue_period_cents: number
+    actual_plan_revenue_period_label: string
+    /** Sum of every business's net_cents (plan + fees + credit packs − phone cost) for the period. */
+    platform_net_period_cents: number
+    platform_net_period_label: string
+    /** Human window matching the selected Business money period, e.g. "This month". */
+    business_money_period_label: string
   }
 }
 
@@ -952,6 +968,9 @@ export interface AdminBusinessEconomics {
   carrier_credit_usd: number
   stripe_connect_account_id: string | null
   breakdown_notes: string[]
+  /** Current job-payment wallet balance (charges − reversals − payouts) — not period-scoped. */
+  collected_wallet_balance_cents: number
+  collected_wallet_balance_label: string
 }
 
 // --- Receptionists / Agents ---
