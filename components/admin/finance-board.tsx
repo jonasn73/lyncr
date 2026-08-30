@@ -218,7 +218,13 @@ function RevenueChart() {
                   "Collected",
                 ]}
               />
-              <Bar dataKey="dollars" fill={CHART_SUCCESS} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar
+                dataKey="dollars"
+                fill={CHART_SUCCESS}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={24}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
