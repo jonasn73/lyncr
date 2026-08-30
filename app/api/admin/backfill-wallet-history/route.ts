@@ -120,9 +120,63 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dryRun = searchParams.get("dryRun") !== "false"
   const onlyUserId = (searchParams.get("userId") || "").trim() || null
+  const diagnoseAccountId = (searchParams.get("diagnose") || "").trim() || null
 
   const sql = neon(resolveNeonDatabaseUrl())
   const stripe = getStripeClient()
+
+  if (diagnoseAccountId) {
+    const byType = new Map<string, { count: number; net: number }>()
+    const rows: {
+      id: string
+      type: string
+      amount: number
+      net: number
+      fee: number
+      created: string
+      description: string | null
+      status: string
+    }[] = []
+    let startingAfter: string | undefined
+    for (let page = 0; page < 30; page++) {
+      const batch = await stripe.balanceTransactions.list(
+        { limit: 100, ...(startingAfter ? { starting_after: startingAfter } : {}) },
+        { stripeAccount: diagnoseAccountId }
+      )
+      for (const tx of batch.data) {
+        const entry = byType.get(tx.type) ?? { count: 0, net: 0 }
+        entry.count++
+        entry.net += tx.net
+        byType.set(tx.type, entry)
+        rows.push({
+          id: tx.id,
+          type: tx.type,
+          amount: tx.amount / 100,
+          net: tx.net / 100,
+          fee: tx.fee / 100,
+          created: new Date(tx.created * 1000).toISOString(),
+          description: tx.description,
+          status: tx.status,
+        })
+      }
+      if (!batch.has_more || batch.data.length === 0) break
+      startingAfter = batch.data[batch.data.length - 1]?.id
+      if (!startingAfter) break
+    }
+    const byTypeOut: Record<string, { count: number; net_cents: number; net_usd: number }> = {}
+    for (const [type, v] of byType) {
+      byTypeOut[type] = { count: v.count, net_cents: v.net, net_usd: v.net / 100 }
+    }
+    const grandTotalCents = rows.reduce((s, r) => s + r.net * 100, 0)
+    return NextResponse.json({
+      data: {
+        accountId: diagnoseAccountId,
+        grand_total_net_usd: grandTotalCents / 100,
+        by_type: byTypeOut,
+        rows,
+      },
+    })
+  }
 
   const owners = (await sql`
     SELECT u.id::text AS user_id,
