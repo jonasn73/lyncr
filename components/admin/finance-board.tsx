@@ -166,6 +166,13 @@ function RevenueChart() {
   )
 
   const total = useMemo(() => (points ?? []).reduce((s, p) => s + p.chargeCents, 0), [points])
+  // Explicit domain — recharts' "auto" max was compressing bars to a fraction of the chart
+  // height for reasons that didn't trace to any value in chartData; computing it ourselves
+  // is unambiguous and removes the dependency on recharts' internal domain inference.
+  const yDomainMax = useMemo(() => {
+    const max = chartData.reduce((m, d) => Math.max(m, d.dollars), 0)
+    return max <= 0 ? 100 : Math.ceil((max * 1.15) / 50) * 50
+  }, [chartData])
 
   return (
     <section className="space-y-3">
@@ -197,6 +204,7 @@ function RevenueChart() {
                 minTickGap={24}
               />
               <YAxis
+                domain={[0, yDomainMax]}
                 tick={{ fill: CHART_MUTED, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
