@@ -195,7 +195,7 @@ export async function GET(req: NextRequest) {
           VALUES
             (gen_random_uuid(), ${owner.user_id}, NULL, ${-(payout.amount / 100)}, 'COMPLETED',
              'PAYOUT', ${payout.id}, ${owner.user_id}, 'PAYOUT', ${new Date(payout.created * 1000).toISOString()}::timestamptz)
-          ON CONFLICT (stripe_payment_intent_id) DO NOTHING
+          ON CONFLICT (stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL DO NOTHING
         `
         totalInserted++
         totalRecoveredCents += payout.amount
@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
           VALUES
             (gen_random_uuid(), ${charge.user_id}, ${charge.job_id}, ${-(fee.amount / 100)}, 'COMPLETED',
              ${charge.payment_method}, ${feeRef}, ${owner.user_id}, 'FEE', ${new Date(fee.created * 1000).toISOString()}::timestamptz)
-          ON CONFLICT (stripe_payment_intent_id) DO NOTHING
+          ON CONFLICT (stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL DO NOTHING
         `
         totalInserted++
         totalRecoveredCents += fee.amount
