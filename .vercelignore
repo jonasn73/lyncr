@@ -1,0 +1,4 @@
+# Full duplicate repo checkouts made by Claude Code's worktree feature. Only excluded from git
+# via a local (non-shared) .git/info/exclude rule, which vercel deploy's file walker does not
+# read — without this, deploys try to archive tens of thousands of duplicate files.
+.claude/worktrees/
