@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   commissionCentsFromCharge,
+  ledgerStatusForIntent,
   normalizeJobPaymentMethod,
   resolveVerifiedChargeCents,
   type JobPaymentContext,
@@ -69,5 +70,22 @@ describe("commissionCentsFromCharge", () => {
     expect(commissionCentsFromCharge(10000)).toBe(7000)
     if (prev === undefined) delete process.env.TECH_JOB_COMMISSION_RATE
     else process.env.TECH_JOB_COMMISSION_RATE = prev
+  })
+})
+
+describe("ledgerStatusForIntent", () => {
+  it("credits the wallet the moment Stripe reports succeeded", () => {
+    // The owner should not have to wait on the browser's confirm call or a webhook — a missed
+    // settle used to strand real money at PENDING, hidden from the list and the total.
+    expect(ledgerStatusForIntent("succeeded")).toBe("COMPLETED")
+  })
+
+  it("leaves money that is not in hand yet PENDING", () => {
+    // processing = still clearing; requires_capture = authorized only, nothing captured.
+    expect(ledgerStatusForIntent("processing")).toBe("PENDING")
+    expect(ledgerStatusForIntent("requires_capture")).toBe("PENDING")
+    expect(ledgerStatusForIntent("requires_payment_method")).toBe("PENDING")
+    expect(ledgerStatusForIntent("requires_action")).toBe("PENDING")
+    expect(ledgerStatusForIntent("canceled")).toBe("PENDING")
   })
 })

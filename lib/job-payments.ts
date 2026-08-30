@@ -1,4 +1,5 @@
-// Job PaymentIntents — verify booked price, create Stripe PI + PENDING wallet tx, settle on confirm.
+// Job PaymentIntents — verify booked price, create Stripe PI + wallet ledger row (COMPLETED as
+// soon as Stripe reports succeeded), settle the rest on confirm.
 
 import { neon } from "@neondatabase/serverless"
 import { getStripeClient, isStripeConfigured } from "@/lib/stripe-config"
@@ -11,6 +12,7 @@ import {
   settleWalletTransactionByPaymentIntent,
   type WalletPaymentMethod,
   type WalletTransaction,
+  type WalletTransactionStatus,
 } from "@/lib/tech-wallet"
 import type Stripe from "stripe"
 
@@ -252,6 +254,21 @@ async function guardAgainstDuplicateJobCharge(params: {
  * (e.g. a Tap to Pay intent still awaiting the terminal tap), the original error is safe to
  * surface as-is since a retry there charges nothing twice.
  */
+/**
+ * Money in hand the moment Stripe says so. `succeeded` means the charge cleared, so the ledger
+ * row is written COMPLETED in this same request and the balance moves immediately — it does not
+ * wait on the browser's follow-up confirm call or on a Stripe webhook, either of which can be
+ * missed (a closed sheet, a dropped connection, an unconfigured Connect endpoint). A missed
+ * settle used to strand the row at PENDING forever, which hid it from the owner list after 20
+ * minutes and left it out of the collected total entirely — real money, invisible.
+ *
+ * `processing` and `requires_capture` stay PENDING on purpose: neither is money in hand yet,
+ * and both still settle through the existing confirm/webhook path.
+ */
+export function ledgerStatusForIntent(intentStatus: string): WalletTransactionStatus {
+  return intentStatus === "succeeded" ? "COMPLETED" : "PENDING"
+}
+
 async function recordLedgerRowAfterCharge(
   params: Parameters<typeof createWalletTransaction>[0],
   paymentIntentId: string,
@@ -379,7 +396,7 @@ export async function createJobPaymentIntent(params: {
       userId: params.job.assignedTechId,
       jobId: params.job.jobId,
       amountUsd: commissionCents / 100,
-      status: "PENDING",
+      status: ledgerStatusForIntent(intent.status),
       paymentMethod: params.walletMethod,
       stripePaymentIntentId: intent.id,
     },
@@ -502,7 +519,7 @@ export async function createAdhocPaymentIntent(params: {
       userId: params.ownerUserId,
       jobId: null,
       amountUsd: params.chargeCents / 100,
-      status: "PENDING",
+      status: ledgerStatusForIntent(intent.status),
       paymentMethod: params.walletMethod,
       stripePaymentIntentId: intent.id,
       customerPhone: customerPhone || null,
