@@ -70,6 +70,36 @@ type LedgerRow = {
 
 type LedgerPage = { rows: LedgerRow[]; totalCount: number; limit: number; offset: number }
 
+type BillingLedgerRow = {
+  id: string
+  ownerUserId: string | null
+  businessName: string
+  deltaCents: number
+  deltaLabel: string
+  balanceAfterCents: number
+  balanceAfterLabel: string
+  reason: string
+  reference: string | null
+  createdAt: string
+}
+
+type BillingLedgerPage = {
+  rows: BillingLedgerRow[]
+  totalCount: number
+  limit: number
+  offset: number
+}
+
+type InvoiceRow = {
+  id: string
+  amountLabel: string
+  amountCents: number
+  status: string
+  createdLabel: string
+  paidLabel: string | null
+  hostedInvoiceUrl: string | null
+}
+
 type DailyPoint = {
   day: string
   chargeCents: number
@@ -360,6 +390,8 @@ function CardDetailContent({
   businessEconomics,
   onJumpToLedger,
   onOpenBusiness,
+  onJumpToBillingLedger,
+  onOpenInvoices,
 }: {
   cardKey: CardKey
   finance: NonNullable<ReturnType<typeof useLyncrAdminDashboardData>["metrics"]>["finance"]
@@ -368,6 +400,10 @@ function CardDetailContent({
   onJumpToLedger: (filters: { entryType?: string; ownerUserId?: string }) => void
   /** Not in the wallet ledger (Stripe subscriptions) — opens the business's own detail instead. */
   onOpenBusiness: (userId: string) => void
+  /** Backed by real billing_ledger rows (prepaid phone credit) — jumps straight to them, filtered. */
+  onJumpToBillingLedger: (filters: { reason?: string; ownerUserId?: string }) => void
+  /** Live Stripe invoices for one business — what its Plan cash is actually made of. */
+  onOpenInvoices: (userId: string, businessName: string) => void
 }) {
   if (cardKey === "stripe_available" || cardKey === "stripe_pending") {
     return (
@@ -425,9 +461,8 @@ function CardDetailContent({
       <div className="space-y-1">
         <p className="mb-2 text-2xs leading-snug text-muted-foreground">
           Real Stripe-paid invoices, {finance?.business_money_period_label ?? "all time"}. Businesses
-          with no Stripe customer on file, or no payment this period, aren't listed. These are Stripe
-          subscription invoices — not in the wallet ledger below — so tap a business to see its
-          subscription status rather than individual transactions.
+          with no Stripe customer on file, or no payment this period, aren't listed. Tap a business
+          to see its real Stripe invoices.
         </p>
         {rows.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">No Stripe subscription revenue in this window.</p>
@@ -436,7 +471,7 @@ function CardDetailContent({
             <button
               type="button"
               key={b.user_id}
-              onClick={() => onOpenBusiness(b.user_id)}
+              onClick={() => onOpenInvoices(b.user_id, b.business_name)}
               className="block w-full border-b border-border/60 py-2 text-left hover:bg-muted/30"
             >
               <div className="flex items-center justify-between text-sm">
@@ -540,18 +575,26 @@ function CardDetailContent({
           {finance?.net_breakdown_card_fees_label ?? "$0"}
         </span>
       </button>
-      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
-        <span className="text-foreground">Credit packs sold</span>
+      <button
+        type="button"
+        onClick={() => onJumpToBillingLedger({ reason: "stripe_credit_pack" })}
+        className="flex w-full items-center justify-between border-b border-border/60 py-2 text-left text-sm hover:bg-muted/30"
+      >
+        <span className="text-foreground">Credit packs sold →</span>
         <span className="tabular-nums font-medium text-success">
           {finance?.net_breakdown_credit_packs_label ?? "$0"}
         </span>
-      </div>
-      <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
-        <span className="text-foreground">Phone cost (est.)</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onJumpToBillingLedger({ reason: "carrier_number_purchase" })}
+        className="flex w-full items-center justify-between border-b border-border/60 py-2 text-left text-sm hover:bg-muted/30"
+      >
+        <span className="text-foreground">Phone cost (est.) →</span>
         <span className="tabular-nums font-medium text-warning">
           −{finance?.net_breakdown_phone_cost_label ?? "$0"}
         </span>
-      </div>
+      </button>
       <div className="flex items-center justify-between border-b border-border py-2 text-sm">
         <span className="font-semibold text-foreground">Net for Lyncr</span>
         <span className="tabular-nums font-semibold text-foreground">
@@ -559,9 +602,9 @@ function CardDetailContent({
         </span>
       </div>
       <p className="mt-2 text-2xs leading-snug text-muted-foreground">
-        Plan cash and credit packs aren't in the wallet ledger (Stripe subscriptions and a
-        separate billing ledger) — tap a business below to see their full detail. Phone cost is
-        a wholesale estimate, not individual transactions.
+        Plan cash, credit packs, and phone cost aren't in the wallet ledger — Plan cash is real
+        Stripe invoices (tap a business below), Credit packs and Phone cost are the billing
+        ledger, tappable above.
       </p>
 
       <p className="mb-1 mt-4 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -651,6 +694,90 @@ export function AdminFinanceBoard() {
     requestAnimationFrame(() => {
       ledgerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     })
+  }, [])
+
+  // --- Billing ledger: separate table from a separate source table (billing_ledger, prepaid
+  // phone credit) — Credit packs sold and the wallet-burn part of Phone cost live here, not in
+  // wallet_transactions. Same pattern as the transaction ledger above, deliberately kept as its
+  // own section rather than merged, since the two tables have different shapes and meanings.
+  const [billingOwnerFilter, setBillingOwnerFilter] = useState<string>("all")
+  const [billingReasonFilter, setBillingReasonFilter] = useState<string>("all")
+  const [billingOffset, setBillingOffset] = useState(0)
+  const billingLimit = 50
+  const billingSectionRef = useRef<HTMLDivElement | null>(null)
+
+  const [billingLedger, setBillingLedger] = useState<BillingLedgerPage | null>(null)
+  const [billingLedgerLoading, setBillingLedgerLoading] = useState(true)
+
+  const fetchBillingLedger = useCallback(async () => {
+    setBillingLedgerLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (billingOwnerFilter !== "all") params.set("ownerUserId", billingOwnerFilter)
+      if (billingReasonFilter !== "all") params.set("reason", billingReasonFilter)
+      params.set("limit", String(billingLimit))
+      params.set("offset", String(billingOffset))
+      const res = await fetch(`/api/admin/finance/billing-ledger?${params.toString()}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as { data?: BillingLedgerPage; error?: string }
+      if (!res.ok) throw new Error(json.error ?? "Failed to load billing ledger")
+      setBillingLedger(json.data ?? null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load billing ledger")
+    } finally {
+      setBillingLedgerLoading(false)
+    }
+  }, [billingOwnerFilter, billingReasonFilter, billingOffset])
+
+  useEffect(() => {
+    void fetchBillingLedger()
+  }, [fetchBillingLedger])
+
+  useEffect(() => {
+    setBillingOffset(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billingOwnerFilter, billingReasonFilter])
+
+  const jumpToBillingLedger = useCallback((filters: { reason?: string; ownerUserId?: string }) => {
+    setOpenCard(null)
+    setBillingReasonFilter(filters.reason ?? "all")
+    setBillingOwnerFilter(filters.ownerUserId ?? "all")
+    setBillingOffset(0)
+    requestAnimationFrame(() => {
+      billingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }, [])
+
+  // --- Stripe invoices: live per-business fetch (not in either DB ledger) — what "Plan cash"
+  // is actually made of. Opened as its own sheet since it needs a network call, not local state.
+  const [invoicesFor, setInvoicesFor] = useState<{ userId: string; businessName: string } | null>(null)
+  const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null)
+  const [invoicesLoading, setInvoicesLoading] = useState(false)
+
+  const openInvoices = useCallback(async (userId: string, businessName: string) => {
+    setOpenCard(null)
+    setInvoicesFor({ userId, businessName })
+    setInvoices(null)
+    setInvoicesLoading(true)
+    try {
+      const res = await fetch(`/api/admin/finance/invoices?ownerUserId=${encodeURIComponent(userId)}`, {
+        credentials: "include",
+        cache: "no-store",
+      })
+      const json = (await res.json()) as {
+        data?: { invoices?: InvoiceRow[] }
+        error?: string
+      }
+      if (!res.ok) throw new Error(json.error ?? "Failed to load invoices")
+      setInvoices(json.data?.invoices ?? [])
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load invoices")
+      setInvoices([])
+    } finally {
+      setInvoicesLoading(false)
+    }
   }, [])
 
   const [ledger, setLedger] = useState<LedgerPage | null>(null)
@@ -1056,6 +1183,130 @@ export function AdminFinanceBoard() {
         ) : null}
       </section>
 
+      {/* --- Billing ledger: prepaid phone credit — a different table (billing_ledger), not
+           wallet_transactions. What Credit packs sold and wallet-burn phone cost are made of. --- */}
+      <section ref={billingSectionRef} className="scroll-mt-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Billing ledger (phone credit)</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Every prepaid credit pack purchased and every dollar burned — a running balance, not
+            wallet_transactions. Covers Credit packs sold and part of Phone cost.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Select value={billingOwnerFilter} onValueChange={setBillingOwnerFilter}>
+            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[200px]">
+              <SelectValue placeholder="Business" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All businesses</SelectItem>
+              {businessEconomics.map((b) => (
+                <SelectItem key={b.user_id} value={b.user_id}>
+                  {b.business_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={billingReasonFilter} onValueChange={setBillingReasonFilter}>
+            <SelectTrigger className="h-9 w-full border-border bg-background text-foreground sm:w-[220px]">
+              <SelectValue placeholder="Reason" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All reasons</SelectItem>
+              <SelectItem value="stripe_credit_pack">Credit pack purchased</SelectItem>
+              <SelectItem value="carrier_number_purchase">Phone number purchased</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground">When</TableHead>
+                <TableHead className="text-muted-foreground">Business</TableHead>
+                <TableHead className="text-muted-foreground">Reason</TableHead>
+                <TableHead className="text-right text-muted-foreground">Amount</TableHead>
+                <TableHead className="text-right text-muted-foreground">Balance after</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {billingLedgerLoading && !billingLedger ? (
+                <TableRow className="border-border">
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
+              ) : !billingLedger || billingLedger.rows.length === 0 ? (
+                <TableRow className="border-border">
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    No billing ledger activity matches.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                billingLedger.rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className={cn("border-border", row.ownerUserId && "cursor-pointer hover:bg-muted/30")}
+                    onClick={() => row.ownerUserId && openBusiness(row.ownerUserId)}
+                  >
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {formatDateTime(row.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-foreground">{row.businessName}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {row.reason.replace(/_/g, " ")}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right tabular-nums font-medium",
+                        row.deltaCents < 0 ? "text-warning" : "text-success"
+                      )}
+                    >
+                      {row.deltaCents < 0 ? "" : "+"}
+                      {row.deltaLabel}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {row.balanceAfterLabel}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {billingLedger && billingLedger.totalCount > 0 ? (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {billingLedger.offset + 1}–
+              {Math.min(billingLedger.offset + billingLedger.rows.length, billingLedger.totalCount)} of{" "}
+              {billingLedger.totalCount}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={billingOffset === 0 || billingLedgerLoading}
+                onClick={() => setBillingOffset(Math.max(0, billingOffset - billingLimit))}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={billingOffset + billingLimit >= billingLedger.totalCount || billingLedgerLoading}
+                onClick={() => setBillingOffset(billingOffset + billingLimit)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       <Sheet open={openCard != null} onOpenChange={(open) => !open && setOpenCard(null)}>
         <SheetContent side="right" className="w-full border-border bg-background text-foreground sm:max-w-md">
           <SheetHeader>
@@ -1070,8 +1321,60 @@ export function AdminFinanceBoard() {
                 businessEconomics={businessEconomics}
                 onJumpToLedger={jumpToLedger}
                 onOpenBusiness={openBusiness}
+                onJumpToBillingLedger={jumpToBillingLedger}
+                onOpenInvoices={openInvoices}
               />
             ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={invoicesFor != null} onOpenChange={(open) => !open && setInvoicesFor(null)}>
+        <SheetContent side="right" className="w-full border-border bg-background text-foreground sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="text-foreground">
+              {invoicesFor ? `${invoicesFor.businessName} — Stripe invoices` : "Stripe invoices"}
+            </SheetTitle>
+            <SheetDescription className="sr-only">Real Stripe invoice history</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 max-h-[calc(100vh-8rem)] overflow-y-auto px-1">
+            {invoicesLoading ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : !invoices || invoices.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                No Stripe invoices found for this business.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {invoices.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between border-b border-border/60 py-2 text-sm"
+                  >
+                    <div>
+                      <p className="text-foreground">{inv.createdLabel}</p>
+                      <p className="mt-0.5 text-2xs text-muted-foreground">
+                        {inv.status}
+                        {inv.paidLabel ? ` · paid ${inv.paidLabel}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="tabular-nums font-medium text-foreground">{inv.amountLabel}</span>
+                      {inv.hostedInvoiceUrl ? (
+                        <a
+                          href={inv.hostedInvoiceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-2xs font-semibold text-operator hover:underline"
+                        >
+                          View →
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
