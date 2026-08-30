@@ -121,9 +121,34 @@ export async function GET(req: NextRequest) {
   const dryRun = searchParams.get("dryRun") !== "false"
   const onlyUserId = (searchParams.get("userId") || "").trim() || null
   const diagnoseAccountId = (searchParams.get("diagnose") || "").trim() || null
+  const checkPaymentIntentId = (searchParams.get("checkPi") || "").trim() || null
 
   const sql = neon(resolveNeonDatabaseUrl())
   const stripe = getStripeClient()
+
+  if (checkPaymentIntentId && diagnoseAccountId) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(checkPaymentIntentId, {
+        stripeAccount: diagnoseAccountId,
+      })
+      return NextResponse.json({
+        data: {
+          id: intent.id,
+          status: intent.status,
+          amount: intent.amount / 100,
+          amount_received: intent.amount_received / 100,
+          created: new Date(intent.created * 1000).toISOString(),
+          latest_charge: intent.latest_charge,
+          application_fee_amount: (intent.application_fee_amount ?? 0) / 100,
+          last_payment_error: intent.last_payment_error?.message ?? null,
+        },
+      })
+    } catch (e) {
+      return NextResponse.json({
+        data: { id: checkPaymentIntentId, error: e instanceof Error ? e.message : String(e) },
+      })
+    }
+  }
 
   if (diagnoseAccountId) {
     const byType = new Map<string, { count: number; net: number }>()
