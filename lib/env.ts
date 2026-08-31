@@ -69,41 +69,50 @@ const SKIP_VALIDATION = ["1", "true", "yes", "on"].includes(
 )
 
 // Turn a Zod failure into one readable, multi-line error message.
-function formatZodError(scope: "server" | "client", error: z.ZodError): string {
-  const lines = error.issues.map((issue) => `  • ${issue.path.join(".") || "(root)"}: ${issue.message}`)
+// `key` is used as the path fallback when validating a single field (whose
+// own issue.path is empty because it was parsed in isolation).
+function formatZodError(scope: "server" | "client", error: z.ZodError, key?: string): string {
+  const lines = error.issues.map((issue) => `  • ${issue.path.join(".") || key || "(root)"}: ${issue.message}`)
   return `[env] Invalid ${scope} environment variables:\n${lines.join("\n")}`
 }
 
 // ----------------------------------------------------------------------------
 // 3. LAZY VALIDATION — parse on first access, then cache the result.
 // ----------------------------------------------------------------------------
-let serverCache: ServerEnv | null = null // Memoized server parse result.
-let clientCache: ClientEnv | null = null // Memoized client parse result.
+const serverValueCache: Partial<Record<ServerKey, unknown>> = {} // Per-key memoized server values.
 
-// Validate + cache the server secrets. Only ever called on the server.
-function getServerEnv(): ServerEnv {
-  if (serverCache) return serverCache // Return the cached result if we already parsed.
+// Validate + cache a SINGLE server secret. Validating per-key (instead of the
+// whole schema at once) means reading one secret — e.g. SESSION_SECRET during
+// login — never fails just because an UNRELATED secret (e.g. STRIPE_SECRET_KEY)
+// is absent in this environment. Each route only pays for the vars it uses.
+function getServerValue<K extends ServerKey>(key: K): ServerEnv[K] {
+  if (key in serverValueCache) return serverValueCache[key] as ServerEnv[K] // Cached (incl. undefined when skipped).
 
-  // Collect the raw server values straight from the runtime environment.
-  const raw = {
-    DATABASE_URL: process.env.DATABASE_URL,
-    TELNYX_API_KEY: process.env.TELNYX_API_KEY,
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-    SESSION_SECRET: process.env.SESSION_SECRET,
-  }
+  const raw = process.env[key]
 
-  // When validation is skipped, trust the raw values as-is (may be undefined).
+  // When validation is skipped, trust the raw value as-is (may be undefined).
   if (SKIP_VALIDATION) {
-    serverCache = raw as unknown as ServerEnv
-    return serverCache
+    serverValueCache[key] = raw
+    return raw as ServerEnv[K]
   }
 
-  // Strictly validate; throw a clear, aggregated error if anything is missing/bad.
-  const parsed = serverSchema.safeParse(raw)
-  if (!parsed.success) throw new Error(formatZodError("server", parsed.error))
+  // Validate just this field so an unrelated missing/invalid var can't cascade.
+  const parsed = serverSchema.shape[key].safeParse(raw)
+  if (!parsed.success) throw new Error(formatZodError("server", parsed.error, key))
 
-  serverCache = parsed.data // Cache the validated, typed values.
-  return serverCache
+  serverValueCache[key] = parsed.data
+  return parsed.data as ServerEnv[K]
+}
+
+// Validate every server secret and return the full object. Use only when you
+// genuinely need all of them; individual reads should go through the proxy.
+function getServerEnv(): ServerEnv {
+  return {
+    DATABASE_URL: getServerValue("DATABASE_URL"),
+    TELNYX_API_KEY: getServerValue("TELNYX_API_KEY"),
+    STRIPE_SECRET_KEY: getServerValue("STRIPE_SECRET_KEY"),
+    SESSION_SECRET: getServerValue("SESSION_SECRET"),
+  }
 }
 
 // Read the public vars using LITERAL references so Next.js inlines them.
@@ -116,29 +125,38 @@ function readClientRaw() {
   }
 }
 
-// Validate + cache the public/browser vars. Safe to call on server or client.
-function getClientEnv(): ClientEnv {
-  if (clientCache) return clientCache // Return cached result if available.
+const clientValueCache: Partial<Record<keyof ClientEnv, unknown>> = {} // Per-key memoized client values.
 
-  const raw = readClientRaw() // Grab the inlined NEXT_PUBLIC_* values.
+// Validate + cache a SINGLE public var. Same rationale as getServerValue: a
+// page that only reads NEXT_PUBLIC_APP_URL shouldn't crash because an unrelated
+// public var (e.g. NEXT_PUBLIC_SUPABASE_URL) is absent in this environment.
+function getClientValue<K extends keyof ClientEnv>(key: K): ClientEnv[K] {
+  if (key in clientValueCache) return clientValueCache[key] as ClientEnv[K]
 
-  // When validation is skipped, fall back to raw values (cluster still defaults).
+  const raw = readClientRaw()[key] // Inlined NEXT_PUBLIC_* value for this key.
+
+  // When validation is skipped, fall back to raw (cluster still defaults).
   if (SKIP_VALIDATION) {
-    clientCache = {
-      NEXT_PUBLIC_APP_URL: raw.NEXT_PUBLIC_APP_URL ?? "",
-      NEXT_PUBLIC_PUSHER_KEY: raw.NEXT_PUBLIC_PUSHER_KEY ?? "",
-      NEXT_PUBLIC_PUSHER_CLUSTER: raw.NEXT_PUBLIC_PUSHER_CLUSTER ?? "us2",
-      NEXT_PUBLIC_SUPABASE_URL: raw.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    }
-    return clientCache
+    const fallback = key === "NEXT_PUBLIC_PUSHER_CLUSTER" ? raw ?? "us2" : raw ?? ""
+    clientValueCache[key] = fallback
+    return fallback as ClientEnv[K]
   }
 
-  // Strictly validate the public vars; throw a readable error on failure.
-  const parsed = clientSchema.safeParse(raw)
-  if (!parsed.success) throw new Error(formatZodError("client", parsed.error))
+  const parsed = clientSchema.shape[key].safeParse(raw)
+  if (!parsed.success) throw new Error(formatZodError("client", parsed.error, key))
 
-  clientCache = parsed.data // Cache the validated, typed values.
-  return clientCache
+  clientValueCache[key] = parsed.data
+  return parsed.data as ClientEnv[K]
+}
+
+// Validate every public var and return the full object.
+function getClientEnv(): ClientEnv {
+  return {
+    NEXT_PUBLIC_APP_URL: getClientValue("NEXT_PUBLIC_APP_URL"),
+    NEXT_PUBLIC_PUSHER_KEY: getClientValue("NEXT_PUBLIC_PUSHER_KEY"),
+    NEXT_PUBLIC_PUSHER_CLUSTER: getClientValue("NEXT_PUBLIC_PUSHER_CLUSTER"),
+    NEXT_PUBLIC_SUPABASE_URL: getClientValue("NEXT_PUBLIC_SUPABASE_URL"),
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -162,12 +180,12 @@ export const env: Env = new Proxy({} as Env, {
             `Move this read into a server component, route handler, or server action.`
         )
       }
-      // On the server: return the validated server value.
-      return getServerEnv()[prop]
+      // On the server: validate + return just this secret (no cascade).
+      return getServerValue(prop)
     }
 
     // --- Everything else is a public client var: validate + return it. ---
-    return getClientEnv()[prop as keyof ClientEnv]
+    return getClientValue(prop as keyof ClientEnv)
   },
 })
 
