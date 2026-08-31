@@ -69,16 +69,21 @@ export function getLegacySessionCookieName(): string {
 export function getSessionCookieOptions(): {
   httpOnly: boolean
   secure: boolean
-  sameSite: "lax"
+  sameSite: "none"
   path: string
   maxAge: number
   expires: Date
 } {
   const expires = new Date(Date.now() + MAX_AGE_SEC * 1000)
+  // SameSite=None + Secure is REQUIRED so the session cookie is sent back when
+  // the app runs inside a cross-origin HTTPS iframe (e.g. the v0 preview).
+  // With SameSite=Lax the browser drops the cookie on cross-site navigations,
+  // which made login "succeed" (200) but immediately bounce to /login again.
+  // Both the v0 preview and production are served over HTTPS, so Secure is safe.
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     path: "/",
     maxAge: MAX_AGE_SEC,
     expires, // explicit expiry helps some browsers persist across refresh
@@ -89,7 +94,7 @@ export function getSessionCookieOptions(): {
 export function getLogoutCookieClearOptions(): {
   httpOnly: boolean
   secure: boolean
-  sameSite: "lax"
+  sameSite: "none"
   path: string
   maxAge: number
   expires: Date
