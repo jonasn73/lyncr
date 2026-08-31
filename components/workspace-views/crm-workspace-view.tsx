@@ -73,6 +73,7 @@ import { looksLikePhoneQuery, pickCrmCustomerIdForPhone } from "@/lib/crm-phone-
 import { RecordInvoicesPanel } from "@/components/dashboard/record-invoices-panel"
 import { cn } from "@/lib/utils"
 import { WorkspaceFilterPills } from "@/components/workspace-filter-pills"
+import { WorkspacePageHeader } from "@/components/dashboard-workspace-ui"
 import {
   ClientSearchParamsBridge,
   readWindowSearchQuery,
@@ -2630,19 +2631,12 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // Lines pattern: list paints from cookie/session; inline skeleton only when empty+loading.
   // pb clears the fixed mobile dock so the last list cards stay reachable while main scrolls.
   return (
-    <div className="mx-auto flex w-full max-w-workspace flex-col gap-3 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-3 md:pb-8">
-      <header className="flex flex-col gap-1">
-        <p className="hidden text-micro font-semibold uppercase tracking-wider text-muted-foreground md:block">
-          CRM
-        </p>
-        <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
-          Customers &amp; Leads
-        </h1>
-        <p className="hidden text-sm text-muted-foreground md:block">
-          People, vehicles, history, and follow-ups — including book-form submissions (stay here after
-          you clear Lines alerts). Use Book forms to find customer-filled requests that still need a call.
-        </p>
-      </header>
+    <div className="mx-auto flex w-full max-w-workspace flex-col gap-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:gap-8 md:pb-8">
+      <WorkspacePageHeader
+        eyebrow="CRM"
+        title="Customers & Leads"
+        description="People, vehicles, history, and follow-ups — including book-form submissions (stay here after you clear Lines alerts). Use Book forms to find customer-filled requests that still need a call."
+      />
 
       {/* One column until a customer is picked — the reserved profile pane was ~51% of a
           1280px screen sitting empty. From lg up a selection splits it side by side;

@@ -33,10 +33,14 @@ export function WorkspacePage({
 export function WorkspacePageHeader({
   eyebrow,
   title,
+  description,
   action,
 }: {
   eyebrow?: string
   title: string
+  /** Optional supporting line under the title. Kept in the shared header so every
+   *  page's eyebrow/title/description share one rhythm instead of hand-rolling it. */
+  description?: ReactNode
   action?: ReactNode
 }) {
   return (
@@ -55,6 +59,9 @@ export function WorkspacePageHeader({
         >
           {title}
         </h1>
+        {description ? (
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
       </div>
       {action ? <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{action}</div> : null}
     </div>
