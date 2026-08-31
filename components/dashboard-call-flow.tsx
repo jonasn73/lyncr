@@ -17,6 +17,7 @@ import {
 import { DRAWER_SHEET_GPU } from "@/lib/workspace-sheet-classes"
 import { AdminRoutingOverrideNotice } from "@/components/dashboard/admin-routing-override-notice"
 import { WhoRingsConsole } from "@/components/dashboard/who-rings-console"
+import { CallFlowStepsSkeleton } from "@/components/workspace-content-skeletons"
 import { HoldQueueWaitingCard } from "@/components/dashboard/hold-queue-waiting-card"
 import { JustFinishedReviewCard } from "@/components/dashboard/just-finished-review-card"
 import { useDashboardNumbersModal } from "@/components/dashboard-numbers-modal-context"
@@ -462,15 +463,10 @@ export const DashboardCallFlow = memo(function DashboardCallFlow({
       className="scroll-mt-28 min-h-[14.5rem] overflow-x-clip md:scroll-mt-24"
     >
       {!callFlowUiReady && businessNumbers.length === 0 ? (
-        <WhoRingsConsole
-          ringsNow="…"
-          ifNoAnswer="…"
-          statusLabel="…"
-          onOpenWhoAnswers={openWhoAnswers}
-          onOpenGreetings={openScriptEditor}
-          onOpenAbout={() => setDashboardStoryKey("dashboard-call-flow")}
-          loading
-        />
+        // Neutral skeleton (not ellipsis text) so the handoff to live data reads as
+        // content fading in — avoids the "⋯ → value" flicker and the derived label
+        // swap ("If no answer" → "Press 1") that the placeholder card produced.
+        <CallFlowStepsSkeleton />
       ) : businessNumbers.length === 0 ? (
         <div className="flex min-h-[14.5rem] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-12 text-center">
           <div>
