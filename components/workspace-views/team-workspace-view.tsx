@@ -1125,7 +1125,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <AlertDialogDescription className="text-muted-foreground">
               {pendingRemove?.kind === "invite"
                 ? "Their invite link will stop working. You can send a new invite later."
-                : "They'll no longer appear on your team, and their login is blocked permanently — they can't sign back in. You can invite them again later as a new account."}
+                : "This can't be undone. Their login is blocked immediately, and their pay plan, earnings history, and shift records are permanently deleted. You can add them again later using the same phone number or email."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {removeError ? (

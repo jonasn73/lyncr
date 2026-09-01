@@ -137,12 +137,15 @@ export async function createTechInviteStub(params: {
 
   try {
     const existing = (await sql`
-      SELECT id, invite_status FROM users WHERE lower(email) = ${email} LIMIT 1
+      SELECT id, invite_status, account_locked FROM users WHERE lower(email) = ${email} LIMIT 1
     `) as Record<string, unknown>[]
 
     if (existing[0]) {
       const status = String(existing[0].invite_status ?? "").toLowerCase()
-      if (status !== "invited") {
+      // account_locked = true means an owner previously removed this technician — that
+      // frees up their phone number for a fresh add, same as if the login never existed.
+      const wasRemoved = existing[0].account_locked === true
+      if (status !== "invited" && !wasRemoved) {
         throw new Error("That mobile number already has a Lyncr technician login.")
       }
       const id = String(existing[0].id)
@@ -152,6 +155,7 @@ export async function createTechInviteStub(params: {
             invitation_expires_at = ${params.expiresAt}::timestamptz,
             invite_status = 'invited',
             account_role = 'field_tech',
+            account_locked = false,
             name = ${params.name},
             phone = ${phoneE164},
             contact_email = coalesce(${contactEmail}, contact_email)
@@ -321,12 +325,15 @@ export async function createManualFieldTechnician(params: {
 
   try {
     const existing = (await sql`
-      SELECT id, invite_status FROM users WHERE lower(email) = ${email} LIMIT 1
+      SELECT id, invite_status, account_locked FROM users WHERE lower(email) = ${email} LIMIT 1
     `) as Record<string, unknown>[]
 
     if (existing[0]) {
       const status = String(existing[0].invite_status ?? "").toLowerCase()
-      if (status === "active") {
+      // account_locked = true means an owner previously removed this technician — that
+      // frees up their phone number for a fresh add, same as if the login never existed.
+      const wasRemoved = existing[0].account_locked === true
+      if (status === "active" && !wasRemoved) {
         throw new Error("That mobile number already has a Lyncr technician login.")
       }
       const id = String(existing[0].id)
@@ -334,6 +341,7 @@ export async function createManualFieldTechnician(params: {
         UPDATE users
         SET invite_status = 'active',
             account_role = 'field_tech',
+            account_locked = false,
             invitation_token = NULL,
             invitation_expires_at = NULL,
             name = ${params.name},

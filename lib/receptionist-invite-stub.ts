@@ -77,12 +77,15 @@ export async function upsertReceptionistInviteStub(params: {
 
   try {
     const existing = (await sql`
-      SELECT id, invite_status FROM users WHERE lower(email) = ${email} LIMIT 1
+      SELECT id, invite_status, account_locked FROM users WHERE lower(email) = ${email} LIMIT 1
     `) as Record<string, unknown>[]
 
     if (existing[0]) {
       const status = String(existing[0].invite_status ?? "").toLowerCase()
-      if (status !== "invited") {
+      // account_locked = true means an owner previously removed this receptionist — that
+      // frees up their email for a fresh invite, same as if the login never existed.
+      const wasRemoved = existing[0].account_locked === true
+      if (status !== "invited" && !wasRemoved) {
         throw new Error("An account with this email already exists.")
       }
       const id = String(existing[0].id)
@@ -91,7 +94,8 @@ export async function upsertReceptionistInviteStub(params: {
         SET invitation_token = ${params.token},
             invitation_expires_at = ${params.expiresAt}::timestamptz,
             invite_status = 'invited',
-            account_role = 'receptionist'
+            account_role = 'receptionist',
+            account_locked = false
         WHERE id = ${id}
       `
       return { userId: id, created: false }
