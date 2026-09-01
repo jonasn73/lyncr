@@ -387,6 +387,7 @@ export function AdminChrome({
   const [moreOpen, setMoreOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
+  const router = useRouter()
   const supportCount = useAdminSupportPulse()
   const pendingShopsCount = useAdminPendingShopsPulse()
 
@@ -394,6 +395,34 @@ export function AdminChrome({
   useEffect(() => {
     setMoreOpen(false)
   }, [pathname])
+
+  // The bell always lands on the Pending shops list — a Link to "/admin" is a silent no-op
+  // when you're already there (same URL, no scroll). This page has no separate internal
+  // scroll region (the content div never overflows itself — the document is what scrolls),
+  // so scroll the window directly rather than element.scrollIntoView(), whose ancestor-walk
+  // behavior is harder to predict here.
+  const scrollToPendingShops = () => {
+    const scroll = () => {
+      const target = document.getElementById("pending-shops")
+      if (!target) return false
+      const top = target.getBoundingClientRect().top + window.scrollY - 72
+      window.scrollTo({ top })
+      return true
+    }
+    if (pathname === "/admin") {
+      scroll()
+      return
+    }
+    router.push("/admin")
+    let attempts = 0
+    const tryScroll = () => {
+      if (!scroll() && attempts < 20) {
+        attempts += 1
+        window.setTimeout(tryScroll, 150)
+      }
+    }
+    window.setTimeout(tryScroll, 150)
+  }
 
   return (
     <div
@@ -444,8 +473,9 @@ export function AdminChrome({
               <p className="truncate text-2xs text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
-          <Link
-            href="/admin"
+          <button
+            type="button"
+            onClick={scrollToPendingShops}
             aria-label={
               pendingShopsCount > 0
                 ? `${pendingShopsCount} shop${pendingShopsCount === 1 ? "" : "s"} waiting for approval`
@@ -455,7 +485,7 @@ export function AdminChrome({
           >
             <Bell className="h-4 w-4" aria-hidden />
             <SupportCountBadge count={pendingShopsCount} className="absolute -right-0.5 -top-0.5" />
-          </Link>
+          </button>
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
           <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-muted hover:text-foreground">
             <Link href="/dashboard">App</Link>

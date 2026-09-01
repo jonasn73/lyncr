@@ -1004,7 +1004,7 @@ export function AdminFinanceBoard() {
         <CallHealthBoard />
 
         {pendingOwners.length > 0 ? (
-          <div className="space-y-2">
+          <div id="pending-shops" className="space-y-2 scroll-mt-4">
             <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               Pending shops — waiting for Approve or Deny
             </p>
