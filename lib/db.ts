@@ -330,6 +330,11 @@ function isMissingInboundCallerGreetingColumnError(e: unknown): boolean {
   return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("inbound_caller_greeting_enabled")
 }
 
+/** True when `users.contact_email` or `users.account_locked` is missing (run scripts/157, 158). */
+function isMissingContactEmailOrAccountLockedColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703" && (pgErrorMessage(e).includes("contact_email") || pgErrorMessage(e).includes("account_locked"))
+}
+
 /** True when `forward_original_caller_id` is missing (run scripts/103-forward-original-caller-id.sql). */
 function isMissingForwardOriginalCallerIdColumnError(e: unknown): boolean {
   return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("forward_original_caller_id")
@@ -1178,6 +1183,10 @@ function parseReceptionistRow(row: Record<string, unknown>): Receptionist {
     flat_rate_usd: Number(row.flat_rate_usd ?? 2.5),
     is_active: row.is_active !== false,
     portal_user_id: row.portal_user_id ? String(row.portal_user_id) : null,
+    email: row.login_email != null ? String(row.login_email) : null,
+    contact_email: row.contact_email != null ? String(row.contact_email) : null,
+    address: row.address != null ? String(row.address) : null,
+    account_locked: row.account_locked === true,
     // Endpoint (050): unknown/missing → safe 'CELL' default.
     routing_endpoint: String(row.routing_endpoint ?? "").toUpperCase() === "WEB" ? "WEB" : "CELL",
     sip_username: row.sip_username ? String(row.sip_username) : null,
@@ -1192,6 +1201,10 @@ function isMissingReceptionistPayColumnError(e: unknown): boolean {
   if (pgErrorCode(e) !== "42703") return false
   const msg = pgErrorMessage(e)
   return msg.includes("pay_mode") || msg.includes("flat_rate_usd")
+}
+
+function isMissingReceptionistAddressColumnError(e: unknown): boolean {
+  return pgErrorCode(e) === "42703" && pgErrorMessage(e).includes("address")
 }
 
 function isMissingAccountRoleColumnError(e: unknown): boolean {
@@ -1250,21 +1263,37 @@ function isMissingCertificationsTableError(e: unknown): boolean {
   return msg.includes("certifications") || msg.includes("receptionist_badges")
 }
 
-// Get a receptionist by ID
+// Get a receptionist by ID — joins the linked login row for the manage-drawer's account controls.
 export async function getReceptionist(receptionistId: string): Promise<Receptionist | null> {
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
+      SELECT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute, r.pay_mode, r.flat_rate_usd,
+        r.is_active, r.portal_user_id, r.address, r.created_at,
         -- 150 column read via to_jsonb so a pre-migration DB returns NULL instead of erroring.
-        to_jsonb(receptionists) -> 'capabilities' AS capabilities
-      FROM receptionists WHERE id = ${receptionistId} LIMIT 1
+        to_jsonb(r) -> 'capabilities' AS capabilities,
+        u.email AS login_email, u.contact_email, u.account_locked
+      FROM receptionists r
+      LEFT JOIN users u ON u.id = r.portal_user_id
+      WHERE r.id = ${receptionistId} LIMIT 1
     `
     return rows[0] ? parseReceptionistRow(rows[0]) : null
   } catch (e) {
+    if (isMissingReceptionistAddressColumnError(e)) {
+      const rows = await sql`
+        SELECT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute, r.pay_mode, r.flat_rate_usd,
+          r.is_active, r.portal_user_id, r.created_at,
+          to_jsonb(r) -> 'capabilities' AS capabilities,
+          u.email AS login_email, u.contact_email, u.account_locked
+        FROM receptionists r
+        LEFT JOIN users u ON u.id = r.portal_user_id
+        WHERE r.id = ${receptionistId} LIMIT 1
+      `
+      return rows[0] ? parseReceptionistRow(rows[0]) : null
+    }
     if (!isMissingReceptionistPayColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, is_active, portal_user_id, created_at
       FROM receptionists WHERE id = ${receptionistId} LIMIT 1
     `
     return rows[0] ? parseReceptionistRow(rows[0]) : null
@@ -1855,7 +1884,7 @@ export async function updateReceptionist(
   receptionistId: string,
   userId: string,
   updates: Partial<
-    Pick<Receptionist, "name" | "phone" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd" | "routing_endpoint">
+    Pick<Receptionist, "name" | "phone" | "address" | "is_active" | "rate_per_minute" | "pay_mode" | "flat_rate_usd" | "routing_endpoint">
   > & { capabilities?: Partial<ReceptionistCapabilities> }
 ): Promise<void> {
   const sql = getSql()
@@ -1867,6 +1896,13 @@ export async function updateReceptionist(
     const normalizedPhone = normalizePhoneNumberE164(raw)
     const toStore = isReasonablePstnDialString(normalizedPhone) ? normalizedPhone : raw
     await sql`UPDATE receptionists SET phone = ${toStore} WHERE id = ${receptionistId} AND user_id = ${userId}`
+  }
+  if (updates.address !== undefined) {
+    try {
+      await sql`UPDATE receptionists SET address = ${updates.address} WHERE id = ${receptionistId} AND user_id = ${userId}`
+    } catch (e) {
+      if (!isMissingReceptionistAddressColumnError(e)) throw e
+    }
   }
   if (updates.is_active !== undefined) {
     await sql`UPDATE receptionists SET is_active = ${updates.is_active} WHERE id = ${receptionistId} AND user_id = ${userId}`
@@ -1916,9 +1952,18 @@ export async function updateReceptionist(
 }
 
 // Delete a receptionist
+// Deletes the roster row and permanently locks the linked login (call history/job records tied
+// to portal_user_id stay intact).
 export async function deleteReceptionist(receptionistId: string, userId: string): Promise<void> {
   const sql = getSql()
-  await sql`DELETE FROM receptionists WHERE id = ${receptionistId} AND user_id = ${userId}`
+  const rows = await sql`
+    DELETE FROM receptionists WHERE id = ${receptionistId} AND user_id = ${userId}
+    RETURNING portal_user_id
+  `
+  const portalUserId = (rows[0] as Record<string, unknown> | undefined)?.portal_user_id
+  if (portalUserId) {
+    await sql`UPDATE users SET account_locked = true WHERE id = ${String(portalUserId)}`
+  }
   clearIncomingRoutingCache()
   void syncInboundDialSnapshotForUser(userId).catch(() => {})
 }
@@ -1985,11 +2030,41 @@ export async function getAuthUserByEmail(email: string): Promise<(User & { passw
   try {
     const rows = await sql`
       SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, password_hash, created_at,
-        credit_balance_cents, billing_plan, is_platform_admin, account_role
+        credit_balance_cents, billing_plan, is_platform_admin, account_role, contact_email, account_locked
       FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
     `
     return pack(rows[0])
   } catch (e) {
+    if (isMissingContactEmailOrAccountLockedColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, password_hash, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin, account_role
+          FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+        `
+        return pack(rows[0])
+      } catch (e2) {
+        if (isMissingAccountRoleColumnError(e2)) {
+          try {
+            const rows = await sql`
+              SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, password_hash, created_at,
+                credit_balance_cents, billing_plan, is_platform_admin
+              FROM users WHERE LOWER(email) = LOWER(${email}) LIMIT 1
+            `
+            return pack(rows[0])
+          } catch (e3) {
+            if (isMissingBillingColumnsError(e3)) {
+              return getAuthUserByEmailWithoutBillingColumns(email)
+            }
+            throw e3
+          }
+        }
+        if (isMissingBillingColumnsError(e2)) {
+          return getAuthUserByEmailWithoutBillingColumns(email)
+        }
+        throw e2
+      }
+    }
     if (isMissingAccountRoleColumnError(e)) {
       try {
         const rows = await sql`
@@ -2162,6 +2237,18 @@ export async function setUserPasswordHash(userId: string, passwordHash: string):
   await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${userId}`
 }
 
+/** Owner-level login block for a team member (`158`) — distinct from routing `is_active`. */
+export async function setAccountLocked(userId: string, locked: boolean): Promise<void> {
+  const sql = getSql()
+  await sql`UPDATE users SET account_locked = ${locked} WHERE id = ${userId}`
+}
+
+/** Real contact email for a team member whose login `email` may be a synthetic placeholder (`157`). */
+export async function setUserContactEmail(userId: string, email: string | null): Promise<void> {
+  const sql = getSql()
+  await sql`UPDATE users SET contact_email = ${email} WHERE id = ${userId}`
+}
+
 export async function setUserPasswordHashAndPlatformAdmin(userId: string, passwordHash: string): Promise<void> {
   const sql = getSql()
   try {
@@ -2242,6 +2329,9 @@ function parseUserRow(row: Record<string, unknown>): User {
     billing_plan: row.billing_plan != null && row.billing_plan !== undefined ? String(row.billing_plan) : "trial",
     is_platform_admin:
       row.is_platform_admin === null || row.is_platform_admin === undefined ? false : pgBool(row.is_platform_admin),
+    contact_email: row.contact_email != null ? String(row.contact_email) : null,
+    account_locked:
+      row.account_locked === null || row.account_locked === undefined ? false : pgBool(row.account_locked),
     master_toggle_mode: parseMasterToggleMode(row.master_toggle_mode),
     admin_notification_preferences: parseAdminNotificationPreferences(row.admin_notification_preferences),
     answered_call_customer_popup_enabled:
@@ -3134,13 +3224,29 @@ export async function getUser(userId: string): Promise<User | null> {
   try {
     const rows = await sql`
       SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
-        credit_balance_cents, billing_plan, is_platform_admin,
+        credit_balance_cents, billing_plan, is_platform_admin, contact_email, account_locked,
         answered_call_customer_popup_enabled, account_role, master_toggle_mode, admin_notification_preferences
       FROM users WHERE id = ${userId} LIMIT 1
     `
     return rows[0] ? parseUserRow(rows[0]) : null
   } catch (initialErr) {
     let e: unknown = initialErr
+    // 157/158 columns are optional — retry without them once, then fall through to the
+    // existing cascade below for any other missing column (parseUserRow defaults both to
+    // false/null when absent from the row).
+    if (isMissingContactEmailOrAccountLockedColumnError(e)) {
+      try {
+        const rows = await sql`
+          SELECT id, email, name, phone, business_name, inbound_receptionist_whisper_enabled, industry, telnyx_ai_assistant_id, created_at,
+            credit_balance_cents, billing_plan, is_platform_admin,
+            answered_call_customer_popup_enabled, account_role, master_toggle_mode, admin_notification_preferences
+          FROM users WHERE id = ${userId} LIMIT 1
+        `
+        return rows[0] ? parseUserRow(rows[0]) : null
+      } catch (e2) {
+        e = e2
+      }
+    }
     if (isMissingAdminNotificationPreferencesColumnError(e)) {
       try {
         const rows = await sql`
@@ -9475,7 +9581,10 @@ function parseFieldTechnicianRow(row: Record<string, unknown>): FieldTechnician 
     name: String(row.name ?? ""),
     phone: String(row.phone ?? ""),
     email: row.email != null ? String(row.email) : null,
+    contact_email: row.contact_email != null ? String(row.contact_email) : null,
+    address: row.address != null ? String(row.address) : null,
     is_active: row.is_active == null ? true : pgBool(row.is_active),
+    account_locked: row.account_locked === true,
     invite_pending: String(row.invite_status ?? "").toLowerCase() === "invited",
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }
@@ -9658,8 +9767,8 @@ export async function getFieldTechnicianByIdForOwner(
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-             u.email AS email, u.invite_status AS invite_status
+      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+             u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
       WHERE ft.user_id = ${ownerUserId} AND ft.id = ${technicianId}
@@ -9789,9 +9898,42 @@ export async function patchFieldTechnicianForOwner(
   return false
 }
 
+/** Update a tech's profile fields — name/phone live on both the roster row and their login row. */
+export async function updateFieldTechnicianProfile(
+  ownerUserId: string,
+  techId: string,
+  updates: { name?: string; phone?: string; address?: string | null }
+): Promise<boolean> {
+  const sql = getSql()
+  const rows = (await sql`
+    SELECT portal_user_id FROM field_technicians WHERE id = ${techId} AND user_id = ${ownerUserId} LIMIT 1
+  `) as Record<string, unknown>[]
+  if (!rows[0]) return false
+  const portalUserId = rows[0].portal_user_id != null ? String(rows[0].portal_user_id) : null
+
+  if (updates.name !== undefined) {
+    await sql`UPDATE field_technicians SET name = ${updates.name} WHERE id = ${techId} AND user_id = ${ownerUserId}`
+    if (portalUserId) await sql`UPDATE users SET name = ${updates.name} WHERE id = ${portalUserId}`
+  }
+  if (updates.phone !== undefined) {
+    const phoneE164 = normalizePhoneNumberE164(updates.phone)
+    await sql`UPDATE field_technicians SET phone = ${phoneE164} WHERE id = ${techId} AND user_id = ${ownerUserId}`
+    if (portalUserId) await sql`UPDATE users SET phone = ${phoneE164} WHERE id = ${portalUserId}`
+  }
+  if (updates.address !== undefined) {
+    try {
+      await sql`UPDATE field_technicians SET address = ${updates.address} WHERE id = ${techId} AND user_id = ${ownerUserId}`
+    } catch (e) {
+      if (pgErrorCode(e) !== "42703") throw e
+    }
+  }
+  return true
+}
+
 /**
- * Remove a field technician from the owner's roster (hard delete of the roster row).
- * Does not delete the tech's login user — only the owner↔tech link.
+ * Remove a field technician from the owner's roster (hard delete of the roster row) and
+ * permanently lock their login — call history/job records tied to portal_user_id stay intact,
+ * but they can never sign back in.
  */
 export async function deleteFieldTechnicianForOwner(
   ownerUserId: string,
@@ -9802,9 +9944,14 @@ export async function deleteFieldTechnicianForOwner(
     const rows = await sql`
       DELETE FROM field_technicians
       WHERE id = ${techId} AND user_id = ${ownerUserId}
-      RETURNING id
+      RETURNING id, portal_user_id
     `
-    return rows.length > 0
+    if (rows.length === 0) return false
+    const portalUserId = (rows[0] as Record<string, unknown>).portal_user_id
+    if (portalUserId) {
+      await sql`UPDATE users SET account_locked = true WHERE id = ${String(portalUserId)}`
+    }
+    return true
   } catch (e) {
     if (isMissingFieldTechTableError(e)) return false
     throw e

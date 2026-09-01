@@ -4,6 +4,10 @@
 "use client"
 
 import { FieldTechAccessEditor, type CapabilityFlags } from "@/components/team/receptionist-access-editor"
+import {
+  FieldTechAccountEditor,
+  type TeamMemberAccountTarget,
+} from "@/components/team/team-member-account-editor"
 import { grantedFieldTechLabels } from "@/lib/field-technician-capabilities"
 import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -82,6 +86,7 @@ export function FieldTechniciansPanel() {
     name: string
     capabilities: CapabilityFlags
   } | null>(null)
+  const [accountTarget, setAccountTarget] = useState<TeamMemberAccountTarget | null>(null)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   // Pay plans for the fleet, and the tech currently open in the editor.
@@ -365,6 +370,31 @@ export function FieldTechniciansPanel() {
                     }
                   />
                 </div>
+                <div className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAccountTarget({
+                        id: tech.id,
+                        name: tech.name,
+                        phone: tech.phone,
+                        contactEmail: tech.contact_email ?? null,
+                        address: tech.address ?? null,
+                        accountLocked: tech.account_locked === true,
+                        hasLogin: Boolean(tech.portal_user_id),
+                      })
+                    }
+                    aria-label={`Details and account for ${tech.name}`}
+                    className="min-w-0 max-w-full text-left"
+                  >
+                    <span className="block text-micro font-medium uppercase tracking-wide text-muted-foreground">
+                      Details
+                    </span>
+                    <span className="block truncate text-2xs text-foreground underline-offset-2 hover:underline">
+                      {tech.account_locked ? "Locked — can't sign in" : "Name, address, email, password"}
+                    </span>
+                  </button>
+                </div>
               </div>
               <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
                 {tech.invite_pending && (
@@ -421,6 +451,29 @@ export function FieldTechniciansPanel() {
         onSaved={() => void reloadPlans()}
       />
 
+      <FieldTechAccountEditor
+        target={accountTarget}
+        onClose={() => setAccountTarget(null)}
+        onSaved={(patch) => {
+          if (accountTarget) {
+            setTechs((prev) =>
+              prev.map((t) =>
+                t.id === accountTarget.id
+                  ? {
+                      ...t,
+                      name: patch.name,
+                      phone: patch.phone,
+                      contact_email: patch.contactEmail,
+                      address: patch.address,
+                      account_locked: patch.accountLocked,
+                    }
+                  : t
+              )
+            )
+          }
+        }}
+      />
+
       <AddTechnicianModal
         open={modalOpen}
         onOpenChange={setModalOpen}
@@ -446,8 +499,8 @@ export function FieldTechniciansPanel() {
               Remove {removeTarget?.name ?? "this technician"} from your team?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              They will disappear from Field Technicians and the live roster. Active/Off toggles stay
-              available for everyone else — this only removes this person.
+              They&rsquo;ll disappear from Field Technicians and the live roster, and their login is blocked
+              permanently — they can&rsquo;t sign back in. You can invite them again later as a new account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {removeError ? (

@@ -6,7 +6,7 @@
 // top of this sheet — their forms are non-trivial enough to keep as-is rather than
 // reimplement inline — but everything about one person now starts from one tap.
 
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, ShieldCheck, Trash2 } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -39,6 +39,7 @@ export function ReceptionistSettingsSheet({
   onToggleActive,
   onEditPay,
   onEditAccess,
+  onEditAccount,
   onRemove,
   onClose,
 }: {
@@ -51,6 +52,7 @@ export function ReceptionistSettingsSheet({
   onToggleActive: () => void
   onEditPay: () => void
   onEditAccess: () => void
+  onEditAccount: () => void
   onRemove: () => void
   onClose: () => void
 }) {
@@ -127,6 +129,27 @@ export function ReceptionistSettingsSheet({
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {grantedCapabilityLabels(member.capabilities).join(", ") || "No access granted yet"}
                   </p>
+                </div>
+                <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+
+              {/* Account & security — email, address, password, lock */}
+              <button
+                type="button"
+                onClick={onEditAccount}
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3 text-left transition-colors hover:bg-muted"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <ShieldCheck
+                    className={cn("h-3.5 w-3.5 shrink-0", member.account_locked ? "text-destructive" : "text-muted-foreground")}
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Account &amp; security</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {member.account_locked ? "Locked — can't sign in" : "Email, address, password, lock"}
+                    </p>
+                  </div>
                 </div>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </button>

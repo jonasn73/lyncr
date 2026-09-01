@@ -87,6 +87,10 @@ export interface User {
   billing_plan: string
   /** Platform operator — may access `/admin` (also allow `ZING_ADMIN_EMAILS`). */
   is_platform_admin: boolean
+  /** Real address for phone-first accounts whose `email` is a synthetic placeholder (`157`). */
+  contact_email?: string | null
+  /** Owner-level login block for a receptionist/tech account — distinct from routing `is_active` (`158`). */
+  account_locked?: boolean
   /** Legacy mode column — superseded by admin_notification_preferences. */
   master_toggle_mode?: MasterToggleMode
   /** Admin-only per-channel notification toggles (`080-admin-notification-preferences.sql`). */
@@ -113,9 +117,15 @@ export interface FieldTechnician {
   portal_user_id: string | null
   name: string
   phone: string
-  /** Login email (joined from the linked users row). */
+  /** Login email (joined from the linked users row) — synthetic placeholder for phone-invited techs. */
   email: string | null
+  /** Real contact email (joined `users.contact_email`, `157`) — editable, never the login key. */
+  contact_email?: string | null
+  /** Mailing/home address (`158`). */
+  address?: string | null
   is_active: boolean
+  /** Owner-level login block (joined `users.account_locked`, `158`) — distinct from `is_active`. */
+  account_locked?: boolean
   /** True while the tech still has a pending SMS invite (hasn't set their password yet). */
   invite_pending?: boolean
   /** Owner-configurable per-tech feature flags (`152-field-technician-capabilities.sql`). */
@@ -1032,6 +1042,14 @@ export interface Receptionist {
   is_active: boolean
   /** Login user for the receptionist portal (`040-receptionist-portal-role.sql`). */
   portal_user_id?: string | null
+  /** Login email (joined `users.email` via portal_user_id) — may be a synthetic SMS-invite placeholder. */
+  email?: string | null
+  /** Real contact email (joined `users.contact_email`, `157`) — editable, never the login key. */
+  contact_email?: string | null
+  /** Mailing/home address (`158`). */
+  address?: string | null
+  /** Owner-level login block (joined `users.account_locked`, `158`) — distinct from `is_active`. */
+  account_locked?: boolean
   /** Where this receptionist answers live calls (`050-receptionist-routing-endpoint.sql`). Defaults 'CELL'. */
   routing_endpoint?: "WEB" | "CELL"
   /** Telnyx SIP username the browser registers with for WEB routing. NULL = not provisioned. */

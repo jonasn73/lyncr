@@ -8,7 +8,11 @@ import { setFieldTechnicianCapabilities } from "@/lib/db"
 import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
-import { deleteFieldTechnicianForOwner, patchFieldTechnicianForOwner } from "@/lib/db"
+import {
+  deleteFieldTechnicianForOwner,
+  patchFieldTechnicianForOwner,
+  updateFieldTechnicianProfile,
+} from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +25,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     is_active?: boolean
     organization_id?: string | null
     capabilities?: Partial<FieldTechnicianCapabilities>
+    name?: string
+    phone?: string
+    address?: string | null
   }
 
   // Only keys the registry knows, and only booleans — same shape the receptionist route
@@ -34,11 +41,30 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
   const hasCapabilityPatch = Object.keys(capabilityPatch).length > 0
 
-  if (typeof body.is_active !== "boolean" && body.organization_id === undefined && !hasCapabilityPatch) {
+  const profilePatch: { name?: string; phone?: string; address?: string | null } = {}
+  if (typeof body.name === "string" && body.name.trim().length >= 2) profilePatch.name = body.name.trim()
+  if (typeof body.phone === "string" && body.phone.trim()) profilePatch.phone = body.phone.trim()
+  if (body.address !== undefined) profilePatch.address = typeof body.address === "string" ? body.address.trim() || null : null
+  const hasProfilePatch = Object.keys(profilePatch).length > 0
+
+  if (
+    typeof body.is_active !== "boolean" &&
+    body.organization_id === undefined &&
+    !hasCapabilityPatch &&
+    !hasProfilePatch
+  ) {
     return NextResponse.json(
-      { error: "Provide is_active (boolean), organization_id, and/or capabilities" },
+      { error: "Provide is_active (boolean), organization_id, name, phone, address, and/or capabilities" },
       { status: 400 }
     )
+  }
+
+  if (hasProfilePatch) {
+    const ok = await updateFieldTechnicianProfile(userId, id, profilePatch)
+    if (!ok) return NextResponse.json({ error: "Technician not found" }, { status: 404 })
+    if (typeof body.is_active !== "boolean" && body.organization_id === undefined && !hasCapabilityPatch) {
+      return NextResponse.json({ data: { ok: true } })
+    }
   }
 
   if (hasCapabilityPatch) {

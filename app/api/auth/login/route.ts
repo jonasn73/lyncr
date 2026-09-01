@@ -70,6 +70,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (authUser.account_locked) {
+      return NextResponse.json(
+        { error: "This account has been locked. Contact your business owner." },
+        { status: 403 }
+      )
+    }
+
     const { password_hash: _, ...user } = authUser
     const accountStatus = await getUserAccountStatus(user.id)
     const cookieValue = createSessionCookie(user.id)

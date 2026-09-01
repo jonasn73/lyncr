@@ -41,7 +41,12 @@ export async function getSessionUser(): Promise<User | null> {
     }
   }
   try {
-    return await getUser(userId)
+    const user = await getUser(userId)
+    // A locked account (owner-triggered team-member lock, or delete) loses access on its very
+    // next page load — not just future logins. This is the shared gate every portal layout
+    // (owner dashboard, /receptionist, /tech) calls before rendering.
+    if (user?.account_locked) return null
+    return user
   } catch (e) {
     console.error("[getSessionUser] getUser failed:", e)
     return null

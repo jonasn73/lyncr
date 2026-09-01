@@ -25,6 +25,10 @@ import {
   ReceptionistAccessEditor,
   type ReceptionistAccessTarget,
 } from "@/components/team/receptionist-access-editor"
+import {
+  ReceptionistAccountEditor,
+  type TeamMemberAccountTarget,
+} from "@/components/team/team-member-account-editor"
 import { ReceptionistSettingsSheet } from "@/components/team/receptionist-settings-sheet"
 import { FieldTechniciansPanel } from "@/components/workspace-views/field-technicians-panel"
 import { TeamLiveRoster } from "@/components/workspace-views/team-live-roster"
@@ -226,6 +230,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
   const { plans, reload: reloadPlans } = usePayPlans()
   const [payTarget, setPayTarget] = useState<PayPlanTarget | null>(null)
   const [accessTarget, setAccessTarget] = useState<ReceptionistAccessTarget | null>(null)
+  const [accountTarget, setAccountTarget] = useState<TeamMemberAccountTarget | null>(null)
   // One settings sheet per person, opened by tapping their name. Keyed by id (not a member
   // snapshot) so it always reflects the latest `members` row after Pay/Access save.
   const [settingsTarget, setSettingsTarget] = useState<{ id: string; color: string } | null>(null)
@@ -709,6 +714,30 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
         }}
       />
 
+      <ReceptionistAccountEditor
+        target={accountTarget}
+        onClose={() => setAccountTarget(null)}
+        onSaved={(patch) => {
+          if (accountTarget) {
+            setMembers((prev) =>
+              prev.map((m) =>
+                m.id === accountTarget.id
+                  ? {
+                      ...m,
+                      name: patch.name,
+                      phone: patch.phone,
+                      contact_email: patch.contactEmail,
+                      address: patch.address,
+                      account_locked: patch.accountLocked,
+                    }
+                  : m
+              )
+            )
+          }
+          toast({ title: "Details updated" })
+        }}
+      />
+
       <ReceptionistSettingsSheet
         member={settingsMember}
         avatarColor={settingsTarget?.color ?? AVATAR_COLORS[0]}
@@ -733,6 +762,18 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             id: settingsMember.id,
             name: settingsMember.name,
             capabilities: { ...settingsMember.capabilities },
+          })
+        }
+        onEditAccount={() =>
+          settingsMember &&
+          setAccountTarget({
+            id: settingsMember.id,
+            name: settingsMember.name,
+            phone: settingsMember.phone,
+            contactEmail: settingsMember.contact_email ?? null,
+            address: settingsMember.address ?? null,
+            accountLocked: settingsMember.account_locked === true,
+            hasLogin: Boolean(settingsMember.portal_user_id),
           })
         }
         onRemove={() => {
@@ -761,7 +802,7 @@ export const TeamWorkspaceView = memo(function TeamWorkspaceView() {
             <AlertDialogDescription className="text-muted-foreground">
               {pendingRemove?.kind === "invite"
                 ? "Their invite link will stop working. You can send a new invite later."
-                : "They will no longer appear under People who can answer. You can add them again anytime."}
+                : "They'll no longer appear under People who can answer, and their login is blocked permanently — they can't sign back in. You can invite them again later as a new account."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

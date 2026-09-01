@@ -28,6 +28,7 @@ export async function PATCH(
     const updates: Partial<{
       name: string
       phone: string
+      address: string | null
       is_active: boolean
       rate_per_minute: number
       pay_mode: "FLAT_RATE" | "PER_MINUTE"
@@ -35,6 +36,7 @@ export async function PATCH(
     }> & { capabilities?: Partial<ReceptionistCapabilities> } = {}
     if (typeof body?.name === "string") updates.name = body.name.trim()
     if (typeof body?.phone === "string") updates.phone = body.phone.trim()
+    if (body?.address !== undefined) updates.address = typeof body.address === "string" ? body.address.trim() || null : null
     if (typeof body?.is_active === "boolean") updates.is_active = body.is_active
     if (typeof body?.rate_per_minute === "number") updates.rate_per_minute = body.rate_per_minute
     if (body?.pay_mode === "FLAT_RATE" || body?.pay_mode === "PER_MINUTE") updates.pay_mode = body.pay_mode
