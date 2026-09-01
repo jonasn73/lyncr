@@ -14,6 +14,10 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
+import {
+  buildTeamMemberConfirmationEmailPayload,
+  sendSignupConfirmationEmail,
+} from "@/lib/signup-confirmation-email"
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +44,21 @@ export async function POST(req: NextRequest) {
       passwordHash: password_hash,
       email: email || null,
     })
+
+    // Real email guaranteed — acceptInvitation requires one (invite target or form input).
+    try {
+      const payload = buildTeamMemberConfirmationEmailPayload({
+        toEmail: user.email,
+        name: user.name,
+        role: "receptionist",
+      })
+      const result = await sendSignupConfirmationEmail(payload)
+      if (!result.sent) {
+        console.error("[lyncr] Receptionist confirmation email not sent:", result.error)
+      }
+    } catch (e) {
+      console.error("[lyncr] Receptionist confirmation email threw:", e instanceof Error ? e.message : e)
+    }
 
     const cookieValue = createSessionCookie(user.id)
     const authMeta = postAuthPayload(user)

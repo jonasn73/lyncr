@@ -145,6 +145,7 @@ lyncr cannot update your Neon database from Git or Vercel automatically. After p
 | 128 | `128-support-chat.sql` | **In-app Support chat.** Creates **`support_chat_threads`**, **`support_chat_messages`**, **`support_chat_attachments`**. Powers Help → Chat with Lyncr Support and Admin → Support → Live chat (text + file uploads via Vercel Blob). **Required** for live chat; also set **`BLOB_READ_WRITE_TOKEN`** in Vercel for attachments. |
 | 129 | `129-call-queue.sql` | **Busy hold queue.** Creates **`call_queue`** (waiting callers for Lines Answer) and **`account_settings.hold_music_url`**. Powers Call Control `enqueue` + Lines “N waiting” + Answer bridge. **Required** for hold-queue UI and Answer; voice soft-hold still attempts Telnyx enqueue without this table (UI stays empty until migrated). |
 | 130 | `130-hold-queue-tuning.sql` | **Hold queue tuning.** Adds **`account_settings.hold_max_wait_secs`** + **`hold_reprompt_secs`** for Greetings max wait / re-prompt interval (null = `LYNCR_HOLD_*` env defaults). Requires **129** first. |
+| 157 | `157-user-contact-email.sql` | **Real contact email for phone-first accounts.** Adds **`users.contact_email`** — field techs and some receptionist SMS invites store a synthetic placeholder in `users.email` (used for login/dedup, not deliverable); this optional column holds a real address captured at invite time so signup-confirmation email has somewhere to go. **Required** for confirmation emails to field technicians. |
 
 ## Platform admin (`admin@lyncr.app`)
 

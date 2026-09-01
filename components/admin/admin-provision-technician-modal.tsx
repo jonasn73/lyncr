@@ -37,6 +37,7 @@ export function AdminProvisionTechnicianModal({
 }: AdminProvisionTechnicianModalProps) {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,6 +45,7 @@ export function AdminProvisionTechnicianModal({
     if (!open) {
       setName("")
       setPhone("")
+      setEmail("")
       setError(null)
       setBusy(false)
     }
@@ -64,6 +66,7 @@ export function AdminProvisionTechnicianModal({
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
+          ...(email.trim() ? { email: email.trim() } : {}),
           isManual: true,
           workspaceId,
           businessId: ownerUserId,
@@ -120,6 +123,19 @@ export function AdminProvisionTechnicianModal({
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(502) 555-0100"
               required
+              className="border-border bg-background text-foreground"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-foreground">
+              Email <span className="font-normal text-muted-foreground">(optional — for a confirmation email)</span>
+            </Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="alex@example.com"
               className="border-border bg-background text-foreground"
             />
           </div>

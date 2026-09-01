@@ -60,6 +60,14 @@ export type TechInviteStub = {
   name: string
   phone: string
   businessName: string
+  /** Real address captured at invite/create time — users.email stays the synthetic lookup key. */
+  contactEmail: string | null
+}
+
+/** Loose validation for the optional real contact email captured on the invite/manual-add form. */
+function normalizeContactEmail(raw: string | undefined | null): string | null {
+  const trimmed = (raw ?? "").trim().toLowerCase()
+  return trimmed.includes("@") ? trimmed : null
 }
 
 /**
@@ -76,9 +84,12 @@ export async function createTechInviteStub(params: {
   token: string
   expiresAt: string
   organizationId?: string | null
+  /** Real address captured on the invite form (optional) — stored separately, never as users.email. */
+  email?: string | null
 }): Promise<{ userId: string; created: boolean }> {
   const sql = getSql()
   const email = syntheticTechEmail(params.phone)
+  const contactEmail = normalizeContactEmail(params.email)
   const phoneE164 = toE164(params.phone)
   const businessName = params.ownerBusinessName?.trim() || "Lyncr"
   const organizationId =
@@ -142,7 +153,8 @@ export async function createTechInviteStub(params: {
             invite_status = 'invited',
             account_role = 'field_tech',
             name = ${params.name},
-            phone = ${phoneE164}
+            phone = ${phoneE164},
+            contact_email = coalesce(${contactEmail}, contact_email)
         WHERE id = ${id}
       `
       // Keep the roster row in sync (it may already exist from the first invite).
@@ -164,11 +176,11 @@ export async function createTechInviteStub(params: {
       sql`
         INSERT INTO users (
           id, email, name, phone, business_name, password_hash,
-          account_role, invite_status, invitation_token, invitation_expires_at, created_at
+          account_role, invite_status, invitation_token, invitation_expires_at, contact_email, created_at
         )
         VALUES (
           ${id}, ${email}, ${params.name}, ${phoneE164}, ${businessName}, '',
-          'field_tech', 'invited', ${params.token}, ${params.expiresAt}::timestamptz, now()
+          'field_tech', 'invited', ${params.token}, ${params.expiresAt}::timestamptz, ${contactEmail}, now()
         )
       `,
     ])
@@ -188,7 +200,7 @@ export async function getTechInviteStubByToken(token: string): Promise<TechInvit
   const sql = getSql()
   try {
     const rows = (await sql`
-      SELECT id, name, phone, business_name
+      SELECT id, name, phone, business_name, contact_email
       FROM users
       WHERE invitation_token = ${clean}
         AND coalesce(invite_status, '') = 'invited'
@@ -202,6 +214,7 @@ export async function getTechInviteStubByToken(token: string): Promise<TechInvit
           name: rows[0].name != null ? String(rows[0].name) : "Technician",
           phone: rows[0].phone != null ? String(rows[0].phone) : "",
           businessName: rows[0].business_name != null ? String(rows[0].business_name) : "Lyncr",
+          contactEmail: rows[0].contact_email != null ? String(rows[0].contact_email) : null,
         }
       : null
   } catch (e) {
@@ -247,9 +260,12 @@ export async function createManualFieldTechnician(params: {
   name: string
   phone: string
   organizationId?: string | null
-}): Promise<{ userId: string; rosterId: string; created: boolean }> {
+  /** Real address captured on the form (optional) — stored separately, never as users.email. */
+  email?: string | null
+}): Promise<{ userId: string; rosterId: string; created: boolean; contactEmail: string | null }> {
   const sql = getSql()
   const email = syntheticTechEmail(params.phone)
+  const contactEmail = normalizeContactEmail(params.email)
   const phoneE164 = toE164(params.phone)
   const businessName = params.ownerBusinessName?.trim() || "Lyncr"
   const organizationId =
@@ -322,7 +338,8 @@ export async function createManualFieldTechnician(params: {
             invitation_expires_at = NULL,
             name = ${params.name},
             phone = ${phoneE164},
-            business_name = ${businessName}
+            business_name = ${businessName},
+            contact_email = coalesce(${contactEmail}, contact_email)
         WHERE id = ${id}
       `
       const roster = (await sql`
@@ -331,11 +348,11 @@ export async function createManualFieldTechnician(params: {
       if (roster[0]) {
         const rosterId = String(roster[0].id)
         await updateRoster(rosterId)
-        return { userId: id, rosterId, created: false }
+        return { userId: id, rosterId, created: false, contactEmail }
       }
       const rosterId = crypto.randomUUID()
       await insertRoster(id, rosterId)
-      return { userId: id, rosterId, created: false }
+      return { userId: id, rosterId, created: false, contactEmail }
     }
 
     const userId = crypto.randomUUID()
@@ -343,15 +360,15 @@ export async function createManualFieldTechnician(params: {
     await sql`
       INSERT INTO users (
         id, email, name, phone, business_name, password_hash,
-        account_role, invite_status, invitation_token, invitation_expires_at, created_at
+        account_role, invite_status, invitation_token, invitation_expires_at, contact_email, created_at
       )
       VALUES (
         ${userId}, ${email}, ${params.name}, ${phoneE164}, ${businessName}, '',
-        'field_tech', 'active', NULL, NULL, now()
+        'field_tech', 'active', NULL, NULL, ${contactEmail}, now()
       )
     `
     await insertRoster(userId, rosterId)
-    return { userId, rosterId, created: true }
+    return { userId, rosterId, created: true, contactEmail }
   } catch (e) {
     const gap = schemaGapMessage(e)
     if (gap) throw new Error(gap)
@@ -378,7 +395,7 @@ export async function refreshTechInviteStub(params: {
           account_role = 'field_tech'
       WHERE id = ${params.portalUserId}
         AND coalesce(invite_status, '') = 'invited'
-      RETURNING id, name, phone, business_name
+      RETURNING id, name, phone, business_name, contact_email
     `) as Record<string, unknown>[]
     return rows[0]
       ? {
@@ -386,6 +403,7 @@ export async function refreshTechInviteStub(params: {
           name: rows[0].name != null ? String(rows[0].name) : "Technician",
           phone: rows[0].phone != null ? String(rows[0].phone) : "",
           businessName: rows[0].business_name != null ? String(rows[0].business_name) : "Lyncr",
+          contactEmail: rows[0].contact_email != null ? String(rows[0].contact_email) : null,
         }
       : null
   } catch (e) {

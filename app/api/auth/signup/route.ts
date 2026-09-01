@@ -17,6 +17,7 @@ import {
 import { postAuthPayload } from "@/lib/post-auth-redirect"
 import {
   buildSignupConfirmationEmailPayload,
+  buildTeamMemberConfirmationEmailPayload,
   sendSignupConfirmationEmail,
 } from "@/lib/signup-confirmation-email"
 
@@ -55,6 +56,21 @@ export async function POST(req: NextRequest) {
         phone: normalizePhone(phone),
       })
       user = accepted.user
+
+      // Real email guaranteed — acceptTeamInviteSignup requires it to match the invite.
+      try {
+        const payload = buildTeamMemberConfirmationEmailPayload({
+          toEmail: user.email,
+          name: user.name,
+          role: "receptionist",
+        })
+        const result = await sendSignupConfirmationEmail(payload)
+        if (!result.sent) {
+          console.error("[lyncr] Receptionist confirmation email not sent:", result.error)
+        }
+      } catch (e) {
+        console.error("[lyncr] Receptionist confirmation email threw:", e instanceof Error ? e.message : e)
+      }
     } else {
       if (!name || !phone) {
         return NextResponse.json(

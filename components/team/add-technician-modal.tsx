@@ -86,7 +86,7 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
           phone: phone.trim(),
           ...(targetWorkspaceId ? { workspaceId: targetWorkspaceId } : {}),
           ...(isManual ? { isManual: true } : {}),
-          ...(!isManual && email.trim() ? { email: email.trim() } : {}),
+          ...(email.trim() ? { email: email.trim() } : {}),
         }),
       })
       const json = (await res.json()) as {
@@ -176,20 +176,18 @@ export function AddTechnicianModal({ open, onOpenChange, onSuccess }: AddTechnic
             />
           </label>
 
-          {mode === "invite" ? (
-            <label className="block space-y-2">
-              <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Email <span className="font-normal normal-case text-muted-foreground">(optional)</span>
-              </span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="alex@example.com"
-                className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
-              />
-            </label>
-          ) : null}
+          <label className="block space-y-2">
+            <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Email <span className="font-normal normal-case text-muted-foreground">(optional — for a confirmation email)</span>
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="alex@example.com"
+              className="w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+            />
+          </label>
 
           <label className="block space-y-2">
             <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Phone number</span>

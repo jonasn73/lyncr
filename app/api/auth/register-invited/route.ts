@@ -17,6 +17,24 @@ import {
 import { postAuthPayload } from "@/lib/post-auth-redirect"
 import { getPendingAgreementForInvite } from "@/lib/agreements/store"
 import { finalizeSignedAgreement } from "@/lib/agreements/finalize"
+import {
+  buildTeamMemberConfirmationEmailPayload,
+  isSyntheticPlaceholderEmail,
+  sendSignupConfirmationEmail,
+} from "@/lib/signup-confirmation-email"
+
+async function sendReceptionistConfirmation(toEmail: string, name: string) {
+  if (!toEmail || isSyntheticPlaceholderEmail(toEmail)) return
+  try {
+    const payload = buildTeamMemberConfirmationEmailPayload({ toEmail, name, role: "receptionist" })
+    const result = await sendSignupConfirmationEmail(payload)
+    if (!result.sent) {
+      console.error("[lyncr] Receptionist confirmation email not sent:", result.error)
+    }
+  } catch (e) {
+    console.error("[lyncr] Receptionist confirmation email threw:", e instanceof Error ? e.message : e)
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,6 +61,7 @@ export async function POST(req: NextRequest) {
     // fresh rows via the invitations-table flow. Try the stub first, then fall back.
     const stub = await activateReceptionistInviteStub({ token, name, phone, passwordHash })
     if (stub) {
+      await sendReceptionistConfirmation(stub.email, name)
       return NextResponse.json({ data: { user_id: stub.userId, redirect: "/login" } })
     }
 
@@ -68,6 +87,7 @@ export async function POST(req: NextRequest) {
         password_hash: passwordHash,
         email: email || null,
       })
+      await sendReceptionistConfirmation(user.email, user.name)
 
       if (pending) {
         // Signed, then the plan is built from the components the agreement carries —
@@ -104,6 +124,7 @@ export async function POST(req: NextRequest) {
     }
 
     const registered = await registerInvitedReceptionist({ token, name, phone, passwordHash })
+    await sendReceptionistConfirmation(registered.email, name)
     // Account created — send them to sign in with their new credentials.
     return NextResponse.json({ data: { user_id: registered.userId, redirect: "/login" } })
   } catch (error) {

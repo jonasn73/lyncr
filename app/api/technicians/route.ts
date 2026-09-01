@@ -10,6 +10,10 @@ import { getFieldTechnicianByIdForOwner, getUser, listFieldTechnicians } from "@
 import { TECH_INVITE_TTL_MS } from "@/lib/tech-invite"
 import { createManualFieldTechnician, createTechInviteStub } from "@/lib/tech-invite-stub"
 import { resolveAppBaseUrl, sendTechInviteSms } from "@/lib/tech-invite-sms"
+import {
+  buildTeamMemberConfirmationEmailPayload,
+  sendSignupConfirmationEmail,
+} from "@/lib/signup-confirmation-email"
 import { globalPlatformSessionFields, isGlobalPlatformAdmin } from "@/lib/platform-admin"
 import {
   IMPERSONATION_ADMIN_COOKIE,
@@ -60,6 +64,7 @@ export async function POST(req: NextRequest) {
   const lastName = String(body.lastName || "").trim()
   const name = (firstName || lastName ? `${firstName} ${lastName}` : String(body.name || "")).trim()
   const phone = String(body.phone || "").trim()
+  const email = String(body.email || "").trim()
   const isManual = body.isManual === true
 
   let targetWorkspace: Awaited<ReturnType<typeof resolveTechnicianTargetWorkspace>>
@@ -112,12 +117,13 @@ export async function POST(req: NextRequest) {
 
   try {
     if (isManual) {
-      const { rosterId } = await createManualFieldTechnician({
+      const { rosterId, contactEmail } = await createManualFieldTechnician({
         ownerUserId,
         ownerBusinessName: owner.business_name,
         name,
         phone,
         organizationId: targetWorkspaceId,
+        email,
       })
       const technicians = await listFieldTechnicians(ownerUserId, targetWorkspaceId)
       const technician =
@@ -127,6 +133,25 @@ export async function POST(req: NextRequest) {
       if (!technician) {
         return NextResponse.json({ error: "Technician was created but could not be loaded" }, { status: 500 })
       }
+
+      // Manual accounts are active immediately (unlike SMS invites, which confirm at
+      // activation) — send right away if a real email was captured on the form.
+      if (contactEmail) {
+        try {
+          const payload = buildTeamMemberConfirmationEmailPayload({
+            toEmail: contactEmail,
+            name,
+            role: "field_tech",
+          })
+          const result = await sendSignupConfirmationEmail(payload)
+          if (!result.sent) {
+            console.error("[POST /api/technicians] confirmation email not sent:", result.error)
+          }
+        } catch (e) {
+          console.error("[POST /api/technicians] confirmation email threw:", e instanceof Error ? e.message : e)
+        }
+      }
+
       return NextResponse.json({
         success: true,
         data: {
@@ -149,6 +174,7 @@ export async function POST(req: NextRequest) {
       token,
       expiresAt,
       organizationId: targetWorkspaceId,
+      email,
     })
 
     const baseUrl = resolveAppBaseUrl(req.nextUrl.origin)

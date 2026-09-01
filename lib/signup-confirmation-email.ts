@@ -113,6 +113,92 @@ export function buildSignupConfirmationEmailPayload(params: {
 }
 
 /**
+ * Domains this app synthesizes as placeholder `users.email` values for phone-first accounts
+ * (field techs, some SMS-invited receptionists/operators) — never a real inbox, never send here.
+ * Real contact addresses captured separately (e.g. users.contact_email) are exempt by construction
+ * since callers only pass those through when the address is user-supplied.
+ */
+const SYNTHETIC_EMAIL_SUFFIXES = ["@tech.lyncr.app", "@sms.lyncr.app", "@invite.lyncr.app"]
+
+export function isSyntheticPlaceholderEmail(email: string): boolean {
+  const lower = email.trim().toLowerCase()
+  return SYNTHETIC_EMAIL_SUFFIXES.some((suffix) => lower.endsWith(suffix))
+}
+
+/** Build the confirmation email for a receptionist or field-technician account going active. */
+export function buildTeamMemberConfirmationEmailPayload(params: {
+  toEmail: string
+  name?: string
+  role: "receptionist" | "field_tech"
+}): SignupConfirmationEmailPayload {
+  const name = (params.name ?? "").trim() || "there"
+  const roleLabel = params.role === "field_tech" ? "technician" : "receptionist"
+  const subject = "You're all set — welcome to Lyncr"
+  const bodyText = `Your Lyncr ${roleLabel} account is ready. Log in to get started.`
+  const text = [`Hi ${name},`, "", bodyText, "", "— The Lyncr Team"].join("\n")
+  const safeBody = `Your Lyncr <strong style="color:#e4e4e7;">${escapeHtml(roleLabel)}</strong> account is ready. Log in to get started.`
+
+  const html = `<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background-color:#0a0a0f;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0f;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#15151c;border:1px solid #26262f;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <tr>
+              <td style="padding:28px 32px 8px 32px;">
+                <span style="display:inline-block;font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#a78bfa;">Lyncr</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 0 32px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;font-weight:700;color:#f4f4f5;">
+                  You're all set
+                </h1>
+                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#a1a1aa;">
+                  Hi ${escapeHtml(name)}, ${safeBody}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 4px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="border-radius:10px;background-color:#7c3aed;">
+                      <a href="${LOGIN_URL}" target="_blank"
+                         style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">
+                        Log in
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 28px 32px;border-top:1px solid #26262f;margin-top:16px;">
+                <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#52525b;">
+                  Didn't expect this? You can safely ignore this email.<br />
+                  &copy; Lyncr &middot; lyncr.app
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`.trim()
+
+  return {
+    from: confirmationSender(),
+    to: params.toEmail.trim().toLowerCase(),
+    subject,
+    html,
+    text,
+  }
+}
+
+/**
  * Send the signup confirmation via the configured Lyncr mailer. Never throws — signup must
  * succeed even when email delivery is unconfigured or fails; callers should fire-and-forget
  * and just log the result.

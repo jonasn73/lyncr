@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { createSessionCookie, getSessionCookieName, getSessionCookieOptions } from "@/lib/auth"
 import { activateTechInviteStub, getTechInviteStubByToken } from "@/lib/tech-invite-stub"
+import {
+  buildTeamMemberConfirmationEmailPayload,
+  sendSignupConfirmationEmail,
+} from "@/lib/signup-confirmation-email"
 
 export const dynamic = "force-dynamic"
 
@@ -43,6 +47,24 @@ export async function POST(req: NextRequest) {
         { error: "This setup link is invalid or has expired. Ask your dispatcher to resend it." },
         { status: 410 }
       )
+    }
+
+    // Confirmation fires at activation (not invite-send, which is the SMS text) — only if a
+    // real email was captured on the invite form.
+    if (stub.contactEmail) {
+      try {
+        const payload = buildTeamMemberConfirmationEmailPayload({
+          toEmail: stub.contactEmail,
+          name: stub.name,
+          role: "field_tech",
+        })
+        const result = await sendSignupConfirmationEmail(payload)
+        if (!result.sent) {
+          console.error("[POST /api/tech/setup] confirmation email not sent:", result.error)
+        }
+      } catch (e) {
+        console.error("[POST /api/tech/setup] confirmation email threw:", e instanceof Error ? e.message : e)
+      }
     }
 
     // Sign the tech straight in so they land on their console without a separate login step.
