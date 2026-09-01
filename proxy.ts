@@ -66,8 +66,13 @@ export function proxy(request: NextRequest) {
   // activate before they have an account. The page redirects token visits to the activation form.
   const hasInviteToken = Boolean(request.nextUrl.searchParams.get("token"))
 
-  // The tech console requires a session, except its own public login page.
-  const techNeedsSession = pathname.startsWith("/tech") && !pathname.startsWith("/tech/login")
+  // The tech console requires a session, except its own public login page and the
+  // password-setup page an invite SMS links to — that page has no session yet by
+  // definition (it validates the invite token itself, same as /onboarding above).
+  const techNeedsSession =
+    pathname.startsWith("/tech") &&
+    !pathname.startsWith("/tech/login") &&
+    !pathname.startsWith("/tech/setup")
 
   const needsSession =
     pathname.startsWith("/dashboard") ||
