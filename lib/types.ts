@@ -837,6 +837,17 @@ export interface AdminSupportPulse {
   attention_count: number
 }
 
+/** New shop signups waiting for Approve/Deny, for the admin header bell. */
+export interface AdminPendingShopsPulse {
+  pending_count: number
+  shops: Array<{
+    user_id: string
+    business_name: string
+    email: string
+    created_at: string
+  }>
+}
+
 /** Platform-admin row used for health SMS/email (never shop owners). */
 export interface PlatformAdminContact {
   id: string

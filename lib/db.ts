@@ -70,6 +70,7 @@ import type {
   LyncrAdminDirectoryRow,
   LyncrAdminMetrics,
   AdminSupportPulse,
+  AdminPendingShopsPulse,
   PlatformAdminContact,
   AdminUserOverrideResult,
   ReceptionistPayoutMetrics,
@@ -18567,6 +18568,35 @@ export async function getAdminSupportPulse(): Promise<AdminSupportPulse> {
     email_unread,
     open_feedback,
     attention_count: chat_unread + email_unread + open_feedback,
+  }
+}
+
+/** New shop signups waiting for Approve/Deny, for the admin header bell (mirrors isShopOwnerRow). */
+export async function getAdminPendingShopsPulse(): Promise<AdminPendingShopsPulse> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT u.id AS user_id, u.email, coalesce(u.business_name, '') AS business_name, u.created_at
+      FROM users u
+      JOIN onboarding_profiles op ON op.user_id = u.id
+      WHERE op.account_status = 'pending'
+        AND coalesce(u.account_role, 'owner') = 'owner'
+        AND nullif(trim(u.business_name), '') IS NOT NULL
+        AND lower(u.email) <> 'admin@lyncr.app'
+        AND lower(u.email) NOT LIKE '%@tech.lyncr.app'
+        AND NOT EXISTS (SELECT 1 FROM receptionists rr WHERE rr.portal_user_id = u.id)
+      ORDER BY u.created_at ASC
+    `
+    const shops = (rows as Record<string, unknown>[]).map((row) => ({
+      user_id: String(row.user_id),
+      business_name: String(row.business_name ?? ""),
+      email: String(row.email ?? ""),
+      created_at: String(row.created_at),
+    }))
+    return { pending_count: shops.length, shops: shops.slice(0, 10) }
+  } catch (e) {
+    if (isUndefinedRelationError(e, "onboarding_profiles")) return { pending_count: 0, shops: [] }
+    throw e
   }
 }
 

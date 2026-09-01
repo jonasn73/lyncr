@@ -3,9 +3,11 @@
 // Compact platform admin shell — desktop sidebar + mobile bottom tabs (no duplicate Menu).
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import {
+  Bell,
   Building2,
   Headphones,
   Home,
@@ -81,6 +83,80 @@ function useAdminSupportPulse() {
       window.clearInterval(timer)
     }
   }, [])
+  return count
+}
+
+const PENDING_SHOPS_SEEN_KEY = "lyncr_admin_pending_shops_seen"
+
+type PendingShopPulseRow = { user_id: string; business_name: string; email: string }
+
+/**
+ * Poll for new-shop signups waiting on Approve/Deny and toast on any this browser hasn't
+ * seen yet (tracked in localStorage, so a refresh doesn't re-toast the same backlog). This
+ * is the only proactive nudge admins get — the Pending shops list itself is easy to miss.
+ */
+function useAdminPendingShopsPulse() {
+  const router = useRouter()
+  const [count, setCount] = useState(0)
+  const seenIds = useRef<Set<string> | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch("/api/admin/pending-shops-pulse", { credentials: "include" })
+        const json = (await res.json().catch(() => ({}))) as {
+          data?: { pending_count?: number; shops?: PendingShopPulseRow[] }
+        }
+        if (cancelled || !res.ok) return
+        const shops = json.data?.shops ?? []
+        setCount(Number(json.data?.pending_count ?? 0))
+
+        if (seenIds.current === null) {
+          try {
+            const raw = window.localStorage.getItem(PENDING_SHOPS_SEEN_KEY)
+            const parsed = raw ? JSON.parse(raw) : []
+            seenIds.current = new Set(Array.isArray(parsed) ? parsed.map(String) : [])
+          } catch {
+            seenIds.current = new Set()
+          }
+        }
+
+        const unseen = shops.filter((s) => !seenIds.current!.has(s.user_id))
+        if (unseen.length > 0) {
+          if (unseen.length === 1) {
+            const shop = unseen[0]
+            toast(`New signup pending approval`, {
+              description: shop.business_name || shop.email,
+              action: { label: "Review", onClick: () => router.push("/admin") },
+            })
+          } else {
+            toast(`${unseen.length} new signups pending approval`, {
+              action: { label: "Review", onClick: () => router.push("/admin") },
+            })
+          }
+          for (const s of unseen) seenIds.current!.add(s.user_id)
+          try {
+            window.localStorage.setItem(
+              PENDING_SHOPS_SEEN_KEY,
+              JSON.stringify([...seenIds.current!].slice(-200))
+            )
+          } catch {
+            // best effort — badge/toast still work without persistence
+          }
+        }
+      } catch {
+        // Badge is optional — ignore network blips.
+      }
+    }
+    void load()
+    const timer = window.setInterval(() => void load(), 30000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [router])
+
   return count
 }
 
@@ -312,6 +388,7 @@ export function AdminChrome({
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
   const supportCount = useAdminSupportPulse()
+  const pendingShopsCount = useAdminPendingShopsPulse()
 
   // Close overflow sheet when the route changes (e.g. user tapped another bottom tab).
   useEffect(() => {
@@ -367,6 +444,18 @@ export function AdminChrome({
               <p className="truncate text-2xs text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
+          <Link
+            href="/admin"
+            aria-label={
+              pendingShopsCount > 0
+                ? `${pendingShopsCount} shop${pendingShopsCount === 1 ? "" : "s"} waiting for approval`
+                : "No pending shop approvals"
+            }
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Bell className="h-4 w-4" aria-hidden />
+            <SupportCountBadge count={pendingShopsCount} className="absolute -right-0.5 -top-0.5" />
+          </Link>
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
           <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-muted hover:text-foreground">
             <Link href="/dashboard">App</Link>
