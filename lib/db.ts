@@ -9622,6 +9622,7 @@ export async function listFieldTechnicians(
         realOrgCount > 1
           ? await sql`
               SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+                     to_jsonb(ft) -> 'capabilities' AS capabilities,
                      u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
@@ -9631,6 +9632,7 @@ export async function listFieldTechnicians(
             `
           : await sql`
               SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+                     to_jsonb(ft) -> 'capabilities' AS capabilities,
                      u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
@@ -9642,6 +9644,7 @@ export async function listFieldTechnicians(
     }
     const rows = await sql`
       SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+             to_jsonb(ft) -> 'capabilities' AS capabilities,
              u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
@@ -9660,7 +9663,7 @@ export async function listFieldTechnicians(
         const rows = orgFilter
           ? await sql`
               SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-                     u.email AS email
+                     to_jsonb(ft) -> 'capabilities' AS capabilities, u.email AS email
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
               WHERE ft.user_id = ${ownerUserId}
@@ -9669,7 +9672,7 @@ export async function listFieldTechnicians(
             `
           : await sql`
               SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-                     u.email AS email
+                     to_jsonb(ft) -> 'capabilities' AS capabilities, u.email AS email
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
               WHERE ft.user_id = ${ownerUserId}
@@ -9693,6 +9696,7 @@ async function listFieldTechniciansLegacy(ownerUserId: string): Promise<FieldTec
   try {
     const rows = await sql`
       SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+             to_jsonb(ft) -> 'capabilities' AS capabilities,
              u.email AS email, u.invite_status AS invite_status
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
@@ -9784,7 +9788,8 @@ export async function getFieldTechnicianByIdForOwner(
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+      SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address,
+             ft.is_active, ft.created_at, to_jsonb(ft) -> 'capabilities' AS capabilities,
              u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
@@ -9798,7 +9803,7 @@ export async function getFieldTechnicianByIdForOwner(
       try {
         const rows = await sql`
           SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-                 u.email AS email
+                 to_jsonb(ft) -> 'capabilities' AS capabilities, u.email AS email
           FROM field_technicians ft
           LEFT JOIN users u ON u.id = ft.portal_user_id
           WHERE ft.user_id = ${ownerUserId} AND ft.id = ${technicianId}
@@ -9821,8 +9826,9 @@ export async function getFieldTechnicianByPortalUserId(
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-             u.email AS email
+      SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address,
+             ft.is_active, ft.created_at, to_jsonb(ft) -> 'capabilities' AS capabilities,
+             u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
       WHERE ft.portal_user_id = ${portalUserId}
@@ -9831,6 +9837,23 @@ export async function getFieldTechnicianByPortalUserId(
     return rows[0] ? parseFieldTechnicianRow(rows[0]) : null
   } catch (e) {
     if (isMissingFieldTechTableError(e)) return null
+    // Pre-054/064/078 DB — missing address/organization_id/invite_status columns.
+    if (pgErrorCode(e) === "42703") {
+      try {
+        const rows = await sql`
+          SELECT ft.id, ft.user_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
+                 to_jsonb(ft) -> 'capabilities' AS capabilities, u.email AS email
+          FROM field_technicians ft
+          LEFT JOIN users u ON u.id = ft.portal_user_id
+          WHERE ft.portal_user_id = ${portalUserId}
+          LIMIT 1
+        `
+        return rows[0] ? parseFieldTechnicianRow(rows[0]) : null
+      } catch (e2) {
+        if (isMissingFieldTechTableError(e2)) return null
+        throw e2
+      }
+    }
     throw e
   }
 }
