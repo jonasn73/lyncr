@@ -9,9 +9,12 @@ import { toast } from "sonner"
 import {
   Bell,
   Building2,
+  FileText,
   Headphones,
   Home,
   LogOut,
+  Mail,
+  MessageCircle,
   MessageSquareWarning,
   MoreHorizontal,
   Settings,
@@ -21,6 +24,7 @@ import {
 import { cn } from "@/lib/utils"
 import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BrandWordmark } from "@/components/brand-wordmark"
 
 // Home is Finance — money, every business's balance, and the transaction ledger in one
@@ -86,48 +90,60 @@ function useAdminSupportPulse() {
   return count
 }
 
-const PENDING_SHOPS_SEEN_KEY = "lyncr_admin_pending_shops_seen"
+const NOTIFICATIONS_SEEN_KEY = "lyncr_admin_notifications_seen"
 
-type PendingShopPulseRow = { user_id: string; business_name: string; email: string }
+type AdminNotificationItemRow = {
+  id: string
+  kind: "pending_shop" | "chat" | "email" | "feedback"
+  title: string
+  subtitle: string
+  timestamp: string
+  href: string
+}
+
+type AdminNotificationFeedResponse = {
+  total_count: number
+  items: AdminNotificationItemRow[]
+}
 
 /**
- * Poll for new-shop signups waiting on Approve/Deny and toast on any this browser hasn't
- * seen yet (tracked in localStorage, so a refresh doesn't re-toast the same backlog). This
- * is the only proactive nudge admins get — the Pending shops list itself is easy to miss.
+ * Poll the unified admin notification feed — pending shop approvals + unread support chat,
+ * unread support email, and open in-app feedback — and toast on any newly-pending shop this
+ * browser hasn't seen yet (tracked in localStorage, so a refresh doesn't re-toast the same
+ * backlog). Support items don't toast individually — new chats/emails are too frequent for
+ * that to stay useful — they just show up in the badge count and the dropdown.
  */
-function useAdminPendingShopsPulse() {
+function useAdminNotificationFeed() {
   const router = useRouter()
-  const [count, setCount] = useState(0)
-  const seenIds = useRef<Set<string> | null>(null)
+  const [feed, setFeed] = useState<AdminNotificationFeedResponse>({ total_count: 0, items: [] })
+  const seenPendingShopIds = useRef<Set<string> | null>(null)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch("/api/admin/pending-shops-pulse", { credentials: "include" })
-        const json = (await res.json().catch(() => ({}))) as {
-          data?: { pending_count?: number; shops?: PendingShopPulseRow[] }
-        }
+        const res = await fetch("/api/admin/notification-feed", { credentials: "include" })
+        const json = (await res.json().catch(() => ({}))) as { data?: AdminNotificationFeedResponse }
         if (cancelled || !res.ok) return
-        const shops = json.data?.shops ?? []
-        setCount(Number(json.data?.pending_count ?? 0))
+        const data = json.data ?? { total_count: 0, items: [] }
+        setFeed(data)
 
-        if (seenIds.current === null) {
+        if (seenPendingShopIds.current === null) {
           try {
-            const raw = window.localStorage.getItem(PENDING_SHOPS_SEEN_KEY)
+            const raw = window.localStorage.getItem(NOTIFICATIONS_SEEN_KEY)
             const parsed = raw ? JSON.parse(raw) : []
-            seenIds.current = new Set(Array.isArray(parsed) ? parsed.map(String) : [])
+            seenPendingShopIds.current = new Set(Array.isArray(parsed) ? parsed.map(String) : [])
           } catch {
-            seenIds.current = new Set()
+            seenPendingShopIds.current = new Set()
           }
         }
 
-        const unseen = shops.filter((s) => !seenIds.current!.has(s.user_id))
+        const pendingShops = data.items.filter((item) => item.kind === "pending_shop")
+        const unseen = pendingShops.filter((item) => !seenPendingShopIds.current!.has(item.id))
         if (unseen.length > 0) {
           if (unseen.length === 1) {
-            const shop = unseen[0]
             toast(`New signup pending approval`, {
-              description: shop.business_name || shop.email,
+              description: unseen[0].subtitle,
               action: { label: "Review", onClick: () => router.push("/admin") },
             })
           } else {
@@ -135,11 +151,11 @@ function useAdminPendingShopsPulse() {
               action: { label: "Review", onClick: () => router.push("/admin") },
             })
           }
-          for (const s of unseen) seenIds.current!.add(s.user_id)
+          for (const item of unseen) seenPendingShopIds.current!.add(item.id)
           try {
             window.localStorage.setItem(
-              PENDING_SHOPS_SEEN_KEY,
-              JSON.stringify([...seenIds.current!].slice(-200))
+              NOTIFICATIONS_SEEN_KEY,
+              JSON.stringify([...seenPendingShopIds.current!].slice(-200))
             )
           } catch {
             // best effort — badge/toast still work without persistence
@@ -157,7 +173,7 @@ function useAdminPendingShopsPulse() {
     }
   }, [router])
 
-  return count
+  return feed
 }
 
 function SupportCountBadge({ count, className }: { count: number; className?: string }) {
@@ -171,6 +187,121 @@ function SupportCountBadge({ count, className }: { count: number; className?: st
     >
       {count > 99 ? "99+" : count}
     </span>
+  )
+}
+
+function relativeTimeLabel(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (!Number.isFinite(then)) return ""
+  const minutes = Math.max(0, Math.round((Date.now() - then) / 60000))
+  if (minutes < 1) return "just now"
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.round(hours / 24)}d`
+}
+
+const NOTIFICATION_ICON: Record<AdminNotificationItemRow["kind"], typeof Bell> = {
+  pending_shop: Building2,
+  chat: MessageCircle,
+  email: Mail,
+  feedback: FileText,
+}
+
+/**
+ * The admin header bell — a dropdown over every notification category (pending shop
+ * approvals, unread support chat/email, open feedback), not just one. Picking an item jumps
+ * straight to it: pending shops scroll to the Home page's list (there's no dedicated route
+ * for them), everything else deep-links into /admin/support via query params.
+ */
+function NotificationBell() {
+  const pathname = usePathname() ?? ""
+  const router = useRouter()
+  const feed = useAdminNotificationFeed()
+  const [open, setOpen] = useState(false)
+
+  // Pending shops have no dedicated route — they live in a section on the Home page that
+  // mounts (and keeps shifting) as the page's own data fetch fills in the cards above it, so
+  // finding the element once isn't enough: keep re-correcting position for the whole budget
+  // instead of stopping at the first hit, or an early attempt locks onto a too-early offset
+  // (the section can still be pushed further down after it first appears). Scroll the window
+  // directly rather than element.scrollIntoView(), whose ancestor-walk behavior is harder to
+  // predict on a page with no separate internal scroll region.
+  const scrollToPendingShops = () => {
+    const scroll = () => {
+      const target = document.getElementById("pending-shops")
+      if (!target) return
+      const top = target.getBoundingClientRect().top + window.scrollY - 72
+      window.scrollTo({ top })
+    }
+    if (pathname !== "/admin") router.push("/admin")
+    let attempts = 0
+    const tick = () => {
+      scroll()
+      attempts += 1
+      if (attempts < 20) window.setTimeout(tick, 200)
+    }
+    window.setTimeout(tick, 200)
+  }
+
+  const handleSelect = (item: AdminNotificationItemRow) => {
+    setOpen(false)
+    if (item.kind === "pending_shop") {
+      scrollToPendingShops()
+      return
+    }
+    router.push(item.href)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={
+            feed.total_count > 0
+              ? `${feed.total_count} notification${feed.total_count === 1 ? "" : "s"}`
+              : "No notifications"
+          }
+          className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Bell className="h-4 w-4" aria-hidden />
+          <SupportCountBadge count={feed.total_count} className="absolute -right-0.5 -top-0.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="border-b border-border px-3 py-2">
+          <p className="text-sm font-semibold text-foreground">Notifications</p>
+        </div>
+        {feed.items.length === 0 ? (
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">You&rsquo;re all caught up.</p>
+        ) : (
+          <ul className="max-h-96 divide-y divide-border overflow-auto">
+            {feed.items.map((item) => {
+              const Icon = NOTIFICATION_ICON[item.kind]
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(item)}
+                    className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-muted/60"
+                  >
+                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-operator" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium text-foreground">{item.title}</span>
+                      <span className="block truncate text-2xs text-muted-foreground">{item.subtitle}</span>
+                    </span>
+                    <span className="shrink-0 text-2xs text-muted-foreground">
+                      {relativeTimeLabel(item.timestamp)}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -387,42 +518,12 @@ export function AdminChrome({
   const [moreOpen, setMoreOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const pathname = usePathname() ?? ""
-  const router = useRouter()
   const supportCount = useAdminSupportPulse()
-  const pendingShopsCount = useAdminPendingShopsPulse()
 
   // Close overflow sheet when the route changes (e.g. user tapped another bottom tab).
   useEffect(() => {
     setMoreOpen(false)
   }, [pathname])
-
-  // The bell always lands on the Pending shops list — a Link to "/admin" is a silent no-op
-  // when you're already there (same URL, no scroll). This page has no separate internal
-  // scroll region (the content div never overflows itself — the document is what scrolls),
-  // so scroll the window directly rather than element.scrollIntoView(), whose ancestor-walk
-  // behavior is harder to predict here.
-  const scrollToPendingShops = () => {
-    const scroll = () => {
-      const target = document.getElementById("pending-shops")
-      if (!target) return false
-      const top = target.getBoundingClientRect().top + window.scrollY - 72
-      window.scrollTo({ top })
-      return true
-    }
-    if (pathname === "/admin") {
-      scroll()
-      return
-    }
-    router.push("/admin")
-    let attempts = 0
-    const tryScroll = () => {
-      if (!scroll() && attempts < 20) {
-        attempts += 1
-        window.setTimeout(tryScroll, 150)
-      }
-    }
-    window.setTimeout(tryScroll, 150)
-  }
 
   return (
     <div
@@ -473,19 +574,7 @@ export function AdminChrome({
               <p className="truncate text-2xs text-muted-foreground sm:hidden">{userName}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={scrollToPendingShops}
-            aria-label={
-              pendingShopsCount > 0
-                ? `${pendingShopsCount} shop${pendingShopsCount === 1 ? "" : "s"} waiting for approval`
-                : "No pending shop approvals"
-            }
-            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Bell className="h-4 w-4" aria-hidden />
-            <SupportCountBadge count={pendingShopsCount} className="absolute -right-0.5 -top-0.5" />
-          </button>
+          <NotificationBell />
           {/* App link stays in the header; Logout moved to More (mobile) / sidebar (desktop) */}
           <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:bg-muted hover:text-foreground">
             <Link href="/dashboard">App</Link>

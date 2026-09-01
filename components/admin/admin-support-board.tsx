@@ -3,6 +3,7 @@
 // Platform support — inbound emails (Resend) + in-app feedback + live chat.
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useSearchParams } from "next/navigation"
 import { startImpersonation } from "@/app/actions/admin-impersonation"
 import type {
   AdminSupportEmail,
@@ -80,7 +81,7 @@ type PendingAttachment = {
   size_bytes: number
 }
 
-function LiveChatQueue() {
+function LiveChatQueue({ initialThreadId }: { initialThreadId?: string | null }) {
   const [threads, setThreads] = useState<SupportChatThreadListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -155,6 +156,14 @@ function LiveChatQueue() {
       if (!silent) setDetailLoading(false)
     }
   }, [])
+
+  // Deep link from the notification bell (?tab=chat&thread=…) — open once, not on every rerender.
+  const openedInitialThread = useRef(false)
+  useEffect(() => {
+    if (openedInitialThread.current || !initialThreadId) return
+    openedInitialThread.current = true
+    void loadThread(initialThreadId)
+  }, [initialThreadId, loadThread])
 
   // Poll open thread for new tenant messages.
   useEffect(() => {
@@ -504,7 +513,7 @@ function LiveChatQueue() {
   )
 }
 
-function FeedbackQueue() {
+function FeedbackQueue({ initialFeedbackId }: { initialFeedbackId?: string | null }) {
   const [feedback, setFeedback] = useState<FeedbackSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [sheet, setSheet] = useState<FeedbackSubmission | null>(null)
@@ -530,6 +539,17 @@ function FeedbackQueue() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Deep link from the notification bell (?tab=feedback&feedback=…) — open once the list has
+  // loaded and the row is available, not on every rerender.
+  const openedInitialFeedback = useRef(false)
+  useEffect(() => {
+    if (openedInitialFeedback.current || !initialFeedbackId || feedback.length === 0) return
+    const row = feedback.find((r) => r.id === initialFeedbackId)
+    if (!row) return
+    openedInitialFeedback.current = true
+    setSheet(row)
+  }, [initialFeedbackId, feedback])
 
   async function setStatus(id: string, status: FeedbackStatus) {
     const res = await fetch(`/api/admin/feedback/${encodeURIComponent(id)}`, {
@@ -689,7 +709,7 @@ function FeedbackQueue() {
   )
 }
 
-function EmailInbox() {
+function EmailInbox({ initialEmailId }: { initialEmailId?: string | null }) {
   const [emails, setEmails] = useState<AdminSupportEmailListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<AdminSupportEmail | null>(null)
@@ -715,6 +735,14 @@ function EmailInbox() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Deep link from the notification bell (?tab=emails&email=…) — open once, not on every rerender.
+  const openedInitialEmail = useRef(false)
+  useEffect(() => {
+    if (openedInitialEmail.current || !initialEmailId) return
+    openedInitialEmail.current = true
+    void openEmail(initialEmailId)
+  }, [initialEmailId])
 
   async function openEmail(id: string) {
     setDetailLoading(true)
@@ -886,6 +914,15 @@ function EmailInbox() {
 }
 
 export function AdminSupportBoard() {
+  // Deep link from the notification bell: /admin/support?tab=chat&thread=… (also emails/feedback).
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const initialTab = tabParam === "emails" || tabParam === "feedback" ? tabParam : "chat"
+  const [tab, setTab] = useState(initialTab)
+  const initialThreadId = searchParams.get("thread")
+  const initialEmailId = searchParams.get("email")
+  const initialFeedbackId = searchParams.get("feedback")
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:p-6">
       <div>
@@ -895,7 +932,7 @@ export function AdminSupportBoard() {
         </p>
       </div>
 
-      <Tabs defaultValue="chat" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-3 bg-card p-1">
           <TabsTrigger
             value="chat"
@@ -917,13 +954,13 @@ export function AdminSupportBoard() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="chat" className="mt-4">
-          <LiveChatQueue />
+          <LiveChatQueue initialThreadId={initialThreadId} />
         </TabsContent>
         <TabsContent value="emails" className="mt-4">
-          <EmailInbox />
+          <EmailInbox initialEmailId={initialEmailId} />
         </TabsContent>
         <TabsContent value="feedback" className="mt-4">
-          <FeedbackQueue />
+          <FeedbackQueue initialFeedbackId={initialFeedbackId} />
         </TabsContent>
       </Tabs>
     </div>

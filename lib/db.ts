@@ -71,6 +71,8 @@ import type {
   LyncrAdminMetrics,
   AdminSupportPulse,
   AdminPendingShopsPulse,
+  AdminNotificationFeed,
+  AdminNotificationItem,
   PlatformAdminContact,
   AdminUserOverrideResult,
   ReceptionistPayoutMetrics,
@@ -18597,6 +18599,133 @@ export async function getAdminPendingShopsPulse(): Promise<AdminPendingShopsPuls
   } catch (e) {
     if (isUndefinedRelationError(e, "onboarding_profiles")) return { pending_count: 0, shops: [] }
     throw e
+  }
+}
+
+/** Unified feed behind the admin header bell — combines pending shops + support (chat/email/feedback). */
+export async function getAdminNotificationFeed(): Promise<AdminNotificationFeed> {
+  const sql = getSql()
+  const items: AdminNotificationItem[] = []
+
+  const pendingShops = await getAdminPendingShopsPulse()
+  for (const shop of pendingShops.shops.slice(0, 5)) {
+    items.push({
+      id: `pending_shop:${shop.user_id}`,
+      kind: "pending_shop",
+      title: "New signup pending approval",
+      subtitle: shop.business_name || shop.email,
+      timestamp: shop.created_at,
+      href: "/admin",
+    })
+  }
+
+  let chat_unread = 0
+  try {
+    const rows = await sql`
+      SELECT
+        t.id, t.last_message_at, t.created_at,
+        coalesce(u.business_name, '') AS business_name,
+        (
+          SELECT m.body FROM support_chat_messages m
+          WHERE m.thread_id = t.id
+          ORDER BY m.created_at DESC
+          LIMIT 1
+        ) AS last_message_preview
+      FROM support_chat_threads t
+      INNER JOIN users u ON u.id = t.user_id
+      WHERE t.admin_unread_count > 0
+      ORDER BY coalesce(t.last_message_at, t.created_at) DESC
+      LIMIT 5
+    `
+    chat_unread = rows.length
+    for (const row of rows as Record<string, unknown>[]) {
+      const preview = row.last_message_preview != null ? String(row.last_message_preview).replace(/\s+/g, " ").trim() : ""
+      items.push({
+        id: `chat:${String(row.id)}`,
+        kind: "chat",
+        title: String(row.business_name) || "New live chat message",
+        subtitle: preview.slice(0, 120) || "New message",
+        timestamp: String(row.last_message_at ?? row.created_at),
+        href: `/admin/support?tab=chat&thread=${encodeURIComponent(String(row.id))}`,
+      })
+    }
+    // Total unread count (the list above is capped at 5).
+    const countRows = await sql`
+      SELECT count(*)::int AS n FROM support_chat_threads WHERE admin_unread_count > 0
+    `
+    chat_unread = Number((countRows[0] as { n?: number } | undefined)?.n ?? chat_unread)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "support_chat_threads")) throw e
+  }
+
+  let email_unread = 0
+  try {
+    const rows = await sql`
+      SELECT id, from_email, from_name, subject, received_at
+      FROM admin_support_emails
+      WHERE read_at IS NULL
+      ORDER BY received_at DESC
+      LIMIT 5
+    `
+    for (const row of rows as Record<string, unknown>[]) {
+      items.push({
+        id: `email:${String(row.id)}`,
+        kind: "email",
+        title: String(row.from_name ?? "").trim() || String(row.from_email ?? "").trim() || "New support email",
+        subtitle: String(row.subject ?? "").trim() || "(no subject)",
+        timestamp: String(row.received_at),
+        href: `/admin/support?tab=emails&email=${encodeURIComponent(String(row.id))}`,
+      })
+    }
+    const countRows = await sql`
+      SELECT count(*)::int AS n FROM admin_support_emails WHERE read_at IS NULL
+    `
+    email_unread = Number((countRows[0] as { n?: number } | undefined)?.n ?? rows.length)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "admin_support_emails")) throw e
+  }
+
+  let open_feedback = 0
+  try {
+    const rows = await sql`
+      SELECT f.id, f.subject, f.created_at, coalesce(u.business_name, '') AS business_name
+      FROM feedback_submissions f
+      LEFT JOIN users u ON u.id = f.user_id
+      WHERE f.status = 'open'
+      ORDER BY f.created_at DESC
+      LIMIT 5
+    `
+    for (const row of rows as Record<string, unknown>[]) {
+      items.push({
+        id: `feedback:${String(row.id)}`,
+        kind: "feedback",
+        title: String(row.business_name) || "In-app feedback",
+        subtitle: String(row.subject ?? "").trim() || "(no subject)",
+        timestamp: String(row.created_at),
+        href: `/admin/support?tab=feedback&feedback=${encodeURIComponent(String(row.id))}`,
+      })
+    }
+    const countRows = await sql`
+      SELECT count(*)::int AS n FROM feedback_submissions WHERE status = 'open'
+    `
+    open_feedback = Number((countRows[0] as { n?: number } | undefined)?.n ?? rows.length)
+  } catch (e) {
+    if (!isUndefinedRelationError(e, "feedback_submissions")) throw e
+  }
+
+  items.sort((a, b) => {
+    if (a.kind === "pending_shop" && b.kind !== "pending_shop") return -1
+    if (b.kind === "pending_shop" && a.kind !== "pending_shop") return 1
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  })
+
+  return {
+    total_count: pendingShops.pending_count + chat_unread + email_unread + open_feedback,
+    pending_shops_count: pendingShops.pending_count,
+    chat_unread,
+    email_unread,
+    open_feedback,
+    items,
   }
 }
 

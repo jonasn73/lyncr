@@ -848,6 +848,28 @@ export interface AdminPendingShopsPulse {
   }>
 }
 
+/** One row in the admin header's Notifications dropdown, across all categories. */
+export type AdminNotificationKind = "pending_shop" | "chat" | "email" | "feedback"
+
+export interface AdminNotificationItem {
+  id: string
+  kind: AdminNotificationKind
+  title: string
+  subtitle: string
+  timestamp: string
+  href: string
+}
+
+/** Unified feed behind the admin header bell — pending shops + support (chat/email/feedback). */
+export interface AdminNotificationFeed {
+  total_count: number
+  pending_shops_count: number
+  chat_unread: number
+  email_unread: number
+  open_feedback: number
+  items: AdminNotificationItem[]
+}
+
 /** Platform-admin row used for health SMS/email (never shop owners). */
 export interface PlatformAdminContact {
   id: string
