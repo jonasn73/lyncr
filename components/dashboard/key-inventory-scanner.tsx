@@ -3,7 +3,7 @@
 // Mobile-friendly Key Inventory barcode scanner (html5-qrcode).
 // Portrait viewfinder + torch + vibrate on hit → stock adjust or new-SKU form.
 
-import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Flashlight, FlashlightOff, Loader2, Minus, Plus, ScanBarcode, X } from "lucide-react"
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,22 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   organizationId?: string | null
+  /** Owner console hits /api/inventory/*; tech console hits the owner-scoped /api/tech/inventory/* twin. */
+  scope?: "owner" | "tech"
+}
+
+/** Same-shape routes under two prefixes — pick the one this console is allowed to call. */
+function inventoryEndpoints(scope: "owner" | "tech") {
+  const base = scope === "tech" ? "/api/tech/inventory" : "/api/inventory"
+  return {
+    sku: `${base}/sku`,
+    create: base,
+    adjust: (id: string) => `${base}/${id}/adjust`,
+    image: `${base}/image`,
+    /** The stored image_url always points at /api/inventory/{id}/image — rewrite for tech scope. */
+    rewriteImageUrl: (url: string | null | undefined): string | null | undefined =>
+      scope === "tech" && url ? url.replace(/^\/api\/inventory\//, "/api/tech/inventory/") : url,
+  }
 }
 
 function vibrateConfirm() {
@@ -57,7 +73,8 @@ function vibrateConfirm() {
   }
 }
 
-export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Props) {
+export function KeyInventoryScanner({ open, onOpenChange, organizationId, scope = "owner" }: Props) {
+  const endpoints = useMemo(() => inventoryEndpoints(scope), [scope])
   const readerDomId = useId().replace(/:/g, "")
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const handlingScanRef = useRef(false)
@@ -143,7 +160,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
       try {
         const q = new URLSearchParams({ sku })
         if (organizationId) q.set("organization_id", organizationId)
-        const res = await fetch(`/api/inventory/sku?${q}`, {
+        const res = await fetch(`${endpoints.sku}?${q}`, {
           credentials: "include",
           cache: "no-store",
         })
@@ -154,7 +171,8 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
         if (!res.ok) throw new Error(json.error ?? "Lookup failed")
 
         if (json.data?.found && json.data.item) {
-          setItem(json.data.item)
+          const item = json.data.item
+          setItem({ ...item, imageUrl: endpoints.rewriteImageUrl(item.imageUrl) })
           setPhase("found")
           setStatusMsg(null)
         } else {
@@ -169,7 +187,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
         handlingScanRef.current = false
       }
     },
-    [organizationId]
+    [organizationId, endpoints]
   )
 
   const onDecoded = useCallback(
@@ -293,7 +311,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
     if (!item) return
     setAdjusting(true)
     try {
-      const res = await fetch(`/api/inventory/${item.id}/adjust`, {
+      const res = await fetch(endpoints.adjust(item.id), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -305,7 +323,8 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
       }
       if (!res.ok) throw new Error(json.error ?? "Update failed")
       if (json.data?.item) {
-        setItem(json.data.item)
+        const updated = json.data.item
+        setItem({ ...updated, imageUrl: endpoints.rewriteImageUrl(updated.imageUrl) })
         vibrateConfirm()
       }
     } catch (e) {
@@ -324,7 +343,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
     setSavingNew(true)
     setStatusMsg(null)
     try {
-      const res = await fetch("/api/inventory", {
+      const res = await fetch(endpoints.create, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -342,8 +361,9 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
       }
       if (!res.ok) throw new Error(json.error ?? "Could not save key")
       if (json.data?.item) {
-        setItem(json.data.item)
-        setScannedSku(json.data.item.sku)
+        const created = json.data.item
+        setItem({ ...created, imageUrl: endpoints.rewriteImageUrl(created.imageUrl) })
+        setScannedSku(created.sku)
         setPhase("found")
         vibrateConfirm()
       }
@@ -593,6 +613,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
                 frequency={item.frequency || ""}
                 organizationId={organizationId}
                 imageUrl={item.imageUrl}
+                uploadEndpoint={endpoints.image}
                 onUploaded={(row: KeyInventoryApiRow) => {
                   setItem((prev) =>
                     prev
@@ -715,9 +736,11 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId }: Prop
 export function KeyInventoryScannerLaunchButton({
   className,
   organizationId,
+  scope = "owner",
 }: {
   className?: string
   organizationId?: string | null
+  scope?: "owner" | "tech"
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -734,6 +757,7 @@ export function KeyInventoryScannerLaunchButton({
         open={open}
         onOpenChange={setOpen}
         organizationId={organizationId}
+        scope={scope}
       />
     </>
   )

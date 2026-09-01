@@ -132,6 +132,15 @@ export const FIELD_TECH_CAPABILITY_TOGGLES: {
     key: "view_earnings",
     description: "Shows their own wallet: what they have earned and what is still owed to them.",
   },
+  {
+    key: "key_lookup",
+    description:
+      "Look up what key/fob a vehicle needs — FCC ID, chip type, programming method — same catalog you use, plus what's in stock.",
+  },
+  {
+    key: "inventory_control",
+    description: "Scan or search key stock and add/remove from Van 1, Van 2, or the shop.",
+  },
 ]
 
 function ReceptionistAccessForm({

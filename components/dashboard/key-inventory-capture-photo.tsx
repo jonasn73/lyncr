@@ -21,6 +21,8 @@ type Props = {
   onUploaded: (item: KeyInventoryApiRow) => void // Parent merges updated row
   className?: string
   compact?: boolean // Icon-only button mode
+  /** Where to POST the photo — owner console vs tech console hit different scoped routes. */
+  uploadEndpoint?: string
 }
 
 /** Read a File, shrink it in the browser, return JPEG base64 (no data: prefix). */
@@ -76,6 +78,7 @@ export function KeyInventoryCapturePhotoButton({
   onUploaded,
   className,
   compact,
+  uploadEndpoint = "/api/inventory/image",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null) // Hidden file input
   const [busy, setBusy] = useState(false) // Upload in progress?
@@ -96,7 +99,7 @@ export function KeyInventoryCapturePhotoButton({
       // Instant local preview while the upload finishes.
       setPreviewUrl(`data:${mimeType};base64,${dataBase64}`)
 
-      const res = await fetch("/api/inventory/image", {
+      const res = await fetch(uploadEndpoint, {
         method: "POST",
         credentials: "include", // Send session cookie
         headers: { "Content-Type": "application/json" },
@@ -119,8 +122,16 @@ export function KeyInventoryCapturePhotoButton({
       }
       if (!res.ok) throw new Error(json.error ?? "Upload failed")
       if (json.data?.item) {
-        if (json.data.item.imageUrl) setPreviewUrl(json.data.item.imageUrl) // Server URL
-        onUploaded(json.data.item) // Tell parent (updates key cards)
+        // The stored URL always points at /api/inventory/{id}/image (see keyInventoryImagePath
+        // in lib/key-inventory.ts) no matter which route saved it — rewrite to match whichever
+        // scope actually uploaded it, so a tech session doesn't 404 loading its own photo.
+        const servePrefix = uploadEndpoint.startsWith("/api/tech/") ? "/api/tech/inventory" : "/api/inventory"
+        const rawUrl = json.data.item.imageUrl
+        const item: KeyInventoryApiRow = rawUrl
+          ? { ...json.data.item, imageUrl: rawUrl.replace(/^\/api\/inventory\//, `${servePrefix}/`) }
+          : json.data.item
+        if (item.imageUrl) setPreviewUrl(item.imageUrl)
+        onUploaded(item) // Tell parent (updates key cards)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed")

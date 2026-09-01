@@ -148,6 +148,10 @@ export interface FieldTechnicianCapabilities {
   collect_payment: boolean
   /** See their own wallet: what they've earned and what's owed. */
   view_earnings: boolean
+  /** Look up what key/fob a vehicle needs — FCC ID, chip type, programming method — plus on-hand stock. */
+  key_lookup: boolean
+  /** Scan or search key stock and add/remove from Van 1, Van 2, or the shop. */
+  inventory_control: boolean
 }
 
 /** A single invoice line item. */

@@ -18,6 +18,8 @@ export const DEFAULT_FIELD_TECH_CAPABILITIES: FieldTechnicianCapabilities = {
   customer_contact: false,
   collect_payment: false,
   view_earnings: false,
+  key_lookup: false,
+  inventory_control: false,
 }
 
 /** Short human label per capability — the one place a tech capability is named. */
@@ -26,6 +28,8 @@ export const FIELD_TECH_CAPABILITY_LABELS: Record<keyof FieldTechnicianCapabilit
   customer_contact: "Customer contact",
   collect_payment: "Collect payment",
   view_earnings: "See earnings",
+  key_lookup: "Key lookup",
+  inventory_control: "Inventory control",
 }
 
 /** Every tech capability the owner has turned on, in registry order. */
@@ -43,6 +47,8 @@ export function parseFieldTechCapabilities(raw: unknown): FieldTechnicianCapabil
     customer_contact: obj.customer_contact === true,
     collect_payment: obj.collect_payment === true,
     view_earnings: obj.view_earnings === true,
+    key_lookup: obj.key_lookup === true,
+    inventory_control: obj.inventory_control === true,
   }
 }
 
