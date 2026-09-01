@@ -15,6 +15,10 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth"
 import { postAuthPayload } from "@/lib/post-auth-redirect"
+import {
+  buildSignupConfirmationEmailPayload,
+  sendSignupConfirmationEmail,
+} from "@/lib/signup-confirmation-email"
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,6 +62,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
+      const newAccountStatus = signupAccountStatusForBusinessName(business_name || "My Business")
       user = await createUser({
         email,
         name,
@@ -66,8 +71,26 @@ export async function POST(req: NextRequest) {
         industry,
         password_hash,
         account_role: "owner",
-        account_status: signupAccountStatusForBusinessName(business_name || "My Business"),
+        account_status: newAccountStatus,
       })
+
+      // Confirmation email — never blocks or fails signup; a Resend outage/misconfig just
+      // gets logged. Invited receptionists (the acceptTeamInviteSignup branch above) don't
+      // get this — they're joining an existing team, not creating a new pending business.
+      try {
+        const payload = buildSignupConfirmationEmailPayload({
+          toEmail: email,
+          name,
+          businessName: business_name || "My Business",
+          status: newAccountStatus,
+        })
+        const result = await sendSignupConfirmationEmail(payload)
+        if (!result.sent) {
+          console.error("[lyncr] Signup confirmation email not sent:", result.error)
+        }
+      } catch (e) {
+        console.error("[lyncr] Signup confirmation email threw:", e instanceof Error ? e.message : e)
+      }
     }
 
     const accountStatus = await getUserAccountStatus(user.id)
