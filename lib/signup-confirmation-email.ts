@@ -22,6 +22,8 @@ function confirmationSender(): string {
 }
 
 const LOGIN_URL = "https://lyncr.app/login"
+/** Field techs log in with their phone number — only /tech/login converts that to their account email. */
+const TECH_LOGIN_URL = "https://lyncr.app/tech/login"
 
 /** Build the signup confirmation email — branches copy on whether the account is pending approval. */
 export function buildSignupConfirmationEmailPayload(params: {
@@ -133,6 +135,7 @@ export function buildTeamMemberConfirmationEmailPayload(params: {
 }): SignupConfirmationEmailPayload {
   const name = (params.name ?? "").trim() || "there"
   const roleLabel = params.role === "field_tech" ? "technician" : "receptionist"
+  const loginUrl = params.role === "field_tech" ? TECH_LOGIN_URL : LOGIN_URL
   const subject = "You're all set — welcome to Lyncr"
   const bodyText = `Your Lyncr ${roleLabel} account is ready. Log in to get started.`
   const text = [`Hi ${name},`, "", bodyText, "", "— The Lyncr Team"].join("\n")
@@ -165,7 +168,7 @@ export function buildTeamMemberConfirmationEmailPayload(params: {
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="border-radius:10px;background-color:#7c3aed;">
-                      <a href="${LOGIN_URL}" target="_blank"
+                      <a href="${loginUrl}" target="_blank"
                          style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">
                         Log in
                       </a>
