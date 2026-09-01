@@ -9,6 +9,8 @@ import {
   WorkspacePanel,
 } from "@/components/dashboard-workspace-ui"
 import { KeyInventoryScannerLaunchButton } from "@/components/dashboard/key-inventory-scanner"
+import { KeyReorderRequestsPanel } from "@/components/dashboard/key-reorder-requests-panel"
+import { KeyInventoryUsagePanel } from "@/components/dashboard/key-inventory-usage-panel"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
 
 export function InventoryWorkspaceView() {
@@ -45,6 +47,16 @@ export function InventoryWorkspaceView() {
             </p>
           </div>
         </div>
+      </WorkspacePanel>
+
+      <WorkspacePanel density="default">
+        <p className="mb-3 text-sm font-semibold text-foreground">Reorder requests</p>
+        <KeyReorderRequestsPanel />
+      </WorkspacePanel>
+
+      <WorkspacePanel density="default">
+        <p className="mb-3 text-sm font-semibold text-foreground">Usage</p>
+        <KeyInventoryUsagePanel />
       </WorkspacePanel>
     </WorkspacePage>
   )

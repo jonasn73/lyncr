@@ -5,6 +5,9 @@ import { neon } from "@neondatabase/serverless"
 import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
+import { recordKeyInventoryLedgerEntry, type KeyInventoryLedgerActor } from "@/lib/key-inventory-ledger"
+
+export type { KeyInventoryLedgerActor }
 
 export type { KeyInventoryApiRow }
 export { shouldShowOutOfStockFallback } from "@/lib/key-inventory-shared"
@@ -403,6 +406,8 @@ export async function adjustKeyInventoryQuantity(params: {
   id: string
   delta: number
   location?: KeyInventoryStockLocation
+  /** Who made this change — omit only for call sites that predate the usage ledger. */
+  actor?: KeyInventoryLedgerActor
 }): Promise<KeyInventoryRow | null> {
   const location = params.location ?? "van1"
   const delta = Math.trunc(params.delta)
@@ -446,7 +451,22 @@ export async function adjustKeyInventoryQuantity(params: {
             `
 
     const row = (rows as Record<string, unknown>[])[0]
-    return row ? mapRow(row) : null
+    if (!row) return null
+    const mapped = mapRow(row)
+    if (params.actor) {
+      const balanceAfter =
+        location === "van2" ? mapped.van2Quantity : location === "shop" ? mapped.shopQuantity : mapped.van1Quantity
+      void recordKeyInventoryLedgerEntry({
+        ownerUserId: params.userId,
+        keyInventoryId: mapped.id,
+        location,
+        delta,
+        balanceAfter,
+        reason: "scan_adjust",
+        actor: params.actor,
+      })
+    }
+    return mapped
   } catch (error) {
     if (isMissingTableError(error)) {
       console.warn("[key-inventory] table missing — run scripts/105-key-inventory.sql in Neon")
@@ -474,6 +494,8 @@ export type CreateKeyInventoryInput = {
   shopQuantity?: number
   minimumStockAlert?: number
   notes?: string | null
+  /** Who registered this SKU — omit only for call sites that predate the usage ledger. */
+  actor?: KeyInventoryLedgerActor
 }
 
 /**
@@ -660,7 +682,27 @@ export async function createKeyInventoryItem(
 
     const row = (rows as Record<string, unknown>[])[0]
     if (!row) throw new Error("Insert failed")
-    return { row: mapRow(row), created: true }
+    const mapped = mapRow(row)
+    if (input.actor) {
+      const seeded: Array<[KeyInventoryStockLocation, number]> = [
+        ["van1", mapped.van1Quantity],
+        ["van2", mapped.van2Quantity],
+        ["shop", mapped.shopQuantity],
+      ]
+      for (const [location, quantity] of seeded) {
+        if (quantity <= 0) continue
+        void recordKeyInventoryLedgerEntry({
+          ownerUserId: input.userId,
+          keyInventoryId: mapped.id,
+          location,
+          delta: quantity,
+          balanceAfter: quantity,
+          reason: "new_sku_initial",
+          actor: input.actor,
+        })
+      }
+    }
+    return { row: mapped, created: true }
   } catch (error) {
     if (isMissingTableError(error)) {
       throw new Error("Key inventory table is missing. Run scripts/105-key-inventory.sql in Neon.")

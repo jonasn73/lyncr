@@ -13,7 +13,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ExternalLink, KeyRound, Loader2, PackageSearch, Search } from "lucide-react"
+import { ChevronDown, ExternalLink, KeyRound, Loader2, PackagePlus, PackageSearch, Search } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -100,6 +100,72 @@ function StockLine({ rows }: { rows: KeyInventoryApiRow[] }) {
   )
 }
 
+/** True when there's no stock at all — no matched row, or a matched row totaling zero. */
+function isOutOfStock(rows: KeyInventoryApiRow[]): boolean {
+  if (rows.length === 0) return true
+  return rows.reduce((sum, r) => sum + (Number(r.totalQuantity) || 0), 0) <= 0
+}
+
+function AddToOrderListButton({
+  hit,
+  vehicle,
+}: {
+  hit: TiCatalogKeyOption
+  vehicle: VehicleCascadeValue
+}) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle")
+
+  async function addToOrderList() {
+    setState("busy")
+    try {
+      const res = await fetch("/api/tech/inventory/reorder-requests", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tiSku: hit.tiSku,
+          title: hit.title,
+          fccId: hit.fccId,
+          productUrl: hit.productUrl,
+          imageUrl: hit.imageUrl,
+          vehicleYear: vehicle.vehicle_year,
+          vehicleMake: vehicle.vehicle_make,
+          vehicleModel: vehicle.vehicle_model,
+          quantity: 1,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setState("done")
+    } catch {
+      setState("error")
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <p className="mt-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-2xs font-medium text-success">
+        Added to order list — your dispatcher will review it.
+      </p>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={state === "busy"}
+      onClick={() => void addToOrderList()}
+      className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-2xs font-semibold text-warning transition active:scale-[0.98] disabled:opacity-60"
+    >
+      {state === "busy" ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      ) : (
+        <PackagePlus className="h-3.5 w-3.5" aria-hidden />
+      )}
+      {state === "error" ? "Couldn't add — try again" : "Add to order list"}
+    </button>
+  )
+}
+
 type TiCatalogGroup = {
   /** FCC ID when known (the real identity of "same part"), else the SKU so it never merges. */
   key: string
@@ -143,14 +209,12 @@ function groupCatalogByFcc(catalog: TiCatalogKeyOption[]): TiCatalogGroup[] {
 function TiCatalogCard({
   hit,
   matches,
-  vehicleMake,
-  vehicleModel,
+  vehicle,
   compact,
 }: {
   hit: TiCatalogKeyOption
   matches: KeyInventoryApiRow[]
-  vehicleMake?: string | null
-  vehicleModel?: string | null
+  vehicle: VehicleCascadeValue
   compact?: boolean
 }) {
   return (
@@ -158,8 +222,8 @@ function TiCatalogCard({
       <KeyThumbnail
         imageUrl={hit.imageUrl}
         label={hit.title}
-        make={vehicleMake}
-        model={vehicleModel}
+        make={vehicle.vehicle_make}
+        model={vehicle.vehicle_model}
         tiSku={hit.tiSku}
       />
       <div className="mt-3 flex items-start justify-between gap-3">
@@ -180,6 +244,7 @@ function TiCatalogCard({
           .join(" · ")}
       </p>
       <StockLine rows={matches} />
+      {isOutOfStock(matches) ? <AddToOrderListButton hit={hit} vehicle={vehicle} /> : null}
       {hit.productUrl ? (
         <a
           href={hit.productUrl}
@@ -349,12 +414,7 @@ export function TechKeyLookup() {
                   })
                   return (
                     <div key={group.key} className="space-y-2">
-                      <TiCatalogCard
-                        hit={group.primary}
-                        matches={primaryMatches}
-                        vehicleMake={vehicle.vehicle_make}
-                        vehicleModel={vehicle.vehicle_model}
-                      />
+                      <TiCatalogCard hit={group.primary} matches={primaryMatches} vehicle={vehicle} />
                       {group.alternates.length > 0 ? (
                         <>
                           <button
@@ -373,8 +433,7 @@ export function TechKeyLookup() {
                                   key={`${alt.tiSku}-${i}`}
                                   hit={alt}
                                   matches={matchInventory(inventory, { tiSku: alt.tiSku, fccId: alt.fccId })}
-                                  vehicleMake={vehicle.vehicle_make}
-                                  vehicleModel={vehicle.vehicle_model}
+                                  vehicle={vehicle}
                                   compact
                                 />
                               ))

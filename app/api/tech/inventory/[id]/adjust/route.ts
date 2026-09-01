@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveActor } from "@/lib/actor"
+import { getFieldTechContext } from "@/lib/field-tech-auth"
 import {
   adjustKeyInventoryQuantity,
   serializeKeyInventoryForApi,
@@ -40,11 +41,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const location = LOCATIONS.has(locationRaw) ? locationRaw : "van1"
 
   try {
+    const ctx = await getFieldTechContext(actor.actingUserId)
     const row = await adjustKeyInventoryQuantity({
       userId: actor.ownerUserId,
       id: id.trim(),
       delta,
       location,
+      actor: {
+        role: "field_tech",
+        userId: actor.actingUserId,
+        label: ctx?.technician.name?.trim() || "Technician",
+      },
     })
     if (!row) {
       return NextResponse.json({ error: "Inventory item not found" }, { status: 404 })

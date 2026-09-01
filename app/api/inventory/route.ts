@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { getUser } from "@/lib/db"
 import {
   createKeyInventoryItem,
   normalizeInventorySku,
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
   if (!sku) return NextResponse.json({ error: "sku is required" }, { status: 400 })
 
   try {
+    const owner = await getUser(userId)
     const { row, created } = await createKeyInventoryItem({
       userId,
       organizationId: body.organization_id != null ? String(body.organization_id) : null,
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
       minimumStockAlert:
         body.minimumStockAlert != null ? Number(body.minimumStockAlert) : 1,
       notes: body.notes != null ? String(body.notes) : null,
+      actor: { role: "owner", userId, label: owner?.business_name?.trim() || owner?.name?.trim() || "Owner" },
     })
 
     return NextResponse.json(

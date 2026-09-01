@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
+import { getUser } from "@/lib/db"
 import {
   adjustKeyInventoryQuantity,
   serializeKeyInventoryForApi,
@@ -36,11 +37,13 @@ export async function PATCH(
   const location = LOCATIONS.has(locationRaw) ? locationRaw : "van1"
 
   try {
+    const owner = await getUser(userId)
     const row = await adjustKeyInventoryQuantity({
       userId,
       id: id.trim(),
       delta,
       location,
+      actor: { role: "owner", userId, label: owner?.business_name?.trim() || owner?.name?.trim() || "Owner" },
     })
     if (!row) {
       return NextResponse.json({ error: "Inventory item not found" }, { status: 404 })

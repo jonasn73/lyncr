@@ -42,6 +42,11 @@ export async function POST(req: NextRequest) {
       minimumStockAlert:
         body.minimumStockAlert != null ? Number(body.minimumStockAlert) : 1,
       notes: body.notes != null ? String(body.notes) : null,
+      actor: {
+        role: "field_tech",
+        userId: actor.actingUserId,
+        label: ctx?.technician.name?.trim() || "Technician",
+      },
     })
 
     return NextResponse.json(
