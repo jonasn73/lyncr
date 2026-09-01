@@ -1,28 +1,19 @@
 "use client"
 
-// One settings surface per person — tapping a name in Team opens this instead of hunting
-// across scattered row buttons (Pay here, Access there, a switch, a trash icon). Pay and
-// Access still open their existing editors (PayPlanEditor / ReceptionistAccessEditor) on
-// top of this sheet — their forms are non-trivial enough to keep as-is rather than
-// reimplement inline — but everything about one person now starts from one tap.
+// One settings surface per field tech — mirrors ReceptionistSettingsSheet so both roles feel
+// like the same product. Pay / Access / Account still open their existing editors on top of
+// this sheet (their forms are non-trivial enough to keep as-is) — everything about one person
+// starts from tapping their row in the unified Team list.
 
-import { Pencil, ShieldCheck, Trash2 } from "lucide-react"
+import { Loader2, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
-import { grantedCapabilityLabels } from "@/lib/receptionist-capabilities"
-import { isSyntheticPlaceholderEmail } from "@/lib/signup-confirmation-email"
-import type { Receptionist, ReceptionistPayoutMetrics } from "@/lib/types"
+import { grantedFieldTechLabels } from "@/lib/field-technician-capabilities"
+import type { FieldTechnician } from "@/lib/types"
 import type { RosterPlan } from "@/components/compensation/pay-plan-editor"
-
-/** Real contact email if set, else the login email when it isn't a synthetic SMS-invite placeholder. */
-function displayEmail(member: Receptionist): string | null {
-  if (member.contact_email) return member.contact_email
-  if (member.email && !isSyntheticPlaceholderEmail(member.email)) return member.email
-  return null
-}
 
 function initials(name: string): string {
   return name
@@ -33,34 +24,40 @@ function initials(name: string): string {
     .slice(0, 2)
 }
 
-function formatUsd(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount)
-}
-
-export function ReceptionistSettingsSheet({
+export function TechnicianSettingsSheet({
   member,
   avatarColor,
-  online,
   togglingActive,
   plan,
-  payout,
+  showWorkspacePicker,
+  organizations,
+  movingWorkspace,
   onToggleActive,
+  onMoveWorkspace,
   onEditPay,
   onEditAccess,
   onEditAccount,
+  onResendInvite,
+  resendBusy,
+  resendSent,
   onRemove,
   onClose,
 }: {
-  member: Receptionist | null
+  member: FieldTechnician | null
   avatarColor: string
-  online: boolean
   togglingActive: boolean
   plan?: RosterPlan
-  payout?: ReceptionistPayoutMetrics
+  showWorkspacePicker: boolean
+  organizations: { id: string; name: string }[]
+  movingWorkspace: boolean
   onToggleActive: () => void
+  onMoveWorkspace: (orgId: string | null) => void
   onEditPay: () => void
   onEditAccess: () => void
   onEditAccount: () => void
+  onResendInvite: () => void
+  resendBusy: boolean
+  resendSent: boolean
   onRemove: () => void
   onClose: () => void
 }) {
@@ -71,39 +68,67 @@ export function ReceptionistSettingsSheet({
           <>
             <SheetHeader className="text-left">
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar className="h-11 w-11">
-                    <AvatarFallback className={cn("text-sm font-semibold text-primary-foreground", avatarColor)}>
-                      {initials(member.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span
-                    className={cn(
-                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
-                      online ? "bg-success" : "bg-muted-foreground"
-                    )}
-                    aria-hidden
-                  />
-                </div>
+                <Avatar className="h-11 w-11">
+                  <AvatarFallback className={cn("text-sm font-semibold text-primary-foreground", avatarColor)}>
+                    {initials(member.name)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="min-w-0">
                   <SheetTitle className="truncate text-base">{member.name}</SheetTitle>
                   <SheetDescription className="truncate">
                     {formatPhoneDisplay(member.phone)}
-                    {displayEmail(member) ? ` · ${displayEmail(member)}` : ""}
+                    {member.contact_email ? ` · ${member.contact_email}` : ""}
                   </SheetDescription>
                 </div>
               </div>
             </SheetHeader>
 
             <div className="mt-5 space-y-2">
+              {member.invite_pending ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-warning">Setup pending</p>
+                    <p className="mt-0.5 text-xs text-warning/80">Hasn&rsquo;t tapped their SMS setup link yet.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onResendInvite}
+                    disabled={resendBusy}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/40 px-2.5 py-1.5 text-2xs font-semibold text-warning transition-colors hover:bg-warning/10 disabled:opacity-60"
+                  >
+                    {resendBusy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Send className="h-3 w-3" aria-hidden />}
+                    {resendSent ? "Sent" : "Resend"}
+                  </button>
+                </div>
+              ) : null}
+
               {/* Availability */}
               <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 px-3.5 py-3">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Available</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Can take calls when picked in Who answers.</p>
+                  <p className="text-sm font-medium text-foreground">Active</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Shows up on the live roster and gets dispatched work.</p>
                 </div>
-                <Switch checked={online} disabled={togglingActive} onCheckedChange={onToggleActive} />
+                <Switch checked={member.is_active} disabled={togglingActive} onCheckedChange={onToggleActive} />
               </div>
+
+              {showWorkspacePicker ? (
+                <label className="block rounded-lg border border-border bg-background/40 px-3.5 py-3">
+                  <span className="text-sm font-medium text-foreground">Business</span>
+                  <select
+                    value={member.organization_id ?? ""}
+                    disabled={movingWorkspace}
+                    onChange={(e) => onMoveWorkspace(e.target.value.trim() || null)}
+                    className="mt-1.5 w-full rounded-md border border-border bg-card/80 px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-60"
+                  >
+                    <option value="">Unassigned</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
 
               {/* Pay */}
               <button
@@ -113,12 +138,7 @@ export function ReceptionistSettingsSheet({
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Pay</p>
-                  <p
-                    className={cn(
-                      "mt-0.5 truncate text-xs",
-                      plan ? "text-muted-foreground" : "text-warning"
-                    )}
-                  >
+                  <p className={cn("mt-0.5 truncate text-xs", plan ? "text-muted-foreground" : "text-warning")}>
                     {plan?.summary ?? "Not set — tap to set"}
                   </p>
                 </div>
@@ -133,12 +153,8 @@ export function ReceptionistSettingsSheet({
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Console access</p>
-                  {/* Reads the shared label map rather than naming flags here. Listing them
-                      by hand is how this line came to say "Default" for capabilities that
-                      were in fact granted — it only knew the two that existed when it was
-                      written. */}
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {grantedCapabilityLabels(member.capabilities).join(", ") || "No access granted yet"}
+                    {grantedFieldTechLabels(member.capabilities).join(", ") || "Jobs only"}
                   </p>
                 </div>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -164,17 +180,6 @@ export function ReceptionistSettingsSheet({
                 </div>
                 <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </button>
-
-              {/* Payout, when there's something to show */}
-              {payout ? (
-                <div className="rounded-lg border border-border bg-background/40 px-3.5 py-3">
-                  <p className="text-sm font-medium text-foreground">This billing cycle</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {payout.answered_calls} call{payout.answered_calls === 1 ? "" : "s"} ·{" "}
-                    <span className="font-medium text-foreground">{formatUsd(payout.total_earnings)} earned</span>
-                  </p>
-                </div>
-              ) : null}
             </div>
 
             <button

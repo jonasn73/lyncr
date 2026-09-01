@@ -1300,20 +1300,37 @@ export async function getReceptionist(receptionistId: string): Promise<Reception
   }
 }
 
-// Get all receptionists for a user
+// Get all receptionists for a user — joins the linked login row for the Team list's
+// email/lock display (same shape as getReceptionist's single-row fetch).
 export async function getReceptionists(userId: string): Promise<Receptionist[]> {
   const sql = getSql()
   try {
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, pay_mode, flat_rate_usd, is_active, created_at,
-        to_jsonb(receptionists) -> 'capabilities' AS capabilities
-      FROM receptionists WHERE user_id = ${userId} ORDER BY created_at ASC
+      SELECT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute, r.pay_mode, r.flat_rate_usd,
+        r.is_active, r.portal_user_id, r.address, r.created_at,
+        to_jsonb(r) -> 'capabilities' AS capabilities,
+        u.email AS login_email, u.contact_email, u.account_locked
+      FROM receptionists r
+      LEFT JOIN users u ON u.id = r.portal_user_id
+      WHERE r.user_id = ${userId} ORDER BY r.created_at ASC
     `
     return rows.map(parseReceptionistRow)
   } catch (e) {
+    if (isMissingReceptionistAddressColumnError(e)) {
+      const rows = await sql`
+        SELECT r.id, r.user_id, r.name, r.phone, r.initials, r.color, r.rate_per_minute, r.pay_mode, r.flat_rate_usd,
+          r.is_active, r.portal_user_id, r.created_at,
+          to_jsonb(r) -> 'capabilities' AS capabilities,
+          u.email AS login_email, u.contact_email, u.account_locked
+        FROM receptionists r
+        LEFT JOIN users u ON u.id = r.portal_user_id
+        WHERE r.user_id = ${userId} ORDER BY r.created_at ASC
+      `
+      return rows.map(parseReceptionistRow)
+    }
     if (!isMissingReceptionistPayColumnError(e)) throw e
     const rows = await sql`
-      SELECT id, user_id, name, phone, initials, color, rate_per_minute, is_active, created_at
+      SELECT id, user_id, name, phone, initials, color, rate_per_minute, is_active, portal_user_id, created_at
       FROM receptionists WHERE user_id = ${userId} ORDER BY created_at ASC
     `
     return rows.map(parseReceptionistRow)
@@ -9604,8 +9621,8 @@ export async function listFieldTechnicians(
       const rows =
         realOrgCount > 1
           ? await sql`
-              SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-                     u.email AS email, u.invite_status AS invite_status
+              SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+                     u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
               WHERE ft.user_id = ${ownerUserId}
@@ -9613,8 +9630,8 @@ export async function listFieldTechnicians(
               ORDER BY ft.created_at DESC
             `
           : await sql`
-              SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-                     u.email AS email, u.invite_status AS invite_status
+              SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+                     u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
               FROM field_technicians ft
               LEFT JOIN users u ON u.id = ft.portal_user_id
               WHERE ft.user_id = ${ownerUserId}
@@ -9624,8 +9641,8 @@ export async function listFieldTechnicians(
       return rows.map(parseFieldTechnicianRow)
     }
     const rows = await sql`
-      SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.is_active, ft.created_at,
-             u.email AS email, u.invite_status AS invite_status
+      SELECT ft.id, ft.user_id, ft.organization_id, ft.portal_user_id, ft.name, ft.phone, ft.address, ft.is_active, ft.created_at,
+             u.email AS email, u.invite_status AS invite_status, u.contact_email, u.account_locked
       FROM field_technicians ft
       LEFT JOIN users u ON u.id = ft.portal_user_id
       WHERE ft.user_id = ${ownerUserId}
