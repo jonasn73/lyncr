@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { VehiclePickerCascade, type VehicleCascadeValue } from "@/components/vehicle-picker-cascade"
+import { KeyThumbnail } from "@/components/key-thumbnail"
 import {
   inferProgrammingMethod,
   variantButtonLabel,
@@ -134,15 +135,26 @@ function groupCatalogByFcc(catalog: TiCatalogKeyOption[]): TiCatalogGroup[] {
 function TiCatalogCard({
   hit,
   matches,
+  vehicleMake,
+  vehicleModel,
   compact,
 }: {
   hit: TiCatalogKeyOption
   matches: KeyInventoryApiRow[]
+  vehicleMake?: string | null
+  vehicleModel?: string | null
   compact?: boolean
 }) {
   return (
     <article className={cn("rounded-2xl border border-border bg-card/70 p-4", compact && "bg-card/40")}>
-      <div className="flex items-start justify-between gap-3">
+      <KeyThumbnail
+        imageUrl={hit.imageUrl}
+        label={hit.title}
+        make={vehicleMake}
+        model={vehicleModel}
+        tiSku={hit.tiSku}
+      />
+      <div className="mt-3 flex items-start justify-between gap-3">
         <span className="rounded-md border border-success/50 bg-success/15 px-2 py-1 font-mono text-sm font-semibold tracking-wide text-success">
           {hit.tiSku}
         </span>
@@ -329,7 +341,12 @@ export function TechKeyLookup() {
                   })
                   return (
                     <div key={group.key} className="space-y-2">
-                      <TiCatalogCard hit={group.primary} matches={primaryMatches} />
+                      <TiCatalogCard
+                        hit={group.primary}
+                        matches={primaryMatches}
+                        vehicleMake={vehicle.vehicle_make}
+                        vehicleModel={vehicle.vehicle_model}
+                      />
                       {group.alternates.length > 0 ? (
                         <>
                           <button
@@ -348,6 +365,8 @@ export function TechKeyLookup() {
                                   key={`${alt.tiSku}-${i}`}
                                   hit={alt}
                                   matches={matchInventory(inventory, { tiSku: alt.tiSku, fccId: alt.fccId })}
+                                  vehicleMake={vehicle.vehicle_make}
+                                  vehicleModel={vehicle.vehicle_model}
                                   compact
                                 />
                               ))
