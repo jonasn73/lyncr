@@ -421,6 +421,12 @@ function VehiclePickerSequential({
   )
 }
 
+// Module-level so it survives remounts within the same page session (e.g. reopening the
+// picker for a second vehicle) — makes/models for a given year rarely change, so a repeat
+// pick shouldn't re-hit NHTSA and re-show the loading box. Reset on a full page reload.
+const makesCache = new Map<string, string[]>()
+const modelsCache = new Map<string, string[]>()
+
 export function VehiclePickerCascade({
   value,
   onChange,
@@ -442,6 +448,26 @@ export function VehiclePickerCascade({
       setMakes([])
       return
     }
+
+    const applyMakes = (next: string[]) => {
+      setMakes(next)
+      // Clear make/model if the selected make is not sold in this year.
+      const make = value.vehicle_make
+      if (make && !next.some((m) => m.toLowerCase() === make.toLowerCase())) {
+        onChangeRef.current({
+          vehicle_year: value.vehicle_year,
+          vehicle_make: "",
+          vehicle_model: "",
+        })
+      }
+    }
+
+    const cached = makesCache.get(value.vehicle_year)
+    if (cached) {
+      applyMakes(cached)
+      return
+    }
+
     let cancelled = false
     setLoadingMakes(true)
     void fetch(`/api/vehicle/makes?year=${encodeURIComponent(value.vehicle_year)}`, {
@@ -452,16 +478,8 @@ export function VehiclePickerCascade({
       .then((j: { data?: { makes?: string[] } }) => {
         if (cancelled) return
         const next = Array.isArray(j.data?.makes) ? j.data!.makes! : []
-        setMakes(next)
-        // Clear make/model if the selected make is not sold in this year.
-        const make = value.vehicle_make
-        if (make && !next.some((m) => m.toLowerCase() === make.toLowerCase())) {
-          onChangeRef.current({
-            vehicle_year: value.vehicle_year,
-            vehicle_make: "",
-            vehicle_model: "",
-          })
-        }
+        if (next.length > 0) makesCache.set(value.vehicle_year, next)
+        applyMakes(next)
       })
       .catch(() => {
         if (!cancelled) setMakes([])
@@ -481,6 +499,27 @@ export function VehiclePickerCascade({
       setModels([])
       return
     }
+
+    const applyModels = (next: string[]) => {
+      setModels(next)
+      // Clear model if it is not valid for this year/make (e.g. 2022 Cruze).
+      const model = value.vehicle_model
+      if (model && !next.some((m) => m.toLowerCase() === model.toLowerCase())) {
+        onChangeRef.current({
+          vehicle_year: value.vehicle_year,
+          vehicle_make: value.vehicle_make,
+          vehicle_model: "",
+        })
+      }
+    }
+
+    const cacheKey = `${value.vehicle_year}|${value.vehicle_make.toLowerCase()}`
+    const cached = modelsCache.get(cacheKey)
+    if (cached) {
+      applyModels(cached)
+      return
+    }
+
     let cancelled = false
     setLoadingModels(true)
     void fetch(
@@ -491,16 +530,8 @@ export function VehiclePickerCascade({
       .then((j: { data?: { models?: string[] } }) => {
         if (cancelled) return
         const next = Array.isArray(j.data?.models) ? j.data!.models! : []
-        setModels(next)
-        // Clear model if it is not valid for this year/make (e.g. 2022 Cruze).
-        const model = value.vehicle_model
-        if (model && !next.some((m) => m.toLowerCase() === model.toLowerCase())) {
-          onChangeRef.current({
-            vehicle_year: value.vehicle_year,
-            vehicle_make: value.vehicle_make,
-            vehicle_model: "",
-          })
-        }
+        if (next.length > 0) modelsCache.set(cacheKey, next)
+        applyModels(next)
       })
       .catch(() => {
         if (!cancelled) setModels([])

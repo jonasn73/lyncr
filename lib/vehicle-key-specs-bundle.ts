@@ -197,12 +197,17 @@ export async function buildUnifiedVehicleDecode(
       ? { fccIdRaw: options ?? null }
       : options
 
-  const keySpecs = await buildVehicleKeySpecs(
-    vehicle.year,
-    vehicle.make,
-    vehicle.model,
-    opts.fccIdRaw
-  )
+  // buildVehicleKeySpecs scrapes fccid.io per profile (the slow part) and
+  // lookupTiSupplierCatalogForVehicle needs only year/make/model, not keySpecs' output — run
+  // them together instead of back-to-back so total latency is the slower of the two, not the
+  // sum. (lookupKeyInventoryForVehicle below still has to wait: it needs the FCC IDs keySpecs
+  // finds, so it can't join this pair.)
+  const [keySpecs, tiCatalogFromVehicle] = await Promise.all([
+    buildVehicleKeySpecs(vehicle.year, vehicle.make, vehicle.model, opts.fccIdRaw),
+    vehicle.make && vehicle.model
+      ? lookupTiSupplierCatalogForVehicle({ year: vehicle.year, make: vehicle.make, model: vehicle.model })
+      : Promise.resolve([]),
+  ])
 
   // When ignition style is known, hide the wrong ASK/FSK family from the filmstrip.
   if (opts.keyStyle?.trim() && keySpecs.keys.length > 1) {
@@ -258,14 +263,7 @@ export async function buildUnifiedVehicleDecode(
         })
       : []
 
-  let tiCatalog =
-    vehicle.make && vehicle.model
-      ? await lookupTiSupplierCatalogForVehicle({
-          year: vehicle.year,
-          make: vehicle.make,
-          model: vehicle.model,
-        })
-      : []
+  let tiCatalog = tiCatalogFromVehicle
 
   // Cross-check CSV FCC profiles against TI catalog FCC/button data.
   const fccResolution =
