@@ -28,7 +28,7 @@ import {
   variantButtonLabel,
   variantDisplayLabel,
 } from "@/lib/vehicle-key-variant-labels"
-import { sanitizeFccIdInput } from "@/lib/fcc-id-input"
+import { canonicalFccMatchKey, sanitizeFccIdInput } from "@/lib/fcc-id-input"
 import type { KeyInventoryApiRow } from "@/lib/key-inventory-shared"
 import type { TiCatalogKeyOption } from "@/lib/ti-supplier-catalog-shared"
 import { cn } from "@/lib/utils"
@@ -63,14 +63,14 @@ function matchInventory(
   inventory: KeyInventoryApiRow[],
   by: { tiSku?: string | null; fccId?: string | null }
 ): KeyInventoryApiRow[] {
-  const tiSku = by.tiSku?.trim().toUpperCase()
-  const fccId = by.fccId?.trim().toUpperCase()
+  const tiSku = sanitizeFccIdInput(by.tiSku ?? "")
+  const fccKey = canonicalFccMatchKey(by.fccId ?? "")
   if (tiSku) {
-    const bySku = inventory.filter((row) => row.tiSku?.trim().toUpperCase() === tiSku)
+    const bySku = inventory.filter((row) => sanitizeFccIdInput(row.tiSku ?? "") === tiSku)
     if (bySku.length > 0) return bySku
   }
-  if (fccId) {
-    return inventory.filter((row) => row.fccId?.trim().toUpperCase() === fccId)
+  if (fccKey) {
+    return inventory.filter((row) => canonicalFccMatchKey(row.fccId ?? "") === fccKey)
   }
   return []
 }
@@ -113,6 +113,14 @@ type TiCatalogGroup = {
  * Group by FCC ID and surface only the best-ranked hit per group; the rest sit behind
  * "View more options". The catalog array already arrives best-first (server-ranked), so the
  * first hit seen for a given FCC ID is that group's pick — nothing to re-sort here.
+ *
+ * FCC IDs get typed inconsistently across supplier listings — hyphens, spacing, trailing
+ * "00" padding ("M3NA2C931423" vs "M3NA2C93142300") — so this uses the same canonical
+ * matcher the rest of the key-lookup system uses (lib/fcc-id-input.ts), not a plain string
+ * compare. A naive compare here is what made grouping silently do nothing: it never merges
+ * IDs a person can see are the same FCC ID once punctuation/padding differ, so every hit
+ * ends up in its own singleton group and the popup reads as "the whole list" again.
+ *
  * A hit with no FCC ID has nothing proving it's the same part as anything else, so it always
  * gets its own group rather than merging on an empty key.
  */
@@ -120,7 +128,7 @@ function groupCatalogByFcc(catalog: TiCatalogKeyOption[]): TiCatalogGroup[] {
   const groups: TiCatalogGroup[] = []
   const indexByFcc = new Map<string, number>()
   for (const hit of catalog) {
-    const fccKey = hit.fccId?.trim().toUpperCase() || ""
+    const fccKey = canonicalFccMatchKey(hit.fccId ?? "")
     const existingIndex = fccKey ? indexByFcc.get(fccKey) : undefined
     if (existingIndex !== undefined) {
       groups[existingIndex]!.alternates.push(hit)
