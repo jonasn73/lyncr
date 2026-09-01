@@ -1,18 +1,26 @@
 // Tech console — Key Lookup. Same YMM picker + label vocabulary the owner's Fast Lookup
 // uses, cross-referenced against the owner's stock via /api/tech/vehicle/key-info.
 //
-// Two result sections, same split the owner's data actually has:
+// Results open in a popup once year/make/model are picked — no scroll-down-and-tap-Search
+// step, and the answer reads as one focused screen instead of a growing list under the form.
+//
+// Two sections inside it, same split the owner's data actually has:
 //   1. Transponder Island catalog — real orderable/stockable SKUs, ranked by match score.
 //      This is the "what do I pull or order" answer, so it leads.
 //   2. Key & FCC data — chip type, frequency, programming method per FCC ID. Useful even
 //      when there's no TI SKU match (or as a cross-check against one).
-// Searches automatically once year/make/model are all picked — no button tap required for
-// the common path; the FCC ID field + Search button stay for a manual narrow/re-run.
 
 "use client"
 
 import { useState } from "react"
 import { ExternalLink, KeyRound, Loader2, PackageSearch, Search } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { VehiclePickerCascade, type VehicleCascadeValue } from "@/components/vehicle-picker-cascade"
 import {
   inferProgrammingMethod,
@@ -101,11 +109,13 @@ export function TechKeyLookup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<KeyInfoResponse | null>(null)
+  const [resultsOpen, setResultsOpen] = useState(false)
 
   const canSearch = Boolean(vehicle.vehicle_year && vehicle.vehicle_make && vehicle.vehicle_model)
 
   async function search(v: VehicleCascadeValue, fcc: string) {
     if (!(v.vehicle_year && v.vehicle_make && v.vehicle_model)) return
+    setResultsOpen(true)
     setLoading(true)
     setError(null)
     try {
@@ -136,16 +146,14 @@ export function TechKeyLookup() {
     setVehicle(next)
     if (next.vehicle_year && next.vehicle_make && next.vehicle_model) {
       void search(next, fccId)
-    } else {
-      setResult(null)
-      setError(null)
     }
   }
 
   const catalog = result?.ti_catalog ?? []
   const keys = result?.keySpecs.keys ?? []
   const inventory = result?.inventory ?? []
-  const nothingFound = result != null && catalog.length === 0 && keys.length === 0 && !error
+  const nothingFound = !loading && result != null && catalog.length === 0 && keys.length === 0 && !error
+  const vehicleLabel = [vehicle.vehicle_year, vehicle.vehicle_make, vehicle.vehicle_model].filter(Boolean).join(" ")
 
   return (
     <div className="space-y-4">
@@ -190,121 +198,141 @@ export function TechKeyLookup() {
         </div>
       </div>
 
-      {error ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>
+        <DialogContent className="flex max-h-[85dvh] max-w-sm flex-col gap-3 overflow-hidden border-border bg-background text-white sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{vehicleLabel || "Key lookup"}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {fccId ? `Narrowed to FCC ${fccId}` : "Transponder Island catalog + FCC/chip data"}
+            </DialogDescription>
+          </DialogHeader>
 
-      {loading && !result ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
-          <p className="text-sm">Searching…</p>
-        </div>
-      ) : null}
+          <div className="-mx-1 space-y-4 overflow-y-auto px-1">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+                <p className="text-sm">Searching…</p>
+              </div>
+            ) : null}
 
-      {nothingFound ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-          <PackageSearch className="h-8 w-8" aria-hidden />
-          <p className="text-sm">No key data found for this vehicle.</p>
-          <p className="text-2xs">Try clearing the FCC ID or double-check the year/make/model.</p>
-        </div>
-      ) : null}
+            {error ? (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
 
-      {catalog.length > 0 ? (
-        <div className="space-y-2">
-          <p className="px-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Transponder Island catalog
-          </p>
-          {catalog.map((hit, i) => {
-            const matches = matchInventory(inventory, { tiSku: hit.tiSku, fccId: hit.fccId })
-            return (
-              <article key={`${hit.tiSku}-${i}`} className="rounded-2xl border border-border bg-card/70 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="rounded-md border border-success/50 bg-success/15 px-2 py-1 font-mono text-sm font-semibold tracking-wide text-success">
-                    {hit.tiSku}
-                  </span>
-                  <StockBadge rows={matches} />
-                </div>
-                <p className="mt-2 text-sm font-medium text-foreground">{hit.title}</p>
-                {hit.description ? (
-                  <p className="mt-0.5 text-2xs text-muted-foreground">{hit.description}</p>
-                ) : null}
-                <p className="mt-1 text-2xs text-muted-foreground">
-                  {[
-                    hit.fccId ? `FCC ${hit.fccId}` : null,
-                    hit.frequency ? `${hit.frequency} MHz` : null,
-                    hit.buttonCount ? `${hit.buttonCount}-button` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+            {nothingFound ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+                <PackageSearch className="h-8 w-8" aria-hidden />
+                <p className="text-sm">No key data found for this vehicle.</p>
+                <p className="text-2xs">Try clearing the FCC ID or double-check the year/make/model.</p>
+              </div>
+            ) : null}
+
+            {catalog.length > 0 ? (
+              <div className="space-y-2">
+                <p className="px-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Transponder Island catalog
                 </p>
-                <StockLine rows={matches} />
-                {hit.productUrl ? (
-                  <a
-                    href={hit.productUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-2xs font-medium text-operator"
-                  >
-                    <ExternalLink className="h-3 w-3" aria-hidden /> View on Transponder Island
-                  </a>
-                ) : null}
-              </article>
-            )
-          })}
-        </div>
-      ) : null}
+                {catalog.map((hit, i) => {
+                  const matches = matchInventory(inventory, { tiSku: hit.tiSku, fccId: hit.fccId })
+                  return (
+                    <article key={`${hit.tiSku}-${i}`} className="rounded-2xl border border-border bg-card/70 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="rounded-md border border-success/50 bg-success/15 px-2 py-1 font-mono text-sm font-semibold tracking-wide text-success">
+                          {hit.tiSku}
+                        </span>
+                        <StockBadge rows={matches} />
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-foreground">{hit.title}</p>
+                      {hit.description ? (
+                        <p className="mt-0.5 text-2xs text-muted-foreground">{hit.description}</p>
+                      ) : null}
+                      <p className="mt-1 text-2xs text-muted-foreground">
+                        {[
+                          hit.fccId ? `FCC ${hit.fccId}` : null,
+                          hit.frequency ? `${hit.frequency} MHz` : null,
+                          hit.buttonCount ? `${hit.buttonCount}-button` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <StockLine rows={matches} />
+                      {hit.productUrl ? (
+                        <a
+                          href={hit.productUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-2xs font-medium text-operator"
+                        >
+                          <ExternalLink className="h-3 w-3" aria-hidden /> View on Transponder Island
+                        </a>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
+            ) : null}
 
-      {keys.length > 0 ? (
-        <div className="space-y-2">
-          <p className="px-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Key &amp; FCC data</p>
-          {keys.map((key) => {
-            const matches = matchInventory(inventory, { fccId: key.fccId })
-            return (
-              <article key={key.id} className="rounded-2xl border border-border bg-card/70 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-sm font-semibold text-operator">{key.fccId || "Unknown FCC ID"}</span>
-                  <StockBadge rows={matches} />
-                </div>
+            {keys.length > 0 ? (
+              <div className="space-y-2">
+                <p className="px-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Key &amp; FCC data
+                </p>
+                {keys.map((key) => {
+                  const matches = matchInventory(inventory, { fccId: key.fccId })
+                  return (
+                    <article key={key.id} className="rounded-2xl border border-border bg-card/70 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-sm font-semibold text-operator">
+                          {key.fccId || "Unknown FCC ID"}
+                        </span>
+                        <StockBadge rows={matches} />
+                      </div>
 
-                {key.chipset || key.frequency ? (
-                  <p className="mt-1 text-2xs text-muted-foreground">
-                    {[
-                      key.chipset ? `Chip: ${key.chipset}` : null,
-                      key.frequency
-                        ? `${key.frequency} MHz${key.modulation && key.modulation !== "XXX" ? ` ${key.modulation}` : ""}`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                ) : null}
+                      {key.chipset || key.frequency ? (
+                        <p className="mt-1 text-2xs text-muted-foreground">
+                          {[
+                            key.chipset ? `Chip: ${key.chipset}` : null,
+                            key.frequency
+                              ? `${key.frequency} MHz${key.modulation && key.modulation !== "XXX" ? ` ${key.modulation}` : ""}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
 
-                <StockLine rows={matches} />
+                      <StockLine rows={matches} />
 
-                {key.variants.length > 0 ? (
-                  <ul className="mt-3 space-y-2">
-                    {key.variants.map((v) => {
-                      const styleLabel = variantDisplayLabel(v.title, v.key_type)
-                      const buttonLabel = variantButtonLabel(v.title, v.buttons, v.fits_text, v.key_type)
-                      const programming = v.programming_method ?? inferProgrammingMethod(v.title, v.key_type, key.chipset)
-                      return (
-                        <li key={v.id} className="rounded-xl border border-border/60 bg-background/30 px-3 py-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel}
-                          </p>
-                          <p className="mt-0.5 text-2xs uppercase tracking-wide text-muted-foreground">{programming}</p>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : null}
-              </article>
-            )
-          })}
-        </div>
-      ) : null}
+                      {key.variants.length > 0 ? (
+                        <ul className="mt-3 space-y-2">
+                          {key.variants.map((v) => {
+                            const styleLabel = variantDisplayLabel(v.title, v.key_type)
+                            const buttonLabel = variantButtonLabel(v.title, v.buttons, v.fits_text, v.key_type)
+                            const programming =
+                              v.programming_method ?? inferProgrammingMethod(v.title, v.key_type, key.chipset)
+                            return (
+                              <li key={v.id} className="rounded-xl border border-border/60 bg-background/30 px-3 py-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {buttonLabel ? `${buttonLabel} · ${styleLabel}` : styleLabel}
+                                </p>
+                                <p className="mt-0.5 text-2xs uppercase tracking-wide text-muted-foreground">
+                                  {programming}
+                                </p>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
