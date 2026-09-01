@@ -13,7 +13,7 @@
 "use client"
 
 import { useState } from "react"
-import { ExternalLink, KeyRound, Loader2, PackageSearch, Search } from "lucide-react"
+import { ChevronDown, ExternalLink, KeyRound, Loader2, PackageSearch, Search } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -99,6 +99,81 @@ function StockLine({ rows }: { rows: KeyInventoryApiRow[] }) {
   )
 }
 
+type TiCatalogGroup = {
+  /** FCC ID when known (the real identity of "same part"), else the SKU so it never merges. */
+  key: string
+  primary: TiCatalogKeyOption
+  alternates: TiCatalogKeyOption[]
+}
+
+/**
+ * Different supplier listings for the same physical key share an FCC ID under different
+ * titles/SKUs — that's the "why am I seeing five near-duplicates" the list used to show.
+ * Group by FCC ID and surface only the best-ranked hit per group; the rest sit behind
+ * "View more options". The catalog array already arrives best-first (server-ranked), so the
+ * first hit seen for a given FCC ID is that group's pick — nothing to re-sort here.
+ * A hit with no FCC ID has nothing proving it's the same part as anything else, so it always
+ * gets its own group rather than merging on an empty key.
+ */
+function groupCatalogByFcc(catalog: TiCatalogKeyOption[]): TiCatalogGroup[] {
+  const groups: TiCatalogGroup[] = []
+  const indexByFcc = new Map<string, number>()
+  for (const hit of catalog) {
+    const fccKey = hit.fccId?.trim().toUpperCase() || ""
+    const existingIndex = fccKey ? indexByFcc.get(fccKey) : undefined
+    if (existingIndex !== undefined) {
+      groups[existingIndex]!.alternates.push(hit)
+      continue
+    }
+    if (fccKey) indexByFcc.set(fccKey, groups.length)
+    groups.push({ key: fccKey || hit.tiSku, primary: hit, alternates: [] })
+  }
+  return groups
+}
+
+function TiCatalogCard({
+  hit,
+  matches,
+  compact,
+}: {
+  hit: TiCatalogKeyOption
+  matches: KeyInventoryApiRow[]
+  compact?: boolean
+}) {
+  return (
+    <article className={cn("rounded-2xl border border-border bg-card/70 p-4", compact && "bg-card/40")}>
+      <div className="flex items-start justify-between gap-3">
+        <span className="rounded-md border border-success/50 bg-success/15 px-2 py-1 font-mono text-sm font-semibold tracking-wide text-success">
+          {hit.tiSku}
+        </span>
+        <StockBadge rows={matches} />
+      </div>
+      <p className="mt-2 text-sm font-medium text-foreground">{hit.title}</p>
+      {hit.description ? <p className="mt-0.5 text-2xs text-muted-foreground">{hit.description}</p> : null}
+      <p className="mt-1 text-2xs text-muted-foreground">
+        {[
+          hit.fccId ? `FCC ${hit.fccId}` : null,
+          hit.frequency ? `${hit.frequency} MHz` : null,
+          hit.buttonCount ? `${hit.buttonCount}-button` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <StockLine rows={matches} />
+      {hit.productUrl ? (
+        <a
+          href={hit.productUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-2xs font-medium text-operator"
+        >
+          <ExternalLink className="h-3 w-3" aria-hidden /> View on Transponder Island
+        </a>
+      ) : null}
+    </article>
+  )
+}
+
 export function TechKeyLookup() {
   const [vehicle, setVehicle] = useState<VehicleCascadeValue>({
     vehicle_year: "",
@@ -110,6 +185,7 @@ export function TechKeyLookup() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<KeyInfoResponse | null>(null)
   const [resultsOpen, setResultsOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const canSearch = Boolean(vehicle.vehicle_year && vehicle.vehicle_make && vehicle.vehicle_model)
 
@@ -133,6 +209,7 @@ export function TechKeyLookup() {
       const json = (await res.json()) as { error?: string; data?: KeyInfoResponse }
       if (!res.ok) throw new Error(json.error ?? "Lookup failed")
       setResult(json.data ?? null)
+      setExpandedGroups(new Set())
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lookup failed")
     } finally {
@@ -150,10 +227,20 @@ export function TechKeyLookup() {
   }
 
   const catalog = result?.ti_catalog ?? []
+  const catalogGroups = groupCatalogByFcc(catalog)
   const keys = result?.keySpecs.keys ?? []
   const inventory = result?.inventory ?? []
   const nothingFound = !loading && result != null && catalog.length === 0 && keys.length === 0 && !error
   const vehicleLabel = [vehicle.vehicle_year, vehicle.vehicle_make, vehicle.vehicle_model].filter(Boolean).join(" ")
+
+  function toggleGroup(key: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-4">
@@ -229,46 +316,45 @@ export function TechKeyLookup() {
               </div>
             ) : null}
 
-            {catalog.length > 0 ? (
+            {catalogGroups.length > 0 ? (
               <div className="space-y-2">
                 <p className="px-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Transponder Island catalog
                 </p>
-                {catalog.map((hit, i) => {
-                  const matches = matchInventory(inventory, { tiSku: hit.tiSku, fccId: hit.fccId })
+                {catalogGroups.map((group) => {
+                  const expanded = expandedGroups.has(group.key)
+                  const primaryMatches = matchInventory(inventory, {
+                    tiSku: group.primary.tiSku,
+                    fccId: group.primary.fccId,
+                  })
                   return (
-                    <article key={`${hit.tiSku}-${i}`} className="rounded-2xl border border-border bg-card/70 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="rounded-md border border-success/50 bg-success/15 px-2 py-1 font-mono text-sm font-semibold tracking-wide text-success">
-                          {hit.tiSku}
-                        </span>
-                        <StockBadge rows={matches} />
-                      </div>
-                      <p className="mt-2 text-sm font-medium text-foreground">{hit.title}</p>
-                      {hit.description ? (
-                        <p className="mt-0.5 text-2xs text-muted-foreground">{hit.description}</p>
+                    <div key={group.key} className="space-y-2">
+                      <TiCatalogCard hit={group.primary} matches={primaryMatches} />
+                      {group.alternates.length > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(group.key)}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/30 px-3 py-2 text-2xs font-semibold text-muted-foreground transition active:scale-[0.98]"
+                          >
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
+                            {expanded
+                              ? "Hide other listings"
+                              : `View ${group.alternates.length} more listing${group.alternates.length === 1 ? "" : "s"} for this FCC ID`}
+                          </button>
+                          {expanded
+                            ? group.alternates.map((alt, i) => (
+                                <TiCatalogCard
+                                  key={`${alt.tiSku}-${i}`}
+                                  hit={alt}
+                                  matches={matchInventory(inventory, { tiSku: alt.tiSku, fccId: alt.fccId })}
+                                  compact
+                                />
+                              ))
+                            : null}
+                        </>
                       ) : null}
-                      <p className="mt-1 text-2xs text-muted-foreground">
-                        {[
-                          hit.fccId ? `FCC ${hit.fccId}` : null,
-                          hit.frequency ? `${hit.frequency} MHz` : null,
-                          hit.buttonCount ? `${hit.buttonCount}-button` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      <StockLine rows={matches} />
-                      {hit.productUrl ? (
-                        <a
-                          href={hit.productUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 inline-flex items-center gap-1 text-2xs font-medium text-operator"
-                        >
-                          <ExternalLink className="h-3 w-3" aria-hidden /> View on Transponder Island
-                        </a>
-                      ) : null}
-                    </article>
+                    </div>
                   )
                 })}
               </div>
