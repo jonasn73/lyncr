@@ -65,6 +65,7 @@ export type DashboardRoutingSurfaceProps = {
   setWhoAnswersOpen: (open: boolean) => void
   setRingBackupOpen: (open: boolean) => void
   setShowFallbackSettings: (open: boolean) => void
+  setHoursSettingsOpen: (open: boolean) => void
   adminRoutingOverridePhone?: string | null
   /** Fires once after sticky chrome + call-flow structure commit layout (handoff, not data). */
   onLinesHandoffReady?: () => void
@@ -96,6 +97,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
   setWhoAnswersOpen,
   setRingBackupOpen,
   setShowFallbackSettings,
+  setHoursSettingsOpen,
   adminRoutingOverridePhone,
   onLinesHandoffReady,
 }: DashboardRoutingSurfaceProps) {
@@ -136,6 +138,7 @@ export const DashboardRoutingSurface = memo(function DashboardRoutingSurface({
       setWhoAnswersOpen={setWhoAnswersOpen}
       setRingBackupOpen={setRingBackupOpen}
       setShowFallbackSettings={setShowFallbackSettings}
+      setHoursSettingsOpen={setHoursSettingsOpen}
       adminRoutingOverridePhone={adminRoutingOverridePhone}
       onLinesHandoffReady={onLinesHandoffReady}
       activeLineRaw={activeLineRaw}
@@ -174,6 +177,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
   setWhoAnswersOpen,
   setRingBackupOpen,
   setShowFallbackSettings,
+  setHoursSettingsOpen,
   adminRoutingOverridePhone,
   onLinesHandoffReady,
   activeLineRaw,
@@ -419,7 +423,7 @@ const DashboardRoutingSurfaceInner = memo(function DashboardRoutingSurfaceInner(
 
                 {/* Available + Caller ID — sibling of CallFlow; gap-4 above is the visible space. */}
                 <div className="flex flex-col gap-3 pb-2 xl:grid xl:grid-cols-2 xl:items-start">
-                  <PresenceStatusBar />
+                  <PresenceStatusBar onOpenHours={() => setHoursSettingsOpen(true)} />
                   <CallerIdUtilitiesCard
                     organizationId={activeOrganizationId}
                     onOpenTips={() => setDashboardStoryKey("dashboard-caller-id-tips")}

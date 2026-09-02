@@ -21,6 +21,8 @@ export type DashboardRoutingSheetsProps = {
   setRingBackupOpen: (open: boolean) => void
   showFallbackSettings: boolean
   setShowFallbackSettings: (open: boolean) => void
+  hoursSettingsOpen: boolean
+  setHoursSettingsOpen: (open: boolean) => void
   dashboardStoryKey: string | null
   setDashboardStoryKey: (key: string | null) => void
   receptionists: Contact[]
@@ -58,6 +60,8 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   setRingBackupOpen,
   showFallbackSettings,
   setShowFallbackSettings,
+  hoursSettingsOpen,
+  setHoursSettingsOpen,
   dashboardStoryKey,
   setDashboardStoryKey,
   ownerPhoneDisplay,
@@ -77,15 +81,19 @@ export const DashboardRoutingSheets = memo(function DashboardRoutingSheets({
   const configureDiscardRef = useRef<() => void>(() => {})
   const ringBackupDiscardRef = useRef<() => void>(() => {})
 
-  // Who Answers + Voice AI cards both open the same tabbed configure drawer.
-  const configureOpen = whoAnswersOpen || showFallbackSettings
-  const configureInitialTab =
-    showFallbackSettings && !whoAnswersOpen ? ("greetings" as const) : ("routing" as const)
+  // Who Answers + Voice AI + Hours cards all open the same tabbed configure drawer.
+  const configureOpen = whoAnswersOpen || showFallbackSettings || hoursSettingsOpen
+  const configureInitialTab = hoursSettingsOpen
+    ? ("hours" as const)
+    : showFallbackSettings && !whoAnswersOpen
+      ? ("greetings" as const)
+      : ("routing" as const)
 
   const closeConfigure = useCallback(() => {
     setWhoAnswersOpen(false)
     setShowFallbackSettings(false)
-  }, [setWhoAnswersOpen, setShowFallbackSettings])
+    setHoursSettingsOpen(false)
+  }, [setWhoAnswersOpen, setShowFallbackSettings, setHoursSettingsOpen])
 
   const handleConfigureOpenChange = useCallback(
     (open: boolean) => {

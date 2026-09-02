@@ -27,6 +27,8 @@ import { TELNYX_MENU_BUSY_PROMPT } from "@/lib/telnyx-menu"
 import { formatPhoneDisplay, snapDashboardRingTimeoutSec } from "@/lib/dashboard-routing-utils"
 import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
+import { Switch } from "@/components/ui/switch"
+import type { WeeklyHoursDay } from "@/lib/account-weekly-hours"
 
 const fieldClass =
   "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
@@ -36,10 +38,40 @@ const RING_OPTIONS = [15, 20, 30, 45, 60] as const
 const TABS = [
   { id: "routing" as const, label: "Call Routing" },
   { id: "greetings" as const, label: "Greetings & Voice AI" },
+  { id: "hours" as const, label: "Hours" },
   { id: "security" as const, label: "Advanced Rules" },
 ]
 
 type ConfigureTab = (typeof TABS)[number]["id"]
+
+const WEEKDAY_LABELS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const
+
+const TIMEZONE_OPTIONS = [
+  { id: "America/New_York", label: "Eastern" },
+  { id: "America/Chicago", label: "Central" },
+  { id: "America/Denver", label: "Mountain" },
+  { id: "America/Phoenix", label: "Arizona (no DST)" },
+  { id: "America/Los_Angeles", label: "Pacific" },
+  { id: "America/Anchorage", label: "Alaska" },
+  { id: "Pacific/Honolulu", label: "Hawaii" },
+] as const
+
+function defaultWeeklyHoursDays(): WeeklyHoursDay[] {
+  return Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    dayOfWeek,
+    enabled: dayOfWeek >= 1 && dayOfWeek <= 5,
+    startTime: "09:00",
+    endTime: "17:00",
+  }))
+}
 
 type ConfigureDraft = {
   mode: ActiveRoutingMode
@@ -61,6 +93,10 @@ type ConfigureDraft = {
   holdMaxWaitSecs: string
   /** Blank = product/env default. Seconds of music between re-prompts. */
   holdRepromptSecs: string
+  /** Auto-flip Presence from the weekly schedule below (cron every 5 min). */
+  hoursScheduleEnabled: boolean
+  hoursTimezone: string
+  weeklyHours: WeeklyHoursDay[]
 }
 
 const DEFAULT_DRAFT: ConfigureDraft = {
@@ -78,6 +114,9 @@ const DEFAULT_DRAFT: ConfigureDraft = {
   holdMusicUrl: "",
   holdMaxWaitSecs: "",
   holdRepromptSecs: "",
+  hoursScheduleEnabled: false,
+  hoursTimezone: "America/New_York",
+  weeklyHours: defaultWeeklyHoursDays(),
 }
 
 function draftSnapshot(d: ConfigureDraft): string {
@@ -168,6 +207,9 @@ export function DashboardCallFlowConfigureDrawer({
           holdRepromptSecs?: number | null
           hold_reprompt_secs?: number | null
           holdDefaults?: { maxWaitSecs?: number; repromptSecs?: number }
+          hoursScheduleEnabled?: boolean
+          hoursTimezone?: string
+          weeklyHours?: WeeklyHoursDay[]
         }
       }
       const teamJson = (await teamRes.json()) as {
@@ -228,6 +270,12 @@ export function DashboardCallFlowConfigureDrawer({
         holdMaxWaitSecs: maxWait != null && Number.isFinite(Number(maxWait)) ? String(maxWait) : "",
         holdRepromptSecs:
           reprompt != null && Number.isFinite(Number(reprompt)) ? String(reprompt) : "",
+        hoursScheduleEnabled: d.hoursScheduleEnabled === true,
+        hoursTimezone: d.hoursTimezone || "America/New_York",
+        weeklyHours:
+          Array.isArray(d.weeklyHours) && d.weeklyHours.length === 7
+            ? d.weeklyHours
+            : defaultWeeklyHoursDays(),
       }
       setDraft(next)
       baselineRef.current = draftSnapshot(next)
@@ -256,16 +304,20 @@ export function DashboardCallFlowConfigureDrawer({
   const sheetTitle =
     currentTab === "greetings"
       ? "Greetings"
-      : currentTab === "security"
-        ? "Advanced Rules"
-        : "Who answers"
+      : currentTab === "hours"
+        ? "Hours"
+        : currentTab === "security"
+          ? "Advanced Rules"
+          : "Who answers"
 
   const sheetSubtitle =
     currentTab === "greetings"
       ? `Busy greeting, hold music, and voice for ${ownerPhoneDisplay || "this line"}.`
-      : currentTab === "security"
-        ? `Bypass digit and emergency fallback for ${ownerPhoneDisplay || "this line"}.`
-        : `Who rings first for ${ownerPhoneDisplay || "this line"}.`
+      : currentTab === "hours"
+        ? "Set your weekly hours so Presence flips Available / Closed on its own."
+        : currentTab === "security"
+          ? `Bypass digit and emergency fallback for ${ownerPhoneDisplay || "this line"}.`
+          : `Who rings first for ${ownerPhoneDisplay || "this line"}.`
 
   const primaryRoutingModes = ACTIVE_ROUTING_MODE_OPTIONS.filter(
     (o) => o.value === "your_phone" || o.value === "team_receptionist" || o.value === "smart_ivr"
@@ -307,6 +359,9 @@ export function DashboardCallFlowConfigureDrawer({
           holdRepromptSecs: draft.holdRepromptSecs.trim()
             ? Number(draft.holdRepromptSecs)
             : null,
+          hoursScheduleEnabled: draft.hoursScheduleEnabled,
+          hoursTimezone: draft.hoursTimezone,
+          weeklyHours: draft.weeklyHours,
         }),
       })
       const json = (await res.json()) as { error?: string; migration?: string }
@@ -831,6 +886,121 @@ export function DashboardCallFlowConfigureDrawer({
                       </button>
                     </div>
                   ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {currentTab === "hours" ? (
+              <div className="space-y-4">
+                <section className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/40 p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Auto-schedule Presence</p>
+                    <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
+                      Flips Presence Available during the hours below, and Closed outside them —
+                      even if you forget to toggle it. Manually tapping Busy or Closed still
+                      overrides this until you set Available again.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={draft.hoursScheduleEnabled}
+                    onCheckedChange={(next) =>
+                      setDraft((d) => ({ ...d, hoursScheduleEnabled: next }))
+                    }
+                    aria-label="Auto-schedule Presence from weekly hours"
+                  />
+                </section>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="configure-hours-timezone"
+                    className="text-xs font-semibold text-foreground"
+                  >
+                    Timezone
+                  </label>
+                  <select
+                    id="configure-hours-timezone"
+                    value={draft.hoursTimezone}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, hoursTimezone: e.target.value }))
+                    }
+                    className={cn(fieldClass, "min-h-11")}
+                  >
+                    {TIMEZONE_OPTIONS.map((tz) => (
+                      <option key={tz.id} value={tz.id}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  {WEEKDAY_LABELS.map((label, dayOfWeek) => {
+                    const day =
+                      draft.weeklyHours.find((d) => d.dayOfWeek === dayOfWeek) ??
+                      defaultWeeklyHoursDays()[dayOfWeek]
+                    return (
+                      <div
+                        key={dayOfWeek}
+                        className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/40 p-3"
+                      >
+                        <label className="flex min-w-[7rem] items-center gap-2 text-sm font-medium text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={day.enabled}
+                            onChange={(e) =>
+                              setDraft((d) => ({
+                                ...d,
+                                weeklyHours: d.weeklyHours.map((wd) =>
+                                  wd.dayOfWeek === dayOfWeek
+                                    ? { ...wd, enabled: e.target.checked }
+                                    : wd
+                                ),
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-border"
+                          />
+                          {label}
+                        </label>
+                        {day.enabled ? (
+                          <div className="flex flex-1 flex-wrap items-center gap-2">
+                            <input
+                              type="time"
+                              value={day.startTime}
+                              onChange={(e) =>
+                                setDraft((d) => ({
+                                  ...d,
+                                  weeklyHours: d.weeklyHours.map((wd) =>
+                                    wd.dayOfWeek === dayOfWeek
+                                      ? { ...wd, startTime: e.target.value }
+                                      : wd
+                                  ),
+                                }))
+                              }
+                              className={cn(fieldClass, "min-h-10 w-auto flex-none px-2 py-1")}
+                            />
+                            <span className="text-2xs text-muted-foreground">to</span>
+                            <input
+                              type="time"
+                              value={day.endTime}
+                              onChange={(e) =>
+                                setDraft((d) => ({
+                                  ...d,
+                                  weeklyHours: d.weeklyHours.map((wd) =>
+                                    wd.dayOfWeek === dayOfWeek
+                                      ? { ...wd, endTime: e.target.value }
+                                      : wd
+                                  ),
+                                }))
+                              }
+                              className={cn(fieldClass, "min-h-10 w-auto flex-none px-2 py-1")}
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-2xs text-muted-foreground">Closed all day</span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             ) : null}

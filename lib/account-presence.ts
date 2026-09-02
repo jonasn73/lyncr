@@ -521,12 +521,14 @@ export async function setAccountPresenceGreetings(
 }
 
 /**
- * Calendar cron write — never clears a manually locked Busy (ON_JOB) or CLOSED.
+ * Calendar / schedule cron write — never clears a manually locked Busy (ON_JOB) or CLOSED.
+ * Caller resolves the desired status (calendar blockout → ON_JOB, outside scheduled
+ * hours → CLOSED, otherwise AVAILABLE) — this just applies it under the manual lock.
  * Returns whether a row was updated.
  */
 export async function applyCalendarPresenceAutomation(params: {
   ownerUserId: string
-  currentlyInBlockout: boolean
+  desiredStatus: PresenceStatus
 }): Promise<{ updated: boolean; presenceStatus: PresenceStatus; skippedClosedManual?: boolean }> {
   const sql = sqlClient()
   try {
@@ -540,8 +542,7 @@ export async function applyCalendarPresenceAutomation(params: {
       }
     }
 
-    // Blockout → temporary ON_JOB; no blockout → AVAILABLE (calendar-driven only).
-    const next: PresenceStatus = params.currentlyInBlockout ? "ON_JOB" : "AVAILABLE"
+    const next: PresenceStatus = params.desiredStatus
     if (current.presenceStatus === next && !current.presenceClosedManual) {
       return { updated: false, presenceStatus: next }
     }

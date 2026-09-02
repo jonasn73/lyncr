@@ -1,10 +1,12 @@
-// GET /api/cron/sync-presence — every 5 minutes: calendar blockout → ON_JOB, else AVAILABLE.
+// GET /api/cron/sync-presence — every 5 minutes: calendar blockout → ON_JOB,
+// else outside scheduled hours → CLOSED, else AVAILABLE.
 // Skips owners who manually locked Busy (ON_JOB) or CLOSED in the dashboard.
 
 import { NextRequest, NextResponse } from "next/server"
 import {
   applyCalendarPresenceAutomation,
   listOwnersForPresenceCron,
+  type PresenceStatus,
 } from "@/lib/account-presence"
 import { listScheduleBlockoutsForDate } from "@/lib/schedule-blockouts-db"
 import {
@@ -12,6 +14,7 @@ import {
   resolveInboundCalendarOverride,
 } from "@/lib/schedule-blockouts"
 import { INBOUND_CAPTURE_TIMEZONE } from "@/lib/inbound-time-capture"
+import { getAccountWeeklyHours, isWithinScheduledHours } from "@/lib/account-weekly-hours"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -53,9 +56,16 @@ export async function GET(req: NextRequest) {
         INBOUND_CAPTURE_TIMEZONE
       )
       const inBlockout = override != null
+      let desiredStatus: PresenceStatus = "AVAILABLE"
+      if (inBlockout) {
+        desiredStatus = "ON_JOB"
+      } else {
+        const weeklyHours = await getAccountWeeklyHours(ownerUserId)
+        desiredStatus = isWithinScheduledHours(weeklyHours, now) ? "AVAILABLE" : "CLOSED"
+      }
       const result = await applyCalendarPresenceAutomation({
         ownerUserId,
-        currentlyInBlockout: inBlockout,
+        desiredStatus,
       })
       if (result.skippedClosedManual) skippedClosed += 1
       if (result.updated) updated += 1

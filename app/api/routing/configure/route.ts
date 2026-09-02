@@ -27,6 +27,11 @@ import {
   setAccountHoldSettings,
 } from "@/lib/call-queue-db"
 import { holdMaxWaitSecs, holdRePromptIntervalMs } from "@/lib/hold-queue"
+import {
+  getAccountWeeklyHours,
+  setAccountWeeklyHours,
+  type WeeklyHoursDay,
+} from "@/lib/account-weekly-hours"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -53,7 +58,8 @@ function serializeConfigure(
   modeState: Awaited<ReturnType<typeof getActiveRoutingState>>,
   presence: Awaited<ReturnType<typeof getAccountPresence>>,
   fallbackType: string,
-  hold?: Awaited<ReturnType<typeof getAccountHoldSettings>> | null
+  hold?: Awaited<ReturnType<typeof getAccountHoldSettings>> | null,
+  weeklyHours?: Awaited<ReturnType<typeof getAccountWeeklyHours>> | null
 ) {
   const holdMusicUrl = hold?.holdMusicUrl ?? null
   const maxWaitDefault = holdMaxWaitSecs()
@@ -81,6 +87,9 @@ function serializeConfigure(
       maxWaitSecs: maxWaitDefault,
       repromptSecs: repromptDefault,
     },
+    hoursScheduleEnabled: weeklyHours?.scheduleEnabled ?? false,
+    hoursTimezone: weeklyHours?.timezone ?? "America/New_York",
+    weeklyHours: weeklyHours?.days ?? [],
     defaults: {
       onJobGreetingText: DEFAULT_ON_JOB_GREETING_TEXT,
       closedGreetingText: DEFAULT_CLOSED_GREETING_TEXT,
@@ -104,16 +113,23 @@ export async function GET(req: NextRequest) {
   const businessNumber = numberParam ? normalizePhoneNumberE164(numberParam) : null
 
   try {
-    const [modeState, presence, routing, hold] = await Promise.all([
+    const [modeState, presence, routing, hold, weeklyHours] = await Promise.all([
       getActiveRoutingState(userId, businessNumber),
       getAccountPresence(userId),
       businessNumber
         ? getRoutingConfigForNumber(userId, businessNumber)
         : getRoutingConfig(userId),
       getAccountHoldSettings(userId).catch(() => null),
+      getAccountWeeklyHours(userId).catch(() => null),
     ])
     return NextResponse.json({
-      data: serializeConfigure(modeState, presence, routing?.fallback_type || "owner", hold),
+      data: serializeConfigure(
+        modeState,
+        presence,
+        routing?.fallback_type || "owner",
+        hold,
+        weeklyHours
+      ),
     })
   } catch (e) {
     console.error("[GET /api/routing/configure]", e)
@@ -191,6 +207,10 @@ export async function PUT(req: NextRequest) {
     const holdMusicRaw = pickNullableString(body, ["holdMusicUrl", "hold_music_url"])
     const holdMaxWaitRaw = body.holdMaxWaitSecs ?? body.hold_max_wait_secs
     const holdRepromptRaw = body.holdRepromptSecs ?? body.hold_reprompt_secs
+
+    const hoursScheduleEnabledRaw = body.hoursScheduleEnabled ?? body.hours_schedule_enabled
+    const hoursTimezoneRaw = pickString(body, ["hoursTimezone", "hours_timezone"])
+    const weeklyHoursRaw = body.weeklyHours ?? body.weekly_hours
 
     // One request commits mode + greetings/security + classic fallback together.
     const [modeSaved, presenceSaved] = await Promise.all([
@@ -273,6 +293,58 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    if (
+      hoursScheduleEnabledRaw !== undefined ||
+      hoursTimezoneRaw !== undefined ||
+      weeklyHoursRaw !== undefined
+    ) {
+      try {
+        const existingHours = await getAccountWeeklyHours(userId)
+        const days: WeeklyHoursDay[] = Array.isArray(weeklyHoursRaw)
+          ? weeklyHoursRaw
+              .map((raw): WeeklyHoursDay | null => {
+                if (!raw || typeof raw !== "object") return null
+                const r = raw as Record<string, unknown>
+                const dayOfWeek = Number(r.dayOfWeek ?? r.day_of_week)
+                if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) return null
+                return {
+                  dayOfWeek,
+                  enabled: (r.enabled ?? r.is_enabled) === true,
+                  startTime: String(r.startTime ?? r.start_time ?? "09:00"),
+                  endTime: String(r.endTime ?? r.end_time ?? "17:00"),
+                }
+              })
+              .filter((d): d is WeeklyHoursDay => d !== null)
+          : existingHours.days
+
+        await setAccountWeeklyHours({
+          ownerUserId: userId,
+          scheduleEnabled:
+            hoursScheduleEnabledRaw !== undefined
+              ? hoursScheduleEnabledRaw === true
+              : existingHours.scheduleEnabled,
+          timezone:
+            typeof hoursTimezoneRaw === "string" ? hoursTimezoneRaw : existingHours.timezone,
+          days,
+        })
+      } catch (hoursErr) {
+        const hoursCode =
+          hoursErr instanceof Error && "code" in hoursErr
+            ? String((hoursErr as { code?: string }).code)
+            : ""
+        if (hoursCode === "ACCOUNT_HOURS_MIGRATION_REQUIRED") {
+          return NextResponse.json(
+            {
+              error: hoursErr instanceof Error ? hoursErr.message : "Weekly hours need migration",
+              migration: "scripts/161-account-weekly-hours.sql",
+            },
+            { status: 400 }
+          )
+        }
+        throw hoursErr
+      }
+    }
+
     // Fallback + ring timeout only — receptionist id already set by applyActiveRoutingMode.
     await updateRoutingConfig(
       userId,
@@ -286,11 +358,12 @@ export async function PUT(req: NextRequest) {
       businessNumber
     )
 
-    const [routing, hold] = await Promise.all([
+    const [routing, hold, weeklyHours] = await Promise.all([
       businessNumber
         ? getRoutingConfigForNumber(userId, businessNumber)
         : getRoutingConfig(userId),
       getAccountHoldSettings(userId).catch(() => null),
+      getAccountWeeklyHours(userId).catch(() => null),
     ])
 
     return NextResponse.json({
@@ -298,7 +371,8 @@ export async function PUT(req: NextRequest) {
         modeSaved,
         presenceSaved,
         routing?.fallback_type || fallbackType || "owner",
-        hold
+        hold,
+        weeklyHours
       ),
     })
   } catch (e) {

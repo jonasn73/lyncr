@@ -19,6 +19,7 @@ type Props = Omit<
   | "setWhoAnswersOpen"
   | "setRingBackupOpen"
   | "setShowFallbackSettings"
+  | "setHoursSettingsOpen"
   | "setDashboardStoryKey"
   | "onConfigureStrategy"
   // Derived internally from isSundayAutopilotActive and forwarded, like the props above —
@@ -33,6 +34,8 @@ type Props = Omit<
     | "setRingBackupOpen"
     | "showFallbackSettings"
     | "setShowFallbackSettings"
+    | "hoursSettingsOpen"
+    | "setHoursSettingsOpen"
     | "dashboardStoryKey"
     | "setDashboardStoryKey"
     | "onChangeRoutingStrategy"
@@ -77,6 +80,7 @@ export function DashboardRoutingWithSheets(props: Props) {
   const [whoAnswersOpen, setWhoAnswersOpen] = useState(false)
   const [ringBackupOpen, setRingBackupOpen] = useState(false)
   const [showFallbackSettings, setShowFallbackSettings] = useState(false)
+  const [hoursSettingsOpen, setHoursSettingsOpen] = useState(false)
   const [strategyDialogOpen, setStrategyDialogOpen] = useState(false)
   const [dashboardStoryKey, setDashboardStoryKey] = useState<string | null>(null)
 
@@ -86,6 +90,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     setWhoAnswersOpen(false)
     setRingBackupOpen(false)
     setShowFallbackSettings(false)
+    setHoursSettingsOpen(false)
     setStrategyDialogOpen(false)
     setDashboardStoryKey(null)
   }, [pathname])
@@ -96,6 +101,7 @@ export function DashboardRoutingWithSheets(props: Props) {
       setWhoAnswersOpen(false)
       setRingBackupOpen(false)
       setShowFallbackSettings(false)
+      setHoursSettingsOpen(false)
       setStrategyDialogOpen(false)
       setDashboardStoryKey(null)
     }
@@ -109,6 +115,7 @@ export function DashboardRoutingWithSheets(props: Props) {
       setWhoAnswersOpen(false)
       setRingBackupOpen(false)
       setShowFallbackSettings(false)
+      setHoursSettingsOpen(false)
       setStrategyDialogOpen(false)
       setDashboardStoryKey(null)
     }
@@ -148,6 +155,7 @@ export function DashboardRoutingWithSheets(props: Props) {
     setWhoAnswersOpen,
     setRingBackupOpen,
     setShowFallbackSettings,
+    setHoursSettingsOpen,
     adminRoutingOverridePhone: props.adminRoutingOverridePhone,
     onLinesHandoffReady: props.onLinesHandoffReady,
   }
@@ -182,6 +190,8 @@ export function DashboardRoutingWithSheets(props: Props) {
         setRingBackupOpen={setRingBackupOpen}
         showFallbackSettings={showFallbackSettings && onRoutingTab}
         setShowFallbackSettings={setShowFallbackSettings}
+        hoursSettingsOpen={hoursSettingsOpen && onRoutingTab}
+        setHoursSettingsOpen={setHoursSettingsOpen}
         dashboardStoryKey={onRoutingTab ? dashboardStoryKey : null}
         setDashboardStoryKey={setDashboardStoryKey}
         receptionists={props.receptionists}

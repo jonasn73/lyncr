@@ -15,7 +15,14 @@ import {
 
 import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
-export function PresenceStatusBar({ className }: { className?: string }) {
+export function PresenceStatusBar({
+  className,
+  onOpenHours,
+}: {
+  className?: string
+  /** Opens the weekly-hours auto-schedule settings (Hours tab of Call Flow configure). */
+  onOpenHours?: () => void
+}) {
   const {
     presenceStatus,
     presenceReady,
@@ -61,6 +68,15 @@ export function PresenceStatusBar({ className }: { className?: string }) {
             >
               Available
             </label>
+            {onOpenHours ? (
+              <button
+                type="button"
+                onClick={onOpenHours}
+                className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Set hours
+              </button>
+            ) : null}
             {/* Spinner while loading or saving — same cue as the old dual-button bar. */}
             <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
               {busySaving ? (
