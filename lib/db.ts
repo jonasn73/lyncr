@@ -5309,6 +5309,53 @@ export async function listLiveCallLogsForUser(userId: string): Promise<CallLog[]
 }
 
 /** Inbound calls that reached an “answered” state recently — drives the post-answer customer sheet. */
+/**
+ * Today's call attempts from one caller phone — feeds resolveRepeatCallerUrgency() so the
+ * live hold-queue greeting can recognize "you already tried us" callers. Narrow + bounded
+ * (3h window, small limit) since this runs in the inbound Call Control webhook hot path;
+ * callers must treat failures as non-fatal polish, never block the call on this.
+ */
+export async function listTodaysCallLogsForCaller(
+  userId: string,
+  callerE164: string,
+  limit = 10
+): Promise<Array<{
+  id: string
+  from_number: string | null
+  created_at: string
+  call_type: string | null
+  status: string | null
+  answered_at: string | null
+  ended_at: string | null
+}>> {
+  if (!userId || !callerE164) return []
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT id, from_number, created_at, call_type, status, answered_at, ended_at
+      FROM call_logs
+      WHERE user_id = ${userId}
+        AND from_number = ${callerE164}
+        AND created_at > (now() - interval '3 hours')
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+    return rows as Array<{
+      id: string
+      from_number: string | null
+      created_at: string
+      call_type: string | null
+      status: string | null
+      answered_at: string | null
+      ended_at: string | null
+    }>
+  } catch (e) {
+    if (isUndefinedRelationError(e, "call_logs")) return []
+    console.warn("[db] listTodaysCallLogsForCaller failed:", e)
+    return []
+  }
+}
+
 export async function listRecentlyAnsweredIncomingCalls(
   userId: string,
   withinMinutes = 12

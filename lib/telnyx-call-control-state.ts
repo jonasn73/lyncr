@@ -82,6 +82,12 @@ export type TelnyxCallControlClientState = {
   amdGuard?: boolean
   /** Unix ms when we POSTed the outbound Dial — used for AMD early-false-positive guards + logs. */
   dialStartedAtMs?: number
+  /**
+   * True when this caller had a missed/dropped attempt earlier today — computed once at
+   * Busy entry so the greeting + hold reprompts can acknowledge a repeat caller without
+   * re-querying call history on every reprompt cycle.
+   */
+  isRepeatCaller?: boolean
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

@@ -107,7 +107,10 @@ async function buildHoldRepromptText(
   } catch {
     /* position is polish only */
   }
-  return `${HOLD_REPROMPT_DEFAULT}${hint}`
+  // Flag set once at Busy entry (lib/telnyx-call-control-inbound.ts) — no re-query here,
+  // this fires on every reprompt cycle during a single hold session.
+  const prefix = state.isRepeatCaller ? "Still with us — " : ""
+  return `${prefix}${HOLD_REPROMPT_DEFAULT}${hint}`
 }
 
 /**

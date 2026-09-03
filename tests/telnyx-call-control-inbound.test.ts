@@ -1260,7 +1260,8 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       },
     }))
     vi.doMock("@/lib/inbound-booking-sms", () => ({
-      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve()),
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve({ outcome: "sent" })),
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
     }))
 
     const answeredState = encodeTelnyxCallControlState({
@@ -1305,7 +1306,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
   })
 
   it("call.gather.ended press 1 sends booking SMS then confirms", async () => {
-    const sendSms = vi.fn(() => Promise.resolve())
+    const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
         Promise.resolve({
@@ -1337,6 +1338,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     }))
     vi.doMock("@/lib/inbound-booking-sms", () => ({
       sendInboundBookingSmsAndTag: sendSms,
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
     }))
 
     const gatherState = encodeTelnyxCallControlState({
@@ -1401,7 +1403,8 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       },
     }))
     vi.doMock("@/lib/inbound-booking-sms", () => ({
-      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve()),
+      sendInboundBookingSmsAndTag: vi.fn(() => Promise.resolve({ outcome: "sent" })),
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
     }))
     vi.doMock("@/lib/call-queue-db", () => ({
       countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
@@ -1467,7 +1470,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
   })
 
   it("call.gather.ended hold max-wait sends soft SMS and leaves (no forever hold)", async () => {
-    const sendSms = vi.fn(() => Promise.resolve())
+    const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
     const updateQueue = vi.fn(() => Promise.resolve())
     vi.doMock("@/lib/db", () => ({
       getIncomingRoutingForVoiceWebhook: vi.fn(() =>
@@ -1500,6 +1503,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     }))
     vi.doMock("@/lib/inbound-booking-sms", () => ({
       sendInboundBookingSmsAndTag: sendSms,
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
     }))
     vi.doMock("@/lib/call-queue-db", () => ({
       countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
@@ -1661,5 +1665,121 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
         String(c[0]).includes("cc-in-hold-fb") && String(c[0]).includes("/actions/hangup")
     )
     expect(inboundHangup).toBeFalsy()
+  })
+
+  it("Busy greeting acknowledges a caller who already tried and got missed today", async () => {
+    resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
+
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() =>
+        Promise.resolve({
+          user_id: "u1",
+          business_name: "Key Squad 502",
+          organization_name: "Key Squad 502",
+          phone_line_label: "Main",
+          owner_phone: "+15022602716",
+          selected_receptionist_id: null,
+          receptionist_phone: null,
+          receptionist_name: null,
+          fallback_type: "hold",
+          ring_timeout_seconds: 30,
+          inbound_caller_greeting_enabled: true,
+          account_status: "active",
+          primary_phone_number: "+15025571219",
+          active_phone_count: 1,
+        })
+      ),
+      getRoutingConfigForNumber: vi.fn(),
+      insertCallLog: vi.fn(),
+      getCallLogSnapshotForTelemetry: vi.fn(() => Promise.resolve(null)),
+      recordCallStatusEvent: vi.fn(() => Promise.resolve()),
+      updateCallLog: vi.fn(() => Promise.resolve()),
+      upsertTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      getTelnyxOutboundLegForInbound: vi.fn(() => Promise.resolve(null)),
+      deleteTelnyxCallLegLink: vi.fn(() => Promise.resolve()),
+      isReasonablePstnDialString: (s: string) => s.replace(/\D/g, "").length >= 10,
+      normalizePhoneNumberE164: (p: string) => p,
+      // Same caller was missed 5 minutes ago — resolveRepeatCallerUrgency should flag this
+      // as a repeat attempt and the Busy greeting should acknowledge it.
+      listTodaysCallLogsForCaller: vi.fn(() =>
+        Promise.resolve([
+          {
+            id: "prior-missed-1",
+            from_number: "+15025369252",
+            created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+            call_type: "missed",
+            status: "no-answer",
+            answered_at: null,
+            ended_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+          },
+        ])
+      ),
+    }))
+    vi.doMock("@/lib/account-presence", () => ({
+      getAccountPresence: vi.fn(() =>
+        Promise.resolve({
+          presenceStatus: "AVAILABLE",
+          onJobGreetingText: "We are with another customer. Press 1 for a text, or stay on the line.",
+          closedGreetingText: "",
+          ivrBypassCode: "9",
+          ivrVoiceEngineModel: "Telnyx.NaturalHD.astra",
+          holidayOverrideStart: null,
+          holidayOverrideEnd: null,
+          holidayGreetingText: null,
+        })
+      ),
+      resolvePresenceAutomationGreeting: vi.fn(() =>
+        "We are with another customer. Press 1 for a text, or stay on the line."
+      ),
+    }))
+    vi.doMock("@/lib/call-queue-db", () => ({
+      upsertCallQueueBusyMenu: vi.fn(() => Promise.resolve(null)),
+      countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
+      upsertCallQueueWaiting: vi.fn(() => Promise.resolve(null)),
+      getAccountHoldSettings: vi.fn(() =>
+        Promise.resolve({ holdMusicUrl: null, holdMaxWaitSecs: null, holdRepromptSecs: null })
+      ),
+      getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
+      updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialTargetE164: "+15022602716",
+      inboundCallControlId: "cc-in-repeat",
+      outboundCallControlId: "cc-out-repeat",
+      ringTimeoutSec: 30,
+      fallbackType: "hold",
+      dialReason: "day_dial",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.hangup",
+        id: "evt-dial-na-repeat",
+        payload: {
+          call_control_id: "cc-out-repeat",
+          from: "+15025571219",
+          to: "+15022602716",
+          direction: "outgoing",
+          hangup_cause: "timeout",
+          dial: { status: "no_answer" },
+          client_state: dialState,
+        },
+      },
+    })
+
+    const gatherCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/actions/gather_using_speak")
+    )
+    expect(gatherCall).toBeTruthy()
+    const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
+    expect(gatherBody.payload).toContain("Thanks for trying us again")
   })
 })
