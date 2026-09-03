@@ -1,4 +1,9 @@
-// Shared Leaflet basemap layers — Mapbox dark vector tiles when token is set, CARTO dark fallback.
+// Shared Leaflet basemap layers — Mapbox dark vector tiles when token is set, else free
+// OpenStreetMap raster tiles with a CSS filter approximating the dark theme.
+//
+// CARTO's old free basemaps.cartocdn.com raster tiles (the previous fallback here) now
+// serve a literal "API KEY REQUIRED" placeholder image on cache-miss tiles instead of real
+// map data — CARTO locked that free tier down. OSM's own tile server has no such gate.
 
 import type { Map as LeafletMap } from "leaflet"
 
@@ -36,10 +41,12 @@ export function attachBaseMapTiles(L: LeafletModule, map: LeafletMap): void {
     return
   }
 
-  // CARTO dark — omit {r} retina suffix (can render black tiles on some DPI / CDN paths).
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
-    attribution: '© OpenStreetMap © <a href="https://carto.com/">CARTO</a>',
-    subdomains: "abcd",
+  // Free OSM raster tiles, inverted via CSS (leaflet-popup-overrides.css) to a dark theme —
+  // no key, no account, no CDN paywall.
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    subdomains: "abc",
     maxZoom: 19,
+    className: "lyncr-osm-dark-tiles",
   }).addTo(map)
 }

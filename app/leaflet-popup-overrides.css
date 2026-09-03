@@ -1,5 +1,11 @@
 /* Leaflet / Mapbox popup — load AFTER leaflet/dist/leaflet.css so these rules win the cascade. */
 
+/* Free OSM raster fallback tiles (lib/map-tiles.ts) are a light basemap — invert + hue-rotate
+   to approximate the dark theme used everywhere else on the dispatch map. */
+.lyncr-osm-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.6);
+}
+
 /* Force override on the mapping framework layout targets */
 .leaflet-container .leaflet-popup-content-wrapper,
 .leaflet-container .mapboxgl-popup-content,
