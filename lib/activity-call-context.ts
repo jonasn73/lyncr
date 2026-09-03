@@ -77,6 +77,9 @@ function intakeActionForLead(lead: LeadActivityRow, callDisposition: string | nu
     const disposition = (lead.disposition ?? pickCollected(lead.collected, ["disposition"]) ?? callDisposition ?? "")
       .trim()
       .toUpperCase()
+    // Booked via the CRM "Book job" resume path — show the real outcome, not the
+    // original quick-log note state.
+    if (disposition === "BOOKED") return "Booked"
     if (disposition === "FAILED") return "Not a lead"
     if (disposition === "PENDING_TIME") return "Callback note"
     return "Note saved"

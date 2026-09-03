@@ -3,7 +3,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import { recordOperatorDisposition } from "@/lib/call-disposition"
-import { setCallLogInternalNotes } from "@/lib/db"
+import {
+  getCustomerByPhoneForUser,
+  normalizePhoneNumberE164,
+  setCallLogInternalNotes,
+  upsertCustomerForUser,
+} from "@/lib/db"
 import type { LeadDisposition } from "@/lib/db"
 
 type QuickLogOutcome = "callback" | "saved" | "not_a_lead"
@@ -65,6 +70,34 @@ export async function POST(req: NextRequest) {
       await setCallLogInternalNotes(callLogId, noteLine).catch((e) =>
         console.error("[POST /api/calls/quick-log] setCallLogInternalNotes", e)
       )
+    }
+
+    // CRM's customer list is built from the `customers` table, not ai_leads directly —
+    // without a row here this callback note is saved but permanently invisible in CRM.
+    // Only create when none exists yet; never touch an existing customer's saved details.
+    if (phone) {
+      try {
+        const e164 = normalizePhoneNumberE164(phone)
+        const existing = await getCustomerByPhoneForUser(userId, e164)
+        if (!existing) {
+          await upsertCustomerForUser({
+            userId,
+            phoneE164: e164,
+            displayName: customerName,
+            companyName: "",
+            addressLine1: "",
+            addressLine2: "",
+            city: "",
+            region: "",
+            postalCode: "",
+            country: "",
+            notes: summary,
+            sourceLastCallLogId: callLogId || null,
+          })
+        }
+      } catch (e) {
+        console.error("[POST /api/calls/quick-log] upsertCustomerForUser", e)
+      }
     }
 
     return NextResponse.json({

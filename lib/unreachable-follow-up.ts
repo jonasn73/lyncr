@@ -142,12 +142,19 @@ export function resolveCrmJobStatusPresentation(params: {
     js === "unresolved" ||
     js === "referred"
 
+  // Missed-call quick-log note ("Callback note" in Activity) — customer was reached and
+  // details were jotted down, but nothing was booked yet. Same "needs a real intake" shape
+  // as a CRM lead, so it gets the same Book job → full booking path instead of sitting
+  // invisible with no CRM action.
+  const isAwaitingTimeFollowUp = ds === "awaiting_time"
+
   const isOpenLead =
     !isTerminalJs &&
     (ds === CRM_LEAD_STATUS ||
       ds === LOST_LEAD_STATUS ||
       ds === UNASSIGNED_CALLBACK_STATUS ||
       ds === "salvage_pending" ||
+      isAwaitingTimeFollowUp ||
       js.includes("price"))
 
   let status_label = "Job"
@@ -178,6 +185,10 @@ export function resolveCrmJobStatusPresentation(params: {
     status_label =
       ds === LOST_LEAD_STATUS || ds === "salvage_pending" ? "Needs recovery" : "Price rejected"
     status_tone = "rose"
+  } else if (isAwaitingTimeFollowUp && !scheduledAt) {
+    // Matches the Scheduler pipeline's own label for dispatch_status = 'awaiting_time'.
+    status_label = "Needs follow up"
+    status_tone = "amber"
   } else if (ds === UNASSIGNED_POOL_STATUS && !scheduledAt) {
     status_label = "In pool"
     status_tone = "amber"
