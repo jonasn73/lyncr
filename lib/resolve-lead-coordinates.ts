@@ -10,6 +10,9 @@ function validCoords(lat: unknown, lng: unknown): ResolvedCoordinates | null {
   const ln = typeof lng === "number" ? lng : lng != null ? Number(lng) : NaN
   if (!Number.isFinite(la) || !Number.isFinite(ln)) return null
   if (Math.abs(la) > 90 || Math.abs(ln) > 180) return null
+  // (0,0) is "Null Island" off the coast of West Africa — a failed-geocode sentinel,
+  // never a real customer address. Treat it as missing so callers keep trying to geocode.
+  if (la === 0 && ln === 0) return null
   return { lat: la, lng: ln }
 }
 

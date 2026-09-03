@@ -35,6 +35,16 @@ export function coerceMapCoord(value: unknown): number | null {
 }
 
 /**
+ * True when a lat/lng pair is a real fix, not a failed-geocode sentinel.
+ * (0,0) — "Null Island" off the coast of West Africa — is never a legitimate
+ * customer/tech location for this app; a bad GPS read or geocode should leave
+ * the coordinate null, not fall back to the origin.
+ */
+export function isNullIslandCoord(lat: number | null, lng: number | null): boolean {
+  return lat === 0 && lng === 0
+}
+
+/**
  * True when a job should appear on the Live Dispatch Map.
  * Open hopper + assigned field work only — not quote leads or closed history.
  */
@@ -60,13 +70,23 @@ export function isActiveDispatchMapJob(job: {
   return true
 }
 
+/** Coerce a lat/lng pair together, dropping (0,0) as a failed-geocode sentinel. */
+function coerceMapCoordPair(
+  latRaw: unknown,
+  lngRaw: unknown
+): { latitude: number | null; longitude: number | null } {
+  const latitude = coerceMapCoord(latRaw)
+  const longitude = coerceMapCoord(lngRaw)
+  if (isNullIslandCoord(latitude, longitude)) return { latitude: null, longitude: null }
+  return { latitude, longitude }
+}
+
 /** Normalize booked API rows and drop non-plottable / inactive work. */
 function normalizeDispatchJob(job: DispatchJob): DispatchJob | null {
   if (!isActiveDispatchMapJob(job)) return null
   return {
     ...job,
-    latitude: coerceMapCoord(job.latitude),
-    longitude: coerceMapCoord(job.longitude),
+    ...coerceMapCoordPair(job.latitude, job.longitude),
   }
 }
 
@@ -82,8 +102,7 @@ export function poolJobToDispatchJob(job: UnassignedPoolJob): DispatchJob | null
     job_status: "UNASSIGNED",
     assigned_tech_id: null,
     assigned_tech_name: null,
-    latitude: coerceMapCoord(job.latitude),
-    longitude: coerceMapCoord(job.longitude),
+    ...coerceMapCoordPair(job.latitude, job.longitude),
     created_at: job.created_at,
     vehicle_year: job.vehicle_year,
     vehicle_make: job.vehicle_make,

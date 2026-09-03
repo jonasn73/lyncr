@@ -41,7 +41,14 @@ export async function POST(req: NextRequest) {
 
   const lat = Number(body.latitude)
   const lng = Number(body.longitude)
-  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+  // Reject (0,0) too — some GPS chips/emulators report it as a "successful" fix when the
+  // location can't actually be determined, and it plots the tech off the coast of Africa.
+  const hasCoords =
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    !(lat === 0 && lng === 0)
   let status = ALLOWED_STATUS.has(String(body.status)) ? String(body.status) : "idle"
 
   try {

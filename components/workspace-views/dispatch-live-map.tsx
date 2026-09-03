@@ -22,7 +22,7 @@ import {
   emitReturnToIntakeFromMap,
   type FocusDispatchMapDetail,
 } from "@/lib/dispatch-map-focus"
-import { coerceMapCoord } from "@/lib/dispatch-map-jobs"
+import { coerceMapCoord, isNullIslandCoord } from "@/lib/dispatch-map-jobs"
 import {
   clearSharedDispatchMapView,
   getSharedDispatchMapView,
@@ -773,6 +773,8 @@ export function DispatchLiveMap({
       if (!data?.techUserId || typeof data.latitude !== "number" || typeof data.longitude !== "number") {
         return
       }
+      // (0,0) is a bad GPS fix (Null Island), not a real tech position.
+      if (isNullIslandCoord(data.latitude, data.longitude)) return
       // Patch shared SWR cache so both map instances move the same tech pin.
       void mutateMapData(
         (prev) => {

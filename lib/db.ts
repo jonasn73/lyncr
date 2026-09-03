@@ -12381,7 +12381,13 @@ export async function listTechLiveLocations(ownerUserId: string): Promise<TechLi
         latitude: Number(r.lat),
         longitude: Number(r.lng),
       }))
-      .filter((t) => Number.isFinite(t.latitude) && Number.isFinite(t.longitude))
+      // (0,0) is a bad GPS fix (Null Island, off the coast of Africa), not a real location.
+      .filter(
+        (t) =>
+          Number.isFinite(t.latitude) &&
+          Number.isFinite(t.longitude) &&
+          !(t.latitude === 0 && t.longitude === 0)
+      )
   } catch (e) {
     // Pre-062 (no current_latitude/tech_status) or no tech table yet → nothing to plot.
     if (isMissingFieldTechTableError(e) || pgErrorCode(e) === "42703") return []
