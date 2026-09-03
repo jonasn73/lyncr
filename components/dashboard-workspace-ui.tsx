@@ -149,6 +149,10 @@ export type ActivityCallStatus =
   | "busy_link"
   | "hold_queue"
   | "hold_press1"
+  /** Press-1 path, but the booking-link SMS itself failed to send — needs attention. */
+  | "hold_press1_failed"
+  /** Press-1 path, but the send was skipped (caller already had a recent text) — benign. */
+  | "hold_press1_skipped"
   | "busy_menu"
   | "emergency"
 
@@ -161,13 +165,21 @@ export function isMissedActivityStatus(status: ActivityCallStatus): boolean {
     status === "night_link" ||
     status === "day_link" ||
     status === "day_off_link" ||
-    status === "busy_link"
+    status === "busy_link" ||
+    // Press-1 chose the booking text, but it failed to send — same rescue treatment
+    // as a missed call (dial-first callback, "recover this lead" framing).
+    status === "hold_press1_failed"
   )
 }
 
 /** Hold / press-1 automation — amber accent (not rose Missed). */
 export function isHoldActivityStatus(status: ActivityCallStatus): boolean {
-  return status === "hold_queue" || status === "hold_press1" || status === "busy_menu"
+  return (
+    status === "hold_queue" ||
+    status === "hold_press1" ||
+    status === "hold_press1_skipped" ||
+    status === "busy_menu"
+  )
 }
 
 export function ActivityStatusPill({
@@ -203,6 +215,10 @@ export function ActivityStatusPill({
       "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     hold_press1:
       "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
+    hold_press1_failed:
+      "border-destructive/60 bg-destructive/20 text-destructive shadow-[0_0_18px_-3px_rgba(244,63,94,0.65)]",
+    hold_press1_skipped:
+      "border-warning/50 bg-warning/15 text-warning shadow-[0_0_14px_-6px_rgba(245,158,11,0.45)]",
     busy_menu:
       "border-warning/45 bg-warning/12 text-warning shadow-[0_0_12px_-6px_rgba(245,158,11,0.4)]",
     missed:
@@ -221,6 +237,8 @@ export function ActivityStatusPill({
     busy_link: dense ? "Missed" : "Missed · busy link",
     hold_queue: dense ? "On hold" : "Hold queue",
     hold_press1: dense ? "Press 1" : "Press 1 · booking text",
+    hold_press1_failed: dense ? "Text failed" : "Press 1 · text failed",
+    hold_press1_skipped: dense ? "Already texted" : "Press 1 · already texted",
     busy_menu: dense ? "Busy" : "Busy · hold menu",
     missed: "Missed",
   }

@@ -125,7 +125,41 @@ async function sendInboundBookingSms(opts: {
   }
 }
 
-/** SMS + tag the call log as a booking-link send (Call Control / capture). */
+export type InboundBookingSmsOutcome = "sent" | "skipped" | "failed" | "not_attempted"
+
+/**
+ * What to tell the caller on the confirmation Speak — never claims a text went out
+ * unless it actually did. "press1" = explicit press-1 confirm; "max_wait" = hold
+ * timed out / capacity-reached soft-busy prompt (same shape, different framing).
+ */
+export function bookingSmsConfirmSpeech(
+  outcome: InboundBookingSmsOutcome,
+  variant: "press1" | "max_wait"
+): string {
+  if (variant === "max_wait") {
+    if (outcome === "sent") {
+      return "We are still tied up. We just texted you a booking link so you can tell us when you need us. Goodbye."
+    }
+    if (outcome === "skipped") {
+      return "We are still tied up. You should already have a text from us with a booking link. Goodbye."
+    }
+    return "We are still tied up — thanks for your patience, we'll follow up with you shortly. Goodbye."
+  }
+  if (outcome === "sent") {
+    return "We just texted you a booking link. You can hang up whenever you're ready."
+  }
+  if (outcome === "skipped") {
+    return "You should already have a text from us with a booking link. You can hang up whenever you're ready."
+  }
+  return "Thanks for calling — we'll follow up with you shortly. You can hang up whenever you're ready."
+}
+
+/**
+ * SMS + tag the call log as a booking-link send (Call Control / capture).
+ * The tagged routed_to_name reflects the REAL outcome — a failed or cooldown-skipped
+ * send is never tagged as if the text went out. Callers can react to the returned
+ * outcome (e.g. choose what to tell the caller on the confirmation Speak).
+ */
 export async function sendInboundBookingSmsAndTag(opts: {
   fromE164: string
   ownerUserId: string | null
@@ -136,13 +170,13 @@ export async function sendInboundBookingSmsAndTag(opts: {
   callType?: CallType
   businessLabel?: string | null
   tone?: BookingLinkSmsTone
-}): Promise<void> {
+}): Promise<{ outcome: InboundBookingSmsOutcome; error?: string }> {
   // First hangup wins. Second overlapping event does not send another book link.
   if (opts.callSid) {
     const won = await claimIvrAction(opts.callSid)
-    if (!won) return
+    if (!won) return { outcome: "not_attempted" }
   }
-  await sendInboundBookingSms({
+  const result = await sendInboundBookingSms({
     fromE164: opts.fromE164,
     ownerUserId: opts.ownerUserId,
     businessLineE164: opts.businessLineE164,
@@ -150,11 +184,23 @@ export async function sendInboundBookingSmsAndTag(opts: {
     businessLabel: opts.businessLabel,
     tone: opts.tone,
   })
+  const outcome: InboundBookingSmsOutcome = !result.ok
+    ? "failed"
+    : result.skipped
+      ? "skipped"
+      : "sent"
+  const routedToName =
+    outcome === "failed"
+      ? `${opts.routedToName} (text failed)`
+      : outcome === "skipped"
+        ? `${opts.routedToName} (recent text)`
+        : opts.routedToName
   if (opts.callSid) {
     void updateCallLog(opts.callSid, {
-      routed_to_name: opts.routedToName,
+      routed_to_name: routedToName,
       call_type: opts.callType ?? "missed",
       status: "completed",
     }).catch((e) => console.warn("[inbound-booking-sms] status tag failed:", e))
   }
+  return { outcome, error: result.error }
 }

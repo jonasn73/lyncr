@@ -20,7 +20,6 @@ import {
 } from "@/lib/call-queue-db"
 import { getAccountPresence } from "@/lib/account-presence"
 import {
-  HOLD_MAX_WAIT_SMS_PROMPT,
   HOLD_REPROMPT_DEFAULT,
   holdMaxConcurrent,
   holdMaxWaitSecs,
@@ -31,7 +30,7 @@ import {
 } from "@/lib/hold-queue"
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
 import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
-import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { preferWorkingSpeakVoice } from "@/lib/elevenlabs-voices"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
@@ -192,7 +191,7 @@ export async function enterBusyHoldQueue(params: {
       })
     )
     await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
-    await sendInboundBookingSmsAndTag({
+    const { outcome } = await sendInboundBookingSmsAndTag({
       fromE164: state.callerE164,
       ownerUserId: userId,
       businessLineE164: state.businessLineE164,
@@ -206,7 +205,11 @@ export async function enterBusyHoldQueue(params: {
       phase: "await_busy_sms_confirm_end",
       dialReason: "busy_automation",
     })
-    await telnyxCallControlSpeak(callControlId, HOLD_MAX_WAIT_SMS_PROMPT, confirmState)
+    await telnyxCallControlSpeak(
+      callControlId,
+      bookingSmsConfirmSpeech(outcome, "max_wait"),
+      confirmState
+    )
     return
   }
 
@@ -635,7 +638,7 @@ async function leaveHoldQueueWithSms(
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
   await updateCallQueueStatus({ callControlId, status: "sms_left" })
 
-  await sendInboundBookingSmsAndTag({
+  const { outcome } = await sendInboundBookingSmsAndTag({
     fromE164: state.callerE164,
     ownerUserId: state.userId,
     businessLineE164: state.businessLineE164,
@@ -652,7 +655,7 @@ async function leaveHoldQueueWithSms(
   })
   const speakRes = await telnyxCallControlSpeak(
     callControlId,
-    "We just texted you a booking link. You can hang up whenever you're ready.",
+    bookingSmsConfirmSpeech(outcome, "press1"),
     confirmState
   )
   if (!speakRes.ok) {
@@ -670,7 +673,7 @@ async function finishHoldWithSms(
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
   await updateCallQueueStatus({ callControlId, status })
 
-  await sendInboundBookingSmsAndTag({
+  const { outcome } = await sendInboundBookingSmsAndTag({
     fromE164: state.callerE164,
     ownerUserId: state.userId,
     businessLineE164: state.businessLineE164,
@@ -685,7 +688,11 @@ async function finishHoldWithSms(
     phase: "await_busy_sms_confirm_end",
     dialReason: "busy_automation",
   })
-  const speakRes = await telnyxCallControlSpeak(callControlId, HOLD_MAX_WAIT_SMS_PROMPT, confirmState)
+  const speakRes = await telnyxCallControlSpeak(
+    callControlId,
+    bookingSmsConfirmSpeech(outcome, "max_wait"),
+    confirmState
+  )
   if (!speakRes.ok) {
     await telnyxCallControlHangup(callControlId)
   }

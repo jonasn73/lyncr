@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import { Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
+import { MessageSquare, Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAnimatedNumber } from "@/lib/hooks/use-animated-number"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
@@ -189,6 +189,8 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
     dailyCalls,
     missedCalls,
     holdPathCalls,
+    press1Calls,
+    press1SmsFailed,
     liveLineCount,
     bookingRatePercent,
     bookedJobsCount,
@@ -215,6 +217,10 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const missedDisplay = baselineReady ? missedCalls : "—"
   const linesDisplay = baselineReady ? liveLineCount : "—"
   const holdPathDisplay = baselineReady ? holdPathCalls : null
+  const press1Display = baselineReady ? press1Calls : "—"
+  const press1Failed = baselineReady ? press1SmsFailed : 0
+  const press1Trouble = baselineReady && press1Failed > 0
+  const press1Sublabel = press1Trouble ? `${press1Failed} text${press1Failed === 1 ? "" : "s"} failed` : null
 
   // Raw numbers for the rolling-number animation — null while not ready so the pill just
   // shows "—" with no roll (mirrors the *Display constants above, kept separate since those
@@ -222,6 +228,7 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
   const linesAnimated = baselineReady ? liveLineCount : null
   const callsAnimated = baselineReady ? dailyCalls : null
   const missedAnimated = baselineReady ? missedCalls : null
+  const press1Animated = baselineReady ? press1Calls : null
   const bookingAnimated = baselineReady ? bookingRatePercent : null
   const speedAnimated = baselineReady && avgDispatchSpeedMinutes != null ? avgDispatchSpeedMinutes : null
   const rescueAnimated = baselineReady ? rescueRevenueCents : null
@@ -307,6 +314,14 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             animatedFormatter={formatRescueRevenueDollars}
             valueClassName={rescueHot ? "text-warning" : "text-success"}
           />
+          <TelemetryTickerItem
+            label="Press 1"
+            value={press1Display}
+            animatedValue={press1Animated}
+            sublabel={press1Sublabel}
+            valueClassName={press1Trouble ? "text-warning" : undefined}
+            sublabelClassName="text-warning/90"
+          />
         </div>
       </section>
       <section
@@ -368,13 +383,24 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             tone={rescueHot ? "amber" : "emerald"}
             valueClassName={rescueHot ? "text-warning" : "text-success"}
           />
+          <TelemetryPill
+            label={press1Sublabel ? `Press 1 today · ${press1Sublabel}` : "Press 1 today"}
+            value={press1Display}
+            animatedValue={press1Animated}
+            icon={MessageSquare}
+            tone={press1Trouble ? "amber" : "default"}
+            valueClassName={press1Trouble ? "text-warning" : undefined}
+            labelClassName={press1Trouble ? "text-warning font-semibold" : undefined}
+          />
         </div>
         <p className="px-1 text-2xs leading-snug text-muted-foreground">
           <span className="font-medium text-muted-foreground">Missed</span> = true unanswered (hold / press-1
           excluded). <span className="font-medium text-muted-foreground">Booked jobs</span> = real BOOKED jobs
           today ÷ unique callers (not pending time or press-1 alone).{" "}
           <span className="font-medium text-muted-foreground">Rescue $</span> = salvage quotes plus jobs booked
-          after hold or press 1.
+          after hold or press 1.{" "}
+          <span className="font-medium text-muted-foreground">Press 1</span> = callers who pressed 1 for a
+          booking-link text today; turns amber if any of those texts actually failed to send.
         </p>
       </section>
 

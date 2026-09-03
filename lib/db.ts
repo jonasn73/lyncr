@@ -4289,6 +4289,10 @@ export async function getDailyCallTelemetryForOwner(
   missed_calls: number
   /** Today's Busy menu / Hold Queue / Press 1 legs (handled automation — not classic misses). */
   hold_path_calls: number
+  /** Today's Press-1 attempts specifically (subset of hold_path_calls), any outcome. */
+  press1_calls: number
+  /** Of press1_calls, how many booking-link SMS sends actually failed to go out. */
+  press1_sms_failed: number
   avg_talk_seconds: number
   daily_talk_seconds: number
   weekly_talk_seconds: number
@@ -4321,6 +4325,8 @@ export async function getDailyCallTelemetryForOwner(
         daily_calls: 0,
         missed_calls: 0,
         hold_path_calls: 0,
+        press1_calls: 0,
+        press1_sms_failed: 0,
         avg_talk_seconds: 0,
         daily_talk_seconds: 0,
         weekly_talk_seconds: 0,
@@ -4340,6 +4346,19 @@ export async function getDailyCallTelemetryForOwner(
   /** Hold / Press 1 / Busy menu — handled soft-queue path (not a classic miss). */
   const holdPathWhere = sql`
     lower(COALESCE(routed_to_name, '')) ~* '(hold queue|booked from hold|busy · hold menu|busy · hold|answered from queue|press 1)'
+  `
+
+  /** Press-1 specifically — caller chose the booking-link text (subset of holdPathWhere). */
+  const press1Where = sql`
+    lower(COALESCE(routed_to_name, '')) ~* 'booked from hold'
+  `
+
+  /**
+   * Of those, the booking-link SMS actually failed to send (see lib/inbound-booking-sms.ts —
+   * sendInboundBookingSmsAndTag tags the real outcome instead of assuming success).
+   */
+  const press1FailedWhere = sql`
+    ${press1Where} AND lower(COALESCE(routed_to_name, '')) ~* '\\(text failed\\)'
   `
 
   const missedWhere = sql`
@@ -4410,6 +4429,14 @@ export async function getDailyCallTelemetryForOwner(
             WHERE ${localDayMatch}
               AND (${holdPathWhere})
           )::int AS hold_path_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${press1Where})
+          )::int AS press1_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${press1FailedWhere})
+          )::int AS press1_sms_failed,
           COALESCE(
             AVG(talk_seconds) FILTER (
               WHERE ${localDayMatch} AND ${talkableWhere}
@@ -4472,6 +4499,14 @@ export async function getDailyCallTelemetryForOwner(
             WHERE ${localDayMatch}
               AND (${holdPathWhere})
           )::int AS hold_path_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${press1Where})
+          )::int AS press1_calls,
+          COUNT(*) FILTER (
+            WHERE ${localDayMatch}
+              AND (${press1FailedWhere})
+          )::int AS press1_sms_failed,
           COALESCE(
             AVG(talk_seconds) FILTER (
               WHERE ${localDayMatch} AND ${talkableWhere}
@@ -4504,6 +4539,8 @@ export async function getDailyCallTelemetryForOwner(
     daily_calls: Number(row?.daily_calls ?? 0),
     missed_calls: Number(row?.missed_calls ?? 0),
     hold_path_calls: Number(row?.hold_path_calls ?? 0),
+    press1_calls: Number(row?.press1_calls ?? 0),
+    press1_sms_failed: Number(row?.press1_sms_failed ?? 0),
     avg_talk_seconds: Number(row?.avg_talk_seconds ?? 0),
     daily_talk_seconds: Number(row?.daily_talk_seconds ?? 0),
     weekly_talk_seconds: Number(row?.weekly_talk_seconds ?? 0),

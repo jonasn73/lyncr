@@ -12,6 +12,8 @@ const EMPTY_STATS: UseRealTimeStatsResult = {
   dailyCalls: 0,
   missedCalls: 0,
   holdPathCalls: 0,
+  press1Calls: 0,
+  press1SmsFailed: 0,
   dailyTalkSeconds: 0,
   weeklyTalkSeconds: 0,
   monthlyTalkSeconds: 0,

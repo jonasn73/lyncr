@@ -113,6 +113,18 @@ export const CAPTURE_STATUS_CALL_WAITING = "Missed - Call Waiting Link"
 export const CAPTURE_STATUS_HOLD_QUEUE = "Hold Queue"
 /** Press 1 from Busy / hold / on-call soft-busy — Activity shows this label. */
 export const CAPTURE_STATUS_HOLD_PRESS1 = "Booked from hold · press 1"
+/**
+ * Same press-1 path, but the booking-link SMS itself failed to send (Telnyx error,
+ * carrier rejection, etc.) — distinct label so a real send failure isn't indistinguishable
+ * from a normal send in Activity / metrics. Still matches /booked from hold/i so existing
+ * hold-automation classification keeps working.
+ */
+export const CAPTURE_STATUS_HOLD_PRESS1_FAILED = "Booked from hold · press 1 (text failed)"
+/**
+ * Same press-1 path, but the send was skipped by the 45-min cooldown dedupe — the caller
+ * already has a recent text with a booking link, so this is benign, not a failure.
+ */
+export const CAPTURE_STATUS_HOLD_PRESS1_SKIPPED = "Booked from hold · press 1 (recent text)"
 /** Busy gather (press 1 / stay on line) before enqueue — not an owner ring. */
 export const CAPTURE_STATUS_BUSY_MENU = "Busy · hold menu"
 /** Owner/teammate Answered a waiting caller from Lines hold queue. */

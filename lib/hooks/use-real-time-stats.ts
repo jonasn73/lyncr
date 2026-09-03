@@ -81,6 +81,10 @@ export type UseRealTimeStatsResult = {
   rescueRevenueCents: number
   /** Busy menu / Hold / Press 1 call legs today (handled automation). */
   holdPathCalls: number
+  /** Press-1 attempts today specifically (subset of holdPathCalls), any outcome. */
+  press1Calls: number
+  /** Of press1Calls, how many booking-link SMS sends actually failed to go out. */
+  press1SmsFailed: number
   /** Count of provisioned active phone lines (static until numbers list changes). */
   liveLineCount: number
   /** In-progress calls on the selected line (drives Step 1 badge). */
@@ -103,6 +107,8 @@ function applySnapshot(
     setDailyCalls: (n: number) => void
     setMissedCalls: (n: number) => void
     setHoldPathCalls: (n: number) => void
+    setPress1Calls: (n: number) => void
+    setPress1SmsFailed: (n: number) => void
     setDailyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setWeeklyTalkSeconds: (n: number | ((prev: number) => number)) => void
     setMonthlyTalkSeconds: (n: number | ((prev: number) => number)) => void
@@ -129,6 +135,8 @@ function applySnapshot(
   setters.setDailyCalls(snapDayKey === currentDayKey ? snap.dailyCalls : 0)
   setters.setMissedCalls(snapDayKey === currentDayKey ? snap.missedCalls : 0)
   setters.setHoldPathCalls(snapDayKey === currentDayKey ? snap.holdPathCalls ?? 0 : 0)
+  setters.setPress1Calls(snapDayKey === currentDayKey ? snap.press1Calls ?? 0 : 0)
+  setters.setPress1SmsFailed(snapDayKey === currentDayKey ? snap.press1SmsFailed ?? 0 : 0)
   // Local calendar day — zero talk when the cached snapshot is from a prior day.
   setters.setDailyTalkSeconds(snapDayKey === currentDayKey ? snap.dailyTalkSeconds : 0)
   if (mergeTalk && snapWeekKey === currentWeekKey) {
@@ -176,6 +184,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
   const [dailyCalls, setDailyCalls] = useState(() => seed.dailyCalls)
   const [missedCalls, setMissedCalls] = useState(() => seed.missedCalls)
   const [holdPathCalls, setHoldPathCalls] = useState(() => seed.holdPathCalls ?? 0)
+  const [press1Calls, setPress1Calls] = useState(() => seed.press1Calls ?? 0)
+  const [press1SmsFailed, setPress1SmsFailed] = useState(() => seed.press1SmsFailed ?? 0)
   const [dailyTalkSeconds, setDailyTalkSeconds] = useState(() => seed.dailyTalkSeconds)
   const [weeklyTalkSeconds, setWeeklyTalkSeconds] = useState(() => seed.weeklyTalkSeconds)
   const [monthlyTalkSeconds, setMonthlyTalkSeconds] = useState(() => seed.monthlyTalkSeconds)
@@ -247,6 +257,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           daily_calls?: number
           missed_calls?: number
           hold_path_calls?: number
+          press1_calls?: number
+          press1_sms_failed?: number
           daily_talk_seconds?: number
           weekly_talk_seconds?: number
           monthly_talk_seconds?: number
@@ -280,6 +292,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         dailyCalls: Number(data.daily_calls ?? 0),
         missedCalls: Number(data.missed_calls ?? 0),
         holdPathCalls: Number(data.hold_path_calls ?? 0),
+        press1Calls: Number(data.press1_calls ?? 0),
+        press1SmsFailed: Number(data.press1_sms_failed ?? 0),
         dailyTalkSeconds: parsedDailyTalk,
         weeklyTalkSeconds: parsedWeeklyTalk,
         monthlyTalkSeconds: parsedMonthlyTalk,
@@ -302,6 +316,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
           setDailyCalls,
           setMissedCalls,
           setHoldPathCalls,
+          setPress1Calls,
+          setPress1SmsFailed,
           setDailyTalkSeconds,
           setWeeklyTalkSeconds,
           setMonthlyTalkSeconds,
@@ -360,6 +376,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
         setDailyCalls,
         setMissedCalls,
         setHoldPathCalls,
+        setPress1Calls,
+        setPress1SmsFailed,
         setDailyTalkSeconds,
         setWeeklyTalkSeconds,
         setMonthlyTalkSeconds,
@@ -616,6 +634,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       dailyCalls,
       missedCalls,
       holdPathCalls,
+      press1Calls,
+      press1SmsFailed,
       dailyTalkSeconds,
       weeklyTalkSeconds,
       monthlyTalkSeconds,
@@ -638,6 +658,8 @@ export function useRealTimeStats(options: UseRealTimeStatsOptions): UseRealTimeS
       dailyCalls,
       missedCalls,
       holdPathCalls,
+      press1Calls,
+      press1SmsFailed,
       dailyTalkSeconds,
       weeklyTalkSeconds,
       monthlyTalkSeconds,

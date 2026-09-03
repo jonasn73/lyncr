@@ -38,6 +38,10 @@ export type RoutingTelemetrySnapshot = {
   missedCalls: number
   /** Busy menu / Hold / Press 1 legs today (handled — not classic misses). */
   holdPathCalls?: number
+  /** Press-1 attempts today specifically (subset of holdPathCalls), any outcome. */
+  press1Calls?: number
+  /** Of press1Calls, how many booking-link SMS sends actually failed to go out. */
+  press1SmsFailed?: number
   /** Raw seconds from API — display is derived via formatTalkTime. */
   dailyTalkSeconds: number
   weeklyTalkSeconds: number
@@ -103,6 +107,8 @@ export function normalizeRoutingTelemetrySnapshot(
     dailyCalls: sameDay ? raw.dailyCalls : 0,
     missedCalls: sameDay ? raw.missedCalls : 0,
     holdPathCalls: sameDay ? raw.holdPathCalls ?? 0 : 0,
+    press1Calls: sameDay ? raw.press1Calls ?? 0 : 0,
+    press1SmsFailed: sameDay ? raw.press1SmsFailed ?? 0 : 0,
     dailyTalkSeconds: sameDay ? raw.dailyTalkSeconds : 0,
     weeklyTalkSeconds: cachedWeekKey === weekKey ? raw.weeklyTalkSeconds : 0,
     monthlyTalkSeconds: cachedMonthKey === monthKey ? raw.monthlyTalkSeconds : 0,
@@ -128,6 +134,8 @@ function parseTelemetryRaw(
     dailyCalls: raw.dailyCalls,
     missedCalls: raw.missedCalls,
     holdPathCalls: typeof raw.holdPathCalls === "number" ? raw.holdPathCalls : 0,
+    press1Calls: typeof raw.press1Calls === "number" ? raw.press1Calls : 0,
+    press1SmsFailed: typeof raw.press1SmsFailed === "number" ? raw.press1SmsFailed : 0,
     dailyTalkSeconds:
       typeof raw.dailyTalkSeconds === "number"
         ? raw.dailyTalkSeconds
@@ -225,6 +233,8 @@ export function emptyRoutingTelemetrySnapshot(): RoutingTelemetrySnapshot {
     dailyCalls: 0,
     missedCalls: 0,
     holdPathCalls: 0,
+    press1Calls: 0,
+    press1SmsFailed: 0,
     dailyTalkSeconds: 0,
     weeklyTalkSeconds: 0,
     monthlyTalkSeconds: 0,

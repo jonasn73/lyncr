@@ -302,6 +302,8 @@ function classifyCall(call: UiCallRecord): ActivityCallStatus {
     return "answered_from_queue"
   }
   if (routed === CAPTURE_STATUS_HOLD_PRESS1 || /booked from hold/i.test(routed)) {
+    if (/\(text failed\)/i.test(routed)) return "hold_press1_failed"
+    if (/\(recent text\)/i.test(routed)) return "hold_press1_skipped"
     return "hold_press1"
   }
   if (routed === CAPTURE_STATUS_HOLD_QUEUE || /^hold queue$/i.test(routed)) {
@@ -354,7 +356,8 @@ function isHoldFilterCall(call: UiCallRecord): boolean {
 
 function isPress1FilterCall(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
-  return classifyCall(call) === "hold_press1"
+  const st = classifyCall(call)
+  return st === "hold_press1" || st === "hold_press1_failed" || st === "hold_press1_skipped"
 }
 
 /** Same rules as the Lines HUD “Missed today” pill — local calendar day + shared missed detection. */
@@ -561,6 +564,12 @@ function buildCallActionsTimeline(call: UiCallRecord): string[] {
   if (st === "hold_press1") {
     lines.push("Press 1 · booking text sent")
   }
+  if (st === "hold_press1_failed") {
+    lines.push("Press 1 · booking text FAILED to send")
+  }
+  if (st === "hold_press1_skipped") {
+    lines.push("Press 1 · already had a recent text, no new one sent")
+  }
   if (st === "answered_from_queue") {
     lines.push("Answered from queue")
   }
@@ -589,6 +598,8 @@ function resolveCallAgent(call: UiCallRecord): CallAgent {
   const routed = (call.routedTo ?? "").trim()
   if (st === "voicemail") return { label: "Voicemail", kind: "none" }
   if (st === "hold_press1") return { label: "Press 1 SMS", kind: "none" }
+  if (st === "hold_press1_failed") return { label: "Press 1 · text failed", kind: "none" }
+  if (st === "hold_press1_skipped") return { label: "Press 1 · already texted", kind: "none" }
   if (st === "hold_queue" || st === "busy_menu") return { label: "Hold queue", kind: "none" }
   if (st === "answered_from_queue") return { label: "You (from queue)", kind: "owner" }
   if (st === "missed") return { label: "Unanswered", kind: "none" }
@@ -653,6 +664,12 @@ function buildCallSummary(call: UiCallRecord): string {
   const caller = `${call.callerName} (${call.callerNumber})`
   if (st === "hold_press1") {
     return `${caller} chose Press 1 while you were Busy — a booking text was sent. Duration ${dur}.`
+  }
+  if (st === "hold_press1_failed") {
+    return `${caller} chose Press 1 while you were Busy — the booking text FAILED to send. Duration ${dur}.`
+  }
+  if (st === "hold_press1_skipped") {
+    return `${caller} chose Press 1 while you were Busy — they already had a recent text, so no new one was sent. Duration ${dur}.`
   }
   if (st === "hold_queue") {
     return `${caller} waited in the hold queue (${dur}) and left before someone Answered from Lines.`
