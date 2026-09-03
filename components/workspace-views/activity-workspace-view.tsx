@@ -377,8 +377,13 @@ function canCallBack(call: UiCallRecord): boolean {
 /** Missed or empty intake — Call back should dial + open the intake draft sheet. */
 function needsRevenueRescue(call: UiCallRecord): boolean {
   if (call.type === "outgoing") return false
-  if (isMissedActivityCall(call)) return true
   const action = call.activity?.intakeAction
+  const hasIntake =
+    Boolean(call.activity?.leadId) || (Boolean(action) && action !== "No intake recorded")
+  // Already has a lead / recorded intake (e.g. a missed call that was later fully booked) —
+  // treat like any other completed call, even though the leg itself was missed.
+  if (hasIntake) return false
+  if (isMissedActivityCall(call)) return true
   return !action || action === "No intake recorded"
 }
 
@@ -834,7 +839,7 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
           {dialFirst ? (
             <CallBackButton
               phone={call.callerNumber}
-              openIntakeDraft={needsRevenueRescue(call) || isHoldLog}
+              openIntakeDraft={needsRevenueRescue(call)}
               intakeCall={call}
               missed={isMissedLog}
               hold={isHoldLog && !isMissedLog}
@@ -1051,7 +1056,7 @@ function ActivityGroupActionBar({
       {callBackPrimary ? (
         <CallBackButton
           phone={call.callerNumber}
-          openIntakeDraft={needsRevenueRescue(call) || hold}
+          openIntakeDraft={needsRevenueRescue(call)}
           intakeCall={call}
           missed={missed}
           hold={hold && !missed}
@@ -1109,7 +1114,7 @@ function ActivityGroupActionBar({
             phone={call.callerNumber}
             compact
             className={secondaryChip}
-            openIntakeDraft={needsRevenueRescue(call) || hold}
+            openIntakeDraft={needsRevenueRescue(call)}
             intakeCall={call}
             missed={missed}
             hold={hold && !missed}
