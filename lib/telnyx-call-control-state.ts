@@ -88,6 +88,12 @@ export type TelnyxCallControlClientState = {
    * re-querying call history on every reprompt cycle.
    */
   isRepeatCaller?: boolean
+  /**
+   * Saved customers.display_name for this caller phone, when found and TTS-safe
+   * (see sanitizeCallerNameForSpeech) — computed once at Busy entry, carried like
+   * isRepeatCaller so the SMS confirmation can reuse it without re-querying.
+   */
+  callerDisplayName?: string
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

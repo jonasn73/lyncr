@@ -29,7 +29,11 @@ import {
   prefetchUsRingbackPlaybackContent,
 } from "@/lib/us-ringback-inline-audio"
 import { upsertCallQueueBusyMenu, updateCallQueueStatus } from "@/lib/call-queue-db"
-import { HOLD_AWARE_BUSY_PROMPT } from "@/lib/hold-queue"
+import {
+  HOLD_AWARE_BUSY_PROMPT,
+  callerGreetingPrefix,
+  sanitizeCallerNameForSpeech,
+} from "@/lib/hold-queue"
 import { resolveRepeatCallerUrgency } from "@/lib/repeat-caller-urgency"
 import { envFlagOn, lyncrLog } from "@/lib/lyncr-env"
 import { parseTelnyxVoiceWebhookEvent } from "@/lib/telnyx-call-control-parse"
@@ -281,10 +285,12 @@ async function startBusyAutomationFlow(
   let maxDigits = 1
   // AI Voice Persona from Greetings → Call Control Speak voice (NaturalHD / Polly).
   let speakVoice: string | undefined
-  // Recognize a caller who already tried and got missed/dropped earlier today — computed
-  // once here, carried in state for the hold reprompts, never re-queried mid-hold.
-  // Best-effort only: never blocks or fails the call on a lookup problem.
+  // Recognize a caller who already tried and got missed/dropped earlier today, and a saved
+  // name if they're a known customer — both computed once here, carried in state for the
+  // hold reprompts / SMS confirmation, never re-queried mid-hold. Independent try/catch
+  // blocks are deliberate: a problem with one lookup must never also zero out the other.
   let isRepeatCaller = false
+  let callerDisplayName = ""
   try {
     const { listTodaysCallLogsForCaller } = await import("@/lib/db")
     const todaysLogs = await listTodaysCallLogsForCaller(routing.user_id, state.callerE164)
@@ -293,6 +299,13 @@ async function startBusyAutomationFlow(
     }).isHighUrgency
   } catch (e) {
     console.warn("[telnyx-cc] repeat-caller lookup skipped:", e)
+  }
+  try {
+    const { getCustomerByPhoneForUser } = await import("@/lib/db")
+    const customer = await getCustomerByPhoneForUser(routing.user_id, state.callerE164)
+    callerDisplayName = sanitizeCallerNameForSpeech(customer?.display_name)
+  } catch (e) {
+    console.warn("[telnyx-cc] customer-name lookup skipped:", e)
   }
   try {
     const presence = await getAccountPresence(routing.user_id)
@@ -320,10 +333,11 @@ async function startBusyAutomationFlow(
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
-  // Additive courtesy prefix — never replaces a custom greeting, just acknowledges the
-  // caller tried before instead of repeating the exact same line as their first attempt.
-  if (isRepeatCaller) {
-    say = `Thanks for trying us again — ${say.trim()}`
+  // Additive courtesy prefix — never replaces a custom greeting, just acknowledges a known
+  // customer by name and/or that they already tried before this exact same script.
+  const greetingPrefix = callerGreetingPrefix({ callerDisplayName, isRepeatCaller })
+  if (greetingPrefix) {
+    say = `${greetingPrefix}${say.trim()}`
   }
   // After speak.failed → gather invalid, force the NaturalHD voice we already chose.
   if (state.busySpeakFallbackTried) {
@@ -340,6 +354,7 @@ async function startBusyAutomationFlow(
     holdSpeakVoice: voiceForGather,
     busySpeakFallbackTried: state.busySpeakFallbackTried,
     isRepeatCaller,
+    callerDisplayName: callerDisplayName || undefined,
   })
   console.log(
     lyncrLog("telnyx-cc-busy-automation-gather", {

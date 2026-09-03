@@ -210,7 +210,10 @@ export async function enterBusyHoldQueue(params: {
     })
     await telnyxCallControlSpeak(
       callControlId,
-      bookingSmsConfirmSpeech(outcome, "max_wait"),
+      bookingSmsConfirmSpeech(outcome, "max_wait", {
+        callerDisplayName: state.callerDisplayName,
+        isRepeatCaller: state.isRepeatCaller,
+      }),
       confirmState
     )
     return
@@ -658,7 +661,10 @@ async function leaveHoldQueueWithSms(
   })
   const speakRes = await telnyxCallControlSpeak(
     callControlId,
-    bookingSmsConfirmSpeech(outcome, "press1"),
+    bookingSmsConfirmSpeech(outcome, "press1", {
+      callerDisplayName: state.callerDisplayName,
+      isRepeatCaller: state.isRepeatCaller,
+    }),
     confirmState
   )
   if (!speakRes.ok) {
@@ -693,7 +699,10 @@ async function finishHoldWithSms(
   })
   const speakRes = await telnyxCallControlSpeak(
     callControlId,
-    bookingSmsConfirmSpeech(outcome, "max_wait"),
+    bookingSmsConfirmSpeech(outcome, "max_wait", {
+      callerDisplayName: state.callerDisplayName,
+      isRepeatCaller: state.isRepeatCaller,
+    }),
     confirmState
   )
   if (!speakRes.ok) {

@@ -149,3 +149,34 @@ export const HOLD_MAX_WAIT_SMS_PROMPT =
  */
 export const HOLD_AWARE_BUSY_PROMPT =
   "Thanks for calling — we're tied up at the moment. Press 1 and we'll text you a short form to tell us when you need us, or just stay on the line and we'll keep you updated."
+
+/** Reject placeholder/blank values that should never be read aloud as a customer's name. */
+const PLACEHOLDER_CALLER_NAMES = new Set(["unknown caller", "unknown", "customer", "n/a", "—", "-"])
+
+/**
+ * Light TTS sanity check on a saved customer display_name — non-empty, plausible length,
+ * not a known placeholder. Free-text from an operator, never trust it blindly for Speak.
+ */
+export function sanitizeCallerNameForSpeech(raw: string | null | undefined): string {
+  const trimmed = String(raw ?? "").trim()
+  if (!trimmed || trimmed.length > 40) return ""
+  if (PLACEHOLDER_CALLER_NAMES.has(trimmed.toLowerCase())) return ""
+  return trimmed
+}
+
+/**
+ * Shared "who is this / have we heard from them today" prefix — used by the initial Busy
+ * greeting and the booking-SMS confirmation (single-shot moments). Deliberately NOT used on
+ * every hold reprompt cycle — repeating a name every ~20s during a long hold reads as
+ * over-personalized rather than warm.
+ */
+export function callerGreetingPrefix(opts: {
+  callerDisplayName?: string | null
+  isRepeatCaller?: boolean
+}): string {
+  const name = sanitizeCallerNameForSpeech(opts.callerDisplayName)
+  if (name && opts.isRepeatCaller) return `Hey ${name}, thanks for trying us again — `
+  if (name) return `Hey ${name} — `
+  if (opts.isRepeatCaller) return "Thanks for trying us again — "
+  return ""
+}
