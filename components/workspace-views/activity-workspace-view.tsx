@@ -1000,7 +1000,14 @@ function CallLogSheet({ call, onClose }: { call: UiCallRecord; onClose: () => vo
           ) : null}
         </div>
       </DrawerScrollBody>
-      <DrawerStickyFooter dirty={false} saving={false} onSave={onClose} onCancel={onClose} saveLabel="Close" />
+      <DrawerStickyFooter
+        dirty={false}
+        dirtyGated={false}
+        saving={false}
+        onSave={onClose}
+        onCancel={onClose}
+        saveLabel="Close"
+      />
     </>
   )
 }

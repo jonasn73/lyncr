@@ -46,6 +46,9 @@ export function DrawerStickyFooter({
   onCancel,
   saveLabel = "Save Changes",
   saveAsSubmit = false,
+  /** Set false when the primary button is reused as a plain "Close" (not a real save) —
+   * otherwise `!dirty` leaves it permanently disabled. */
+  dirtyGated = true,
 }: {
   dirty: boolean
   saving: boolean
@@ -53,6 +56,7 @@ export function DrawerStickyFooter({
   onCancel: () => void
   saveLabel?: string
   saveAsSubmit?: boolean
+  dirtyGated?: boolean
 }) {
   return (
     <footer className="sticky bottom-0 shrink-0 border-t border-border/80 bg-background px-6 py-4">
@@ -60,7 +64,7 @@ export function DrawerStickyFooter({
         <button
           type={saveAsSubmit ? "submit" : "button"}
           onClick={saveAsSubmit ? undefined : onSave}
-          disabled={saving || !dirty}
+          disabled={saving || (dirtyGated && !dirty)}
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
             dirty && !saving && "ring-1 ring-primary/50"
