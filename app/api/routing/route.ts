@@ -24,6 +24,10 @@ import {
   syncTelnyxAssistantFromIntakeOrRecover,
   type EnsureTelnyxVoiceAiResult,
 } from "@/lib/telnyx-ai-assistant-lifecycle"
+import {
+  resolveAiVoiceAssistantEntitlement,
+  AI_VOICE_ASSISTANT_UPGRADE_MESSAGE,
+} from "@/lib/ai-voice-entitlement"
 
 export async function GET(req: NextRequest) {
   const userId = getUserIdFromRequest(req.headers.get("cookie"))
@@ -119,6 +123,16 @@ export async function PUT(req: NextRequest) {
               "Which line is this for? On the dashboard tap the business number, then save again so we can store routing for that line (not only the account default).",
           },
           { status: 400 }
+        )
+      }
+    }
+
+    if (body.fallback_type === "ai") {
+      const entitlement = await resolveAiVoiceAssistantEntitlement(userId)
+      if (!entitlement.allowed) {
+        return NextResponse.json(
+          { error: AI_VOICE_ASSISTANT_UPGRADE_MESSAGE, reason: "tier_limit", tier: entitlement.tier },
+          { status: 402 }
         )
       }
     }

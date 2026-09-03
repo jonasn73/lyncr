@@ -4549,6 +4549,57 @@ export async function getDailyCallTelemetryForOwner(
   }
 }
 
+/**
+ * Admin visibility (`087`) — per-account AI Assistant hold-bridge usage over the trailing
+ * window. Tag-based (routed_to_name), same pattern as hold/press-1 telemetry above; no schema
+ * change. `duration_seconds` on the tagged row spans bridge-start → hangup, i.e. the AI segment.
+ */
+export async function listAdminAiAssistantHoldUsage(
+  days = 30
+): Promise<
+  Array<{
+    user_id: string
+    business_name: string | null
+    email: string | null
+    subscription_tier: string | null
+    call_count: number
+    total_minutes: number
+  }>
+> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT
+        cl.user_id,
+        u.business_name,
+        u.email,
+        op.subscription_tier,
+        COUNT(*)::int AS call_count,
+        ROUND(COALESCE(SUM(GREATEST(cl.duration_seconds, 0)), 0) / 60.0, 1)::float8 AS total_minutes
+      FROM call_logs cl
+      LEFT JOIN users u ON u.id = cl.user_id
+      LEFT JOIN onboarding_profiles op ON op.user_id = cl.user_id
+      -- Must match CAPTURE_STATUS_HOLD_AI_ASSISTED in lib/inbound-time-capture.ts.
+      WHERE lower(COALESCE(cl.routed_to_name, '')) = 'ai assistant (from hold)'
+        AND cl.created_at >= now() - (${days} || ' days')::interval
+      GROUP BY cl.user_id, u.business_name, u.email, op.subscription_tier
+      ORDER BY total_minutes DESC
+    `
+    return rows.map((r) => ({
+      user_id: String(r.user_id),
+      business_name: (r.business_name as string) ?? null,
+      email: (r.email as string) ?? null,
+      subscription_tier: (r.subscription_tier as string) ?? null,
+      call_count: Number(r.call_count ?? 0),
+      total_minutes: Number(r.total_minutes ?? 0),
+    }))
+  } catch (e) {
+    if (isUndefinedRelationError(e, "call_logs") || isUndefinedRelationError(e, "onboarding_profiles")) return []
+    console.warn("[db] listAdminAiAssistantHoldUsage failed:", e)
+    return []
+  }
+}
+
 /** High-value dispatch KPIs for the Lines strip — all scoped to the local calendar day. */
 export async function getDispatchPerformanceTelemetry(
   sessionUserId: string,

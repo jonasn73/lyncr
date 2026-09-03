@@ -2004,4 +2004,79 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
     expect(gatherBody.payload).toContain("Thanks for trying us again")
   })
+
+  it("call.conversation.ended after the AI hold bridge sends the booking SMS and hangs up (087)", async () => {
+    const sendSms = vi.fn((..._args: unknown[]) => Promise.resolve({ outcome: "sent" }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() => Promise.resolve(null)),
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: sendSms,
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+
+    const aiHoldState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_ai_assistant_hold",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+      dialReason: "busy_automation",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.conversation.ended",
+        id: "evt-ai-conversation-ended",
+        payload: {
+          call_control_id: "cc-ai-hold-1",
+          client_state: aiHoldState,
+        },
+      },
+    })
+
+    expect(sendSms).toHaveBeenCalledTimes(1)
+    expect(sendSms.mock.calls[0][0]).toMatchObject({
+      callSid: "cc-ai-hold-1",
+      source: "cc_busy_hold_ai_wrapup",
+    })
+    const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
+    expect(hangupCall).toBeTruthy()
+  })
+
+  it("call.conversation.ended is ignored outside the AI hold-bridge phase", async () => {
+    const sendSms = vi.fn(() => Promise.resolve({ outcome: "sent" }))
+    vi.doMock("@/lib/db", () => ({
+      getIncomingRoutingForVoiceWebhook: vi.fn(() => Promise.resolve(null)),
+    }))
+    vi.doMock("@/lib/inbound-booking-sms", () => ({
+      sendInboundBookingSmsAndTag: sendSms,
+      bookingSmsConfirmSpeech: vi.fn(() => "mock booking sms confirm speech"),
+    }))
+
+    const dialState = encodeTelnyxCallControlState({
+      v: 1,
+      phase: "await_dial_end",
+      userId: "u1",
+      businessLineE164: "+15025571219",
+      callerE164: "+15025369252",
+    })
+
+    const { handleTelnyxCallControlVoiceWebhook } = await import("@/lib/telnyx-call-control-inbound")
+    await handleTelnyxCallControlVoiceWebhook({
+      data: {
+        event_type: "call.conversation.ended",
+        id: "evt-ai-conversation-ended-wrong-phase",
+        payload: {
+          call_control_id: "cc-not-ai-hold",
+          client_state: dialState,
+        },
+      },
+    })
+
+    expect(sendSms).not.toHaveBeenCalled()
+    const hangupCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/actions/hangup"))
+    expect(hangupCall).toBeFalsy()
+  })
 })

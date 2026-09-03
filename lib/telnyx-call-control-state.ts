@@ -11,9 +11,15 @@ type TelnyxCallControlPhase =
   | "await_busy_sms_confirm_end"
   /**
    * Soft hold / Telnyx queue — music gather (or speak re-prompt).
-   * Timeout → re-prompt; press 1 → SMS + leave; max wait → SMS once.
+   * Timeout → re-prompt; press 1 → SMS + leave; max wait → SMS once (or AI bridge, see below).
    */
   | "await_busy_hold_loop"
+  /**
+   * Max hold wait reached on a Professional/Business account with an AI Assistant configured —
+   * bridged into a live Telnyx AI Assistant conversation instead of the SMS-and-hangup default (`087`).
+   * Ends on `call.conversation.ended` (booking-link SMS safety net + hangup).
+   */
+  | "await_ai_assistant_hold"
   /** Agent cell dialed from Lines Answer — bridge to queue when they pick up. */
   | "await_queue_agent_answer"
   | "recording"

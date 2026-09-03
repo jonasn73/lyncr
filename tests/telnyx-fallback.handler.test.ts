@@ -25,6 +25,9 @@ vi.mock("@/lib/db", () => {
     getRoutingConfigForNumber: vi.fn(),
     getIncomingRoutingByNumber: vi.fn(),
     getUser: vi.fn(),
+    // AI Voice Assistant tier gate (087) — these fixtures model an account entitled to the
+    // AI fallback; the "no-assistant" scenario is still gated separately (no assistant id).
+    getOnboardingProfile: vi.fn(() => Promise.resolve({ subscription_tier: "professional" })),
     getPrimaryActiveBusinessNumberE164: vi.fn(),
     getReceptionist: vi.fn(() => Promise.resolve(null)),
     isReasonablePstnDialString: (s: string) => {

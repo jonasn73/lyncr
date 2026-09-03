@@ -33,6 +33,10 @@ import {
   setAccountWeeklyHours,
   type WeeklyHoursDay,
 } from "@/lib/account-weekly-hours"
+import {
+  resolveAiVoiceAssistantEntitlement,
+  AI_VOICE_ASSISTANT_UPGRADE_MESSAGE,
+} from "@/lib/ai-voice-entitlement"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -188,6 +192,16 @@ export async function PUT(req: NextRequest) {
     fallbackNormalized === "hold"
       ? (fallbackNormalized as "ai" | "voicemail" | "owner" | "hold")
       : undefined
+
+  if (fallbackType === "ai") {
+    const entitlement = await resolveAiVoiceAssistantEntitlement(userId)
+    if (!entitlement.allowed) {
+      return NextResponse.json(
+        { error: AI_VOICE_ASSISTANT_UPGRADE_MESSAGE, reason: "tier_limit", tier: entitlement.tier },
+        { status: 402 }
+      )
+    }
+  }
 
   try {
     const existingPresence = await getAccountPresence(userId)

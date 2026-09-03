@@ -74,6 +74,7 @@ import { isAccountRoutingBlocked, parseAccountStatus } from "@/lib/account-statu
 import {
   CAPTURE_DEFAULT_RING_E164,
   CAPTURE_STATUS_BUSY_MENU,
+  CAPTURE_STATUS_HOLD_AI_ASSISTED,
   CAPTURE_STATUS_HOLD_PRESS1,
   resolveInboundCapturePlan,
   TIED_UP_BOOKING_PROMPT,
@@ -1563,6 +1564,37 @@ async function applyDialMissFallback(params: {
 }
 
 /**
+ * AI Assistant conversation concluded (max-wait hold bridge, `087`) — the leg does not
+ * auto-hangup, so send the guaranteed booking-link SMS safety net (same dedupe/cooldown
+ * as every other hold outcome) and end the call ourselves.
+ */
+async function handleAiConversationEnded(
+  event: NonNullable<ReturnType<typeof parseTelnyxVoiceWebhookEvent>>
+): Promise<void> {
+  const state = event.clientState
+  if (!state || state.phase !== "await_ai_assistant_hold") return
+  const callControlId = event.callControlId
+
+  console.log(lyncrLog("telnyx-cc-ai-conversation-ended", { callControlId }))
+
+  try {
+    await sendInboundBookingSmsAndTag({
+      fromE164: state.callerE164,
+      ownerUserId: state.userId,
+      businessLineE164: state.businessLineE164,
+      callSid: callControlId,
+      routedToName: CAPTURE_STATUS_HOLD_AI_ASSISTED,
+      source: "cc_busy_hold_ai_wrapup",
+      tone: "hold_timeout",
+    })
+  } catch (e) {
+    console.warn(lyncrLog("telnyx-cc-ai-wrapup-sms-failed", { callControlId, error: String(e) }))
+  }
+
+  await telnyxCallControlHangup(callControlId)
+}
+
+/**
  * AMD result on the outbound cell leg.
  * human → bridge caller ↔ cell. machine → hang up B-leg and enter hold / company VM / etc.
  * Telnyx recommends treating not_sure as human.
@@ -1914,6 +1946,7 @@ async function handleCallHangup(
     state?.phase !== "await_busy_gather_end" &&
     state?.phase !== "await_busy_sms_confirm_end" &&
     state?.phase !== "await_busy_hold_loop" &&
+    state?.phase !== "await_ai_assistant_hold" &&
     (Boolean(state?.inboundCallControlId) || state?.phase === "await_dial_end")
 
   await finalizeCallControlCallLog(inboundSid, event, {
@@ -1986,6 +2019,9 @@ export async function handleTelnyxCallControlVoiceWebhook(body: Record<string, u
       break
     case "call.hangup":
       await handleCallHangup(event)
+      break
+    case "call.conversation.ended":
+      await handleAiConversationEnded(event)
       break
     default:
       break

@@ -29,11 +29,16 @@ import {
   resolveHoldMusicUrlCandidates,
 } from "@/lib/hold-queue"
 import { loadHoldMusicPlaybackContentBase64 } from "@/lib/hold-inline-audio"
-import { CAPTURE_STATUS_HOLD_PRESS1, CAPTURE_STATUS_HOLD_QUEUE } from "@/lib/inbound-time-capture"
+import {
+  CAPTURE_STATUS_HOLD_AI_ASSISTED,
+  CAPTURE_STATUS_HOLD_PRESS1,
+  CAPTURE_STATUS_HOLD_QUEUE,
+} from "@/lib/inbound-time-capture"
 import { bookingSmsConfirmSpeech, sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
 import { preferWorkingSpeakVoice } from "@/lib/elevenlabs-voices"
 import { resolveSpeakVoiceForPersona } from "@/lib/ivr-automation-settings"
 import { lyncrLog } from "@/lib/lyncr-env"
+import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
 import {
   markTelnyxCallControlTerminal,
   telnyxCallControlBridge,
@@ -45,12 +50,14 @@ import {
   telnyxCallControlPlaybackStart,
   telnyxCallControlPlaybackStop,
   telnyxCallControlSpeak,
+  telnyxCallControlStartAiAssistant,
+  telnyxCallControlStopAiAssistant,
 } from "@/lib/telnyx-call-control-api"
 import {
   encodeTelnyxCallControlState,
   type TelnyxCallControlClientState,
 } from "@/lib/telnyx-call-control-state"
-import { updateCallLog } from "@/lib/db"
+import { getUser, updateCallLog } from "@/lib/db"
 
 type RoutingLike = { user_id: string; owner_phone?: string | null }
 
@@ -672,7 +679,33 @@ async function leaveHoldQueueWithSms(
   }
 }
 
-/** Max-wait only — one soft booking SMS (never used for hangup / leave without press 1). */
+/**
+ * Max-wait AI eligibility — Professional/Business tier (`087`) AND an AI Assistant already
+ * configured. Checked fresh at every max-wait so a mid-call downgrade never bridges a call
+ * the account no longer pays for; any lookup failure fails closed (falls back to SMS).
+ */
+async function resolveHoldAiBridgeEligibility(
+  userId: string
+): Promise<{ allowed: boolean; assistantId: string }> {
+  try {
+    const entitlement = await resolveAiVoiceAssistantEntitlement(userId)
+    if (!entitlement.allowed) return { allowed: false, assistantId: "" }
+    const user = await getUser(userId)
+    const assistantId = user?.telnyx_ai_assistant_id?.trim() || ""
+    return { allowed: Boolean(assistantId), assistantId }
+  } catch (e) {
+    console.warn(lyncrLog("telnyx-cc-hold-ai-eligibility-failed", { userId, error: String(e) }))
+    return { allowed: false, assistantId: "" }
+  }
+}
+
+/**
+ * Max-wait reached. Paid tier + AI Assistant configured → bridge into a live AI conversation
+ * (see call.conversation.ended handling in telnyx-call-control-inbound.ts for the wrap-up SMS).
+ * Otherwise, and on any AI-start failure, falls back to the original one-soft-booking-SMS
+ * behavior (never used for hangup / leave without press 1) — a paid-tier account never ends
+ * up worse off than the free path.
+ */
 async function finishHoldWithSms(
   callControlId: string,
   state: TelnyxCallControlClientState,
@@ -681,6 +714,29 @@ async function finishHoldWithSms(
   await telnyxCallControlPlaybackStop(callControlId).catch(() => undefined)
   await telnyxCallControlLeaveQueue(callControlId).catch(() => undefined)
   await updateCallQueueStatus({ callControlId, status })
+
+  const aiEligibility = await resolveHoldAiBridgeEligibility(state.userId)
+  if (aiEligibility.allowed) {
+    const nextState: TelnyxCallControlClientState = {
+      ...state,
+      phase: "await_ai_assistant_hold",
+    }
+    const startRes = await telnyxCallControlStartAiAssistant(callControlId, {
+      assistantId: aiEligibility.assistantId,
+      clientState: encodeTelnyxCallControlState(nextState),
+    })
+    if (startRes.ok) {
+      await updateCallLog(callControlId, { routed_to_name: CAPTURE_STATUS_HOLD_AI_ASSISTED }).catch(
+        () => undefined
+      )
+      console.log(lyncrLog("telnyx-cc-hold-ai-bridged", { callControlId }))
+      return
+    }
+    console.warn(
+      lyncrLog("telnyx-cc-hold-ai-start-failed", { callControlId, error: startRes.error })
+    )
+    // Fall through — caller still gets the guaranteed booking-link SMS below.
+  }
 
   const { outcome } = await sendInboundBookingSmsAndTag({
     fromE164: state.callerE164,
@@ -809,6 +865,11 @@ export async function bridgeAgentToHoldQueue(params: {
 
   if (target) {
     await telnyxCallControlPlaybackStop(target).catch(() => undefined)
+    // Harmless no-op when the AI never started — clears the way for a human answer
+    // when the owner picks up mid AI-assisted-hold conversation.
+    if (state.phase === "await_ai_assistant_hold") {
+      await telnyxCallControlStopAiAssistant(target).catch(() => undefined)
+    }
   }
 
   const bridgeRes = target

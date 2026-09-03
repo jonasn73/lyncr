@@ -15,11 +15,14 @@ export type PremiumCapability =
   | "multi_tenant_workspaces"
   | "unlimited_text_dispatches"
   | "operator_pooling"
+  /** Telnyx AI Voice Assistant — full-receptionist fallback + hold-queue AI bridge (`087`). */
+  | "ai_voice_assistant"
 
 const SCALE_TIER_CAPABILITIES: PremiumCapability[] = [
   "multi_tenant_workspaces",
   "unlimited_text_dispatches",
   "operator_pooling",
+  "ai_voice_assistant",
 ]
 
 function normalizeAccountEmail(email: string | null | undefined): string {
@@ -64,6 +67,7 @@ export function buildServiceContext(user: Pick<User, "email">, profile?: Profile
     multi_tenant_workspaces: hasPremiumCapability(email, subscription_tier, "multi_tenant_workspaces"),
     unlimited_text_dispatches: hasPremiumCapability(email, subscription_tier, "unlimited_text_dispatches"),
     operator_pooling: hasPremiumCapability(email, subscription_tier, "operator_pooling"),
+    ai_voice_assistant: hasPremiumCapability(email, subscription_tier, "ai_voice_assistant"),
   }
   const active_number_limit = master_test_bypass ? tierActiveNumberLimit("business") : tierActiveNumberLimit(subscription_tier)
 

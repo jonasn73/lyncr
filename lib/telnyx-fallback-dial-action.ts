@@ -57,6 +57,7 @@ import {
 import { demoteFalseInboundAnswer } from "@/lib/demote-false-inbound-answer"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildInboundPstnNumberAttributesWithAnswerUrl } from "@/lib/telnyx-inbound-media-quality"
+import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -1058,6 +1059,28 @@ export async function handleTelnyxFallbackDialEnded(
       } catch (e) {
         // Pre-048 schema or read error → behave exactly as before (ring the owner cell).
         console.warn("[telnyx-fallback] hybrid strategy read failed; skipping network leg:", e)
+      }
+    }
+
+    // Tier gate (`087`) — AI Voice Assistant is Professional/Business only. Downgrade to
+    // voicemail (never hang up, and never let a lookup error block the call) so an
+    // un-entitled or errored account never silently loses the caller either way.
+    if (fallbackType === "ai") {
+      try {
+        const entitlement = await resolveAiVoiceAssistantEntitlement(userId)
+        if (!entitlement.allowed) {
+          console.log(
+            JSON.stringify({
+              zing: "telnyx-fallback-ai-blocked-by-tier",
+              userId,
+              tier: entitlement.tier,
+            })
+          )
+          fallbackType = "voicemail"
+        }
+      } catch (e) {
+        console.warn("[telnyx-fallback] AI entitlement check failed; defaulting to voicemail:", e)
+        fallbackType = "voicemail"
       }
     }
 

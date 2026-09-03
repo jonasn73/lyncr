@@ -16,6 +16,7 @@ import {
   getCallControlSpeakVoiceAttributes,
 } from "@/lib/texml-say-voice"
 import { telnyxHeaders } from "@/lib/telnyx-config"
+import { normalizeTelnyxAssistantIdForTexml } from "@/lib/telnyx-ai-texml"
 
 const TELNYX_CALLS_BASE = "https://api.telnyx.com/v2/calls"
 const TELNYX_API_BASE = "https://api.telnyx.com/v2"
@@ -457,6 +458,31 @@ export async function telnyxCallControlRecordStart(
 
 export async function telnyxCallControlHangup(callControlId: string): Promise<TelnyxCallControlActionResult> {
   return postCallAction(callControlId, "hangup", {})
+}
+
+/**
+ * Attach a Telnyx AI Voice Assistant to a live Call Control leg — conversational, open-ended
+ * (unlike `gather_using_speak`, which only collects structured digits/utterances).
+ * Docs: https://developers.telnyx.com/api-reference/call-commands/start-ai-assistant
+ * Fires `call.conversation.ended` when the assistant's conversation concludes; the leg stays
+ * open afterward (no auto-hangup) unless the assistant invokes a hangup tool (none configured here).
+ */
+export async function telnyxCallControlStartAiAssistant(
+  callControlId: string,
+  params: { assistantId: string; clientState?: string }
+): Promise<TelnyxCallControlActionResult> {
+  const id = normalizeTelnyxAssistantIdForTexml(params.assistantId.trim())
+  return postCallAction(callControlId, "ai_assistant_start", {
+    assistant: { id },
+    ...(params.clientState ? { client_state: params.clientState } : {}),
+  })
+}
+
+/** Stop an active AI Assistant conversation on a leg (e.g. owner picked up from Lines mid-conversation). */
+export async function telnyxCallControlStopAiAssistant(
+  callControlId: string
+): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "ai_assistant_stop", {})
 }
 
 /** List live Call Control legs on a connection (used to kill phantom ringing by session). */

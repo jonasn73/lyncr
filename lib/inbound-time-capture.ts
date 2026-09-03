@@ -129,6 +129,13 @@ export const CAPTURE_STATUS_HOLD_PRESS1_SKIPPED = "Booked from hold · press 1 (
 export const CAPTURE_STATUS_BUSY_MENU = "Busy · hold menu"
 /** Owner/teammate Answered a waiting caller from Lines hold queue. */
 export const CAPTURE_STATUS_ANSWERED_FROM_QUEUE = "Answered from queue"
+/**
+ * Max hold wait reached and the caller was bridged into a live Telnyx AI Assistant
+ * conversation instead of the plain SMS-and-hangup default (`087`, paid tiers only).
+ * Contains "assistant" so it falls into the existing `ai_handled` Activity classification
+ * without any frontend changes (see components/workspace-views/activity-workspace-view.tsx).
+ */
+export const CAPTURE_STATUS_HOLD_AI_ASSISTED = "AI Assistant (from hold)"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
