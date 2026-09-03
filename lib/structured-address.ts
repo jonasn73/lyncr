@@ -162,6 +162,47 @@ export function synthesizeAddressFromQuery(
   }
 }
 
+function titleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Parse a US Census Bureau Geocoder address match into our canonical shape.
+ * Free, keyless, government TIGER/address-point data — no Google key required.
+ * https://geocoding.geo.census.gov/geocoder/locations/onelineaddress
+ */
+export function structuredAddressFromCensus(match: {
+  matchedAddress?: string
+  coordinates?: { x?: number; y?: number }
+  addressComponents?: { zip?: string; city?: string; state?: string }
+}): AddressSuggestion {
+  const raw = String(match.matchedAddress ?? "").trim()
+  const comps = match.addressComponents ?? {}
+  // "207 TRUMAN DR, MOUNT WASHINGTON, KY, 40047" — split the street segment's leading number.
+  const firstSegment = raw.split(",")[0]?.trim() ?? ""
+  const numMatch = firstSegment.match(/^(\d+[A-Za-z]?)\s+(.*)$/)
+  const streetNumber = numMatch?.[1] ?? ""
+  const route = titleCase(numMatch?.[2] ?? firstSegment)
+  const locality = titleCase(String(comps.city ?? "").trim())
+  const postal = String(comps.zip ?? "").trim()
+  const admin = String(comps.state ?? "").trim()
+  const lng = match.coordinates?.x
+  const lat = match.coordinates?.y
+  return {
+    formatted: [streetNumber, route, locality, admin, postal].filter(Boolean).join(", "),
+    street_number: streetNumber,
+    route,
+    locality,
+    postal_code: postal,
+    admin_area: admin,
+    lat: typeof lat === "number" && Number.isFinite(lat) ? lat : null,
+    lng: typeof lng === "number" && Number.isFinite(lng) ? lng : null,
+    place_id: null,
+  }
+}
+
 /** Parse Google Geocoding address_components into our canonical shape. */
 export function structuredAddressFromGoogle(result: {
   formatted_address?: string

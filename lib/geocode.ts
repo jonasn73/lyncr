@@ -66,6 +66,25 @@ async function geocodeWithGoogle(address: string, key: string): Promise<GeoPoint
   return { lat: loc.lat, lng: loc.lng }
 }
 
+/**
+ * US Census Bureau Geocoder — free, keyless, government TIGER/address-point data.
+ * Independent of OpenStreetMap, so it resolves streets Nominatim's OSM data misses
+ * (smaller/newer subdivisions especially). Needs a fairly complete address.
+ */
+async function geocodeWithCensus(address: string): Promise<GeoPoint | null> {
+  const url =
+    `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress` +
+    `?address=${encodeURIComponent(address)}&benchmark=Public_AR_Current&format=json`
+  const res = await fetch(url, { cache: "no-store" })
+  if (!res.ok) return null
+  const data = (await res.json()) as {
+    result?: { addressMatches?: Array<{ coordinates?: { x?: number; y?: number } }> }
+  }
+  const coords = data.result?.addressMatches?.[0]?.coordinates
+  if (typeof coords?.x !== "number" || typeof coords?.y !== "number") return null
+  return { lat: coords.y, lng: coords.x }
+}
+
 async function geocodeWithNominatim(address: string): Promise<GeoPoint | null> {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
   const res = await fetch(url, {
@@ -88,7 +107,11 @@ export async function geocodeAddress(address: string): Promise<GeoPoint | null> 
   if (!trimmed || trimmed.length < 5) return null
   try {
     const key = googleKey()
-    const point = key ? await geocodeWithGoogle(trimmed, key) : await geocodeWithNominatim(trimmed)
+    // Google (when configured) → free Census data (US, keyless) → OSM Nominatim last resort.
+    const point =
+      (key ? await geocodeWithGoogle(trimmed, key) : null) ??
+      (await geocodeWithCensus(trimmed).catch(() => null)) ??
+      (await geocodeWithNominatim(trimmed))
     if (!point) return null
     if (Math.abs(point.lat) > 90 || Math.abs(point.lng) > 180) return null
     return point

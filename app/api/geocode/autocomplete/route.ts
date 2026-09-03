@@ -8,6 +8,7 @@ import {
   addressQueryTokens,
   isCompleteStructuredAddress,
   isSelectableAddressSuggestion,
+  structuredAddressFromCensus,
   structuredAddressFromGoogle,
   structuredAddressFromNominatim,
   structuredAddressFromPhoton,
@@ -96,6 +97,35 @@ async function suggestWithPhoton(
   return out
 }
 
+/**
+ * US Census Bureau Geocoder — free, keyless, government TIGER/address-point data.
+ * Independent of OpenStreetMap, so it often resolves streets Photon/Nominatim miss
+ * (smaller or newer subdivisions especially). Needs a fairly complete address to
+ * match (it's not a fuzzy prefix search), so short partial queries just return [].
+ */
+async function suggestWithCensus(query: string): Promise<AddressSuggestion[]> {
+  const url =
+    `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress` +
+    `?address=${encodeURIComponent(query)}&benchmark=Public_AR_Current&format=json`
+  try {
+    const res = await fetch(url, { cache: "no-store" })
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      result?: {
+        addressMatches?: Array<Parameters<typeof structuredAddressFromCensus>[0]>
+      }
+    }
+    const matches = data.result?.addressMatches ?? []
+    return matches
+      .slice(0, 3)
+      .map((m) => structuredAddressFromCensus(m))
+      .filter(isCompleteStructuredAddress)
+  } catch {
+    // Census endpoint hiccups shouldn't break the rest of the merged suggestions.
+    return []
+  }
+}
+
 async function suggestWithNominatim(
   query: string,
   bias: { lat: number; lon: number }
@@ -175,12 +205,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const key = googleKey()
-    const [googleResults, photonResults, nominatimResults] = await Promise.all([
+    const [googleResults, photonResults, nominatimResults, censusResults] = await Promise.all([
       key ? suggestWithGoogle(q, key, bias) : Promise.resolve([]),
       suggestWithPhoton(q, bias),
       suggestWithNominatim(q, bias),
+      suggestWithCensus(q),
     ])
-    let suggestions = mergeSuggestions([photonResults, googleResults, nominatimResults], q)
+    let suggestions = mergeSuggestions(
+      [photonResults, googleResults, nominatimResults, censusResults],
+      q
+    )
     suggestions = suggestions.filter(isSelectableAddressSuggestion).slice(0, 8)
     return NextResponse.json({ data: { suggestions } })
   } catch (e) {
