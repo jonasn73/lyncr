@@ -14,7 +14,7 @@ export default async function TechInventoryPage() {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
-      <TechPageHeader businessName={ctx.business_name} title="Key inventory" />
+      <TechPageHeader businessName={ctx.business_name} title="Key inventory" backHref="/tech/dashboard" />
       <main className="flex-1 space-y-4 px-4 py-6">
         <div className="rounded-2xl border border-border bg-card/70 p-4">
           <div className="flex flex-col gap-3">

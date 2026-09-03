@@ -1,9 +1,9 @@
-// Field tech home — resolves the signed-in tech's context, then renders the live mobile console.
+// Field tech home — resolves the signed-in tech's context, then renders the launcher hub.
 
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/server-session-user"
 import { getFieldTechContext, isFieldTechUser } from "@/lib/field-tech-auth"
-import { TechConsole } from "@/components/tech/tech-console"
+import { TechHub } from "@/components/tech/tech-hub"
 
 export const dynamic = "force-dynamic"
 
@@ -30,7 +30,7 @@ export default async function TechDashboardPage() {
   }
 
   return (
-    <TechConsole
+    <TechHub
       techUserId={user.id}
       techName={ctx.technician.name || user.name || "Technician"}
       businessName={ctx.business_name}

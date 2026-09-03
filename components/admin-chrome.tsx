@@ -26,6 +26,7 @@ import { signOutAndGoToLogin } from "@/lib/client-auth"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BrandWordmark } from "@/components/brand-wordmark"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
 // Home is Finance — money, every business's balance, and the transaction ledger in one
 // place. Businesses/Support stay reachable for directory browsing and the full ticket
@@ -69,6 +70,7 @@ function moreIsActive(pathname: string) {
 /** Poll unread chat + email + open feedback for the Support tab badge. */
 function useAdminSupportPulse() {
   const [count, setCount] = useState(0)
+  const canPoll = usePollBudget()
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -81,12 +83,13 @@ function useAdminSupportPulse() {
       }
     }
     void load()
+    if (!canPoll) return
     const timer = window.setInterval(() => void load(), 30000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [])
+  }, [canPoll])
   return count
 }
 
@@ -117,6 +120,7 @@ function useAdminNotificationFeed() {
   const router = useRouter()
   const [feed, setFeed] = useState<AdminNotificationFeedResponse>({ total_count: 0, items: [] })
   const seenPendingShopIds = useRef<Set<string> | null>(null)
+  const canPoll = usePollBudget()
 
   useEffect(() => {
     let cancelled = false
@@ -166,12 +170,13 @@ function useAdminNotificationFeed() {
       }
     }
     void load()
+    if (!canPoll) return
     const timer = window.setInterval(() => void load(), 30000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [router])
+  }, [router, canPoll])
 
   return feed
 }

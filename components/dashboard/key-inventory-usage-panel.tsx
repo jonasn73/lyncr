@@ -12,6 +12,7 @@ const REASON_LABEL: Record<KeyInventoryLedgerEntry["reason"], string> = {
   scan_adjust: "Scan adjust",
   new_sku_initial: "New SKU",
   reorder_received: "Order received",
+  job_use: "Used on job",
 }
 
 const LOCATION_LABEL: Record<KeyInventoryLedgerEntry["location"], string> = {

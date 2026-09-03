@@ -10,7 +10,7 @@ export type ReceptionistBusinessType = "locksmith" | "detailing" | "auto_repair"
 export type AccountRole = "owner" | "receptionist" | "field_tech"
 
 /** Product-facing team role labels for scaling docs / UI. */
-export type TeamRoleLabel = "OWNER" | "RECEPTIONIST" | "TECHNICIAN"
+type TeamRoleLabel = "OWNER" | "RECEPTIONIST" | "TECHNICIAN"
 
 /** Operator provisioning lifecycle (082-operator-onboarding.sql). */
 export type OperatorOnboardingStatus = "PENDING_INVITE" | "DEVICE_TESTING" | "ACTIVE_READY"
@@ -224,6 +224,10 @@ export interface DispatchJob {
   billing_balance_cents?: number | null
   /** ISO when Thanks + review SMS was sent — skip duplicate thanks after Collect. */
   review_sms_sent_at?: string | null
+  /** ISO when the assigned tech acknowledged the job (tap or SMS reply). Never gates anything. */
+  accepted_at?: string | null
+  /** True while a card job waits on the office to collect payment remotely instead of the tech running a card. */
+  payment_pending_remote?: boolean | null
 }
 
 /** Owner calendar event derived from ai_leads (BOOKED / PENDING_TIME). */
@@ -671,7 +675,7 @@ export interface AdminUserSummary {
 }
 
 /** One call row in the operator drill-down (subset of `call_logs`). */
-export interface AdminRecentCallRow {
+interface AdminRecentCallRow {
   id: string
   created_at: string
   call_type: string
@@ -748,7 +752,7 @@ export interface AdminCallHistoryRow {
 }
 
 /** One provisioned DID in the admin tenant drawer. */
-export type AdminTenantControlPhoneLine = {
+type AdminTenantControlPhoneLine = {
   id: string
   number: string
   label: string
@@ -863,7 +867,7 @@ export interface AdminPendingShopsPulse {
 }
 
 /** One row in the admin header's Notifications dropdown, across all categories. */
-export type AdminNotificationKind = "pending_shop" | "chat" | "email" | "feedback"
+type AdminNotificationKind = "pending_shop" | "chat" | "email" | "feedback"
 
 export interface AdminNotificationItem {
   id: string
@@ -1031,7 +1035,7 @@ export interface AdminBusinessEconomics {
 }
 
 // --- Receptionists / Agents ---
-export type ReceptionistPayMode = "FLAT_RATE" | "PER_MINUTE"
+type ReceptionistPayMode = "FLAT_RATE" | "PER_MINUTE"
 
 export interface Receptionist {
   id: string
@@ -1253,8 +1257,8 @@ export interface CompanyBriefing {
 }
 
 /** Pending team invite (`041-team-invites.sql`). */
-export type InviteChannel = "EMAIL" | "SMS"
-export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
+type InviteChannel = "EMAIL" | "SMS"
+type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
 
 export interface TeamInvite {
   id: string
@@ -1573,7 +1577,7 @@ export interface SmsRegistration {
   updated_at: string
 }
 
-export type SmsMessageDirection = "inbound" | "outbound"
+type SmsMessageDirection = "inbound" | "outbound"
 
 /** One SMS in a customer thread (`069-sms-messages.sql`). */
 export interface SmsMessage {
@@ -1597,7 +1601,7 @@ export interface SmsMessage {
 }
 
 // --- Phone Numbers ---
-export type PhoneLineSourceProvider = "telnyx" | "external"
+type PhoneLineSourceProvider = "telnyx" | "external"
 
 export interface PhoneNumber {
   id: string
@@ -1764,7 +1768,7 @@ export interface CallActivityContext {
 }
 
 // --- Analytics / Payroll ---
-export interface AgentPaySummary {
+interface AgentPaySummary {
   receptionist_id: string
   receptionist_name: string
   total_calls: number
@@ -1807,21 +1811,3 @@ export interface UpdateRoutingRequest {
   business_number?: string | null // E.164 number for per-number routing; omit or null for the default config
 }
 
-export interface BuyNumberRequest {
-  area_code: string
-  type: "local" | "toll-free"
-}
-
-export interface PortNumberRequest {
-  number: string
-  current_carrier?: string // optional; carrier can often be looked up from the number
-}
-
-export interface SearchNumbersResponse {
-  numbers: {
-    number: string
-    friendly_name: string
-    type: "local" | "toll-free"
-    monthly_cost: number
-  }[]
-}

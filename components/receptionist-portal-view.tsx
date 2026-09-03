@@ -6,13 +6,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
-import { Loader2, Wallet } from "lucide-react"
+import { Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ReceptionistLedgerRow, ReceptionistPortalDashboard } from "@/lib/types"
 import Link from "next/link"
 import { resolveBrowserTimezone } from "@/lib/telemetry-timezone"
 import { getPusherClient, isRealtimeClientConfigured } from "@/lib/realtime/pusher-client"
 import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+import { ReceptionistRouteSkeleton } from "@/components/receptionist-route-skeleton"
 
 /** A call currently at this desk — drives the HUD's live state, not the intake form. */
 export type LiveCallSession = {
@@ -541,12 +542,7 @@ export function ReceptionistPortalView() {
   const web = useTelnyxWebRtc({ enabled: endpoint === "WEB" && webCallingAvailable })
 
   if (loading && !dashboard) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
-        Loading console…
-      </div>
-    )
+    return <ReceptionistRouteSkeleton />
   }
 
   if (error && !dashboard) {

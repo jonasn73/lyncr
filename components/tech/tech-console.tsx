@@ -1,19 +1,20 @@
 // Field tech mobile console: shared JobCardSummary spine + status actions
 // (Start Route → Arrived → Work Complete → Payment). GPS streams while en route / on site.
 // Live-updates via Pusher (channel technician-{userId}) with a polling fallback.
+//
+// Rendered under the Jobs page's own TechPageHeader — this component owns only the content
+// below it (pool + job list + payment sheet), not a header of its own.
 
 "use client"
 
 import type { FieldTechnicianCapabilities } from "@/lib/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import {
   MapPin,
   Phone,
+  Check,
   CheckCircle2,
   Navigation,
-  LogOut,
-  RefreshCw,
   Loader2,
   Route,
   Inbox,
@@ -22,14 +23,14 @@ import {
   CreditCard,
 } from "lucide-react"
 import { getPusherClient } from "@/lib/realtime/pusher-client"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { TechPaymentModal } from "@/components/tech/tech-payment-modal"
-import { TechWalletCard } from "@/components/tech/tech-wallet-card"
+import { KeyInventoryScannerLaunchButton } from "@/components/dashboard/key-inventory-scanner"
 import { JobCardSummary } from "@/components/jobs/job-card-summary"
 import { buildJobCardSummary } from "@/lib/job-card-summary"
 import { googleMapsSearchUrl } from "@/lib/google-maps-search-url"
 import { vehicleLabelFromParts } from "@/lib/job-pool"
 import { cn } from "@/lib/utils"
-import type { TechBadge } from "@/lib/tech-badges"
 import type { DispatchJob, UnassignedPoolJob } from "@/lib/types"
 
 /** Derive the tech's overall live status from their active jobs. */
@@ -51,8 +52,6 @@ function deriveTechStatus(jobs: DispatchJob[]): "idle" | "en_route" | "on_site" 
 
 export function TechConsole(props: {
   techUserId: string
-  techName: string
-  businessName: string
   /**
    * What the owner has opted this tech into. Hiding is the courtesy — every route below
    * re-checks the same flags server-side — but a button that 403s is worse than no button.
@@ -60,24 +59,25 @@ export function TechConsole(props: {
   capabilities: FieldTechnicianCapabilities
 }) {
   const canClaimJobs = props.capabilities.job_pool === true
-  const canSeeEarnings = props.capabilities.view_earnings === true
   const canCollectPayment = props.capabilities.collect_payment === true
   const canContactCustomer = props.capabilities.customer_contact === true
-  const router = useRouter()
+  const canLogKeyUsage = props.capabilities.inventory_control === true
   const [jobs, setJobs] = useState<DispatchJob[]>([])
-  const [badges, setBadges] = useState<TechBadge[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [paymentJob, setPaymentJob] = useState<DispatchJob | null>(null)
   const [poolJobs, setPoolJobs] = useState<UnassignedPoolJob[]>([])
   const [claimBusyId, setClaimBusyId] = useState<string | null>(null)
-  /** Bumps so My Wallet refetches after invoice collect / job refresh. */
-  const [walletRefreshToken, setWalletRefreshToken] = useState(0)
+  /** "Payment received — you're free to leave." — shown once when a waited-on job clears. */
+  const [freeToLeaveToast, setFreeToLeaveToast] = useState<string | null>(null)
   const mounted = useRef(true)
+  /** Mirrors `jobs` so load() can diff against the previous fetch without depending on it. */
+  const jobsRef = useRef<DispatchJob[]>([])
+  useEffect(() => {
+    jobsRef.current = jobs
+  }, [jobs])
 
-  const load = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setRefreshing(true)
+  const load = useCallback(async () => {
     try {
       const [jobsRes, poolRes] = await Promise.all([
         fetch("/api/tech/jobs", { credentials: "include", cache: "no-store" }),
@@ -87,9 +87,15 @@ export function TechConsole(props: {
       ])
       const jobsJson = await jobsRes.json()
       const poolJson = poolRes ? await poolRes.json() : null
-      if (mounted.current && jobsJson?.data) {
-        if (jobsJson.data.jobs) setJobs(jobsJson.data.jobs as DispatchJob[])
-        if (jobsJson.data.badges) setBadges(jobsJson.data.badges as TechBadge[])
+      if (mounted.current && jobsJson?.data?.jobs) {
+        const nextJobs = jobsJson.data.jobs as DispatchJob[]
+        // A job that was waiting on remote payment just completed — that's the "free to leave" moment.
+        const wasWaiting = new Set(
+          jobsRef.current.filter((j) => j.payment_pending_remote === true).map((j) => j.id)
+        )
+        const justCleared = nextJobs.some((j) => wasWaiting.has(j.id) && j.job_status === "completed")
+        setJobs(nextJobs)
+        if (justCleared) setFreeToLeaveToast("Payment received — you're free to leave.")
       }
       if (mounted.current && poolJson?.data) {
         setPoolJobs(Array.isArray(poolJson.data.jobs) ? (poolJson.data.jobs as UnassignedPoolJob[]) : [])
@@ -99,7 +105,6 @@ export function TechConsole(props: {
     } finally {
       if (mounted.current) {
         setLoading(false)
-        setRefreshing(false)
       }
     }
     // Re-created if the grant changes, so a revoked tech stops polling the pool.
@@ -108,13 +113,20 @@ export function TechConsole(props: {
   useEffect(() => {
     mounted.current = true
     load()
-    // Poll as a safety net even when realtime isn't configured.
-    const t = setInterval(() => load(), 20_000)
     return () => {
       mounted.current = false
-      clearInterval(t)
     }
   }, [load])
+
+  // Poll as a safety net even when realtime isn't configured — paused while the tab/screen
+  // is backgrounded, and slowed once Pusher confirms it's actually delivering job events.
+  const canPoll = usePollBudget()
+  const [pusherConnected, setPusherConnected] = useState(false)
+  useEffect(() => {
+    if (!canPoll) return
+    const t = setInterval(() => load(), pusherConnected ? 60_000 : 20_000)
+    return () => clearInterval(t)
+  }, [load, canPoll, pusherConnected])
 
   // Live: refetch the moment the dispatcher assigns/updates a job for this tech.
   useEffect(() => {
@@ -124,12 +136,22 @@ export function TechConsole(props: {
     const refetch = () => load()
     channel.bind("job-assigned", refetch)
     channel.bind("job-updated", refetch)
+    const onStateChange = () => setPusherConnected(pusher.connection.state === "connected")
+    pusher.connection.bind("state_change", onStateChange)
+    onStateChange()
     return () => {
       channel.unbind("job-assigned", refetch)
       channel.unbind("job-updated", refetch)
       pusher.unsubscribe(`technician-${props.techUserId}`)
+      pusher.connection.unbind("state_change", onStateChange)
     }
   }, [props.techUserId, load])
+
+  useEffect(() => {
+    if (!freeToLeaveToast) return
+    const t = setTimeout(() => setFreeToLeaveToast(null), 6_000)
+    return () => clearTimeout(t)
+  }, [freeToLeaveToast])
 
   const techStatus = useMemo(() => deriveTechStatus(jobs), [jobs])
 
@@ -190,13 +212,29 @@ export function TechConsole(props: {
     }
   }
 
-  async function signOut() {
+  /** Acknowledgment only — never gates Start Route or anything else. */
+  async function acceptJob(jobId: string) {
+    setJobs((prev) =>
+      prev.map((j) => (j.id === jobId ? { ...j, accepted_at: j.accepted_at ?? new Date().toISOString() } : j))
+    )
     try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+      await fetch(`/api/tech/jobs/${jobId}/accept`, { method: "PATCH", credentials: "include" })
     } catch {
-      /* ignore */
+      load() // reconcile on failure
     }
-    router.replace("/tech/login")
+  }
+
+  /** Card job: tech never runs the card — office collects, tech just waits. */
+  async function officeWillCollect(jobId: string) {
+    setBusyId(jobId)
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, payment_pending_remote: true } : j)))
+    try {
+      await fetch(`/api/tech/jobs/${jobId}/defer-payment`, { method: "PATCH", credentials: "include" })
+    } catch {
+      load() // reconcile on failure
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function claimPoolJob(jobId: string) {
@@ -224,45 +262,20 @@ export function TechConsole(props: {
   // work_complete still counts as active until payment finishes.
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/80 bg-[#0b0b12]/95 px-6 py-4 backdrop-blur">
-        <div>
-          <p className="text-2xs font-medium uppercase tracking-wider text-operator">{props.businessName}</p>
-          <h1 className="text-lg font-bold leading-tight">Hi, {props.techName.split(" ")[0]}</h1>
+    <>
+      {freeToLeaveToast ? (
+        <div className="fixed inset-x-4 top-4 z-50 rounded-2xl border border-success/40 bg-success/15 px-4 py-3 text-center text-sm font-semibold text-success shadow-raised backdrop-blur">
+          {freeToLeaveToast}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => load(true)}
-            className="rounded-lg p-2 text-muted-foreground transition active:scale-95 hover:text-white"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            onClick={signOut}
-            className="rounded-lg p-2 text-muted-foreground transition active:scale-95 hover:text-white"
-            aria-label="Sign out"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+      ) : null}
 
       <main className="flex-1 space-y-3 px-4 py-6">
-        {!loading && canSeeEarnings && <TechWalletCard refreshToken={walletRefreshToken} />}
-
-        {!loading && <BadgesStrip badges={badges} />}
-
         {!loading && canClaimJobs && poolJobs.length > 0 ? (
           <HopperPoolSection jobs={poolJobs} claimBusyId={claimBusyId} onClaim={claimPoolJob} />
         ) : null}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-            <Loader2 className="h-7 w-7 animate-spin" />
-            <p className="mt-3 text-sm">Loading your jobs…</p>
-          </div>
+          <JobListSkeleton />
         ) : active.length === 0 && done.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
             <CheckCircle2 className="h-11 w-11 text-muted-foreground" />
@@ -287,26 +300,32 @@ export function TechConsole(props: {
                 onPausedWait={() => setStatus(job.id, "paused_wait")}
                 onPausedParts={() => setStatus(job.id, "paused_parts")}
                 onWorkComplete={() => setStatus(job.id, "work_complete")}
-                onProceedToPayment={() => setPaymentJob(job)}
+                onAccept={() => acceptJob(job.id)}
+                onCollectedCash={() => setPaymentJob(job)}
+                onOfficeWillCollect={() => officeWillCollect(job.id)}
                 canContactCustomer={canContactCustomer}
                 canCollectPayment={canCollectPayment}
+                canLogKeyUsage={canLogKeyUsage}
               />
             ))}
 
             {done.length > 0 && (
               <div className="pt-4">
-                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-2 px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground font-[family-name:var(--font-tech-heading)]">
                   Completed today
                 </p>
                 {done.map((job) => (
                   <div
                     key={job.id}
-                    className="mb-2 flex items-center justify-between rounded-xl border border-border/60 bg-card/40 px-4 py-3 opacity-70"
+                    className="mb-2 flex items-center gap-3 rounded-2xl border border-border/60 bg-card/40 px-4 py-3 opacity-70"
                   >
-                    <span className="truncate text-sm text-foreground">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground/80 font-[family-name:var(--font-tech-heading)]">
+                      {(job.customer_name || job.customer_phone || "?").trim()[0]?.toUpperCase() ?? "?"}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                       {job.customer_name || job.customer_phone || "Job"}
                     </span>
-                    <span className="rounded-full bg-success/20 px-3 py-0.5 text-2xs font-medium text-success">
+                    <span className="shrink-0 rounded-full bg-success/20 px-3 py-0.5 text-2xs font-medium text-success">
                       Completed
                     </span>
                   </div>
@@ -321,15 +340,15 @@ export function TechConsole(props: {
         <TechPaymentModal
           job={paymentJob}
           offerFinishJob={false}
+          lockMethod="cash"
           onClose={() => setPaymentJob(null)}
           onCompleted={() => {
             setPaymentJob(null)
-            setWalletRefreshToken((n) => n + 1)
             load()
           }}
         />
       )}
-    </div>
+    </>
   )
 }
 
@@ -339,13 +358,15 @@ function HopperPoolSection(props: {
   onClaim: (jobId: string) => void
 }) {
   return (
-    <section className="rounded-2xl border border-warning/30 bg-gradient-to-b from-warning/10 to-card/40 p-4">
+    <section className="rounded-3xl border border-warning/30 bg-gradient-to-b from-warning/10 to-card/40 p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning/20 text-warning">
+        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-warning/20 text-warning">
           <Inbox className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-warning">Unassigned pool</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-warning font-[family-name:var(--font-tech-heading)]">
+            Unassigned pool
+          </p>
           <p className="text-2xs text-muted-foreground">{props.jobs.length} job{props.jobs.length === 1 ? "" : "s"} available to claim</p>
         </div>
       </div>
@@ -356,10 +377,10 @@ function HopperPoolSection(props: {
           return (
             <li
               key={job.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-border/80 bg-background/50 px-3 py-3"
+              className="flex items-start justify-between gap-3 rounded-2xl border border-border/80 bg-background/50 px-3 py-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">
+                <p className="truncate text-sm font-semibold text-white font-[family-name:var(--font-tech-heading)]">
                   {job.customer_name || job.customer_phone || "Customer"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{job.job_type || "Service call"}</p>
@@ -386,7 +407,7 @@ function HopperPoolSection(props: {
                 type="button"
                 disabled={busy || Boolean(props.claimBusyId)}
                 onClick={() => props.onClaim(job.id)}
-                className="shrink-0 rounded-xl bg-warning px-3 py-2 text-xs font-semibold text-warning-foreground transition active:scale-[0.98] disabled:opacity-50"
+                className="shrink-0 rounded-2xl bg-warning px-3 py-2 text-xs font-semibold text-warning-foreground transition active:scale-[0.98] disabled:opacity-50"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Claim"}
               </button>
@@ -398,36 +419,27 @@ function HopperPoolSection(props: {
   )
 }
 
-function BadgesStrip({ badges }: { badges: TechBadge[] }) {
-  if (!badges.length) return null
-  const earnedCount = badges.filter((b) => b.earned).length
+/**
+ * Sized to roughly match a JobCard's real height so swapping this out for the
+ * loaded list doesn't cause a big layout shift (was a centered py-24 spinner,
+ * which is nowhere near as tall as the cards it gets replaced by).
+ */
+function JobListSkeleton() {
   return (
-    <section className="rounded-2xl border border-border bg-gradient-to-b from-card/80 to-card/40 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-operator">Performance badges</p>
-        <span className="text-2xs font-medium text-muted-foreground">
-          {earnedCount}/{badges.length} earned
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {badges.map((b) => (
-          <div
-            key={b.id}
-            title={b.description}
-            className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition ${
-              b.earned
-                ? "border-operator/40 bg-operator/10"
-                : "border-border bg-background/40 opacity-50 grayscale"
-            }`}
-          >
-            <span className="text-2xl leading-none" aria-hidden>
-              {b.emoji}
-            </span>
-            <span className="text-2xs font-semibold leading-tight text-foreground">{b.label}</span>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div className="space-y-3" aria-hidden="true">
+      {[0, 1].map((i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded-2xl border border-border bg-card p-4 shadow-raised"
+        >
+          <div className="h-4 w-2/3 rounded bg-muted" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-muted" />
+          <div className="mt-4 h-3 w-full rounded bg-muted" />
+          <div className="mt-2 h-3 w-5/6 rounded bg-muted" />
+          <div className="mt-4 h-10 w-full rounded-xl bg-muted" />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -439,13 +451,21 @@ function JobCard(props: {
   onPausedWait: () => void
   onPausedParts: () => void
   onWorkComplete: () => void
-  onProceedToPayment: () => void
+  /** Acknowledgment only — never gates Start Route or anything else. */
+  onAccept: () => void
+  /** Cash in hand — opens the cash-only amount entry, job auto-completes on save. */
+  onCollectedCash: () => void
+  /** Card job: tech never runs the card — office collects remotely, tech just waits. */
+  onOfficeWillCollect: () => void
   /** Owner grant — without it the customer's number is not shown to this tech. */
   canContactCustomer: boolean
-  /** Owner grant — without it there is no route to the payment sheet from this card. */
+  /** Owner grant — without it "Collected cash" is hidden; office always handles payment instead. */
   canCollectPayment: boolean
+  /** Owner grant — without it the optional "Log key used" step is hidden. */
+  canLogKeyUsage: boolean
 }) {
   const { job } = props
+  const [keyLogDismissed, setKeyLogDismissed] = useState(false)
   const status = job.job_status || "assigned"
   // Shared view-model — same facts the owner Active Job card shows.
   const summary = buildJobCardSummary(job)
@@ -479,7 +499,7 @@ function JobCard(props: {
           : null
 
   return (
-    <article className="rounded-2xl border border-border bg-card/70 p-4 shadow-resting">
+    <article className="rounded-3xl border border-border bg-card/70 p-4 shadow-resting">
       {/* Same glass facts as owner JobDetailOverview */}
       <JobCardSummary
         source={job}
@@ -493,7 +513,7 @@ function JobCard(props: {
         <a
           href={phoneHref ?? undefined}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
+            "flex items-center justify-center gap-2 rounded-2xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
             phoneHref ? "text-white hover:bg-muted" : "pointer-events-none text-muted-foreground"
           )}
         >
@@ -504,7 +524,7 @@ function JobCard(props: {
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
+            "flex items-center justify-center gap-2 rounded-2xl border border-border bg-muted/60 px-3 py-3 text-sm font-medium transition active:scale-[0.98]",
             mapsHref ? "text-white hover:bg-muted" : "pointer-events-none text-muted-foreground"
           )}
         >
@@ -521,45 +541,99 @@ function JobCard(props: {
         </p>
       ) : null}
 
-      {/* Status: Start Route → Arrived → Work Complete → Proceed to Payment */}
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <LeftStatusButton
-          status={status}
-          busy={props.busy}
-          onArrived={props.onArrived}
-          onEnRoute={props.onEnRoute}
-          onWorkComplete={props.onWorkComplete}
-        />
+      {/* New dispatch — acknowledgment only, never blocks Start Route below. */}
+      {status === "assigned" && !job.accepted_at ? (
         <button
           type="button"
-          // Without the grant this is a button to a sheet that will not open and a route
-          // that will refuse — so it is disabled and says why, not silently inert.
-          disabled={!workComplete || props.busy || !props.canCollectPayment}
-          onClick={props.onProceedToPayment}
-          className={cn(
-            "rounded-xl px-3 py-3 text-sm font-semibold shadow-raised transition active:scale-[0.98]",
-            workComplete
-              ? "bg-gradient-to-br from-success to-success text-white shadow-success/30"
-              : "cursor-not-allowed bg-muted text-muted-foreground shadow-none"
-          )}
-          title={
-            !props.canCollectPayment
-              ? "Your dispatcher handles payment for this job"
-              : workComplete
-              ? "Collect payment and close the job"
-              : "Mark Work Complete before collecting payment"
-          }
+          onClick={props.onAccept}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-operator/40 bg-operator/10 px-3 py-2 text-xs font-semibold text-operator transition active:scale-[0.98]"
         >
-          Proceed to Payment
+          <Check className="h-3.5 w-3.5" aria-hidden /> Accept job
         </button>
-      </div>
+      ) : null}
+
+      {/* Status: Start Route → Arrived → Work Complete */}
+      {!workComplete ? (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <LeftStatusButton
+            status={status}
+            busy={props.busy}
+            onArrived={props.onArrived}
+            onEnRoute={props.onEnRoute}
+            onWorkComplete={props.onWorkComplete}
+          />
+          <button
+            type="button"
+            disabled
+            className="cursor-not-allowed rounded-2xl bg-muted px-3 py-3 text-sm font-semibold text-muted-foreground shadow-none"
+            title="Mark Work Complete first"
+          >
+            Collect payment
+          </button>
+        </div>
+      ) : job.payment_pending_remote ? (
+        <div className="mt-4 rounded-2xl border border-operator/30 bg-operator/10 px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-operator">Waiting for payment</p>
+          <p className="mt-1 text-2xs text-muted-foreground">
+            Office is contacting the customer. You&apos;ll be notified the moment it clears.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 rounded-2xl bg-operator/20 px-3 py-2 text-center text-xs font-semibold text-operator ring-1 ring-operator/40">
+            Work Complete
+          </div>
+
+          {props.canLogKeyUsage && !keyLogDismissed ? (
+            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-border bg-muted/40 px-3 py-2">
+              <span className="flex-1 text-2xs text-muted-foreground">
+                Log the key you used? Updates inventory automatically.
+              </span>
+              <KeyInventoryScannerLaunchButton
+                scope="tech"
+                jobId={job.id}
+                label="Log key"
+                className="h-8 shrink-0 rounded-xl px-3 text-2xs"
+              />
+              <button
+                type="button"
+                onClick={() => setKeyLogDismissed(true)}
+                className="shrink-0 text-2xs font-medium text-muted-foreground underline"
+              >
+                Skip
+              </button>
+            </div>
+          ) : null}
+
+          <div className={cn("mt-2 grid gap-2", props.canCollectPayment ? "grid-cols-2" : "grid-cols-1")}>
+            {props.canCollectPayment ? (
+              <button
+                type="button"
+                disabled={props.busy}
+                onClick={props.onCollectedCash}
+                className="rounded-2xl bg-success px-3 py-3 text-sm font-semibold text-success-foreground shadow-raised transition active:scale-[0.98]"
+              >
+                Collected cash
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={props.busy}
+              onClick={props.onOfficeWillCollect}
+              className="rounded-2xl border border-operator/40 bg-operator/10 px-3 py-3 text-sm font-semibold text-operator transition active:scale-[0.98]"
+            >
+              Office will collect
+            </button>
+          </div>
+        </>
+      )}
       {showPauseActions ? (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={props.busy || status === "paused_wait"}
             onClick={props.onPausedWait}
-            className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning disabled:opacity-50"
+            className="rounded-2xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning disabled:opacity-50"
           >
             Paused / wait
           </button>
@@ -567,7 +641,7 @@ function JobCard(props: {
             type="button"
             disabled={props.busy || status === "paused_parts"}
             onClick={props.onPausedParts}
-            className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning disabled:opacity-50"
+            className="rounded-2xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning disabled:opacity-50"
           >
             Leaving — back later
           </button>
@@ -575,7 +649,7 @@ function JobCard(props: {
       ) : null}
       {canMarkWorkComplete && !workComplete ? (
         <p className="mt-2 text-center text-2xs text-muted-foreground">
-          Mark work complete on the left, then Proceed to Payment unlocks.
+          Mark work complete, then collect payment.
         </p>
       ) : null}
     </article>
@@ -592,7 +666,7 @@ function LeftStatusButton(props: {
 }) {
   if (props.busy) {
     return (
-      <button disabled className="rounded-xl bg-muted px-3 py-3 text-sm font-semibold text-white opacity-60">
+      <button disabled className="rounded-2xl bg-muted px-3 py-3 text-sm font-semibold text-white opacity-60">
         <Loader2 className="mx-auto h-4 w-4 animate-spin" />
       </button>
     )
@@ -601,7 +675,7 @@ function LeftStatusButton(props: {
     return (
       <button
         onClick={props.onEnRoute}
-        className="flex items-center justify-center gap-2 rounded-xl bg-info px-3 py-3 text-sm font-semibold text-info-foreground transition active:scale-[0.98] hover:bg-info"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-info px-3 py-3 text-sm font-semibold text-info-foreground transition active:scale-[0.98] hover:bg-info"
       >
         <Route className="h-4 w-4" /> Start Route
       </button>
@@ -611,7 +685,7 @@ function LeftStatusButton(props: {
     return (
       <button
         onClick={props.onArrived}
-        className="rounded-xl bg-muted px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-accent"
+        className="rounded-2xl bg-muted px-3 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-accent"
       >
         Arrived on Site
       </button>
@@ -625,7 +699,7 @@ function LeftStatusButton(props: {
     return (
       <button
         onClick={props.onWorkComplete}
-        className="rounded-xl bg-operator px-3 py-3 text-sm font-semibold text-operator-foreground transition active:scale-[0.98] hover:bg-operator"
+        className="rounded-2xl bg-operator px-3 py-3 text-sm font-semibold text-operator-foreground transition active:scale-[0.98] hover:bg-operator"
       >
         Mark Work Complete
       </button>
@@ -635,7 +709,7 @@ function LeftStatusButton(props: {
   return (
     <button
       disabled
-      className="rounded-xl bg-operator/20 px-3 py-3 text-sm font-semibold text-operator ring-1 ring-operator/40"
+      className="rounded-2xl bg-operator/20 px-3 py-3 text-sm font-semibold text-operator ring-1 ring-operator/40"
     >
       Work Complete
     </button>

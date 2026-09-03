@@ -11,7 +11,7 @@ export default async function TechKeysPage() {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
-      <TechPageHeader businessName={ctx.business_name} title="Key lookup" />
+      <TechPageHeader businessName={ctx.business_name} title="Key lookup" backHref="/tech/dashboard" />
       <main className="flex-1 px-4 py-6">
         <TechKeyLookup />
       </main>

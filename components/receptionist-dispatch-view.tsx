@@ -12,7 +12,7 @@
 // possible follow-up once this is proven out.
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, RefreshCw, Truck } from "lucide-react"
+import { RefreshCw, Truck } from "lucide-react"
 import { JobDetailDrawer } from "@/components/scheduler/job-detail-drawer"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
@@ -104,8 +104,14 @@ export function ReceptionistDispatchView() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+        <div className="animate-pulse space-y-2" aria-hidden="true">
+          <div className="h-3 w-32 rounded bg-muted" />
+          {[0, 1].map((i) => (
+            <div key={i} className="h-14 rounded-lg border border-border bg-card p-3">
+              <div className="h-3 w-1/2 rounded bg-muted" />
+              <div className="mt-2 h-2.5 w-1/3 rounded bg-muted" />
+            </div>
+          ))}
         </div>
       ) : error ? (
         <p className="text-sm text-destructive">{error}</p>

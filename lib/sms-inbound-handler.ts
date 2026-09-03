@@ -1,9 +1,12 @@
 // Handle Telnyx messaging webhooks — inbound SMS + outbound delivery receipts.
 
 import {
+  acceptJobForTech,
+  findMostRecentUnacceptedJobForTech,
   findOpenPendingSmsDispositionByPhone,
   getActivePhoneNumberByE164,
   getDefaultOrganizationForOwner,
+  getFieldTechnicianByPhone,
   insertSmsMessage,
   normalizePhoneNumberE164,
   resolvePendingSmsDisposition,
@@ -15,6 +18,9 @@ import {
 } from "@/lib/call-disposition"
 import { processTelnyxSmsDeliveryEvent, type TelnyxDeliveryWebhook } from "@/lib/sms-delivery-status"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
+
+/** A tech replying to their dispatch-assignment SMS. Checked before the disposition parser. */
+const ACCEPT_KEYWORD = /^(yes|y|accept|ok|okay)\b/i
 
 export type TelnyxMessagingWebhook = TelnyxDeliveryWebhook & {
   data?: {
@@ -72,6 +78,28 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
   const telnyxMessageId =
     body.data?.payload?.id?.trim() || body.data?.id?.trim() || null
 
+  const line = await getActivePhoneNumberByE164(toE164)
+  if (!line) {
+    console.warn(`[sms-inbound] no active line for ${toE164} — ignoring message from ${fromE164}`)
+    return
+  }
+
+  // A tech replying to their dispatch SMS — check this before the disposition parser so a
+  // tech's "Y"/"OK" can never be misread as a receptionist call-outcome digit.
+  if (ACCEPT_KEYWORD.test(text)) {
+    const tech = await getFieldTechnicianByPhone(line.user_id, fromE164)
+    if (tech?.portal_user_id) {
+      const job = await findMostRecentUnacceptedJobForTech(tech.portal_user_id)
+      if (job) {
+        await acceptJobForTech(tech.portal_user_id, job.id)
+        const confirm = "Lyncr System: Job accepted. Drive safe!"
+        const sent = await sendTelnyxSms({ toE164: fromE164, text: confirm, userId: line.user_id })
+        if (!sent.ok) console.warn(`[sms-reply] accept confirmation not sent to ${fromE164}: ${sent.error}`)
+        return
+      }
+    }
+  }
+
   const disposition = parseDispositionCode(text)
   if (disposition) {
     const pending = await findOpenPendingSmsDispositionByPhone(fromE164)
@@ -93,12 +121,6 @@ export async function processInboundTelnyxMessage(body: TelnyxMessagingWebhook):
       if (!sent.ok) console.warn(`[sms-reply] confirmation not sent to ${fromE164}: ${sent.error}`)
       return
     }
-  }
-
-  const line = await getActivePhoneNumberByE164(toE164)
-  if (!line) {
-    console.warn(`[sms-inbound] no active line for ${toE164} — ignoring message from ${fromE164}`)
-    return
   }
 
   let orgId =

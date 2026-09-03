@@ -154,6 +154,8 @@ export function TechPaymentModal(props: {
    * Tech console leaves this false — techs use their own Work Complete path.
    */
   offerFinishJob?: boolean
+  /** Restrict "How to pay" to one method — the tech's "Collected cash" tap never shows tap/card/link. */
+  lockMethod?: "cash"
 }) {
   const [lines, setLines] = useState<Line[]>(() => initialLines(props.job))
   // Editable pre-tax amount (dollars). Kept in sync with line items unless the user typed a custom total.
@@ -1931,34 +1933,38 @@ export function TechPaymentModal(props: {
                     <p className="text-xs leading-snug text-destructive">{error}</p>
                   </div>
                 ) : null}
-                <div className="grid grid-cols-2 gap-2">
-                  <PayOptionButton
-                    compact
-                    disabled={busy}
-                    dimmed={totalCents < 50}
-                    onClick={() => enterTipStepWithMethod("tap")}
-                    title="Tap to Pay"
-                    subtitle="NFC"
-                    icon={<Nfc className="h-4 w-4" />}
-                  />
-                  <PayOptionButton
-                    compact
-                    disabled={busy}
-                    dimmed={totalCents < 50}
-                    onClick={() => enterTipStepWithMethod("card")}
-                    title="Card"
-                    subtitle="Key in · ZIP"
-                    icon={<CreditCard className="h-4 w-4" />}
-                  />
-                  <PayOptionButton
-                    compact
-                    disabled={busy}
-                    dimmed={totalCents < 50}
-                    onClick={() => enterTipStepWithMethod("link")}
-                    title="Pay link"
-                    subtitle="Text SMS"
-                    icon={<Link2 className="h-4 w-4" />}
-                  />
+                <div className={cn("grid gap-2", props.lockMethod ? "grid-cols-1" : "grid-cols-2")}>
+                  {!props.lockMethod && (
+                    <>
+                      <PayOptionButton
+                        compact
+                        disabled={busy}
+                        dimmed={totalCents < 50}
+                        onClick={() => enterTipStepWithMethod("tap")}
+                        title="Tap to Pay"
+                        subtitle="NFC"
+                        icon={<Nfc className="h-4 w-4" />}
+                      />
+                      <PayOptionButton
+                        compact
+                        disabled={busy}
+                        dimmed={totalCents < 50}
+                        onClick={() => enterTipStepWithMethod("card")}
+                        title="Card"
+                        subtitle="Key in · ZIP"
+                        icon={<CreditCard className="h-4 w-4" />}
+                      />
+                      <PayOptionButton
+                        compact
+                        disabled={busy}
+                        dimmed={totalCents < 50}
+                        onClick={() => enterTipStepWithMethod("link")}
+                        title="Pay link"
+                        subtitle="Text SMS"
+                        icon={<Link2 className="h-4 w-4" />}
+                      />
+                    </>
+                  )}
                   <PayOptionButton
                     compact
                     disabled={busy}
@@ -1970,7 +1976,9 @@ export function TechPaymentModal(props: {
                   />
                 </div>
                 <p className="mt-1.5 text-center text-2xs text-muted-foreground">
-                  Card / Tap / Cash: tip last. Pay link: send only — no tip here.
+                  {props.lockMethod
+                    ? "Confirm the amount, then mark it paid."
+                    : "Card / Tap / Cash: tip last. Pay link: send only — no tip here."}
                 </p>
               </section>
             </div>

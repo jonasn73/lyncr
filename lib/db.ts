@@ -9858,6 +9858,19 @@ export async function getFieldTechnicianByPortalUserId(
   }
 }
 
+/** Find an active field tech on this owner's roster by phone (for inbound SMS reply-to-accept). */
+export async function getFieldTechnicianByPhone(
+  ownerUserId: string,
+  phoneE164: string
+): Promise<FieldTechnician | null> {
+  const roster = await listFieldTechnicians(ownerUserId)
+  return (
+    roster.find(
+      (t) => t.is_active && t.phone && normalizePhoneNumberE164(t.phone) === phoneE164
+    ) ?? null
+  )
+}
+
 /** Toggle a technician active/inactive (owner-scoped). */
 export async function setFieldTechnicianActive(
   ownerUserId: string,
@@ -10106,6 +10119,13 @@ function dispatchJobFromRow(row: Record<string, unknown>): DispatchJob {
     quoted_price_cents: quotedCents,
     billing_balance_cents: quotedCents,
     review_sms_sent_at: pick(["review_sms_sent_at"]),
+    accepted_at:
+      row.accepted_at instanceof Date
+        ? row.accepted_at.toISOString()
+        : row.accepted_at != null
+          ? String(row.accepted_at)
+          : null,
+    payment_pending_remote: row.payment_pending_remote === true,
   }
 }
 
@@ -10165,6 +10185,7 @@ export async function listOwnerBookedJobs(
     const rows = activeOnly
       ? await sql`
           SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+                 l.payment_pending_remote,
                  t.name AS assigned_tech_name
           FROM ai_leads l
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
@@ -10184,6 +10205,7 @@ export async function listOwnerBookedJobs(
         `
       : await sql`
           SELECT l.id, l.caller_e164, l.collected, l.summary, l.job_status, l.assigned_tech_id, l.created_at,
+                 l.payment_pending_remote,
                  t.name AS assigned_tech_name
           FROM ai_leads l
           LEFT JOIN field_technicians t ON t.portal_user_id = l.assigned_tech_id
@@ -11516,7 +11538,7 @@ export async function listJobsForTech(techUserId: string, limit = 50): Promise<D
     // scheduled_at + dispatch_status let the shared JobCardSummary match owner Active Job.
     const rows = await sql`
       SELECT id, caller_e164, collected, summary, job_status, assigned_tech_id,
-             scheduled_at, dispatch_status, created_at
+             scheduled_at, dispatch_status, created_at, accepted_at, payment_pending_remote
       FROM ai_leads
       WHERE assigned_tech_id = ${techUserId}
       ORDER BY created_at DESC
@@ -11994,12 +12016,15 @@ export async function setJobStatusForTech(
   // Mirror terminal job_status onto dispatch so CRM/scheduler stop treating the row as a lead/pool.
   // Cast status ::text inside jsonb_build_object — Neon/Postgres 42P18 otherwise ("could not determine data type").
   const dispatchMirror = status === "completed" ? "completed" : status
+  // Any status move the tech makes implies he's seen the job — stamp acceptance if not
+  // already set, so tapping Start Route doesn't require a redundant separate Accept tap.
   const rows = isTerminal
     ? await sql`
         UPDATE ai_leads
         SET
           job_status = ${status},
           dispatch_status = ${dispatchMirror},
+          accepted_at = coalesce(accepted_at, now()),
           collected =
             coalesce(collected, '{}'::jsonb)
             || jsonb_build_object(
@@ -12017,10 +12042,51 @@ export async function setJobStatusForTech(
       `
     : await sql`
         UPDATE ai_leads
-        SET job_status = ${status}
+        SET job_status = ${status}, accepted_at = coalesce(accepted_at, now())
         WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
         RETURNING id
       `
+  return rows.length > 0
+}
+
+/** The tech's most recently assigned, not-yet-acknowledged job — for SMS reply-to-accept. */
+export async function findMostRecentUnacceptedJobForTech(techUserId: string): Promise<{ id: string } | null> {
+  const sql = getSql()
+  const rows = await sql`
+    SELECT id FROM ai_leads
+    WHERE assigned_tech_id = ${techUserId}
+      AND job_status = 'assigned'
+      AND accepted_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `
+  return rows[0] ? { id: String(rows[0].id) } : null
+}
+
+/** Tech taps Accept — acknowledgment only, does not gate anything. Idempotent. */
+export async function acceptJobForTech(techUserId: string, leadId: string): Promise<boolean> {
+  const sql = getSql()
+  const rows = await sql`
+    UPDATE ai_leads
+    SET accepted_at = coalesce(accepted_at, now())
+    WHERE id = ${leadId} AND assigned_tech_id = ${techUserId}
+    RETURNING id
+  `
+  return rows.length > 0
+}
+
+/** Tech taps "Office will collect" on a card job — he never runs the card, just waits. */
+export async function deferPaymentToOfficeForTech(
+  techUserId: string,
+  leadId: string
+): Promise<boolean> {
+  const sql = getSql()
+  const rows = await sql`
+    UPDATE ai_leads
+    SET payment_pending_remote = true
+    WHERE id = ${leadId} AND assigned_tech_id = ${techUserId} AND job_status = 'work_complete'
+    RETURNING id
+  `
   return rows.length > 0
 }
 

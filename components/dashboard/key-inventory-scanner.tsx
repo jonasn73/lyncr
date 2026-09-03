@@ -47,6 +47,8 @@ type Props = {
   organizationId?: string | null
   /** Owner console hits /api/inventory/*; tech console hits the owner-scoped /api/tech/inventory/* twin. */
   scope?: "owner" | "tech"
+  /** Set when logging a key used on a specific job — the adjustment is tagged job_use in the ledger. */
+  jobId?: string | null
 }
 
 /** Same-shape routes under two prefixes — pick the one this console is allowed to call. */
@@ -73,7 +75,13 @@ function vibrateConfirm() {
   }
 }
 
-export function KeyInventoryScanner({ open, onOpenChange, organizationId, scope = "owner" }: Props) {
+function KeyInventoryScanner({
+  open,
+  onOpenChange,
+  organizationId,
+  scope = "owner",
+  jobId = null,
+}: Props) {
   const endpoints = useMemo(() => inventoryEndpoints(scope), [scope])
   const readerDomId = useId().replace(/:/g, "")
   const scannerRef = useRef<Html5Qrcode | null>(null)
@@ -315,7 +323,7 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId, scope 
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delta, location }),
+        body: JSON.stringify({ delta, location, jobId: jobId ?? undefined }),
       })
       const json = (await res.json()) as {
         error?: string
@@ -732,15 +740,20 @@ export function KeyInventoryScanner({ open, onOpenChange, organizationId, scope 
   )
 }
 
-/** Compact launch button used on Settings / Inventory pages. */
+/** Compact launch button used on Settings / Inventory pages, and on a job's close-out step. */
 export function KeyInventoryScannerLaunchButton({
   className,
   organizationId,
   scope = "owner",
+  jobId = null,
+  label = "Scan inventory",
 }: {
   className?: string
   organizationId?: string | null
   scope?: "owner" | "tech"
+  /** Set when logging a key used on a specific job — the adjustment is tagged job_use. */
+  jobId?: string | null
+  label?: string
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -751,13 +764,14 @@ export function KeyInventoryScannerLaunchButton({
         className={cn("h-11 gap-2 bg-success hover:bg-success", className)}
       >
         <ScanBarcode className="h-4 w-4" aria-hidden />
-        Scan inventory
+        {label}
       </Button>
       <KeyInventoryScanner
         open={open}
         onOpenChange={setOpen}
         organizationId={organizationId}
         scope={scope}
+        jobId={jobId}
       />
     </>
   )

@@ -10,9 +10,8 @@ import { recordKeyInventoryLedgerEntry, type KeyInventoryLedgerActor } from "@/l
 export type { KeyInventoryLedgerActor }
 
 export type { KeyInventoryApiRow }
-export { shouldShowOutOfStockFallback } from "@/lib/key-inventory-shared"
 
-export type KeyInventoryCompatibleVehicle = {
+type KeyInventoryCompatibleVehicle = {
   make: string
   model: string
   yearStart: number
@@ -235,7 +234,7 @@ export function serializeKeyInventoryForApi(rows: KeyInventoryRow[]): KeyInvento
 export type KeyInventoryStockLocation = "van1" | "van2" | "shop"
 
 /** Public-ish path used in `image_url` (session-auth when fetched). */
-export function keyInventoryImagePath(id: string, cacheBust?: string | number): string {
+function keyInventoryImagePath(id: string, cacheBust?: string | number): string {
   const base = `/api/inventory/${id}/image`
   return cacheBust != null ? `${base}?v=${cacheBust}` : base
 }
@@ -316,28 +315,6 @@ export async function getKeyInventoryImageBinary(
   }
 }
 
-export async function getKeyInventoryById(
-  userId: string,
-  id: string
-): Promise<KeyInventoryRow | null> {
-  if (!userId || !id) return null
-  try {
-    const sql = getSql()
-    const rows = await sql`
-      SELECT *
-      FROM key_inventory
-      WHERE id = ${id}::uuid
-        AND user_id = ${userId}::uuid
-      LIMIT 1
-    `
-    const row = (rows as Record<string, unknown>[])[0]
-    return row ? mapRow(row) : null
-  } catch (error) {
-    if (isMissingTableError(error)) return null
-    throw error
-  }
-}
-
 /** Normalize barcode / typed SKU for lookup (trim + uppercase). */
 export function normalizeInventorySku(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").toUpperCase()
@@ -408,6 +385,8 @@ export async function adjustKeyInventoryQuantity(params: {
   location?: KeyInventoryStockLocation
   /** Who made this change — omit only for call sites that predate the usage ledger. */
   actor?: KeyInventoryLedgerActor
+  /** Set when a tech is logging a key pulled for a specific job — ledger reason becomes 'job_use'. */
+  jobId?: string | null
 }): Promise<KeyInventoryRow | null> {
   const location = params.location ?? "van1"
   const delta = Math.trunc(params.delta)
@@ -462,8 +441,9 @@ export async function adjustKeyInventoryQuantity(params: {
         location,
         delta,
         balanceAfter,
-        reason: "scan_adjust",
+        reason: params.jobId ? "job_use" : "scan_adjust",
         actor: params.actor,
+        jobId: params.jobId ?? null,
       })
     }
     return mapped

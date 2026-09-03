@@ -39,6 +39,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const locationRaw = String(body.location ?? "van1") as KeyInventoryStockLocation
   const location = LOCATIONS.has(locationRaw) ? locationRaw : "van1"
+  // Set when logging a key used on a specific job — deduct + ledger reason both key off this.
+  const jobId = typeof body.jobId === "string" && body.jobId.trim() ? body.jobId.trim() : null
 
   try {
     const ctx = await getFieldTechContext(actor.actingUserId)
@@ -47,6 +49,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       id: id.trim(),
       delta,
       location,
+      jobId,
       actor: {
         role: "field_tech",
         userId: actor.actingUserId,

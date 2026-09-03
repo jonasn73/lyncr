@@ -89,8 +89,8 @@ function timeZoneOffsetMs(utcMs: number, timeZone: string): number {
 }
 
 /** Unix seconds for local midnight on day 1 of the current month in `timeZone`. */
-export function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
-  const { year, month } = zonedYmd(new Date(), timeZone)
+export function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ, now = new Date()): number {
+  const { year, month } = zonedYmd(now, timeZone)
   // Wall-clock Y-M-01 00:00 as if it were UTC, then subtract the zone offset at that instant.
   const asUtcMidnight = Date.UTC(year, month - 1, 1, 0, 0, 0)
   let instant = asUtcMidnight - timeZoneOffsetMs(asUtcMidnight, timeZone)
@@ -100,8 +100,8 @@ export function startOfMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
 }
 
 /** Unix seconds for local midnight on day 1 of the previous month in `timeZone`. */
-export function startOfPreviousMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
-  const { year, month } = zonedYmd(new Date(), timeZone)
+export function startOfPreviousMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ, now = new Date()): number {
+  const { year, month } = zonedYmd(now, timeZone)
   // Go to day 0 of this month = last day of previous month, then take year/month of that day.
   const prev = new Date(Date.UTC(year, month - 1, 0))
   const py = prev.getUTCFullYear()
@@ -113,9 +113,9 @@ export function startOfPreviousMonthUnixSeconds(timeZone = ADMIN_FINANCE_TZ): nu
 }
 
 /** Unix seconds for local midnight Jan 1 of the current year in `timeZone`. */
-export function startOfYearUnixSeconds(timeZone = ADMIN_FINANCE_TZ): number {
+export function startOfYearUnixSeconds(timeZone = ADMIN_FINANCE_TZ, now = new Date()): number {
   // Read today's year in US Eastern (or whatever zone we pass in).
-  const { year } = zonedYmd(new Date(), timeZone)
+  const { year } = zonedYmd(now, timeZone)
   // Pretend Jan 1 midnight is UTC, then correct for the real zone offset (handles DST).
   const asUtcMidnight = Date.UTC(year, 0, 1, 0, 0, 0)
   let instant = asUtcMidnight - timeZoneOffsetMs(asUtcMidnight, timeZone)
@@ -175,9 +175,9 @@ export function resolveAdminMoneyPeriodBounds(
   now = new Date(),
   timeZone = ADMIN_FINANCE_TZ
 ): AdminMoneyPeriodBounds {
-  const thisMonthUnix = startOfMonthUnixSeconds(timeZone)
-  const lastMonthUnix = startOfPreviousMonthUnixSeconds(timeZone)
-  const thisYearUnix = startOfYearUnixSeconds(timeZone)
+  const thisMonthUnix = startOfMonthUnixSeconds(timeZone, now)
+  const lastMonthUnix = startOfPreviousMonthUnixSeconds(timeZone, now)
+  const thisYearUnix = startOfYearUnixSeconds(timeZone, now)
 
   if (period === "last_month") {
     return {

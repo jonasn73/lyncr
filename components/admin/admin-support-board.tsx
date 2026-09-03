@@ -3,6 +3,7 @@
 // Platform support — inbound emails (Resend) + in-app feedback + live chat.
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 import { useSearchParams } from "next/navigation"
 import { startImpersonation } from "@/app/actions/admin-impersonation"
 import type {
@@ -115,11 +116,16 @@ function LiveChatQueue({ initialThreadId }: { initialThreadId?: string | null })
     }
   }, [])
 
+  const canPollThreads = usePollBudget()
   useEffect(() => {
     void loadThreads()
+  }, [loadThreads])
+
+  useEffect(() => {
+    if (!canPollThreads) return
     const t = setInterval(() => void loadThreads({ silent: true }), 8000)
     return () => clearInterval(t)
-  }, [loadThreads])
+  }, [loadThreads, canPollThreads])
 
   const loadThread = useCallback(async (id: string, silent = false) => {
     if (!silent) setDetailLoading(true)
@@ -165,12 +171,12 @@ function LiveChatQueue({ initialThreadId }: { initialThreadId?: string | null })
     void loadThread(initialThreadId)
   }, [initialThreadId, loadThread])
 
-  // Poll open thread for new tenant messages.
+  // Poll open thread for new tenant messages — paused while the tab is hidden.
   useEffect(() => {
-    if (!activeId) return
+    if (!activeId || !canPollThreads) return
     const t = setInterval(() => void loadThread(activeId, true), 4000)
     return () => clearInterval(t)
-  }, [activeId, loadThread])
+  }, [activeId, loadThread, canPollThreads])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -406,7 +412,7 @@ function LiveChatQueue({ initialThreadId }: { initialThreadId?: string | null })
                             <img
                               src={a.url}
                               alt={a.filename}
-                              className="max-h-40 max-w-full rounded-lg object-contain"
+                              className="h-40 max-w-full rounded-lg bg-black/5 object-contain"
                             />
                           </a>
                         ) : (

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react"
 import { PhoneMissed, Gauge, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { usePollBudget } from "@/lib/hooks/use-poll-budget"
 
 const POLL_MS = 60_000
 const WINDOW_DAYS = 7
@@ -40,6 +41,7 @@ export function CallHealthBoard() {
   const [summary, setSummary] = useState<CallHealthSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const mounted = useRef(true)
+  const canPoll = usePollBudget()
 
   useEffect(() => {
     mounted.current = true
@@ -58,12 +60,13 @@ export function CallHealthBoard() {
       }
     }
     void fetchSummary()
+    if (!canPoll) return () => { mounted.current = false }
     const poll = setInterval(fetchSummary, POLL_MS)
     return () => {
       mounted.current = false
       clearInterval(poll)
     }
-  }, [])
+  }, [canPoll])
 
   return (
     <Card className="flex h-full flex-col border-border bg-card/60 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-sm">

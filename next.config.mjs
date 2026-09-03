@@ -15,6 +15,14 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  // lib/local-key-images.ts does a runtime readdirSync(publicDir, "key-images", <fccId>) —
+  // Turbopack's file tracer can't resolve the dynamic path, so it conservatively bundles
+  // all 12.8k / 174MB of public/key-images/** into any function that imports it (the
+  // vehicle key-lookup API routes). Those images are already served statically from
+  // public/, so exclude them from function bundles entirely.
+  outputFileTracingExcludes: {
+    "*": ["public/key-images/**"],
+  },
   async redirects() {
     return [
       {

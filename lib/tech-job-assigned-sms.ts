@@ -10,15 +10,18 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 
 export type TechJobAssignedSmsData = {
+  customerName: string | null
+  customerPhone: string | null
   vehicleYear: string | null
   vehicleMake: string | null
   vehicleModel: string | null
   isAkl: boolean
   location: string | null
+  jobType: string | null
   tiSku: string | null
 }
 
-/** Build the technician assignment text (vehicle + AKL + address + required TI part). */
+/** Build the technician assignment text — customer, address, problem, vehicle, required part. */
 export function buildTechJobAssignedSms(data: TechJobAssignedSmsData): string {
   const vehicle = [data.vehicleYear, data.vehicleMake, data.vehicleModel]
     .map((part) => String(part ?? "").trim())
@@ -31,12 +34,19 @@ export function buildTechJobAssignedSms(data: TechJobAssignedSmsData): string {
     : data.isAkl
       ? "Vehicle (AKL)"
       : "Vehicle"
+  const customerName = data.customerName?.trim() || "Customer TBD"
+  const customerLine = data.customerPhone?.trim()
+    ? `${customerName} · ${data.customerPhone.trim()}`
+    : customerName
   const location = data.location?.trim() || "Address TBD"
+  const jobType = data.jobType?.trim() || "Service call"
   const part = data.tiSku?.trim().toUpperCase() || "TBD"
 
   return [
     `🛠️ JOB ASSIGNED: ${vehicleLine}`,
+    `👤 ${customerLine}`,
     `📍 Location: ${location}`,
+    `🔧 ${jobType}`,
     `🔑 REQUIRED PART: ${part}`,
   ].join("\n")
 }
@@ -75,7 +85,7 @@ export async function sendTechJobAssignedSms(params: {
 
   const sql = neon(resolveNeonDatabaseUrl())
   const rows = await sql`
-    SELECT user_id, collected, summary FROM ai_leads
+    SELECT user_id, collected, summary, caller_e164 FROM ai_leads
     WHERE id = ${params.leadId} AND user_id = ${params.ownerUserId}
     LIMIT 1
   `
@@ -88,6 +98,10 @@ export async function sendTechJobAssignedSms(params: {
   }
 
   const text = buildTechJobAssignedSms({
+    customerName: pickCollected(collected, ["customer_name", "name", "caller_name", "contact_name"]),
+    customerPhone:
+      pickCollected(collected, ["callback_number", "caller_number", "phone", "callback"]) ||
+      (row.caller_e164 != null ? String(row.caller_e164) : null),
     vehicleYear: pickCollected(collected, ["vehicle_year", "year"]),
     vehicleMake: pickCollected(collected, ["vehicle_make", "make"]),
     vehicleModel: pickCollected(collected, ["vehicle_model", "model"]),
@@ -98,6 +112,7 @@ export async function sendTechJobAssignedSms(params: {
       "service_address",
       "address_line1",
     ]),
+    jobType: pickCollected(collected, ["job_type", "service_type", "service_package", "summary"]),
     tiSku: pickCollected(collected, ["ti_sku", "tiSku", "supplier_sku", "required_part"]),
   })
 

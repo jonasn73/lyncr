@@ -190,7 +190,7 @@ export function SupportChatPanel() {
                             <img
                               src={a.url}
                               alt={a.filename}
-                              className="max-h-48 max-w-full rounded-lg border border-black/10 object-contain"
+                              className="h-48 max-w-full rounded-lg border border-black/10 bg-black/5 object-contain"
                             />
                           </a>
                         ) : (

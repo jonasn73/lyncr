@@ -15,6 +15,7 @@ import {
   type WalletTransaction,
   type WalletTransactionStatus,
 } from "@/lib/tech-wallet"
+import { publishTechnicianEvent } from "@/lib/realtime/pusher-server"
 import type Stripe from "stripe"
 
 export type JobPaymentContext = {
@@ -566,11 +567,13 @@ export async function createAdhocPaymentIntent(params: {
 /** Mark job completed (owner or assigned tech path). */
 export async function markJobCompletedForPayment(job: JobPaymentContext): Promise<void> {
   const sql = getSql()
-  // Also clear lead/pool dispatch so CRM + scheduler treat the job as finished.
+  // Also clear lead/pool dispatch so CRM + scheduler treat the job as finished, and clear the
+  // remote-payment wait flag — whatever the tech was waiting on just cleared.
   await sql`
     UPDATE ai_leads
     SET job_status = 'completed',
         dispatch_status = 'completed',
+        payment_pending_remote = false,
         collected =
           coalesce(collected, '{}'::jsonb)
           || jsonb_build_object(
@@ -581,6 +584,14 @@ export async function markJobCompletedForPayment(job: JobPaymentContext): Promis
           )
     WHERE id = ${job.jobId}
   `
+  // Whoever ran this payment (office, in person, or the customer via a remote pay link), it
+  // may not have been the assigned tech — this is the signal that tells him he's free to leave.
+  if (job.assignedTechId) {
+    await publishTechnicianEvent(job.assignedTechId, "job-updated", {
+      leadId: job.jobId,
+      status: "completed",
+    }).catch(() => {})
+  }
 }
 
 export type ConfirmJobPaymentResult = {

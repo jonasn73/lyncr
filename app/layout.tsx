@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics as VercelWebAnalytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner"
 import Script from "next/script"
@@ -121,6 +122,7 @@ export default function RootLayout({
           }}
         />
         <VercelWebAnalytics />
+        <SpeedInsights />
       </body>
     </html>
   )

@@ -3,7 +3,7 @@
 // Shared white “receipt” card for public /r/{token} and in-app invoice preview.
 // Keeps customer SMS/email page and owner View sheet looking the same.
 
-export type PublicInvoiceLine = { label: string; amountCents: number }
+type PublicInvoiceLine = { label: string; amountCents: number }
 
 export type PublicInvoiceData = {
   invoiceNumber: string
@@ -25,7 +25,7 @@ export type PublicInvoiceData = {
 }
 
 /** Format cents as $1,234.56 (never double-dollar). */
-export function formatInvoiceUsd(cents: number): string {
+function formatInvoiceUsd(cents: number): string {
   return (Math.max(0, cents) / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
@@ -33,7 +33,7 @@ export function formatInvoiceUsd(cents: number): string {
 }
 
 /** Prefer “Paid via Venmo” note when present. */
-export function paidHowLabel(invoice: PublicInvoiceData): string {
+function paidHowLabel(invoice: PublicInvoiceData): string {
   const note = (invoice.paidNote || "").trim()
   if (note) return note
   return `Paid via ${invoice.paymentMethodLabel}`
@@ -172,7 +172,7 @@ export function PublicInvoiceBody({ invoice }: { invoice: PublicInvoiceData }) {
             <img
               src={invoice.signaturePng}
               alt="Customer signature"
-              className="mt-2 max-h-28 w-full max-w-xs rounded-lg border border-slate-200 bg-white object-contain p-2"
+              className="mt-2 h-28 w-full max-w-xs rounded-lg border border-slate-200 bg-white object-contain p-2"
             />
           </div>
         ) : null}

@@ -10,7 +10,7 @@ function getSql() {
 }
 
 export type KeyInventoryLedgerLocation = "van1" | "van2" | "shop"
-export type KeyInventoryLedgerReason = "scan_adjust" | "new_sku_initial" | "reorder_received"
+export type KeyInventoryLedgerReason = "scan_adjust" | "new_sku_initial" | "reorder_received" | "job_use"
 
 export type KeyInventoryLedgerActor = {
   role: "owner" | "field_tech"
@@ -44,18 +44,20 @@ export async function recordKeyInventoryLedgerEntry(params: {
   reason: KeyInventoryLedgerReason
   actor: KeyInventoryLedgerActor
   reorderRequestId?: string | null
+  /** Set when reason = 'job_use' — the job this key was pulled for. */
+  jobId?: string | null
 }): Promise<void> {
   try {
     const sql = getSql()
     await sql`
       INSERT INTO key_inventory_ledger (
         owner_user_id, key_inventory_id, location, delta, balance_after, reason,
-        actor_role, actor_user_id, actor_label, reorder_request_id
+        actor_role, actor_user_id, actor_label, reorder_request_id, job_id
       )
       VALUES (
         ${params.ownerUserId}, ${params.keyInventoryId}, ${params.location}, ${params.delta},
         ${params.balanceAfter}, ${params.reason}, ${params.actor.role}, ${params.actor.userId},
-        ${params.actor.label.trim().slice(0, 200)}, ${params.reorderRequestId ?? null}
+        ${params.actor.label.trim().slice(0, 200)}, ${params.reorderRequestId ?? null}, ${params.jobId ?? null}
       )
     `
   } catch (e) {

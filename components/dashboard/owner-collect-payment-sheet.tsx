@@ -2052,6 +2052,11 @@ export function OwnerCollectPaymentSheet({
                                   {job.location}
                                 </span>
                               ) : null}
+                              {job.payment_pending_remote ? (
+                                <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-2xs font-semibold text-warning">
+                                  Tech waiting on-site — call or send a pay link
+                                </span>
+                              ) : null}
                               <span
                                 className={cn(
                                   "mt-1 block text-2xs font-medium",
