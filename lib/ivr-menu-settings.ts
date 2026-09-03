@@ -18,7 +18,11 @@ export type IvrMenuSettings = {
   ivrOption1Action: IvrMenuAction
   /** Digit 2 action (also digit_2_action). */
   ivrOption2Action: IvrMenuAction
-  /** Off-duty master switch — inbound Redirect to /api/telnyx-menu when true. */
+  /**
+   * Legacy flag — the /api/telnyx-menu route it originally gated was deleted (dead code,
+   * zero live Telnyx webhook ever pointed at it). Still persisted/settable via
+   * app/api/routing/ivr; verify what (if anything) currently reads this before relying on it.
+   */
   ivrMenuEnabled: boolean
 }
 
