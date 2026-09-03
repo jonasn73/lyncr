@@ -558,6 +558,8 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
   // Messages CRM chip: open this phone’s card, including a second tap after close.
   const rowsRef = useRef(rows)
   rowsRef.current = rows
+  // Monotonic token so an older loadList() response can't overwrite a newer one.
+  const loadListRequestIdRef = useRef(0)
   useEffect(() => {
     const becameActive = isActive && !crmWasActiveRef.current
     crmWasActiveRef.current = isActive
@@ -580,6 +582,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   const loadList = useCallback(() => {
     if (!pollEnabled || orgResolving || !orgReady) return
+    // A newer loadList (e.g. debounced search catching up right after the
+    // unfiltered mount fetch) can resolve before an older in-flight one —
+    // an older response landing last must not clobber the newer result.
+    const requestId = ++loadListRequestIdRef.current
     const params = new URLSearchParams()
     if (debounced) params.set("q", debounced)
     params.set("filter", filter)
@@ -594,6 +600,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         return res.json() as Promise<{ data?: { customers?: CrmCustomerListItem[] } }>
       })
       .then((json) => {
+        if (requestId !== loadListRequestIdRef.current) return
         const list = json.data?.customers ?? []
         const baseline = rowsForCompareRef.current
         if (
@@ -644,8 +651,12 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           return prev
         })
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Error"))
+      .catch((e) => {
+        if (requestId !== loadListRequestIdRef.current) return
+        setError(e instanceof Error ? e.message : "Error")
+      })
       .finally(() => {
+        if (requestId !== loadListRequestIdRef.current) return
         setLoading(false)
       })
   }, [
