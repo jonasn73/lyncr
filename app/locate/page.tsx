@@ -108,7 +108,7 @@ function LocateInner() {
         </button>
       ) : null}
       {status === "done" ? (
-        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success">
+        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success-foreground">
           Location shared successfully.
         </p>
       ) : null}

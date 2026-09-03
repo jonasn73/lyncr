@@ -247,7 +247,7 @@ function ReceptionistAccessForm({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success-foreground hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Save

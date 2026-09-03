@@ -188,7 +188,7 @@ export function DevErrorLogDrawer() {
         className={cn(
           "fixed bottom-4 right-4 z-[9998] flex h-11 w-11 items-center justify-center rounded-full border shadow-raised transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           count > 0
-            ? "border-destructive/60 bg-destructive text-destructive"
+            ? "border-destructive/60 bg-destructive text-destructive-foreground"
             : "border-border bg-card text-foreground"
         )}
         aria-label={count > 0 ? `Open dev error log (${count})` : "Open dev error log"}

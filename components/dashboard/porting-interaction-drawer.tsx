@@ -37,7 +37,7 @@ function PipelineTracker({ steps }: { steps: OwnerPortingDeskDetail["pipeline_st
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                 step.state === "failed"
-                  ? "border-destructive/50 bg-destructive/60 text-destructive"
+                  ? "border-destructive/50 bg-destructive/15 text-destructive"
                   : step.state === "complete"
                     ? "border-success/50 bg-success/15 text-success"
                     : step.state === "current"

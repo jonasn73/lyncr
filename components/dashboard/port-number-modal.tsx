@@ -74,7 +74,7 @@ function PortingProgressTimeline({ order }: { order: PortingOrder | null }) {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold",
                   isRejected
-                    ? "border-destructive/50 bg-destructive/60 text-destructive"
+                    ? "border-destructive/50 bg-destructive/15 text-destructive"
                     : done || (current && order?.status === "completed")
                       ? "border-success/50 bg-success/15 text-success"
                       : current
@@ -225,7 +225,7 @@ function PortingCommunicationsPanel({ order }: { order: PortingOrder | null }) {
         <MessageSquare className="h-4 w-4" aria-hidden />
         Transfer messages
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-warning px-2 py-0.5 text-2xs font-bold text-warning">
+          <span className="rounded-full bg-warning px-2 py-0.5 text-2xs font-bold text-warning-foreground">
             {unreadCount} new
           </span>
         ) : null}

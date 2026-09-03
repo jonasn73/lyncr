@@ -340,7 +340,7 @@ function IntakeRescueInner() {
                 onPicked={(f) => void assignSlot(f, "id")}
               />
             ) : (
-              <p className="rounded-xl border border-warning bg-warning px-3 py-2 text-2xs text-warning">
+              <p className="rounded-xl border border-warning bg-warning px-3 py-2 text-2xs text-warning-foreground">
                 Our technician will verify your ID on site before unlocking.
               </p>
             )}
@@ -390,7 +390,7 @@ function IntakeRescueInner() {
               }}
               className={
                 vinUnavailable
-                  ? "inline-flex w-full items-center justify-center rounded-full border border-warning bg-warning px-3 py-2 text-xs font-semibold text-warning"
+                  ? "inline-flex w-full items-center justify-center rounded-full border border-warning bg-warning px-3 py-2 text-xs font-semibold text-warning-foreground"
                   : "inline-flex w-full items-center justify-center rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700"
               }
               aria-pressed={vinUnavailable}
@@ -465,7 +465,7 @@ function IntakeRescueInner() {
       ) : null}
 
       {status === "done" ? (
-        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success">
+        <p className="rounded-xl border border-success bg-success px-4 py-3 text-sm text-success-foreground">
           Intake received. Our dispatcher has been notified.
         </p>
       ) : null}

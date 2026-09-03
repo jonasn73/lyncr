@@ -455,7 +455,7 @@ export function KeySelectionCard({
           ) : null}
         </div>
         {disabledReason ? (
-          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-2xs font-semibold leading-tight text-warning">
+          <span className="mt-2 block rounded bg-warning/90 px-1 py-0.5 text-center text-2xs font-semibold leading-tight text-warning-foreground">
             {disabledReason}
           </span>
         ) : null}

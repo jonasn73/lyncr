@@ -274,7 +274,7 @@ export function BrandedPayCheckout({ token }: { token: string }) {
             type="button"
             disabled={tipBusy}
             onClick={() => void confirmTip()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success px-4 py-3 text-sm font-bold text-success hover:bg-success disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-success px-4 py-3 text-sm font-bold text-success-foreground hover:bg-success disabled:opacity-60"
           >
             {tipBusy ? (
               <>

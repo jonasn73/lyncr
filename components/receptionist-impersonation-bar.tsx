@@ -55,16 +55,16 @@ export function ReceptionistImpersonationBar() {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-operator/40 bg-operator/90 px-4 py-3 text-sm text-operator"
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-operator/40 bg-operator/90 px-4 py-3 text-sm text-operator-foreground"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <KeyRound className="h-4 w-4 shrink-0 text-operator" aria-hidden />
+        <KeyRound className="h-4 w-4 shrink-0 text-operator-foreground" aria-hidden />
         <span>
           Admin sandbox session
           {viewingEmail ? (
             <>
               {" "}
-              as <span className="font-semibold text-operator">{viewingEmail}</span>
+              as <span className="font-semibold text-operator-foreground">{viewingEmail}</span>
             </>
           ) : null}
           {fromSandbox ? " — take the quiz, then simulate a call from the sandbox board." : "."}
@@ -75,7 +75,7 @@ export function ReceptionistImpersonationBar() {
         size="sm"
         variant="outline"
         disabled={exiting}
-        className="h-9 border-operator/50 bg-transparent text-operator hover:bg-operator/60 hover:text-operator-foreground"
+        className="h-9 border-operator-foreground/50 bg-transparent text-operator-foreground hover:bg-operator-foreground/10"
         onClick={() => void handleReturnToAdmin()}
       >
         {exiting ? (

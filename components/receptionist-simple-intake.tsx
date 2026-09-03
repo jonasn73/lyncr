@@ -91,7 +91,7 @@ export function ReceptionistSimpleIntake({
           onClick={() => void submit()}
           disabled={saving || saved || (!callerName.trim() && !notes.trim())}
           className={cn(
-            "inline-flex items-center gap-2 rounded-lg bg-success px-3 py-2 text-sm font-semibold text-success transition hover:bg-success",
+            "inline-flex items-center gap-2 rounded-lg bg-success px-3 py-2 text-sm font-semibold text-success-foreground transition hover:bg-success",
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
