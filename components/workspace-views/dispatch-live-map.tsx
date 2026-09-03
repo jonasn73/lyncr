@@ -267,9 +267,14 @@ export function DispatchLiveMap({
   const lastJobPinSig = useRef("")
   /** Intake target already centered — re-center only when a new address arrives. */
   const lastDestinationSig = useRef("")
-  /** Camera mode: follow keeps You centered; overview frees the camera. */
-  const followUserRef = useRef(Boolean(fillParent))
-  const [followUser, setFollowUser] = useState(Boolean(fillParent))
+  /** Camera mode: follow keeps You centered; overview frees the camera.
+   * Defaults off even on the full Map tab — a fresh visit should show You + any
+   * job/tech pins (fit-bounds overview) first. Auto-following straight onto a
+   * tight street-level zoom on load hid job pins outside ~0.5mi of the owner's
+   * current GPS with zero indication anything existed off-screen. The owner can
+   * still opt into tight tracking with the "follow me" button. */
+  const followUserRef = useRef(false)
+  const [followUser, setFollowUser] = useState(false)
   /** near = close-up on customer; cruise = follow at street zoom; free = user/overview. */
   const cameraModeRef = useRef<"near" | "cruise" | "free">("cruise")
 
