@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { ToastAction } from "@/components/ui/toast"
 import { useToast } from "@/hooks/use-toast"
@@ -200,6 +201,7 @@ export function JobDetailDrawer({
   const [reviewSmsFailed, setReviewSmsFailed] = useState(false)
   const [localJobStatus, setLocalJobStatus] = useState<string | null>(null)
   const { toast } = useToast()
+  const router = useRouter()
   const [viewMode, setViewMode] = useState<JobDetailViewMode>("overview")
   const [committedPipelineStatus, setCommittedPipelineStatus] =
     useState<JobPipelineStatusId>("unassigned_pool")
@@ -825,6 +827,15 @@ export function JobDetailDrawer({
     }
   }
 
+  /** Review follow-up / thanks suggestions: fills Messages — owner still taps Send there. */
+  function openMessagesDraft(draft: string) {
+    const phone = customerPhone.trim()
+    if (!phone) return
+    const qs = new URLSearchParams({ phone, draft })
+    onClose()
+    router.push(`/dashboard/messages?${qs.toString()}`)
+  }
+
   const requestClose = useCallback(() => {
     onClose()
   }, [onClose])
@@ -884,6 +895,7 @@ export function JobDetailDrawer({
               onSendReviewSms={() => void handleSendReviewSms()}
               reviewSmsFailed={reviewSmsFailed}
               onCollectPayment={() => setCollectJob(toCollectDispatchJob(source))}
+              onOpenMessagesDraft={openMessagesDraft}
             />
           ) : (
             <JobEditWorkflow

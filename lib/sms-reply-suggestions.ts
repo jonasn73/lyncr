@@ -273,6 +273,38 @@ export function buildJobFinishedFollowUpChips(input: {
 }
 
 /**
+ * Nudge for a customer who already got the review ask but hasn’t opened the link yet.
+ * Deliberately different wording from the original ask (never a literal resend of the
+ * same “please leave a review” text) — tap fills Messages; never auto-sends.
+ */
+export function buildReviewFollowUpMessage(input: {
+  customerName?: string | null
+  businessName?: string | null
+}): SmsReplyChip {
+  const who = firstName(input.customerName)
+  const businessLabel = biz(input.businessName)
+  return {
+    id: "review-follow-up",
+    label: "Follow up",
+    body: `Hey ${who} — just circling back, no pressure at all, but if you get a sec a quick review would really help us out. Thanks again for choosing ${businessLabel}!`,
+  }
+}
+
+/** Sent once the owner notices the customer left a review. Tap fills Messages; never auto-sends. */
+export function buildReviewThanksMessage(input: {
+  customerName?: string | null
+  businessName?: string | null
+}): SmsReplyChip {
+  const who = firstName(input.customerName)
+  const businessLabel = biz(input.businessName)
+  return {
+    id: "review-thanks",
+    label: "Thanks for review",
+    body: `Thank you so much for the review, ${who} — really appreciate you taking the time! — ${businessLabel}`,
+  }
+}
+
+/**
  * Chips for an open Messages thread even when the customer has not written back.
  * Tap fills the composer — never auto-sends. Uses booking/vehicle context when we have it.
  */

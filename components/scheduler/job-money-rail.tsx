@@ -8,6 +8,7 @@ import {
   CreditCard,
   Link2,
   Loader2,
+  MessageSquareHeart,
   RefreshCw,
   Star,
 } from "lucide-react"
@@ -17,6 +18,10 @@ import {
   suggestedJobDepositCents,
 } from "@/lib/job-billing-balance"
 import { buildDepositSmsStagingTemplate } from "@/lib/secure-deposit-link"
+import {
+  buildReviewFollowUpMessage,
+  buildReviewThanksMessage,
+} from "@/lib/sms-reply-suggestions"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -50,6 +55,11 @@ type JobMoneyRailProps = {
   onSendReviewSms: () => void
   /** Mark job complete (same confirm flow as More actions). */
   onComplete?: () => void
+  /**
+   * Opens Messages with the given text pre-filled — for the Follow up / Thanks-for-review
+   * suggestions below. Owner still taps Send there; this never fires an SMS on its own.
+   */
+  onOpenMessagesDraft?: (draft: string) => void
 }
 
 export function JobMoneyRail({
@@ -65,6 +75,7 @@ export function JobMoneyRail({
   onCollect,
   onSendReviewSms,
   onComplete,
+  onOpenMessagesDraft,
 }: JobMoneyRailProps) {
   const { toast } = useToast()
   // Starts on "refresh" when there is a job: the rail loads its links on mount,
@@ -225,6 +236,14 @@ export function JobMoneyRail({
         ? "Sent"
         : null
 
+  // Suggested next text — tap opens Messages with a draft; owner still taps Send there.
+  // Opened → say thanks. Sent-but-not-opened → a distinct nudge (never the same ask again).
+  const reviewSuggestion = reviewLinkOpenedAt
+    ? buildReviewThanksMessage({ customerName })
+    : reviewSmsSentAt && !reviewSmsFailed
+      ? buildReviewFollowUpMessage({ customerName })
+      : null
+
   return (
     <section className="mt-2.5 space-y-2 rounded-xl border border-success/25 bg-success/[0.07] px-3 py-2">
       <div className="flex items-center justify-between gap-2">
@@ -376,6 +395,22 @@ export function JobMoneyRail({
           )}
         </div>
       )}
+
+      {/* Suggested follow-up / thank-you text — fills Messages; owner still taps Send there. */}
+      {isJobDone && reviewSuggestion && onOpenMessagesDraft ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full border-info/35 bg-info/10 text-info hover:bg-info/20"
+          disabled={saving || !customerPhone.trim()}
+          onClick={() => onOpenMessagesDraft(reviewSuggestion.body)}
+          title={reviewSuggestion.body}
+        >
+          <MessageSquareHeart className="mr-1 h-3.5 w-3.5" aria-hidden />
+          {reviewSuggestion.label}
+        </Button>
+      ) : null}
 
       {/* Copy-paste fallback when SMS fails or owner wants to resend manually */}
       {smsStaging || lastSentUrl ? (

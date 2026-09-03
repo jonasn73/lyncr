@@ -73,6 +73,8 @@ type JobDetailOverviewProps = {
   reviewSmsFailed?: boolean
   /** Open Collect / pay modal for this job (card, tap, pay link, receipt). */
   onCollectPayment: () => void
+  /** Opens Messages with a pre-filled draft (review follow-up / thanks suggestions). */
+  onOpenMessagesDraft?: (draft: string) => void
 }
 
 const SECTION_LABEL =
@@ -145,6 +147,7 @@ export function JobDetailOverview({
   onSendReviewSms,
   reviewSmsFailed = false,
   onCollectPayment,
+  onOpenMessagesDraft,
 }: JobDetailOverviewProps) {
   const { toast } = useToast()
   const { activeOrganizationId } = useDashboardWorkspace()
@@ -357,6 +360,7 @@ export function JobDetailOverview({
           onComplete={
             isJobDone ? undefined : () => onQuickLifecycleAction("completed")
           }
+          onOpenMessagesDraft={onOpenMessagesDraft}
         />
 
         {/* Dispatch — status + tech; assign placeholder explains Scheduled gate */}
