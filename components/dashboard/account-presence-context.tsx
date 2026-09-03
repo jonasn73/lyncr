@@ -37,6 +37,14 @@ type AccountPresenceContextValue = {
   saving: boolean
   /** True when cell ring is skipped (Presence Busy). */
   presenceBypass: boolean
+  /** True when a manual Busy/Closed tap is blocking the weekly auto-schedule. */
+  presenceLocked: boolean
+  /** True when the owner has a weekly auto-schedule turned on. */
+  scheduleEnabled: boolean
+  /** "Mon–Fri 9:00 AM–5:00 PM" — compact schedule summary for display. */
+  scheduleSummary: string | null
+  /** "New York" — short timezone label to pair with the summary. */
+  scheduleTimezoneLabel: string | null
   setPresenceStatus: (next: PresenceStatus) => Promise<void>
   refresh: () => Promise<void>
 }
@@ -54,6 +62,10 @@ type PresencePayload = {
   presence_status?: string
   presence_available_at?: string | null
   presence_timezone?: string | null
+  presence_locked?: boolean
+  schedule_enabled?: boolean
+  schedule_summary?: string | null
+  schedule_timezone_label?: string | null
 }
 
 export function AccountPresenceProvider({ children }: { children: ReactNode }) {
@@ -67,6 +79,10 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
   const [liveStatus, setLiveStatus] = useState<PresenceStatus | null>(null)
   const [presenceAvailableAt, setPresenceAvailableAt] = useState<string | null>(null)
   const [presenceTimezone, setPresenceTimezone] = useState<string | null>(null)
+  const [presenceLocked, setPresenceLocked] = useState(false)
+  const [scheduleEnabled, setScheduleEnabled] = useState(false)
+  const [scheduleSummary, setScheduleSummary] = useState<string | null>(null)
+  const [scheduleTimezoneLabel, setScheduleTimezoneLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   // Don’t show a spinner when we already painted from cache.
   const [fetching, setFetching] = useState(false)
@@ -98,6 +114,18 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       setPresenceTimezone(
         typeof data?.presence_timezone === "string" && data.presence_timezone.trim()
           ? data.presence_timezone
+          : null
+      )
+      setPresenceLocked(data?.presence_locked === true)
+      setScheduleEnabled(data?.schedule_enabled === true)
+      setScheduleSummary(
+        typeof data?.schedule_summary === "string" && data.schedule_summary.trim()
+          ? data.schedule_summary
+          : null
+      )
+      setScheduleTimezoneLabel(
+        typeof data?.schedule_timezone_label === "string" && data.schedule_timezone_label.trim()
+          ? data.schedule_timezone_label
           : null
       )
       if (next === "AVAILABLE") {
@@ -220,6 +248,10 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       loading: !presenceReady && fetching,
       saving,
       presenceBypass: presenceReady && isBusyPresenceStatus(presenceStatus),
+      presenceLocked,
+      scheduleEnabled,
+      scheduleSummary,
+      scheduleTimezoneLabel,
       setPresenceStatus,
       refresh: refreshLoud,
     }),
@@ -228,6 +260,10 @@ export function AccountPresenceProvider({ children }: { children: ReactNode }) {
       presenceReady,
       presenceAvailableAt,
       presenceTimezone,
+      presenceLocked,
+      scheduleEnabled,
+      scheduleSummary,
+      scheduleTimezoneLabel,
       fetching,
       saving,
       setPresenceStatus,
@@ -251,6 +287,10 @@ export function useAccountPresence(): AccountPresenceContextValue {
       loading: false,
       saving: false,
       presenceBypass: false,
+      presenceLocked: false,
+      scheduleEnabled: false,
+      scheduleSummary: null,
+      scheduleTimezoneLabel: null,
       setPresenceStatus: async () => {},
       refresh: async () => {},
     }

@@ -566,6 +566,32 @@ export async function applyCalendarPresenceAutomation(params: {
   }
 }
 
+/**
+ * Apply a computed schedule status right now, clearing any manual Busy/Closed lock.
+ * Only call this right after the owner enables/saves a weekly schedule from the
+ * dashboard — that action means "hand control back to automation," so it's safe
+ * to override a stale manual lock instead of waiting for the owner to notice it.
+ */
+export async function applyScheduleNowClearingLock(params: {
+  ownerUserId: string
+  desiredStatus: PresenceStatus
+}): Promise<AccountPresence> {
+  const sql = sqlClient()
+  try {
+    await sql`
+      INSERT INTO account_settings (user_id, presence_status, presence_closed_manual, updated_at)
+      VALUES (${params.ownerUserId}, ${params.desiredStatus}, false, now())
+      ON CONFLICT (user_id) DO UPDATE SET
+        presence_status = EXCLUDED.presence_status,
+        presence_closed_manual = false,
+        updated_at = now()
+    `
+  } catch (e) {
+    if (!isMissingPresenceTable(e)) throw e
+  }
+  return getAccountPresence(params.ownerUserId)
+}
+
 /** All owners with an account_settings row (for cron). */
 export async function listOwnersForPresenceCron(): Promise<string[]> {
   const sql = sqlClient()

@@ -17,6 +17,7 @@ import {
   getAccountPresence,
   setAccountPresenceGreetings,
 } from "@/lib/account-presence"
+import { syncPresenceFromScheduleNow } from "@/lib/presence-schedule-sync"
 import {
   defaultIvrVoiceEngineModel,
   elevenLabsKeyConfigured,
@@ -317,7 +318,7 @@ export async function PUT(req: NextRequest) {
               .filter((d): d is WeeklyHoursDay => d !== null)
           : existingHours.days
 
-        await setAccountWeeklyHours({
+        const savedHours = await setAccountWeeklyHours({
           ownerUserId: userId,
           scheduleEnabled:
             hoursScheduleEnabledRaw !== undefined
@@ -327,6 +328,13 @@ export async function PUT(req: NextRequest) {
             typeof hoursTimezoneRaw === "string" ? hoursTimezoneRaw : existingHours.timezone,
           days,
         })
+
+        // Saving/enabling a schedule means "hand control back to automation" — apply it
+        // immediately (clearing any stale manual Busy/Closed lock) instead of waiting up
+        // to 5 minutes for the next sync-presence cron tick.
+        if (savedHours.scheduleEnabled) {
+          await syncPresenceFromScheduleNow(userId)
+        }
       } catch (hoursErr) {
         const hoursCode =
           hoursErr instanceof Error && "code" in hoursErr

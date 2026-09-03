@@ -4,10 +4,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { getUserIdFromRequest } from "@/lib/auth"
 import {
   getAccountPresence,
+  isManualPresenceLock,
   normalizePresenceStatus,
   setAccountPresence,
   type PresenceStatus,
 } from "@/lib/account-presence"
+import {
+  getAccountWeeklyHours,
+  shortTimezoneLabel,
+  summarizeWeeklyHours,
+} from "@/lib/account-weekly-hours"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,7 +23,10 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const presence = await getAccountPresence(userId)
+    const [presence, weeklyHours] = await Promise.all([
+      getAccountPresence(userId),
+      getAccountWeeklyHours(userId),
+    ])
     return NextResponse.json({
       data: {
         presence_status: presence.presenceStatus,
@@ -26,6 +35,11 @@ export async function GET(req: NextRequest) {
         // Busy-until is no longer set by anything; kept null for the client contract.
         presence_available_at: null,
         presence_timezone: null,
+        // True when a manual Busy/Closed tap is blocking the weekly auto-schedule.
+        presence_locked: isManualPresenceLock(presence.presenceStatus, presence.presenceClosedManual),
+        schedule_enabled: weeklyHours.scheduleEnabled,
+        schedule_summary: summarizeWeeklyHours(weeklyHours),
+        schedule_timezone_label: shortTimezoneLabel(weeklyHours.timezone),
       },
     })
   } catch (e) {
@@ -36,6 +50,10 @@ export async function GET(req: NextRequest) {
         presence_closed_manual: false,
         presence_available_at: null,
         presence_timezone: null,
+        presence_locked: false,
+        schedule_enabled: false,
+        schedule_summary: "Off — manual only",
+        schedule_timezone_label: null,
       },
     })
   }
@@ -61,10 +79,13 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const saved = await setAccountPresence({
-      ownerUserId: userId,
-      presenceStatus: status,
-    })
+    const [saved, weeklyHours] = await Promise.all([
+      setAccountPresence({
+        ownerUserId: userId,
+        presenceStatus: status,
+      }),
+      getAccountWeeklyHours(userId),
+    ])
     return NextResponse.json({
       data: {
         presence_status: saved.presenceStatus,
@@ -72,6 +93,10 @@ export async function PUT(req: NextRequest) {
         presence_closed_manual: saved.presenceClosedManual,
         presence_available_at: null,
         presence_timezone: null,
+        presence_locked: isManualPresenceLock(saved.presenceStatus, saved.presenceClosedManual),
+        schedule_enabled: weeklyHours.scheduleEnabled,
+        schedule_summary: summarizeWeeklyHours(weeklyHours),
+        schedule_timezone_label: shortTimezoneLabel(weeklyHours.timezone),
       },
     })
   } catch (e) {

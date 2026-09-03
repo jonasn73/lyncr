@@ -202,6 +202,8 @@ function localWeekdayInZone(now: Date, timeZone: string): number {
 /**
  * True when `now` falls inside the owner's scheduled hours.
  * When the schedule is off, this is always true (no auto-close restriction).
+ * Handles overnight windows (e.g. 22:00–06:00) by also checking whether
+ * yesterday's shift is still running past midnight into today.
  */
 export function isWithinScheduledHours(
   hours: AccountWeeklyHours,
@@ -209,11 +211,86 @@ export function isWithinScheduledHours(
 ): boolean {
   if (!hours.scheduleEnabled) return true
   const weekday = localWeekdayInZone(now, hours.timezone)
-  const day = hours.days.find((d) => d.dayOfWeek === weekday)
-  if (!day || !day.enabled) return false
-  const start = parseHhMmToMinutes(day.startTime)
-  const end = parseHhMmToMinutes(day.endTime)
-  if (start == null || end == null) return false
   const { minutes } = localDateTimePartsInZone(now, hours.timezone)
-  return minutes >= start && minutes < end
+
+  const today = hours.days.find((d) => d.dayOfWeek === weekday)
+  if (today?.enabled) {
+    const start = parseHhMmToMinutes(today.startTime)
+    const end = parseHhMmToMinutes(today.endTime)
+    if (start != null && end != null) {
+      if (start < end && minutes >= start && minutes < end) return true
+      // Overnight: today's shift started before midnight and is still running.
+      if (start > end && minutes >= start) return true
+    }
+  }
+
+  // Yesterday's overnight shift spilling into today's early hours.
+  const prevWeekday = (weekday + 6) % 7
+  const prevDay = hours.days.find((d) => d.dayOfWeek === prevWeekday)
+  if (prevDay?.enabled) {
+    const start = parseHhMmToMinutes(prevDay.startTime)
+    const end = parseHhMmToMinutes(prevDay.endTime)
+    if (start != null && end != null && start > end && minutes < end) return true
+  }
+
+  return false
+}
+
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+function formatHhMmTo12h(hhmm: string): string {
+  const minutes = parseHhMmToMinutes(hhmm)
+  if (minutes == null) return hhmm
+  const h24 = Math.floor(minutes / 60)
+  const m = minutes % 60
+  const period = h24 >= 12 ? "PM" : "AM"
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`
+}
+
+function collapseDayRanges(days: number[]): string {
+  if (days.length === 0) return ""
+  const sorted = [...days].sort((a, b) => a - b)
+  const ranges: [number, number][] = []
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === prev + 1) {
+      prev = sorted[i]
+      continue
+    }
+    ranges.push([start, prev])
+    start = sorted[i]
+    prev = sorted[i]
+  }
+  ranges.push([start, prev])
+  return ranges
+    .map(([a, b]) => (a === b ? DAY_ABBR[a] : `${DAY_ABBR[a]}–${DAY_ABBR[b]}`))
+    .join(", ")
+}
+
+/** Compact "Mon–Fri 9:00 AM–5:00 PM" label for the Presence bar / Hours entry point. */
+export function summarizeWeeklyHours(hours: AccountWeeklyHours): string {
+  if (!hours.scheduleEnabled) return "Off — manual only"
+  const enabledDays = hours.days.filter((d) => d.enabled)
+  if (enabledDays.length === 0) return "No days enabled"
+  const byRange = new Map<string, number[]>()
+  for (const d of enabledDays) {
+    const key = `${d.startTime}-${d.endTime}`
+    const list = byRange.get(key) ?? []
+    list.push(d.dayOfWeek)
+    byRange.set(key, list)
+  }
+  if (byRange.size === 1) {
+    const [key, dayList] = [...byRange.entries()][0]
+    const [startTime, endTime] = key.split("-")
+    return `${collapseDayRanges(dayList)} ${formatHhMmTo12h(startTime)}–${formatHhMmTo12h(endTime)}`
+  }
+  return `${enabledDays.length} day${enabledDays.length === 1 ? "" : "s"}/week · custom hours`
+}
+
+/** "New York" from "America/New_York" — short label next to the schedule summary. */
+export function shortTimezoneLabel(timezone: string): string {
+  const parts = timezone.split("/")
+  return (parts[parts.length - 1] || timezone).replace(/_/g, " ")
 }

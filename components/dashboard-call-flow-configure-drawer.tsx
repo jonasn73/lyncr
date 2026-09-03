@@ -29,6 +29,7 @@ import type { FallbackOption } from "@/lib/dashboard-routing-utils"
 import { HoldMusicPresetPicker } from "@/components/dashboard/hold-music-preset-picker"
 import { Switch } from "@/components/ui/switch"
 import type { WeeklyHoursDay } from "@/lib/account-weekly-hours"
+import { useAccountPresence } from "@/components/dashboard/account-presence-context"
 
 const fieldClass =
   "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
@@ -155,6 +156,7 @@ export function DashboardCallFlowConfigureDrawer({
   onRegisterDiscard,
 }: DashboardCallFlowConfigureDrawerProps) {
   const { toast } = useToast()
+  const { refresh: refreshPresence } = useAccountPresence()
   const [currentTab, setCurrentTab] = useState<ConfigureTab>(initialTab)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -382,6 +384,11 @@ export function DashboardCallFlowConfigureDrawer({
       if (draft.mode === "your_phone" || draft.mode === "team_receptionist") {
         setRingTimeoutSec(snapDashboardRingTimeoutSec(draft.ringTimeout))
       }
+
+      // Hours may have just applied a new schedule (and cleared a manual lock) —
+      // refresh the Presence bar so it reflects that immediately instead of on
+      // the next poll tick.
+      if (draft.hoursScheduleEnabled) void refreshPresence()
 
       baselineRef.current = draftSnapshot(draft)
       window.dispatchEvent(
@@ -897,8 +904,9 @@ export function DashboardCallFlowConfigureDrawer({
                     <p className="text-sm font-semibold text-foreground">Auto-schedule Presence</p>
                     <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">
                       Flips Presence Available during the hours below, and Closed outside them —
-                      even if you forget to toggle it. Manually tapping Busy or Closed still
-                      overrides this until you set Available again.
+                      even if you forget to toggle it. Saving here clears any manual Busy/Closed
+                      override and applies the schedule immediately. Tapping Busy afterward will
+                      again block the schedule until you tap Available or re-save.
                     </p>
                   </div>
                   <Switch

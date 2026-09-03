@@ -3,8 +3,10 @@
 // Compact Available toggle — sits under Alerts with Caller ID on Lines.
 // On = Available (cell rings first). Off = Busy (skip phone → booking text).
 // Shows Amber “Busy until …” when set by text. Uses plain-button Switch (not Radix).
+// Also surfaces the weekly auto-schedule status so it's never a mystery whether
+// one is set, and whether a manual tap is currently blocking it.
 
-import { Loader2 } from "lucide-react"
+import { Clock, Loader2, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -28,6 +30,10 @@ export function PresenceStatusBar({
     presenceReady,
     presenceAvailableAt,
     presenceTimezone,
+    presenceLocked,
+    scheduleEnabled,
+    scheduleSummary,
+    scheduleTimezoneLabel,
     loading,
     saving,
     setPresenceStatus,
@@ -68,15 +74,6 @@ export function PresenceStatusBar({
             >
               Available
             </label>
-            {onOpenHours ? (
-              <button
-                type="button"
-                onClick={onOpenHours}
-                className="text-2xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              >
-                Set hours
-              </button>
-            ) : null}
             {/* Spinner while loading or saving — same cue as the old dual-button bar. */}
             <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
               {busySaving ? (
@@ -91,6 +88,28 @@ export function PresenceStatusBar({
                 : "Skip your phone → Available team, then hold queue"
               : "Your phone rings first"}
           </p>
+          {/* Always-visible schedule status — the only place this lived before was buried
+              in a drawer tab, so owners couldn't tell whether a schedule was set. */}
+          {onOpenHours ? (
+            <button
+              type="button"
+              onClick={onOpenHours}
+              className={cn(
+                "mt-1.5 inline-flex items-center gap-1 rounded-md text-2xs font-medium underline-offset-2 hover:underline",
+                scheduleEnabled ? "text-muted-foreground hover:text-foreground" : "text-primary"
+              )}
+            >
+              <Clock className="h-3 w-3 shrink-0" aria-hidden />
+              {scheduleEnabled ? (
+                <span>
+                  Auto-schedule: {scheduleSummary}
+                  {scheduleTimezoneLabel ? ` · ${scheduleTimezoneLabel}` : ""}
+                </span>
+              ) : (
+                <span>Set a weekly schedule →</span>
+              )}
+            </button>
+          ) : null}
           {/* Desktop-only notes — hide long copy on mobile. */}
           {isAvailable ? (
             <p className="mt-1 hidden text-2xs leading-snug text-muted-foreground md:block">
@@ -145,6 +164,23 @@ export function PresenceStatusBar({
           />
         </div>
       </div>
+      {presenceReady && presenceLocked && scheduleEnabled ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2">
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+          <p className="min-w-0 flex-1 text-2xs leading-snug text-foreground">
+            Manually set Busy is blocking your <strong>{scheduleSummary}</strong> schedule — it
+            won&apos;t auto-flip Available until you clear this.
+          </p>
+          <button
+            type="button"
+            onClick={() => void setPresenceStatus("AVAILABLE")}
+            disabled={busySaving}
+            className="shrink-0 rounded-md border border-warning/70 bg-background px-2 py-1 text-2xs font-semibold text-foreground hover:bg-warning/10 disabled:opacity-60"
+          >
+            Resume schedule
+          </button>
+        </div>
+      ) : null}
     </section>
   )
 }
