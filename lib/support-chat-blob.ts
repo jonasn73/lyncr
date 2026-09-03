@@ -6,7 +6,7 @@ import { put } from "@vercel/blob"
 export const SUPPORT_CHAT_MAX_BYTES = 10 * 1024 * 1024
 
 /** MIME types we allow for chat attachments. */
-export const SUPPORT_CHAT_ALLOWED_MIME = new Set([
+const SUPPORT_CHAT_ALLOWED_MIME = new Set([
   "image/jpeg",
   "image/png",
   "image/gif",
@@ -23,7 +23,7 @@ export const SUPPORT_CHAT_ALLOWED_MIME = new Set([
 ])
 
 /** True when Blob token is present (local .env or Vercel env). */
-export function isSupportChatBlobConfigured(): boolean {
+function isSupportChatBlobConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim())
 }
 

@@ -42,7 +42,7 @@ function normalizeToken(value: string | null | undefined): string {
 }
 
 /** Score how well a technician matches the job geography (higher = better). */
-export function scoreTechTerritoryMatch(params: {
+function scoreTechTerritoryMatch(params: {
   techUserId: string
   jobGeo: JobGeoContext
   assignedJobs: ActivePipelineJob[]

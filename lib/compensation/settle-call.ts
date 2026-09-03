@@ -116,7 +116,7 @@ async function loadSettlementRowBySid(providerCallSid: string): Promise<Settleme
   return rows[0] ? parseSettlementRow(rows[0]) : null
 }
 
-export type CallSettlementReason =
+type CallSettlementReason =
   | "no_receptionist"
   | "not_answered"
   | "no_talk_time"
@@ -231,7 +231,7 @@ async function settleRow(row: SettlementRow): Promise<CallSettlementResult> {
 }
 
 /** Settle one call by call_logs.id. */
-export async function settleCallEarningsById(callLogId: string): Promise<CallSettlementResult> {
+async function settleCallEarningsById(callLogId: string): Promise<CallSettlementResult> {
   const row = await loadSettlementRowById(callLogId)
   if (!row) return { settled: false, inserted: 0, reason: "no_receptionist" }
   return settleRow(row)

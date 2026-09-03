@@ -60,11 +60,6 @@ export function openPortServiceAddressModal() {
   window.dispatchEvent(new CustomEvent(OPEN_PORT_SERVICE_ADDRESS_MODAL_EVENT))
 }
 
-export function openSmsAutomationModal() {
-  if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent(OPEN_SMS_AUTOMATION_MODAL_EVENT))
-}
-
 export function openGetPaidModal() {
   if (typeof window === "undefined") return
   window.dispatchEvent(new CustomEvent(OPEN_GET_PAID_MODAL_EVENT))

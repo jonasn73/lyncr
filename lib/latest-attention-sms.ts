@@ -3,8 +3,6 @@
 import {
   getOnboardingProfile,
   getUser,
-  isReasonablePstnDialString,
-  normalizePhoneNumberE164,
   tryClaimLatestAttentionSmsSlot,
 } from "@/lib/db"
 import { formatPhoneDisplay } from "@/lib/dashboard-routing-utils"
@@ -16,7 +14,7 @@ import { sendTelnyxSms } from "@/lib/telnyx-sms"
 export type LatestAttentionEvent = "replied" | "job_finished" | "book_form"
 
 /** Cooldown for the same customer “replied” alert (ms). Jobs are once-only via dedupe key. */
-export const LATEST_REPLIED_COOLDOWN_MS = 2 * 60 * 60 * 1000
+const LATEST_REPLIED_COOLDOWN_MS = 2 * 60 * 60 * 1000
 
 export type NotifyLatestAttentionParams = {
   /** Business owner user id (onboarding_profiles.user_id). */
@@ -143,12 +141,4 @@ export async function notifyOwnerLatestNeedsAttention(
   }
 
   return { ok: true, sent: true, to: toE164 }
-}
-
-/** Normalize a free-typed US number to E.164 when checking “is this the owner?”. */
-export function normalizeOwnerAlertPhone(raw: string | null | undefined): string | null {
-  const trimmed = String(raw ?? "").trim()
-  if (!trimmed) return null
-  const e164 = normalizePhoneNumberE164(trimmed)
-  return isReasonablePstnDialString(e164) ? e164 : null
 }

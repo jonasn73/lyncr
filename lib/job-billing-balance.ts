@@ -4,7 +4,7 @@
  */
 
 /** Parse an editable dollars string into cents; null when empty/invalid. */
-export function parseEditablePriceDollarsToCents(raw: string): number | null {
+function parseEditablePriceDollarsToCents(raw: string): number | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
   const dollars = Number.parseFloat(trimmed)

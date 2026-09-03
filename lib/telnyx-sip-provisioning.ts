@@ -20,7 +20,7 @@ export function readTelnyxApiKey(): string | null {
 }
 
 /** The Credential Connection every per-agent telephony credential is created under. */
-export function readTelnyxCredentialConnectionId(): string | null {
+function readTelnyxCredentialConnectionId(): string | null {
   return process.env.TELNYX_CREDENTIAL_CONNECTION_ID?.trim() || null
 }
 

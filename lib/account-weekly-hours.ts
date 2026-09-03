@@ -33,7 +33,7 @@ function defaultDays(): WeeklyHoursDay[] {
   }))
 }
 
-export const DEFAULT_ACCOUNT_WEEKLY_HOURS: AccountWeeklyHours = {
+const DEFAULT_ACCOUNT_WEEKLY_HOURS: AccountWeeklyHours = {
   scheduleEnabled: false,
   timezone: DEFAULT_TIMEZONE,
   days: defaultDays(),
@@ -188,7 +188,7 @@ export async function setAccountWeeklyHours(
 }
 
 /** Weekday (0 = Sunday … 6 = Saturday) local to an IANA timezone. */
-export function localWeekdayInZone(now: Date, timeZone: string): number {
+function localWeekdayInZone(now: Date, timeZone: string): number {
   try {
     const label = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(now)
     const order = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

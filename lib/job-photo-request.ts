@@ -98,17 +98,17 @@ function mapTokenRow(row: Record<string, unknown>): JobPhotoTokenRow {
   }
 }
 
-export function createJobPhotoTokenId(): string {
+function createJobPhotoTokenId(): string {
   return randomBytes(12).toString("base64url")
 }
 
-export function buildJobPhotoUploadUrl(tokenId: string): string {
+function buildJobPhotoUploadUrl(tokenId: string): string {
   const base = getAppUrl().replace(/\/+$/, "")
   // Public Pending Info Intake landing page.
   return `${base}/intake-rescue?t=${encodeURIComponent(tokenId)}`
 }
 
-export function jobPhotoFileUrl(photoId: string): string {
+function jobPhotoFileUrl(photoId: string): string {
   const base = getAppUrl().replace(/\/+$/, "")
   return `${base}/api/intake/photos/${encodeURIComponent(photoId)}`
 }

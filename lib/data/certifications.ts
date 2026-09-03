@@ -1,6 +1,6 @@
 // Core certification quiz datasets — source of truth for training UI and server-side grading.
 
-export type CertificationQuestion = {
+type CertificationQuestion = {
   id: string
   question: string
   options: string[]
@@ -15,7 +15,7 @@ export type CertificationConfig = {
 }
 
 /** Quiz questions safe for the browser — correct answers never sent to the client. */
-export type PublicCertificationQuestion = Omit<CertificationQuestion, "correct_answer">
+type PublicCertificationQuestion = Omit<CertificationQuestion, "correct_answer">
 
 export type PublicCertificationConfig = Omit<CertificationConfig, "questions"> & {
   questions: PublicCertificationQuestion[]
@@ -86,7 +86,7 @@ export const certificationsData: CertificationConfig[] = [
   },
 ]
 
-export function getCertificationByCode(certificationCode: string): CertificationConfig | null {
+function getCertificationByCode(certificationCode: string): CertificationConfig | null {
   const key = certificationCode.trim().toLowerCase()
   if (!key) return null
   return certificationsData.find((entry) => entry.certification_code.toLowerCase() === key) ?? null
@@ -97,7 +97,7 @@ export function getCertificationDatasetEntry(idOrCode: string): CertificationCon
   return getCertificationByCode(idOrCode)
 }
 
-export function stripCertificationForClient(entry: CertificationConfig): PublicCertificationConfig {
+function stripCertificationForClient(entry: CertificationConfig): PublicCertificationConfig {
   return {
     certification_code: entry.certification_code,
     title: entry.title,

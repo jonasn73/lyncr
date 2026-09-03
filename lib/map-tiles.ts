@@ -5,7 +5,7 @@ import type { Map as LeafletMap } from "leaflet"
 type LeafletModule = typeof import("leaflet")
 
 /** Read Mapbox token from public env (supports legacy NEXT_PUBLIC_MAP_TOKEN alias). */
-export function mapboxAccessToken(): string | null {
+function mapboxAccessToken(): string | null {
   if (typeof window !== "undefined") {
     return (
       process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() ||

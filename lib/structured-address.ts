@@ -46,23 +46,6 @@ export function structuredAddressValidationError(addr: Partial<StructuredAddress
   return null
 }
 
-/** Flatten structured address into ai_leads.collected keys. */
-export function structuredAddressToCollected(addr: StructuredAddress): Record<string, string | number | null> {
-  return {
-    job_address: addr.formatted,
-    location: addr.formatted,
-    service_address: addr.formatted,
-    job_address_full: addr.formatted,
-    job_address_street_number: addr.street_number,
-    job_address_route: addr.route,
-    job_address_locality: addr.locality,
-    job_address_postal_code: addr.postal_code,
-    job_address_admin_area: addr.admin_area,
-    ...(addr.lat != null ? { customer_lat: addr.lat } : {}),
-    ...(addr.lng != null ? { customer_lng: addr.lng } : {}),
-  }
-}
-
 /** Parse Nominatim addressdetails payload into our canonical shape. */
 export function structuredAddressFromNominatim(hit: {
   display_name?: string
@@ -128,7 +111,7 @@ export function structuredAddressFromPhoton(feature: {
 }
 
 /** Leading street number typed before the street name, e.g. "755" in "755 Eddie Miles Rd". */
-export function extractLeadingStreetNumber(query: string): string | null {
+function extractLeadingStreetNumber(query: string): string | null {
   const match = query.trim().match(/^(\d+[A-Za-z-]?)\s+/)
   return match?.[1] ?? null
 }

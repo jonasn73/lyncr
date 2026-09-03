@@ -8,10 +8,6 @@ import {
 
 export { SCHEDULER_LIST_CARD_SHELL }
 
-/** Louisville, KY — default map center for Key Squad / local field ops. */
-export const LOUISVILLE_MAP_CENTER = { lat: 38.2527, lng: -85.7585 } as const
-export const LOUISVILLE_DEFAULT_ZOOM = 11
-
 export type SchedulerLifecyclePhase =
   | "unassigned"
   | "scheduled"
@@ -147,7 +143,7 @@ export const OPERATOR_JOB_PHASE_BADGE_STYLE: Record<OperatorJobPhase, string> = 
 }
 
 /** Map operator phase → existing scheduler board phase (cards / map pins). */
-export function operatorPhaseToSchedulerPhase(
+function operatorPhaseToSchedulerPhase(
   phase: OperatorJobPhase
 ): SchedulerLifecyclePhase {
   switch (phase) {
@@ -269,21 +265,3 @@ export const PIPELINE_PANEL_GROUP_TITLE: Record<SchedulerLifecyclePhase, string>
   completed: "Done",
 }
 
-/** Pin fill color for numbered route stops on the map. */
-export const SCHEDULER_MAP_PIN_COLOR: Record<SchedulerLifecyclePhase, string> = {
-  unassigned: "#f97316",
-  scheduled: "#14b8a6",
-  en_route: "#38bdf8",
-  on_site: "#eab308",
-  paused: "#f97316",
-  completed: "#22c55e",
-}
-
-export function isActiveMapJob(phase: SchedulerLifecyclePhase): boolean {
-  return phase !== "completed"
-}
-
-/** Completed jobs render as a faint checkmark instead of a route stop. */
-export function isCompletedMapJob(phase: SchedulerLifecyclePhase): boolean {
-  return phase === "completed"
-}

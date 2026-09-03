@@ -17,7 +17,7 @@ import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/li
 import type { MissedLeadCallRow, MissedLeadHotProspect } from "@/lib/missed-lead-aggregation"
 
 /** Cookie + session scope for the MISSED ticker sublabel seed. */
-export const MISSED_LEADS_CACHE_SCOPE = "missed-lead-insights"
+const MISSED_LEADS_CACHE_SCOPE = "missed-lead-insights"
 export const MISSED_LEADS_CACHE_KEY = persistedCacheKey(MISSED_LEADS_CACHE_SCOPE, "banner")
 export const MISSED_LEADS_COOKIE = paintSeedCookieName(MISSED_LEADS_CACHE_SCOPE)
 
@@ -39,11 +39,6 @@ export type MissedLeadsPaintSeed = {
   localDayPeriodKey?: string
   /** epoch ms when this seed was written — drops stale-but-same-day seeds (see routing-telemetry-cache). */
   fetchedAtMs?: number
-}
-
-const EMPTY_SEED: MissedLeadsPaintSeed = {
-  uniqueLeadsToday: 0,
-  totalMissedToday: 0,
 }
 
 /**
@@ -163,4 +158,3 @@ export function writeMissedLeadsCache(next: MissedLeadsSessionCache): void {
   } satisfies MissedLeadsPaintSeed)
 }
 
-export { EMPTY_SEED as EMPTY_MISSED_LEADS_PAINT_SEED }

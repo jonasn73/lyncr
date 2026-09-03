@@ -131,7 +131,7 @@ export function dateAtLocalHour(day: Date, hour24: number, minutes = 0): Date {
 }
 
 /** Value for `<input type="datetime-local">` in local timezone. */
-export function toDatetimeLocalValue(d: Date): string {
+function toDatetimeLocalValue(d: Date): string {
   const y = d.getFullYear()
   const mo = String(d.getMonth() + 1).padStart(2, "0")
   const da = String(d.getDate()).padStart(2, "0")

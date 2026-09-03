@@ -20,15 +20,8 @@ import {
 import { hasOwnerOnActiveLiveCall } from "@/lib/owner-live-call"
 
 export type {
-  InboundDialReason,
-  InboundDialHopType,
-  InboundDialHop,
   InboundDialPlanResult,
-  PlanInboundDialInputs,
-  InboundCaptureKind,
 } from "@/lib/inbound-dial-plan-core"
-
-export { planInboundDial, deriveRingsNowStrip } from "@/lib/inbound-dial-plan-core"
 
 /**
  * Async resolver used by Call Control + TeXML — loads mode, capture plan, teammates, then plans.

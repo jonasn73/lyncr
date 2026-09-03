@@ -8,7 +8,7 @@ import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 export type AdminLedgerEntryType = "CHARGE" | "REVERSAL" | "PAYOUT" | "FEE"
 export type AdminLedgerStatus = "PENDING" | "COMPLETED" | "FAILED"
 
-export type AdminLedgerRow = {
+type AdminLedgerRow = {
   id: string
   ownerUserId: string | null
   businessName: string

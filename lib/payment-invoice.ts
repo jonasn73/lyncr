@@ -49,7 +49,7 @@ function fmtUsd(cents: number): string {
 }
 
 /** Short human invoice # from the PaymentIntent id (e.g. INV-3F2A9C1B). */
-export function invoiceNumberFromIntentId(paymentIntentId: string): string {
+function invoiceNumberFromIntentId(paymentIntentId: string): string {
   const bare = paymentIntentId.replace(/^pi_/, "").toUpperCase()
   const tail = bare.slice(-8) || bare.slice(0, 8) || "RECEIPT"
   return `INV-${tail}`
@@ -204,7 +204,7 @@ export function formatInvoiceMoney(cents: number): string {
 }
 
 /** How the customer paid — prefers “Paid via Venmo” style notes. */
-export function invoicePaidHowLabel(invoice: PaymentInvoice): string {
+function invoicePaidHowLabel(invoice: PaymentInvoice): string {
   const note = (invoice.paidNote || "").trim()
   if (note) return note
   return `Paid via ${invoice.paymentMethodLabel}`
@@ -229,7 +229,7 @@ export function paymentInvoiceFromAddress(businessName: string): string {
 }
 
 /** Absolute PDF download URL for this invoice (works in email + SMS). */
-export function paymentInvoicePdfUrl(invoice: PaymentInvoice): string {
+function paymentInvoicePdfUrl(invoice: PaymentInvoice): string {
   const token =
     invoice.receiptUrl.split("/r/").pop()?.split(/[?#]/)[0]?.trim() || ""
   const appRoot = invoice.receiptUrl.replace(/\/r\/[^/?#]+.*$/, "").replace(/\/$/, "")

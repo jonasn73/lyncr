@@ -1,10 +1,6 @@
 // Session-scoped cache for routing telemetry — instant paint on hard refresh.
 
-import {
-  formatTalkTime,
-  telemetryMonthPeriodKey,
-  telemetryWeekPeriodKey,
-} from "@/lib/daily-call-telemetry"
+import { telemetryMonthPeriodKey, telemetryWeekPeriodKey } from "@/lib/daily-call-telemetry"
 import { localDateTimePartsInZone } from "@/lib/schedule-blockouts"
 import {
   DEFAULT_TELEMETRY_TIMEZONE,
@@ -22,7 +18,7 @@ import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/li
 export { parseTalkSecondsFromDisplay } from "@/lib/telemetry-formatters"
 
 /** Cookie scope — compact snapshot for SSR hard refresh. */
-export const ROUTING_TELEMETRY_COOKIE_SCOPE = "routing-telemetry"
+const ROUTING_TELEMETRY_COOKIE_SCOPE = "routing-telemetry"
 export const ROUTING_TELEMETRY_COOKIE = paintSeedCookieName(ROUTING_TELEMETRY_COOKIE_SCOPE)
 
 type TelemetryPaintCookie = {
@@ -85,7 +81,7 @@ function isTelemetrySeedFresh(snapshot: RoutingTelemetrySnapshot, now: number): 
 }
 
 /** Build the sessionStorage key for a workspace org. */
-export function routingTelemetryCacheKey(organizationId: string | null): string {
+function routingTelemetryCacheKey(organizationId: string | null): string {
   return persistedCacheKey("routing-telemetry", organizationId ?? "default")
 }
 
@@ -238,16 +234,5 @@ export function emptyRoutingTelemetrySnapshot(): RoutingTelemetrySnapshot {
     avgDispatchSpeedMinutes: null,
     rescueRevenueCents: 0,
     ownerUserId: null,
-  }
-}
-
-/** Derived labels for pills — always computed from live seconds. */
-export function telemetryTalkDisplays(
-  snapshot: Pick<RoutingTelemetrySnapshot, "dailyTalkSeconds" | "weeklyTalkSeconds" | "monthlyTalkSeconds">
-) {
-  return {
-    dailyTalkDisplay: formatTalkTime(snapshot.dailyTalkSeconds),
-    weeklyTalkDisplay: formatTalkTime(snapshot.weeklyTalkSeconds),
-    monthlyTalkDisplay: formatTalkTime(snapshot.monthlyTalkSeconds),
   }
 }

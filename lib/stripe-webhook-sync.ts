@@ -28,7 +28,7 @@ import { resolveUserIdFromStripeObject } from "@/lib/stripe-user-resolve"
 export type { ProvisionLineResult } from "@/lib/provision-line-types"
 
 /** Read subscription tier from Stripe subscription line items. */
-export function resolveSubscriptionTierFromStripeSubscription(
+function resolveSubscriptionTierFromStripeSubscription(
   subscription: Stripe.Subscription
 ): SubscriptionTier | null {
   for (const item of subscription.items?.data ?? []) {
@@ -49,7 +49,6 @@ function stripePeriodToIso(unixSec: number | null | undefined): string | null {
   return new Date(unixSec * 1000).toISOString()
 }
 
-export { resolveUserIdFromStripeObject } from "@/lib/stripe-user-resolve"
 
 function mapPurchaseFailure(
   requestedE164: string,

@@ -5,7 +5,7 @@
 // request (PII-redacted). Use with fixtures in tests/ to match production behavior.
 
 /** True when extended diagnostic JSON should be logged (in addition to `zing: telnyx-fallback`). */
-export function isTelnyxFallbackDiagnosticEnabled(): boolean {
+function isTelnyxFallbackDiagnosticEnabled(): boolean {
   const v = process.env.ZING_TELNYX_FALLBACK_DIAGNOSTIC
   return v === "1" || v === "true"
 }

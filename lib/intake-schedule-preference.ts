@@ -11,7 +11,7 @@ import {
 } from "@/lib/book-customer-request"
 
 /** Operator urgency on the Schedule step (empty until they tap a chip). */
-export type IntakeScheduleUrgency = "" | BookUrgency
+type IntakeScheduleUrgency = "" | BookUrgency
 
 /** Fields the Schedule step reads/writes on the active-call form. */
 export type IntakeScheduleFields = {

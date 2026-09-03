@@ -38,7 +38,7 @@ export type VehicleDecodeVehicle = {
 }
 
 /** One selectable key / remote in the unified decode response. */
-export type VehicleDecodeKeyEntry = {
+type VehicleDecodeKeyEntry = {
   id: string
   fccId: string
   frequency: string | null
@@ -52,7 +52,7 @@ export type VehicleDecodeKeyEntry = {
  * Compact + full key payload returned alongside VIN/plate decode so the client
  * does not need a second /api/vehicle/key-info round-trip.
  */
-export type VehicleDecodeKeySpecs = {
+type VehicleDecodeKeySpecs = {
   fccId: string | null
   frequency: string | null
   keys: VehicleDecodeKeyEntry[]
@@ -90,7 +90,7 @@ export type BuildUnifiedVehicleDecodeOptions = {
 }
 
 /** Build keySpecs for a decoded Year/Make/Model (optional FCC filter). */
-export async function buildVehicleKeySpecs(
+async function buildVehicleKeySpecs(
   yearRaw: string,
   makeRaw: string,
   modelRaw: string,

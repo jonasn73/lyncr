@@ -1,5 +1,5 @@
 /** Structured result when Telnyx cannot buy the exact reserved number — user must pick a replacement. */
-export type ProvisionLineFailureReason =
+type ProvisionLineFailureReason =
   | "number_unavailable"
   | "insufficient_credit"
   | "tier_limit"

@@ -15,12 +15,12 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const LINES_CHROME_CACHE_SCOPE = "lines-chrome"
-export const LINES_CHROME_SESSION_KEY = persistedCacheKey(LINES_CHROME_CACHE_SCOPE, "chrome")
+const LINES_CHROME_CACHE_SCOPE = "lines-chrome"
+const LINES_CHROME_SESSION_KEY = persistedCacheKey(LINES_CHROME_CACHE_SCOPE, "chrome")
 export const LINES_CHROME_COOKIE = paintSeedCookieName(LINES_CHROME_CACHE_SCOPE)
 
 /** One line row — trimmed for the 4KB cookie budget. */
-export type LinesChromeLine = {
+type LinesChromeLine = {
   number: string
   status: string
   label?: string

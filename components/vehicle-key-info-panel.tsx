@@ -167,7 +167,7 @@ type KeyInfoPayload = {
 }
 
 /** Exported for Fast Lookup / plate+VIN decode preload into this panel. */
-export type VehicleKeyInfoPayload = KeyInfoPayload
+type VehicleKeyInfoPayload = KeyInfoPayload
 
 /** Preloaded key bundle from unified vin-decode / plate-lookup (skips a second key-info fetch). */
 export type PreloadedVehicleKeyBundle = {

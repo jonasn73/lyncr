@@ -25,7 +25,7 @@ export const MICROS_PER_CENT = 10_000
 
 export type EmploymentType = "W2_EMPLOYEE" | "CONTRACTOR_1099" | "UNSPECIFIED"
 
-export type WorkerRole = "receptionist" | "field_tech"
+type WorkerRole = "receptionist" | "field_tech"
 
 export type PayComponentKind = "TIME" | "PER_EVENT" | "COMMISSION" | "MINIMUM_WAGE_TOPUP"
 
@@ -33,9 +33,9 @@ export type PayComponentKind = "TIME" | "PER_EVENT" | "COMMISSION" | "MINIMUM_WA
 export type TimeUnit = "SECOND" | "MINUTE" | "HOUR"
 
 /** TALK = answered_at → ended_at on a call. ON_SHIFT = clocked time (work_shifts, 146). */
-export type TimeBasis = "TALK" | "ON_SHIFT"
+type TimeBasis = "TALK" | "ON_SHIFT"
 
-export type PayEventName = "ANSWERED_CALL" | "BOOKED_JOB" | "COMPLETED_JOB"
+type PayEventName = "ANSWERED_CALL" | "BOOKED_JOB" | "COMPLETED_JOB"
 
 /**
  * Which money on a job the commission percentage applies to.
@@ -50,7 +50,7 @@ export type CommissionBasis = "COLLECTED_TOTAL" | "SUBTOTAL_EXCL_TAX" | "LABOR_O
 export type CommissionCondition = "BOOKED" | "COMPLETED" | "PAID"
 
 /** Pay for time — per second, per minute, or per hour. */
-export interface TimePayComponent {
+interface TimePayComponent {
   kind: "TIME"
   unit: TimeUnit
   basis: TimeBasis
@@ -61,7 +61,7 @@ export interface TimePayComponent {
 }
 
 /** A flat amount each time something happens. */
-export interface PerEventPayComponent {
+interface PerEventPayComponent {
   kind: "PER_EVENT"
   event: PayEventName
   amount_micros: number
@@ -70,7 +70,7 @@ export interface PerEventPayComponent {
 }
 
 /** A percentage of a job's money, gated on the job reaching certain states. */
-export interface CommissionPayComponent {
+interface CommissionPayComponent {
   kind: "COMMISSION"
   /** Basis points. 500 = 5.00%. */
   rate_bps: number
@@ -86,7 +86,7 @@ export interface CommissionPayComponent {
  * hours worked, and talk-time-only pay does not clear minimum wage on a slow shift.
  * Requires shift data (work_shifts, 146) to mean anything.
  */
-export interface MinimumWageTopUpComponent {
+interface MinimumWageTopUpComponent {
   kind: "MINIMUM_WAGE_TOPUP"
   /** The applicable floor — federal, state, or local, whichever is highest. */
   hourly_floor_micros: number

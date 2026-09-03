@@ -4,14 +4,14 @@
 //
 // Docs: https://developers.telnyx.com/docs/messaging/10dlc
 
-import { getTelnyxApiKey, telnyxHeaders, findTelnyxPhoneNumberId } from "@/lib/telnyx-config"
+import { getTelnyxApiKey, telnyxHeaders } from "@/lib/telnyx-config"
 import { getAppUrl } from "@/lib/telnyx"
 import type { TenDlcEntityType } from "@/lib/types"
 
 const TELNYX_BASE = "https://api.telnyx.com/v2"
 
 /** Public webhook URL Telnyx should hit for brand/campaign status updates. */
-export function telnyx10DlcWebhookUrl(): string {
+function telnyx10DlcWebhookUrl(): string {
   return `${getAppUrl().replace(/\/$/, "")}/api/webhooks/telnyx`
 }
 
@@ -54,7 +54,7 @@ export const TEN_DLC_USE_CASES: Record<TenDlcUseCaseKey, TenDlcUseCaseMeta> = {
 }
 
 /** $4 one-time TCR brand registration fee (non-refundable). */
-export const TEN_DLC_BRAND_FEE_CENTS = 400
+const TEN_DLC_BRAND_FEE_CENTS = 400
 
 export function tenDlcUseCaseMeta(useCase: string | null | undefined): TenDlcUseCaseMeta | null {
   if (!useCase) return null
@@ -210,13 +210,13 @@ export type CreateCampaignInput = {
 }
 
 /** TCR-required auto-reply when a subscriber texts STOP. */
-export function buildTenDlcOptoutMessage(businessName: string): string {
+function buildTenDlcOptoutMessage(businessName: string): string {
   const biz = businessName.trim() || "this business"
   return `${biz}: You are unsubscribed and will receive no further messages. Reply START to resubscribe.`
 }
 
 /** Support contact used in HELP auto-replies (prefer brand website when provided). */
-export function tenDlcSupportContact(opts?: { website?: string | null; email?: string | null }): {
+function tenDlcSupportContact(opts?: { website?: string | null; email?: string | null }): {
   supportUrl: string
   supportEmail: string
 } {
@@ -246,7 +246,7 @@ export function buildTenDlcHelpMessage(
 }
 
 /** Telnyx requires comma-separated keywords with no spaces (e.g. STOP,UNSUBSCRIBE). */
-export function normalizeTenDlcKeywords(raw: string): string {
+function normalizeTenDlcKeywords(raw: string): string {
   return raw
     .split(",")
     .map((k) => k.trim().replace(/\s+/g, ""))
@@ -407,7 +407,7 @@ export function effectiveTelnyx10DlcCampaignId(reg: {
   return campaignId
 }
 
-export type Telnyx10DlcCampaignRegistryRow = {
+type Telnyx10DlcCampaignRegistryRow = {
   campaignId: string
   raw: string
   normalized: TenDlcRegistryStatus["normalized"]
@@ -415,7 +415,7 @@ export type Telnyx10DlcCampaignRegistryRow = {
 }
 
 /** GET /10dlc/campaign?brandId= — list campaigns so we can read TCR_FAILED even without a stored campaign id. */
-export async function listTelnyx10DlcCampaignsForBrand(
+async function listTelnyx10DlcCampaignsForBrand(
   brandId: string
 ): Promise<Telnyx10DlcCampaignRegistryRow[]> {
   try {
@@ -557,7 +557,7 @@ export async function getTelnyx10DlcBrandStatus(brandId: string): Promise<TenDlc
 }
 
 /** GET /10dlc/campaign/{id} — current registry status of a campaign. */
-export async function getTelnyx10DlcCampaignStatus(
+async function getTelnyx10DlcCampaignStatus(
   campaignId: string
 ): Promise<TenDlcRegistryStatus | null> {
   try {
@@ -628,5 +628,3 @@ export async function getTelnyx10DlcRegistrationFeeCents(useCase: TenDlcUseCaseK
   }
   return meta.fallbackFeeCents
 }
-
-export { findTelnyxPhoneNumberId }

@@ -56,7 +56,7 @@ function mapDataCacheKey(
 }
 
 /** Stable SWR key for the single Dispatch Map page. */
-export function dispatchMapDataKey(
+function dispatchMapDataKey(
   organizationId: string | null | undefined,
   includeLeads = false
 ): string {

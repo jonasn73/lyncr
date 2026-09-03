@@ -10,7 +10,7 @@ export const AI_TRANSCRIPT_DRAFT_BULLET =
   "🤖 [AI Transcript Draft Summary]: Customer reports..."
 
 /** True when notes already contain our stub marker (avoid duplicates). */
-export function notesIncludeAiTranscriptDraft(notes: string): boolean {
+function notesIncludeAiTranscriptDraft(notes: string): boolean {
   return notes.includes("[AI Transcript Draft Summary]")
 }
 

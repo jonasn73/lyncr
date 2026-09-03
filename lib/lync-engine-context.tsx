@@ -366,7 +366,7 @@ export function LyncEngineProvider({ children }: { children: ReactNode }) {
   return <LyncEngineContext.Provider value={value}>{children}</LyncEngineContext.Provider>
 }
 
-export function useLyncEngine(): LyncEnginePublicState {
+function useLyncEngine(): LyncEnginePublicState {
   const ctx = useContext(LyncEngineContext)
   if (!ctx) {
     throw new Error("useLyncEngine must be used within LyncEngineProvider")

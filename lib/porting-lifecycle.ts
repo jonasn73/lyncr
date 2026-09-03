@@ -17,7 +17,7 @@ export type OwnerPortingPipelineStep = {
   state: "complete" | "current" | "upcoming" | "failed"
 }
 
-export const OWNER_PORTING_PIPELINE = [
+const OWNER_PORTING_PIPELINE = [
   { key: "submitted", label: "Submitted" },
   { key: "carrier_intake", label: "Carrier Intake" },
   { key: "action_verifying", label: "Action Required / Verifying" },
@@ -121,15 +121,4 @@ export function buildOwnerPortingPipeline(
     else if (idx === active) state = "current"
     return { ...step, state }
   })
-}
-
-export function portingBannerMessage(order: PortingOrder, phase: PortingBannerPhase): string {
-  const phone = order.phone_number
-  if (phase === "rejected") {
-    return `❌ Transfer Overdue/Rejected: Click to fix credentials and resubmit.`
-  }
-  if (phase === "action_needed") {
-    return `⚠️ Carrier Response Needed: The transfer desk requested information for ${phone} to avoid rejection. Click to read carrier updates.`
-  }
-  return `🚚 Number Transfer in Progress: ${phone} is transferring onto Lyncr. Tracking status...`
 }

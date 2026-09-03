@@ -9,15 +9,14 @@ import {
   readPaintSeedCookie,
   readPaintSeedCookieValue,
   writePaintSeedCookie,
-  clearPaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { resolveStablePlaceLine } from "@/lib/settled-paint"
 
-export const MAP_POOL_PAINT_SCOPE = "map-pool-v3"
+const MAP_POOL_PAINT_SCOPE = "map-pool-v3"
 export const MAP_POOL_PAINT_COOKIE = paintSeedCookieName(MAP_POOL_PAINT_SCOPE)
 
-export type MapPoolPaintRow = {
+type MapPoolPaintRow = {
   id: string
   n: string
   pl: string
@@ -78,7 +77,7 @@ function getLocalStorage(): Storage | null {
 }
 
 /** Persist full streets by job id (survives session TTL; fills cookie gaps). */
-export function writeMapPoolPlaceIndex(
+function writeMapPoolPlaceIndex(
   jobs: UnassignedPoolJob[],
   organizationId: string | null = null
 ): void {
@@ -222,10 +221,6 @@ export function writeMapPoolPaintSeed(
     if (writePaintSeedCookie(MAP_POOL_PAINT_SCOPE, payload)) return
     n -= 1
   }
-}
-
-export function clearMapPoolPaintSeed(): void {
-  clearPaintSeedCookie(MAP_POOL_PAINT_SCOPE)
 }
 
 export function readMapPoolPaintFromCookieRaw(

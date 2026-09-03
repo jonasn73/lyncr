@@ -12,7 +12,7 @@ import { SANDBOX_OWNER_EMAIL, SANDBOX_TEST_RECEPTIONIST_EMAIL } from "@/lib/sand
 import type { Receptionist, User } from "@/lib/types"
 
 /** Business-owner vs receptionist portal account. */
-export type AccountRole = "owner" | "receptionist"
+type AccountRole = "owner" | "receptionist"
 
 export type ReceptionistPortalContext = {
   portal_user: User

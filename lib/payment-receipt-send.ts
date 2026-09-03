@@ -13,8 +13,6 @@ import {
 } from "@/lib/payment-invoice"
 import { loadOwnedPaymentIntent } from "@/lib/payment-intent-access"
 
-export { loadOwnedPaymentIntent } from "@/lib/payment-intent-access"
-
 export type SendPaymentReceiptInput = {
   userId: string
   paymentIntentId: string

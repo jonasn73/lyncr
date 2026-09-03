@@ -16,7 +16,7 @@ import {
 import { collectPortingStatuses, pickBestPortingStatus } from "@/lib/telnyx-porting-status"
 
 /** Telnyx porting webhook event types we handle in Lyncr. */
-export const TELNYX_PORTING_WEBHOOK_EVENTS = new Set([
+const TELNYX_PORTING_WEBHOOK_EVENTS = new Set([
   "porting_order.status_changed",
   "porting_order.comment_created",
   "sub_request.exception",
@@ -178,7 +178,7 @@ export function buildPortingNotificationTitle(eventType: string): string {
 }
 
 /** Telnyx events that can mark a port order rejected. */
-export function isPortRejectionEventType(eventType: string): boolean {
+function isPortRejectionEventType(eventType: string): boolean {
   const lower = eventType.toLowerCase()
   return lower.includes("porting_order.rejected") || lower.endsWith(".rejected")
 }
@@ -259,7 +259,7 @@ export function isPortRejectionWebhook(body: Record<string, unknown>): boolean {
 }
 
 /** Carrier / Telnyx porting desk left a comment (admin or system user_type in payload). */
-export function hasCarrierAgentAuthor(body: Record<string, unknown>): boolean {
+function hasCarrierAgentAuthor(body: Record<string, unknown>): boolean {
   return deepFindPortingCommentUserType(body) != null
 }
 

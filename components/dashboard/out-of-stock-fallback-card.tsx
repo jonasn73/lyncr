@@ -22,7 +22,7 @@ import {
   type KeyInventoryApiRow,
 } from "@/lib/key-inventory-shared"
 
-export type StockFallbackIntakePayload = {
+type StockFallbackIntakePayload = {
   caller_e164: string
   customer_name: string
   address_line1?: string | null

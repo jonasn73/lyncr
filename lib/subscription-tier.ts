@@ -10,7 +10,7 @@ export const SUBSCRIPTION_TIER_ORDER: SubscriptionTier[] = [
 ]
 
 /** Max active business numbers per tier. */
-export const TIER_ACTIVE_NUMBER_LIMIT: Record<SubscriptionTier, number> = {
+const TIER_ACTIVE_NUMBER_LIMIT: Record<SubscriptionTier, number> = {
   free_trial: 1,
   starter: 1,
   professional: 3,

@@ -30,7 +30,7 @@ function ownerEventKind(event: OwnerChannelEvent): "inbound" | "disposition" | "
   return "other"
 }
 
-export function isSevereOwnerRoutingException(
+function isSevereOwnerRoutingException(
   event: OwnerChannelEvent,
   payload: Record<string, unknown>
 ): boolean {
@@ -46,7 +46,7 @@ export function isSevereOwnerRoutingException(
   return false
 }
 
-export function withNotificationDeliveryMeta(
+function withNotificationDeliveryMeta(
   payload: Record<string, unknown>,
   delivery: AdminNotificationDelivery
 ): Record<string, unknown> {
@@ -113,18 +113,6 @@ export function shouldSendAdminLeadSms(params: {
 export function shouldSendAdminLocalJobAssignmentSms(user: User): boolean {
   if (!user.is_platform_admin) return true
   return resolveAdminNotificationPreferences(user).sms_local_job_assignments
-}
-
-/** Gate daily revenue / talk-time digest emails. */
-export function shouldSendAdminDailyDigestEmail(user: User): boolean {
-  if (!user.is_platform_admin) return true
-  return resolveAdminNotificationPreferences(user).email_daily_revenue_digest
-}
-
-/** Gate severe routing / fallback alert emails. */
-export function shouldSendAdminSystemFallbackEmail(user: User): boolean {
-  if (!user.is_platform_admin) return true
-  return resolveAdminNotificationPreferences(user).email_system_fallback_alerts
 }
 
 /** Gate Neon/Telnyx health texts — shop owners never receive these. */

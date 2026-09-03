@@ -17,7 +17,7 @@ import {
 import { publishOwnerEvent, type OwnerChannelEvent } from "@/lib/realtime/pusher-server"
 
 /** Numeric SMS reply codes → our disposition ENUM. */
-export const DISPOSITION_BY_CODE: Record<string, LeadDisposition> = {
+const DISPOSITION_BY_CODE: Record<string, LeadDisposition> = {
   "1": "BOOKED",
   "2": "PENDING_TIME",
   "3": "PRICE_REJECTED",

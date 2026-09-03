@@ -82,7 +82,7 @@ export type ManualKeyFrequencyOption = {
  * Volvo KEY-VOL-05 split into true chip variants (was a single generic KEY-VOL-05).
  * Shown in manual bypass for classic Volvo models — not in the generic regional list.
  */
-export const VOLVO_KEY_VOL_05_PROX: ManualKeyFrequencyOption = {
+const VOLVO_KEY_VOL_05_PROX: ManualKeyFrequencyOption = {
   id: "KEY-VOL-05-PROX",
   label: "Volvo 5-Button Smart Proximity Key",
   keyStyle: "Push start (smart key)",
@@ -95,7 +95,7 @@ export const VOLVO_KEY_VOL_05_PROX: ManualKeyFrequencyOption = {
   supplierSku: "TIK-VOL-13N",
 }
 
-export const VOLVO_KEY_VOL_05_NONPROX: ManualKeyFrequencyOption = {
+const VOLVO_KEY_VOL_05_NONPROX: ManualKeyFrequencyOption = {
   id: "KEY-VOL-05-NONPROX",
   label: "Volvo 5-Button Insert-to-Start Key",
   keyStyle: "Remote head key",
@@ -114,8 +114,6 @@ export const VOLVO_KEY_VOL_05_OPTIONS: readonly ManualKeyFrequencyOption[] = [
   VOLVO_KEY_VOL_05_NONPROX,
 ]
 
-/** @deprecated Use VOLVO_KEY_VOL_05_NONPROX — kept for any leftover id checks. */
-export const VOLVO_FOBIK_5B_OPTION = VOLVO_KEY_VOL_05_NONPROX
 
 const VOLVO_KEY_VOL_05_IDS = new Set(
   VOLVO_KEY_VOL_05_OPTIONS.map((option) => option.id)

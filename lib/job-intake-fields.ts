@@ -7,14 +7,14 @@ import {
 } from "@/lib/service-quote-calculator"
 
 /** Pull origination vs duplication from a stored dispatch job type label. */
-export function parseKeyModeFromJobType(jobType: string): string {
+function parseKeyModeFromJobType(jobType: string): string {
   if (jobType.includes("Duplication")) return "Duplication"
   if (jobType.includes("Origination")) return "Origination"
   return ""
 }
 
 /** Base intake job type before the " — Origination" suffix. */
-export function parseIntakeJobTypeBase(jobType: string): string {
+function parseIntakeJobTypeBase(jobType: string): string {
   if (jobType.startsWith("Key replacement")) return "Key replacement"
   const first = jobType.split("—")[0]?.trim() || jobType.trim()
   return first || "Other"

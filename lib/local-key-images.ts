@@ -10,7 +10,7 @@ function normalizeToken(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "")
 }
 
-export function listLocalKeyImageFiles(fccId: string, publicDir: string): string[] {
+function listLocalKeyImageFiles(fccId: string, publicDir: string): string[] {
   const dir = join(publicDir, "key-images", normalizeFccIdForFilename(fccId))
   try {
     return readdirSync(dir).filter((name) => /\.(jpe?g|png|gif|webp)$/i.test(name))

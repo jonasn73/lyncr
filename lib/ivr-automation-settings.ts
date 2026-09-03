@@ -134,8 +134,6 @@ export const IVR_VOICE_PERSONA_OPTIONS = [
   },
 ] as const
 
-export type IvrVoicePersonaId = (typeof IVR_VOICE_PERSONA_OPTIONS)[number]["id"]
-
 /** True when ElevenLabs can be attempted (Vercel key and/or Telnyx secret ref). */
 export function elevenLabsKeyConfigured(): boolean {
   return elevenLabsSpeakEnabled()

@@ -76,7 +76,7 @@ async function resolvePortingOrderForWebhook(params: {
 }
 
 /** Resolve workspace owner + org from customer_reference, BTN, or Telnyx order id. */
-export async function resolvePortingWebhookOwner(
+async function resolvePortingWebhookOwner(
   body: Record<string, unknown>
 ): Promise<ResolvedPortingWebhookOwner | null> {
   const telnyxOrderId = findPortingOrderId(body)

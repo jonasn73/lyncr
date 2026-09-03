@@ -34,7 +34,7 @@ export function localKeyImagePublicPath(fccId: string, sourceUrl: string): strin
 }
 
 /** Disk path under the repo public/ folder. */
-export function localKeyImageDiskPath(publicDir: string, publicPath: string): string {
+function localKeyImageDiskPath(publicDir: string, publicPath: string): string {
   return join(publicDir, publicPath.replace(/^\//, ""))
 }
 
@@ -63,7 +63,7 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-export type MirrorImageResult = {
+type MirrorImageResult = {
   publicPath: string | null
   downloaded: boolean
   skipped: boolean
@@ -71,7 +71,7 @@ export type MirrorImageResult = {
 }
 
 /** Download one remote image into public/key-images/ (skip if already on disk). */
-export async function mirrorImageUrl(
+async function mirrorImageUrl(
   fccId: string,
   imageUrl: string | null | undefined,
   publicDir: string,

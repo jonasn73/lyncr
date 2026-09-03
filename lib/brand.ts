@@ -50,14 +50,3 @@ export const SITE_KEYWORDS = [
   "VoIP routing",
   "number porting",
 ] as const
-
-/**
- * Rebrand guardrails for copy and UI.
- */
-export const BRAND_GUIDE = {
-  voice: "Clear, confident, and beginner-friendly—like a trusted ops partner, not a telecom manual.",
-  promise:
-    "One place for calls, dispatch, CRM, and payments—so service businesses link every call to the right answer.",
-  wordmark: "Always set in lowercase: lyncr.",
-  look: "Deep ink background with teal primary signal; calm, modern field-ops energy—not purple glow or brochure cream.",
-} as const

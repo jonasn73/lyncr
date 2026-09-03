@@ -34,7 +34,7 @@ function firstString(job: PoolJobLike, keys: string[]): string | null {
 }
 
 /** Whole-dollar quote for card labels — prefers cents fields from ai_leads.collected. */
-export function resolvePoolJobPriceDollars(job: UnassignedPoolJob): number {
+function resolvePoolJobPriceDollars(job: UnassignedPoolJob): number {
   const row = job as PoolJobLike
 
   const cents = firstNumber(row, [
@@ -149,7 +149,7 @@ export function resolvePoolJobBookingPriority(
 }
 
 /** Creation timestamp from pool job row (supports snake_case + camelCase). */
-export function resolvePoolJobCreatedAt(job: UnassignedPoolJob): Date | null {
+function resolvePoolJobCreatedAt(job: UnassignedPoolJob): Date | null {
   const row = job as PoolJobLike
   const raw = readString(job.created_at) ?? firstString(row, ["createdAt"])
   if (!raw) return null
@@ -230,7 +230,7 @@ export function formatPoolJobScheduledWindowLabel(
   })
 }
 
-export function comparePoolJobsByBookingPriority(
+function comparePoolJobsByBookingPriority(
   a: UnassignedPoolJob,
   b: UnassignedPoolJob,
   now: Date = new Date()

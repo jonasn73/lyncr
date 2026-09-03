@@ -46,7 +46,7 @@ import {
 } from "@/lib/daily-call-telemetry"
 
 /** Tracks one ringing/connected leg until call-completed removes it. */
-export type ActiveCallSession = {
+type ActiveCallSession = {
   callSid: string
   toNumberDigits: string
   /** Set on call-answered — drives live talk-time ticks before hangup. */

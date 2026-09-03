@@ -43,7 +43,7 @@ export function telnyxHeaders(): Record<string, string> {
 }
 
 /** Preferred alias — same as getAppUrl. */
-export function getLyncrAppUrl(): string {
+function getLyncrAppUrl(): string {
   return getAppUrl()
 }
 
@@ -91,7 +91,7 @@ export async function getOrCreateOutboundVoiceProfile(): Promise<string> {
 }
 
 /** Telnyx pass-2 routing webhook (`lyncrGreet=1` after instant edge greet). */
-export function getInboundTexmlVoiceUrl(appUrl: string): string {
+function getInboundTexmlVoiceUrl(appUrl: string): string {
   return `${appUrl.replace(/\/$/, "")}/api/voice/telnyx/incoming`
 }
 

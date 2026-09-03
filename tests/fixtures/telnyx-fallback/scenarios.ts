@@ -7,7 +7,7 @@ import type { RoutingConfig, User } from "@/lib/types"
 import type { IncomingRoutingRow } from "@/lib/db"
 
 /** What mocked DB/lifecycle return for this request. */
-export type TelnyxFallbackFixtureMocks = {
+type TelnyxFallbackFixtureMocks = {
   /** The real row shape — a hand-maintained subset drifted out of date and stopped being
    *  assignable to what getIncomingRoutingByNumber returns. */
   incomingRouting: IncomingRoutingRow | null

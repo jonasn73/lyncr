@@ -9,7 +9,7 @@ function sql() {
 }
 
 /** Consider the dashboard "active" if a heartbeat arrived within this window. */
-export const DASHBOARD_ACTIVE_WINDOW_MS = 2 * 60 * 1000
+const DASHBOARD_ACTIVE_WINDOW_MS = 2 * 60 * 1000
 
 /** Solo locksmith fail-safe: always SMS the operator phone on delayed photo uploads. */
 export const PHOTO_UPLOAD_ALERT_ALWAYS_SMS = true

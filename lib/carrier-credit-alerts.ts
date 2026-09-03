@@ -1,8 +1,6 @@
 import { getOnboardingProfile, getCallLogUserIdByProviderSid, updateOnboardingProfile } from "@/lib/db"
 import { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
 
-export { LOW_CARRIER_CREDIT_THRESHOLD_USD } from "@/lib/carrier-credit-threshold"
-
 function isMissingLowBalanceNotifiedColumnError(e: unknown): boolean {
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
   return msg.includes("low_balance_notified")
@@ -61,18 +59,4 @@ export async function evaluateAndFlagLowCarrierCredit(
   }
 
   return { flagged: true, balanceUsd }
-}
-
-/** After a credit top-up, clear the Pay-tab warning when balance is healthy again. */
-export async function clearLowBalanceFlagIfToppedUp(
-  userId: string,
-  balanceUsd: number,
-  thresholdUsd = LOW_CARRIER_CREDIT_THRESHOLD_USD
-): Promise<void> {
-  if (balanceUsd < thresholdUsd) return
-  try {
-    await updateOnboardingProfile(userId, { low_balance_notified: false })
-  } catch (e) {
-    if (!isMissingLowBalanceNotifiedColumnError(e)) throw e
-  }
 }

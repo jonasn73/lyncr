@@ -9,4 +9,3 @@ export const KEY_STYLE_OPTIONS = [
   "Not sure yet",
 ] as const
 
-export type VehicleKeyStyle = (typeof KEY_STYLE_OPTIONS)[number]

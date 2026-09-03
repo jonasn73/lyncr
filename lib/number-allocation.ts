@@ -21,7 +21,7 @@ import {
 } from "@/lib/db"
 import { purchaseAndConfigureTelnyxLine } from "@/lib/telnyx-purchase-line"
 
-export type NumberPurchaseBlockReason = "tier_limit" | "insufficient_credit"
+type NumberPurchaseBlockReason = "tier_limit" | "insufficient_credit"
 
 export type NumberPurchaseGateResult =
   | {

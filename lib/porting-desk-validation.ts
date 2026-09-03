@@ -10,7 +10,7 @@ export const PORTING_PIN_FLEX_PATTERN = /^\d{4,8}$/
 export const PORTING_PIN_EIGHT_DIGIT_PATTERN = /^\d{8}$/
 
 /** Reply text — printable ASCII, no control chars Telnyx regex rejects. */
-export const PORTING_DESK_MESSAGE_PATTERN = /^[\x20-\x7E\n\r\t]{1,8000}$/
+const PORTING_DESK_MESSAGE_PATTERN = /^[\x20-\x7E\n\r\t]{1,8000}$/
 
 export type PortingDeskValidationResult =
   | { ok: true }
@@ -68,7 +68,7 @@ export function validatePortingDeskPin(pin: string, order: PortingOrder): Portin
   return { ok: true }
 }
 
-export function validatePortingDeskMessage(message: string): PortingDeskValidationResult {
+function validatePortingDeskMessage(message: string): PortingDeskValidationResult {
   const trimmed = message.trim()
   if (!trimmed) {
     return { ok: false, field: "message", message: "Enter a reply for the carrier desk." }

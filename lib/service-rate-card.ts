@@ -82,7 +82,7 @@ export type IntakePricingMetadata = {
 }
 
 /** Vehicle age surcharge tier (years old → extra cents). */
-export type ServiceRateVehicleAgeTier = {
+type ServiceRateVehicleAgeTier = {
   min_age_years: number
   cents: number
   label?: string

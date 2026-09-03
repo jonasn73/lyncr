@@ -9,9 +9,6 @@ import { looksLikePinPasscodeRejection } from "@/lib/telnyx-porting-webhook"
 import { normalizeTelnyxPortStatus } from "@/lib/telnyx-porting-status"
 import type { PortingOrder } from "@/lib/types"
 
-/** @deprecated Use PORTING_PIN_FLEX_PATTERN from porting-desk-validation */
-export const PORTING_PIN_PATTERN = PORTING_PIN_FLEX_PATTERN
-
 /** True when the owner entered a valid transfer PIN for this order's carrier rules. */
 export function isValidPortingPin(pin: string, order?: PortingOrder): boolean {
   if (!order) return PORTING_PIN_FLEX_PATTERN.test(pin.trim())

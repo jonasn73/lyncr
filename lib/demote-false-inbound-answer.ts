@@ -2,10 +2,7 @@
 
 import { broadcastCallCompletedBySid } from "@/lib/call-telemetry-realtime"
 import { updateCallLog } from "@/lib/db"
-import {
-  VOICEMAIL_ROUTED_TO_NAME,
-  type MissedCallRecordInput,
-} from "@/lib/missed-call-telemetry"
+import { VOICEMAIL_ROUTED_TO_NAME } from "@/lib/missed-call-telemetry"
 import type { CallType } from "@/lib/types"
 
 export type DemoteFalseInboundAnswerReason = "voicemail" | "missed" | "ai"
@@ -81,26 +78,4 @@ export function demoteFalseInboundAnswer(params: {
       console.warn("[demote-false-inbound-answer] broadcast failed:", e)
     }
   })
-}
-
-/** Shape used by intake onCompleted when applying a demotion patch. */
-export function demotionFieldsFromCompletedPayload(payload: {
-  call_type?: string | null
-  status?: string | null
-  answered_at?: string | null
-  ended_at?: string | null
-  routed_to_name?: string | null
-  duration_seconds?: number | null
-}): Pick<
-  MissedCallRecordInput,
-  "call_type" | "status" | "answered_at" | "ended_at" | "routed_to_name" | "duration_seconds"
-> {
-  return {
-    call_type: payload.call_type ?? null,
-    status: payload.status ?? null,
-    answered_at: payload.answered_at ?? null,
-    ended_at: payload.ended_at ?? null,
-    routed_to_name: payload.routed_to_name ?? null,
-    duration_seconds: payload.duration_seconds ?? null,
-  }
 }

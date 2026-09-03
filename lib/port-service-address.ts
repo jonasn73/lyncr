@@ -23,7 +23,7 @@ export type PortServiceAddressInput = {
   postal_code: string
 }
 
-export function validatePortServiceAddressInput(input: PortServiceAddressInput): string | null {
+function validatePortServiceAddressInput(input: PortServiceAddressInput): string | null {
   if (!input.street.trim()) return "Street address is required."
   if (!input.city.trim()) return "City is required."
   if (!input.state.trim()) return "State is required."

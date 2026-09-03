@@ -11,61 +11,6 @@ export type IvrMenuAction =
   | "voicemail"
   | "do_nothing"
 
-export const IVR_DIGIT1_ACTION_OPTIONS: {
-  value: IvrMenuAction
-  label: string
-  description: string
-}[] = [
-  {
-    value: "sms_link",
-    label: "Send SMS Booking Link",
-    description: "Texts a secure lyncr.app/book/[id] link to the caller, then hangs up.",
-  },
-  {
-    value: "do_nothing",
-    label: "Do Nothing",
-    description: "Thanks the caller and ends the call without sending a text.",
-  },
-]
-
-export const IVR_DIGIT2_ACTION_OPTIONS: {
-  value: IvrMenuAction
-  label: string
-  description: string
-}[] = [
-  {
-    value: "ring_phone",
-    label: "Ring Our Phone",
-    description: "Dials the owner cell (20s). If no answer, offers an SMS booking link.",
-  },
-  {
-    value: "live_booking",
-    label: "Auto-Book Next Day",
-    description: "Reserves the earliest open block tomorrow and confirms by voice.",
-  },
-  {
-    value: "do_nothing",
-    label: "Do Nothing",
-    description: "Thanks the caller and ends the call without booking a slot.",
-  },
-]
-
-/** @deprecated Use digit-specific option lists in the Greetings form. */
-export const IVR_MENU_ACTION_OPTIONS = [
-  ...IVR_DIGIT1_ACTION_OPTIONS.filter((o) => o.value === "sms_link"),
-  ...IVR_DIGIT2_ACTION_OPTIONS.filter((o) => o.value === "ring_phone" || o.value === "live_booking"),
-  {
-    value: "voicemail" as const,
-    label: "Route to Voicemail",
-    description: "Plays a short prompt and records a message.",
-  },
-  {
-    value: "do_nothing" as const,
-    label: "Do Nothing",
-    description: "Ends the call politely.",
-  },
-]
-
 export type IvrMenuSettings = {
   /** Spoken Gather prompt (also accepted as ivr_greeting in API payloads). */
   ivrGreetingText: string

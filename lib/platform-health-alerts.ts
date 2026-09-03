@@ -12,7 +12,7 @@ export type PlatformHealthStatus = LyncrAdminHealthStatus
 export type PlatformHealthAlertAction = "alert_down" | "alert_up" | "none"
 
 /** Default: do not SMS every 5-minute cron tick. */
-export const PLATFORM_HEALTH_ALERT_COOLDOWN_MS = 20 * 60 * 1000
+const PLATFORM_HEALTH_ALERT_COOLDOWN_MS = 20 * 60 * 1000
 
 /** Last known row from `platform_health_snapshots` (null fields = never seen). */
 export type PlatformHealthSnapshotLike = {

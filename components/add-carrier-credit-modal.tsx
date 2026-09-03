@@ -14,7 +14,7 @@ import { startCreditPackCheckout } from "@/lib/onboarding-profile-client"
 import { formatUsdFromCents } from "@/lib/billing-pricing"
 import { cn } from "@/lib/utils"
 
-export const ADD_CARRIER_CREDIT_MODAL_EVENT = "zing-show-add-credit-modal"
+const ADD_CARRIER_CREDIT_MODAL_EVENT = "zing-show-add-credit-modal"
 
 export type AddCreditModalDetail = {
   message?: string

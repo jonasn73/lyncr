@@ -2,7 +2,7 @@
 
 import type { PortingOrder } from "@/lib/types"
 
-export type AdminPortingPipelineStepState = "complete" | "current" | "upcoming" | "failed"
+type AdminPortingPipelineStepState = "complete" | "current" | "upcoming" | "failed"
 
 export type AdminPortingPipelineStep = {
   key: string

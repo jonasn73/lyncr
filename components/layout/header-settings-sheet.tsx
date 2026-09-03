@@ -44,8 +44,6 @@ export function peekHeaderMoneyCache(paint?: HeaderMoneyCache | null): HeaderMon
   return readHeaderMoneyCache(undefined, paint)
 }
 
-export { formatHeaderMoneyCents }
-
 function formatMoneyCents(cents: number): string {
   return formatHeaderMoneyCents(cents)
 }

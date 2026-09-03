@@ -15,10 +15,10 @@ import {
 } from "@/lib/booking-sms-guards"
 
 /** Default auto-SMS cooldown — kill duplicate press-1 / rescue / max-wait blasts. */
-export const BOOKING_SMS_COOLDOWN_MINUTES = 45
+const BOOKING_SMS_COOLDOWN_MINUTES = 45
 
 /** Build a secure /book or /b invite URL (falls back to query-string book link). */
-export async function resolveInboundBookingUrl(opts: {
+async function resolveInboundBookingUrl(opts: {
   fromE164: string
   ownerUserId: string | null
   businessLineE164?: string
@@ -44,7 +44,7 @@ export async function resolveInboundBookingUrl(opts: {
 }
 
 /** Text the booking SMS to the caller (no TeXML / Call Control side effects). */
-export async function sendInboundBookingSms(opts: {
+async function sendInboundBookingSms(opts: {
   fromE164: string
   ownerUserId: string | null
   businessLineE164: string

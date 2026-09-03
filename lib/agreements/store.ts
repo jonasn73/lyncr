@@ -25,16 +25,16 @@ function pgErrorCode(e: unknown): string {
   return e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : ""
 }
 
-export function isMissingAgreementsTable(e: unknown): boolean {
+function isMissingAgreementsTable(e: unknown): boolean {
   if (pgErrorCode(e) === "42P01") return true
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
   return msg.includes("worker_agreements") && msg.includes("does not exist")
 }
 
-export const MISSING_AGREEMENTS_MESSAGE =
+const MISSING_AGREEMENTS_MESSAGE =
   "Agreements aren't set up yet — run scripts/147-worker-agreements.sql in Neon → SQL Editor."
 
-export type AgreementStatus = "PENDING" | "SIGNED" | "DECLINED" | "VOID"
+type AgreementStatus = "PENDING" | "SIGNED" | "DECLINED" | "VOID"
 
 export interface WorkerAgreement {
   id: string
@@ -185,22 +185,6 @@ export async function getPendingAgreementForInvite(
   }
 }
 
-/** Everything a worker has signed, newest first. */
-export async function listAgreementsForWorker(workerUserId: string): Promise<WorkerAgreement[]> {
-  const sql = getSql()
-  try {
-    const rows = (await sql`
-      SELECT * FROM worker_agreements
-      WHERE worker_user_id = ${workerUserId}
-      ORDER BY created_at DESC
-    `) as Record<string, unknown>[]
-    return rows.map(parseRow)
-  } catch (e) {
-    if (isMissingAgreementsTable(e)) return []
-    throw e
-  }
-}
-
 /**
  * Sign a pending agreement.
  *
@@ -248,17 +232,6 @@ export async function signAgreement(params: {
     return rows[0] ? parseRow(rows[0]) : null
   } catch (e) {
     if (isMissingAgreementsTable(e)) throw new Error(MISSING_AGREEMENTS_MESSAGE)
-    throw e
-  }
-}
-
-/** Attach the archived PDF once it has been written to blob storage. */
-export async function attachAgreementPdf(agreementId: string, url: string): Promise<void> {
-  const sql = getSql()
-  try {
-    await sql`UPDATE worker_agreements SET pdf_blob_url = ${url} WHERE id = ${agreementId}`
-  } catch (e) {
-    if (isMissingAgreementsTable(e)) return
     throw e
   }
 }

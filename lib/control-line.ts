@@ -3,9 +3,6 @@
 // Kept after Amber was removed: the DID it used still exists on the account, and nothing
 // should pick it as the From for a customer text or show it in Lines as a business number.
 
-/** Canonical Settings label for the Amber control number. */
-export const AMBER_CONTROL_LINE_LABEL = "Amber · Lyncr"
-
 type AmberLineLike = {
   is_amber_control?: boolean | null
   label?: string | null

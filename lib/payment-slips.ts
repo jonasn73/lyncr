@@ -25,7 +25,7 @@ export type PaymentSlipRow = {
 }
 
 /** Cap signature PNG data URLs (~120KB) so we don’t blow row size. */
-export function sanitizeSignaturePng(raw: string | null | undefined): string | null {
+function sanitizeSignaturePng(raw: string | null | undefined): string | null {
   const s = (raw ?? "").trim()
   if (!s) return null
   if (!s.startsWith("data:image/png;base64,")) {

@@ -2,7 +2,7 @@
 
 import type { VehicleFactoryOption } from "@/lib/vehicle-trim-features"
 
-export type VehicleTrimHelperRule = {
+type VehicleTrimHelperRule = {
   /** Stable id (e.g. GMC_Terrain_2020). */
   id: string
   makes: string[]
@@ -41,7 +41,7 @@ function ruleMatches(
 }
 
 /** Curated dispatcher scripts — expand over time or move to DB later. */
-export const VEHICLE_TRIM_HELPER_RULES: VehicleTrimHelperRule[] = [
+const VEHICLE_TRIM_HELPER_RULES: VehicleTrimHelperRule[] = [
   {
     id: "GMC_Terrain_2020",
     makes: ["GMC"],
@@ -121,15 +121,3 @@ export function getVehicleTrimHelper(
   return null
 }
 
-/** Find the matching rule object (e.g. to apply factory options after plate decode). */
-export function findVehicleTrimHelperRule(
-  yearRaw: string | number,
-  makeRaw: string,
-  modelRaw: string
-): VehicleTrimHelperRule | null {
-  const year = typeof yearRaw === "number" ? yearRaw : Number(String(yearRaw).trim())
-  const make = makeRaw.trim()
-  const model = modelRaw.trim()
-  if (!Number.isFinite(year) || year < 1980 || !make || !model) return null
-  return VEHICLE_TRIM_HELPER_RULES.find((rule) => ruleMatches(rule, year, make, model)) ?? null
-}

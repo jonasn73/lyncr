@@ -11,7 +11,7 @@ function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
 }
 
-export const DEFAULT_BOOKING_DEPOSIT_CENTS = 2500
+const DEFAULT_BOOKING_DEPOSIT_CENTS = 2500
 /** Non-refundable special-order retainer when key is out of stock / specialty. */
 export const SPECIAL_ORDER_RETAINER_CENTS = 5000
 
@@ -65,7 +65,7 @@ export async function createBookingHold(params: {
   return { id, amountCents: amount }
 }
 
-export async function attachStripeSessionToHold(
+async function attachStripeSessionToHold(
   holdId: string,
   sessionId: string
 ): Promise<void> {

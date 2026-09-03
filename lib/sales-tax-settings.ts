@@ -10,7 +10,7 @@ export type SalesTaxSettings = {
   ratePercent: number
 }
 
-export const DEFAULT_SALES_TAX_SETTINGS: SalesTaxSettings = {
+const DEFAULT_SALES_TAX_SETTINGS: SalesTaxSettings = {
   enabledDefault: true,
   ratePercent: 6,
 }

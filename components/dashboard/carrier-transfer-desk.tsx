@@ -14,7 +14,7 @@ import { orderRequiresPinCorrection } from "@/lib/porting-pin-correction"
 import type { PortingOrder } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-export type CarrierTransferDeskSubmitPayload = {
+type CarrierTransferDeskSubmitPayload = {
   pin?: string
   message?: string
 }

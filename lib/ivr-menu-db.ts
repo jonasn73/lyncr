@@ -128,12 +128,6 @@ export async function getIvrMenuSettingsByInboundDid(
   return { ownerUserId: null, settings: { ...DEFAULT_IVR_MENU_SETTINGS } }
 }
 
-/** Fast inbound check — true when Off-duty IVR menu should answer this DID. */
-export async function isIvrMenuEnabledForInboundDid(toNumber: string): Promise<boolean> {
-  const { settings } = await getIvrMenuSettingsByInboundDid(toNumber)
-  return settings.ivrMenuEnabled === true
-}
-
 /** Upsert IVR settings on routing_config and denormalize onto phone_numbers. */
 export async function upsertIvrMenuSettings(params: {
   ownerUserId: string

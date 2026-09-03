@@ -14,7 +14,7 @@ export type AppSheetStory = {
 const dash = "/dashboard"
 
 /** Member-facing story copy for Settings + Help — who answers, backup, voice layer. */
-export const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
+const APP_SHEET_STORIES: Record<string, AppSheetStory> = {
   "profile-overview": {
     eyebrow: "Settings story",
     storyline: "This card is your business identity on the phone network: who you are, where calls land first, and what teammates hear when they pick up.",

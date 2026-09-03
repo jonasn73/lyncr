@@ -12,7 +12,7 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 
-export const SCHEDULER_PAINT_SCOPE = "scheduler-board"
+const SCHEDULER_PAINT_SCOPE = "scheduler-board"
 export const SCHEDULER_PAINT_COOKIE = paintSeedCookieName(SCHEDULER_PAINT_SCOPE)
 
 export type SchedulerPaintSeed = {

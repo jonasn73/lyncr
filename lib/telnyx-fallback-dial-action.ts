@@ -423,7 +423,7 @@ async function receptionistOutboundE164FromIncomingRow(
 }
 
 /** Dial `action` URL path segment — survives Telnyx stripping long query strings. */
-export type TelnyxFallbackPathMode = "recv" | "recv-ai" | "owner" | "owner-ai" | "network" | "network-ai"
+type TelnyxFallbackPathMode = "recv" | "recv-ai" | "owner" | "owner-ai" | "network" | "network-ai"
 
 const TELNYX_FALLBACK_PATH_MODES = new Set<string>([
   "recv",

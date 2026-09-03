@@ -27,12 +27,3 @@ export function ActivePipelinePanelSkeleton() {
     </div>
   )
 }
-
-/** Skeleton for scheduler calendar stats while bootstrap streams. */
-export function SchedulerCalendarStatsSkeleton() {
-  return (
-    <p className="mt-2 flex justify-center">
-      <span className="h-3 w-36 animate-pulse rounded bg-muted/60" />
-    </p>
-  )
-}

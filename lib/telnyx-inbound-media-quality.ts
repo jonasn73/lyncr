@@ -3,7 +3,7 @@ import { prependInboundCallerGreetingToResponseTexml } from "@/lib/inbound-brand
 import { envLyncrOrZing } from "@/lib/lyncr-env"
 
 /** G.711 μ-law (PCMU) — best PSTN clarity; comma-list allows Telnyx to offer only these codecs. */
-export function readInboundDialPreferredCodecs(): string {
+function readInboundDialPreferredCodecs(): string {
   const raw = (process.env.ZING_INBOUND_DIAL_PREFERRED_CODECS || "PCMU").trim()
   return raw || "PCMU"
 }
@@ -12,7 +12,7 @@ export function readInboundDialPreferredCodecs(): string {
  * Symmetric RTP on the outbound PSTN leg — keeps media paths aligned after the bridge.
  * Set `ZING_INBOUND_DIAL_RTP_SYMMETRIC=0` to disable if a carrier rejects the attribute.
  */
-export function readInboundDialRtpSymmetric(): boolean {
+function readInboundDialRtpSymmetric(): boolean {
   const raw = (process.env.ZING_INBOUND_DIAL_RTP_SYMMETRIC || "").trim().toLowerCase()
   if (raw === "0" || raw === "false" || raw === "no") return false
   return true
@@ -23,14 +23,14 @@ export function readInboundDialRtpSymmetric(): boolean {
  * Default off on inbound — CNG can sound like an audible “tone change” when the B-leg starts ringing.
  * Enable with `ZING_INBOUND_COMFORT_NOISE=1`.
  */
-export function readInboundComfortNoiseEnabled(): boolean {
+function readInboundComfortNoiseEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_COMFORT_NOISE || "").trim().toLowerCase()
   if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true
   return false
 }
 
 /** Adaptive jitter buffer for cellular callers (Telnyx extended media attributes). Default off — can cause garbled audio on some carriers. */
-export function readInboundJitterBufferConfig(): {
+function readInboundJitterBufferConfig(): {
   enabled: boolean
   mode: "adaptive"
   minMs: number
@@ -49,7 +49,7 @@ export function readInboundJitterBufferConfig(): {
 }
 
 /** Extra Telnyx media attributes shared by `<Dial>` and `<Number>` on forwarded legs. */
-export function buildBridgedLegMediaAttributes(): Record<string, string | boolean | number> {
+function buildBridgedLegMediaAttributes(): Record<string, string | boolean | number> {
   const out: Record<string, string | boolean | number> = {}
   if (readInboundComfortNoiseEnabled()) {
     out.comfort_noise_generation = true
@@ -66,7 +66,7 @@ export function buildBridgedLegMediaAttributes(): Record<string, string | boolea
 }
 
 /** US ringback while the B-leg is ringing (`answerOnBridge` preserves caller-side ringing). */
-export function readInboundDialRingTone(): string {
+function readInboundDialRingTone(): string {
   const raw = (process.env.ZING_INBOUND_DIAL_RING_TONE || "us").trim()
   return raw || "us"
 }
@@ -206,7 +206,7 @@ export function readInboundEarlyMediaEnabled(): boolean {
 }
 
 /** Optional pass-1 ring URL — only used when explicitly set (never loop; blocks Redirect if misconfigured). */
-export function readInboundEarlyMediaRingUrl(): string | null {
+function readInboundEarlyMediaRingUrl(): string | null {
   const custom = process.env.ZING_INBOUND_EARLY_MEDIA_RING_URL?.trim()
   return custom || null
 }
@@ -375,7 +375,7 @@ export function buildFastReceptionistDialTexml(opts: {
  * SIP domain receptionist browsers register to (a Telnyx Credential Connection's SIP domain).
  * Defaults to Telnyx's shared `sip.telnyx.com`; override per-account/connection via env.
  */
-export function readTelnyxWebRtcSipDomain(): string {
+function readTelnyxWebRtcSipDomain(): string {
   const raw = (process.env.TELNYX_WEBRTC_SIP_DOMAIN || "").trim()
   return raw || "sip.telnyx.com"
 }

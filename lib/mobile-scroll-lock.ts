@@ -1,5 +1,5 @@
 /** Toggle vertical scroll on the dashboard `<main>` pane (mobile scheduler map uses a fixed shell). */
-export function setMainScrollLocked(locked: boolean): void {
+function setMainScrollLocked(locked: boolean): void {
   const main = document.querySelector<HTMLElement>("main")
   if (!main) return
   if (locked) {

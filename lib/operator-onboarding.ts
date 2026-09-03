@@ -33,28 +33,13 @@ const MIGRATION_HINT =
   "Operator onboarding needs migration 082 — run scripts/082-operator-onboarding.sql in Neon."
 
 /** Placeholder email so phone-only SMS invites satisfy users.email UNIQUE. */
-export function syntheticEmailForPhone(e164: string): string {
+function syntheticEmailForPhone(e164: string): string {
   const digits = e164.replace(/\D/g, "")
   return `${digits || "unknown"}@invite.lyncr.app`
 }
 
-export function isSyntheticInviteEmail(email: string): boolean {
+function isSyntheticInviteEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith("@invite.lyncr.app")
-}
-
-/** Human-readable contact for admin queue (prefer cell over synthetic email). */
-export function formatOperatorContact(email: string, phone: string | null): string {
-  const p = phone?.trim()
-  if (p) {
-    const d = p.replace(/\D/g, "")
-    if (d.length === 11 && d.startsWith("1")) {
-      return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
-    }
-    if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
-    return p
-  }
-  if (isSyntheticInviteEmail(email)) return "—"
-  return email
 }
 
 function nameFromEmail(email: string): string {

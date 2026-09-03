@@ -43,7 +43,7 @@ function mapPayout(p: Stripe.Payout): ConnectPayoutRow {
 }
 
 /** Resolve the Connect account the acting user may payout from (owners only). */
-export async function resolveOwnerConnectAccount(userId: string): Promise<{
+async function resolveOwnerConnectAccount(userId: string): Promise<{
   accountId: string
   payoutsEnabled: boolean
 }> {

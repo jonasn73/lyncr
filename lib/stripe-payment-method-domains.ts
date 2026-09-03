@@ -17,7 +17,7 @@ function hostnameFromAppUrl(): string | null {
 }
 
 /** Domains that must be registered for wallets on the public pay page. */
-export function stripeWalletDomainCandidates(): string[] {
+function stripeWalletDomainCandidates(): string[] {
   const out: string[] = []
   const add = (raw: string | null | undefined) => {
     const d = raw?.trim().toLowerCase()

@@ -37,7 +37,7 @@ export interface TeamMemberAccountTarget {
   hasLogin: boolean
 }
 
-export interface TeamMemberAccountPatch {
+interface TeamMemberAccountPatch {
   name: string
   phone: string
   contactEmail: string | null

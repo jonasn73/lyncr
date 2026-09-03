@@ -19,7 +19,7 @@ import { LYNCR_ADMIN_EMAIL } from "@/lib/lyncr-admin"
 import type { User } from "@/lib/types"
 
 export type InviteType = "EMAIL" | "SMS"
-export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
+type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED"
 
 export interface Invitation {
   id: string
@@ -46,7 +46,7 @@ function getSql(): ReturnType<typeof neon> {
 
 // Create the table at most once per server instance (idempotent + cheap thereafter).
 let ensured = false
-export async function ensureInvitationsTable(): Promise<void> {
+async function ensureInvitationsTable(): Promise<void> {
   if (ensured) return
   const sql = getSql()
   await sql`
@@ -96,7 +96,7 @@ export async function createInvitation(params: {
 }
 
 /** Look up an invitation by its token. */
-export async function getInvitationByToken(token: string): Promise<Invitation | null> {
+async function getInvitationByToken(token: string): Promise<Invitation | null> {
   await ensureInvitationsTable()
   const sql = getSql()
   const rows = (await sql`SELECT * FROM invitations WHERE token = ${token.trim()} LIMIT 1`) as Record<string, unknown>[]

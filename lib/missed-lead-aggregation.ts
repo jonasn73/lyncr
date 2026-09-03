@@ -124,9 +124,6 @@ export function markPhonesIntercepted(phones: string[]): void {
   }
 }
 
-/** @deprecated Prefer MISSED_LEAD_SMS_TEMPLATES — re-exported for older imports. */
-export { MISSED_LEAD_INTERCEPT_SMS } from "@/lib/missed-lead-sms-templates"
-
 /**
  * Aggregate today's missed calls into unique leads + recent unreturned prospects.
  */

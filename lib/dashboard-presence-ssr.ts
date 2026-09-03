@@ -8,7 +8,7 @@
  */
 
 /** Primary tabs the presence host can keep mounted (matches PageId segments). */
-export const DASHBOARD_PRESENCE_SSR_PANE_IDS = [
+const DASHBOARD_PRESENCE_SSR_PANE_IDS = [
   "dashboard",
   "activity",
   "messages",
@@ -19,14 +19,12 @@ export const DASHBOARD_PRESENCE_SSR_PANE_IDS = [
   "settings",
 ] as const
 
-export type DashboardPresenceSsrPaneId = (typeof DASHBOARD_PRESENCE_SSR_PANE_IDS)[number]
-
 /**
  * Tabs whose route page.tsx statically imports the real view so a hard refresh
  * SSR's chrome immediately. Lines (dashboard) is already a static import
  * inside the presence host — it does not need a route slot.
  */
-export const DASHBOARD_ROUTE_SSR_PANE_IDS = [
+const DASHBOARD_ROUTE_SSR_PANE_IDS = [
   "activity",
   "messages",
   "scheduler",

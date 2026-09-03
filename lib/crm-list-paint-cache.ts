@@ -14,11 +14,11 @@ import {
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const CRM_LIST_PAINT_SCOPE = "crm-list"
+const CRM_LIST_PAINT_SCOPE = "crm-list"
 export const CRM_LIST_PAINT_COOKIE = paintSeedCookieName(CRM_LIST_PAINT_SCOPE)
 
 /** One list row — enough to paint CRM names + status on refresh (no “Price quoted” → flip). */
-export type CrmListPaintRow = {
+type CrmListPaintRow = {
   id: string
   n: string
   p: string
@@ -110,7 +110,7 @@ export function crmPaintToListItems(seed: CrmListPaintSeed): CrmCustomerListItem
 }
 
 /** Session list index — larger than cookie; bottom rows exist before network returns. */
-export function writeCrmListIndex(
+function writeCrmListIndex(
   customers: CrmCustomerListItem[],
   organizationId: string | null = null
 ): void {

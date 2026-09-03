@@ -24,11 +24,6 @@ function getPusherServer(): Pusher | null {
   return cached
 }
 
-/** True when realtime is configured on the server. */
-export function isRealtimeConfigured(): boolean {
-  return getPusherServer() !== null
-}
-
 export type ReceptionistChannelEvent =
   | "call-connected"
   | "call-ended"
@@ -139,13 +134,4 @@ export async function publishOwnerEvent(
     console.error("[realtime] publishOwnerEvent failed:", e)
     return false
   }
-}
-
-/** Explicit account-wide broadcast (alias for publishOwnerEvent on the presence channel). */
-export async function publishAccountPresenceEvent(
-  accountId: string,
-  event: OwnerChannelEvent,
-  payload: Record<string, unknown>
-): Promise<boolean> {
-  return publishOwnerEvent(accountId, event, payload)
 }

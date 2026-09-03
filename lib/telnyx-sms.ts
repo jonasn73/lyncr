@@ -162,7 +162,7 @@ async function buildDeliveryWarning(fromE164: string): Promise<string | null> {
  * Resolve outbound SMS sender — Neon purchased line wins over Vercel env
  * (avoids typos like +15025758186 vs +15025758166).
  */
-export async function resolveTelnyxMessagingFromE164(userId?: string): Promise<string | null> {
+async function resolveTelnyxMessagingFromE164(userId?: string): Promise<string | null> {
   const dbRaw =
     (await getProviderLinkedActiveNumber(userId)) ??
     (userId ? null : await getProviderLinkedActiveNumber())

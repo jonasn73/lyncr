@@ -79,7 +79,7 @@ export const CALENDAR_FULL_DAY_PROMPT = TIED_UP_BOOKING_PROMPT
 export const CALENDAR_PARTIAL_BUSY_PROMPT = TIED_UP_BOOKING_PROMPT
 
 /** Build hold-queue TTS with remaining on-site minutes from the active blockout. */
-export function buildHoldQueuePrompt(remainingMinutes: number): string {
+function buildHoldQueuePrompt(remainingMinutes: number): string {
   const mins = Math.max(1, Math.round(remainingMinutes))
   return `Our current estimated on-site response time is approximately ${mins} minutes. To lock in this arrival window, please stay on the line, or press 1 at any time to have a priority booking link sent straight to your phone.`
 }
@@ -157,7 +157,7 @@ export function buildNightCaptureGatherXml(actionUrl: string, voice?: string): s
 /** Calendar / SMS-default Gather — Press 1 or stay on the line → SMS.
  * Optional bypass: larger numDigits so a secret code can interrupt to Dial.
  */
-export function buildSmsDefaultGatherXml(
+function buildSmsDefaultGatherXml(
   actionUrl: string,
   prompt: string,
   voice?: string,
@@ -318,21 +318,6 @@ export function buildDayBusyFallbackGatherXml(actionUrl: string, voice?: string)
     `</Gather>` +
     // Timeout = SMS (same as Press 1).
     `<Redirect method="POST">${safeAction}</Redirect>` +
-    `</Response>`
-  )
-}
-
-/** Press 2 day hold — short voice memo then hangup. */
-export function buildDayHoldVoicemailXml(recordingCallbackUrl: string, voice?: string): string {
-  const sayVoice = (voice && voice.trim()) || defaultCaptureSayVoice()
-  const safeCb = escapeTexml(recordingCallbackUrl)
-  return (
-    `<?xml version="1.0" encoding="UTF-8"?>` +
-    `<Response>` +
-    `<Say voice="${escapeTexml(sayVoice)}">Please leave a short message after the beep and we will get back to you. Press pound when you are finished.</Say>` +
-    `<Record maxLength="90" playBeep="true" finishOnKey="#" action="${safeCb}" method="POST"/>` +
-    `<Say voice="${escapeTexml(sayVoice)}">Thank you. Goodbye.</Say>` +
-    `<Hangup/>` +
     `</Response>`
   )
 }

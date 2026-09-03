@@ -109,7 +109,7 @@ async function loadJobRow(jobId: string): Promise<JobSettlementRow | null> {
   }
 }
 
-export interface JobSettlementResult {
+interface JobSettlementResult {
   inserted: number
   /** Workers who had a plan with something to pay on this job. */
   paid: ("field_tech" | "receptionist")[]

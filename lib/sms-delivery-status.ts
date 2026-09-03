@@ -91,5 +91,3 @@ export async function processTelnyxSmsDeliveryEvent(body: TelnyxDeliveryWebhook)
 
   return false
 }
-
-export { formatSmsDeliveryLabel } from "@/lib/sms-delivery-labels"

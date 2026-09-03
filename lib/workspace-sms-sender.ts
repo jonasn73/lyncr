@@ -41,7 +41,7 @@ function normalizeOrgId(organizationId?: string | null): string | null {
  * - Missing org + one shop → that shop
  * - Missing org + multiple shops → block (never guess across businesses)
  */
-export async function resolveSmsShopOrganizationId(
+async function resolveSmsShopOrganizationId(
   ownerUserId: string,
   organizationId?: string | null
 ): Promise<

@@ -24,7 +24,7 @@ function pgErrorCode(e: unknown): string {
 }
 
 /** True when work_shifts has not been created yet. */
-export function isMissingShiftsTable(e: unknown): boolean {
+function isMissingShiftsTable(e: unknown): boolean {
   if (pgErrorCode(e) === "42P01") return true
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
   return msg.includes("work_shifts") && msg.includes("does not exist")
@@ -37,10 +37,10 @@ export function isMissingShiftsTable(e: unknown): boolean {
  * on a desk; short enough that a closed browser does not bill the night. The shift is
  * backdated to the last heartbeat, so the gap itself is never paid.
  */
-export const SHIFT_HEARTBEAT_GRACE_MINUTES = 30
+const SHIFT_HEARTBEAT_GRACE_MINUTES = 30
 
 /** Hard stop for a shift nobody ever closed and that has no heartbeat to fall back on. */
-export const SHIFT_MAX_HOURS = 16
+const SHIFT_MAX_HOURS = 16
 
 export interface WorkShift {
   id: string
@@ -137,7 +137,7 @@ export async function openShift(params: {
 }
 
 /** The shift a worker is currently on, if any. */
-export async function getOpenShift(ref: WorkerRef): Promise<WorkShift | null> {
+async function getOpenShift(ref: WorkerRef): Promise<WorkShift | null> {
   const sql = getSql()
   const receptionistId = ref.role === "receptionist" ? ref.receptionist_id : null
   const technicianId = ref.role === "field_tech" ? ref.field_technician_id : null
@@ -205,7 +205,7 @@ export async function closeShift(params: {
  * paid per talk minute is on the clock for the floor's sake, not to be paid twice for
  * the same hour.
  */
-export async function settleShiftEarnings(shift: WorkShift): Promise<number> {
+async function settleShiftEarnings(shift: WorkShift): Promise<number> {
   if (!shift.ended_at) return 0
   const seconds = shiftSeconds(shift)
   if (seconds <= 0) return 0

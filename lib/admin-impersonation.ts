@@ -17,7 +17,7 @@ export const IMPERSONATION_RETURN_COOKIE = "impersonating_return_to"
 export const SANDBOX_IMPERSONATION_RETURN_PATH = "/admin/sandbox"
 
 /** Impersonation sessions expire after 4 hours. */
-export const IMPERSONATION_MAX_AGE_SEC = 60 * 60 * 4
+const IMPERSONATION_MAX_AGE_SEC = 60 * 60 * 4
 
 export function createImpersonationAdminCookie(adminUserId: string): string {
   return createSessionCookieWithTtl(adminUserId, IMPERSONATION_MAX_AGE_SEC)

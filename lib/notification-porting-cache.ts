@@ -12,7 +12,7 @@ export type NotificationPortingSnapshot = {
 }
 
 /** Build the sessionStorage key for a workspace org. */
-export function notificationPortingCacheKey(organizationId: string | null): string {
+function notificationPortingCacheKey(organizationId: string | null): string {
   return persistedCacheKey("notification-porting", organizationId ?? "default")
 }
 

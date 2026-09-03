@@ -9,7 +9,7 @@ import { memo, type ReactNode } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
-export type WorkspaceFilterPillTone = "primary" | "amber" | "sky" | "orange"
+type WorkspaceFilterPillTone = "primary" | "amber" | "sky" | "orange"
 
 export type WorkspaceFilterPill = {
   id: string

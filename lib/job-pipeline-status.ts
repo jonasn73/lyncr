@@ -90,7 +90,7 @@ export function pipelineStatusPatch(status: JobPipelineDropdownStatusId): {
 }
 
 /** Human label for a pipeline status id. */
-export function pipelineStatusLabel(status: JobPipelineStatusId): string {
+function pipelineStatusLabel(status: JobPipelineStatusId): string {
   // Match header badge — one word for terminal close-out (not "Completed").
   if (status === "completed") return "Done"
   return JOB_PIPELINE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status
@@ -112,15 +112,6 @@ export function pipelineStatusPillLabel(status: JobPipelineStatusId): string {
     default:
       return pipelineStatusLabel(status)
   }
-}
-
-/** Tailwind badge classes for pipeline-specific overview chips. */
-export const PIPELINE_STATUS_BADGE_STYLE: Record<JobPipelineStatusId, string> = {
-  unassigned_pool: "bg-warning/20 text-warning ring-1 ring-warning/30",
-  DISPATCHED: "bg-primary/20 text-primary ring-1 ring-primary/30",
-  awaiting_time: "bg-operator/20 text-operator ring-1 ring-operator/30",
-  salvage_pending: "bg-destructive/20 text-destructive ring-1 ring-destructive/30",
-  completed: "bg-muted-foreground/20 text-foreground ring-1 ring-border/30",
 }
 
 /** Swimlane / grid card accent when dispatch_status is a pipeline-specific value. */

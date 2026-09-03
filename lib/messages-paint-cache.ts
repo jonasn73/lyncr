@@ -7,18 +7,17 @@
 import type { SmsMessage } from "@/lib/types"
 import {
   paintSeedCookieName,
-  readPaintSeedCookie,
   readPaintSeedCookieValue,
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 import { operationsPaintMatchesOrg } from "@/lib/operations-paint-cache"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const MESSAGES_PAINT_SCOPE = "messages-inbox-v2"
+const MESSAGES_PAINT_SCOPE = "messages-inbox-v2"
 export const MESSAGES_PAINT_COOKIE = paintSeedCookieName(MESSAGES_PAINT_SCOPE)
 
 /** One thread preview — enough for the conversation list. */
-export type MessagesPaintRow = {
+type MessagesPaintRow = {
   id: string
   ph: string
   /** Optional — only first few rows keep a preview so the cookie fits more phones. */
@@ -116,7 +115,7 @@ export function messagesPaintToSms(seed: MessagesPaintSeed): SmsMessage[] {
  * Session thread index — survives hard refresh, larger than the cookie.
  * Used after hydrate so rows 11+ exist before the network returns.
  */
-export function writeMessagesThreadIndex(
+function writeMessagesThreadIndex(
   messages: SmsMessage[],
   organizationId: string | null = null
 ): void {
@@ -170,43 +169,6 @@ export function readMessagesPaintFromCookieRaw(
   const parsed = readPaintSeedCookieValue<MessagesPaintSeed>(cookieRaw)
   if (!parsed || !Array.isArray(parsed.messages)) return null
   return parsed
-}
-
-export function readMessagesPaintSeed(
-  paint?: MessagesPaintSeed | null,
-  organizationId?: string | null
-): MessagesPaintSeed | null {
-  const fromPaint = paint && Array.isArray(paint.messages) ? paint : null
-  const parsed =
-    fromPaint ?? readPaintSeedCookie<MessagesPaintSeed>(MESSAGES_PAINT_SCOPE) ?? null
-  if (!parsed || !Array.isArray(parsed.messages)) return null
-  if (
-    organizationId !== undefined &&
-    !operationsPaintMatchesOrg(
-      { organizationId: parsed.organizationId, calls: [], fetchedAt: 0 },
-      organizationId
-    )
-  ) {
-    return null
-  }
-  return parsed
-}
-
-/**
- * Best first-paint list: full session inbox → session thread index → cookie paint.
- * Prefer the largest thread head so row 11+ does not pop in after fetch.
- */
-export function readBestMessagesPaint(
-  organizationId: string | null,
-  cookiePaint?: MessagesPaintSeed | null
-): SmsMessage[] {
-  const index = readMessagesThreadIndex(organizationId)
-  const cookie = readMessagesPaintSeed(cookiePaint, organizationId)
-  const indexSms = index?.messages.length ? messagesPaintToSms(index) : []
-  const cookieSms = cookie?.messages.length ? messagesPaintToSms(cookie) : []
-  if (indexSms.length >= cookieSms.length && indexSms.length > 0) return indexSms
-  if (cookieSms.length > 0) return cookieSms
-  return indexSms
 }
 
 /** Compact signature — skip setState when the live inbox matches the screen. */
@@ -265,15 +227,4 @@ export function messagesThreadListIsQuietExpansion(
     if (!live || live.id !== row.id) return false
   }
   return true
-}
-
-/** Count of distinct customer threads (for list-length guards). */
-export function messagesThreadCount(messages: SmsMessage[]): number {
-  const keys = new Set<string>()
-  for (const msg of messages) {
-    const raw = (msg.customer_phone?.trim() || msg.from_number || "").trim()
-    if (!raw) continue
-    keys.add(phoneKey(raw) || raw)
-  }
-  return keys.size
 }

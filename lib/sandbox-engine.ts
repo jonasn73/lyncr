@@ -37,13 +37,13 @@ import type { CertificationModuleData } from "@/lib/types"
 export const SANDBOX_OWNER_EMAIL = "sandbox-test-locksmith@lyncr.app"
 
 /** Display name for the mock business workspace. */
-export const SANDBOX_BUSINESS_NAME = "Test Locksmith Co."
+const SANDBOX_BUSINESS_NAME = "Test Locksmith Co."
 
 /** Sandbox DID used for routing-pool tests (Neon-only — no Telnyx purchase). */
-export const SANDBOX_BUSINESS_LINE_E164 = "+15557654321"
+const SANDBOX_BUSINESS_LINE_E164 = "+15557654321"
 
 /** Dispatch SMS target for lead-alert E2E tests (fake 555 when no env override). */
-export const SANDBOX_DISPATCH_SMS_E164 = "+15559876543"
+const SANDBOX_DISPATCH_SMS_E164 = "+15559876543"
 
 /** Real cell for sandbox SMS — env override, else first real platform phone, else fake 555. */
 export async function resolveSandboxDispatchSmsE164(): Promise<string> {
@@ -55,19 +55,13 @@ export async function resolveSandboxDispatchSmsE164(): Promise<string> {
 }
 
 /** Marker stored on onboarding_profiles.custom_routing_note. */
-export const SANDBOX_PROFILE_MARKER = "lyncr-dev-sandbox:v1"
+const SANDBOX_PROFILE_MARKER = "lyncr-dev-sandbox:v1"
 
 /** Automotive skill tag for routing pool matching. */
-export const SANDBOX_INDUSTRY_TAG = "automotive"
+const SANDBOX_INDUSTRY_TAG = "automotive"
 
 /** Dev sandbox test receptionist portal login (provisioned by seed). */
 export const SANDBOX_TEST_RECEPTIONIST_EMAIL = "test_receptionist@lyncr.app"
-
-/** Stable UUID for the test receptionist user row in Neon. */
-export const SANDBOX_TEST_RECEPTIONIST_USER_ID = "11111111-1111-4111-8111-111111111111"
-
-/** Stable UUID for the linked receptionists row. */
-export const SANDBOX_TEST_RECEPTIONIST_ROW_ID = "22222222-2222-4222-8222-222222222222"
 
 /** Quiz entry point for quick-switch impersonation. */
 export const SANDBOX_TEST_RECEPTIONIST_TRAINING_PATH = "/receptionist/training/automotive_core"
@@ -97,7 +91,7 @@ export type SandboxIntakeLogRow = {
   sms_error: string | null
 }
 
-export type SandboxSampleIntakeSms = {
+type SandboxSampleIntakeSms = {
   sent: boolean
   error: string | null
   telnyx_message_id: string | null
@@ -178,7 +172,7 @@ async function resolveTestReceptionistUserId(): Promise<string | null> {
 }
 
 /** Provision test_receptionist@lyncr.app linked to the sandbox owner (empty skills — quiz-first). */
-export async function provisionSandboxTestReceptionist(ownerUserId: string): Promise<{
+async function provisionSandboxTestReceptionist(ownerUserId: string): Promise<{
   portal_user_id: string
   receptionist_id: string
   created: boolean
@@ -199,7 +193,7 @@ export async function provisionSandboxTestReceptionist(ownerUserId: string): Pro
 }
 
 /** Load current sandbox workspace snapshot (null when never seeded). Never throws. */
-export async function getSandboxEnvironment(): Promise<SandboxEnvironment | null> {
+async function getSandboxEnvironment(): Promise<SandboxEnvironment | null> {
   try {
     const auth = await getAuthUserByEmail(SANDBOX_OWNER_EMAIL)
     if (!auth) return null
@@ -223,15 +217,6 @@ export async function getSandboxEnvironment(): Promise<SandboxEnvironment | null
     })
   } catch (e) {
     console.error("[sandbox-engine] getSandboxEnvironment:", e)
-    return null
-  }
-}
-
-/** Resolve provisioned test receptionist portal user id (null before seed). */
-export async function getSandboxTestReceptionistUserId(): Promise<string | null> {
-  try {
-    return await resolveTestReceptionistUserId()
-  } catch {
     return null
   }
 }

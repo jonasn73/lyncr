@@ -7,7 +7,7 @@ import {
 } from "@/lib/db"
 import { releaseTelnyxPhoneNumber } from "@/lib/telnyx-release-line"
 
-export type ReleaseNumberBlockReason = "not_found" | "last_line" | "porting_line" | "not_active" | "carrier_error"
+type ReleaseNumberBlockReason = "not_found" | "last_line" | "porting_line" | "not_active" | "carrier_error"
 
 export type ReleasePhoneNumberResult =
   | { ok: true; phone_number: string }

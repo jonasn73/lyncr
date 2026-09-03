@@ -23,7 +23,7 @@ export function isSmartOrProxKeyType(label: string, variantId?: string | null, t
 }
 
 /** Pick a sample illustration from the card label / variant id when no photo exists. */
-export function classifyKeyIllustration(
+function classifyKeyIllustration(
   label: string,
   variantId?: string | null,
   make?: string | null,
@@ -150,7 +150,7 @@ function VolvoFobik5ButtonSvg() {
   )
 }
 
-export function KeyTypeSampleIllustration({ kind }: { kind: KeyIllustrationKind }) {
+function KeyTypeSampleIllustration({ kind }: { kind: KeyIllustrationKind }) {
   if (kind === "proximity") return <ProximitySmartKeySvg />
   if (kind === "high_security") return <HighSecurityBladeKeySvg />
   if (kind === "volvo_fobik") return <VolvoFobik5ButtonSvg />

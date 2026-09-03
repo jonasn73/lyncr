@@ -22,8 +22,6 @@ export const BOOK_JOB_KIND_OPTIONS = [
   { id: "other", label: "Other", chip: "Other" },
 ] as const
 
-export type BookJobKindId = (typeof BOOK_JOB_KIND_OPTIONS)[number]["id"]
-
 /** Map form job-kind chips → intake jobType string (client-safe — no server imports). */
 export function jobTypeFromBookFormKind(jobKind: string): string {
   const k = jobKind.trim().toLowerCase()
@@ -118,7 +116,7 @@ export function buildBookTimeOptions(
 }
 
 /** Compare "HH:MM" strings as minutes-from-midnight. */
-export function bookTimeToMinutes(hhmm: string): number {
+function bookTimeToMinutes(hhmm: string): number {
   const [hRaw, mRaw] = hhmm.split(":")
   const h = Number(hRaw)
   const m = Number(mRaw)

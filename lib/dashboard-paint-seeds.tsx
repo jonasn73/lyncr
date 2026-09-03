@@ -14,7 +14,6 @@ import {
 } from "@/lib/dashboard-paint-seeds-types"
 
 export type { DashboardPaintSeeds }
-export { EMPTY_DASHBOARD_PAINT_SEEDS }
 
 const DashboardPaintSeedsContext = createContext<DashboardPaintSeeds>(EMPTY_DASHBOARD_PAINT_SEEDS)
 

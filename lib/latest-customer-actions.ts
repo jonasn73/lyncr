@@ -206,13 +206,13 @@ export type LatestBookFormHint = {
 }
 
 /** Default: drop unreplied inbound older than this (stale “1d ago” noise). */
-export const LATEST_INBOUND_MAX_AGE_HOURS = 24
+const LATEST_INBOUND_MAX_AGE_HOURS = 24
 
 /** Default: keep “Customer paid” rows for this many hours after settle. */
-export const LATEST_PAID_MAX_AGE_HOURS = 24
+const LATEST_PAID_MAX_AGE_HOURS = 24
 
 /** Default: keep book-form rows for this many hours after submit. */
-export const LATEST_BOOK_FORM_MAX_AGE_HOURS = 48
+const LATEST_BOOK_FORM_MAX_AGE_HOURS = 48
 
 /**
  * Hot Latest:

@@ -133,7 +133,7 @@ export function buildReceptionistInviteEmailPayload(params: {
  * Turn a Resend API error into a short, beginner-friendly owner message.
  * Never includes API keys or raw JSON dumps.
  */
-export function friendlyInviteEmailError(params: {
+function friendlyInviteEmailError(params: {
   status: number
   message?: string
   fromAddress: string

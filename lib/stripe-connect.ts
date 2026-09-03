@@ -32,7 +32,7 @@ export type ConnectReady = {
   row: UserStripeConnectRow
 }
 
-export type ConnectNotReady = {
+type ConnectNotReady = {
   ready: false
   accountId: string | null
   row: UserStripeConnectRow | null
@@ -117,7 +117,7 @@ export async function getConnectReadyState(
 }
 
 /** Create an Express connected account for this Lyncr user (idempotent). */
-export async function ensureStripeConnectAccount(userId: string): Promise<string> {
+async function ensureStripeConnectAccount(userId: string): Promise<string> {
   if (!isStripeConfigured()) {
     throw new Error("Stripe is not configured (STRIPE_SECRET_KEY)")
   }
@@ -209,7 +209,7 @@ async function createEmbeddedFriendlyConnectAccount(
  * Incomplete Express accounts cannot disable Stripe login — replace with Custom for in-app UI.
  * Only when onboarding was never finished (never charged).
  */
-export async function recreateConnectAccountIfAuthBlocked(userId: string): Promise<string> {
+async function recreateConnectAccountIfAuthBlocked(userId: string): Promise<string> {
   const user = await getUser(userId)
   if (!user) throw new Error("User not found")
   const row = await getUserStripeConnect(userId)
@@ -231,7 +231,7 @@ export async function recreateConnectAccountIfAuthBlocked(userId: string): Promi
 /** Prefill Stripe business type so embedded onboarding skips the long entity picker. */
 export type ConnectBusinessKind = "sole" | "llc" | "corporation"
 
-export async function prefillConnectBusinessKind(
+async function prefillConnectBusinessKind(
   userId: string,
   kind: ConnectBusinessKind
 ): Promise<string> {

@@ -23,7 +23,7 @@ import type { CallLog, Receptionist } from "@/lib/types"
 export type ReceptionistPayMode = "FLAT_RATE" | "PER_MINUTE"
 
 /** Default payout settings when a receptionist row has no overrides. */
-export const RECEPTIONIST_PAY_DEFAULTS = {
+const RECEPTIONIST_PAY_DEFAULTS = {
   pay_mode: "PER_MINUTE" as ReceptionistPayMode,
   rate_per_minute: 0.25,
   flat_rate_usd: 2.5,
@@ -125,7 +125,7 @@ export const ANSWERED_RECEPTIONIST_STATUS_SQL = `
  * Both carry the 20-second floor explicitly, because it currently applies to either
  * mode as a hard-coded constant. New plans built in the editor choose their own.
  */
-export function legacyPayModeComponents(params: {
+function legacyPayModeComponents(params: {
   payMode: ReceptionistPayMode
   ratePerMinute?: number
   flatRateUsd?: number

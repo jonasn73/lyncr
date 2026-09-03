@@ -5,7 +5,7 @@
 // or a GET /porting_orders/{id} response shows `exception` / `cancelled`. We merge all
 // signals and pick the highest-priority status.
 
-export const PORTING_STATUS_LABELS: Record<string, string> = {
+const PORTING_STATUS_LABELS: Record<string, string> = {
   draft: "Processing",
   "in-process": "Transfer in progress",
   submitted: "Transfer in progress",

@@ -69,13 +69,6 @@ function absoluteHoldMusicUrl(raw: string): string | null {
   return null
 }
 
-/**
- * Last-resort public sample if lyncr.app assets are unreachable.
- * Prefer bundled /audio/hold-*.wav — inline `playback_content` is tried before this URL.
- */
-export const HOLD_MUSIC_PUBLIC_FALLBACK_URL =
-  "https://archive.org/download/testmp3testfile/mpthreetest.mp3"
-
 /** Bundled Calm loop — 8 kHz mono WAV (Telnyx PSTN-safe). */
 export const HOLD_MUSIC_DEFAULT_PATH = "/audio/hold-calm.wav"
 

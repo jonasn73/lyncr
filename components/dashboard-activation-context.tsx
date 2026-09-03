@@ -44,7 +44,7 @@ import { readLinesChromeCache, writeLinesChromeCache } from "@/lib/lines-chrome-
 import { useDashboardPaintSeeds } from "@/lib/dashboard-paint-seeds"
 import { useSessionCacheReady } from "@/components/session-cache-hydration-gate"
 
-export const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
+const SUBSCRIPTION_ACTIVATED_EVENT = "zing-subscription-activated"
 
 type ReplaceLinePrompt = {
   unavailableDisplay: string
@@ -509,7 +509,7 @@ function ActivationCheckoutSearchParamsBridge({
   return null
 }
 
-export function useDashboardActivation(): DashboardActivationContextValue {
+function useDashboardActivation(): DashboardActivationContextValue {
   const ctx = useContext(DashboardActivationContext)
   if (!ctx) {
     throw new Error("useDashboardActivation must be used within DashboardActivationProvider")

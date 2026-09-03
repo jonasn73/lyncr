@@ -11,22 +11,7 @@ import {
   type TiSupplierCatalogRow,
 } from "@/lib/ti-supplier-catalog-shared"
 
-export type { TiCatalogKeyOption, TiSupplierCatalogRow }
-export {
-  buildTiCatalogSpecDescription,
-  compactVehicleToken,
-  expandMakeSearchAliases,
-  expandModelSearchAliases,
-  isTiAftermarketSku,
-  normalizeVehicleToken,
-  parseTiTitleYearRange,
-  rankTiCatalogRows,
-  scoreTiCatalogTitle,
-  tiCatalogHitToManualOption,
-  titleHasVehicleToken,
-  titleMatchesMake,
-  titleMatchesModel,
-} from "@/lib/ti-supplier-catalog-shared"
+export type { TiCatalogKeyOption }
 
 function getSql() {
   return neon(resolveNeonDatabaseUrl())

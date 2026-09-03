@@ -10,7 +10,7 @@ export function isPriceDeniedRescueJob(job: {
 }
 
 /** Suggested rescue offer in cents (baseline minus ~15%). */
-export function suggestRescueOfferPriceCents(job: UnassignedPoolJob): number {
+function suggestRescueOfferPriceCents(job: UnassignedPoolJob): number {
   const baselineCents =
     job.baseline_quoted_price_cents != null && job.baseline_quoted_price_cents > 0
       ? job.baseline_quoted_price_cents

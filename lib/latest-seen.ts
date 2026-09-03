@@ -20,7 +20,7 @@ const ITEM_STORAGE_KEY = "lyncr-latest-item-seen-v1"
 export const LATEST_SEEN_CHANGED_EVENT = "lyncr:latest-seen-changed"
 
 /** Last 10 digits — same phone key as Latest / Messages. */
-export function latestPhoneKey(phone: string): string {
+function latestPhoneKey(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10)
 }
 
@@ -87,7 +87,7 @@ function notifySeenChanged(detail: { phoneKey?: string; itemId?: string }) {
  * Merge paint-cookie + localStorage seen maps (newer stamp wins).
  * SSR passes paint only; browser merges both so Clear never flashes back.
  */
-export function resolveLatestSeenPaint(
+function resolveLatestSeenPaint(
   paint?: LatestSeenPaint | null
 ): LatestSeenPaint {
   const fromPaint = paint ?? { replies: {}, items: {} }
@@ -104,7 +104,7 @@ export function resolveLatestSeenPaint(
 }
 
 /** When the owner last opened this phone’s Latest detail or Messages thread. */
-export function getLatestReplySeenAt(
+function getLatestReplySeenAt(
   phone: string,
   paint?: LatestSeenPaint | null
 ): string | null {
@@ -134,7 +134,7 @@ export function markLatestReplySeen(phone: string, at = new Date().toISOString()
  * True when there is a newer inbound reply than the last time the owner opened it.
  * Used to keep “Customer replied” rows in Latest only while unread.
  */
-export function isLatestReplyUnread(
+function isLatestReplyUnread(
   phone: string,
   inboundAt: string,
   paint?: LatestSeenPaint | null
@@ -163,7 +163,7 @@ export function isDismissOnOpenLatestEvent(
 }
 
 /** When the owner last opened this Latest row (book form / payment). */
-export function getLatestItemSeenAt(
+function getLatestItemSeenAt(
   itemId: string,
   paint?: LatestSeenPaint | null
 ): string | null {
@@ -192,7 +192,7 @@ export function markLatestItemSeen(itemId: string, at = new Date().toISOString()
 }
 
 /** True until the owner opens this book-form / payment Latest row. */
-export function isLatestItemUnread(
+function isLatestItemUnread(
   itemId: string,
   paint?: LatestSeenPaint | null
 ): boolean {

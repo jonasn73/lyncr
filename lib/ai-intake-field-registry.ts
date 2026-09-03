@@ -6,7 +6,7 @@
 import type { AiIntakeProfileId } from "./business-industries"
 import { industryShortLabel } from "./business-industries"
 
-export type RegistryBranch = {
+type RegistryBranch = {
   title: string
   bullets: string[]
   intent_slug: string

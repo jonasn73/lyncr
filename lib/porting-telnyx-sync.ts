@@ -134,7 +134,7 @@ export async function backfillPortingNotificationsFromTelnyxComments(params: {
 }
 
 /** Backfill a status-transition row when Telnyx webhooks never reached Lyncr. */
-export async function backfillPortingStatusFromTelnyxLive(params: {
+async function backfillPortingStatusFromTelnyxLive(params: {
   ownerUserId: string
   telnyxOrderId: string
   organizationId?: string | null

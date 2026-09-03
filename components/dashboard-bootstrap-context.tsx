@@ -76,24 +76,7 @@ function DashboardBootstrapWorkspaceSync({ bootstrap }: { bootstrap: DashboardMa
   return null
 }
 
-export function DashboardBootstrapProvider({
-  bootstrap,
-  children,
-}: {
-  bootstrap: DashboardMainBootstrap
-  children: ReactNode
-}) {
-  return (
-    <DashboardBootstrapSyncingContext.Provider value={false}>
-      <DashboardBootstrapContext.Provider value={bootstrap}>
-        <DashboardBootstrapWorkspaceSync bootstrap={bootstrap} />
-        {children}
-      </DashboardBootstrapContext.Provider>
-    </DashboardBootstrapSyncingContext.Provider>
-  )
-}
-
-export function useDashboardBootstrapOptional(): DashboardMainBootstrap | null {
+function useDashboardBootstrapOptional(): DashboardMainBootstrap | null {
   return useContext(DashboardBootstrapContext)
 }
 
@@ -187,7 +170,7 @@ function DashboardBootstrapSeededProvider({
  * Loads bootstrap without Suspense — children stay mounted (settings-style).
  * Seeds from session cache on hard refresh so routing paints instantly.
  */
-export function DashboardBootstrapAsyncGate({
+function DashboardBootstrapAsyncGate({
   promise,
   children,
 }: {
@@ -345,4 +328,3 @@ export function DashboardBootstrapShellGate({
   )
 }
 
-export { workspaceSeedFromBootstrap }

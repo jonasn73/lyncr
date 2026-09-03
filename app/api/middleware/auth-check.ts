@@ -45,11 +45,3 @@ export function requirePremiumCapability(
   )
 }
 
-/** Tier check used by number gates — true when master bypass or tier allows the action. */
-export function subscriptionGateAllows(
-  email: string | null | undefined,
-  tier: SubscriptionTier,
-  capability: PremiumCapability
-): boolean {
-  return hasPremiumCapability(email, tier, capability)
-}

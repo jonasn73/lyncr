@@ -26,7 +26,7 @@ const NPA_REGION_LABEL: Record<string, string> = {
 }
 
 /** Digits-only phone key (last 10 when possible). */
-export function phoneDigitsKey(raw: string | null | undefined): string {
+function phoneDigitsKey(raw: string | null | undefined): string {
   const d = String(raw ?? "").replace(/\D/g, "")
   if (d.length >= 11 && d.startsWith("1")) return d.slice(-10)
   return d.slice(-10) || d

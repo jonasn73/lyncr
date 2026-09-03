@@ -12,7 +12,6 @@ import { renderTemplate } from "@/lib/sms-pipeline"
 import { DEFAULT_SMS_PHASE_TEMPLATES } from "@/lib/sms-template-defaults"
 import { DEFAULT_SMS_STATUS_TEMPLATES, renderStatusSms } from "@/lib/sms-status-templates"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
-import type { OwnerSmsSettings } from "@/lib/types"
 
 function brandLabel(): string {
   const name = SITE_NAME.trim()
@@ -109,17 +108,4 @@ export async function sendDispatchPausedPartsCustomerSms(params: {
     { customer_name: ctx.customer_name, business_name: businessName }
   )
   await sendText(ctx.owner_user_id, toE164, text, "paused_parts")
-}
-
-/** Build a late SMS from the owner's saved late template (composer / one-tap). */
-export function buildLateStatusSmsFromSettings(
-  settings: Pick<OwnerSmsSettings, "sms_status_templates"> | null | undefined,
-  vars: { customerName?: string | null; businessName?: string | null; etaMinutes: number }
-): string {
-  const template = settings?.sms_status_templates?.late || DEFAULT_SMS_STATUS_TEMPLATES.late
-  return renderStatusSms(template, {
-    customer_name: vars.customerName,
-    business_name: vars.businessName,
-    eta_minutes: vars.etaMinutes,
-  })
 }

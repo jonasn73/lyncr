@@ -23,7 +23,7 @@ import type {
 } from "@/lib/types"
 
 /** Quiz payload safe for the browser — correct answers stripped. */
-export type PublicCertificationModuleData = Omit<CertificationModuleData, "quiz"> & {
+type PublicCertificationModuleData = Omit<CertificationModuleData, "quiz"> & {
   quiz: Array<Omit<CertificationQuizQuestion, "correctAnswer">>
 }
 

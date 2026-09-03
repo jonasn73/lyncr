@@ -1,8 +1,7 @@
 "use client"
 
 import { memo, useCallback, useEffect, useLayoutEffect, useState } from "react"
-import type { LucideIcon } from "lucide-react"
-import { Loader2, ChevronDown, Smartphone, Network } from "lucide-react"
+import { Loader2, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MOBILE_TAP_TARGET } from "@/lib/mobile-shell"
 import type { RoutingStrategy } from "@/lib/types"
@@ -33,10 +32,6 @@ import {
   useFlickerBoxMeasure,
   useFlickerDebugLifecycle,
 } from "@/lib/debug/flicker-debug"
-
-export const ROUTING_DRAWER_SHEET_CLASS =
-  "gap-0 flex h-full flex-col p-0 sm:max-w-md md:max-w-lg lg:max-w-xl [&>button]:top-5 [&>button]:right-5 " +
-  DRAWER_SHEET_GPU
 
 export const VOICE_AI_DRAWER_SHEET_CLASS =
   "gap-0 flex h-full flex-col p-0 sm:max-w-lg md:max-w-xl lg:max-w-2xl [&>button]:top-5 [&>button]:right-5 " +
@@ -81,7 +76,7 @@ export type DashboardCallFlowProps = {
 }
 
 /** True when the shared Lyncr network participates in this line's call flow. */
-export function isLyncrNetworkStepActive(
+function isLyncrNetworkStepActive(
   routingStrategy: RoutingStrategy,
   allowLyncrNetworkFallback: boolean
 ): boolean {
@@ -107,183 +102,6 @@ export function isSundayAutopilotActive(opts: {
   if (opts.aiRingOwnerFirst) return false
   // Autopilot UI only applies when the primary destination is the owner’s cell.
   return opts.isRoutingToOwner
-}
-
-/** One node in the visual call-flow waterfall — rendered left→right in the exact order Telnyx executes. */
-type CallFlowNode = {
-  key: string
-  title: string
-  icon: LucideIcon
-  value: string
-  detail?: string
-  onOpen: () => void
-  accent: "primary" | "network" | "scheduler"
-  valueBadge?: string
-  detailMuted?: boolean
-  faded?: boolean
-  badgeTone?: "amber" | "emerald"
-}
-
-/**
- * Build the ordered waterfall the inbound webhook actually runs, so Step 2/3/… map to who really
- * rings first. The shared Lyncr pool is shown as the *primary* node for `lyncr_only` (never beside
- * "Your phone"), and only as an intermediate "if no answer" node for hybrid / private-with-fallback.
- */
-export function buildCallFlowNodes(params: {
-  routingStrategy: RoutingStrategy
-  allowLyncrNetworkFallback: boolean
-  isRoutingToOwner: boolean
-  selectedReceptionistName: string | null
-  selectedReceptionistPhone: string | null
-  ownerPhoneDisplay: string
-  /** When true, Primary/Fallback cards show Sunday Autopilot scheduler copy. */
-  autopilotMode: boolean
-  /** Off-duty IVR Menu is answering — fade Your phone and badge Forwarding to IVR. */
-  ivrMenuLive?: boolean
-  /** Presence Busy — cell is bypassed for automation. */
-  presenceBypass?: boolean
-  presenceStatus?: "AVAILABLE" | "ON_JOB" | "CLOSED"
-  /**
-   * When Busy, an Available teammate rings before IVR — show her as the live primary
-   * instead of advertising automation first.
-   */
-  busyBackupReceptionistName?: string | null
-  busyBackupReceptionistPhone?: string | null
-  openWhoAnswers: () => void
-  configureStrategy: () => void
-}): CallFlowNode[] {
-  const poolIsPrimary = params.routingStrategy === "lyncr_only"
-  const nodes: CallFlowNode[] = []
-  const ivrLive = params.ivrMenuLive === true
-  const presenceBypass = params.presenceBypass === true
-  const busyBackupName = params.busyBackupReceptionistName?.trim() || ""
-  // Busy + Available teammate → she owns first ring (not IVR).
-  const busyBackupLive = presenceBypass && Boolean(busyBackupName)
-  const cellBypassed = (ivrLive || presenceBypass) && !busyBackupLive
-  const presenceBadge = presenceBypass && !busyBackupLive ? "[ BUSY ]" : undefined
-  const bypassDetail =
-    "Presence Busy — calls go to booking automation. Your phone will not ring."
-  const busyBackupDetail =
-    params.busyBackupReceptionistPhone?.trim()
-      ? `${params.busyBackupReceptionistPhone.trim()} · rings first while you're Busy`
-      : "Rings first while you're Busy"
-
-  // Node 1 — Primary: whoever the webhook dials first on this line.
-  if (poolIsPrimary) {
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Network,
-      value: "Lyncr Network Pool",
-      detail: presenceBypass
-        ? bypassDetail
-        : ivrLive
-          ? "Certified shared agents answer in-browser · IVR live"
-          : "Certified shared agents answer in-browser",
-      onOpen: params.openWhoAnswers,
-      accent: "network",
-      faded: cellBypassed,
-      valueBadge: presenceBadge || (ivrLive ? "[ Forwarding to IVR ]" : undefined),
-      badgeTone: presenceBypass ? "amber" : ivrLive ? "emerald" : "amber",
-      detailMuted: cellBypassed,
-    })
-  } else if (busyBackupLive) {
-    // Owner Busy + Available receptionist — she is the live first hop (matches inbound TeXML).
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Smartphone,
-      value: busyBackupName,
-      detail: busyBackupDetail,
-      valueBadge: "[ LIVE ]",
-      badgeTone: "emerald",
-      onOpen: params.openWhoAnswers,
-      accent: "primary",
-    })
-  } else if (params.isRoutingToOwner && params.autopilotMode && !cellBypassed) {
-    // Sunday Autopilot: Your phone stays listed, but rings are bypassed for the AI scheduler.
-    const phoneBit = params.ownerPhoneDisplay.trim()
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Smartphone,
-      value: "Your phone",
-      // Muted slate number + bypass notice so operators see Autopilot at a glance.
-      detail: phoneBit ? `${phoneBit} ⏸️ Rings bypassed` : "⏸️ Rings bypassed",
-      valueBadge: "AUTOPILOT",
-      detailMuted: true,
-      onOpen: params.openWhoAnswers,
-      accent: "primary",
-    })
-  } else if (params.isRoutingToOwner && presenceBypass) {
-    const phoneBit = params.ownerPhoneDisplay.trim()
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Smartphone,
-      value: "Your phone",
-      detail: phoneBit ? `${phoneBit} · ${bypassDetail}` : bypassDetail,
-      valueBadge: presenceBadge,
-      badgeTone: "amber",
-      detailMuted: true,
-      faded: true,
-      onOpen: params.openWhoAnswers,
-      accent: "primary",
-    })
-  } else if (params.isRoutingToOwner && ivrLive) {
-    // Off-duty IVR Menu owns the first answer — cell is no longer the initial hit.
-    const phoneBit = params.ownerPhoneDisplay.trim()
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Smartphone,
-      value: "Your phone",
-      detail: phoneBit
-        ? `${phoneBit} · cell bypassed while IVR is live`
-        : "Cell bypassed while IVR is live",
-      valueBadge: "[ Forwarding to IVR ]",
-      badgeTone: "emerald",
-      detailMuted: true,
-      faded: true,
-      onOpen: params.openWhoAnswers,
-      accent: "primary",
-    })
-  } else {
-    nodes.push({
-      key: "primary",
-      title: "Primary · Who answers",
-      icon: Smartphone,
-      value: params.isRoutingToOwner ? "Your phone" : params.selectedReceptionistName ?? "—",
-      detail: presenceBypass
-        ? bypassDetail
-        : params.isRoutingToOwner
-          ? params.ownerPhoneDisplay || undefined
-          : params.selectedReceptionistPhone ?? undefined,
-      onOpen: params.openWhoAnswers,
-      accent: "primary",
-      faded: cellBypassed,
-      valueBadge: presenceBadge || (ivrLive ? "[ Forwarding to IVR ]" : undefined),
-      badgeTone: presenceBypass ? "amber" : ivrLive ? "emerald" : "amber",
-      detailMuted: cellBypassed,
-    })
-  }
-
-  // Node 2 — Intermediate Lyncr network (hybrid / private+fallback only; for lyncr_only the pool is already primary).
-  if (!poolIsPrimary && isLyncrNetworkStepActive(params.routingStrategy, params.allowLyncrNetworkFallback)) {
-    nodes.push({
-      key: "network",
-      title: "If no answer · Lyncr Network",
-      icon: Network,
-      value: "Lyncr Network Pool",
-      detail: "Shared agents try next",
-      onOpen: params.configureStrategy,
-      accent: "network",
-      faded: cellBypassed,
-    })
-  }
-
-  // Fallback IVR + Missed Call Rescue are rendered as dedicated cards outside this list.
-  return nodes
 }
 
 export const DashboardCallFlow = memo(function DashboardCallFlow({

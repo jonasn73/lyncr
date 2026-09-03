@@ -68,7 +68,7 @@ export async function adjustUserCredit(
   }
 }
 
-export type InviteByChannelResult =
+type InviteByChannelResult =
   | {
       ok: true
       invite_id: string
@@ -84,7 +84,7 @@ export type InviteByChannelResult =
  * Operator-only: create a pending receptionist invite delivered by EMAIL or SMS.
  * The invitee completes their own profile at /register?token=… (48h expiry).
  */
-export async function inviteReceptionistByChannel(params: {
+async function inviteReceptionistByChannel(params: {
   target: string
   type: string
 }): Promise<InviteByChannelResult> {

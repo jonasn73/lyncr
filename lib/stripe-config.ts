@@ -3,10 +3,8 @@ import { PLAN_MONTHLY_PRICE_CENTS, type BillingPlanKey } from "@/lib/billing-pri
 import type { CheckoutSubscriptionTier } from "@/lib/subscription-checkout"
 
 /** Fallback amount (cents) when creating inline prices — production uses Stripe Price IDs. */
-export const LYNCR_STARTER_PLAN_MONTHLY_CENTS = PLAN_MONTHLY_PRICE_CENTS.starter
+const LYNCR_STARTER_PLAN_MONTHLY_CENTS = PLAN_MONTHLY_PRICE_CENTS.starter
 
-/** @deprecated Use LYNCR_STARTER_PLAN_MONTHLY_CENTS */
-export const LYNCR_CORE_PLAN_MONTHLY_CENTS = LYNCR_STARTER_PLAN_MONTHLY_CENTS
 
 /** Reads Stripe secret — supports common Vercel typo `KeyValueSTRIPE_SECRET_KEY`. */
 function readStripeSecretKeyFromEnv(): string | undefined {
@@ -21,7 +19,7 @@ function readStripeSecretKeyFromEnv(): string | undefined {
   return undefined
 }
 
-export function getStripeSecretKey(): string {
+function getStripeSecretKey(): string {
   const key = readStripeSecretKeyFromEnv()
   if (!key) {
     throw new Error("Missing STRIPE_SECRET_KEY")
@@ -59,7 +57,7 @@ export function getStripeClient(): Stripe {
 }
 
 /** Production Starter plan price id — STRIPE_PRICE_STARTER or legacy STRIPE_STARTER_PRICE_ID. */
-export function getStripeStarterPriceId(): string {
+function getStripeStarterPriceId(): string {
   const id =
     process.env.STRIPE_PRICE_STARTER?.trim() ||
     process.env.STRIPE_STARTER_PRICE_ID?.trim() ||
@@ -80,7 +78,7 @@ export function getStripeCorePriceId(): string {
 }
 
 /** Professional tier price id — set STRIPE_PRICE_PROFESSIONAL in Vercel. */
-export function getStripeProfessionalPriceId(): string | null {
+function getStripeProfessionalPriceId(): string | null {
   return (
     process.env.STRIPE_PRICE_PROFESSIONAL?.trim() ||
     process.env.STRIPE_PROFESSIONAL_PRICE_ID?.trim() ||
@@ -89,7 +87,7 @@ export function getStripeProfessionalPriceId(): string | null {
 }
 
 /** Business tier price id — set STRIPE_PRICE_BUSINESS in Vercel. */
-export function getStripeBusinessPriceId(): string | null {
+function getStripeBusinessPriceId(): string | null {
   return (
     process.env.STRIPE_PRICE_BUSINESS?.trim() ||
     process.env.STRIPE_BUSINESS_PRICE_ID?.trim() ||
@@ -98,7 +96,7 @@ export function getStripeBusinessPriceId(): string | null {
 }
 
 /** Raw price id from env for a checkout tier (throws if missing). */
-export function getStripePriceIdForTier(tier: CheckoutSubscriptionTier): string {
+function getStripePriceIdForTier(tier: CheckoutSubscriptionTier): string {
   if (tier === "starter") return getStripeStarterPriceId()
   if (tier === "professional") {
     const id = getStripeProfessionalPriceId()
@@ -119,7 +117,7 @@ export function getStripePriceIdForTier(tier: CheckoutSubscriptionTier): string 
 }
 
 /** Resolve price_ id from env (handles prod_… misconfiguration). */
-export async function resolveStripePriceId(stripe: Stripe, rawPriceId: string): Promise<string> {
+async function resolveStripePriceId(stripe: Stripe, rawPriceId: string): Promise<string> {
   const id = rawPriceId.trim()
   if (id.startsWith("price_")) return id
   if (id.startsWith("prod_")) {
@@ -159,8 +157,6 @@ export async function resolveStripeStarterPriceId(stripe: Stripe): Promise<strin
   return resolveStripePriceId(stripe, getStripeStarterPriceId())
 }
 
-/** @deprecated Use resolveStripeStarterPriceId */
-export const resolveStripeCorePriceId = resolveStripeStarterPriceId
 
 export function planMonthlyPriceCents(plan: BillingPlanKey): number {
   return PLAN_MONTHLY_PRICE_CENTS[plan] ?? PLAN_MONTHLY_PRICE_CENTS.starter

@@ -14,7 +14,7 @@ import {
 } from "@/lib/vehicle-key-mapping"
 
 /** One key row inside a MYKEYS Pro vehicle profile. */
-export type MykeysProKeyRow = {
+type MykeysProKeyRow = {
   type: string
   method: string
   img: string
@@ -31,7 +31,7 @@ export type MykeysProVehicleProfile = {
 }
 
 /** Mock MKP database keyed by "Make Model" (year omitted). */
-export const MYKEYS_PRO_DATABASE: Record<string, MykeysProVehicleProfile> = {
+const MYKEYS_PRO_DATABASE: Record<string, MykeysProVehicleProfile> = {
   "Mazda CX-90": {
     fccId: "WAX12DH45",
     keys: [

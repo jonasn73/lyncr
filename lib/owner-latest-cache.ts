@@ -22,7 +22,7 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const OWNER_LATEST_COOKIE_SCOPE = "owner-latest"
+const OWNER_LATEST_COOKIE_SCOPE = "owner-latest"
 export const OWNER_LATEST_COOKIE = paintSeedCookieName(OWNER_LATEST_COOKIE_SCOPE)
 
 type LatestCache = { items: LatestCustomerAction[] }

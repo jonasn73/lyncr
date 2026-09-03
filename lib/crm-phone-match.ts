@@ -4,7 +4,7 @@
  */
 
 /** Last 10 digits of a phone (empty when too short). */
-export function crmPhoneMatchKey(phone: string): string {
+function crmPhoneMatchKey(phone: string): string {
   return String(phone || "").replace(/\D/g, "").slice(-10)
 }
 

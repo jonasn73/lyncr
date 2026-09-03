@@ -275,16 +275,3 @@ export async function confirmCreditPackCheckout(sessionId: string): Promise<{
     provision_error: json.data?.provision_error ?? null,
   }
 }
-
-/** @deprecated Use startStripeSubscriptionCheckout — activation completes via Stripe webhook. */
-export async function activateSubscriptionClient(opts?: {
-  saveBillingMethod?: boolean
-}): Promise<never> {
-  void opts
-  const result = await startStripeSubscriptionCheckout()
-  if (result.kind === "upgraded") {
-    throw new Error(`Already subscribed — upgraded to ${result.tierLabel}.`)
-  }
-  window.location.href = result.checkoutUrl
-  throw new Error("Redirecting to Stripe checkout")
-}

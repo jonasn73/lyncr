@@ -24,7 +24,7 @@ import type { FieldTechnicianCapabilities, ReceptionistCapabilities } from "@/li
 /** A flat on/off map — whichever registry the dialog was handed. */
 export type CapabilityFlags = Record<string, boolean>
 
-export interface ReceptionistAccessTarget {
+interface ReceptionistAccessTarget {
   id: string
   name: string
   capabilities: CapabilityFlags

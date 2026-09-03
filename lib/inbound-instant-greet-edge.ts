@@ -2,21 +2,14 @@
 
 import {
   INBOUND_GREETING_PASS_PARAM,
-  buildInboundGreetingContinueUrl,
   inboundGreetingPassDone,
 } from "@/lib/inbound-greeting-param"
-
-export { buildInboundGreetingContinueUrl, inboundGreetingPassDone }
-
-/** Generic copy when pass 1 cannot read routing cache (speed > personalization). */
-export const EDGE_GENERIC_GREETING_TEXT =
-  "Thank you for calling. Please wait while we connect your call to a team member."
 
 /** Standard Polly Neural on pass 1 — answers on Telnyx immediately (no HTTP fetch like `<Play>`). */
 const EDGE_PASS1_SAY_VOICE = "Polly.Joanna-Neural"
 const DEFAULT_SAY_LANGUAGE = "en-US"
 
-export function isVoiceIncomingWebhookPath(pathname: string): boolean {
+function isVoiceIncomingWebhookPath(pathname: string): boolean {
   return pathname === "/api/voice/telnyx/incoming" || pathname === "/api/voice/incoming"
 }
 
@@ -24,14 +17,9 @@ export function edgeInboundGreetingPassDone(url: URL): boolean {
   return inboundGreetingPassDone(url.searchParams)
 }
 
-export function edgeInboundGreetingFirstEnabled(): boolean {
+function edgeInboundGreetingFirstEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_GREETING_FIRST || "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
-}
-
-export function edgeInboundInstantGreetingAudioUrl(): string | null {
-  const raw = (process.env.ZING_INBOUND_INSTANT_GREETING_AUDIO_URL || "").trim()
-  return raw || null
 }
 
 function escapeXmlAttr(value: string): string {

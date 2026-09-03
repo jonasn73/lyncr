@@ -119,12 +119,6 @@ export type OwnerCallRecordingReadyPayload = {
   recording_url: string
 }
 
-export type OwnerCallChannelEvent =
-  | "call-initiated"
-  | "call-answered"
-  | "call-completed"
-  | "call-recording-ready"
-
 /** Normalize E.164 / display numbers to digits-only for workspace line matching. */
 export function normalizeCallEventPhoneDigits(raw: string | null | undefined): string {
   const digits = String(raw ?? "").replace(/\D/g, "")

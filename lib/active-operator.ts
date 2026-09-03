@@ -8,32 +8,7 @@ import { toE164 } from "@/lib/phone-e164"
 import type { AccountRole } from "@/lib/types"
 
 /** Public / product-facing role labels. */
-export type TeamRoleLabel = "OWNER" | "RECEPTIONIST" | "TECHNICIAN"
-
-/** Normalize any raw role string into the DB AccountRole union (defaults to owner). */
-export function normalizeAccountRoleValue(raw: unknown): AccountRole {
-  const v = String(raw ?? "owner")
-    .trim()
-    .toLowerCase()
-    .replace(/-/g, "_")
-  if (v === "receptionist") return "receptionist"
-  if (v === "field_tech" || v === "technician" || v === "tech") return "field_tech"
-  if (v === "owner") return "owner"
-  // Accept uppercase product labels without lowercasing twice.
-  const upper = String(raw ?? "").trim().toUpperCase()
-  if (upper === "RECEPTIONIST") return "receptionist"
-  if (upper === "TECHNICIAN" || upper === "FIELD_TECH") return "field_tech"
-  if (upper === "OWNER") return "owner"
-  return "owner"
-}
-
-/** Map DB role → product enum label. */
-export function toTeamRoleLabel(role: AccountRole | string | null | undefined): TeamRoleLabel {
-  const n = normalizeAccountRoleValue(role)
-  if (n === "receptionist") return "RECEPTIONIST"
-  if (n === "field_tech") return "TECHNICIAN"
-  return "OWNER"
-}
+type TeamRoleLabel = "OWNER" | "RECEPTIONIST" | "TECHNICIAN"
 
 export type ActiveOperator = {
   userId: string

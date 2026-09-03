@@ -4,7 +4,7 @@
 
 import rangesFile from "@/data/vehicle-model-year-ranges.json"
 
-export type VehicleModelYearRange = {
+type VehicleModelYearRange = {
   make: string
   model: string
   start: number
@@ -90,11 +90,6 @@ export function filterModelsForYear(
 /** @deprecated Make lists stay unfiltered — hard discontinuations apply at model level only. */
 export function knownMakesForYear(_year: number): Set<string> {
   return new Set()
-}
-
-/** Makes that appear in the hard-discontinuation table. */
-export function knownMakes(): Set<string> {
-  return new Set(HARD_BY_MAKE.keys())
 }
 
 /**

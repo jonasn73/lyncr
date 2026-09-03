@@ -24,7 +24,7 @@ export type BookingInvite = {
 const SHORT_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 /** Generate an 8-char public short code. */
-export function generateBookingInviteShortCode(length = 8): string {
+function generateBookingInviteShortCode(length = 8): string {
   let out = ""
   for (let i = 0; i < length; i++) {
     out += SHORT_CODE_ALPHABET[Math.floor(Math.random() * SHORT_CODE_ALPHABET.length)]
@@ -37,7 +37,7 @@ function appBaseUrl(): string {
 }
 
 /** Prefer short /b/XXXX links; fall back to UUID /book/[id]. */
-export function publicBookingInviteUrl(invite: {
+function publicBookingInviteUrl(invite: {
   id: string
   shortCode?: string | null
 }): string {
@@ -57,7 +57,7 @@ function last10Digits(phone: string | null | undefined): string {
  * Reuse an open invite for the same caller (same day / cooldown window)
  * so SMS does not mint a new UUID every time.
  */
-export async function findReusableBookingInvite(params: {
+async function findReusableBookingInvite(params: {
   ownerUserId: string
   callerPhone: string
   /** Hours to look back (default 24 ≈ same calendar day for most shops). */

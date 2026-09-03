@@ -13,11 +13,11 @@ import {
 import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import type { UiCallRecord } from "@/lib/operations-ui-types"
 
-export const OPERATIONS_PAINT_SCOPE = "operations-calls"
+const OPERATIONS_PAINT_SCOPE = "operations-calls"
 export const OPERATIONS_PAINT_COOKIE = paintSeedCookieName(OPERATIONS_PAINT_SCOPE)
 
 /** Minimal row — enough for mobile cards + desktop table first paint. */
-export type OperationsPaintCall = {
+type OperationsPaintCall = {
   id: string
   type: UiCallRecord["type"]
   callerName: string

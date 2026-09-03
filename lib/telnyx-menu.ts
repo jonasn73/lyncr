@@ -70,7 +70,7 @@ export const TELNYX_MENU_DIAL_TIMEOUT_SECONDS = 20
 /** TeXML Content-Type for Gather action callbacks. */
 export const TELNYX_MENU_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 
-export function escapeTexmlText(value: string): string {
+function escapeTexmlText(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -80,7 +80,7 @@ export function escapeTexmlText(value: string): string {
 }
 
 /** Escape spoken <Say> text after phonetic TTS cleanup (502 → five oh two). */
-export function escapeTexmlSayText(value: string): string {
+function escapeTexmlSayText(value: string): string {
   return escapeTexmlText(cleanTextForTTS(value))
 }
 

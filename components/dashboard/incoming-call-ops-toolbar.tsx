@@ -30,7 +30,7 @@ const BTN =
   "inline-flex items-center justify-center gap-2 rounded-lg border py-2 px-3 text-xs font-semibold touch-manipulation transition-colors active:scale-95 disabled:opacity-50"
 
 /** Live-leg chrome next to Decline / SMS — mirrors intake header phase. */
-export type IncomingCallLinePhase = "ringing" | "answered" | "missed" | "voicemail" | "ended"
+type IncomingCallLinePhase = "ringing" | "answered" | "missed" | "voicemail" | "ended"
 
 type IncomingCallOpsToolbarProps = {
   phoneE164: string

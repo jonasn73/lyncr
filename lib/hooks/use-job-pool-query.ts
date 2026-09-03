@@ -27,12 +27,12 @@ function resolvePoolOrgId(activeOrganizationId: string | null | undefined): stri
   return normalizeWorkspaceOrgId(activeOrganizationId)
 }
 
-export function jobPoolHopperUrl(activeOrganizationId: string | null): string {
+function jobPoolHopperUrl(activeOrganizationId: string | null): string {
   const orgQs = organizationQueryString(activeOrganizationId)
   return `/api/owner/jobs/pool${orgQs}`
 }
 
-export function jobPoolActiveUrl(activeOrganizationId: string | null, dayKey: string): string {
+function jobPoolActiveUrl(activeOrganizationId: string | null, dayKey: string): string {
   const orgQs = organizationQueryString(activeOrganizationId)
   const sep = orgQs ? "&" : "?"
   return `/api/owner/jobs/pool${orgQs}${sep}scope=active&day=${encodeURIComponent(dayKey)}`

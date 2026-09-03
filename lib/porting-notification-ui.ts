@@ -14,15 +14,6 @@ export function isPortingNotificationActionNeeded(eventType: string, title?: str
   )
 }
 
-export function filterNotificationsForOrder(
-  notifications: PortingNotification[],
-  telnyxOrderId: string | null | undefined
-): PortingNotification[] {
-  if (!telnyxOrderId?.trim()) return notifications
-  const id = telnyxOrderId.trim()
-  return notifications.filter((n) => n.porting_order_id === id)
-}
-
 export function countUnreadForOrder(notifications: PortingNotification[]): number {
   return notifications.filter((n) => n.read_at == null).length
 }

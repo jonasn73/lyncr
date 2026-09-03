@@ -2,7 +2,7 @@
 
 import type { AdminNotificationPreferences, User } from "@/lib/types"
 
-export const ADMIN_NOTIFICATION_PREFERENCE_KEYS = [
+const ADMIN_NOTIFICATION_PREFERENCE_KEYS = [
   "sms_local_job_assignments",
   "sms_global_out_of_state_bookings",
   "push_live_inbound_ringing",
@@ -54,7 +54,7 @@ export function isAdminNotificationPreferenceKey(raw: unknown): raw is AdminNoti
 }
 
 /** Infer US state abbreviation from lead/job collected fields. */
-export function inferLeadUsState(collected: Record<string, unknown>): string | null {
+function inferLeadUsState(collected: Record<string, unknown>): string | null {
   const raw =
     collected.job_address_state ??
     collected.state ??

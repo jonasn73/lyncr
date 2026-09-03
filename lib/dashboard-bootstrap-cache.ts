@@ -9,7 +9,7 @@ const CACHE_ID = "default"
  */
 const DASHBOARD_BOOTSTRAP_MAX_AGE_MS = 30 * 60 * 1000
 
-export function dashboardBootstrapCacheKey(): string {
+function dashboardBootstrapCacheKey(): string {
   return persistedCacheKey(CACHE_SCOPE, CACHE_ID)
 }
 

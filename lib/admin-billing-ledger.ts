@@ -6,7 +6,7 @@
 import { neon } from "@neondatabase/serverless"
 import { resolveNeonDatabaseUrl } from "@/lib/neon-database-url"
 
-export type AdminBillingLedgerRow = {
+type AdminBillingLedgerRow = {
   id: string
   ownerUserId: string | null
   businessName: string

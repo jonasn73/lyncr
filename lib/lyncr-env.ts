@@ -32,12 +32,6 @@ export function envFlagOn(suffix: string, defaultOn = false): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
 }
 
-/** True when env value looks like an explicit off-switch. */
-export function envFlagOff(suffix: string): boolean {
-  const raw = (envLyncrOrZing(suffix) ?? "").trim().toLowerCase()
-  return raw === "0" || raw === "false" || raw === "no" || raw === "off"
-}
-
 /**
  * Structured voice / Call Control log line — use `lyncr:` (not legacy `zing:`).
  * Keeps Vercel log search consistent with the Lyncr brand.

@@ -5,13 +5,13 @@ export type NegotiationDiscountId =
   | "route_optimization"
   | "first_time_callback"
 
-export type NegotiationDiscountOption = {
+type NegotiationDiscountOption = {
   id: NegotiationDiscountId
   label: string
   shortLabel: string
 }
 
-export const NEGOTIATION_DISCOUNT_OPTIONS: NegotiationDiscountOption[] = [
+const NEGOTIATION_DISCOUNT_OPTIONS: NegotiationDiscountOption[] = [
   {
     id: "aftermarket_key_swap",
     label: "Standard/Aftermarket Key Swap (-$40)",

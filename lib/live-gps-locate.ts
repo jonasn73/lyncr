@@ -20,11 +20,11 @@ function sql() {
 }
 
 /** Opaque short id for SMS links. */
-export function createLiveGpsTokenId(): string {
+function createLiveGpsTokenId(): string {
   return randomBytes(12).toString("base64url")
 }
 
-export function buildLocateUrl(tokenId: string): string {
+function buildLocateUrl(tokenId: string): string {
   const base = getAppUrl().replace(/\/+$/, "")
   return `${base}/locate?c=${encodeURIComponent(tokenId)}`
 }

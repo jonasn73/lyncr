@@ -1,6 +1,6 @@
 // Locksmith SMS templates for missed-lead recovery intercept.
 
-export type MissedLeadSmsTemplateId = "standard_stall" | "repeat_rescue"
+type MissedLeadSmsTemplateId = "standard_stall" | "repeat_rescue"
 
 export type MissedLeadSmsTemplate = {
   id: MissedLeadSmsTemplateId

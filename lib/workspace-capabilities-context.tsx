@@ -43,11 +43,6 @@ export function WorkspaceCapabilitiesProvider({
   )
 }
 
-/** The viewer of the surrounding workspace view — an owner with full access by default. */
-export function useWorkspaceViewer(): WorkspaceViewer {
-  return useContext(WorkspaceCapabilitiesContext)
-}
-
 /** True when the viewer may do `capability`. Read it, don't infer from actorRole. */
 export function useCan(capability: keyof ReceptionistCapabilities): boolean {
   return useContext(WorkspaceCapabilitiesContext).capabilities[capability] === true

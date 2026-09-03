@@ -1,7 +1,7 @@
 // Known industry / specialty tags for the managed receptionist routing pool.
 
 /** Canonical skill tag slugs stored in `receptionists.skills` and routing `industry_tag`. */
-export const ROUTING_POOL_SKILL_TAGS = [
+const ROUTING_POOL_SKILL_TAGS = [
   "auto_detailing",
   "auto_repair",
   "locksmith",
@@ -12,8 +12,6 @@ export const ROUTING_POOL_SKILL_TAGS = [
   "home_services",
   "retail",
 ] as const
-
-export type RoutingPoolSkillTag = (typeof ROUTING_POOL_SKILL_TAGS)[number]
 
 const SKILL_LABELS: Record<string, string> = {
   auto_detailing: "Auto Detailing",

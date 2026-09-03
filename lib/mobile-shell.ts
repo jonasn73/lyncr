@@ -2,12 +2,6 @@
 
 export const MOBILE_BREAKPOINT_PX = 768
 
-/** CSS custom properties set on the app shell root. */
-export const MOBILE_SHELL_CSS_VARS = {
-  headerH: "var(--shell-header-h)",
-  dockH: "var(--shell-dock-h)",
-} as const
-
 /**
  * Full-height tab body (map, boards) — viewport minus shell chrome and the page
  * padding DashboardPageView owns (pt-4/pb-8 = 3rem, sm:pt-8/sm:pb-10 = 4.5rem).
@@ -23,10 +17,6 @@ export const MOBILE_BLEED =
 /** Minimum 44×44px touch target (Apple HIG). */
 export const MOBILE_TAP_TARGET = "min-h-11 min-w-11"
 
-/** Horizontal snap scroll row for metric pills / chips. */
-export const MOBILE_SNAP_ROW =
-  "flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 scrollbar-hide [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-
 // —— Mobile Lines home chrome (Presence, stats, Who answers, Rescue, dock) ——
 
 /** Uppercase section eyebrow used across Lines mobile blocks. */
@@ -37,16 +27,3 @@ export const LINES_MOBILE_SECTION_LABEL =
 export const LINES_MOBILE_CARD =
   "rounded-xl border border-border/90 bg-card/40"
 
-/** Emerald “on / live / enabled” card tint (Presence Available, Rescue on). */
-export const LINES_MOBILE_CARD_ACTIVE =
-  "rounded-xl border border-success/40 bg-success/10"
-
-/** Horizontal padding shared by sticky chrome + scroll body on phones. */
-export const LINES_MOBILE_PAGE_X = "px-3"
-
-/** Vertical rhythm between Lines mobile blocks. */
-export const LINES_MOBILE_STACK = "space-y-3"
-
-/** Left icon tile on Who answers / Rescue rows. */
-export const LINES_MOBILE_ICON_TILE =
-  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"

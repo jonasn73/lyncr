@@ -12,13 +12,13 @@ import {
 import type { JobPhotoTokenRow } from "@/lib/job-photo-request"
 
 /** Ticket wait / ready states that should notify the operator. */
-export const PHOTO_ALERT_TICKET_STATUSES = new Set([
+const PHOTO_ALERT_TICKET_STATUSES = new Set([
   "awaiting_photos",
   "pending_info",
   "info_received",
 ])
 
-export function isPhotoWaitTicketStatus(status: string | null | undefined): boolean {
+function isPhotoWaitTicketStatus(status: string | null | undefined): boolean {
   const s = String(status || "")
     .trim()
     .toLowerCase()
@@ -26,7 +26,7 @@ export function isPhotoWaitTicketStatus(status: string | null | undefined): bool
   return PHOTO_ALERT_TICKET_STATUSES.has(s)
 }
 
-export function buildPhotoUploadAlertSms(params: {
+function buildPhotoUploadAlertSms(params: {
   phoneNumber: string
   ticketId: string
   kind?: "photo" | "intake_rescue"

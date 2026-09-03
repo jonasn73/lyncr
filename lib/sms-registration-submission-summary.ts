@@ -13,10 +13,7 @@ import type {
 } from "@/lib/sms-registration-submission-summary-types"
 import type { Workspace10DlcCompliance } from "@/lib/workspace-10dlc-compliance"
 
-export type {
-  SmsRegistrationLifecycleStage,
-  SmsRegistrationSubmissionSummary,
-} from "@/lib/sms-registration-submission-summary-types"
+export type { SmsRegistrationSubmissionSummary } from "@/lib/sms-registration-submission-summary-types"
 
 const TELNYX_PENDING = new Set(["paid", "submitted", "pending_review"])
 const TELNYX_REJECTED = new Set(["rejected", "failed"])

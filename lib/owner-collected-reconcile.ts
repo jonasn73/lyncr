@@ -79,14 +79,3 @@ export async function listOwnerCollectedTransactionsReconciled(
   const reconciled = await reconcileStalePendingTransactions(ownerUserId, unfiltered)
   return reconciled.filter((tx) => !isStalePendingCollectedCharge(tx))
 }
-
-/** Same as listOwnerCollectedTransactionsForPhone, but reconciles stale PENDING rows against Stripe first. */
-export async function listOwnerCollectedTransactionsForPhoneReconciled(
-  ownerUserId: string,
-  phoneE164: string,
-  limit = 50
-): Promise<OwnerCollectedTransaction[]> {
-  const unfiltered = await listOwnerCollectedTransactionsForPhone(ownerUserId, phoneE164, limit, true)
-  const reconciled = await reconcileStalePendingTransactions(ownerUserId, unfiltered)
-  return reconciled.filter((tx) => !isStalePendingCollectedCharge(tx))
-}

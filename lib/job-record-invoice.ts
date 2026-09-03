@@ -74,14 +74,14 @@ export type JobRecordInvoiceRow = {
   updatedAtIso: string
 }
 
-export function paymentMethodLabelForRecord(method: RecordInvoicePaymentMethod): string {
+function paymentMethodLabelForRecord(method: RecordInvoicePaymentMethod): string {
   if (method === "VENMO") return "Venmo"
   if (method === "CASH") return "Cash"
   if (method === "EXTERNAL") return "Outside payment"
   return "Other"
 }
 
-export function deliveryStatusLabel(status: RecordInvoiceDeliveryStatus): string {
+function deliveryStatusLabel(status: RecordInvoiceDeliveryStatus): string {
   if (status === "sent") return "Sent"
   if (status === "failed") return "Send failed"
   if (status === "partial") return "Partially sent"
@@ -177,13 +177,13 @@ function parseRecordRow(row: Record<string, unknown>): JobRecordInvoiceRow {
 }
 
 /** Public URL for this invoice’s /r/{token} page. */
-export function recordInvoicePublicUrl(row: JobRecordInvoiceRow): string {
+function recordInvoicePublicUrl(row: JobRecordInvoiceRow): string {
   const appUrl = getAppUrl().replace(/\/$/, "")
   return `${appUrl}/r/${row.receiptToken}`
 }
 
 /** PDF download URL (same auth-less public endpoint as the web page). */
-export function recordInvoicePdfUrl(row: JobRecordInvoiceRow): string {
+function recordInvoicePdfUrl(row: JobRecordInvoiceRow): string {
   const appUrl = getAppUrl().replace(/\/$/, "")
   return `${appUrl}/api/receipt/${encodeURIComponent(row.receiptToken)}/pdf`
 }
@@ -428,7 +428,7 @@ type ChannelAttempt = {
 }
 
 /** Persist delivery outcome on the invoice row (migration 133). */
-export async function updateJobRecordInvoiceDelivery(
+async function updateJobRecordInvoiceDelivery(
   invoiceId: string,
   attempt: ChannelAttempt & { channelsRequested: string }
 ): Promise<JobRecordInvoiceRow | null> {

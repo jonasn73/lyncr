@@ -7,7 +7,7 @@ import {
   getSmsRegistrationForOrganization,
 } from "@/lib/db"
 
-export type PortServiceAddress = {
+type PortServiceAddress = {
   street: string
   city: string
   state: string

@@ -1,16 +1,16 @@
 // Deep-link helpers for the owner scheduler (intake dispatch → schedule a new pool job).
 
 /** Query param: lead id to highlight on the map or in the hopper. */
-export const SCHEDULER_FOCUS_PARAM = "focus"
+const SCHEDULER_FOCUS_PARAM = "focus"
 
 /** Query param: open grid scheduling UI for a newly created pool job. */
-export const SCHEDULER_SCHEDULE_PARAM = "schedule"
+const SCHEDULER_SCHEDULE_PARAM = "schedule"
 
 /** Query param: journey started in CRM — drawer close returns to customers. */
-export const SCHEDULER_FROM_PARAM = "from"
+const SCHEDULER_FROM_PARAM = "from"
 
 /** Query param: CRM customer id to reopen after returning from Scheduler. */
-export const SCHEDULER_CUSTOMER_PARAM = "customer"
+const SCHEDULER_CUSTOMER_PARAM = "customer"
 
 export type SchedulerFocusUrlOptions = {
   /** When true, open the post-intake schedule dialog (date + time) on the map. */

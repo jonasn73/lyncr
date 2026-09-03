@@ -33,12 +33,12 @@ export type TiCatalogKeyOption = {
 }
 
 /** Normalize make/model for loose title matching. */
-export function normalizeVehicleToken(value: string): string {
+function normalizeVehicleToken(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
 /** Strip spaces/hyphens so "CX-3", "CX 3", and "CX3" compare equal. */
-export function compactVehicleToken(value: string): string {
+function compactVehicleToken(value: string): string {
   return normalizeVehicleToken(value).replace(/[\s\-_.]/g, "")
 }
 

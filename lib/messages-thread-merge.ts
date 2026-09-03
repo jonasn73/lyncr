@@ -15,7 +15,7 @@ function messagePhone(msg: SmsMessage): string {
 }
 
 /** Latest message id per phone key. */
-export function latestMessageIdByPhone(messages: SmsMessage[]): Map<string, string> {
+function latestMessageIdByPhone(messages: SmsMessage[]): Map<string, string> {
   const map = new Map<string, { id: string; t: number }>()
   for (const msg of messages) {
     const raw = messagePhone(msg)

@@ -1,6 +1,6 @@
 // client_state blob passed through Telnyx Call Control commands (base64 JSON).
 
-export type TelnyxCallControlPhase =
+type TelnyxCallControlPhase =
   | "await_caller_answered"
   | "await_greeting_end"
   | "await_dial_end"

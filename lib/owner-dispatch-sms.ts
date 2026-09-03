@@ -24,7 +24,7 @@ function brandLabel(): string {
 }
 
 /** Universal Google Maps link — clickable on iOS + Android, opens the default maps/navigation app. */
-export function buildMapsLink(address: string): string {
+function buildMapsLink(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`
 }
 
@@ -36,7 +36,7 @@ function formatPhoneDisplay(phone: string | null): string {
   return phone
 }
 
-export type OwnerDispatchData = {
+type OwnerDispatchData = {
   businessName: string
   customerName: string | null
   customerPhone: string | null
@@ -45,7 +45,7 @@ export type OwnerDispatchData = {
 }
 
 /** Compose the formatted owner dispatch SMS (emojis + line breaks + tappable maps link). */
-export function buildOwnerDispatchSms(data: OwnerDispatchData): string {
+function buildOwnerDispatchSms(data: OwnerDispatchData): string {
   const brand = brandLabel()
   const lines: string[] = [
     `🔔 ${brand} Job Dispatch`,

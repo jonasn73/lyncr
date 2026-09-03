@@ -9,7 +9,7 @@ export const TEAM_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
  * If fewer than this many ms remain (or already expired), resend regenerates the token.
  * Keeps an existing link working when the owner just wants to copy/resend a fresh invite.
  */
-export const TEAM_INVITE_REFRESH_WITHIN_MS = 24 * 60 * 60 * 1000
+const TEAM_INVITE_REFRESH_WITHIN_MS = 24 * 60 * 60 * 1000
 
 /** True when the invite is expired or within the refresh window. */
 export function teamInviteNeedsTokenRefresh(expiresAt: string, nowMs = Date.now()): boolean {

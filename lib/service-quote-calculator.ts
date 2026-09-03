@@ -106,7 +106,7 @@ export const SERVICE_QUOTE_TYPES = [
  * Includes Lockout — invoices still show vehicle + VIN even when
  * the job is not a key-generation job.
  */
-export const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [
+const AUTOMOTIVE_SERVICE_QUOTE_TYPE_IDS = [
   "lockout",
   "safe_lockout",
   "key_generation",
@@ -125,9 +125,8 @@ export function isAutomotiveServiceQuoteType(
 }
 
 export type { ServiceQuoteTypeId } from "@/lib/service-rate-card"
-export { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
 
-export type ServiceQuoteBreakdownLine = {
+type ServiceQuoteBreakdownLine = {
   label: string
   cents: number
   kind:
@@ -213,7 +212,7 @@ export function getVehiclePricingTier(
 }
 
 /** Dollar defaults (as cents) for blank + programming by difficulty tier. */
-export function feesForVehiclePricingTier(tier: VehiclePricingTier): {
+function feesForVehiclePricingTier(tier: VehiclePricingTier): {
   blankCents: number
   programmingCents: number
   highSecurityRiskCents: number
@@ -517,5 +516,5 @@ export function formatQuoteDollars(cents: number): string {
   return `$${(cents / 100).toFixed(0)}`
 }
 
-// Re-export for callers that need the default profile without a DB round-trip.
-export { DEFAULT_SERVICE_RATE_CARD, type ServiceRateCard } from "@/lib/service-rate-card"
+// Re-export for callers that need the type without a DB round-trip.
+export type { ServiceRateCard } from "@/lib/service-rate-card"

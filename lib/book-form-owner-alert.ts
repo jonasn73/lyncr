@@ -6,12 +6,6 @@ import { dispatchLeadSmsAlert } from "@/lib/intake-engine"
 import { notifyOwnerLatestNeedsAttention } from "@/lib/latest-attention-sms"
 import { isHoldPress1BookingSource } from "@/lib/owner-live-call"
 
-export {
-  BOOK_FORM_INTAKE_SOURCES,
-  isBookFormIntakeSource,
-  crmIntakeFilledByLabel,
-} from "@/lib/book-form-sources"
-
 export type NotifyOwnerBookFormParams = {
   ownerUserId: string
   leadId: string

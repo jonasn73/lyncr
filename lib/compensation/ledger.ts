@@ -29,7 +29,7 @@ function pgErrorCode(e: unknown): string {
 }
 
 /** True when earnings_ledger has not been created yet. */
-export function isMissingLedgerTable(e: unknown): boolean {
+function isMissingLedgerTable(e: unknown): boolean {
   if (pgErrorCode(e) === "42P01") return true
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
   return msg.includes("earnings_ledger") && msg.includes("does not exist")

@@ -25,7 +25,7 @@ import {
   resolveOwnerTimezone,
 } from "@/lib/browser-timezone-cookie"
 
-export type { UiCallRecord, UiCallType } from "@/lib/operations-ui-types"
+export type { UiCallRecord } from "@/lib/operations-ui-types"
 
 export interface VoiceQualitySummary {
   total_calls: number

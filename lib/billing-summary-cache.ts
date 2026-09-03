@@ -11,8 +11,8 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const BILLING_SUMMARY_CACHE_SCOPE = "billing-summary"
-export const BILLING_SUMMARY_SESSION_KEY = persistedCacheKey(BILLING_SUMMARY_CACHE_SCOPE, "default")
+const BILLING_SUMMARY_CACHE_SCOPE = "billing-summary"
+const BILLING_SUMMARY_SESSION_KEY = persistedCacheKey(BILLING_SUMMARY_CACHE_SCOPE, "default")
 export const BILLING_SUMMARY_COOKIE = paintSeedCookieName(BILLING_SUMMARY_CACHE_SCOPE)
 
 export type BillingSummaryCache = {

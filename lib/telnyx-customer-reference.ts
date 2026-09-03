@@ -30,7 +30,7 @@ function parsePrefixedCustomerReference(
 }
 
 /** Build Telnyx customer_reference — optionally scoped to one organization workspace. */
-export function buildLyncrCustomerReference(userId: string, organizationId?: string | null): string {
+function buildLyncrCustomerReference(userId: string, organizationId?: string | null): string {
   const uid = userId.trim()
   const org = organizationId?.trim()
   if (org && !org.startsWith("legacy-")) return `${CURRENT_PREFIX}${uid}--${org}`
@@ -43,7 +43,7 @@ export function buildZingCustomerReference(userId: string, organizationId?: stri
 }
 
 /** Parse `lyncr-…` or legacy `zing-<userId>` / `zing-<userId>--<organizationId>`. */
-export function parseLyncrCustomerReference(ref: string): ParsedLyncrCustomerReference | null {
+function parseLyncrCustomerReference(ref: string): ParsedLyncrCustomerReference | null {
   return (
     parsePrefixedCustomerReference(ref, CURRENT_PREFIX) ??
     parsePrefixedCustomerReference(ref, LEGACY_PREFIX)
@@ -60,7 +60,7 @@ function isCustomerReferenceString(value: string): boolean {
 }
 
 /** Walk webhook JSON for a lyncr/zing customer_reference string. */
-export function findLyncrCustomerReferenceInPayload(obj: unknown): string | null {
+function findLyncrCustomerReferenceInPayload(obj: unknown): string | null {
   if (obj == null) return null
   if (typeof obj === "string") return null
   if (Array.isArray(obj)) {

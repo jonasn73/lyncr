@@ -115,7 +115,7 @@ export function inferProgrammingMethod(
 }
 
 /** Map a variant bucket to the intake form key-style dropdown value. */
-export function bucketToKeyStyleOption(bucket: KeyStyleBucket): string | null {
+function bucketToKeyStyleOption(bucket: KeyStyleBucket): string | null {
   switch (bucket) {
     case "smart":
       return "Push start (smart key)"

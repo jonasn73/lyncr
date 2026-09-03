@@ -8,12 +8,6 @@ import {
   isHoldAutomationStatus,
 } from "@/lib/inbound-time-capture"
 
-export {
-  CAPTURE_STATUS_DAY_LINK,
-  CAPTURE_STATUS_EMERGENCY_ANSWERED,
-  CAPTURE_STATUS_NIGHT_LINK,
-} from "@/lib/inbound-time-capture"
-
 export type MissedCallRecordInput = {
   call_type?: string | null
   status?: string | null
@@ -118,7 +112,7 @@ export function isIvrMenuHandler(routedToName: string | null | undefined): boole
  * Bridged talk seconds from answered_at → ended_at when both exist.
  * Prefer this over duration_seconds — that field often includes ring time.
  */
-export function bridgedTalkSeconds(input: MissedCallRecordInput): number | null {
+function bridgedTalkSeconds(input: MissedCallRecordInput): number | null {
   const answeredRaw = input.answered_at?.trim()
   const endedRaw = input.ended_at?.trim()
   if (!answeredRaw || !endedRaw) return null

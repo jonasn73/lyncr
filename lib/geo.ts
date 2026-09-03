@@ -19,7 +19,7 @@ export const ARRIVAL_RADIUS_METERS = 50
 const METERS_PER_MILE = 1609.344
 
 /** Convert meters to statute miles. */
-export function metersToMiles(meters: number): number {
+function metersToMiles(meters: number): number {
   return meters / METERS_PER_MILE
 }
 

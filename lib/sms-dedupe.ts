@@ -3,7 +3,7 @@
  */
 
 /** Collapse spaces/case so two copies of the same text match. */
-export function normalizeCustomerSmsBody(text: string): string {
+function normalizeCustomerSmsBody(text: string): string {
   // Turn missing text into an empty string so callers never crash.
   const raw = String(text || "")
   // Ignore capital letters — "Hi Jade" and "hi jade" are the same.

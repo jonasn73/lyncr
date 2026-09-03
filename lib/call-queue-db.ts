@@ -118,7 +118,7 @@ export async function countWaitingCallQueue(userId: string): Promise<number> {
  * Also promote holding → waiting after the Busy greeting unlock window
  * so Answer is available without waiting for gather.ended.
  */
-export async function sweepStaleCallQueueForUser(userId: string): Promise<void> {
+async function sweepStaleCallQueueForUser(userId: string): Promise<void> {
   try {
     const sql = getSql()
     // Max hold + 90s buffer — anything older is a ghost or overdue.
@@ -336,19 +336,6 @@ export async function getCallQueueById(id: string, userId: string): Promise<Call
   }
 }
 
-export async function getCallQueueByCallControlId(callControlId: string): Promise<CallQueueRow | null> {
-  try {
-    const sql = getSql()
-    const rows = await sql`
-      SELECT * FROM call_queue WHERE call_control_id = ${callControlId} LIMIT 1
-    `
-    return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null
-  } catch (e) {
-    if (isMissingCallQueueTable(e)) return null
-    throw e
-  }
-}
-
 /** Mark queue row left / timed_out / sms_left / answered. */
 export async function updateCallQueueStatus(params: {
   callControlId: string
@@ -392,12 +379,6 @@ export async function getCallQueuePosition(
   const waiting = await listWaitingCallQueue(userId)
   const idx = waiting.findIndex((w) => w.call_control_id === callControlId)
   return idx >= 0 ? idx + 1 : null
-}
-
-/** Optional per-account hold music from Greetings (migration 129). */
-export async function getAccountHoldMusicUrl(userId: string): Promise<string | null> {
-  const settings = await getAccountHoldSettings(userId)
-  return settings.holdMusicUrl
 }
 
 export type AccountHoldSettings = {
@@ -474,13 +455,6 @@ export async function getAccountHoldSettings(userId: string): Promise<AccountHol
     if (msg.includes("account_settings") && msg.includes("does not exist")) return empty
     throw e
   }
-}
-
-export async function setAccountHoldMusicUrl(
-  userId: string,
-  holdMusicUrl: string | null
-): Promise<void> {
-  await setAccountHoldSettings(userId, { holdMusicUrl })
 }
 
 export async function setAccountHoldSettings(

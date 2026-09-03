@@ -160,34 +160,6 @@ export async function broadcastCallRecordingReady(params: {
   await publishOwnerEvent(params.ownerUserId, "call-recording-ready", payload)
 }
 
-/** Resolve call row and publish call-answered for the intake sheet (TeXML + Call Control). */
-export async function broadcastCallAnsweredBySid(callSid: string): Promise<void> {
-  const snapshot = await getCallLogSnapshotForTelemetry(callSid)
-  if (!snapshot) return
-  if (!snapshot.answered_at) return
-  if (snapshot.call_type === "voicemail" || snapshot.call_type === "outgoing") return
-  // Waiting on hold / Busy menu must never pop CALL ANSWERED intake.
-  const { shouldOpenOwnerAnsweredIntake } = await import("@/lib/realtime/owner-call-event-types")
-  if (
-    !shouldOpenOwnerAnsweredIntake({
-      routed_to_name: snapshot.routed_to_name,
-      dial_reason: null,
-    })
-  ) {
-    return
-  }
-  await broadcastCallAnswered({
-    ownerUserId: snapshot.user_id,
-    callSid,
-    callLogId: snapshot.id,
-    fromNumber: snapshot.from_number,
-    toNumber: snapshot.to_number,
-    organizationId: snapshot.organization_id,
-    answeredAt: snapshot.answered_at,
-    routedToName: snapshot.routed_to_name,
-  })
-}
-
 /** Resolve call row and publish call-completed with metric deltas for the owner HUD. */
 export async function broadcastCallCompletedBySid(callSid: string): Promise<void> {
   const snapshot = await getCallLogSnapshotForTelemetry(callSid)

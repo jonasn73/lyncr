@@ -26,7 +26,7 @@ const EST_TELNYX_SMS_CENTS = 1
 
 const ADMIN_FINANCE_TZ = "America/New_York"
 
-export { parseAdminMoneyPeriod, resolveAdminMoneyPeriodBounds }
+export { parseAdminMoneyPeriod }
 export type { AdminMoneyPeriod }
 
 function formatUsdFromCents(cents: number): string {

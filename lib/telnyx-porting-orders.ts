@@ -20,7 +20,7 @@ export async function fetchTelnyxPortingOrderById(orderId: string): Promise<Reco
 }
 
 /** Returns user id from `customer_reference: zing-<uuid>` when set by lyncr (legacy prefix). */
-export function portOrderZingUserId(order: Record<string, unknown>): string | null {
+function portOrderZingUserId(order: Record<string, unknown>): string | null {
   const ref = String(order.customer_reference || "").trim()
   if (!ref.startsWith("zing-")) return null
   const id = ref.slice(5).trim()

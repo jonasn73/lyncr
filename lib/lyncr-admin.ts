@@ -5,7 +5,7 @@ import type { User } from "@/lib/types"
 /** Only this email may open /admin and call admin API routes. */
 export const LYNCR_ADMIN_EMAIL = "admin@lyncr.app"
 
-export function normalizeEmail(email: string): string {
+function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 

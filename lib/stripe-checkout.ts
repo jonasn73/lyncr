@@ -78,8 +78,6 @@ export async function createLyncrSubscriptionCheckout(
   return { url: session.url, sessionId: session.id }
 }
 
-/** @deprecated Use createLyncrSubscriptionCheckout */
-export const createLyncrCoreSubscriptionCheckout = createLyncrSubscriptionCheckout
 
 /** One-time Stripe Checkout for prepaid carrier credit (syncs to Telnyx wallet after payment). */
 export async function createLyncrCreditPackCheckout(
@@ -134,7 +132,7 @@ export type SubscriptionUpgradeResult = {
 }
 
 /** Change an existing Stripe subscription to a higher tier (prorated). */
-export async function upgradeLyncrSubscription(
+async function upgradeLyncrSubscription(
   userId: string,
   tierInput: CheckoutSubscriptionTier | string
 ): Promise<SubscriptionUpgradeResult> {

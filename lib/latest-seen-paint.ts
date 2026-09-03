@@ -10,7 +10,7 @@ import {
   writePaintSeedCookie,
 } from "@/lib/paint-seed-cookie"
 
-export const LATEST_SEEN_COOKIE_SCOPE = "latest-seen"
+const LATEST_SEEN_COOKIE_SCOPE = "latest-seen"
 export const LATEST_SEEN_COOKIE = paintSeedCookieName(LATEST_SEEN_COOKIE_SCOPE)
 
 /** Compact seen maps — phone keys for replies, row ids for everything else. */
@@ -45,7 +45,7 @@ export function mergeSeenMaps(
   return out
 }
 
-export function normalizeLatestSeenPaint(
+function normalizeLatestSeenPaint(
   raw: LatestSeenPaint | null | undefined
 ): LatestSeenPaint {
   if (!raw || typeof raw !== "object") return EMPTY

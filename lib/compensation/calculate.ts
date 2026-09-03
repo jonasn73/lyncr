@@ -55,7 +55,7 @@ export interface ShiftPayEvent {
 
 export type PayEvent = CallPayEvent | JobPayEvent | ShiftPayEvent
 
-export type EarningSourceKind = "CALL" | "JOB" | "SHIFT" | "ADJUSTMENT"
+type EarningSourceKind = "CALL" | "JOB" | "SHIFT" | "ADJUSTMENT"
 
 /** One computed amount, ready to become an earnings_ledger row. */
 export interface EarningLine {

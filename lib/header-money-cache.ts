@@ -11,8 +11,8 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const HEADER_MONEY_CACHE_SCOPE = "header-money"
-export const HEADER_MONEY_SESSION_KEY = persistedCacheKey(HEADER_MONEY_CACHE_SCOPE, "balance")
+const HEADER_MONEY_CACHE_SCOPE = "header-money"
+const HEADER_MONEY_SESSION_KEY = persistedCacheKey(HEADER_MONEY_CACHE_SCOPE, "balance")
 export const HEADER_MONEY_COOKIE = paintSeedCookieName(HEADER_MONEY_CACHE_SCOPE)
 
 export type HeaderMoneyCache = {

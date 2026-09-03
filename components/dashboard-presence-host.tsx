@@ -67,7 +67,7 @@ const SettingsWorkspaceViewLazy = dynamic(
 )
 
 /** Primary command-dock segments kept mounted for instant tab swaps (no route branch flash). */
-export const DASHBOARD_PRESENCE_PAGE_IDS = [
+const DASHBOARD_PRESENCE_PAGE_IDS = [
   "dashboard",
   "activity",
   "messages",

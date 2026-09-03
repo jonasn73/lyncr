@@ -170,16 +170,3 @@ export const env: Env = new Proxy({} as Env, {
     return getClientEnv()[prop as keyof ClientEnv]
   },
 })
-
-// Convenience helpers if you prefer calling functions over the proxy object.
-export function serverEnv(): ServerEnv {
-  // Hard stop if somehow invoked in the browser (defense in depth).
-  if (typeof window !== "undefined") {
-    throw new Error("[env] serverEnv() must not be called in the browser.")
-  }
-  return getServerEnv()
-}
-
-export function clientEnv(): ClientEnv {
-  return getClientEnv()
-}

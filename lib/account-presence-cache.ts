@@ -11,8 +11,8 @@ import {
 } from "@/lib/paint-seed-cookie"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
-export const PRESENCE_CACHE_SCOPE = "account-presence"
-export const PRESENCE_SESSION_KEY = persistedCacheKey(PRESENCE_CACHE_SCOPE, "status")
+const PRESENCE_CACHE_SCOPE = "account-presence"
+const PRESENCE_SESSION_KEY = persistedCacheKey(PRESENCE_CACHE_SCOPE, "status")
 export const PRESENCE_COOKIE = paintSeedCookieName(PRESENCE_CACHE_SCOPE)
 
 type PresenceCache = { status: PresenceStatus; fetchedAtMs?: number }

@@ -47,7 +47,7 @@ export type VehicleKeyLookupHint = {
   fccResolveClarification?: VehicleClarificationPrompt | null
 }
 
-export type VehicleIntakeContext = {
+type VehicleIntakeContext = {
   year: number
   make: string
   model: string
@@ -496,7 +496,7 @@ export function clarificationGatesKeySelection(prompt: VehicleClarificationPromp
 }
 
 /** YMM combos that must always offer at least one clarification prompt (regression). */
-export const MUST_HAVE_CLARIFICATION_PROMPTS: VehicleIntakeContext[] = [
+const MUST_HAVE_CLARIFICATION_PROMPTS: VehicleIntakeContext[] = [
   { year: 2017, make: "Toyota", model: "Yaris" },
   { year: 2021, make: "Toyota", model: "C-HR" },
   { year: 2022, make: "Toyota", model: "Corolla Cross" },

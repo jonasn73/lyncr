@@ -17,16 +17,6 @@ export function formatTalkDuration(seconds: number): string {
   return formatSecondsToClock(seconds)
 }
 
-export type DailyCallTelemetry = {
-  daily_calls: number
-  missed_calls: number
-  avg_talk_seconds: number
-  daily_talk_seconds: number
-  weekly_talk_seconds: number
-  monthly_talk_seconds: number
-  owner_user_id: string
-}
-
 /** UTC calendar day — legacy helper; prefer isLocalCalendarToday for owner-facing "today". */
 export function isUtcToday(iso: string, now: Date = new Date()): boolean {
   const d = new Date(iso)

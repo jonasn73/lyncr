@@ -3,7 +3,6 @@
 // Plain-English per-business P&L — actual Stripe cash + fees − phone cost.
 
 import type { AdminBusinessEconomics } from "@/lib/types"
-import type { AdminMoneyPeriodUi } from "@/hooks/use-lyncr-admin-dashboard"
 import { cn } from "@/lib/utils"
 
 function MoneyLine({
@@ -43,51 +42,6 @@ function MoneyLine({
       >
         {value}
       </p>
-    </div>
-  )
-}
-
-// Chip order: All time first (default), then calendar windows Ops asked for.
-const PERIOD_OPTIONS: { id: AdminMoneyPeriodUi; label: string }[] = [
-  { id: "all_time", label: "All time" },
-  { id: "this_month", label: "This month" },
-  { id: "last_month", label: "Last month" },
-  { id: "this_year", label: "This year" },
-]
-
-/** All time / This month / Last month / This year chips — reloads call counts + Stripe fees. */
-export function BusinessMoneyPeriodChips({
-  period,
-  onChange,
-  disabled,
-}: {
-  period: AdminMoneyPeriodUi
-  onChange: (period: AdminMoneyPeriodUi) => void
-  disabled?: boolean
-}) {
-  return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Money time period">
-      {PERIOD_OPTIONS.map((opt) => {
-        const active = period === opt.id
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(opt.id)}
-            className={cn(
-              "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
-              "disabled:opacity-50",
-              active
-                ? "border-operator/50 bg-operator/50 text-operator"
-                : "border-border bg-card/40 text-muted-foreground hover:border-border hover:text-foreground"
-            )}
-          >
-            {opt.label}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -212,46 +166,5 @@ export function BusinessMoneyBreakdown({ row }: { row: AdminBusinessEconomics })
         </ul>
       ) : null}
     </div>
-  )
-}
-
-/** Compact chip for a business row on Ops Home. */
-export function BusinessMoneyChip({
-  row,
-  onClick,
-}: {
-  row: AdminBusinessEconomics
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
-        "hover:border-operator/40 hover:bg-operator/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-operator/50",
-        "border-border bg-card/60"
-      )}
-    >
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">{row.business_name}</p>
-        <p className="truncate text-2xs text-muted-foreground">
-          {row.call_count_mtd} calls · {row.talk_minutes_mtd} min · {row.period_chip_label}
-        </p>
-      </div>
-      <div className="shrink-0 text-right">
-        <p
-          className={cn(
-            "text-sm font-bold tabular-nums",
-            row.ahead ? "text-success" : "text-warning"
-          )}
-        >
-          {row.net_abs_label}
-        </p>
-        <p className={cn("text-2xs font-medium", row.ahead ? "text-success/80" : "text-warning/80")}>
-          {row.verdict_label}
-        </p>
-      </div>
-    </button>
   )
 }

@@ -16,8 +16,6 @@ import {
 } from "./ai-intake-field-registry"
 import { SITE_NAME } from "./brand"
 
-export type { AiIntakeProfileId } from "./business-industries"
-
 export interface AiIntakeConfig {
   /** When set in DB, overrides users.industry for which playbook runs */
   profileId: AiIntakeProfileId

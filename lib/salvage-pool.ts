@@ -3,7 +3,7 @@
 import { listSalvageableLeads } from "@/lib/db"
 import { listLostLeadsForSalvagePool, type LostLeadRow } from "@/lib/lost-leads"
 
-export type SalvagePoolSource = "ai_lead" | "lost_lead"
+type SalvagePoolSource = "ai_lead" | "lost_lead"
 
 /** Normalized row for the owner salvage dashboard and GET /api/leads/salvage-pool. */
 export type SalvagePoolEntry = {

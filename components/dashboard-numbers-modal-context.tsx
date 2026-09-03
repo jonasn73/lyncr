@@ -139,8 +139,3 @@ export function useDashboardNumbersModal(): DashboardNumbersModalContextValue {
   }
   return ctx
 }
-
-/** Safe hook for command palette — no-op when outside provider. */
-export function useDashboardNumbersModalOptional(): DashboardNumbersModalContextValue | null {
-  return useContext(DashboardNumbersModalContext)
-}

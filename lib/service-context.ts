@@ -22,7 +22,7 @@ const SCALE_TIER_CAPABILITIES: PremiumCapability[] = [
   "operator_pooling",
 ]
 
-export function normalizeAccountEmail(email: string | null | undefined): string {
+function normalizeAccountEmail(email: string | null | undefined): string {
   return email?.trim().toLowerCase() ?? ""
 }
 
@@ -31,7 +31,7 @@ export function isMasterTestAccount(email: string | null | undefined): boolean {
 }
 
 /** Professional and Business (Scale) unlock multi-tenant premium features. */
-export function tierHasScaleCapabilities(tier: SubscriptionTier): boolean {
+function tierHasScaleCapabilities(tier: SubscriptionTier): boolean {
   return tier === "professional" || tier === "business"
 }
 

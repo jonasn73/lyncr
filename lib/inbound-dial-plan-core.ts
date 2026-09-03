@@ -5,7 +5,7 @@ import { toE164 } from "@/lib/phone-e164"
 import { CAPTURE_STATUS_BUSY_MENU } from "@/lib/inbound-time-capture"
 
 /** Why the planner chose this hop (mirrors Call Control dialReason). */
-export type InboundDialReason =
+type InboundDialReason =
   | "day_dial"
   | "busy_backup_recv"
   | "team_receptionist"
@@ -17,7 +17,7 @@ export type InboundDialReason =
   | "failsafe"
   | "lyncr_pool"
 
-export type InboundDialHopType =
+type InboundDialHopType =
   | "owner"
   | "receptionist"
   | "ivr"
@@ -25,7 +25,7 @@ export type InboundDialHopType =
   | "none"
   | "pool"
 
-export type InboundCaptureKind =
+type InboundCaptureKind =
   | "presence_closed"
   | "presence_on_job"
   | "calendar_full_day"
@@ -33,7 +33,7 @@ export type InboundCaptureKind =
   | "day_dial"
 
 /** One hop in the inbound waterfall (primary or fallback). */
-export type InboundDialHop = {
+type InboundDialHop = {
   type: InboundDialHopType
   phoneE164: string | null
   name: string | null

@@ -157,7 +157,7 @@ function rowMatchesVehicle(
 }
 
 /** Max key photos shown on the answered-call intake sheet. */
-export const INTAKE_KEY_VARIANT_LIMIT = 3
+const INTAKE_KEY_VARIANT_LIMIT = 3
 
 function trimForIntakeSheet(variants: FccRemoteVariant[], max: number): FccRemoteVariant[] {
   if (variants.length <= max) return variants

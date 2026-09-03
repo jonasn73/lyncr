@@ -27,7 +27,7 @@ function getSql(): ReturnType<typeof neon> {
   return cachedSql
 }
 
-export type JobValueSource =
+type JobValueSource =
   | "pay_link" // collect_pay_links — has a real subtotal/tax split
   | "job_invoice" // job_invoices — has a real subtotal/tax split
   | "booked_total" // ai_leads quote — no tax breakdown

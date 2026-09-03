@@ -5,7 +5,7 @@
 import { formatTelnyxRegistryText, normalizeTelnyxRegistryStatus } from "@/lib/telnyx-10dlc"
 
 /** Canonical Telnyx 10DLC event types we accept on /api/webhooks/telnyx. */
-export const TELNYX_10DLC_WEBHOOK_EVENTS = new Set([
+const TELNYX_10DLC_WEBHOOK_EVENTS = new Set([
   "10dlc.brand.update",
   "10dlc.campaign.update",
   "10dlc.phone_number.update",
@@ -82,7 +82,7 @@ export function formatTelnyx10DlcFailureReasons(reasons: unknown): string | null
 }
 
 /** Normalize the nested `data.payload` object from a Telnyx event. */
-export function extractTelnyx10DlcPayload(body: Record<string, unknown>): Record<string, unknown> {
+function extractTelnyx10DlcPayload(body: Record<string, unknown>): Record<string, unknown> {
   const data = body.data as Record<string, unknown> | undefined
   const nested = data?.payload
   if (nested && typeof nested === "object" && !Array.isArray(nested)) {

@@ -51,7 +51,7 @@ function normalizeWebsiteUrl(raw: string): string | null {
 }
 
 /** Reject platform / agency domains — carriers require the end brand's site (error 710). */
-export function isAgencyWebsiteHost(hostname: string): boolean {
+function isAgencyWebsiteHost(hostname: string): boolean {
   const host = hostname.trim().toLowerCase().replace(/^www\./, "")
   return (
     host === "lyncr.app" ||
@@ -95,15 +95,4 @@ export function requiresSmsRegistrationEin(entityType: string): boolean {
 
 export function normalizeSmsRegistrationWebsite(raw: string | null | undefined): string | null {
   return normalizeWebsiteUrl(String(raw ?? ""))
-}
-
-/** Brand-specific public opt-in URL carriers can screenshot for KYC. */
-export function buildBrandSmsOptInUrl(displayName: string, website?: string | null): string {
-  const params = new URLSearchParams()
-  const brand = displayName.trim()
-  if (brand) params.set("brand", brand)
-  const site = normalizeWebsiteUrl(website ?? "")
-  if (site) params.set("website", site)
-  const qs = params.toString()
-  return `https://lyncr.app/sms-opt-in${qs ? `?${qs}` : ""}`
 }

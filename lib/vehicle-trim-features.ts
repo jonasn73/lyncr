@@ -35,7 +35,7 @@ export function extractVariantFactoryFeatures(source: VariantFeatureSource): Veh
   return [...new Set(features)]
 }
 
-export function isBaseTrimName(trim: string | null | undefined): boolean {
+function isBaseTrimName(trim: string | null | undefined): boolean {
   const normalized = (trim ?? "").trim().toLowerCase()
   if (!normalized) return false
   return /^(base|strip|standard|work truck|wt|l|ls|le|s|se)\b/.test(normalized) || /\bbase\b/.test(normalized)

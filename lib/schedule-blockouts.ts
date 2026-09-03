@@ -1,10 +1,6 @@
 // Pure helpers — filter open appointment slots against ScheduleBlockout rows.
 
-import {
-  combineDateAndTime,
-  isScheduleDateTimeValid,
-  scheduleTimeSlotOptions,
-} from "@/lib/intake-schedule-helpers"
+import { combineDateAndTime, isScheduleDateTimeValid } from "@/lib/intake-schedule-helpers"
 import type { ScheduleBlockout } from "@/lib/types"
 
 /** True when this calendar day has at least one full-day blockout. */
@@ -16,7 +12,7 @@ export function isDateFullyBlocked(
 }
 
 /** Blockouts that apply to a single YYYY-MM-DD day. */
-export function blockoutsOnDate(
+function blockoutsOnDate(
   blockouts: readonly ScheduleBlockout[],
   dateKey: string
 ): ScheduleBlockout[] {
@@ -76,7 +72,7 @@ export function localDateTimePartsInZone(
 }
 
 /** Full-day off row for this calendar date, if any. */
-export function findFullDayBlockout(
+function findFullDayBlockout(
   blockouts: readonly ScheduleBlockout[],
   dateKey: string
 ): ScheduleBlockout | null {
@@ -87,7 +83,7 @@ export function findFullDayBlockout(
  * Partial window that covers `currentMinutes` (inclusive start, exclusive end).
  * Example: Doctor Appointment 10:00–11:00 covers 10:45.
  */
-export function findActivePartialBlockout(
+function findActivePartialBlockout(
   blockouts: readonly ScheduleBlockout[],
   dateKey: string,
   currentMinutes: number
@@ -169,39 +165,6 @@ export function slotOverlapsBlockout(
     if (slotStart < blockEnd && blockStart < slotEnd) return true
   }
   return false
-}
-
-/**
- * First open HH:mm on a day that is free of jobs AND blockouts.
- * Returns null when the day is fully blocked or every grid slot conflicts.
- */
-export function suggestNextOpenTimeWithBlockouts(params: {
-  dateKey: string
-  durationMinutes: number
-  /** Existing booked events — use findScheduleConflicts / suggestNextOpenTime upstream. */
-  isSlotFreeOfJobs: (timeValue: string) => boolean
-  blockouts: readonly ScheduleBlockout[]
-  startHour?: number
-  endHour?: number
-}): string | null {
-  if (isDateFullyBlocked(params.blockouts, params.dateKey)) return null
-  const startHour = params.startHour ?? 7
-  const endHour = params.endHour ?? 19
-  for (const slot of scheduleTimeSlotOptions(startHour, endHour)) {
-    if (!params.isSlotFreeOfJobs(slot.value)) continue
-    if (
-      slotOverlapsBlockout(
-        params.blockouts,
-        params.dateKey,
-        slot.value,
-        params.durationMinutes
-      )
-    ) {
-      continue
-    }
-    return slot.value
-  }
-  return null
 }
 
 /** Human label for a blockout chip on the calendar. */

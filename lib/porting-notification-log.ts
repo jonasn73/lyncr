@@ -18,7 +18,7 @@ import {
 } from "@/lib/telnyx-porting-webhook"
 
 /** Status transition webhooks — not human desk comments. */
-export function isPortingStatusChangedEvent(eventType: string): boolean {
+function isPortingStatusChangedEvent(eventType: string): boolean {
   const lower = eventType.toLowerCase()
   return (
     lower.includes("status_changed") ||
@@ -28,7 +28,7 @@ export function isPortingStatusChangedEvent(eventType: string): boolean {
 }
 
 /** Raw comment body only (never full JSON / order metadata). */
-export function extractRawPortingCommentBody(body: Record<string, unknown>): string | null {
+function extractRawPortingCommentBody(body: Record<string, unknown>): string | null {
   const data = body.data as Record<string, unknown> | undefined
   const record = data?.record as Record<string, unknown> | undefined
   if (typeof record?.body === "string" && record.body.trim()) {

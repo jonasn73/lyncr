@@ -15,7 +15,7 @@ const FOC_TELNYX_STATUSES = new Set([
 ])
 
 /** Telnyx status string means a port date is assigned or activation is underway. */
-export function telnyxStatusIndicatesFocScheduled(telnyxStatus: string | null | undefined): boolean {
+function telnyxStatusIndicatesFocScheduled(telnyxStatus: string | null | undefined): boolean {
   const normalized = normalizeTelnyxPortStatus(telnyxStatus ?? "")
   return FOC_TELNYX_STATUSES.has(normalized)
 }

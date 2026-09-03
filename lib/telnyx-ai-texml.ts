@@ -5,7 +5,7 @@
 // Caller stays on the same PSTN leg; no outbound callback provider.
 
 /** Escape a string for use inside XML double-quoted attributes. */
-export function escapeXmlAttr(value: string): string {
+function escapeXmlAttr(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

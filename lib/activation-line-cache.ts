@@ -48,15 +48,3 @@ export function resolveInitialLineCarrierLive(seedLive?: boolean): boolean {
   if (boot?.phoneLines?.some((line) => line.status === "active")) return true
   return Boolean(seedLive)
 }
-
-export function resolveInitialSubscriptionActive(seedActive?: boolean): boolean {
-  if (seedActive === true) return true
-  if (typeof window === "undefined") return Boolean(seedActive)
-  const cached = readActivationLineCache()
-  if (cached?.subscriptionActive || cached?.lineCarrierLive) return true
-  const chrome = readLinesChromeCache()
-  if (chrome?.subscriptionActive || chrome?.lineCarrierLive) return true
-  const boot = readDashboardBootstrapCache()
-  if (boot?.phoneLines?.some((line) => line.status === "active")) return true
-  return Boolean(seedActive)
-}

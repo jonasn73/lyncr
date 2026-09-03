@@ -31,7 +31,7 @@ export type FccResolveTiHit = {
   score: number
 }
 
-export type FccRankedCandidate = {
+type FccRankedCandidate = {
   fccId: string
   score: number
   reasons: string[]
@@ -704,7 +704,7 @@ function normalizeResolveModulation(value: string | null | undefined): string {
  * Strip common OEM variant suffixes so HO03PT and HO03 share a family key.
  * Keeps the core FCC stem dispatchers care about for ordering.
  */
-export function fccOrderFamilyKey(fccId: string): string {
+function fccOrderFamilyKey(fccId: string): string {
   const id = sanitizeFccIdInput(fccId)
   if (!id) return ""
   return id
@@ -745,7 +745,7 @@ function hasTrunkHatchSplit(ranked: FccRankedCandidate[], tiHits: FccResolveTiHi
  * True when remaining FCC candidates order the same blank / key profile.
  * Used to skip Ask-the-customer for repetitive HO03-style variant rows.
  */
-export function fccCandidatesAreOrderEquivalent(
+function fccCandidatesAreOrderEquivalent(
   ranked: FccRankedCandidate[],
   profiles: FccResolveProfile[],
   tiHits: FccResolveTiHit[]

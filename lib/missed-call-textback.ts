@@ -7,14 +7,10 @@ function sqlClient() {
   return neon(resolveNeonDatabaseUrl())
 }
 
-const MIGRATION_HINT = "scripts/090-missed-call-textback-enabled.sql"
-
-export function isMissingMissedCallTextbackColumn(e: unknown): boolean {
+function isMissingMissedCallTextbackColumn(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e)
   return msg.includes("missed_call_textback_enabled")
 }
-
-export { MIGRATION_HINT as MISSED_CALL_TEXTBACK_MIGRATION }
 
 /** Read account flag — defaults true when column missing (legacy always-on). */
 export async function getMissedCallTextbackEnabled(ownerUserId: string): Promise<boolean> {
@@ -30,14 +26,4 @@ export async function getMissedCallTextbackEnabled(ownerUserId: string): Promise
     if (isMissingMissedCallTextbackColumn(e)) return true
     throw e
   }
-}
-
-export async function setMissedCallTextbackEnabled(
-  ownerUserId: string,
-  enabled: boolean
-): Promise<void> {
-  const sql = sqlClient()
-  await sql`
-    UPDATE users SET missed_call_textback_enabled = ${enabled === true} WHERE id = ${ownerUserId}
-  `
 }

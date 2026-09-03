@@ -76,49 +76,4 @@ export function formatSmartBusyCapacitySummary(params: {
   return `${load} jobs (today ${params.confirmedJobsToday} + pool ${params.poolCount}) · limit ${params.capacityThreshold}`
 }
 
-export const SMART_BUSY_STORAGE_KEY = "lyncr.smartBusy.v1"
 
-export type SmartBusyLocalState = {
-  enabled: boolean
-  /** True after Smart Busy auto-set Busy (not a manual Busy tap). */
-  engaged: boolean
-  /**
-   * When true, do not auto-engage again until capacity clears
-   * (owner tapped Available while still full).
-   */
-  suppressed: boolean
-}
-
-/** Stable empty seed — never allocate a new `{}` per read (useClientSnapshot / #185). */
-export const SMART_BUSY_EMPTY_LOCAL: SmartBusyLocalState = {
-  enabled: false,
-  engaged: false,
-  suppressed: false,
-}
-
-export function readSmartBusyLocalState(): SmartBusyLocalState {
-  if (typeof window === "undefined") {
-    return SMART_BUSY_EMPTY_LOCAL
-  }
-  try {
-    const raw = window.localStorage.getItem(SMART_BUSY_STORAGE_KEY)
-    if (!raw) return SMART_BUSY_EMPTY_LOCAL
-    const parsed = JSON.parse(raw) as Partial<SmartBusyLocalState>
-    const enabled = parsed.enabled === true
-    const engaged = parsed.engaged === true
-    const suppressed = parsed.suppressed === true
-    if (!enabled && !engaged && !suppressed) return SMART_BUSY_EMPTY_LOCAL
-    return { enabled, engaged, suppressed }
-  } catch {
-    return SMART_BUSY_EMPTY_LOCAL
-  }
-}
-
-export function writeSmartBusyLocalState(state: SmartBusyLocalState): void {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(SMART_BUSY_STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    /* ignore quota / private mode */
-  }
-}

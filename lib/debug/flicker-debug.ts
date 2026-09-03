@@ -11,14 +11,12 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
-  type ReactNode,
   type RefCallback,
-  createElement,
 } from "react"
 
 import type { DashboardMainBootstrap } from "@/lib/dashboard-stream-types"
 
-export const LYNCR_FLICKER_PREFIX = "[LYNCR_FLICKER]"
+const LYNCR_FLICKER_PREFIX = "[LYNCR_FLICKER]"
 
 type SafeScalar = string | number | boolean | null | undefined
 
@@ -52,7 +50,7 @@ function allocInstanceId(component: string): string {
 }
 
 /** Pathname only — strips query/hash so values never hit the console. */
-export function flickerPathnameOnly(href: string): string {
+function flickerPathnameOnly(href: string): string {
   const raw = String(href || "")
   try {
     if (raw.startsWith("http://") || raw.startsWith("https://")) {
@@ -303,32 +301,8 @@ export function useFlickerDebugLifecycle(
   }
 }
 
-/** Logs when a Suspense fallback is mounted (chunk still loading). */
-function FlickerSuspenseFallbackInner({
-  name,
-  children,
-}: {
-  name: string
-  // Passed as a createElement child, so it is optional on the props type.
-  children?: ReactNode
-}) {
-  useFlickerDebugLifecycle(`SuspenseFallback:${name}`, { showingFallback: true })
-  return children ?? null
-}
-
-/** Always wraps children in a probe fiber (no visual change; logs only when enabled). */
-export function FlickerSuspenseFallback({
-  name,
-  children,
-}: {
-  name: string
-  children: ReactNode
-}): ReactNode {
-  return createElement(FlickerSuspenseFallbackInner, { name }, children)
-}
-
 /** Tag / id / first classes / data-flicker-probe — never text content or attrs with values. */
-export function flickerSafeDomHint(node: Node | null | undefined): string {
+function flickerSafeDomHint(node: Node | null | undefined): string {
   if (!node || !(node instanceof Element)) return "unknown"
   const probe = node.getAttribute("data-flicker-probe")
   if (probe) return `probe:${probe}`

@@ -21,7 +21,7 @@ export type WebRtcStatus =
   | "not_provisioned" // Telnyx WebRTC not set up yet → safely behaves like CELL
   | "error"
 
-export interface WebRtcCallInfo {
+interface WebRtcCallInfo {
   callerNumber: string | null
   callerName: string | null
 }

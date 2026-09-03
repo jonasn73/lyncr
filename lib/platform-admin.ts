@@ -4,12 +4,7 @@
 // Only admin@lyncr.app may access /admin (see lib/lyncr-admin.ts).
 
 import type { User } from "./types"
-import { isLyncrAdminUser, LYNCR_ADMIN_EMAIL } from "./lyncr-admin"
-
-/** @deprecated Use isLyncrAdminUser — kept for imports that still reference this name. */
-export function getPlatformAdminEmailAllowlist(): Set<string> {
-  return new Set([LYNCR_ADMIN_EMAIL])
-}
+import { isLyncrAdminUser } from "./lyncr-admin"
 
 /** True when this signed-in user may call admin APIs and open `/admin`. */
 // NOTE: despite the name, this does not consult users.is_platform_admin — it delegates to

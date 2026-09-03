@@ -10,7 +10,7 @@ import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Lightweight jobs-only API (no tech GPS). */
-export const COLLECT_JOBS_URL = "/api/owner/jobs?scope=collect"
+const COLLECT_JOBS_URL = "/api/owner/jobs?scope=collect"
 
 type JobsResponse = { data?: { jobs?: DispatchJob[] } }
 

@@ -10,11 +10,11 @@ import {
   suggestNextOpenTime,
 } from "@/lib/intake-schedule-helpers"
 import { dayKeyLocal } from "@/lib/scheduler-utils"
-import type { ScheduleBlockout, SchedulerEvent, UnassignedPoolJob } from "@/lib/types"
+import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 import { UNASSIGNED_POOL_STATUS } from "@/lib/job-pool"
 
 /** How Smart Overflow decides to turn itself on. */
-export type SmartOverflowMode = "manual" | "auto_capacity"
+type SmartOverflowMode = "manual" | "auto_capacity"
 
 /** Persisted / UI configuration for the Smart Overflow Autopilot engine. */
 export type SmartOverflowConfig = {
@@ -318,72 +318,6 @@ export function onAICallBookingReceived(
     poolEntry,
     nextEvents: [...events, asEvent],
     nextAvailableSlotText: offerText,
-  }
-}
-
-/** Narrow a pool schema block into UnassignedPoolJob-compatible fields for UI lists. */
-export function smartOverflowPoolToUnassignedJob(
-  block: SmartOverflowPoolSchemaBlock
-): Pick<
-  UnassignedPoolJob,
-  | "id"
-  | "customer_name"
-  | "customer_phone"
-  | "location"
-  | "summary"
-  | "created_at"
-  | "job_type"
-  | "job_notes"
-  | "dispatch_status"
-> & {
-  scheduled_at: string
-  // UnassignedPoolJob has no `disposition`, so it cannot be Picked from it — but the pool
-  // block always carries "BOOKED" and UI lists read it, so it is declared here instead.
-  disposition: SmartOverflowPoolSchemaBlock["disposition"]
-} {
-  return {
-    id: block.id,
-    customer_name: block.customer_name,
-    customer_phone: block.customer_phone,
-    location: block.location,
-    summary: block.summary,
-    disposition: block.disposition,
-    created_at: block.created_at,
-    job_type: block.job_type,
-    job_notes: block.job_notes,
-    dispatch_status: block.dispatch_status,
-    scheduled_at: block.scheduled_at,
-  }
-}
-
-/** localStorage key for Lines-dashboard Smart Overflow preferences. */
-export const SMART_OVERFLOW_STORAGE_KEY = "lyncr.smartOverflowAutopilot.v1"
-
-export function readSmartOverflowConfigFromStorage(): SmartOverflowConfig {
-  if (typeof window === "undefined") return { ...DEFAULT_SMART_OVERFLOW_CONFIG }
-  try {
-    const raw = window.localStorage.getItem(SMART_OVERFLOW_STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_SMART_OVERFLOW_CONFIG }
-    const parsed = JSON.parse(raw) as Partial<SmartOverflowConfig>
-    return {
-      mode: parsed.mode === "auto_capacity" ? "auto_capacity" : "manual",
-      manualEnabled: parsed.manualEnabled === true,
-      capacityThreshold:
-        typeof parsed.capacityThreshold === "number" && parsed.capacityThreshold > 0
-          ? Math.floor(parsed.capacityThreshold)
-          : SMART_OVERFLOW_DEFAULT_CAPACITY_THRESHOLD,
-    }
-  } catch {
-    return { ...DEFAULT_SMART_OVERFLOW_CONFIG }
-  }
-}
-
-export function writeSmartOverflowConfigToStorage(config: SmartOverflowConfig): void {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(SMART_OVERFLOW_STORAGE_KEY, JSON.stringify(config))
-  } catch {
-    /* ignore quota / private mode */
   }
 }
 

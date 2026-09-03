@@ -4,16 +4,11 @@ import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from
 import { Phone, PhoneMissed, Voicemail } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AnimatedStatusLabel } from "@/components/ui/animated-status-label"
-export { WORKSPACE_SHEET_CLASS } from "@/lib/workspace-sheet-classes"
 
 import { MOBILE_BLEED } from "@/lib/mobile-shell"
 
 /** Break horizontal scroll strips out of DashboardPageView horizontal padding on phones. */
-export const WORKSPACE_MOBILE_BLEED = MOBILE_BLEED
-
-/** Min height for full-bleed panels below the sticky header + mobile bottom command dock. */
-export const MOBILE_PANEL_VIEWPORT_MIN_H =
-  "min-h-[calc(100dvh-15rem-env(safe-area-inset-bottom,0px)-4rem)] md:min-h-[calc(100dvh-15rem)]"
+const WORKSPACE_MOBILE_BLEED = MOBILE_BLEED
 
 export function WorkspacePage({
   children,
@@ -99,9 +94,6 @@ export function WorkspacePanel({
 /** Fixed table row height — prevents row reflow when data mounts. */
 export const WORKSPACE_TABLE_ROW_CLASS = "h-[52px] [&>td]:h-[52px] [&>td]:align-middle"
 
-/** Call-flow step grid minimum footprint. */
-export const CALL_FLOW_STEPS_MIN_H = "min-h-[14.5rem]"
-
 export function WorkspaceStatCard({
   label,
   value,
@@ -141,109 +133,6 @@ export function WorkspaceStatCard({
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
-  )
-}
-
-export function WorkspaceUsageStatCard({
-  label,
-  used,
-  included,
-  hint,
-}: {
-  label: string
-  used: number
-  included: number
-  hint?: string
-}) {
-  const pct = included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 0
-  return (
-    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
-    <div className="min-h-[5.75rem] rounded-2xl border border-warning/30 bg-warning/5 p-5">
-      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-        {used.toLocaleString()} / {included.toLocaleString()} mins used
-      </p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-warning/80 via-primary to-primary shadow-[var(--electric-glow)] transition-[width] duration-500 ease-out"
-          style={{ width: `${pct}%` }}
-          role="progressbar"
-          aria-valuenow={used}
-          aria-valuemin={0}
-          aria-valuemax={included}
-        />
-      </div>
-      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  )
-}
-
-export function WorkspaceTokenStatCard({
-  label,
-  tokens,
-  hint,
-}: {
-  label: string
-  tokens: number
-  hint?: string
-}) {
-  return (
-    // eslint-disable-next-line no-restricted-syntax -- p-5 holds min-h-[5.75rem], a reserved height shared with the skeletons
-    <div className="min-h-[5.75rem] rounded-2xl border border-success/30 bg-success/5 p-5">
-      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-        {tokens.toLocaleString()}
-        <span className="ml-1.5 text-base font-medium text-muted-foreground">tokens</span>
-      </p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  )
-}
-
-export type StatusTone = "success" | "primary" | "destructive" | "warning" | "muted"
-
-export function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
-  const toneClass: Record<StatusTone, string> = {
-    success: "border-success/40 bg-success/15 text-success",
-    primary: "border-primary/40 bg-primary/15 text-primary",
-    destructive: "border-destructive/40 bg-destructive/15 text-destructive",
-    warning: "border-warning/40 bg-warning/10 text-warning",
-    muted: "border-border bg-card/80 text-muted-foreground",
-  }
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-3 py-0.5 text-micro font-bold uppercase tracking-wide",
-        toneClass[tone]
-      )}
-    >
-      <AnimatedStatusLabel value={label} />
-    </span>
-  )
-}
-
-export function IntentPill({ label }: { label: string }) {
-  return <LeadIntentPill label={label} variant="blue" />
-}
-
-export type LeadIntentVariant = "amber" | "blue" | "muted"
-
-export function LeadIntentPill({ label, variant }: { label: string; variant: LeadIntentVariant }) {
-  const styles: Record<LeadIntentVariant, string> = {
-    amber:
-      "border-warning/50 bg-warning/10 text-warning shadow-[0_0_14px_-4px_rgba(245,158,11,0.55)]",
-    blue: "border-info/45 bg-info/10 text-info shadow-[0_0_14px_-4px_rgba(56,189,248,0.45)]",
-    muted: "border-border/80 bg-card/60 text-muted-foreground",
-  }
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-2xs font-semibold tracking-wide",
-        styles[variant]
-      )}
-    >
-      {label}
-    </span>
   )
 }
 
@@ -380,62 +269,6 @@ export function activityRowAccentClass(status: ActivityCallStatus): string {
   return "border-l-[3px] border-l-transparent bg-transparent"
 }
 
-export function WorkspaceDisclosureRow({
-  icon,
-  label,
-  onClick,
-  destructive,
-}: {
-  icon: ReactNode
-  label: string
-  onClick: () => void
-  destructive?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-2xl border px-6 py-4 text-left transition-colors",
-        destructive
-          ? "border-destructive/40 bg-destructive/5 hover:bg-destructive/10"
-          : "border-border bg-card/40 hover:border-border hover:bg-card/70"
-      )}
-    >
-      <span className="flex items-center gap-3">
-        <span className={cn("text-muted-foreground", destructive && "text-destructive")}>{icon}</span>
-        <span className={cn("text-sm font-medium", destructive ? "text-destructive" : "text-foreground")}>{label}</span>
-      </span>
-      <span className="text-muted-foreground">›</span>
-    </button>
-  )
-}
-
-export function WorkspaceToggleCard({
-  label,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  label: string
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
-  disabled?: boolean
-}) {
-  return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-4 transition-colors hover:border-border">
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <input
-        type="checkbox"
-        className="h-4 w-4 rounded border-border accent-primary"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onCheckedChange(e.target.checked)}
-      />
-    </label>
-  )
-}
-
 export const workspaceFieldClass =
   "w-full rounded-lg border border-border bg-card/50 px-3 py-3 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
 
@@ -553,25 +386,5 @@ export function WorkspaceTd({
     <td colSpan={colSpan} className={cn("border-b border-border/50 px-4 py-4 text-foreground", className)}>
       {children}
     </td>
-  )
-}
-
-export function WorkspaceModule({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description?: string
-  children: ReactNode
-}) {
-  return (
-    <section className="border-b border-border/80 px-6 py-6 last:border-b-0">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
-      </div>
-      {children}
-    </section>
   )
 }

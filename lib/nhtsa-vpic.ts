@@ -117,11 +117,6 @@ export async function fetchPassengerVehicleMakes(year?: number): Promise<string[
   return year != null ? filterMakesForYear(year, makes) : makes
 }
 
-/** @deprecated alias — use fetchPassengerVehicleMakes */
-export async function fetchAllMakes(): Promise<string[]> {
-  return fetchPassengerVehicleMakes()
-}
-
 export async function fetchModelsForMakeYear(make: string, year: number): Promise<string[]> {
   const key = `${make.toLowerCase()}::${year}`
   const hit = MODELS_CACHE.get(key)

@@ -14,7 +14,7 @@ function isMissingReviewTokensTable(e: unknown): boolean {
 }
 
 /** Short opaque token for SMS (same alphabet as receipt tokens). */
-export function makeReviewToken(): string {
+function makeReviewToken(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
   const bytes = new Uint8Array(10)
   crypto.getRandomValues(bytes)
@@ -23,18 +23,6 @@ export function makeReviewToken(): string {
     out += alphabet[bytes[i]! % alphabet.length]
   }
   return out
-}
-
-export type ReviewLinkTokenRow = {
-  token: string
-  owner_user_id: string
-  lead_id: string | null
-  destination_url: string
-  customer_phone: string | null
-  click_count: number
-  first_clicked_at: string | null
-  last_clicked_at: string | null
-  created_at: string
 }
 
 /** Create a tracked review URL that redirects to the real Google (or other) link. */
@@ -80,12 +68,6 @@ export async function createTrackedReviewUrl(params: {
     }
   }
   return dest
-}
-
-/** Look up token and record a click; returns destination URL or null. */
-export async function resolveAndClickReviewToken(token: string): Promise<string | null> {
-  const resolved = await resolveReviewTokenForPortal(token)
-  return resolved?.destinationUrl ?? null
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import type { OnboardingNumberOption } from "@/lib/onboarding-number-inventory"
 
-export type OnboardingLineMethod = "buy" | "port"
+type OnboardingLineMethod = "buy" | "port"
 
 export type OnboardingLineReservation = {
   method: OnboardingLineMethod
@@ -28,7 +28,7 @@ export function displayToE164(display: string): string {
   return digits.startsWith("+") ? digits : `+${digits}`
 }
 
-export function e164ToQueryDigits(e164: string): string {
+function e164ToQueryDigits(e164: string): string {
   return e164.replace(/\D/g, "")
 }
 

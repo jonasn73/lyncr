@@ -17,7 +17,7 @@ export type OnboardingNumberOption = {
   fromTelnyx?: boolean
 }
 
-export const ONBOARDING_INVENTORY_SIZE = 4
+const ONBOARDING_INVENTORY_SIZE = 4
 
 export type OnboardingInventoryResult = {
   numbers: OnboardingNumberOption[]
@@ -76,7 +76,7 @@ export async function fetchOnboardingNumberInventory(areaCode: string): Promise<
 }
 
 /** Demo-only fallback when Telnyx search is unavailable. */
-export function buildOnboardingNumberInventory(areaCode: string, count = ONBOARDING_INVENTORY_SIZE): OnboardingNumberOption[] {
+function buildOnboardingNumberInventory(areaCode: string, count = ONBOARDING_INVENTORY_SIZE): OnboardingNumberOption[] {
   const ac = normalizeAreaCode(areaCode)
   const used = new Set<string>()
   const out: OnboardingNumberOption[] = []

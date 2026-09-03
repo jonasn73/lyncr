@@ -5,7 +5,7 @@ import { readActiveOrganizationId, resolveActiveOrganizationId } from "@/lib/wor
 import { filterPhoneLinesForOrganization, primaryPhoneLineForOrganization } from "@/lib/workspace-phone-lines"
 
 /** Pick the org the user last selected, or the default workspace. */
-export function pickActiveOrganizationIdFromBootstrap(
+function pickActiveOrganizationIdFromBootstrap(
   organizations: Organization[],
   preferredOrganizationId?: string | null,
   currentName?: string | null

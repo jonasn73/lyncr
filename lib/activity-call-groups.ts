@@ -261,7 +261,7 @@ export function filterActivityCallGroups(
 }
 
 /** Compact relative age for “Last answered 36s ago”. */
-export function formatActivityRelativeAgo(iso: string | null | undefined, now: Date = new Date()): string {
+function formatActivityRelativeAgo(iso: string | null | undefined, now: Date = new Date()): string {
   if (!iso?.trim()) return "—"
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return "—"
@@ -323,20 +323,6 @@ export function formatCallChronologyStatus(call: UiCallRecord): string {
     .replace(/_/g, "-")
   if (status === "no-answer" || status === "busy") return "Missed / No Answer"
   return "Missed / No Answer"
-}
-
-/** Local clock time for a chronology bullet (e.g. "9:33 AM"). */
-export function formatCallChronologyTime(call: UiCallRecord): string {
-  if (call.time?.trim()) return call.time.trim()
-  if (!call.createdAt?.trim()) return "—"
-  const d = new Date(call.createdAt)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-}
-
-/** One chronology line: "9:33 AM (Answered)". */
-export function formatCallChronologyLine(call: UiCallRecord): string {
-  return `${formatCallChronologyTime(call)} (${formatCallChronologyStatus(call)})`
 }
 
 /** True when this leg has a real job / intake card worth showing once for the group. */

@@ -37,7 +37,7 @@ import { formatUsdFromCents } from "@/lib/billing-pricing"
 import type { Messaging10DlcRegistration } from "@/lib/types"
 
 /** Business verticals offered in the form (TCR-accepted subset). */
-export const TEN_DLC_VERTICALS: { value: string; label: string }[] = [
+const TEN_DLC_VERTICALS: { value: string; label: string }[] = [
   { value: "REAL_ESTATE", label: "Real estate" },
   { value: "PROFESSIONAL", label: "Professional services" },
   { value: "CONSTRUCTION", label: "Construction / trades" },

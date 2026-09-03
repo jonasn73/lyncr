@@ -1,39 +1,7 @@
 "use client"
 
-import { useLayoutEffect, useRef, type TextareaHTMLAttributes } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-/** Grows with content — avoids clipped multi-line prompts without per-keystroke React work beyond height sync. */
-export function DrawerAutoGrowTextarea({
-  value,
-  className,
-  ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = "auto"
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      rows={3}
-      className={cn(
-        routingFieldClass,
-        "min-h-[9rem] resize-none overflow-hidden px-4 py-3 leading-relaxed",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export const routingFieldClass =
-  "w-full rounded-lg border border-border bg-card/50 text-sm text-foreground transition-colors duration-200 placeholder:text-muted-foreground hover:border-border focus:border-border focus:outline-none focus:ring-1 focus:ring-border/40"
 
 export function DrawerStepHeader({
   step,

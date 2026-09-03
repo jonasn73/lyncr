@@ -31,7 +31,7 @@ function telnyxErrorMessage(body: unknown, fallback: string): string {
 }
 
 /** ISO country codes allowed for outbound SMS (Telnyx requires this on every profile). */
-export function messagingWhitelistedDestinations(): string[] {
+function messagingWhitelistedDestinations(): string[] {
   const raw = process.env.TELNYX_MESSAGING_WHITELIST?.trim()
   if (raw) {
     return raw
@@ -43,7 +43,7 @@ export function messagingWhitelistedDestinations(): string[] {
 }
 
 /** Optional explicit profile id from Vercel — skips list/create. */
-export function getConfiguredMessagingProfileId(): string | null {
+function getConfiguredMessagingProfileId(): string | null {
   return process.env.TELNYX_MESSAGING_PROFILE_ID?.trim() || null
 }
 

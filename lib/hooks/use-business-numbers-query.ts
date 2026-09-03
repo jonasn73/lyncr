@@ -53,7 +53,7 @@ function mapNumbersResponse(data: NumbersMineResponse): BusinessNumbersQueryResu
   }
 }
 
-export function businessNumbersMineUrl(activeOrganizationId: string | null): string {
+function businessNumbersMineUrl(activeOrganizationId: string | null): string {
   const orgQs = organizationQueryString(activeOrganizationId)
   return `/api/numbers/mine${orgQs}`
 }

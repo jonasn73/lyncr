@@ -165,7 +165,6 @@ export function tipSignHandBackCue(opts: {
 }
 
 /** Aliases used by older tip-before naming during migrate */
-export const tipBeforeChargeSubtitle = tipLastSheetSubtitle
 export const tipBeforeChargeTotalNote = (opts: {
   totalAmountLabel: string
   tipCents: number
@@ -175,4 +174,3 @@ export const tipBeforeChargeTotalNote = (opts: {
     ...opts,
     baseAmountLabel: opts.totalAmountLabel,
   })
-export const tipBeforeChargePrimaryCta = tipLastPrimaryCta

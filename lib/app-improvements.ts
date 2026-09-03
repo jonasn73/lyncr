@@ -42,11 +42,6 @@ function isMissingTableError(e: unknown): boolean {
   return msg.includes("app_improvements")
 }
 
-/** True when the migration hasn't been run — callers use this to return an empty/graceful result. */
-export function isAppImprovementsMigrationMissing(e: unknown): boolean {
-  return isMissingTableError(e)
-}
-
 function parseRow(row: Record<string, unknown>): AppImprovement {
   const statusRaw = String(row.status ?? "backlog")
   const priorityRaw = String(row.priority ?? "medium")

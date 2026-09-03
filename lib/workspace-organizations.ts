@@ -1,5 +1,5 @@
 /** localStorage key for the owner's active business workspace (organization) id. */
-export const ACTIVE_ORGANIZATION_STORAGE_KEY = "lyncr_active_organization_id"
+const ACTIVE_ORGANIZATION_STORAGE_KEY = "lyncr_active_organization_id"
 
 /** Cookie mirror so SSR can pick the same org as the client (avoids business-name flash). */
 export const ACTIVE_ORGANIZATION_COOKIE = "lyncr_active_organization_id"
@@ -19,7 +19,7 @@ export function normalizeWorkspaceDisplayName(raw: string): string {
 }
 
 /** Parse active org id from a Cookie header / next/headers cookie value. */
-export function readActiveOrganizationIdFromCookieHeader(
+function readActiveOrganizationIdFromCookieHeader(
   cookieHeader: string | null | undefined
 ): string | null {
   if (!cookieHeader) return null

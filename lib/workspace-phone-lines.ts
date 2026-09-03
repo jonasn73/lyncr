@@ -138,14 +138,3 @@ export function orderPhoneLinesForOrganization(
   return sortBusinessLinesForDisplay(scoped, primary) as DashboardBusinessNumber[]
 }
 
-/** True when the preferred line is selected in the UI. */
-export function isPrimaryLineSelection(
-  lineNumber: string,
-  lines: DashboardBusinessNumber[],
-  organizationId: string | null | undefined,
-  activeLine: string | null | undefined
-): boolean {
-  if (activeLine && businessNumbersMatch(lineNumber, activeLine)) return true
-  const primary = primaryPhoneLineForOrganization(lines, organizationId, activeLine)
-  return primary != null && businessNumbersMatch(lineNumber, primary)
-}

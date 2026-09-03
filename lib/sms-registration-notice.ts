@@ -99,7 +99,7 @@ export function smsNoticeMessage(view: SmsComplianceView, state: SmsNoticeState)
   return "Register your business for SMS lead alerts (one-time carrier requirement)."
 }
 
-export function build10DlcComplianceUrl(organizationId: string | null): string {
+function build10DlcComplianceUrl(organizationId: string | null): string {
   if (organizationId && !organizationId.startsWith("legacy-")) {
     return `/api/settings/10dlc?organization_id=${encodeURIComponent(organizationId)}`
   }

@@ -3,7 +3,7 @@
 // ============================================
 // Single catalog: each `id` is both users.industry slug and AI playbook id.
 
-export const INDUSTRY_CATALOG = [
+const INDUSTRY_CATALOG = [
   { id: "locksmith", label: "Locksmith" },
   { id: "plumbing", label: "Plumbing" },
   { id: "hvac", label: "HVAC / heating & cooling" },
@@ -109,12 +109,6 @@ export function defaultProfileFromUserIndustry(
     other: "generic",
   }
   return aliases[n] || "generic"
-}
-
-/** Human label for settings / UI */
-export function industryLabel(slug: string | null | undefined): string {
-  const row = INDUSTRY_CATALOG.find((o) => o.id === slug)
-  return row?.label || "General business"
 }
 
 /** Short label for playbook (no slash extras) */

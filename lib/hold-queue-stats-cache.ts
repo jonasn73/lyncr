@@ -23,9 +23,9 @@ import {
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
 
 /** Cookie + session scope name for hold-queue day rollup. */
-export const HOLD_QUEUE_STATS_CACHE_SCOPE = "hold-queue-day-stats"
+const HOLD_QUEUE_STATS_CACHE_SCOPE = "hold-queue-day-stats"
 /** sessionStorage key used by the persisted cache helper. */
-export const HOLD_QUEUE_STATS_CACHE_KEY = persistedCacheKey(HOLD_QUEUE_STATS_CACHE_SCOPE, "today")
+const HOLD_QUEUE_STATS_CACHE_KEY = persistedCacheKey(HOLD_QUEUE_STATS_CACHE_SCOPE, "today")
 /** Cookie name the dashboard layout reads on the server. */
 export const HOLD_QUEUE_STATS_COOKIE = paintSeedCookieName(HOLD_QUEUE_STATS_CACHE_SCOPE)
 

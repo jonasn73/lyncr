@@ -5,12 +5,6 @@ import type { SubscriptionTier } from "@/lib/subscription-tier"
 /** Paid tiers users can pick at checkout (excludes free_trial). */
 export type CheckoutSubscriptionTier = "starter" | "professional" | "business"
 
-export const CHECKOUT_SUBSCRIPTION_TIERS: CheckoutSubscriptionTier[] = [
-  "starter",
-  "professional",
-  "business",
-]
-
 export function normalizeCheckoutSubscriptionTier(
   raw: string | null | undefined
 ): CheckoutSubscriptionTier {

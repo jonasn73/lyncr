@@ -2,12 +2,12 @@ const TELNYX_BASE = "https://api.telnyx.com/v2"
 
 import { telnyxHeaders } from "@/lib/telnyx-config"
 
-export type TelnyxAvailableNumber = {
+type TelnyxAvailableNumber = {
   phone_number: string
 }
 
 /** US area code from E.164 (+1XXXXXXXXXX). */
-export function areaCodeFromE164(e164: string): string | null {
+function areaCodeFromE164(e164: string): string | null {
   const digits = e164.replace(/\D/g, "")
   if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1, 4)
   if (digits.length === 10) return digits.slice(0, 3)
@@ -28,18 +28,6 @@ async function searchTelnyxNumbers(params: Record<string, string>): Promise<Teln
   }
   const rows = (body as { data?: TelnyxAvailableNumber[] })?.data ?? []
   return rows.filter((r) => r.phone_number?.trim())
-}
-
-/** True when Telnyx inventory still lists this exact DID. */
-export async function isExactNumberAvailableOnTelnyx(e164: string): Promise<boolean> {
-  const area = areaCodeFromE164(e164)
-  if (!area) return false
-  const rows = await searchTelnyxNumbers({
-    "filter[country_code]": "US",
-    "filter[national_destination_code]": area,
-    "filter[limit]": "250",
-  })
-  return rows.some((r) => r.phone_number === e164)
 }
 
 /** Preferred DID, or the first available number in the same area code. */

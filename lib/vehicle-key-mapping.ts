@@ -19,7 +19,7 @@ export const SUBARU_2017_2025_PROX = {
 } as const
 
 /** Parse a year string/number; returns NaN when missing/invalid. */
-export function parseVehicleYear(year: string | number | null | undefined): number {
+function parseVehicleYear(year: string | number | null | undefined): number {
   if (typeof year === "number") return year
   return Number.parseInt(String(year ?? "").trim(), 10)
 }

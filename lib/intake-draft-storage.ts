@@ -46,7 +46,7 @@ export const INTAKE_DRAFT_MAX_AGE_MS = 2 * 60 * 60 * 1000
  * Soft window for “same session continue” — drafts older than this on a *new*
  * call leg are still restorable but should not dominate the decision card.
  */
-export const INTAKE_DRAFT_NEW_CALL_SOFT_AGE_MS = 30 * 60 * 1000
+const INTAKE_DRAFT_NEW_CALL_SOFT_AGE_MS = 30 * 60 * 1000
 
 type StoredEnvelope = {
   v: number
@@ -101,7 +101,7 @@ function isWorkflowStep(value: unknown): value is IntakeDraftWorkflowStep {
 }
 
 /** Map legacy FINAL_DISPATCH drafts onto the new schedule step. */
-export function normalizeIntakeDraftStep(step: IntakeDraftWorkflowStep): IntakeDraftWorkflowStep {
+function normalizeIntakeDraftStep(step: IntakeDraftWorkflowStep): IntakeDraftWorkflowStep {
   if (step === "FINAL_DISPATCH") return "SCHEDULE_TIME"
   return step
 }
@@ -238,7 +238,7 @@ function draftField(value: string | null | undefined): string {
  * Stable fingerprint of the fields Restore would put back on screen.
  * Used to detect "draft already matches what the operator is looking at".
  */
-export function intakeDraftProgressFingerprint(
+function intakeDraftProgressFingerprint(
   form: ActiveCallFormState,
   currentStep: IntakeDraftWorkflowStep
 ): string {

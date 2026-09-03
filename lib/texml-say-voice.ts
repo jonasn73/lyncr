@@ -119,7 +119,7 @@ export function getCallControlSpeakVoiceAttributes(opts?: {
  * Slightly conversational Busy speak rate for Polly SSML (1.0 = off).
  * NaturalHD ignores this (plain text). Override with `LYNCR_CALL_CONTROL_SPEAK_RATE`.
  */
-export function getCallControlSpeakProsodyRate(): number {
+function getCallControlSpeakProsodyRate(): number {
   const raw = (envLyncrOrZing("CALL_CONTROL_SPEAK_RATE") ?? "1.05").trim()
   if (raw === "" || raw === "1" || raw === "off" || raw === "false") return 1
   const n = parseFloat(raw)
@@ -158,7 +158,7 @@ function parseProsodyRate(): number {
 }
 
 /** Escape text embedded in SSML <prosody> (company names may include &). */
-export function escapeXmlForSsml(text: string): string {
+function escapeXmlForSsml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 

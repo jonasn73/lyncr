@@ -9,11 +9,6 @@ import {
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
 import { formatAdminRoutingOverridePhoneForTelnyx } from "@/lib/phone-e164"
 
-export {
-  shouldSendAdminPlatformHealthEmail,
-  shouldSendAdminPlatformHealthSms,
-} from "@/lib/admin-notification-dispatch"
-
 /** Deliver one alert: SMS when a cell exists, otherwise email. Never texts customers. */
 export async function deliverPlatformHealthAlert(params: {
   user: Pick<User, "id" | "email" | "phone" | "is_platform_admin" | "admin_notification_preferences" | "name">

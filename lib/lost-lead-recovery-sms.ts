@@ -27,7 +27,7 @@ export function buildLostLeadRecoverySmsTemplate(row: LostLeadRow): string {
 }
 
 /** Optional OpenAI personalization; returns template on any failure. */
-export async function generateLostLeadRecoverySms(row: LostLeadRow): Promise<string> {
+async function generateLostLeadRecoverySms(row: LostLeadRow): Promise<string> {
   const template = buildLostLeadRecoverySmsTemplate(row)
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) return template

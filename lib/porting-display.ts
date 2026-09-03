@@ -55,7 +55,7 @@ export function isPortingRenderableMessage(raw: string): boolean {
 }
 
 /** Strip email-style boilerplate from carrier desk comment threads. */
-export function stripPortingEmailBoilerplate(raw: string): string {
+function stripPortingEmailBoilerplate(raw: string): string {
   let s = stripPortingJunkLines(displayUserFacingMessage(raw).trim())
   s = s.replace(/^(hello|hi|dear customer|dear\s+\w+),?\s*/i, "")
   s = s.replace(/^thank you for (using|choosing|submitting)[^.]*\.\s*/i, "")

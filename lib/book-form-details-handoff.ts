@@ -4,10 +4,10 @@
 import type { LatestCustomerAction } from "@/lib/latest-customer-actions"
 
 /** sessionStorage key for the last book-form alert the owner opened. */
-export const BOOK_FORM_DETAILS_HANDOFF_KEY = "lyncr_book_form_details_handoff"
+const BOOK_FORM_DETAILS_HANDOFF_KEY = "lyncr_book_form_details_handoff"
 
 /** Flag: Lines should reopen the booking sheet after navigating from Messages. */
-export const BOOK_FORM_REOPEN_PENDING_KEY = "lyncr_book_form_reopen_pending"
+const BOOK_FORM_REOPEN_PENDING_KEY = "lyncr_book_form_reopen_pending"
 
 /** Same-tab signal when Lines is already mounted (hidden under Messages). */
 export const LYNCR_REOPEN_BOOK_FORM_DETAIL_EVENT = "lyncr:reopen-book-form-detail"
@@ -56,15 +56,6 @@ export function peekBookFormDetailsHandoff(): LatestCustomerAction | null {
   } catch {
     return null
   }
-}
-
-/** True when Messages should offer a way back to this phone’s booking sheet. */
-export function bookFormHandoffMatchesPhone(phone: string): boolean {
-  const item = peekBookFormDetailsHandoff()
-  if (!item?.customerPhone) return false
-  const a = phoneKey(phone)
-  const b = phoneKey(item.customerPhone)
-  return a.length >= 10 && a === b
 }
 
 /** Drop the stash (Schedule job / done viewing). */

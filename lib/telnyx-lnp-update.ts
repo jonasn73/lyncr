@@ -143,7 +143,7 @@ export async function submitTelnyxPortingCorrections(
 }
 
 /** Read saved PIN/passcode from a Telnyx porting order payload. */
-export function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): string | null {
+function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>): string | null {
   const endUser = orderData.end_user as Record<string, unknown> | undefined
   const admin = endUser?.admin as Record<string, unknown> | undefined
   const pin =
@@ -154,7 +154,7 @@ export function readTelnyxPortingPinPasscode(orderData: Record<string, unknown>)
 }
 
 /** Re-submit a corrected port order to Telnyx after PATCH (clears many exception states). */
-export async function confirmTelnyxPortingOrderCorrection(
+async function confirmTelnyxPortingOrderCorrection(
   telnyxOrderId: string
 ): Promise<{ confirmed: boolean; confirmError?: string }> {
   const orderId = telnyxOrderId.trim()

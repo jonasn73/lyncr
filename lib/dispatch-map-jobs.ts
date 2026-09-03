@@ -61,7 +61,7 @@ export function isActiveDispatchMapJob(job: {
 }
 
 /** Normalize booked API rows and drop non-plottable / inactive work. */
-export function normalizeDispatchJob(job: DispatchJob): DispatchJob | null {
+function normalizeDispatchJob(job: DispatchJob): DispatchJob | null {
   if (!isActiveDispatchMapJob(job)) return null
   return {
     ...job,

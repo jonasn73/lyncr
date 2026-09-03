@@ -64,7 +64,7 @@ export type EnsureTelnyxVoiceAiResult = {
 }
 
 /** Push latest intake + greeting (+ optional model/voice) to Telnyx for the linked assistant. */
-export async function syncTelnyxAssistantFromIntake(userId: string): Promise<void> {
+async function syncTelnyxAssistantFromIntake(userId: string): Promise<void> {
   const u = await getUser(userId)
   const aid = u?.telnyx_ai_assistant_id?.trim()
   if (!u || !aid) return

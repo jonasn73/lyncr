@@ -9,17 +9,12 @@ import {
 import type { ScheduleBlockout, SchedulerEvent } from "@/lib/types"
 
 /** Tools Retell agents may invoke via POST /api/retell-booking. */
-export type RetellBookingToolName =
+type RetellBookingToolName =
   | "check_next_available_slot"
   | "confirm_monday_booking"
   | "handle_caller_intent"
   | "open_conversation_mode"
 
-/** LLM / agent conversation modes returned to Retell after DTMF or spoken shortcuts. */
-export type RetellLlmContextState =
-  | "confirm_monday_booking_collect"
-  | "open_conversation"
-  | "offer_slot"
 
 export type RetellBookingRequestBody = {
   name?: string
@@ -329,7 +324,7 @@ export function handleCallerIntentShortcut(
   }
 }
 
-export function handleOpenConversationMode(
+function handleOpenConversationMode(
   events: readonly SchedulerEvent[],
   now = new Date(),
   blockouts: readonly ScheduleBlockout[] = []
@@ -344,15 +339,6 @@ export function handleOpenConversationMode(
       "Sure — ask me anything about pricing, our service area, or lock services. " +
       `When you're ready, I can still book ${slot.available_slot_raw} for you.`,
   }
-}
-
-export function isRetellBookingToolName(name: string): name is RetellBookingToolName {
-  return (
-    name === "check_next_available_slot" ||
-    name === "confirm_monday_booking" ||
-    name === "handle_caller_intent" ||
-    name === "open_conversation_mode"
-  )
 }
 
 /**

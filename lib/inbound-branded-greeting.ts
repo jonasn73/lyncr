@@ -35,11 +35,11 @@ export function buildInboundCallerGreetingText(workspaceName: string): string {
 }
 
 /** Zero-DB pass 1 when routing cache is cold — avoids Neon latency while the caller still hears ringback. */
-export const INBOUND_GENERIC_CALLER_GREETING =
+const INBOUND_GENERIC_CALLER_GREETING =
   "Thanks for calling. Connecting you now."
 
 /** Optional hosted WAV/MP3 for pass 1 — plays faster than TTS while Telnyx is still fetching pass 2. */
-export function readInboundInstantGreetingAudioUrl(): string | null {
+function readInboundInstantGreetingAudioUrl(): string | null {
   const raw = (process.env.ZING_INBOUND_INSTANT_GREETING_AUDIO_URL || "").trim()
   return raw || null
 }
@@ -49,7 +49,7 @@ function escapeXmlText(text: string): string {
 }
 
 /** Raw TeXML `<Say>` tag with neural Polly voice (matches `texmlSayNatural`). */
-export function buildTexmlCallerGreetingSayTag(plainGreeting: string): string {
+function buildTexmlCallerGreetingSayTag(plainGreeting: string): string {
   const attrs = getTexmlSayVoiceAttributes()
   const body = texmlSayMessageBody(plainGreeting)
   const content = body.startsWith("<prosody") ? body : escapeXmlText(body)
@@ -169,7 +169,7 @@ export function shouldPlayInboundGreetingFirstPass(greetingPassDone: boolean, gr
  * After the branded greeting, play US ringback while the cell rings (default on).
  * Set `ZING_INBOUND_RINGBACK_AFTER_GREETING=0` only for hold-silence experiments.
  */
-export function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
+function readInboundCallerRingbackAfterGreetingEnabled(): boolean {
   const raw = (process.env.ZING_INBOUND_RINGBACK_AFTER_GREETING || "1").trim().toLowerCase()
   return raw !== "0" && raw !== "false" && raw !== "no" && raw !== "off"
 }

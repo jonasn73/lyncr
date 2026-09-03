@@ -368,9 +368,3 @@ export const JobAddressAutocomplete = forwardRef<
     </div>
   )
 })
-
-export function structuredAddressFromFormValue(raw: unknown): StructuredAddress | null {
-  if (!raw || typeof raw !== "object") return null
-  const o = raw as Partial<StructuredAddress>
-  return isCompleteStructuredAddress(o) ? o : null
-}

@@ -11,20 +11,6 @@ import {
   resolveOwnerTimezone,
 } from "@/lib/browser-timezone-cookie"
 
-/** True when this surface may paint counts / empty copy / KPI zeros. */
-export function isSurfaceSettled(opts: {
-  /** Bootstrap / first successful paint for this pane. */
-  settled?: boolean
-  loading?: boolean
-  validating?: boolean
-}): boolean {
-  const settled = opts.settled !== false
-  if (!settled) return false
-  if (opts.loading) return false
-  if (opts.validating) return false
-  return true
-}
-
 /**
  * Count / subtitle label — blank until settled so “0 active” never flashes.
  * When settled, returns the formatted string (including real zeros).

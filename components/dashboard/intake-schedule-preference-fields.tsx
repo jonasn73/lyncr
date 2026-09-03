@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 const TIME_OPTIONS = buildBookTimeOptions(7, 19, 30)
 
-export type IntakeSchedulePreferenceValue = {
+type IntakeSchedulePreferenceValue = {
   scheduleUrgency: "" | "asap" | "window"
   scheduledDate: string
   scheduledTime: string

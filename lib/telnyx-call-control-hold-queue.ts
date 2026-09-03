@@ -337,7 +337,7 @@ export async function handleCallEnqueuedHoldMusic(
 }
 
 /** Play looping hold music + collect digit 1 (or speak-only when every music path fails). */
-export async function startHoldMusicGather(
+async function startHoldMusicGather(
   callControlId: string,
   state: TelnyxCallControlClientState,
   opts?: {
@@ -564,7 +564,7 @@ export async function startHoldMusicGather(
 }
 
 /** Stop music briefly for a short consistent reminder, then gather for press 1. */
-export async function startHoldRepromptGather(
+async function startHoldRepromptGather(
   callControlId: string,
   state: TelnyxCallControlClientState
 ): Promise<void> {
@@ -626,7 +626,7 @@ export async function startHoldRepromptGather(
 }
 
 /** Press 1 while on hold — leave queue, SMS, confirm, hangup. */
-export async function leaveHoldQueueWithSms(
+async function leaveHoldQueueWithSms(
   callControlId: string,
   state: TelnyxCallControlClientState,
   source: string

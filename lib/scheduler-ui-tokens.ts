@@ -1,41 +1,7 @@
 // High-end dispatch UI tokens — glass cards, emerald focus, metadata hierarchy.
 // Composes the global workspace standard (lib/workspace-ui-tokens.ts).
 
-import {
-  WS_CARD,
-  WS_CARD_ACTIVE,
-  WS_CARD_HOVER,
-  WS_GAP,
-  WS_ICON_ACTIVE,
-  WS_ICON_INACTIVE,
-  WS_METADATA,
-  WS_OPTION_ROW,
-  WS_OPTION_ROW_ACTIVE,
-  WS_ROW,
-  WS_SECTION,
-  WS_SPEC_ROW,
-  WS_STACK,
-  WS_TEXT,
-  WS_TEXT_ACTIVE,
-} from "@/lib/workspace-ui-tokens"
-
-export {
-  WS_CARD,
-  WS_CARD_ACTIVE,
-  WS_CARD_HOVER,
-  WS_GAP,
-  WS_ICON_ACTIVE,
-  WS_ICON_INACTIVE,
-  WS_METADATA,
-  WS_OPTION_ROW,
-  WS_OPTION_ROW_ACTIVE,
-  WS_ROW,
-  WS_SECTION,
-  WS_SPEC_ROW,
-  WS_STACK,
-  WS_TEXT,
-  WS_TEXT_ACTIVE,
-}
+import { WS_CARD, WS_CARD_HOVER, WS_METADATA, WS_SECTION } from "@/lib/workspace-ui-tokens"
 
 /** Frosted glass surface for cards, panels, and map chrome. */
 export const SCHEDULER_GLASS_CARD = WS_CARD
@@ -48,7 +14,7 @@ export const SCHEDULER_INTERACTIVE_HOVER = [
 ].join(" ")
 
 /** Combined glass + hover — use on any tappable job list card. */
-export const SCHEDULER_JOB_CARD_SURFACE = [SCHEDULER_GLASS_CARD, SCHEDULER_INTERACTIVE_HOVER].join(
+const SCHEDULER_JOB_CARD_SURFACE = [SCHEDULER_GLASS_CARD, SCHEDULER_INTERACTIVE_HOVER].join(
   " "
 )
 
@@ -64,11 +30,8 @@ export const SCHEDULER_METADATA_LABEL = WS_METADATA
 /** Strict vertical hierarchy for label + value pairs. */
 export const SCHEDULER_FIELD_STACK = "flex flex-col gap-1"
 
-/** Primary value line under a metadata label. */
-export const SCHEDULER_FIELD_VALUE = "text-sm font-medium leading-snug text-foreground"
-
 /** Emerald focus ring for inputs and selects in dispatch surfaces. */
-export const SCHEDULER_INPUT_FOCUS =
+const SCHEDULER_INPUT_FOCUS =
   "focus:outline-none focus:border-success focus:ring-1 focus:ring-success"
 
 /** Standard text input inside job drawer / map popup. */
@@ -88,9 +51,6 @@ export const SCHEDULER_TEXTAREA = [
 /** Grouped form block inside the job edit drawer. */
 export const SCHEDULER_SECTION = [WS_SECTION, "mb-0"].join(" ")
 
-/** Compact spec tile — horizontal metadata row. */
-export const SCHEDULER_SPEC_TILE = WS_SPEC_ROW
-
 /** Secondary action chip (Edit, Map, etc.). */
 export const SCHEDULER_ACTION_BUTTON = [
   "inline-flex items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground",
@@ -102,32 +62,9 @@ export const SCHEDULER_ACTION_BUTTON = [
 export const SCHEDULER_INTERACTIVE_TEXT_LINK =
   "font-medium text-foreground underline decoration-slate-600 underline-offset-2 transition-all duration-150 hover:text-success hover:decoration-emerald-500/40"
 
-/** Map marker hover tooltip. */
-export const SCHEDULER_MAP_TOOLTIP = [WS_CARD, "px-3 py-2 text-xs text-foreground shadow-xl"].join(
-  " "
-)
-
-/** Desktop map popup shell. */
-export const SCHEDULER_MAP_POPUP_SHELL = [WS_CARD, "w-[300px] p-4"].join(" ")
-
-/** Mobile floating map toolbar. */
-export const SCHEDULER_MOBILE_TOOLBAR = [
-  "rounded-2xl border border-border bg-card/40 shadow-lg backdrop-blur-md",
-].join(" ")
-
-/** Mobile bottom job sheet. */
-export const SCHEDULER_MOBILE_SHEET = [
-  "border-t border-border bg-card/40 shadow-[0_-12px_40px_rgba(0,0,0,0.55)] backdrop-blur-md",
-].join(" ")
-
 /** Drawer backdrop scrim behind job detail slide-over. */
 export const SCHEDULER_DRAWER_SCRIM = "bg-background/70 backdrop-blur-sm"
 
 /** Live status strip above the dispatch board. */
 export const SCHEDULER_LIVE_STATUS_SHELL = [WS_CARD, "min-w-0 overflow-hidden p-0"].join(" ")
 
-/** Unified gap utility for scheduler panels. */
-export const SCHEDULER_GAP = WS_GAP
-
-/** Vertical panel stack. */
-export const SCHEDULER_STACK = WS_STACK
