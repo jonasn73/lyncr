@@ -329,7 +329,43 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
         className={cn("hidden w-full space-y-2 md:block", className)}
         aria-label="Today's workspace telemetry"
       >
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-background/40 px-4 py-3 backdrop-blur-md">
+        <div className="relative grid grid-cols-3 gap-2 rounded-2xl border border-white/5 bg-background/40 px-4 py-3 backdrop-blur-md">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/50 transition-colors hover:bg-white/5 hover:text-foreground"
+              >
+                <Info className="h-3.5 w-3.5" />
+                <span className="sr-only">What do these metrics mean?</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 text-2xs leading-snug">
+              <dl className="space-y-3">
+                <div>
+                  <dt className="font-medium text-foreground">Missed</dt>
+                  <dd className="text-muted-foreground">True unanswered (hold / press-1 excluded).</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Booked jobs</dt>
+                  <dd className="text-muted-foreground">
+                    Real BOOKED jobs today ÷ unique callers (not pending time or press-1 alone).
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Rescue $</dt>
+                  <dd className="text-muted-foreground">Salvage quotes plus jobs booked after hold or press 1.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Press 1</dt>
+                  <dd className="text-muted-foreground">
+                    Callers who pressed 1 for a booking-link text today; turns amber if any of those texts
+                    actually failed to send.
+                  </dd>
+                </div>
+              </dl>
+            </PopoverContent>
+          </Popover>
           <TelemetryPill
             label="Live lines"
             value={linesDisplay}
@@ -393,44 +429,6 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             valueClassName={press1Trouble ? "text-warning" : undefined}
             labelClassName={press1Trouble ? "text-warning font-semibold" : undefined}
           />
-        </div>
-        <div className="flex justify-end px-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-2xs text-muted-foreground/70 transition-colors hover:text-foreground"
-              >
-                <Info className="h-3.5 w-3.5" />
-                What do these mean?
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 text-2xs leading-snug">
-              <dl className="space-y-3">
-                <div>
-                  <dt className="font-medium text-foreground">Missed</dt>
-                  <dd className="text-muted-foreground">True unanswered (hold / press-1 excluded).</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-foreground">Booked jobs</dt>
-                  <dd className="text-muted-foreground">
-                    Real BOOKED jobs today ÷ unique callers (not pending time or press-1 alone).
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-foreground">Rescue $</dt>
-                  <dd className="text-muted-foreground">Salvage quotes plus jobs booked after hold or press 1.</dd>
-                </div>
-                <div>
-                  <dt className="font-medium text-foreground">Press 1</dt>
-                  <dd className="text-muted-foreground">
-                    Callers who pressed 1 for a booking-link text today; turns amber if any of those texts
-                    actually failed to send.
-                  </dd>
-                </div>
-              </dl>
-            </PopoverContent>
-          </Popover>
         </div>
       </section>
 
