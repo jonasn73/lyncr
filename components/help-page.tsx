@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetFooter, SheetTitle } from "@/components/ui/sh
 import { StorySheetHeader } from "@/components/story-sheet-header"
 import { getAppSheetStory, helpPlanStoryKey, helpCategoryStoryKey } from "@/components/app-sheet-stories"
 import { SheetInfoTrigger } from "@/components/sheet-info-trigger"
+import { WorkspacePage, WorkspacePageHeader } from "@/components/dashboard-workspace-ui"
 import {
   Select,
   SelectContent,
@@ -105,18 +106,21 @@ export function HelpPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-7 sm:gap-8">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Help & feedback</h1>
-          <p className="mt-1 hidden text-sm text-muted-foreground md:block">
-            Chat with Lyncr Support, check your plan balance, or send a written feedback note.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Evenings and weekends we still see messages. Replies usually come the next business morning.
-          </p>
-        </div>
-        <SheetInfoTrigger onPress={() => setHelpSheetKey("help-page-overview")} label="About Help and feedback" />
+    <WorkspacePage>
+      <WorkspacePageHeader
+        eyebrow="Account"
+        title="Help & feedback"
+        action={
+          <SheetInfoTrigger onPress={() => setHelpSheetKey("help-page-overview")} label="About Help and feedback" />
+        }
+      />
+      <div>
+        <p className="hidden text-sm text-muted-foreground md:block">
+          Chat with Lyncr Support, check your plan balance, or send a written feedback note.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Evenings and weekends we still see messages. Replies usually come the next business morning.
+        </p>
       </div>
 
       <SupportChatPanel />
@@ -317,6 +321,6 @@ export function HelpPage() {
           })()}
         </SheetContent>
       </Sheet>
-    </div>
+    </WorkspacePage>
   )
 }
