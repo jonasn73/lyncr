@@ -44,7 +44,7 @@ import {
   useJobPoolQuery,
 } from "@/lib/hooks/use-job-pool-query"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
-import { isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
+import { isTransientWorkspaceOrgStub, isWorkspaceOrgStubId } from "@/lib/workspace-organizations"
 import { normalizeWorkspaceOrgId, resolveWorkspaceCacheOrgId } from "@/lib/workspace-org-id"
 import {
   readSchedulerPaintSeed,
@@ -156,7 +156,11 @@ function SchedulerWorkspaceViewInner({
   /** Cookie/localStorage uuid for bootstrap cache while context still holds paint stub. */
   const cacheOrgId = useMemo(() => resolveWorkspaceCacheOrgId(orgId), [orgId])
   // Paint-seed stub → real uuid: never paint default-cache rows from the wrong shop.
-  const orgResolving = Boolean(activeOrganizationId?.trim()) && orgId == null
+  // Only a "__" placeholder is transient — a "legacy-" id (single-workspace account, no
+  // real `organizations` row) is a resolved, permanent identity, not something to wait on;
+  // the API already falls back to the session's own account for it (see /scheduler/bootstrap,
+  // /api/owner/jobs/pool). Waiting on it here left the board stuck pending forever.
+  const orgResolving = isTransientWorkspaceOrgStub(activeOrganizationId)
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date())
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date())
   const initialBootstrap = readBootstrapForOrg(cacheOrgId)
@@ -338,7 +342,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: poolValidating,
     hasResolved: poolHasResolved,
     mutate: mutatePool,
-  } = useJobPoolQuery(orgId, pollEnabled && canDispatch)
+  } = useJobPoolQuery(activeOrganizationId, pollEnabled && canDispatch)
 
   const pipelineDayKey = dayKeyLocal(selectedDay)
   const streamedPipelineDayKey = dayKeyLocal(new Date())
@@ -350,7 +354,7 @@ function SchedulerWorkspaceViewInner({
     isValidating: pipelineValidating,
     hasResolved: pipelineHasResolved,
     mutate: mutateActivePipeline,
-  } = useActivePipelineQuery(orgId, pipelineDayKey, pollEnabled && canDispatch)
+  } = useActivePipelineQuery(activeOrganizationId, pipelineDayKey, pollEnabled && canDispatch)
 
   const activeOrgName = useMemo(
     () => organizations.find((o) => o.id === orgId)?.name ?? null,
@@ -429,8 +433,9 @@ function SchedulerWorkspaceViewInner({
     }
   }, [boardScopeKey, assignableTechs.length, displayEvents.length, displayPipelineJobs.length])
 
-  const schedulerSurfaceReady =
-    sessionReady && orgId != null && bootstrapSettled && !orgResolving
+  // Not gated on orgId != null — that stays null forever for a legacy/single-workspace
+  // account (see orgResolving above); bootstrapSettled already means a real answer arrived.
+  const schedulerSurfaceReady = sessionReady && bootstrapSettled && !orgResolving
 
   const paintSeeds = useDashboardPaintSeeds()
   const boardMonthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`
@@ -746,9 +751,12 @@ function SchedulerWorkspaceViewInner({
 
   useEffect(() => {
     // Skip bootstrap network while Scheduler pane is hidden (SWR already paused via pollEnabled).
-    if (!isActive || !orgId || orgResolving) return
+    // orgId itself stays null forever for a legacy/single-workspace account — that's fine,
+    // orgQuery below already omits the filter for it and the API resolves via session; only
+    // orgResolving (a genuine "__" in-flight org switch) should hold this back.
+    if (!isActive || orgResolving) return
     void load()
-  }, [load, isActive, orgId, orgResolving])
+  }, [load, isActive, orgResolving])
 
   const refreshSchedulerData = useCallback(() => {
     load()

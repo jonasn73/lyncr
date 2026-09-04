@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import useSWR from "swr"
 import type { ActivePipelineJob, UnassignedPoolJob } from "@/lib/types"
 import { normalizeWorkspaceOrgId } from "@/lib/workspace-org-id"
-import { organizationQueryString } from "@/lib/workspace-organizations"
+import { isTransientWorkspaceOrgStub, organizationQueryString } from "@/lib/workspace-organizations"
 import { defaultSwrConfig } from "@/lib/swr/config"
 import { swrJsonFetcher } from "@/lib/swr/fetcher"
 import { persistedCacheKey, readPersistedCache, writePersistedCache } from "@/lib/swr/persisted-cache"
@@ -101,8 +101,12 @@ export function useJobPoolQuery(
   enabled = true
 ) {
   const orgId = resolvePoolOrgId(activeOrganizationId)
-  // Null key pauses fetch — never hit /pool without organization_id (wrong shop flash).
-  const url = enabled && orgId ? jobPoolHopperUrl(orgId) : null
+  // A "__" placeholder means a real org id is still being resolved (e.g. mid org-switch) —
+  // wait for it so we don't briefly fetch the wrong shop. A "legacy-" id or no id at all
+  // both mean "this account's own default" — the API already resolves that via session
+  // (see /api/owner/jobs/pool), so there's nothing to wait for; fetch immediately.
+  const orgResolving = isTransientWorkspaceOrgStub(activeOrganizationId)
+  const url = enabled && !orgResolving ? jobPoolHopperUrl(activeOrganizationId ?? null) : null
   const cacheKey = persistedCacheKey("job-pool-hopper", orgId ?? "default")
   const paintJobs = useDashboardPaintSeeds().mapPool
   const paintSeed = readMapPoolPaintSeed(paintJobs, orgId)
@@ -113,7 +117,7 @@ export function useJobPoolQuery(
   // hydration mismatch (React discards and rebuilds the subtree). Gate on sessionReady,
   // same as the paint place-index read below.
   const fallbackData = useMemo(() => {
-    if (!orgId) return undefined
+    if (orgResolving) return undefined
     const fromSession = sessionReady ? readPersistedCache<UnassignedPoolJob[]>(cacheKey) : null
     if (fromSession && fromSession.length > 0) return fromSession
     if (paintSeed?.jobs.length) {
@@ -123,7 +127,7 @@ export function useJobPoolQuery(
       return mapPoolPaintToJobs(paintSeed, places)
     }
     return undefined
-  }, [cacheKey, paintSeed, sessionReady, orgId])
+  }, [cacheKey, paintSeed, sessionReady, orgId, orgResolving])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -140,10 +144,10 @@ export function useJobPoolQuery(
   const hasCachedData =
     data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
-    if (!orgId) return EMPTY_POOL_JOBS
+    if (orgResolving) return EMPTY_POOL_JOBS
     if (data !== undefined) return data
     return fallbackData ?? EMPTY_POOL_JOBS
-  }, [data, fallbackData, orgId])
+  }, [data, fallbackData, orgResolving])
 
   return {
     jobs,
@@ -152,7 +156,7 @@ export function useJobPoolQuery(
     isValidating,
     /** True after SWR resolved (including empty) — gates Pool KPI zeros. */
     hasResolved:
-      orgId != null &&
+      !orgResolving &&
       (data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)),
     mutate,
   }
@@ -187,7 +191,11 @@ export function useActivePipelineQuery(
   enabled = true
 ) {
   const orgId = resolvePoolOrgId(activeOrganizationId)
-  const url = enabled && orgId ? jobPoolActiveUrl(orgId, dayKey) : null
+  // See useJobPoolQuery above — a "legacy-" id (or no id) means "this account's own
+  // default," which the API already resolves via session; only a "__" placeholder means a
+  // real org id is still being resolved and worth waiting for.
+  const orgResolving = isTransientWorkspaceOrgStub(activeOrganizationId)
+  const url = enabled && !orgResolving ? jobPoolActiveUrl(activeOrganizationId ?? null, dayKey) : null
   const cacheKey = persistedCacheKey(
     "job-pool-active",
     `${orgId ?? "default"}:${dayKey}`
@@ -196,11 +204,11 @@ export function useActivePipelineQuery(
 
   // Same hydration-mismatch guard as useJobPoolQuery's fallbackData above.
   const fallbackData = useMemo(() => {
-    if (!orgId) return undefined
+    if (orgResolving) return undefined
     const fromSession = sessionReady ? readPersistedCache<ActivePipelineJob[]>(cacheKey) : null
     if (fromSession && fromSession.length > 0) return fromSession
     return undefined
-  }, [cacheKey, sessionReady, orgId])
+  }, [cacheKey, sessionReady, orgResolving])
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     url,
@@ -216,10 +224,10 @@ export function useActivePipelineQuery(
   const hasCachedData =
     data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)
   const jobs = useMemo(() => {
-    if (!orgId) return EMPTY_PIPELINE_JOBS
+    if (orgResolving) return EMPTY_PIPELINE_JOBS
     if (data !== undefined) return data
     return fallbackData ?? EMPTY_PIPELINE_JOBS
-  }, [data, fallbackData, orgId])
+  }, [data, fallbackData, orgResolving])
 
   return {
     jobs,
@@ -228,7 +236,7 @@ export function useActivePipelineQuery(
     isValidating,
     /** True after SWR resolved (including empty) — gates “0 active” until then. */
     hasResolved:
-      orgId != null &&
+      !orgResolving &&
       (data !== undefined || (Array.isArray(fallbackData) && fallbackData.length > 0)),
     mutate,
   }

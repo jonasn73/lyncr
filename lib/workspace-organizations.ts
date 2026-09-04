@@ -129,6 +129,18 @@ export function isWorkspaceOrgStubId(id: string | null | undefined): boolean {
   return value.startsWith("__") || value.startsWith("legacy-")
 }
 
+/**
+ * True only for a "__"-prefixed placeholder — a real multi-workspace org id is still being
+ * resolved (e.g. mid org-switch), so callers should wait rather than fetch under no filter.
+ * A "legacy-" id is the OTHER stub `isWorkspaceOrgStubId` matches, but it is a resolved,
+ * permanent identity (pre-multi-workspace account, no real `organizations` row coming) —
+ * not transient. Treating it as "still resolving" left single-workspace accounts waiting
+ * forever for a real org id that will never arrive (Scheduler board stuck pending).
+ */
+export function isTransientWorkspaceOrgStub(id: string | null | undefined): boolean {
+  return Boolean(id?.trim().startsWith("__"))
+}
+
 /** One shop row we need when deciding which workspace stays selected. */
 export type OrganizationPickRow = {
   id: string
