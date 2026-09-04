@@ -24,6 +24,7 @@ import {
   UserCog,
 } from "lucide-react"
 import { useDispatchCommandBridge } from "@/lib/dispatch-command-bridge"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import {
   requestOpenBuyNumberModal,
   requestOpenManageNumbersModal,
@@ -64,6 +65,10 @@ type AppNavCommandPaletteProps = {
 export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavCommandPaletteProps) {
   const router = useRouter()
   const { commands: dispatchCommands } = useDispatchCommandBridge()
+  const accountIndustry = useDashboardSessionOptional()?.industry
+  const isLocksmithAccount = !accountIndustry || accountIndustry.trim().toLowerCase() === "locksmith"
+  // Key inventory (barcode scan for keys/FCC IDs) makes sense only for locksmith accounts.
+  const jumpPages = isLocksmithAccount ? JUMP_PAGES : JUMP_PAGES.filter((p) => p.id !== "inventory")
 
   if (!enabled) return null
 
@@ -104,7 +109,7 @@ export function AppNavCommandPalette({ enabled, open, onOpenChange }: AppNavComm
           </CommandGroup>
         ) : null}
         <CommandGroup heading="Pages">
-          {JUMP_PAGES.map(({ id, label, href, icon: Icon }) => (
+          {jumpPages.map(({ id, label, href, icon: Icon }) => (
             <CommandItem key={id} value={`${label} ${id}`} onSelect={() => go(href)}>
               <Icon className="size-4 shrink-0" aria-hidden />
               <span>{label}</span>

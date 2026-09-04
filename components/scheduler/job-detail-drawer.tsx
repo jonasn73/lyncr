@@ -56,6 +56,7 @@ import {
 } from "@/lib/job-billing-balance"
 import { type ServiceQuoteTypeId } from "@/lib/service-quote-calculator"
 import { normalizeServiceQuoteTypeId } from "@/lib/service-rate-card"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { travelDistanceMiles } from "@/lib/geo"
 import { useDispatcherLocation } from "@/lib/hooks/use-dispatcher-location"
 import type {
@@ -144,6 +145,7 @@ export function JobDetailDrawer({
   onScheduleCommitted,
   editIntentTick = 0,
 }: JobDetailDrawerProps) {
+  const accountIndustry = useDashboardSessionOptional()?.industry
   const listSource = scheduledEvent ?? poolJob
   const jobId = listSource?.id ?? ""
   const onDeletedRef = useRef(onDeleted)
@@ -900,6 +902,7 @@ export function JobDetailDrawer({
           ) : (
             <JobEditWorkflow
               key={`${jobId}-edit`}
+              industry={accountIndustry}
               statusLabel={statusLabel}
               lifecyclePhase={lifecyclePhase}
               customerName={customerName}

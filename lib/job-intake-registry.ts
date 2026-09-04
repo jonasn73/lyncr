@@ -110,3 +110,14 @@ export function jobIntakeOptionRequiresVehicle(
   const options = resolveJobIntakeOptions(industry)
   return options.find((o) => o.id === optionId)?.requiresVehicle ?? false
 }
+
+/**
+ * Account-level (not per-job) vehicle awareness — locksmith/unset always stays true so its
+ * job-edit "Vehicle info" section keeps rendering exactly as it does today (including its
+ * own per-job "(optional)" labeling for non-automotive service types); other trades only see
+ * it when their trade genuinely involves a vehicle (auto_repair, towing).
+ */
+export function isVehicleAwareIndustry(industry: string | null | undefined): boolean {
+  const id = (industry || "").trim().toLowerCase()
+  return !id || id === "locksmith" || VEHICLE_AWARE_PROFILES.has(id as AiIntakeProfileId)
+}

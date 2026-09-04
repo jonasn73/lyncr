@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { AI_INTAKE_PROFILE_IDS } from "@/lib/business-industries"
 import { SERVICE_QUOTE_TYPES } from "@/lib/service-quote-calculator"
 import {
+  isVehicleAwareIndustry,
   jobIntakeOptionRequiresVehicle,
   resolveJobIntakeOptions,
 } from "@/lib/job-intake-registry"
@@ -86,5 +87,26 @@ describe("jobIntakeOptionRequiresVehicle (087)", () => {
 
   it("returns false for an unknown option id instead of throwing", () => {
     expect(jobIntakeOptionRequiresVehicle("plumbing", "not-a-real-id")).toBe(false)
+  })
+})
+
+describe("isVehicleAwareIndustry (087)", () => {
+  it("is true for locksmith and unset (byte-for-byte unchanged default)", () => {
+    expect(isVehicleAwareIndustry("locksmith")).toBe(true)
+    expect(isVehicleAwareIndustry(null)).toBe(true)
+    expect(isVehicleAwareIndustry(undefined)).toBe(true)
+    expect(isVehicleAwareIndustry("")).toBe(true)
+  })
+
+  it("is true for auto_repair and towing", () => {
+    expect(isVehicleAwareIndustry("auto_repair")).toBe(true)
+    expect(isVehicleAwareIndustry("towing")).toBe(true)
+  })
+
+  it("is false for every other trade", () => {
+    for (const industry of AI_INTAKE_PROFILE_IDS) {
+      if (["locksmith", "auto_repair", "towing"].includes(industry)) continue
+      expect(isVehicleAwareIndustry(industry), `expected "${industry}" to be false`).toBe(false)
+    }
   })
 })

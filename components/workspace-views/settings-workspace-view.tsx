@@ -74,6 +74,8 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
   const modals = useSettingsModalActions()
   const router = useRouter()
   const [salesTaxOpen, setSalesTaxOpen] = useState(false)
+  const accountIndustry = useDashboardSessionOptional()?.industry
+  const isLocksmithAccount = !accountIndustry || accountIndustry.trim().toLowerCase() === "locksmith"
   const initials = profile.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -204,16 +206,18 @@ const SettingsWorkspaceBody = memo(function SettingsWorkspaceBody({
       <section className="space-y-2">
         <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">More</p>
         <SettingsGroupedList>
-          <SettingsMenuRow
-            grouped
-            icon={<Package className="h-5 w-5 text-success" aria-hidden />}
-            title="Key inventory"
-            subtitle="Stock hub and barcode scanner"
-            onClick={() => {
-              closeHeaderSettings()
-              router.push("/dashboard/inventory")
-            }}
-          />
+          {isLocksmithAccount ? (
+            <SettingsMenuRow
+              grouped
+              icon={<Package className="h-5 w-5 text-success" aria-hidden />}
+              title="Key inventory"
+              subtitle="Stock hub and barcode scanner"
+              onClick={() => {
+                closeHeaderSettings()
+                router.push("/dashboard/inventory")
+              }}
+            />
+          ) : null}
           <SettingsMenuRow
             grouped
             icon={<LifeBuoy className="h-5 w-5 text-operator" aria-hidden />}

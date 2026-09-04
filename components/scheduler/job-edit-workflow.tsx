@@ -4,7 +4,8 @@
 
 import { useState } from "react"
 import { Loader2, Trash2 } from "lucide-react"
-import { SERVICE_QUOTE_TYPES, isAutomotiveServiceQuoteType } from "@/lib/service-quote-calculator"
+import { isAutomotiveServiceQuoteType } from "@/lib/service-quote-calculator"
+import { isVehicleAwareIndustry, resolveJobIntakeOptions } from "@/lib/job-intake-registry"
 import { type SchedulerLifecyclePhase } from "@/lib/scheduler-job-status"
 import { cn } from "@/lib/utils"
 import {
@@ -33,6 +34,8 @@ const addressTextareaClass = SCHEDULER_TEXTAREA
 const stackClass = "flex flex-col gap-2"
 
 export type JobEditWorkflowProps = {
+  /** users.industry — drives the service-type dropdown and Vehicle info visibility (087). */
+  industry?: string | null
   statusLabel: string
   lifecyclePhase: SchedulerLifecyclePhase
   customerName: string
@@ -74,6 +77,7 @@ export type JobEditWorkflowProps = {
 }
 
 export function JobEditWorkflow({
+  industry,
   statusLabel,
   lifecyclePhase: _lifecyclePhase,
   customerName,
@@ -260,7 +264,7 @@ export function JobEditWorkflow({
                   value={serviceQuoteTypeId}
                   onChange={(e) => onServiceTypeChange(e.target.value as ServiceQuoteTypeId)}
                 >
-                  {SERVICE_QUOTE_TYPES.map((entry) => (
+                  {resolveJobIntakeOptions(industry).map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.label}
                     </option>
@@ -293,7 +297,10 @@ export function JobEditWorkflow({
           </div>
         </section>
 
-        {/* Own section (not nested in Job settings) — avoids overflow-hidden clipping VIN. */}
+        {/* Own section (not nested in Job settings) — avoids overflow-hidden clipping VIN.
+            Hidden entirely for trades that never involve a vehicle — locksmith/unset keeps
+            today's exact behavior (always shown, "(optional)" label for non-automotive jobs). */}
+        {isVehicleAwareIndustry(industry) ? (
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>
             Vehicle info
@@ -364,6 +371,7 @@ export function JobEditWorkflow({
             </div>
           </div>
         </section>
+        ) : null}
 
         <section className={sectionClass}>
           <h3 className={sectionTitleClass}>Notes</h3>

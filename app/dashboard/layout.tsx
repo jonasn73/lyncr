@@ -94,6 +94,14 @@ export default async function DashboardLayout({
     redirect("/receptionist/training/automotive_core")
   }
   if (isPlatformAdminUser(user)) redirect("/admin")
+  // Key inventory (barcode scan for keys/FCC IDs) is locksmith-only — direct-URL defense in
+  // depth alongside the nav entry points that already hide it (Settings, Cmd+K palette).
+  {
+    const industry = (user.industry || "").trim().toLowerCase()
+    const isInventoryRoute =
+      pathnameFromRequest === "/dashboard/inventory" || pathnameFromRequest?.startsWith("/dashboard/inventory/")
+    if (isInventoryRoute && industry && industry !== "locksmith") redirect("/dashboard")
+  }
 
   // `users` has no has_active_subscription column — it lives on onboarding_profiles, so it
   // has to be read, not taken off the session user (see sessionAccount below).
