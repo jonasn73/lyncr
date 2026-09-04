@@ -398,6 +398,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 
@@ -1419,6 +1420,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://lyncr.app")
@@ -1518,6 +1520,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: updateQueue,
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 
@@ -1619,6 +1622,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 
@@ -1741,6 +1745,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 
@@ -1846,6 +1851,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 
@@ -1963,6 +1969,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
       ),
       getCallQueuePosition: vi.fn(() => Promise.resolve(1)),
       updateCallQueueStatus: vi.fn(() => Promise.resolve()),
+      getCallQueueStatusByCallControlId: vi.fn(() => Promise.resolve("holding")),
       listWaitingCallQueue: vi.fn(() => Promise.resolve([])),
     }))
 

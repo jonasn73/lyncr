@@ -15,6 +15,7 @@ import {
   countWaitingCallQueue,
   getAccountHoldSettings,
   getCallQueuePosition,
+  getCallQueueStatusByCallControlId,
   updateCallQueueStatus,
   upsertCallQueueWaiting,
 } from "@/lib/call-queue-db"
@@ -43,6 +44,7 @@ import {
   markTelnyxCallControlTerminal,
   telnyxCallControlBridge,
   telnyxCallControlGather,
+  telnyxCallControlGatherStop,
   telnyxCallControlGatherUsingAudio,
   telnyxCallControlGatherUsingSpeak,
   telnyxCallControlHangup,
@@ -809,6 +811,25 @@ export async function handleHoldLoopGatherEnded(params: {
     })
   )
 
+  // A gather from the hold loop can still be pending when the agent answers — bridging
+  // stops playback but a gather already in flight fires call.gather.ended anyway (and
+  // gather_stop, called on bridge, produces one too). Its client_state.phase is stale
+  // ("await_busy_hold_loop") because per-command client_state isn't retroactively updated,
+  // so without this check a late gather-ended speaks a hold reprompt / restarts hold music
+  // into a call that's already bridged to a live human. Bail out unless the queue row still
+  // shows the caller actually on hold.
+  const liveStatus = await getCallQueueStatusByCallControlId(callControlId)
+  if (liveStatus && liveStatus !== "waiting" && liveStatus !== "holding") {
+    console.log(
+      lyncrLog("telnyx-cc-hold-gather-ended-stale", {
+        callControlId,
+        liveStatus,
+        gatherStatus: gatherStatus || null,
+      })
+    )
+    return
+  }
+
   // Caller already left — do not restart music / SMS / hangup spam on a dead leg.
   if (
     gatherStatus === "call_hangup" ||
@@ -866,6 +887,11 @@ export async function bridgeAgentToHoldQueue(params: {
 
   if (target) {
     await telnyxCallControlPlaybackStop(target).catch(() => undefined)
+    // Cancel any gather still armed from the hold loop (music/reprompt) so it can't
+    // outlive the bridge and fire a stale call.gather.ended into the live call. This
+    // alone isn't sufficient — gather_stop fires its own call.gather.ended — the real
+    // backstop is the status guard in handleHoldLoopGatherEnded.
+    await telnyxCallControlGatherStop(target).catch(() => undefined)
     // Harmless no-op when the AI never started — clears the way for a human answer
     // when the owner picks up mid AI-assisted-hold conversation.
     if (state.phase === "await_ai_assistant_hold") {

@@ -336,6 +336,26 @@ export async function getCallQueueById(id: string, userId: string): Promise<Call
   }
 }
 
+/**
+ * Current status by Telnyx call_control_id — lets a hold-loop webhook handler tell a fresh
+ * gather-ended event apart from a stale one that outlived an already-answered/bridged call
+ * (a pending gather isn't guaranteed to be canceled before the bridge happens).
+ */
+export async function getCallQueueStatusByCallControlId(
+  callControlId: string
+): Promise<CallQueueStatus | null> {
+  try {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT status FROM call_queue WHERE call_control_id = ${callControlId} LIMIT 1
+    `
+    return rows[0] ? (String((rows[0] as { status: string }).status) as CallQueueStatus) : null
+  } catch (e) {
+    if (isMissingCallQueueTable(e)) return null
+    throw e
+  }
+}
+
 /** Mark queue row left / timed_out / sms_left / answered. */
 export async function updateCallQueueStatus(params: {
   callControlId: string

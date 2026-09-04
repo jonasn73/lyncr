@@ -630,6 +630,17 @@ export async function telnyxCallControlPlaybackStop(
 }
 
 /**
+ * Cancel a pending gather (e.g. the hold-loop's music/reprompt gather) before bridging a
+ * leg elsewhere. Note: this itself fires another call.gather.ended webhook — callers still
+ * need a status guard in the handler, this alone does not make stale hold-loop events safe.
+ */
+export async function telnyxCallControlGatherStop(
+  callControlId: string
+): Promise<TelnyxCallControlActionResult> {
+  return postCallAction(callControlId, "gather_stop", {})
+}
+
+/**
  * Play a clip and collect DTMF — secondary path; prefer playback_start + gather for hold music.
  * Webhook: call.gather.ended (digits or timeout). Production saw gatherStatus=invalid in ~1s
  * with 16 kHz MPEG-2 MP3 — use 8 kHz WAV URLs if you must use this path.

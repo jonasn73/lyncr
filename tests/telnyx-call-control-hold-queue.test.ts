@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 type AnyFn = (...args: any[]) => any
 
 const updateCallQueueStatus = vi.fn<AnyFn>()
+const getCallQueueStatusByCallControlId = vi.fn<AnyFn>()
 const resolveAiVoiceAssistantEntitlement = vi.fn<AnyFn>()
 const getUser = vi.fn<AnyFn>()
 const updateCallLog = vi.fn<AnyFn>()
@@ -20,6 +21,8 @@ vi.mock("@/lib/call-queue-db", () => ({
   countWaitingCallQueue: vi.fn(() => Promise.resolve(0)),
   getAccountHoldSettings: vi.fn(() => Promise.resolve(null)),
   getCallQueuePosition: vi.fn(() => Promise.resolve(null)),
+  getCallQueueStatusByCallControlId: (...args: unknown[]) =>
+    getCallQueueStatusByCallControlId(...args),
   updateCallQueueStatus: (...args: unknown[]) => updateCallQueueStatus(...args),
   upsertCallQueueWaiting: vi.fn(() => Promise.resolve()),
 }))
@@ -66,6 +69,7 @@ vi.mock("@/lib/telnyx-call-control-api", () => ({
   markTelnyxCallControlTerminal: vi.fn(),
   telnyxCallControlBridge: vi.fn(() => Promise.resolve({ ok: true })),
   telnyxCallControlGather: vi.fn(() => Promise.resolve({ ok: true })),
+  telnyxCallControlGatherStop: vi.fn(() => Promise.resolve({ ok: true })),
   telnyxCallControlGatherUsingAudio: vi.fn(() => Promise.resolve({ ok: true })),
   telnyxCallControlGatherUsingSpeak: (...args: unknown[]) => telnyxCallControlGatherUsingSpeak(...args),
   telnyxCallControlHangup: (...args: unknown[]) => telnyxCallControlHangup(...args),
@@ -101,6 +105,7 @@ function timedOutState(): TelnyxCallControlClientState {
 beforeEach(() => {
   vi.clearAllMocks()
   updateCallQueueStatus.mockResolvedValue(undefined)
+  getCallQueueStatusByCallControlId.mockResolvedValue("holding")
   updateCallLog.mockResolvedValue(undefined)
   bookingSmsConfirmSpeech.mockReturnValue("mock booking sms confirm speech")
   telnyxCallControlPlaybackStop.mockResolvedValue({ ok: true })
@@ -183,5 +188,50 @@ describe("hold-queue max-wait AI bridge (087)", () => {
 
     expect(telnyxCallControlStartAiAssistant).toHaveBeenCalledTimes(1)
     expect(sendInboundBookingSmsAndTag).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("hold-queue gather-ended stale-event guard", () => {
+  it("ignores a gather-ended event once the queue row is already answered", async () => {
+    getCallQueueStatusByCallControlId.mockResolvedValue("answered")
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-answered",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now() },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(telnyxCallControlGatherUsingSpeak).not.toHaveBeenCalled()
+    expect(telnyxCallControlStartAiAssistant).not.toHaveBeenCalled()
+    expect(sendInboundBookingSmsAndTag).not.toHaveBeenCalled()
+    expect(telnyxCallControlHangup).not.toHaveBeenCalled()
+  })
+
+  it("ignores a gather-ended event once the queue row already left", async () => {
+    getCallQueueStatusByCallControlId.mockResolvedValue("left")
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-left",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now() },
+      digits: "1",
+      gatherStatus: "timeout",
+    })
+
+    expect(telnyxCallControlLeaveQueue).not.toHaveBeenCalled()
+    expect(sendInboundBookingSmsAndTag).not.toHaveBeenCalled()
+  })
+
+  it("still processes a fresh gather-ended event while the caller is genuinely holding", async () => {
+    getCallQueueStatusByCallControlId.mockResolvedValue("holding")
+
+    await handleHoldLoopGatherEnded({
+      callControlId: "cc-holding",
+      state: { ...timedOutState(), holdStartedAtMs: Date.now(), holdSegment: "music" },
+      digits: "",
+      gatherStatus: "timeout",
+    })
+
+    expect(telnyxCallControlGatherUsingSpeak).toHaveBeenCalledTimes(1)
   })
 })
