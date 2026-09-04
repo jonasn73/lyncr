@@ -4,16 +4,6 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  getOnboardingOpeningLine,
-  isOnboardingTradeCategory,
-  ONBOARDING_DEFAULT_VOICEMAIL_GREETING,
-  ONBOARDING_FALLBACK_DEFAULT,
-  ONBOARDING_TRADE_DEFAULT,
-  ONBOARDING_TRADE_OPTIONS,
-  type OnboardingFallbackStrategy,
-  type OnboardingTradeCategory,
-} from "@/lib/onboarding-ai-trade-scripts"
-import {
   fetchOnboardingNumberInventory,
   type OnboardingNumberOption,
 } from "@/lib/onboarding-number-inventory"
@@ -46,13 +36,6 @@ import { cn } from "@/lib/utils"
 import { BrandMark } from "@/components/brand-mark"
 import { BrandWordmark } from "@/components/brand-wordmark"
 import { SITE_NAME } from "@/lib/brand"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Sheet, SheetContent, SheetFooter, SheetTitle } from "@/components/ui/sheet"
 import { StorySheetHeader } from "@/components/story-sheet-header"
 import { getAppSheetStory } from "@/components/app-sheet-stories"
@@ -66,8 +49,6 @@ import {
   Plus,
   RefreshCw,
   X,
-  Sparkles,
-  CassetteTape,
 } from "lucide-react"
 
 
@@ -81,7 +62,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
-  const totalSteps = 4
+  const totalSteps = 3
   const [onboardingSheetKey, setOnboardingSheetKey] = useState<string | null>(null)
   const [selectedSubscriptionTier, setSelectedSubscriptionTier] = useState<CheckoutSubscriptionTier>("professional")
 
@@ -106,21 +87,11 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [receptionistRate, setReceptionistRate] = useState("")
   const [addedReceptionist, setAddedReceptionist] = useState(false)
 
-  // Step 3 -- AI receptionist vs classic voicemail fallback
-  const [fallbackStrategy, setFallbackStrategy] = useState<OnboardingFallbackStrategy>(ONBOARDING_FALLBACK_DEFAULT)
-  const [aiTradeCategory, setAiTradeCategory] = useState<OnboardingTradeCategory>(ONBOARDING_TRADE_DEFAULT)
-  const [aiGreeting, setAiGreeting] = useState(() => getOnboardingOpeningLine(ONBOARDING_TRADE_DEFAULT))
-  const [voicemailGreeting, setVoicemailGreeting] = useState(ONBOARDING_DEFAULT_VOICEMAIL_GREETING)
   const [profileReady, setProfileReady] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [simulationMode, setSimulationMode] = useState(true)
   const [devModeNotice, setDevModeNotice] = useState<string | null>(null)
   const [step1Saving, setStep1Saving] = useState(false)
-
-  function handleAiTradeCategoryChange(category: OnboardingTradeCategory) {
-    setAiTradeCategory(category)
-    setAiGreeting(getOnboardingOpeningLine(category))
-  }
 
   useEffect(() => {
     const plan = searchParams.get("plan")
@@ -152,19 +123,6 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             portCarrier: profile.port_carrier ?? undefined,
           }
         }
-        if (profile?.fallback_type === "ai" || profile?.fallback_type === "voicemail") {
-          setFallbackStrategy(profile.fallback_type)
-        }
-        if (isOnboardingTradeCategory(profile?.trade_category)) {
-          setAiTradeCategory(profile.trade_category)
-        }
-        if (profile?.opening_line?.trim()) {
-          if (profile.fallback_type === "voicemail") {
-            setVoicemailGreeting(profile.opening_line)
-          } else {
-            setAiGreeting(profile.opening_line)
-          }
-        }
       } catch {
         /* Neon profile optional until migration 024 is applied */
       }
@@ -187,19 +145,6 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    if (!profileReady) return
-    const opening_line = fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting
-    const timer = window.setTimeout(() => {
-      void patchOnboardingProfile({
-        fallback_type: fallbackStrategy,
-        trade_category: aiTradeCategory,
-        opening_line,
-      }).catch(() => {})
-    }, 350)
-    return () => window.clearTimeout(timer)
-  }, [profileReady, fallbackStrategy, aiTradeCategory, aiGreeting, voicemailGreeting])
 
   const refreshInventory = useCallback(() => {
     if (refreshingInventory || areaCode.length < 3) return
@@ -288,14 +233,14 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       return
     }
     try {
+      // Fallback defaults to voicemail — the AI/fallback wizard step was removed (087);
+      // full AI Assistant setup now lives in Settings once the account is actually entitled.
       await patchOnboardingProfile({
         reserved_number: bufferedLine.e164,
         reserved_number_display: bufferedLine.display,
         reserved_number_method: bufferedLine.method,
         port_carrier: bufferedLine.portCarrier ?? null,
-        fallback_type: fallbackStrategy,
-        trade_category: aiTradeCategory,
-        opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
+        fallback_type: "voicemail",
       })
 
       if (simulationMode) {
@@ -304,9 +249,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
           reserved_number_display: bufferedLine.display,
           reserved_number_method: bufferedLine.method,
           port_carrier: bufferedLine.portCarrier ?? null,
-          fallback_type: fallbackStrategy,
-          trade_category: aiTradeCategory,
-          opening_line: fallbackStrategy === "ai" ? aiGreeting : voicemailGreeting,
+          fallback_type: "voicemail",
         })
         if (!profile.reserved_number?.trim()) {
           setLaunchError("Setup did not finish. Please try again.")
@@ -709,146 +652,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             </div>
           )}
 
-          {/* Step 3: Fallback strategy (AI vs voicemail) */}
           {step === 3 && (
-            <div className="flex flex-col gap-6">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Set up your fallback</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  When nobody picks up, choose how callers are handled — live AI intake or a classic voicemail box.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    {
-                      id: "ai" as const,
-                      title: "AI Receptionist",
-                      subtext: "Dynamic live lead intake and information gathering.",
-                      icon: Sparkles,
-                    },
-                    {
-                      id: "voicemail" as const,
-                      title: "Classic Voicemail",
-                      subtext: "Traditional audio recording box for busy windows.",
-                      icon: CassetteTape,
-                    },
-                  ] as const
-                ).map((option) => {
-                  const Icon = option.icon
-                  const isActive = fallbackStrategy === option.id
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setFallbackStrategy(option.id)}
-                      className={cn(
-                        "flex flex-col gap-3 rounded-xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-200",
-                        isActive
-                          ? "border-primary bg-primary/5 shadow-[var(--electric-glow)] ring-1 ring-primary/40"
-                          : "border-border bg-card hover:border-primary/30"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-lg",
-                          isActive ? "bg-primary/15" : "bg-secondary"
-                        )}
-                      >
-                        <Icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-foreground">{option.title}</p>
-                        <p className="mt-0.5 text-2xs leading-snug text-muted-foreground">{option.subtext}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="min-h-[15.75rem]">
-                {fallbackStrategy === "ai" ? (
-                  <div
-                    key="fallback-ai"
-                    className="animate-fade-in flex flex-col gap-3 duration-200 will-change-[opacity,transform]"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <label
-                        htmlFor="onboarding-trade-category"
-                        className="text-xs font-semibold text-muted-foreground"
-                      >
-                        Select your trade service category:
-                      </label>
-                      <Select value={aiTradeCategory} onValueChange={handleAiTradeCategoryChange}>
-                        <SelectTrigger
-                          id="onboarding-trade-category"
-                          className="h-11 w-full border-border bg-card text-sm text-foreground shadow-none"
-                        >
-                          <SelectValue placeholder="General / Other Trades" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ONBOARDING_TRADE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.id} value={opt.id}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      Opening line (first thing AI says)
-                    </label>
-                    <textarea
-                      value={aiGreeting}
-                      onChange={(e) => setAiGreeting(e.target.value)}
-                      rows={4}
-                      className="resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        "Industry-smart intake",
-                        "Lead capture",
-                        "Optional SMS to your cell",
-                        "Business hours",
-                      ].map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-primary/10 px-3 py-1 text-2xs font-medium text-primary"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    key="fallback-voicemail"
-                    className="animate-fade-in flex flex-col gap-3 duration-200 will-change-[opacity,transform]"
-                  >
-                    <label className="text-xs font-semibold text-muted-foreground">Voicemail Greeting Script:</label>
-                    <textarea
-                      value={voicemailGreeting}
-                      onChange={(e) => setVoicemailGreeting(e.target.value)}
-                      rows={5}
-                      className="resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Continue
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {step === 4 && (
             <OnboardingBillingStep
               reservedLine={bufferedLine}
               launchError={launchError}
