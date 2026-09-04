@@ -128,6 +128,7 @@ export function DashboardShell({
     name: string
     email: string
     companyUserId?: string
+    industry?: string
     hasActiveSubscription?: boolean
     answeredCallCustomerPopupEnabled?: boolean
     inboundReceptionistWhisperEnabled?: boolean
@@ -249,6 +250,7 @@ export function DashboardShell({
       name: sessionAccount.name,
       email: sessionAccount.email,
       companyUserId: sessionAccount.companyUserId,
+      industry: sessionAccount.industry,
       answeredCallCustomerPopupEnabled: sessionAccount.answeredCallCustomerPopupEnabled,
       inboundReceptionistWhisperEnabled: sessionAccount.inboundReceptionistWhisperEnabled,
       isPlatformAdmin: sessionAccount.isPlatformAdmin === true,

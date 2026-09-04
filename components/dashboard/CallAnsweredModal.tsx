@@ -18,6 +18,7 @@ import {
   type KeyInventoryApiRow,
 } from "@/lib/key-inventory-shared"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
+import { IndustryJobTypeSelector } from "@/components/dashboard/industry-job-type-selector"
 import {
   IntakeJobPhotosPanel,
   type IntakeJobPhoto,
@@ -37,6 +38,7 @@ import { FAILURE_REASON_NEUTRAL } from "@/components/dashboard/price-shopper-rec
 import { IntakeTravelPreview } from "@/components/dashboard/intake-travel-preview"
 import { NearestTechDispatchBadge } from "@/components/dashboard/nearest-tech-dispatch-badge"
 import { useDashboardWorkspace } from "@/components/dashboard-workspace-context"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
 import { WS_SECTION } from "@/lib/workspace-ui-tokens"
 import {
   useInboundCallPanel,
@@ -63,7 +65,7 @@ import {
   SECONDARY_JOB_TYPE_IDS,
   serviceNeedsJobTypeStep,
 } from "@/lib/service-sector-routing"
-import { serviceTypeRequiresVehicle } from "@/lib/job-intake-fields"
+import { jobIntakeOptionRequiresVehicle } from "@/lib/job-intake-registry"
 import { sameCallRow } from "@/lib/active-call-row"
 import {
   formatQuoteDollars,
@@ -558,10 +560,13 @@ function ReturningCallerDecisionCard({
  */
 function manualWorkflowPath(
   serviceTypeId: ServiceQuoteTypeId,
-  vehicleLockoutIntake = false
+  vehicleLockoutIntake = false,
+  industry?: string
 ): WorkflowStep[] {
   const path: WorkflowStep[] = ["SERVICE_SELECT"]
-  if (serviceTypeRequiresVehicle(serviceTypeId)) {
+  // Same registry the JOB_TYPE step's options come from (087) — for locksmith this resolves
+  // identically to serviceTypeRequiresVehicle's own id list, so behavior is unchanged.
+  if (jobIntakeOptionRequiresVehicle(industry, serviceTypeId)) {
     // Copy vs AKL first, then simple YMM — skip forced KEY_SPECIFICS
     path.push("JOB_TYPE", "VEHICLE_INFO")
   } else if (vehicleLockoutIntake) {
@@ -1221,6 +1226,11 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
   // Once the operator types/picks an address, live GPS must not clobber it.
   const addressManuallyEditedRef = useRef(false)
   const { activeOrganizationId, activeTab, setActiveTab } = useDashboardWorkspace()
+  // Industry-aware manual intake (087) — undefined (receptionist portal has no session
+  // provider, or an account that predates this field) safely falls back to the locksmith
+  // list inside useActiveCallForm, matching every account's current behavior exactly.
+  const accountIndustry = useDashboardSessionOptional()?.industry
+  const isLocksmithAccount = !accountIndustry || accountIndustry.trim().toLowerCase() === "locksmith"
   const lyncEngine = useLyncEngineOptional()
   const { manualCallRow, patchManualCallRow, clearManualCallRow } = useInboundCallPanel()
   const manualCallRowRef = useRef(manualCallRow)
@@ -1285,7 +1295,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     dispatchBlockers,
     addressSeedQuery,
     answeredClarificationIds,
-  } = useActiveCallForm(effectiveCurrent, { linkManualCallLog })
+  } = useActiveCallForm(effectiveCurrent, { linkManualCallLog, industry: accountIndustry })
 
   const [gpsRequestState, setGpsRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle")
   // Live gallery for customer job photos (ignition / lockout) from /upload SMS.
@@ -3237,8 +3247,8 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
     ? form.serviceQuoteTypeId
     : "") as ServiceQuoteTypeId | ""
   const manualPath = useMemo(
-    () => manualWorkflowPath(serviceTypeId, vehicleLockoutIntake),
-    [serviceTypeId, vehicleLockoutIntake]
+    () => manualWorkflowPath(serviceTypeId, vehicleLockoutIntake, accountIndustry),
+    [serviceTypeId, vehicleLockoutIntake, accountIndustry]
   )
   const knownReturningCaller = isKnownReturningCaller({
     hasMatchedCustomer: Boolean(matchedCustomer),
@@ -3897,7 +3907,7 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
           : callLinePhase === "ringing"
             ? "text-primary"
             : "text-muted-foreground"
-  const requiresVehicle = serviceTypeRequiresVehicle(serviceTypeId)
+  const requiresVehicle = jobIntakeOptionRequiresVehicle(accountIndustry, serviceTypeId)
   const intakePhoneDisplay = formatPhoneDisplay(
     form.phoneNumber || effectiveCurrent?.from_number || ""
   )
@@ -4256,17 +4266,28 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   Pick the service for this draft — Lockout is not assumed.
                                 </p>
                               ) : null}
-                              <ServiceQuoteCalculatorPanel
-                                quote={liveQuote}
-                                serviceTypeId={selectorServiceTypeId}
-                                vehicleYear={form.vehicleYear}
-                                vehicleMake={form.vehicleMake}
-                                vehicleModel={form.vehicleModel}
-                                onServiceTypeChange={handleManualServiceTypeChange}
-                                variant="selector-only"
-                                compact
-                                deferAutomotiveKeyTypes
-                              />
+                              {isLocksmithAccount ? (
+                                <ServiceQuoteCalculatorPanel
+                                  quote={liveQuote}
+                                  serviceTypeId={selectorServiceTypeId}
+                                  vehicleYear={form.vehicleYear}
+                                  vehicleMake={form.vehicleMake}
+                                  vehicleModel={form.vehicleModel}
+                                  onServiceTypeChange={handleManualServiceTypeChange}
+                                  variant="selector-only"
+                                  compact
+                                  deferAutomotiveKeyTypes
+                                />
+                              ) : (
+                                <IndustryJobTypeSelector
+                                  industry={accountIndustry}
+                                  serviceTypeId={selectorServiceTypeId}
+                                  onServiceTypeChange={(id) =>
+                                    handleManualServiceTypeChange(id as ServiceQuoteTypeId)
+                                  }
+                                  compact
+                                />
+                              )}
                               <IntakeJobPhotosPanel
                                 compact
                                 callLogId={effectiveCurrent?.id ?? null}

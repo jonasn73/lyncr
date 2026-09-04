@@ -8,6 +8,8 @@ export type DashboardSessionSnapshot = {
   name: string
   email: string
   companyUserId?: string
+  /** users.industry (087) — drives industry-aware manual intake job types. */
+  industry?: string
   answeredCallCustomerPopupEnabled?: boolean
   inboundReceptionistWhisperEnabled?: boolean
   /** Present only when the signed-in user has is_platform_admin = true. */

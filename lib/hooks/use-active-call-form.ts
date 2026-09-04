@@ -23,6 +23,7 @@ import {
 } from "@/lib/service-quote-calculator"
 import type { ServiceRateCard } from "@/lib/service-rate-card"
 import { DEFAULT_SERVICE_RATE_CARD } from "@/lib/service-rate-card"
+import { resolveJobIntakeOptions } from "@/lib/job-intake-registry"
 import { serviceQuoteTypeIdFromCrmHistory, type CallbackContinueStep } from "@/lib/callback-intake-chooser"
 import { formatIntakeJobTypeForDispatch } from "@/lib/intake-job-types"
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-organizations"
@@ -247,8 +248,16 @@ export function useActiveCallForm(
   hookOptions?: {
     /** Replace synthetic manual-{uuid} row id with real call_logs.id after POST /api/calls/manual. */
     linkManualCallLog?: (patch: Partial<ActiveCallRow>) => void
+    /**
+     * users.industry (087) — undefined/"locksmith" keeps today's exact rate-card pricing
+     * behavior. Any other trade skips the rate-card lookup entirely (a non-locksmith
+     * service id would otherwise normalize to "other" and silently price off the
+     * locksmith rate card) and shows a manual-price-only quote with the correct trade label.
+     */
+    industry?: string
   }
 ) {
+  const isLocksmithAccount = !hookOptions?.industry || hookOptions.industry.trim().toLowerCase() === "locksmith"
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [jobState, setJobState] = useState<"idle" | "creating" | "created" | "error">("idle")
   const [jobError, setJobError] = useState<string | null>(null)
@@ -1358,8 +1367,12 @@ export function useActiveCallForm(
     }))
   }, [])
 
-  const liveQuote = calculateServiceQuote({
-    serviceTypeId: (form.serviceQuoteTypeId || "lockout") as ServiceQuoteTypeId,
+  const rawLiveQuote = calculateServiceQuote({
+    // Non-locksmith ids (e.g. "plumbing_emergency_leak") intentionally normalize to "other"
+    // here — findServiceQuoteSpec's own type-safe construction is reused for every other
+    // field, then zeroed out below. calculateServiceQuote itself stays locksmith-only and
+    // industry-unaware; the guard lives entirely at this call site.
+    serviceTypeId: (isLocksmithAccount ? form.serviceQuoteTypeId || "lockout" : "other") as ServiceQuoteTypeId,
     vehicleYear: form.vehicleYear,
     vehicleMake: form.vehicleMake,
     vehicleModel: form.vehicleModel,
@@ -1370,6 +1383,25 @@ export function useActiveCallForm(
     keyChipset: form.keyChipset,
     keyVariantId: form.keyVariantId,
   })
+  // Non-locksmith accounts never get an automatic rate-card quote (there is no rate card
+  // for their trade) — manual price entry (customPrice in the modal) is the only input.
+  // totalCents 0 is the modal's existing, already-supported "show manual price" signal.
+  const liveQuote = isLocksmithAccount
+    ? rawLiveQuote
+    : {
+        ...rawLiveQuote,
+        dispatchJobTypeLabel:
+          resolveJobIntakeOptions(hookOptions?.industry).find((o) => o.id === form.serviceQuoteTypeId)
+            ?.label ?? rawLiveQuote.dispatchJobTypeLabel,
+        baseCents: 0,
+        distancePremiumCents: 0,
+        keyBlankCents: 0,
+        programmingCents: 0,
+        highSecurityRiskCents: 0,
+        autoTotalCents: 0,
+        totalCents: 0,
+        lines: [],
+      }
 
   return {
     form,

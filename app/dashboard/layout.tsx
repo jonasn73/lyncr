@@ -147,6 +147,7 @@ export default async function DashboardLayout({
           name: user.name?.trim() || "Account",
           email: user.email,
           companyUserId: user.id,
+          industry: user.industry,
           hasActiveSubscription,
           answeredCallCustomerPopupEnabled: user.answered_call_customer_popup_enabled !== false,
           inboundReceptionistWhisperEnabled: user.inbound_receptionist_whisper_enabled !== false,
