@@ -62,6 +62,7 @@ import type {
   FeedbackCategory,
   Customer,
   CustomerVehicle,
+  CustomerEquipment,
   CrmCustomerListItem,
   CrmLeadBadge,
   CrmServiceHistoryItem,
@@ -5848,6 +5849,21 @@ function parseCustomerVehicleRow(row: Record<string, unknown>): CustomerVehicle 
   }
 }
 
+function parseCustomerEquipmentRow(row: Record<string, unknown>): CustomerEquipment {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    customer_id: String(row.customer_id),
+    kind: String(row.kind ?? ""),
+    brand: String(row.brand ?? ""),
+    model: String(row.model ?? ""),
+    install_year: String(row.install_year ?? ""),
+    notes: String(row.notes ?? ""),
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  }
+}
+
 function crmDigits(phone: string): string {
   const d = phone.replace(/\D/g, "")
   return d.length >= 10 ? d.slice(-10) : d
@@ -6764,6 +6780,109 @@ export async function upsertCustomerVehicleFromIntake(params: {
     })
   } catch (e) {
     if (isUndefinedRelationError(e, "customer_vehicles")) return null
+    throw e
+  }
+}
+
+/** Equipment on file (087) — plumbing/HVAC/electrical counterpart to the vehicle garage above. */
+export async function listCustomerEquipmentForCustomer(
+  userId: string,
+  customerId: string
+): Promise<CustomerEquipment[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM customer_equipment
+      WHERE user_id = ${userId} AND customer_id = ${customerId}
+      ORDER BY updated_at DESC
+    `
+    return (rows as Record<string, unknown>[]).map(parseCustomerEquipmentRow)
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_equipment")) return []
+    throw e
+  }
+}
+
+export async function createCustomerEquipmentForUser(params: {
+  userId: string
+  customerId: string
+  kind: string
+  brand?: string
+  model?: string
+  installYear?: string
+  notes?: string
+}): Promise<CustomerEquipment> {
+  const sql = getSql()
+  const rows = await sql`
+    INSERT INTO customer_equipment (
+      id, user_id, customer_id, kind, brand, model, install_year, notes, created_at, updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      ${params.userId},
+      ${params.customerId},
+      ${params.kind.trim()},
+      ${params.brand?.trim() || ""},
+      ${params.model?.trim() || ""},
+      ${params.installYear?.trim() || ""},
+      ${params.notes?.trim() || ""},
+      now(),
+      now()
+    )
+    RETURNING *
+  `
+  const row = rows[0] as Record<string, unknown> | undefined
+  if (!row) throw new Error("createCustomerEquipmentForUser: no row")
+  return parseCustomerEquipmentRow(row)
+}
+
+export async function updateCustomerEquipmentForUser(params: {
+  userId: string
+  customerId: string
+  equipmentId: string
+  brand: string
+  model: string
+  installYear: string
+  notes: string
+}): Promise<CustomerEquipment | null> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      UPDATE customer_equipment SET
+        brand = ${params.brand.trim()},
+        model = ${params.model.trim()},
+        install_year = ${params.installYear.trim()},
+        notes = ${params.notes.trim()},
+        updated_at = now()
+      WHERE id = ${params.equipmentId}
+        AND user_id = ${params.userId}
+        AND customer_id = ${params.customerId}
+      RETURNING *
+    `
+    const row = rows[0] as Record<string, unknown> | undefined
+    return row ? parseCustomerEquipmentRow(row) : null
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_equipment")) return null
+    throw e
+  }
+}
+
+export async function deleteCustomerEquipmentForUser(params: {
+  userId: string
+  customerId: string
+  equipmentId: string
+}): Promise<boolean> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      DELETE FROM customer_equipment
+      WHERE id = ${params.equipmentId}
+        AND user_id = ${params.userId}
+        AND customer_id = ${params.customerId}
+      RETURNING id
+    `
+    return rows.length > 0
+  } catch (e) {
+    if (isUndefinedRelationError(e, "customer_equipment")) return false
     throw e
   }
 }

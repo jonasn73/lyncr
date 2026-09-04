@@ -6,6 +6,7 @@ import {
   getCustomerByIdForUser,
   listCrmCustomersForUser,
   listCrmServiceHistoryForCustomer,
+  listCustomerEquipmentForCustomer,
   listCustomerVehiclesForCustomer,
   updateCrmLeadAppointmentForUser,
   updateCustomerFieldsForUser,
@@ -73,8 +74,9 @@ export async function GET(
     const customer = await getCustomerByIdForUser(userId, id)
     if (!customer) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const [vehicles, history, payments] = await Promise.all([
+    const [vehicles, equipment, history, payments] = await Promise.all([
       listCustomerVehiclesForCustomer(userId, customer.id),
+      listCustomerEquipmentForCustomer(userId, customer.id),
       listCrmServiceHistoryForCustomer({
         userId,
         customerId: customer.id,
@@ -95,6 +97,7 @@ export async function GET(
       data: {
         customer: { ...customer, ...stats },
         vehicles,
+        equipment,
         history,
         payments,
       },
@@ -167,8 +170,9 @@ export async function PATCH(
       }
     }
 
-    const [vehicles, history, payments] = await Promise.all([
+    const [vehicles, equipment, history, payments] = await Promise.all([
       listCustomerVehiclesForCustomer(userId, customer.id),
+      listCustomerEquipmentForCustomer(userId, customer.id),
       listCrmServiceHistoryForCustomer({
         userId,
         customerId: customer.id,
@@ -189,6 +193,7 @@ export async function PATCH(
       data: {
         customer: { ...customer, ...stats },
         vehicles,
+        equipment,
         history,
         payments,
       },

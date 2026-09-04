@@ -1383,6 +1383,21 @@ export interface CustomerVehicle {
   updated_at: string
 }
 
+/** Trade-neutral counterpart to CustomerVehicle (087) — water heater / HVAC unit / panel. */
+export interface CustomerEquipment {
+  id: string
+  user_id: string
+  customer_id: string
+  /** 'water_heater' | 'hvac_unit' | 'electrical_panel' — see EQUIPMENT_AWARE_PROFILES. */
+  kind: string
+  brand: string
+  model: string
+  install_year: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
 /** Enriched CRM list row — customer + quick stats + lead badge. */
 export type CrmLeadBadge =
   | "booked_client"

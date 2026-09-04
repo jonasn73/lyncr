@@ -19,6 +19,7 @@ import {
   Plus,
   Search,
   Star,
+  Wrench,
   X,
 } from "lucide-react"
 import { buildTelHref } from "@/lib/phone-e164"
@@ -55,9 +56,12 @@ import type {
   CrmCustomerListItem,
   CrmLeadBadge,
   CrmServiceHistoryItem,
+  CustomerEquipment,
   CustomerVehicle,
   DispatchJob,
 } from "@/lib/types"
+import { useDashboardSessionOptional } from "@/components/dashboard-session-context"
+import { equipmentAwareProfile } from "@/lib/customer-equipment-registry"
 import {
   crmIntakeFilledByLabel,
   isBookFormIntakeSource,
@@ -313,6 +317,7 @@ const EMPTY_CRM_ROWS: CrmCustomerListItem[] = []
 
 /** Stable empties — `setX([])` every effect run allocates new arrays and can #185-loop. */
 const EMPTY_CRM_VEHICLES: CustomerVehicle[] = []
+const EMPTY_CRM_EQUIPMENT: CustomerEquipment[] = []
 const EMPTY_CRM_HISTORY: CrmServiceHistoryItem[] = []
 const EMPTY_CRM_PAYMENTS: OwnerCollectedTransaction[] = []
 
@@ -476,6 +481,25 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
 
   const [profileLoading, setProfileLoading] = useState(false)
   const [vehicles, setVehicles] = useState<CustomerVehicle[]>([])
+  const accountIndustry = useDashboardSessionOptional()?.industry
+  const equipmentProfile = equipmentAwareProfile(accountIndustry)
+  const [equipment, setEquipment] = useState<CustomerEquipment[]>([])
+  const [addingEquipment, setAddingEquipment] = useState(false)
+  const [equipmentForm, setEquipmentForm] = useState({
+    brand: "",
+    model: "",
+    install_year: "",
+    notes: "",
+  })
+  const [equipmentBusy, setEquipmentBusy] = useState(false)
+  const [editingEquipmentId, setEditingEquipmentId] = useState<string | null>(null)
+  const [editEquipmentForm, setEditEquipmentForm] = useState({
+    brand: "",
+    model: "",
+    install_year: "",
+    notes: "",
+  })
+  const [editEquipmentBusy, setEditEquipmentBusy] = useState(false)
   const [history, setHistory] = useState<CrmServiceHistoryItem[]>([])
   // Wallet charges for this phone (walk-up Collect + job payments).
   const [payments, setPayments] = useState<OwnerCollectedTransaction[]>([])
@@ -730,6 +754,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       data?: {
         customer?: CrmCustomerListItem | { id: string; display_name: string; notes: string; phone_e164: string; company_name: string }
         vehicles?: CustomerVehicle[]
+        equipment?: CustomerEquipment[]
         history?: CrmServiceHistoryItem[]
         payments?: OwnerCollectedTransaction[]
       }
@@ -763,6 +788,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         setEditName(c.display_name ?? "")
       }
       setVehicles(json.data?.vehicles?.length ? json.data.vehicles : EMPTY_CRM_VEHICLES)
+      setEquipment(json.data?.equipment?.length ? json.data.equipment : EMPTY_CRM_EQUIPMENT)
       setHistory(hist.length ? hist : EMPTY_CRM_HISTORY)
       setPayments(pays.length ? pays : EMPTY_CRM_PAYMENTS)
     },
@@ -781,6 +807,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
         .then((json) => applyProfilePayload(json))
         .catch(() => {
           setVehicles(EMPTY_CRM_VEHICLES)
+          setEquipment(EMPTY_CRM_EQUIPMENT)
           setHistory(EMPTY_CRM_HISTORY)
           setPayments(EMPTY_CRM_PAYMENTS)
         })
@@ -794,6 +821,7 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
     if (!selectedId) {
       setSelected(null)
       setVehicles(EMPTY_CRM_VEHICLES)
+      setEquipment(EMPTY_CRM_EQUIPMENT)
       setHistory(EMPTY_CRM_HISTORY)
       setPayments(EMPTY_CRM_PAYMENTS)
       setEditName("")
@@ -1237,6 +1265,95 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
       }
     } finally {
       setVehicleBusy(false)
+    }
+  }
+
+  const addEquipment = async () => {
+    if (!selectedId || equipmentBusy || !equipmentProfile) return
+    setEquipmentBusy(true)
+    try {
+      const res = await fetch(`/api/crm/customers/${encodeURIComponent(selectedId)}/equipment`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...equipmentForm, kind: equipmentProfile.kind }),
+      })
+      const json = (await res.json().catch(() => null)) as {
+        data?: { equipment?: CustomerEquipment }
+        error?: string
+        migration?: string
+      } | null
+      if (!res.ok) {
+        toast({
+          title: `Could not add ${equipmentProfile.label.toLowerCase()}`,
+          description: json?.migration ? `Run ${json.migration} in Neon` : json?.error || undefined,
+          variant: "destructive",
+        })
+        return
+      }
+      if (json?.data?.equipment) {
+        const saved = json.data.equipment
+        setEquipment((prev) => [saved, ...prev.filter((e) => e.id !== saved.id)])
+        setAddingEquipment(false)
+        setEquipmentForm({ brand: "", model: "", install_year: "", notes: "" })
+      }
+    } finally {
+      setEquipmentBusy(false)
+    }
+  }
+
+  const saveEditedEquipment = async () => {
+    if (!selectedId || !editingEquipmentId || editEquipmentBusy) return
+    setEditEquipmentBusy(true)
+    try {
+      const res = await fetch(`/api/crm/customers/${encodeURIComponent(selectedId)}/equipment`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equipmentId: editingEquipmentId, ...editEquipmentForm }),
+      })
+      const json = (await res.json()) as {
+        error?: string
+        migration?: string
+        data?: { equipment?: CustomerEquipment }
+      }
+      if (!res.ok) {
+        toast({
+          title: "Could not save equipment",
+          description: json?.migration ? `Run ${json.migration} in Neon` : json?.error || undefined,
+          variant: "destructive",
+        })
+        return
+      }
+      if (json.data?.equipment) {
+        setEquipment((prev) =>
+          prev.map((e) => (e.id === json.data!.equipment!.id ? json.data!.equipment! : e))
+        )
+      }
+      setEditingEquipmentId(null)
+      toast({ title: "Equipment updated" })
+    } catch {
+      toast({ title: "Could not save equipment", variant: "destructive" })
+    } finally {
+      setEditEquipmentBusy(false)
+    }
+  }
+
+  const deleteEquipment = async (equipmentId: string) => {
+    if (!selectedId) return
+    try {
+      const res = await fetch(
+        `/api/crm/customers/${encodeURIComponent(selectedId)}/equipment?equipmentId=${encodeURIComponent(equipmentId)}`,
+        { method: "DELETE", credentials: "include" }
+      )
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: string } | null
+        toast({ title: "Could not remove equipment", description: json?.error, variant: "destructive" })
+        return
+      }
+      setEquipment((prev) => prev.filter((e) => e.id !== equipmentId))
+    } catch {
+      toast({ title: "Could not remove equipment", variant: "destructive" })
     }
   }
 
@@ -2153,8 +2270,10 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
           </div>
         ) : null}
 
-        {/* Only show vehicle block when there is at least one saved vehicle (or the add form is open). */}
-        {vehicles.length > 0 || addingVehicle ? (
+        {/* Only show vehicle block when there is at least one saved vehicle (or the add form is open).
+            Not for equipment-aware trades (plumbing/HVAC/electrical) — they get the
+            equipment-on-file block below instead; every other trade is unaffected. */}
+        {!equipmentProfile && (vehicles.length > 0 || addingVehicle) ? (
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -2296,6 +2415,170 @@ const CrmWorkspaceViewInner = memo(function CrmWorkspaceViewInner({
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Equipment on file — plumbing/HVAC/electrical counterpart to the vehicle block
+            above, parallel structure, own state. Locksmith/auto_repair/towing never see
+            this (equipmentProfile is null for them), so their vehicle flow is untouched. */}
+        {equipmentProfile && (equipment.length > 0 || addingEquipment) ? (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {equipmentProfile.label} on file
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1 text-xs"
+                onClick={() => setAddingEquipment((v) => !v)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add {equipmentProfile.label.toLowerCase()}
+              </Button>
+            </div>
+            {addingEquipment ? (
+              <div className="mb-3 grid gap-2 rounded-xl border border-border bg-card/50 p-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["brand", "Brand"],
+                    ["model", "Model"],
+                    ["install_year", "Install year"],
+                    ["notes", "Notes"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block text-2xs text-muted-foreground">
+                    {label}
+                    <Input
+                      value={equipmentForm[key]}
+                      onChange={(e) =>
+                        setEquipmentForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="mt-1 h-9 border-border bg-background"
+                    />
+                  </label>
+                ))}
+                <div className="flex gap-2 sm:col-span-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={equipmentBusy}
+                    onClick={() => void addEquipment()}
+                  >
+                    {equipmentBusy ? "Saving…" : `Save ${equipmentProfile.label.toLowerCase()}`}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAddingEquipment(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {equipment.length > 0 ? (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {equipment.map((eq) => (
+                  <li
+                    key={eq.id}
+                    className="rounded-xl border border-border bg-card/40 px-3 py-3"
+                  >
+                    {editingEquipmentId === eq.id ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(
+                          [
+                            ["brand", "Brand"],
+                            ["model", "Model"],
+                            ["install_year", "Install year"],
+                            ["notes", "Notes"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <label key={key} className="block text-2xs text-muted-foreground">
+                            {label}
+                            <Input
+                              value={editEquipmentForm[key]}
+                              onChange={(e) =>
+                                setEditEquipmentForm((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              className="mt-1 h-9 border-border bg-background"
+                            />
+                          </label>
+                        ))}
+                        <div className="flex gap-2 sm:col-span-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={editEquipmentBusy}
+                            onClick={() => void saveEditedEquipment()}
+                          >
+                            {editEquipmentBusy ? "Saving…" : "Save"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingEquipmentId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground">
+                            {[eq.brand, eq.model].filter(Boolean).join(" ") || equipmentProfile.label}
+                          </p>
+                          {eq.install_year ? (
+                            <p className="truncate text-2xs text-muted-foreground">
+                              Installed {eq.install_year}
+                            </p>
+                          ) : null}
+                          {eq.notes ? (
+                            <p className="truncate text-2xs text-muted-foreground">{eq.notes}</p>
+                          ) : null}
+                        </div>
+                        {canEditCustomers ? (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingEquipmentId(eq.id)
+                                setEditEquipmentForm({
+                                  brand: eq.brand,
+                                  model: eq.model,
+                                  install_year: eq.install_year,
+                                  notes: eq.notes,
+                                })
+                              }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-label={`Edit ${equipmentProfile.label.toLowerCase()}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteEquipment(eq.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Remove ${equipmentProfile.label.toLowerCase()}`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         ) : null}
                       </div>
                     )}
