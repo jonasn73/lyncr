@@ -17127,7 +17127,22 @@ export async function completeOnboardingCheckout(
     console.error("[completeOnboardingCheckout] sync sandbox line:", e)
   }
   const greeting = opening_line?.trim()
-  const fb = fallback_type
+  let fb = fallback_type
+  // AI Voice Assistant tier gate (087) — the onboarding wizard's fallback step runs BEFORE
+  // the plan picker, so "AI Receptionist" can be the pre-selected default for an account that
+  // turns out not to be entitled (free trial / no completed Stripe checkout yet). Without this,
+  // routing_config.fallback_type silently ends up "ai" for an unentitled account — never
+  // actually billed for since call-time gates catch it, but confusingly inert (calls fall
+  // back to voicemail with no visible reason). Downgrade to "voicemail" here instead (the
+  // wizard's only other fallback_type option), same fail-safe direction as the call-time gates.
+  if (fb === "ai") {
+    const { buildServiceContext } = await import("@/lib/service-context")
+    const user = await getUser(userId)
+    const service = buildServiceContext(user ?? { email: "" }, profile)
+    if (!service.capabilities.ai_voice_assistant) {
+      fb = "voicemail"
+    }
+  }
   if (greeting || fb) {
     try {
       await updateRoutingConfig(userId, {
