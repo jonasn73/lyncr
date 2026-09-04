@@ -24,7 +24,9 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BusinessMoneyBreakdown } from "@/components/admin/business-money"
+import { TIER_DISPLAY_NAME, type SubscriptionTier } from "@/lib/subscription-tier"
 import {
   Accordion,
   AccordionContent,
@@ -138,6 +140,21 @@ export function AdminUserManageDrawer({
   const [impersonatePending, startImpersonateTransition] = useTransition()
   const [statusBusy, setStatusBusy] = useState(false)
 
+  // Subscription & entitlements (087) — real tier override + AI-minutes usage this cycle.
+  // tierDraftOverride is null until the admin touches the Select; the displayed/saved value
+  // otherwise follows the live current tier (tierOverride after a save, else businessEconomics).
+  const [tierDraftOverride, setTierDraftOverride] = useState<SubscriptionTier | null>(null)
+  const [tierSaving, setTierSaving] = useState(false)
+  const [tierOverride, setTierOverride] = useState<{
+    subscription_tier: string
+    has_active_subscription: boolean
+  } | null>(null)
+  const [aiUsage, setAiUsage] = useState<{ call_count: number; total_minutes: number } | null>(null)
+  const currentTier = (tierOverride?.subscription_tier ??
+    businessEconomics?.subscription_tier ??
+    "free_trial") as SubscriptionTier
+  const tierDraft = tierDraftOverride ?? currentTier
+
   const loadControls = useCallback(async (userId: string) => {
     setControlsLoading(true)
     try {
@@ -165,8 +182,47 @@ export function AdminUserManageDrawer({
     setWalletAmount("")
     setCreditBalance(row.carrier_credit)
     setControls(null)
+    setTierOverride(null)
+    setTierDraftOverride(null)
+    setAiUsage(null)
     if (open) void loadControls(row.user_id)
   }, [row, open, loadControls])
+
+  useEffect(() => {
+    if (!row || !open) return
+    void fetch(`/api/admin/ai-assistant-usage?days=30`, { credentials: "include", cache: "no-store" })
+      .then((res) => res.json())
+      .then((json: { data?: { accounts?: Array<{ user_id: string; call_count: number; total_minutes: number }> } }) => {
+        const match = json.data?.accounts?.find((a) => a.user_id === row.user_id)
+        setAiUsage(match ? { call_count: match.call_count, total_minutes: match.total_minutes } : { call_count: 0, total_minutes: 0 })
+      })
+      .catch(() => setAiUsage(null))
+  }, [row, open])
+
+  async function saveSubscriptionTier() {
+    if (!row) return
+    setTierSaving(true)
+    try {
+      const res = await fetch("/api/admin/set-subscription-tier", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: row.user_id, tier: tierDraft }),
+      })
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        data?: { has_active_subscription: boolean; subscription_tier: string }
+      }
+      if (!res.ok || !json.data) throw new Error(json.error ?? "Could not set subscription tier")
+      setTierOverride(json.data)
+      setTierDraftOverride(null)
+      toast.success(`Tier set to ${TIER_DISPLAY_NAME[json.data.subscription_tier as SubscriptionTier] ?? json.data.subscription_tier}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not set subscription tier")
+    } finally {
+      setTierSaving(false)
+    }
+  }
 
   async function setAccountStatusQuick(nextStatus: string) {
     if (!row) return
@@ -410,6 +466,67 @@ export function AdminUserManageDrawer({
                 "Open as them"
               )}
             </Button>
+
+            <div className="space-y-3 rounded-xl border border-border bg-background/50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Subscription & entitlements
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="text-foreground">
+                  {TIER_DISPLAY_NAME[currentTier] ?? "Free trial"}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    (tierOverride?.has_active_subscription ?? businessEconomics?.has_active_subscription)
+                      ? "border-success/60 text-success"
+                      : "border-muted-foreground/40 text-muted-foreground"
+                  }
+                >
+                  {(tierOverride?.has_active_subscription ?? businessEconomics?.has_active_subscription)
+                    ? "Active"
+                    : "Inactive"}
+                </Badge>
+                {businessEconomics?.stripe_subscription_status ? (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Stripe: {businessEconomics.stripe_subscription_status}
+                  </Badge>
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select value={tierDraft} onValueChange={(v) => setTierDraftOverride(v as SubscriptionTier)}>
+                  <SelectTrigger className="h-9 flex-1 border-border bg-background text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free_trial">Free trial</SelectItem>
+                    <SelectItem value="starter">Starter</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={tierSaving}
+                  onClick={() => void saveSubscriptionTier()}
+                >
+                  {tierSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Set tier"}
+                </Button>
+              </div>
+              <p className="text-2xs leading-snug text-muted-foreground">
+                Manual override — writes directly to subscription_tier (same path Stripe webhooks
+                use). Does not touch their Stripe subscription itself.
+              </p>
+
+              {aiUsage ? (
+                <p className="text-2xs leading-snug text-muted-foreground">
+                  AI Assistant usage (last 30 days): {aiUsage.call_count} call
+                  {aiUsage.call_count === 1 ? "" : "s"}, {aiUsage.total_minutes.toFixed(1)} min
+                </p>
+              ) : null}
+            </div>
 
             {businessEconomics ? (
               <div className="rounded-xl border border-border bg-background/50 p-3">

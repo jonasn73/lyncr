@@ -71,7 +71,9 @@ export function OnboardingBillingStep({
       <div>
         <h1 className="text-2xl font-bold text-foreground">Choose your plan</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Pick Starter ($19), Professional ($49), or Business ($99). Stripe checkout opens for live billing.
+          {simulationMode
+            ? "Pick Starter ($19), Professional ($49), or Business ($99)."
+            : "Pick Starter ($19), Professional ($49), or Business ($99) — starts with a 14-day free trial, then billed automatically. Cancel anytime before it ends."}
         </p>
       </div>
 
@@ -184,7 +186,7 @@ export function OnboardingBillingStep({
         ) : simulationMode ? (
           "Open Dashboard"
         ) : (
-          "Subscribe & open dashboard"
+          "Start 14-day free trial"
         )}
       </button>
     </form>

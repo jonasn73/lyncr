@@ -720,6 +720,7 @@ async function finishHoldWithSms(
     const nextState: TelnyxCallControlClientState = {
       ...state,
       phase: "await_ai_assistant_hold",
+      aiAssistantStartedAtMs: Date.now(),
     }
     const startRes = await telnyxCallControlStartAiAssistant(callControlId, {
       assistantId: aiEligibility.assistantId,

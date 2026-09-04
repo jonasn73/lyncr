@@ -407,21 +407,29 @@ function UserRowActions({
             </>
           ) : null}
           <DropdownMenuSeparator className="bg-accent" />
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={toggleBusy}
-            className="focus:bg-destructive/40 focus:text-destructive"
-            onSelect={(e) => {
-              e.preventDefault()
-              void handleSubscriptionToggle(!row.has_active_subscription)
-            }}
-          >
-            {toggleBusy
-              ? "Saving…"
-              : row.has_active_subscription
-                ? "Deactivate subscription"
-                : "Activate subscription"}
-          </DropdownMenuItem>
+          {row.has_active_subscription ? (
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={toggleBusy}
+              className="focus:bg-destructive/40 focus:text-destructive"
+              onSelect={(e) => {
+                e.preventDefault()
+                void handleSubscriptionToggle(false)
+              }}
+            >
+              {toggleBusy ? "Saving…" : "Deactivate subscription (emergency lock)"}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              className="focus:bg-muted focus:text-foreground"
+              onSelect={() => {
+                setMenuOpen(false)
+                onManageUser()
+              }}
+            >
+              Set subscription tier…
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

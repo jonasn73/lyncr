@@ -58,6 +58,7 @@ import { demoteFalseInboundAnswer } from "@/lib/demote-false-inbound-answer"
 import { buildReceptionistAnswerUrl } from "@/lib/receptionist-answer-url"
 import { buildInboundPstnNumberAttributesWithAnswerUrl } from "@/lib/telnyx-inbound-media-quality"
 import { resolveAiVoiceAssistantEntitlement } from "@/lib/ai-voice-entitlement"
+import { CAPTURE_STATUS_AI_FALLBACK_HANDLED } from "@/lib/inbound-time-capture"
 
 /** Build FormData from a Telnyx Dial callback (POST body and/or GET query). */
 async function getDialCallbackFormData(req: NextRequest): Promise<FormData> {
@@ -370,6 +371,11 @@ async function tryBuildAiAssistantResponse(args: {
         call_type: "incoming",
         status: dialStatus || rawStatus || "ai-handoff",
       })
+      // Tag so the status-callback duration finalize (app/api/voice/telnyx/status) can report
+      // AI-minute usage to Stripe billing (087) once the call's final length is known.
+      void updateCallLog(callSid, { routed_to_name: CAPTURE_STATUS_AI_FALLBACK_HANDLED }).catch(
+        () => undefined
+      )
     }
     const spokenDialFallbackHandoff =
       process.env.ZING_AI_FALLBACK_SPOKEN_HANDOFF === "1" ||

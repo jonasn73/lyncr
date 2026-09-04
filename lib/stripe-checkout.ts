@@ -13,7 +13,11 @@ import {
   normalizeSubscriptionTier,
   type SubscriptionTier,
 } from "@/lib/subscription-tier"
-import { getStripeClient, resolveStripePriceIdForTier } from "@/lib/stripe-config"
+import {
+  getStripeClient,
+  resolveStripeAiMinutesPriceId,
+  resolveStripePriceIdForTier,
+} from "@/lib/stripe-config"
 import { syncStripeSubscriptionToNeon } from "@/lib/stripe-webhook-sync"
 
 export type StripeCheckoutSessionResult = {
@@ -45,12 +49,28 @@ export async function createLyncrSubscriptionCheckout(
     profile.reserved_number_display?.trim() || profile.reserved_number?.trim() || "Business line"
   const tierMeta = checkoutTierOption(tier)
 
+  // AI Assistant included-minutes + overage (087) — a second metered line item, tier-specific.
+  // Silently omitted until the Stripe Meter + Price are configured (resolveStripeAiMinutesPriceId
+  // returns null), so this ships dark and activates itself once Vercel env is set — no redeploy
+  // gating. Metered prices never take a `quantity` on Checkout.
+  const aiMinutesPriceId = await resolveStripeAiMinutesPriceId(stripe, tier)
+  const lineItems = [
+    { price: priceId, quantity: 1 },
+    ...(aiMinutesPriceId ? [{ price: aiMinutesPriceId }] : []),
+  ]
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     client_reference_id: userId,
     customer_email: user?.email?.trim() || undefined,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: lineItems,
     subscription_data: {
+      // 14-day free trial — a card is still required at Checkout (Stripe's default for
+      // mode: "subscription"), so this is a real, enforced trial, not the old open-ended
+      // sandbox. This function only ever runs for a brand-new subscription (the caller
+      // above throws if profile.stripe_subscription_id already exists), so an existing
+      // customer upgrading tiers can never get a second free trial through this path.
+      trial_period_days: 14,
       metadata: {
         user_id: userId,
         reserved_number: profile.reserved_number,
@@ -155,14 +175,33 @@ async function upgradeLyncrSubscription(
 
   const stripe = getStripeClient()
   const newPriceId = await resolveStripePriceIdForTier(stripe, tier)
-  const subscription = await stripe.subscriptions.retrieve(subId)
-  const itemId = subscription.items.data[0]?.id
+  const subscription = await stripe.subscriptions.retrieve(subId, { expand: ["items.data.price"] })
+  const baseItem = subscription.items.data[0]
+  const itemId = baseItem?.id
   if (!itemId) {
     throw new Error("Could not update your plan in Stripe. Contact support if this keeps happening.")
   }
 
+  // AI Assistant included-minutes (087) — reconcile the metered item alongside the base plan
+  // swap: add it moving into professional/business, swap it if included-minutes differ by
+  // tier, or drop it if the target tier doesn't include AI Assistant (starter).
+  const newAiPriceId = await resolveStripeAiMinutesPriceId(stripe, tier)
+  const existingAiItem = subscription.items.data.find(
+    (item) => item.id !== itemId && item.price?.recurring?.usage_type === "metered"
+  )
+  const items: Array<{ id?: string; price?: string; deleted?: true }> = [
+    { id: itemId, price: newPriceId },
+  ]
+  if (newAiPriceId && !existingAiItem) {
+    items.push({ price: newAiPriceId })
+  } else if (newAiPriceId && existingAiItem && existingAiItem.price?.id !== newAiPriceId) {
+    items.push({ id: existingAiItem.id, price: newAiPriceId })
+  } else if (!newAiPriceId && existingAiItem) {
+    items.push({ id: existingAiItem.id, deleted: true })
+  }
+
   const updated = await stripe.subscriptions.update(subId, {
-    items: [{ id: itemId, price: newPriceId }],
+    items,
     proration_behavior: "create_prorations",
     metadata: {
       ...subscription.metadata,

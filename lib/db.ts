@@ -15657,6 +15657,31 @@ export async function adminToggleUserSubscription(
   }
 }
 
+/**
+ * Admin manual tier override (`087`) — a real per-tier control, unlike adminToggleUserSubscription
+ * which can only jump to "business" or "free_trial". `tier` is caller-normalized (see
+ * normalizeSubscriptionTier in lib/subscription-tier.ts). Also syncs users.billing_plan via
+ * applySubscriptionTierToUser so admin overrides use the exact same path Stripe webhooks do.
+ */
+export async function adminSetUserSubscriptionTier(
+  userId: string,
+  tier: string
+): Promise<{ user_id: string; has_active_subscription: boolean; subscription_tier: string }> {
+  await ensureOnboardingProfile(userId)
+  const hasActive = tier !== "free_trial"
+  const profile = await updateOnboardingProfile(userId, {
+    has_active_subscription: hasActive,
+    subscription_tier: tier,
+  })
+  const { applySubscriptionTierToUser } = await import("@/lib/stripe-billing-sync")
+  await applySubscriptionTierToUser(userId, tier as import("@/lib/subscription-tier").SubscriptionTier)
+  return {
+    user_id: userId,
+    has_active_subscription: profile.has_active_subscription,
+    subscription_tier: profile.subscription_tier,
+  }
+}
+
 /** Read account_status for voice routing guard — direct column read (never use profile fallbacks). */
 export async function getUserAccountStatus(userId: string): Promise<string> {
   const sql = getSql()

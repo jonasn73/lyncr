@@ -100,6 +100,8 @@ export type TelnyxCallControlClientState = {
    * isRepeatCaller so the SMS confirmation can reuse it without re-querying.
    */
   callerDisplayName?: string
+  /** Unix ms when ai_assistant_start was issued — used to bill AI-conversation minutes accurately (`087`). */
+  aiAssistantStartedAtMs?: number
 }
 
 export function encodeTelnyxCallControlState(state: TelnyxCallControlClientState): string {

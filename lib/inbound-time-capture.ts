@@ -136,6 +136,14 @@ export const CAPTURE_STATUS_ANSWERED_FROM_QUEUE = "Answered from queue"
  * without any frontend changes (see components/workspace-views/activity-workspace-view.tsx).
  */
 export const CAPTURE_STATUS_HOLD_AI_ASSISTED = "AI Assistant (from hold)"
+/**
+ * Legacy TeXML full-AI-receptionist fallback (`fallback_type: "ai"`) — tagged at handoff in
+ * lib/telnyx-fallback-dial-action.ts so the generic Telnyx status callback
+ * (app/api/voice/telnyx/status/route.ts) can report AI-minute usage to Stripe billing (`087`)
+ * once the call's final duration is known. Contains "assistant" so it also falls into the
+ * existing `ai_handled` Activity classification with no frontend changes.
+ */
+export const CAPTURE_STATUS_AI_FALLBACK_HANDLED = "AI Assistant (fallback)"
 
 export const CAPTURE_XML_CONTENT_TYPE = "text/xml; charset=utf-8"
 

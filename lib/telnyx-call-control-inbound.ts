@@ -81,6 +81,7 @@ import {
 } from "@/lib/inbound-time-capture"
 import { resolveInboundDialPlan, type InboundDialPlanResult } from "@/lib/inbound-dial-plan"
 import { sendInboundBookingSmsAndTag } from "@/lib/inbound-booking-sms"
+import { reportAiAssistantMinutesUsage } from "@/lib/ai-usage-billing"
 import { markIvrActionCompleted } from "@/lib/booking-sms-guards"
 import {
   getAccountPresence,
@@ -1576,6 +1577,11 @@ async function handleAiConversationEnded(
   const callControlId = event.callControlId
 
   console.log(lyncrLog("telnyx-cc-ai-conversation-ended", { callControlId }))
+
+  if (typeof state.aiAssistantStartedAtMs === "number" && state.aiAssistantStartedAtMs > 0) {
+    const seconds = Math.max(0, Date.now() - state.aiAssistantStartedAtMs) / 1000
+    void reportAiAssistantMinutesUsage(state.userId, seconds, callControlId)
+  }
 
   try {
     await sendInboundBookingSmsAndTag({

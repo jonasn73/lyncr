@@ -20,7 +20,8 @@ import {
   isAutomatedCallHandler,
   MIN_LIVE_ANSWER_DURATION_SECONDS,
 } from "@/lib/missed-call-telemetry"
-import { isHoldAutomationStatus } from "@/lib/inbound-time-capture"
+import { CAPTURE_STATUS_AI_FALLBACK_HANDLED, isHoldAutomationStatus } from "@/lib/inbound-time-capture"
+import { reportAiAssistantMinutesUsage } from "@/lib/ai-usage-billing"
 import type { CallType } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -154,6 +155,11 @@ export async function POST(req: NextRequest) {
       callStatus.trim().toLowerCase()
     )
     if (terminal) {
+      // AI Assistant fallback (087) — final duration is only known here (TeXML has no
+      // conversation.ended-style webhook); report it for Stripe metered-overage billing.
+      if (snapshot?.routed_to_name === CAPTURE_STATUS_AI_FALLBACK_HANDLED && duration > 0) {
+        void reportAiAssistantMinutesUsage(snapshot.user_id, duration, callSid)
+      }
       void evaluateLowCarrierCreditFromCallUsage(callSid).catch((walletErr) => {
         console.error("[Telnyx] Low carrier credit evaluation failed:", walletErr)
       })

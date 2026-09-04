@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { CreditCard } from "lucide-react"
 import {
@@ -25,6 +26,26 @@ export function BillingSubscriptionModal({
   billingCycleEnd,
 }: Props) {
   const router = useRouter()
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError] = useState<string | null>(null)
+
+  async function openManageBilling() {
+    setPortalLoading(true)
+    setPortalError(null)
+    try {
+      const res = await fetch("/api/billing/stripe/portal", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.data?.url) {
+        setPortalError(data?.error || "Could not open billing portal")
+        return
+      }
+      window.location.href = data.data.url
+    } catch {
+      setPortalError("Could not open billing portal")
+    } finally {
+      setPortalLoading(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,6 +87,19 @@ export function BillingSubscriptionModal({
           >
             Open Pay & plans
           </button>
+          {subscriptionActive ? (
+            <>
+              <button
+                type="button"
+                onClick={openManageBilling}
+                disabled={portalLoading}
+                className="w-full rounded-lg border border-border/80 py-3 text-sm font-semibold text-foreground hover:bg-muted/50 disabled:opacity-60"
+              >
+                {portalLoading ? "Opening…" : "Manage billing (update card, cancel)"}
+              </button>
+              {portalError ? <p className="text-xs text-destructive">{portalError}</p> : null}
+            </>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

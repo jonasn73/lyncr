@@ -206,15 +206,32 @@ export async function syncStripeSubscriptionToNeon(
 
   const isLive = subscription.status === "active" || subscription.status === "trialing"
 
-  // Canceled / unpaid / incomplete — clear the Neon “active” flag so Ops doesn’t invent MRR.
+  // Canceled / unpaid / incomplete — clear the Neon "active" flag AND roll the tier back to
+  // free_trial so every tier-gated capability (AI Assistant, multi-tenant workspaces, number
+  // limits — all read subscription_tier) actually re-locks. Previously this only cleared
+  // has_active_subscription, so a canceled account kept every paid feature forever.
+  // Stripe itself withholds this event until the paid period actually ends for a
+  // cancel-at-period-end subscription, so this is already "grace until period end" —
+  // no separate grace-period timer needed here.
   if (!isLive) {
     await updateOnboardingProfile(userId, {
       has_active_subscription: false,
+      subscription_tier: "free_trial",
       billing_cycle_start: periodStart,
       billing_cycle_end: periodEnd,
       stripe_customer_id: customerId,
       stripe_subscription_id: subscription.id,
     })
+    const { applySubscriptionTierToUser } = await import("@/lib/stripe-billing-sync")
+    await applySubscriptionTierToUser(userId, "free_trial")
+    console.log(
+      JSON.stringify({
+        zing: "stripe-subscription-downgraded",
+        userId,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+      })
+    )
     return
   }
 
@@ -271,14 +288,10 @@ export async function handleStripeSubscriptionDeleted(subscription: Stripe.Subsc
     console.error("[stripe] subscription.deleted missing user_id metadata", subscription.id)
     return
   }
-  await updateOnboardingProfile(userId, {
-    has_active_subscription: false,
-    stripe_customer_id:
-      typeof subscription.customer === "string"
-        ? subscription.customer
-        : subscription.customer?.id ?? undefined,
-    stripe_subscription_id: subscription.id,
-  })
+  // A deleted subscription is definitionally non-live — delegate to syncStripeSubscriptionToNeon
+  // so the same tier-reset path runs here as everywhere else (this used to write its own
+  // has_active_subscription-only update and never reset subscription_tier).
+  await syncStripeSubscriptionToNeon(userId, subscription)
 }
 
 export async function handleStripeInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {

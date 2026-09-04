@@ -152,6 +152,37 @@ export async function resolveStripePriceIdForTier(
   return resolveStripePriceId(stripe, getStripePriceIdForTier(tier))
 }
 
+/**
+ * AI Assistant minutes metered price (`087`) — a graduated Stripe Price (N minutes included,
+ * then $/min) backing a Billing Meter, one per tier since included minutes differ. Optional
+ * and unset until manually created in the Stripe Dashboard, so this returns null instead of
+ * throwing — callers should skip the line item / usage report rather than fail checkout.
+ */
+function getStripeAiMinutesPriceIdRaw(tier: CheckoutSubscriptionTier): string | null {
+  if (tier === "professional") {
+    return process.env.STRIPE_PRICE_AI_MINUTES_PROFESSIONAL?.trim() || null
+  }
+  if (tier === "business") {
+    return process.env.STRIPE_PRICE_AI_MINUTES_BUSINESS?.trim() || null
+  }
+  return null
+}
+
+/** Checkout-ready AI-minutes metered price id for a tier, or null if not configured yet. */
+export async function resolveStripeAiMinutesPriceId(
+  stripe: Stripe,
+  tier: CheckoutSubscriptionTier
+): Promise<string | null> {
+  const raw = getStripeAiMinutesPriceIdRaw(tier)
+  if (!raw) return null
+  try {
+    return await resolveStripePriceId(stripe, raw)
+  } catch (e) {
+    console.warn("[stripe-config] AI-minutes price id misconfigured, skipping line item:", e)
+    return null
+  }
+}
+
 /** Turns Starter price env into a Checkout-ready price id (handles prod_… misconfiguration). */
 export async function resolveStripeStarterPriceId(stripe: Stripe): Promise<string> {
   return resolveStripePriceId(stripe, getStripeStarterPriceId())
