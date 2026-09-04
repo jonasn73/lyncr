@@ -9,5 +9,6 @@ export function isOnboardingTelnyxSimulationMode(): boolean {
   return process.env.ONBOARDING_LIVE_TELNYX_PROVISION?.trim().toLowerCase() !== "true"
 }
 
+// Customer-facing — never name a specific vendor here (Neon, Telnyx, etc.).
 export const ONBOARDING_DEV_MODE_NOTICE =
-  "Development Mode: Number reserved in Neon DB. Live Telnyx webhooks require production API key mapping."
+  "Sandbox mode — this number is reserved but not live yet. It'll start ringing once your account is fully activated."

@@ -62,7 +62,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
-  const totalSteps = 3
+  const totalSteps = 2
   const [onboardingSheetKey, setOnboardingSheetKey] = useState<string | null>(null)
   const [selectedSubscriptionTier, setSelectedSubscriptionTier] = useState<CheckoutSubscriptionTier>("professional")
 
@@ -80,12 +80,6 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [refreshingInventory, setRefreshingInventory] = useState(false)
   const [portNumber, setPortNumber] = useState("")
   const [portCarrier, setPortCarrier] = useState("")
-
-  // Step 2 -- Add first receptionist (optional)
-  const [receptionistName, setReceptionistName] = useState("")
-  const [receptionistPhone, setReceptionistPhone] = useState("")
-  const [receptionistRate, setReceptionistRate] = useState("")
-  const [addedReceptionist, setAddedReceptionist] = useState(false)
 
   const [profileReady, setProfileReady] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
@@ -176,15 +170,9 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       .finally(() => setSearching(false))
   }
 
-  function handleAddReceptionist() {
-    setAddedReceptionist(true)
-  }
-
   const canProceedStep1 =
     (numberMethod === "buy" && selectedNumber) ||
     (numberMethod === "port" && portNumber && portCarrier)
-
-  const canProceedStep2 = true // optional step
 
   async function handleContinueFromNumberStep() {
     let reservation: OnboardingLineReservation | null = null
@@ -560,99 +548,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
             </div>
           )}
 
-          {/* Step 2: Add first receptionist */}
           {step === 2 && (
-            <div className="flex flex-col gap-6">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Add a receptionist</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Add someone who answers calls for your business. You can skip this and do it later.
-                </p>
-              </div>
-
-              {!addedReceptionist ? (
-                <form
-                  className="flex flex-col gap-4"
-                  onSubmit={(e) => {
-                    submitFormEvent(e)
-                    if (receptionistName && receptionistPhone) handleAddReceptionist()
-                  }}
-                >
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Name</label>
-                    <input
-                      type="text"
-                      placeholder="Sarah Miller"
-                      value={receptionistName}
-                      onChange={(e) => setReceptionistName(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
-                    <input
-                      type="tel"
-                      placeholder="(555) 234-5678"
-                      value={receptionistPhone}
-                      onChange={(e) => setReceptionistPhone(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Pay Rate (per minute)</label>
-                    <input
-                      type="text"
-                      placeholder="$0.50"
-                      value={receptionistRate}
-                      onChange={(e) => setReceptionistRate(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={!receptionistName || !receptionistPhone}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Receptionist
-                  </button>
-                </form>
-              ) : (
-                <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      {receptionistName.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{receptionistName}</p>
-                      <p className="text-xs text-muted-foreground">{receptionistPhone} &middot; {receptionistRate}/min</p>
-                    </div>
-                  </div>
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
-                    <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep(3)}
-                  className="flex-1 rounded-lg border border-border bg-card py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Skip for Now
-                </button>
-                <button
-                  onClick={() => setStep(3)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                >
-                  Continue
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
             <OnboardingBillingStep
               reservedLine={bufferedLine}
               launchError={launchError}
