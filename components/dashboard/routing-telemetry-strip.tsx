@@ -1,8 +1,9 @@
 "use client"
 
 import { memo, useCallback, useState } from "react"
-import { MessageSquare, Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
+import { Info, MessageSquare, Percent, Phone, PhoneIncoming, PhoneMissed, Timer, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useAnimatedNumber } from "@/lib/hooks/use-animated-number"
 import type { DashboardBusinessNumber } from "@/lib/dashboard-routing-utils"
 import {
@@ -393,15 +394,44 @@ export const RoutingTelemetryStrip = memo(function RoutingTelemetryStrip({
             labelClassName={press1Trouble ? "text-warning font-semibold" : undefined}
           />
         </div>
-        <p className="px-1 text-2xs leading-snug text-muted-foreground">
-          <span className="font-medium text-muted-foreground">Missed</span> = true unanswered (hold / press-1
-          excluded). <span className="font-medium text-muted-foreground">Booked jobs</span> = real BOOKED jobs
-          today ÷ unique callers (not pending time or press-1 alone).{" "}
-          <span className="font-medium text-muted-foreground">Rescue $</span> = salvage quotes plus jobs booked
-          after hold or press 1.{" "}
-          <span className="font-medium text-muted-foreground">Press 1</span> = callers who pressed 1 for a
-          booking-link text today; turns amber if any of those texts actually failed to send.
-        </p>
+        <div className="flex justify-end px-1">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-2xs text-muted-foreground/70 transition-colors hover:text-foreground"
+              >
+                <Info className="h-3.5 w-3.5" />
+                What do these mean?
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 text-2xs leading-snug">
+              <dl className="space-y-3">
+                <div>
+                  <dt className="font-medium text-foreground">Missed</dt>
+                  <dd className="text-muted-foreground">True unanswered (hold / press-1 excluded).</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Booked jobs</dt>
+                  <dd className="text-muted-foreground">
+                    Real BOOKED jobs today ÷ unique callers (not pending time or press-1 alone).
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Rescue $</dt>
+                  <dd className="text-muted-foreground">Salvage quotes plus jobs booked after hold or press 1.</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Press 1</dt>
+                  <dd className="text-muted-foreground">
+                    Callers who pressed 1 for a booking-link text today; turns amber if any of those texts
+                    actually failed to send.
+                  </dd>
+                </div>
+              </dl>
+            </PopoverContent>
+          </Popover>
+        </div>
       </section>
 
       {/* Lazy-mount dialogs — closed Radix roots still ran effects/close buttons
