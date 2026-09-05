@@ -7,7 +7,7 @@ import {
 } from "@/lib/telnyx-menu"
 import { sendAndLogWorkspaceCustomerSms } from "@/lib/workspace-customer-sms"
 import { sendTelnyxSms } from "@/lib/telnyx-sms"
-import { updateCallLog } from "@/lib/db"
+import { getActivePhoneNumberByE164, updateCallLog } from "@/lib/db"
 import { callerGreetingPrefix } from "@/lib/hold-queue"
 import type { CallType } from "@/lib/types"
 import {
@@ -98,11 +98,22 @@ async function sendInboundBookingSms(opts: {
   try {
     // Prefer workspace log so Messages inbox + cooldown lookback see press-1 texts.
     if (opts.ownerUserId) {
+      // The called DID already identifies the shop — resolve it explicitly so multi-shop
+      // owners don't hit resolveWorkspaceSmsSender's "more than one shop" guard and fail
+      // every press-1 send (that guard only accepts an org it wasn't told to look up).
+      const line = opts.businessLineE164
+        ? await getActivePhoneNumberByE164(opts.businessLineE164)
+        : null
+      const organizationId =
+        line?.organization_id && !line.organization_id.startsWith("legacy-")
+          ? line.organization_id
+          : null
       const sent = await sendAndLogWorkspaceCustomerSms({
         ownerUserId: opts.ownerUserId,
         toE164: opts.fromE164,
         text,
         fromE164: opts.businessLineE164 || null,
+        organizationId,
       })
       if (!sent.ok) {
         console.warn("[inbound-booking-sms] SMS failed:", sent.error)
