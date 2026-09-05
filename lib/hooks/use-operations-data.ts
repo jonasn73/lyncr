@@ -27,6 +27,21 @@ import {
 
 export type { UiCallRecord } from "@/lib/operations-ui-types"
 
+/**
+ * Collapse a raw routed_to_name into "AI Receptionist" when the AI actually handled the
+ * call — specific phrases only. A bare "ai" substring match also fires on ordinary words
+ * like "failed" (f-AI-led), which silently relabeled e.g. "...press 1 (text failed)" as
+ * "AI Receptionist" and hid the real failure from the whole Activity list.
+ */
+export function normalizeUiCallRoutedTo(routedToRaw: string): string {
+  const lower = routedToRaw.toLowerCase()
+  const looksAiHandled =
+    lower.includes("ai receptionist") ||
+    lower.includes("voice ai") ||
+    (lower.includes("assistant") && !lower.includes("human"))
+  return looksAiHandled ? "AI Receptionist" : routedToRaw
+}
+
 export interface VoiceQualitySummary {
   total_calls: number
   answered_calls: number
@@ -249,13 +264,9 @@ async function fetchOperationsSnapshot(bypassCache: boolean): Promise<Operations
     ? callsData.calls.map((c: Record<string, unknown>) => {
       const createdAtRaw = String(c.created_at || "")
       const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date()
-      const statusRaw = String(c.status || "").toLowerCase()
       // Keep empty when unknown — never invent "Owner" (that painted missed calls as Answered).
       const routedToRaw = String(c.routed_to_name || "").trim()
-      const routedTo =
-        statusRaw.includes("ai") || routedToRaw.toLowerCase().includes("ai")
-          ? "AI Receptionist"
-          : routedToRaw
+      const routedTo = normalizeUiCallRoutedTo(routedToRaw)
       const receptionistId = c.routed_to_receptionist_id ? String(c.routed_to_receptionist_id) : null
       const activityRaw = c.activity as CallActivityContext | null | undefined
       const fromNumber = String(c.from_number || "")
