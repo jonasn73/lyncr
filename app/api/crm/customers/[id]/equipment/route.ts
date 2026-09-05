@@ -1,3 +1,4 @@
+// GET /api/crm/customers/[id]/equipment — list (lightweight, for the intake sheet)
 // POST /api/crm/customers/[id]/equipment — add (or upsert-by-kind from intake)
 // PATCH /api/crm/customers/[id]/equipment — update brand/model/install year/notes
 // DELETE /api/crm/customers/[id]/equipment — remove (e.g. unit replaced)
@@ -15,6 +16,27 @@ import {
 
 export const runtime = "nodejs"
 export const preferredRegion = "iad1"
+
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const actor = await resolveIntakeWriteActor(req.headers.get("cookie"))
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const userId = actor.ownerUserId
+
+  const { id } = await ctx.params
+  const customer = await getCustomerByIdForUser(userId, id)
+  if (!customer) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  try {
+    const equipment = await listCustomerEquipmentForCustomer(userId, customer.id)
+    return NextResponse.json({ data: { equipment } })
+  } catch (e) {
+    console.error("[GET /api/crm/customers/:id/equipment]", e)
+    return NextResponse.json({ error: "Failed to load equipment" }, { status: 500 })
+  }
+}
 
 export async function POST(
   req: NextRequest,

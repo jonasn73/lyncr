@@ -19,6 +19,7 @@ import {
 } from "@/lib/key-inventory-shared"
 import { ServiceQuoteCalculatorPanel } from "@/components/dashboard/service-quote-calculator-panel"
 import { IndustryJobTypeSelector } from "@/components/dashboard/industry-job-type-selector"
+import { IntakeEquipmentOnFile } from "@/components/dashboard/intake-equipment-on-file"
 import {
   IntakeJobPhotosPanel,
   type IntakeJobPhoto,
@@ -4279,14 +4280,20 @@ export function CallAnsweredModal({ enabled, ownerUserId }: CallAnsweredModalPro
                                   deferAutomotiveKeyTypes
                                 />
                               ) : (
-                                <IndustryJobTypeSelector
-                                  industry={accountIndustry}
-                                  serviceTypeId={selectorServiceTypeId}
-                                  onServiceTypeChange={(id) =>
-                                    handleManualServiceTypeChange(id as ServiceQuoteTypeId)
-                                  }
-                                  compact
-                                />
+                                <>
+                                  <IndustryJobTypeSelector
+                                    industry={accountIndustry}
+                                    serviceTypeId={selectorServiceTypeId}
+                                    onServiceTypeChange={(id) =>
+                                      handleManualServiceTypeChange(id as ServiceQuoteTypeId)
+                                    }
+                                    compact
+                                  />
+                                  <IntakeEquipmentOnFile
+                                    customerId={matchedCustomer?.id ?? null}
+                                    industry={accountIndustry}
+                                  />
+                                </>
                               )}
                               <IntakeJobPhotosPanel
                                 compact
