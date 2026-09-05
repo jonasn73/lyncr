@@ -1898,7 +1898,7 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     expect(gatherBody.payload).toContain("Thanks for trying us again")
   })
 
-  it("Busy greeting uses a known customer's saved name", async () => {
+  it("Busy greeting never names a known customer, even when their name is on file (087)", async () => {
     resolveInboundCapturePlanMock.mockResolvedValue({ kind: "day_dial" })
 
     vi.doMock("@/lib/db", () => ({
@@ -2001,8 +2001,10 @@ describe("handleTelnyxCallControlVoiceWebhook", () => {
     )
     expect(gatherCall).toBeTruthy()
     const gatherBody = JSON.parse(String(gatherCall![1]?.body || "{}")) as { payload?: string }
-    expect(gatherBody.payload).toContain("Hey Briann —")
+    expect(gatherBody.payload).not.toContain("Briann")
+    expect(gatherBody.payload).not.toContain("Hey ")
     expect(gatherBody.payload).not.toContain("trying us again")
+    expect(gatherBody.payload).toContain("We are with another customer.")
   })
 
   it("a missing customer-name lookup does not break the repeat-caller signal", async () => {

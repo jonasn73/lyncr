@@ -335,9 +335,11 @@ async function startBusyAutomationFlow(
   } catch (e) {
     console.warn("[telnyx-cc] busy greeting lookup skipped:", e)
   }
-  // Additive courtesy prefix — never replaces a custom greeting, just acknowledges a known
-  // customer by name and/or that they already tried before this exact same script.
-  const greetingPrefix = callerGreetingPrefix({ callerDisplayName, isRepeatCaller })
+  // Additive courtesy prefix — never replaces a custom greeting. Repeat-caller
+  // acknowledgment only; the initial greeting no longer says the caller's name
+  // (felt off for some callers to be named before they've said anything) —
+  // callerDisplayName is still carried in state for the later SMS-confirm speech.
+  const greetingPrefix = callerGreetingPrefix({ isRepeatCaller })
   if (greetingPrefix) {
     say = `${greetingPrefix}${say.trim()}`
   }
